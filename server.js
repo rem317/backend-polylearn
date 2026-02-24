@@ -30,22 +30,61 @@ app.use(express.urlencoded({ extended: true }));
 // ============================================
 // STATIC FILES & VIDEO CONFIGURATION
 // ============================================
-const frontendPath = path.join(__dirname, '../frontend');
+// ============================================
+// STATIC FILES & VIDEO CONFIGURATION
+// ============================================
+const path = require('path');
+
+// I-check kung saan ang index.html
+const possiblePaths = [
+    path.join(__dirname, 'public'),           // ./public
+    path.join(__dirname, '../frontend'),      // ../frontend
+    path.join(__dirname, 'frontend'),         // ./frontend
+    path.join(__dirname, '.'),                // current directory
+    '/app/public',                            // Railway common path
+    '/app/frontend'                           // Railway alternative
+];
+
+let frontendPath = null;
+for (const p of possiblePaths) {
+    const indexPath = path.join(p, 'index.html');
+    if (fs.existsSync(indexPath)) {
+        frontendPath = p;
+        console.log(`✅ Found frontend at: ${p}`);
+        break;
+    }
+}
+
+if (!frontendPath) {
+    console.error('❌ Could not find frontend files!');
+    // Fallback to current directory
+    frontendPath = __dirname;
+}
+
+// Serve static files
 app.use(express.static(frontendPath));
 
 // Serve index.html for root route
 app.get('/', (req, res) => {
-    res.sendFile(path.join(frontendPath, 'index.html'));
+    const indexPath = path.join(frontendPath, 'index.html');
+    if (fs.existsSync(indexPath)) {
+        res.sendFile(indexPath);
+    } else {
+        res.status(404).send('index.html not found');
+    }
 });
 
-// For any route not found, check if it's an API route
+// For any other route that's not API, serve index.html
 app.get('*', (req, res, next) => {
-    // Skip API routes
     if (req.url.startsWith('/api/')) {
         return next();
     }
-    // Serve index.html for all other routes (for SPA support)
-    res.sendFile(path.join(frontendPath, 'index.html'));
+    const indexPath = path.join(frontendPath, 'index.html');
+    if (fs.existsSync(indexPath)) {
+        res.sendFile(indexPath);
+    } else {
+        next();
+    }
 });
 
 // Videos directory for serving
@@ -14657,6 +14696,45 @@ app.get('/api/health', async (req, res) => {
             error: error.message
         });
     }
+});
+
+// ============================================
+// DEBUG - Check where files are
+// ============================================
+app.get('/debug/paths', (req, res) => {
+    const debug = {
+        __dirname: __dirname,
+        cwd: process.cwd(),
+        files: {}
+    };
+    
+    // Check possible locations
+    const checkPaths = [
+        __dirname,
+        path.join(__dirname, 'public'),
+        path.join(__dirname, '../frontend'),
+        path.join(__dirname, 'frontend'),
+        '/app/public',
+        '/app/frontend'
+    ];
+    
+    checkPaths.forEach(p => {
+        try {
+            const exists = fs.existsSync(p);
+            const indexPath = path.join(p, 'index.html');
+            const indexExists = fs.existsSync(indexPath);
+            
+            debug.files[p] = {
+                exists: exists,
+                indexExists: indexExists,
+                files: exists ? fs.readdirSync(p).slice(0, 5) : []
+            };
+        } catch (e) {
+            debug.files[p] = { error: e.message };
+        }
+    });
+    
+    res.json(debug);
 });
 
 // ============================================
