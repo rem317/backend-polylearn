@@ -33,6 +33,21 @@ app.use(express.urlencoded({ extended: true }));
 const frontendPath = path.join(__dirname, '../frontend');
 app.use(express.static(frontendPath));
 
+// Serve index.html for root route
+app.get('/', (req, res) => {
+    res.sendFile(path.join(frontendPath, 'index.html'));
+});
+
+// For any route not found, check if it's an API route
+app.get('*', (req, res, next) => {
+    // Skip API routes
+    if (req.url.startsWith('/api/')) {
+        return next();
+    }
+    // Serve index.html for all other routes (for SPA support)
+    res.sendFile(path.join(frontendPath, 'index.html'));
+});
+
 // Videos directory for serving
 const videosPath = path.join(frontendPath, 'videos');
 app.use('/videos', express.static(videosPath));
@@ -15180,63 +15195,4 @@ app.get('/api/practice/test/:topicId', verifyToken, async (req, res) => {
   }
 });
 
-// ===== DEBUG ENDPOINT - CHECK DATABASE CONTENTS =====
-app.get('/api/debug/database', async (req, res) => {
-    try {
-        console.log('🔍 DEBUG: Checking database contents...');
-        
-        // Check lessons table
-        const [lessons] = await promisePool.execute('SELECT * FROM lessons');
-        
-        // Check users table (students)
-        const [users] = await promisePool.execute('SELECT user_id, username, email, role, is_active FROM users');
-        
-        // Check topic_content_items
-        const [contentItems] = await promisePool.execute('SELECT * FROM topic_content_items LIMIT 10');
-        
-        res.json({
-            success: true,
-            debug: {
-                lessons: lessons,
-                users: users,
-                content_items: contentItems,
-                counts: {
-                    lessons: lessons.length,
-                    users: users.length,
-                    content_items: contentItems.length
-                }
-            }
-        });
-        
-    } catch (error) {
-        console.error('❌ Debug error:', error);
-        res.status(500).json({
-            success: false,
-            message: error.message
-        });
-    }
-});
 
-// I-add ito sa server.js (temporary)
-app.get('/api/practice/test/:topicId', verifyToken, async (req, res) => {
-  try {
-    const { topicId } = req.params;
-    
-    // Diretsong query lang muna
-    const [exercises] = await promisePool.query(
-      'SELECT * FROM practice_exercises WHERE topic_id = ?',
-      [topicId]
-    );
-    
-    console.log(`📊 Test query found ${exercises.length} exercises`);
-    
-    res.json({
-      success: true,
-      exercises: exercises,
-      count: exercises.length
-    });
-    
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
-});
