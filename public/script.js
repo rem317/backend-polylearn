@@ -7,7 +7,10 @@
 // ============================================
 
 // Application Configuration
-const API_BASE_URL = 'http://localhost:5000/api';
+// AUTO-DETECT BASE URL (gagana sa local at production)
+const API_BASE_URL = window.location.hostname.includes('localhost') 
+    ? '${API_BASE_URL}/api'
+    : 'https://polylearn-backend.up.railway.app/api'; // I-replace pag na-deploy na
 let authToken = localStorage.getItem('authToken') || null;
 
 // Application State
@@ -1268,7 +1271,7 @@ async function saveLessonToMySQL() {
         // Send to server
         console.log("📡 Sending request to server...");
         
-        const response = await fetch('http://localhost:5000/api/admin/lessons', {
+        const response = await fetch('${API_BASE_URL}/api/admin/lessons', {
             method: 'POST',
             headers: {
                 'Authorization': `Bearer ${token}`
@@ -1650,7 +1653,7 @@ function initVideoProgressTracking(videoElement, contentId) {
         if (!token) return;
         
         try {
-            const response = await fetch(`http://localhost:5000/api/lessons-db/${contentId}/progress`, {
+            const response = await fetch(`${API_BASE_URL}/api/lessons-db/${contentId}/progress`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -1926,7 +1929,7 @@ async function loadVideoLesson(lessonId) {
     try {
         const token = localStorage.getItem('authToken');
         
-        const response = await fetch(`http://localhost:5000/api/lessons-db/${lessonId}`, {
+        const response = await fetch(`${API_BASE_URL}/api/lessons-db/${lessonId}`, {
             headers: {
                 'Authorization': `Bearer ${token}`
             }
@@ -1959,13 +1962,13 @@ async function loadVideoLesson(lessonId) {
             let videoSrc = '';
             if (lesson.video_filename) {
                 // New uploaded video
-                videoSrc = `http://localhost:5000/uploads/videos/${lesson.video_filename}`;
+                videoSrc = `${API_BASE_URL}/uploads/videos/${lesson.video_filename}`;
             } else if (lesson.content_url) {
                 // YouTube URL
                 videoSrc = lesson.content_url;
             } else {
                 // Default video
-                videoSrc = 'http://localhost:5000/videos/quarter1-polynomial-equations.mp4';
+                videoSrc = '${API_BASE_URL}/videos/quarter1-polynomial-equations.mp4';
             }
             
             // Create video element
@@ -4613,7 +4616,7 @@ async function requestPasswordReset() {
     errorDiv.style.display = 'none';
     
     try {
-        const response = await fetch('http://localhost:5000/api/auth/forgot-password', {
+        const response = await fetch('${API_BASE_URL}/api/auth/forgot-password', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'
@@ -4709,7 +4712,7 @@ function closeResetPasswordModal() {
 // Verify reset token
 async function verifyResetToken(token) {
     try {
-        const response = await fetch('http://localhost:5000/api/auth/verify-reset-token', {
+        const response = await fetch('${API_BASE_URL}/api/auth/verify-reset-token', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'
@@ -4806,7 +4809,7 @@ async function submitPasswordReset() {
     errorDiv.style.display = 'none';
     
     try {
-        const response = await fetch('http://localhost:5000/api/auth/reset-password', {
+        const response = await fetch('${API_BASE_URL}/api/auth/reset-password', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'
@@ -7755,7 +7758,7 @@ async function submitQuizAnswer(attemptId, questionId, answerData) {
         const token = localStorage.getItem('authToken');
         
         // ✅ Use the CORRECT URL
-        const response = await fetch(`http://localhost:5000/api/quizzes/${attemptId}/answer`, {
+        const response = await fetch(`${API_BASE_URL}/api/quizzes/${attemptId}/answer`, {
             method: 'POST',
             headers: {
                 'Authorization': `Bearer ${token}`,
@@ -9654,7 +9657,7 @@ async function submitQuizSystem() {
         // ===== COMPLETE THE QUIZ ATTEMPT =====
         console.log(`🏁 Completing attempt ${QuizSystem.currentAttemptId}...`);
         
-        const completeResponse = await fetch(`http://localhost:5000/api/quiz/attempt/${QuizSystem.currentAttemptId}/complete`, {
+        const completeResponse = await fetch(`${API_BASE_URL}/api/quiz/attempt/${QuizSystem.currentAttemptId}/complete`, {
             method: 'POST',
             headers: {
                 'Authorization': `Bearer ${token}`,
@@ -9852,7 +9855,7 @@ async function updateQuizStatsDirectly(score, correctCount, totalQuestions) {
     // I-try kunin ang updated rank
     try {
         const token = localStorage.getItem('authToken');
-        const rankResponse = await fetch('http://localhost:5000/api/leaderboard/user/position', {
+        const rankResponse = await fetch('${API_BASE_URL}/api/leaderboard/user/position', {
             headers: { 'Authorization': `Bearer ${token}` }
         });
         
@@ -10271,7 +10274,7 @@ async function checkDatabase() {
     const token = localStorage.getItem('authToken');
     
     // Check latest attempts
-    const response = await fetch('http://localhost:5000/api/quiz/user/attempts', {
+    const response = await fetch('${API_BASE_URL}/api/quiz/user/attempts', {
         headers: { 'Authorization': `Bearer ${token}` }
     });
     const data = await response.json();
@@ -10913,7 +10916,7 @@ function showQuizResultsModal(results, timeSpent) {
 async function viewQuizDetails(attemptId) {
     try {
         const token = localStorage.getItem('authToken');
-        const response = await fetch(`http://localhost:5000/api/quiz/attempt/${attemptId}/details`, {
+        const response = await fetch(`${API_BASE_URL}/api/quiz/attempt/${attemptId}/details`, {
             headers: { 'Authorization': `Bearer ${token}` }
         });
         
@@ -11190,7 +11193,7 @@ async function loadFeedbackData() {
     try {
         const token = localStorage.getItem('admin_token') || localStorage.getItem('authToken');
         
-        const response = await fetch('http://localhost:5000/api/admin/feedback', {
+        const response = await fetch('${API_BASE_URL}/api/admin/feedback', {
             headers: {
                 'Authorization': `Bearer ${token}`
             }
@@ -11624,7 +11627,7 @@ async function fetchFeedbackStats() {
     try {
         const token = localStorage.getItem('admin_token') || localStorage.getItem('authToken');
         
-        const response = await fetch('http://localhost:5000/api/feedback/stats', {
+        const response = await fetch('${API_BASE_URL}/api/feedback/stats', {
             headers: {
                 'Authorization': `Bearer ${token}`
             }
@@ -11653,7 +11656,7 @@ async function fetchAllFeedback(limit = 20, page = 1, status = 'all') {
     try {
         const token = localStorage.getItem('admin_token') || localStorage.getItem('authToken');
         
-        let url = `http://localhost:5000/api/feedback/all?limit=${limit}&page=${page}`;
+        let url = `${API_BASE_URL}/api/feedback/all?limit=${limit}&page=${page}`;
         if (status !== 'all') {
             url += `&status=${status}`;
         }
@@ -11874,7 +11877,7 @@ async function viewFeedbackDetail(feedbackId) {
     try {
         const token = localStorage.getItem('admin_token') || localStorage.getItem('authToken');
         
-        const response = await fetch(`http://localhost:5000/api/feedback/${feedbackId}`, {
+        const response = await fetch(`${API_BASE_URL}/api/feedback/${feedbackId}`, {
             headers: {
                 'Authorization': `Bearer ${token}`
             }
@@ -11977,7 +11980,7 @@ async function editFeedback(feedbackId) {
     try {
         const token = localStorage.getItem('admin_token') || localStorage.getItem('authToken');
         
-        const response = await fetch(`http://localhost:5000/api/feedback/${feedbackId}`, {
+        const response = await fetch(`${API_BASE_URL}/api/feedback/${feedbackId}`, {
             headers: {
                 'Authorization': `Bearer ${token}`
             }
@@ -12059,7 +12062,7 @@ async function saveFeedbackChanges() {
     try {
         const token = localStorage.getItem('admin_token') || localStorage.getItem('authToken');
         
-        const response = await fetch(`http://localhost:5000/api/feedback/${feedbackId}/update-status`, {
+        const response = await fetch(`${API_BASE_URL}/api/feedback/${feedbackId}/update-status`, {
             method: 'POST',
             headers: {
                 'Authorization': `Bearer ${token}`,
@@ -14344,7 +14347,7 @@ async function loadVideoFromDatabase(contentId = null) {
             // This is an uploaded video
             videoFilename = lesson.video_filename;
             // ✅ FIXED: Use /videos/ instead of /uploads/videos/
-            videoUrl = `http://localhost:5000/videos/${lesson.video_filename}`;
+            videoUrl = `${API_BASE_URL}/videos/${lesson.video_filename}`;
             videoSource = 'uploaded';
             console.log(`🎬 Found uploaded video: ${videoFilename}`);
             console.log(`📺 Video URL: ${videoUrl}`);
@@ -14392,7 +14395,7 @@ async function loadVideoFromDatabase(contentId = null) {
         // ===== STEP 4: IF STILL NO VIDEO, USE DEFAULT =====
         if (!videoUrl) {
             console.log('⚠️ No video found in database, using default video');
-            videoUrl = 'http://localhost:5000/videos/quarter1-polynomial-equations.mp4';
+            videoUrl = '${API_BASE_URL}/videos/quarter1-polynomial-equations.mp4';
             videoSource = 'default_fallback';
         }
         
@@ -15102,7 +15105,7 @@ async function loadPracticeExercises() {
         }
         
         // FIXED: Use correct admin endpoint
-        const response = await fetch('http://localhost:5000/api/admin/practice/exercises', {
+        const response = await fetch('${API_BASE_URL}/api/admin/practice/exercises', {
             headers: {
                 'Authorization': `Bearer ${token}`
             }
@@ -15764,7 +15767,7 @@ async function startPractice(exerciseId, isReview = false) {
             return;
         }
         
-        const response = await fetch(`http://localhost:5000/api/practice/exercises/${exerciseId}`, {
+        const response = await fetch(`${API_BASE_URL}/api/practice/exercises/${exerciseId}`, {
             headers: {
                 'Authorization': `Bearer ${token}`,
                 'Accept': 'application/json'
@@ -16121,7 +16124,7 @@ async function submitPracticeAnswersToServer(exerciseId, answers, timeSpentSecon
         const percentage = totalQuestions > 0 ? Math.round((correctAnswers / totalQuestions) * 100) : 0;
         
         // Submit to server
-        const response = await fetch(`http://localhost:5000/api/practice/${exerciseId}/submit`, {
+        const response = await fetch(`${API_BASE_URL}/api/practice/${exerciseId}/submit`, {
             method: 'POST',
             headers: {
                 'Authorization': `Bearer ${token}`,
@@ -20377,7 +20380,7 @@ async function loadProgressSummary() {
             return;
         }
         
-        const response = await fetch('http://localhost:5000/api/progress/summary', {
+        const response = await fetch('${API_BASE_URL}/api/progress/summary', {
             method: 'GET',
             headers: {
                 'Authorization': `Bearer ${token}`,
@@ -24754,9 +24757,9 @@ window.handlePasswordSubmit = async function(event) {
             return;
         }
         
-        console.log('📤 Sending request to:', 'http://localhost:5000/api/user/change-password');
+        console.log('📤 Sending request to:', '${API_BASE_URL}/api/user/change-password');
         
-        const response = await fetch('http://localhost:5000/api/user/change-password', {
+        const response = await fetch('${API_BASE_URL}/api/user/change-password', {
             method: 'POST',
             headers: {
                 'Authorization': `Bearer ${token}`,
@@ -25422,7 +25425,7 @@ async function loadQuizStats() {
             return;
         }
         
-        const response = await fetch('http://localhost:5000/api/quiz/user/stats', {
+        const response = await fetch('${API_BASE_URL}/api/quiz/user/stats', {
             headers: { 'Authorization': `Bearer ${token}` }
         });
         
@@ -28174,7 +28177,7 @@ async function fetchQuizReviewData(quizId, attemptId = null) {
                     `${API_BASE_URL}/quiz/result/${attemptId}`,
                     `${API_BASE_URL}/quiz/attempts/${attemptId}/results`,
                     `${API_BASE_URL}/quiz/attempt/${attemptId}`,
-                    `http://localhost:5000/api/quiz/attempt/${attemptId}/results`
+                    `${API_BASE_URL}/api/quiz/attempt/${attemptId}/results`
                 ];
                 
                 for (const url of endpoints) {
