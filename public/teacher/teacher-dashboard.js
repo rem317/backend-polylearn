@@ -100,7 +100,10 @@ const subjectData = {
 };
 
 // ===== API CONFIGURATION =====
-const API_BASE_URL = '${API_BASE_URL}:5000/api';
+// AUTO-DETECT BASE URL (gagana sa local at production)
+const API_BASE_URL = window.location.hostname.includes('localhost') 
+    ? 'http://localhost:5000/api'
+    : 'https://polylearn-backend.up.railway.app/api'; // I-replace pag na-deploy na
 let authToken = localStorage.getItem('authToken');
 
 // ============================================
