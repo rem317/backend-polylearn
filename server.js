@@ -17,12 +17,13 @@ const app = express();
 // ============================================
 // MIDDLEWARE
 // ============================================
-app.use(cors({
-    origin: ['http://localhost:3000', 'http://127.0.0.1:5500', 'http://localhost:5500', 'http://localhost:3001'],
-    credentials: true,
-    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'Accept']
-}));
+const allowedOrigins = [
+    'http://localhost:5500',
+    'http://127.0.0.1:5500',
+    'https://polylearn-frontend.onrender.com', // Palitan kapag na-deploy
+    'https://your-app.up.railway.app', // Railway URL ng backend
+    process.env.FRONTEND_URL
+].filter(Boolean);
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
@@ -2843,7 +2844,7 @@ app.get('/api/videos/content/:contentId', verifyToken, async (req, res) => {
             // Check if has video_filename (uploaded video)
             if (lesson.video_filename) {
                 // ✅ FIXED: Use /videos/ instead of /uploads/videos/
-                const videoUrl = `http://localhost:5000/videos/${lesson.video_filename}`;
+               const videoUrl = `/videos/${lesson.video_filename}`; 
                 
                 console.log(`✅ Found video_filename in lesson: ${lesson.video_filename}`);
                 console.log(`📺 Video URL: ${videoUrl}`);
