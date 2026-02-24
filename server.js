@@ -14619,6 +14619,32 @@ app.use((err, req, res, next) => {
 });
 
 // ============================================
+// HEALTH CHECK WITH DATABASE
+// ============================================
+app.get('/api/health', async (req, res) => {
+    try {
+        // Test database connection
+        const [result] = await promisePool.query('SELECT 1 as connection_test');
+        
+        res.json({ 
+            success: true, 
+            message: 'PolyLearn API is running',
+            timestamp: new Date().toISOString(),
+            database: 'Connected',
+            db_test: result[0].connection_test
+        });
+    } catch (error) {
+        res.json({ 
+            success: true, 
+            message: 'PolyLearn API is running (Database Error)',
+            timestamp: new Date().toISOString(),
+            database: 'Not connected',
+            error: error.message
+        });
+    }
+});
+
+// ============================================
 // START SERVER
 // ============================================
 
