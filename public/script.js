@@ -185,7 +185,7 @@ async function loadStructureFromDatabase(forceRefresh = false) {
             throw new Error('No auth token available');
         }
         
-        const response = await fetch(`/admin/structure`, {
+        const response = await fetch(`/api/admin/structure`, {
             headers: {
                 'Authorization': `Bearer ${token}`,
                 'Content-Type': 'application/json'
@@ -499,7 +499,7 @@ async function createLesson(lessonName) {
         
         console.log(`📚 Creating new lesson: ${lessonName}`);
         
-        const response = await fetch(`/admin/lessons`, {
+        const response = await fetch(`/api/admin/lessons`, {
             method: 'POST',
             headers: {
                 'Authorization': `Bearer ${token}`,
@@ -542,7 +542,7 @@ async function createModule(lessonId, moduleName, moduleDescription = '') {
         
         console.log(`📦 Creating new module: ${moduleName} for lesson ${lessonId}`);
         
-        const response = await fetch(`/admin/modules`, {
+        const response = await fetch(`/api/admin/modules`, {
             method: 'POST',
             headers: {
                 'Authorization': `Bearer ${token}`,
@@ -597,7 +597,7 @@ async function createTopic(moduleId, topicName, topicDescription = '') {
         
         console.log(`📌 Creating new topic: ${topicName} for module ${moduleId}`);
         
-        const response = await fetch(`/admin/topics`, {
+        const response = await fetch(`/api/admin/topics`, {
             method: 'POST',
             headers: {
                 'Authorization': `Bearer ${token}`,
@@ -2136,7 +2136,7 @@ async function fetchDailyProgress() {
         
         console.log('📊 Fetching daily progress...');
         
-        const response = await fetch(`/progress/daily`, {
+        const response = await fetch(`/api/progress/daily`, {
             headers: {
                 'Authorization': `Bearer ${token}`,
                 'Content-Type': 'application/json'
@@ -2208,7 +2208,7 @@ async function fetchCumulativeProgress() {
         
         console.log('📊 Fetching cumulative progress...');
         
-        const response = await fetch(`/progress/overall`, {
+        const response = await fetch(`/api/progress/overall`, {
             headers: { 'Authorization': `Bearer ${token}` }
         });
         
@@ -2401,7 +2401,7 @@ async function fetchWeeklyProgress() {
         
         console.log('📊 Fetching weekly progress...');
         
-        const response = await fetch(`/progress/weekly`, {
+        const response = await fetch(`/api/progress/weekly`, {
             headers: {
                 'Authorization': `Bearer ${token}`,
                 'Content-Type': 'application/json'
@@ -2438,7 +2438,7 @@ async function fetchMonthlyProgress() {
         
         console.log('📊 Fetching monthly progress...');
         
-        const response = await fetch(`/progress/monthly`, {
+        const response = await fetch(`/api/progress/monthly`, {
             headers: {
                 'Authorization': `Bearer ${token}`,
                 'Content-Type': 'application/json'
@@ -2475,7 +2475,7 @@ async function fetchLearningGoals() {
         
         console.log('🎯 Fetching learning goals...');
         
-        const response = await fetch(`/progress/goals`, {
+        const response = await fetch(`/api/progress/goals`, {
             headers: {
                 'Authorization': `Bearer ${token}`,
                 'Content-Type': 'application/json'
@@ -2523,7 +2523,7 @@ async function fetchTopicMastery() {
         
         console.log('🧠 Fetching topic mastery...');
         
-        const response = await fetch(`/progress/topic-mastery`, {
+        const response = await fetch(`/api/progress/topic-mastery`, {
             headers: { 'Authorization': `Bearer ${token}` }
         });
         
@@ -2564,7 +2564,7 @@ async function fetchModuleProgress() {
         
         console.log('📚 Fetching module progress...');
         
-        const response = await fetch(`/progress/modules`, {
+        const response = await fetch(`/api/progress/modules`, {
             headers: {
                 'Authorization': `Bearer ${token}`,
                 'Content-Type': 'application/json'
@@ -2630,7 +2630,7 @@ async function fetchDashboardStats() {
         
         console.log('📈 Fetching dashboard stats...');
         
-        const response = await fetch(`/progress/dashboard-stats`, {
+        const response = await fetch(`/api/progress/dashboard-stats`, {
             headers: {
                 'Authorization': `Bearer ${token}`,
                 'Content-Type': '/json'
@@ -2667,7 +2667,7 @@ async function fetchProgressTrends(days = 30) {
         
         console.log('📊 Fetching progress trends...');
         
-        const response = await fetch(`/progress/trends?days=${days}`, {
+        const response = await fetch(`/api/progress/trends?days=${days}`, {
             headers: {
                 'Authorization': `Bearer ${token}`,
                 'Content-Type': 'application/json'
@@ -2703,7 +2703,7 @@ async function fetchAchievementTimeline(limit = 10) {
         
         console.log('🏆 Fetching achievement timeline...');
         
-        const response = await fetch(`/progress/achievements?limit=${limit}`, {
+        const response = await fetch(`/api/progress/achievements?limit=${limit}`, {
             headers: { 'Authorization': `Bearer ${token}` }
         });
         
@@ -2741,7 +2741,7 @@ async function logUserActivity(activityType, relatedId = null, details = {}) {
         console.log(`📝 Logging activity: ${activityType}`);
         
         // USE THE WORKING update-daily ENDPOINT
-        const response = await fetch(`/progress/update-daily`, {
+        const response = await fetch(`/api/progress/update-daily`, {
             method: 'POST',
             headers: {
                 'Authorization': `Bearer ${token}`,
@@ -2820,7 +2820,7 @@ async function updateDailyProgress(progressData) {
             return true;
         }
         
-        const response = await fetch(`/progress/update-daily`, {
+        const response = await fetch(`/api/progress/update-daily`, {
             method: 'POST',
             headers: {
                 'Authorization': `Bearer ${token}`,
@@ -2862,7 +2862,7 @@ async function updateTopicMastery(topicId, masteryData) {
         
         console.log(`🧠 Updating topic mastery for topic ${topicId}...`);
         
-        const response = await fetch(`/progress/update-topic-mastery`, {
+        const response = await fetch(`/api/progress/update-topic-mastery`, {
             method: 'POST',
             headers: {
                 'Authorization': `Bearer ${token}`,
@@ -2903,7 +2903,7 @@ async function updateModuleProgress(moduleId, progressData) {
         
         console.log(`📚 Updating module progress for module ${moduleId}...`);
         
-        const response = await fetch(`/progress/update-module-progress`, {
+        const response = await fetch(`/api/progress/update-module-progress`, {
             method: 'POST',
             headers: {
                 'Authorization': `Bearer ${token}`,
@@ -2944,7 +2944,7 @@ async function updateLearningGoalProgress(goalId, currentValue) {
         
         console.log(`🎯 Updating learning goal ${goalId}...`);
         
-        const response = await fetch(`/progress/update-goal-progress`, {
+        const response = await fetch(`/api/progress/update-goal-progress`, {
             method: 'POST',
             headers: {
                 'Authorization': `Bearer ${token}`,
@@ -2985,7 +2985,7 @@ async function completeLearningGoal(goalId) {
         
         console.log(`🏆 Completing learning goal ${goalId}...`);
         
-        const response = await fetch(`/progress/complete-goal`, {
+        const response = await fetch(`/api/progress/complete-goal`, {
             method: 'POST',
             headers: {
                 'Authorization': `Bearer ${token}`,
@@ -3616,7 +3616,7 @@ async function fetchPracticeStatistics(topicId = null) {
         
         try {
             // Get lesson progress
-            const progressResponse = await fetch(`/progress/lessons`, {
+            const progressResponse = await fetch(`/api/progress/lessons`, {
                 headers: {
                     'Authorization': `Bearer ${token}`,
                     'Content-Type': 'application/json'
@@ -3636,7 +3636,7 @@ async function fetchPracticeStatistics(topicId = null) {
             }
             
             // Get total lessons count
-            const lessonsResponse = await fetch(`/lessons-db/complete`, {
+            const lessonsResponse = await fetch(`/api/lessons-db/complete`, {
                 headers: {
                     'Authorization': `Bearer ${token}`,
                     'Content-Type': 'application/json'
@@ -3661,7 +3661,7 @@ async function fetchPracticeStatistics(topicId = null) {
         let totalTimeSeconds = 0;
         
         try {
-            const attemptsResponse = await fetch(`/progress/practice-attempts`, {
+            const attemptsResponse = await fetch(`/api/progress/practice-attempts`, {
                 headers: {
                     'Authorization': `Bearer ${token}`,
                     'Content-Type': 'application/json'
@@ -3710,7 +3710,7 @@ async function fetchPracticeStatistics(topicId = null) {
             today.setHours(0, 0, 0, 0);
             const todayISO = today.toISOString();
             
-            const attemptsResponse = await fetch(`/progress/practice-attempts`, {
+            const attemptsResponse = await fetch(`/api/progress/practice-attempts`, {
                 headers: {
                     'Authorization': `Bearer ${token}`,
                     'Content-Type': 'application/json'
@@ -3881,7 +3881,7 @@ async function createLearningGoal(goalData) {
         
         console.log('🎯 Creating new learning goal...');
         
-        const response = await fetch(`/progress/create-goal`, {
+        const response = await fetch(`/api/progress/create-goal`, {
             method: 'POST',
             headers: {
                 'Authorization': `Bearer ${token}`,
@@ -3926,7 +3926,7 @@ async function updateDashboardWidgets(widgetConfig) {
         
         console.log('⚙️ Updating dashboard widgets...');
         
-        const response = await fetch(`/progress/update-widgets`, {
+        const response = await fetch(`/api/progress/update-widgets`, {
             method: 'POST',
             headers: {
                 'Authorization': `Bearer ${token}`,
@@ -4056,7 +4056,7 @@ async function awardBadge(badgeName, description, icon, color, points) {
     try {
         const token = localStorage.getItem('authToken') || authToken;
         
-        const response = await fetch(`/badges/award`, {
+        const response = await fetch(`/api/badges/award`, {
             method: 'POST',
             headers: {
                 'Authorization': `Bearer ${token}`,
@@ -4103,7 +4103,7 @@ async function getDetailedPracticeStats() {
         
         console.log('📊 Fetching detailed practice statistics...');
         
-        const response = await fetch(`/progress/practice-analytics`, {
+        const response = await fetch(`/api/progress/practice-analytics`, {
             headers: {
                 'Authorization': `Bearer ${token}`,
                 'Content-Type': 'application/json'
@@ -4122,7 +4122,7 @@ async function getDetailedPracticeStats() {
         console.log('⚠️ Practice analytics endpoint not found, calculating from local data...');
         
         // Get all practice attempts
-        const attemptsResponse = await fetch(`/progress/practice-attempts`, {
+        const attemptsResponse = await fetch(`/api/progress/practice-attempts`, {
             headers: {
                 'Authorization': `Bearer ${token}`,
                 'Content-Type': 'application/json'
@@ -4401,7 +4401,7 @@ async function fetchWeeklyImprovement() {
         const token = localStorage.getItem('authToken') || authToken;
         if (!token) return 5; // Default value
         
-        const response = await fetch(`/progress/weekly-improvement`, {
+        const response = await fetch(`/api/progress/weekly-improvement`, {
             headers: { 'Authorization': `Bearer ${token}` }
         });
         
@@ -5154,7 +5154,7 @@ async function fetchTotalExercisesCount() {
         // If all endpoints fail, try to get from practice_exercises table directly
         // using a custom query endpoint if available
         try {
-            const response = await fetch(`/debug/practice/count`, {
+            const response = await fetch(`/api/debug/practice/count`, {
                 headers: {
                     'Authorization': `Bearer ${token}`,
                     'Content-Type': 'application/json'
@@ -5399,7 +5399,7 @@ class ActiveTimeTracker {
             console.log(`💾 Saving to user_progress table: ${activeMinutes} minutes`);
             
             // ✅ DIRECT UPDATE TO user_progress TABLE
-            const response = await fetch(`/progress/update-user-progress-time`, {
+            const response = await fetch(`/api/progress/update-user-progress-time`, {
                 method: 'POST',
                 headers: {
                     'Authorization': `Bearer ${token}`,
@@ -5445,7 +5445,7 @@ class ActiveTimeTracker {
             const token = localStorage.getItem('authToken') || authToken;
             
             // Try cumulative_progress endpoint
-            const response = await fetch(`/progress/update-cumulative`, {
+            const response = await fetch(`/api/progress/update-cumulative`, {
                 method: 'POST',
                 headers: {
                     'Authorization': `Bearer ${token}`,
@@ -5501,7 +5501,7 @@ class ActiveTimeTracker {
             const token = localStorage.getItem('authToken') || authToken;
             if (!token || !this.userId) return;
             
-            const response = await fetch(`/progress/reset-user-progress-time`, {
+            const response = await fetch(`/api/progress/reset-user-progress-time`, {
                 method: 'POST',
                 headers: {
                     'Authorization': `Bearer ${token}`,
@@ -5579,7 +5579,7 @@ class ActiveTimeTracker {
         } else {
             // Fetch from server
             const token = localStorage.getItem('authToken');
-            const response = await fetch(`/progress/get-user-progress-time`, {
+            const response = await fetch(`/api/progress/get-user-progress-time`, {
                 headers: { 'Authorization': `Bearer ${token}` }
             });
             const data = await response.json();
@@ -5768,7 +5768,7 @@ async function fetchPracticeStatistics() {
         
         try {
             // Get lesson progress
-            const progressResponse = await fetch(`/progress/lessons`, {
+            const progressResponse = await fetch(`/api/progress/lessons`, {
                 headers: {
                     'Authorization': `Bearer ${token}`,
                     'Content-Type': 'application/json'
@@ -5788,7 +5788,7 @@ async function fetchPracticeStatistics() {
             }
             
             // Get total lessons count
-            const lessonsResponse = await fetch(`/lessons-db/complete`, {
+            const lessonsResponse = await fetch(`/api/lessons-db/complete`, {
                 headers: {
                     'Authorization': `Bearer ${token}`,
                     'Content-Type': 'application/json'
@@ -5812,7 +5812,7 @@ async function fetchPracticeStatistics() {
         let totalScore = 0;
         
         try {
-            const attemptsResponse = await fetch(`/progress/practice-attempts`, {
+            const attemptsResponse = await fetch(`/api/progress/practice-attempts`, {
                 headers: {
                     'Authorization': `Bearer ${token}`,
                     'Content-Type': 'application/json'
@@ -5847,7 +5847,7 @@ async function fetchPracticeStatistics() {
         
         // ===== STEP 3: GET USER PRACTICE PROGRESS (alternative source) =====
         try {
-            const userProgressResponse = await fetch(`/user/progress/stats`, {
+            const userProgressResponse = await fetch(`/api/user/progress/stats`, {
                 headers: {
                     'Authorization': `Bearer ${token}`,
                     'Content-Type': 'application/json'
@@ -6666,7 +6666,7 @@ async function fetchQuizCategories() {
         
         console.log('📚 Fetching quiz categories...');
         
-        const response = await fetch(`/quiz/categories`, {
+        const response = await fetch(`/api/quiz/categories`, {
             headers: {
                 'Authorization': `Bearer ${token}`,
                 'Content-Type': 'application/json'
@@ -6719,7 +6719,7 @@ async function fetchQuizzesForCategory(categoryId) {
             }
         }
         
-        const response = await fetch(`/quiz/category/${categoryId}/quizzes`, {
+        const response = await fetch(`/api/quiz/category/${categoryId}/quizzes`, {
             headers: {
                 'Authorization': `Bearer ${token}`,
                 'Content-Type': 'application/json'
@@ -6835,7 +6835,7 @@ async function startQuizSystem(quizId) {
         // STEP 1: Start quiz attempt directly
         console.log('📝 Creating quiz attempt...');
         
-        const attemptResponse = await fetch(`/quiz/${quizId}/start`, {
+        const attemptResponse = await fetch(`/api/quiz/${quizId}/start`, {
             method: 'POST',
             headers: {
                 'Authorization': `Bearer ${token}`,
@@ -6864,7 +6864,7 @@ async function startQuizSystem(quizId) {
         
         // STEP 2: Fetch questions
         console.log('📚 Fetching quiz questions...');
-        const questionsResponse = await fetch(`/quiz/${quizId}/questions`, {
+        const questionsResponse = await fetch(`/api/quiz/${quizId}/questions`, {
             headers: {
                 'Authorization': `Bearer ${token}`,
                 'Content-Type': 'application/json'
@@ -7668,7 +7668,7 @@ async function startQuizAttempt(quizId) {
         const user = JSON.parse(userJson);
         console.log(`🚀 Starting quiz ${quizId} for user ${user.id}...`);
         
-        const response = await fetch(`/quiz/${quizId}/start`, {
+        const response = await fetch(`/api/quiz/${quizId}/start`, {
             method: 'POST',
             headers: {
                 'Authorization': `Bearer ${token}`,
@@ -7757,7 +7757,7 @@ async function submitQuizAnswer(attemptId, questionId, answerData) {
         const token = localStorage.getItem('authToken');
         
         // ✅ Use the CORRECT URL
-        const response = await fetch(`/api/quizzes/${attemptId}/answer`, {
+        const response = await fetch(`/api/api/quizzes/${attemptId}/answer`, {
             method: 'POST',
             headers: {
                 'Authorization': `Bearer ${token}`,
@@ -7796,7 +7796,7 @@ async function updateQuizTimeInDatabase(elapsedSeconds) {
         
         console.log(`⏱️ Updating quiz time in quiz_performance table: ${elapsedSeconds} seconds`);
         
-        const response = await fetch(`/quiz/performance/update-time`, {
+        const response = await fetch(`/api/quiz/performance/update-time`, {
             method: 'POST',
             headers: {
                 'Authorization': `Bearer ${token}`,
@@ -7838,7 +7838,7 @@ async function fetchQuizQuestions(quizId) {
         
         console.log(`❓ Fetching questions for quiz ${quizId}...`);
         
-        const response = await fetch(`/quiz/${quizId}/questions`, {
+        const response = await fetch(`/api/quiz/${quizId}/questions`, {
             headers: {
                 'Authorization': `Bearer ${token}`,
                 'Content-Type': 'application/json'
@@ -7899,7 +7899,7 @@ async function completeQuizAttempt(attemptId, timeSpentSeconds = null) {
             requestBody.time_spent_seconds = timeSpentSeconds;
         }
         
-        const response = await fetch(`/quiz/attempt/${attemptId}/complete`, {
+        const response = await fetch(`/api/quiz/attempt/${attemptId}/complete`, {
             method: 'POST',
             headers: {
                 'Authorization': `Bearer ${token}`,
@@ -7947,7 +7947,7 @@ async function getQuizResults(attemptId) {
         
         console.log(`📊 Getting results for attempt ${attemptId}...`);
         
-        const response = await fetch(`/quiz/attempt/${attemptId}/results`, {
+        const response = await fetch(`/api/quiz/attempt/${attemptId}/results`, {
             headers: {
                 'Authorization': `Bearer ${token}`,
                 'Content-Type': 'application/json'
@@ -7984,7 +7984,7 @@ async function fetchUserQuizAttempts() {
         
         console.log('📋 Fetching user quiz attempts...');
         
-        const response = await fetch(`/quiz/user/attempts`, {
+        const response = await fetch(`/api/quiz/user/attempts`, {
             headers: {
                 'Authorization': `Bearer ${token}`,
                 'Content-Type': 'application/json'
@@ -8022,7 +8022,7 @@ async function fetchLeaderboard(period = 'weekly') {
         
         console.log(`🏆 Fetching ${period} leaderboard...`);
         
-        const response = await fetch(`/quiz/leaderboard/${period}`, {
+        const response = await fetch(`/api/quiz/leaderboard/${period}`, {
             headers: {
                 'Authorization': `Bearer ${token}`,
                 'Content-Type': 'application/json'
@@ -8061,7 +8061,7 @@ async function fetchUserBadges() {
         
         console.log('🎖️ Fetching user badges...');
         
-        const response = await fetch(`/dashboard/badges`, {
+        const response = await fetch(`/api/dashboard/badges`, {
             headers: {
                 'Authorization': `Bearer ${token}`,
                 'Content-Type': 'application/json'
@@ -8118,7 +8118,7 @@ async function fetchUserPoints() {
         
         console.log('💰 Fetching user points...');
         
-        const response = await fetch(`/quiz/user/points`, {
+        const response = await fetch(`/api/quiz/user/points`, {
             headers: {
                 'Authorization': `Bearer ${token}`,
                 'Content-Type': 'application/json'
@@ -8170,7 +8170,7 @@ async function loadQuizStatsFromServer() {
 
         // TRY 1: Use the dedicated quiz stats endpoint
         try {
-            const response = await fetch(`/quiz/user/stats`, {
+            const response = await fetch(`/api/quiz/user/stats`, {
                 headers: {
                     'Authorization': `Bearer ${token}`,
                     'Content-Type': 'application/json'
@@ -8194,7 +8194,7 @@ async function loadQuizStatsFromServer() {
 
         // TRY 2: Use the user progress stats endpoint
         try {
-            const response = await fetch(`/user/progress/stats`, {
+            const response = await fetch(`/api/user/progress/stats`, {
                 headers: {
                     'Authorization': `Bearer ${token}`,
                     'Content-Type': 'application/json'
@@ -8393,7 +8393,7 @@ async function loadQuizzesForCategory(categoryId) {
             `;
         }
         
-        const response = await fetch(`/quiz/category/${categoryId}/quizzes`, {
+        const response = await fetch(`/api/quiz/category/${categoryId}/quizzes`, {
             headers: {
                 'Authorization': `Bearer ${token}`,
                 'Content-Type': 'application/json'
@@ -8446,7 +8446,7 @@ async function loadQuizzesForCategory(categoryId) {
 async function fetchAllQuizzes() {
     try {
         const token = localStorage.getItem('authToken');
-        const response = await fetch(`/quizzes/available`, {
+        const response = await fetch(`/api/quizzes/available`, {
             headers: { 'Authorization': `Bearer ${token}` }
         });
         
@@ -8785,7 +8785,7 @@ async function loadLeaderboard(period = 'weekly') {
             return;
         }
         
-        const response = await fetch(`/quiz/leaderboard/${period}`, {
+        const response = await fetch(`/api/quiz/leaderboard/${period}`, {
             headers: {
                 'Authorization': `Bearer ${token}`,
                 'Content-Type': 'application/json'
@@ -9053,7 +9053,7 @@ async function fetchAccuracyRate() {
         
         console.log('📊 Fetching accuracy rate...');
         
-        const response = await fetch(`/progress/accuracy-rate`, {
+        const response = await fetch(`/api/progress/accuracy-rate`, {
             headers: { 'Authorization': `Bearer ${token}` }
         });
         
@@ -10295,7 +10295,7 @@ async function checkDatabase() {
 async function debugLastQuizAttempt() {
     try {
         const token = localStorage.getItem('authToken');
-        const response = await fetch(`/quiz/debug/last-attempt`, {
+        const response = await fetch(`/api/quiz/debug/last-attempt`, {
             headers: { 'Authorization': `Bearer ${token}` }
         });
         const data = await response.json();
@@ -10915,7 +10915,7 @@ function showQuizResultsModal(results, timeSpent) {
 async function viewQuizDetails(attemptId) {
     try {
         const token = localStorage.getItem('authToken');
-        const response = await fetch(`/api/quiz/attempt/${attemptId}/details`, {
+        const response = await fetch(`/api/api/quiz/attempt/${attemptId}/details`, {
             headers: { 'Authorization': `Bearer ${token}` }
         });
         
@@ -11404,7 +11404,7 @@ async function submitFeedback(feedbackType, feedbackMessage, rating = 0) {
         
         console.log('📤 Submitting feedback:', feedbackData);
         
-        const response = await fetch(`/feedback/submit`, {
+        const response = await fetch(`/api/feedback/submit`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -11454,7 +11454,7 @@ async function fetchUserFeedback(limit = 10, page = 1) {
         
         console.log('📋 Fetching user feedback...');
         
-        const response = await fetch(`/feedback/user?limit=${limit}&page=${page}`, {
+        const response = await fetch(`/api/feedback/user?limit=${limit}&page=${page}`, {
             headers: {
                 'Authorization': `Bearer ${token}`,
                 'Content-Type': 'application/json'
@@ -11490,7 +11490,7 @@ async function fetchFeedbackStats() {
         
         console.log('📊 Fetching feedback statistics...');
         
-        const response = await fetch(`/feedback/stats`, {
+        const response = await fetch(`/api/feedback/stats`, {
             headers: {
                 'Authorization': `Bearer ${token}`,
                 'Content-Type': 'application/json'
@@ -11526,7 +11526,7 @@ async function updateFeedbackStatus(feedbackId, status, adminNotes = null) {
         
         console.log(`🔄 Updating feedback ${feedbackId} status to ${status}...`);
         
-        const response = await fetch(`/feedback/${feedbackId}/update-status`, {
+        const response = await fetch(`/api/feedback/${feedbackId}/update-status`, {
             method: 'POST',
             headers: {
                 'Authorization': `Bearer ${token}`,
@@ -12921,7 +12921,7 @@ async function fetchAllLessons() {
         
         console.log('📚 Fetching all lessons from database...');
         
-        const response = await fetch(`/lessons-db/complete`, {
+        const response = await fetch(`/api/lessons-db/complete`, {
             headers: {
                 'Authorization': `Bearer ${token}`,
                 'Content-Type': 'application/json'
@@ -12957,7 +12957,7 @@ async function fetchUserLessonProgress() {
         
         console.log('📊 Fetching user lesson progress...');
         
-        const response = await fetch(`/progress/lessons`, {
+        const response = await fetch(`/api/progress/lessons`, {
             headers: {
                 'Authorization': `Bearer ${token}`,
                 'Content-Type': 'application/json'
@@ -13331,7 +13331,7 @@ async function fetchLessonDetails(lessonId) {
         
         console.log('🔍 Fetching lesson details for ID:', lessonId);
         
-        const response = await fetch(`/lessons-db/${lessonId}`, {
+        const response = await fetch(`/api/lessons-db/${lessonId}`, {
             headers: {
                 'Authorization': `Bearer ${token}`,
                 'Content-Type': 'application/json'
@@ -13367,7 +13367,7 @@ async function fetchLessonContent(lessonId) {
         
         console.log('📄 Fetching lesson content for ID:', lessonId);
         
-        const response = await fetch(`/lessons-db/${lessonId}/content`, {
+        const response = await fetch(`/api/lessons-db/${lessonId}/content`, {
             headers: {
                 'Authorization': `Bearer ${token}`,
                 'Content-Type': 'application/json'
@@ -13425,7 +13425,7 @@ async function updateLessonProgress(contentId, progressData) {
             console.log('⏱️ Session ended - applying caps if needed');
         }
         
-        const response = await fetch(`/lessons-db/${contentId}/progress`, {
+        const response = await fetch(`/api/lessons-db/${contentId}/progress`, {
             method: 'POST',
             headers: {
                 'Authorization': `Bearer ${token}`,
@@ -14191,7 +14191,7 @@ async function getVideoFromDatabase(contentId = 1) {
             return null;
         }
         
-        const response = await fetch(`/videos/content/${contentId}`, {
+        const response = await fetch(`/api/videos/content/${contentId}`, {
             headers: {
                 'Authorization': `Bearer ${token}`,
                 'Content-Type': 'application/json'
@@ -14300,7 +14300,7 @@ async function loadVideoFromDatabase(contentId = null) {
         // ===== STEP 1: FETCH LESSON DATA FROM DATABASE =====
         console.log(`📥 Fetching lesson data for content ID: ${contentId}`);
         
-        const lessonResponse = await fetch(`/lessons-db/${contentId}`, {
+        const lessonResponse = await fetch(`/api/lessons-db/${contentId}`, {
             headers: {
                 'Authorization': `Bearer ${token}`,
                 'Content-Type': 'application/json'
@@ -14369,7 +14369,7 @@ async function loadVideoFromDatabase(contentId = null) {
             console.log('🔍 No video in lesson data, checking video_uploads table...');
             
             try {
-                const videoResponse = await fetch(`/videos/content/${contentId}`, {
+                const videoResponse = await fetch(`/api/videos/content/${contentId}`, {
                     headers: {
                         'Authorization': `Bearer ${token}`,
                         'Content-Type': 'application/json'
@@ -14511,7 +14511,7 @@ async function loadVideoFromDatabase(contentId = null) {
 // Get default video (fallback)
 async function getDefaultVideo() {
     try {
-        const response = await fetch(`/videos/default`);
+        const response = await fetch(`/api/videos/default`);
         const data = await response.json();
         
         if (data.success) {
