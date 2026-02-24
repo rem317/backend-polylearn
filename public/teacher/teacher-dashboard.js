@@ -100,7 +100,7 @@ const subjectData = {
 };
 
 // ===== API CONFIGURATION =====
-const API_BASE_URL = 'http://localhost:5000/api';
+const API_BASE_URL = '${API_BASE_URL}:5000/api';
 let authToken = localStorage.getItem('authToken');
 
 // ============================================
