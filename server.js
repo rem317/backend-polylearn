@@ -17,13 +17,41 @@ const app = express();
 // ============================================
 // MIDDLEWARE
 // ============================================
+// ============================================
+// MIDDLEWARE - FIXED CORS
+// ============================================
 const allowedOrigins = [
     'http://localhost:5500',
     'http://127.0.0.1:5500',
-    'https://polylearn-frontend.onrender.com', // Palitan kapag na-deploy
-    'https://your-app.up.railway.app', // Railway URL ng backend
+    'http://localhost:3000',
+    'http://127.0.0.1:3000',
+    'https://polylearn-frontend.onrender.com',
+    'https://polylearn-frontend.vercel.app',
+    'https://polylearnforntend.netlify.app',
+    'https://backend-polylearn-production.up.railway.app', // Your current frontend URL
     process.env.FRONTEND_URL
 ].filter(Boolean);
+
+// IMPORTANT: Add CORS middleware BEFORE other middleware
+app.use(cors({
+    origin: function(origin, callback) {
+        // Allow requests with no origin (like mobile apps, curl)
+        if (!origin) return callback(null, true);
+        
+        if (allowedOrigins.indexOf(origin) === -1) {
+            console.log('⚠️ Blocked origin:', origin);
+            return callback(null, false);
+        }
+        return callback(null, true);
+    },
+    credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
+}));
+
+// Add OPTIONS handling for preflight requests
+app.options('*', cors());
+
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
