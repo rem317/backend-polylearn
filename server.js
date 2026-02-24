@@ -33,7 +33,7 @@ app.use(express.urlencoded({ extended: true }));
 // ============================================
 // STATIC FILES & VIDEO CONFIGURATION
 // ============================================
-const path = require('path');
+
 
 // I-check kung saan ang index.html
 const possiblePaths = [
