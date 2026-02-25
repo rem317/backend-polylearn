@@ -10881,6 +10881,141 @@ app.get('/api/progress/chart-data', authenticateUser, async (req, res) => {
         });
     }
 });
+
+// ============================================
+// 🔍 DEBUG: Check Table Data - ADD THIS
+// ============================================
+app.get('/api/debug/table/:tableName', authenticateUser, async (req, res) => {
+    try {
+        const { tableName } = req.params;
+        
+        // Check if table exists
+        const [tables] = await promisePool.query(
+            "SHOW TABLES LIKE ?",
+            [tableName]
+        );
+        
+        if (tables.length === 0) {
+            return res.json({
+                success: true,
+                exists: false,
+                message: `Table '${tableName}' does not exist`
+            });
+        }
+        
+        // Get row count
+        const [count] = await promisePool.query(`SELECT COUNT(*) as count FROM ??`, [tableName]);
+        
+        // Get sample data (limit 5)
+        const [data] = await promisePool.query(`SELECT * FROM ?? LIMIT 5`, [tableName]);
+        
+        res.json({
+            success: true,
+            exists: true,
+            table: tableName,
+            row_count: count[0].count,
+            sample_data: data
+        });
+        
+    } catch (error) {
+        console.error('❌ Debug error:', error);
+        res.status(500).json({
+            success: false,
+            message: error.message
+        });
+    }
+});
+
+// ============================================
+// 🧪 Test all endpoints at once
+// ============================================
+app.get('/api/debug/all', authenticateUser, async (req, res) => {
+    try {
+        const userId = req.user.id;
+        
+        const results = {};
+        
+        // Test badges
+        try {
+            const [badges] = await promisePool.query(`
+                SELECT COUNT(*) as count FROM user_badges WHERE user_id = ?
+            `, [userId]);
+            results.badges_count = badges[0].count;
+        } catch (e) {
+            results.badges_error = e.message;
+        }
+        
+        // Test practice exercises table
+        try {
+            const [tables] = await promisePool.query("SHOW TABLES LIKE 'practice_exercises'");
+            results.practice_table_exists = tables.length > 0;
+            
+            if (tables.length > 0) {
+                const [count] = await promisePool.query('SELECT COUNT(*) as count FROM practice_exercises');
+                results.practice_count = count[0].count;
+            }
+        } catch (e) {
+            results.practice_error = e.message;
+        }
+        
+        // Test practice attempts
+        try {
+            const [tables] = await promisePool.query("SHOW TABLES LIKE 'practice_attempts'");
+            results.practice_attempts_exists = tables.length > 0;
+            
+            if (tables.length > 0) {
+                const [count] = await promisePool.query(
+                    'SELECT COUNT(*) as count FROM practice_attempts WHERE user_id = ?',
+                    [userId]
+                );
+                results.practice_attempts_count = count[0].count;
+            }
+        } catch (e) {
+            results.practice_attempts_error = e.message;
+        }
+        
+        // Test daily progress
+        try {
+            const [tables] = await promisePool.query("SHOW TABLES LIKE 'daily_progress'");
+            results.daily_progress_exists = tables.length > 0;
+            
+            if (tables.length > 0) {
+                const [progress] = await promisePool.query(
+                    'SELECT * FROM daily_progress WHERE user_id = ? ORDER BY progress_date DESC LIMIT 7',
+                    [userId]
+                );
+                results.daily_progress = progress;
+            }
+        } catch (e) {
+            results.daily_progress_error = e.message;
+        }
+        
+        res.json({
+            success: true,
+            user_id: userId,
+            debug: results
+        });
+        
+    } catch (error) {
+        console.error('❌ Debug error:', error);
+        res.status(500).json({
+            success: false,
+            message: error.message
+        });
+    }
+});
+
+// ============================================
+// 🧪 Simple test endpoint
+// ============================================
+app.get('/api/test', (req, res) => {
+    res.json({ 
+        success: true, 
+        message: 'API is working!',
+        timestamp: new Date().toISOString()
+    });
+});
+
 // ============================================
 // MISSING PROGRESS DASHBOARD ENDPOINTS
 // ============================================
