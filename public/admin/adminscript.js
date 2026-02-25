@@ -23063,7 +23063,7 @@ function deletePracticeExercise(exerciseId) {
 }
 
 
-// ===== SAVE PRACTICE EXERCISE TO DATABASE WITH TEACHER ASSIGNMENT =====
+// ===== SAVE PRACTICE EXERCISE TO DATABASE WITH TEACHER ASSIGNMENT - FIXED URL =====
 async function savePracticeExercise() {
     console.log("💾 ===== SAVING PRACTICE EXERCISE TO DATABASE =====");
     
@@ -23220,9 +23220,11 @@ async function savePracticeExercise() {
             saveBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Saving...';
         }
         
+        // ✅ FIXED: Use proper URL construction
+        const baseUrl = API_BASE_URL || '';  // API_BASE_URL is usually empty string for relative URLs
         const url = practiceId 
-            ? `${API_BASE_URL}/api/admin/practice/${practiceId}`
-            : '${API_BASE_URL}/api/admin/practice';
+            ? `${baseUrl}/api/admin/practice/${practiceId}`
+            : `/api/admin/practice`;  // Use relative URL directly for new entries
         
         console.log(`📡 Sending ${practiceId ? 'PUT' : 'POST'} request to:`, url);
         
