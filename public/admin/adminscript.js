@@ -15966,12 +15966,17 @@ async function loadUserGrowthData() {
     }
 }
 
-// ===== LOAD LESSON POPULARITY DATA - SIMPLIFIED =====
 async function loadLessonPopularityData() {
     console.log("📊 Loading lesson popularity data...");
     
     const canvas = document.getElementById('lessonPopularityChart');
     if (!canvas) return;
+    
+    // SAFETY CHECK: Destroy existing chart
+    if (window.lessonPopularityChart) {
+        window.lessonPopularityChart.destroy();
+        window.lessonPopularityChart = null;
+    }
     
     const container = canvas.parentElement;
     
@@ -15988,15 +15993,15 @@ async function loadLessonPopularityData() {
         
         const result = await response.json();
         
-        // Clear container
+        // Clear container and recreate canvas
         container.innerHTML = '<canvas id="lessonPopularityChart"></canvas>';
         const newCanvas = document.getElementById('lessonPopularityChart');
         
-        if (result.success && result.lessons.length > 0) {
+        if (result.success && result.lessons && result.lessons.length > 0) {
             const chartData = result.chart;
             
-            // Create chart
-            new Chart(newCanvas, {
+            // Create new chart and store reference
+            window.lessonPopularityChart = new Chart(newCanvas, {
                 type: 'bar',
                 data: chartData,
                 options: {
@@ -16019,7 +16024,6 @@ async function loadLessonPopularityData() {
         container.innerHTML = '<div style="text-align:center;padding:40px;color:#f44336;">Failed to load data</div>';
     }
 }
-
 // ===== UPDATE LESSON POPULARITY LIST =====
 function updateLessonPopularityList(lessons) {
     // Check if there's a list container (optional)
