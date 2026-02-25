@@ -18,12 +18,46 @@ const app = express();
 // MIDDLEWARE
 // ============================================
 // ============================================
-// MIDDLEWARE - FIXED CORS
+// MIDDLEWARE - FIXED CORS (COMPLETE FIX)
 // ============================================
-
+const cors = require('cors'); // Make sure this is at the top with other requires
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+
+// ✅ COMPLETE CORS FIX - Allow both your Railway domains
+app.use(cors({
+  origin: [
+    'https://backend-polylearn-production.up.railway.app',
+    'https://polylearn-backend.up.railway.app',
+    'http://localhost:3000',
+    'http://localhost:5000'
+  ],
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept']
+}));
+
+// ✅ Handle preflight requests for all routes
+app.options('*', cors());
+
+// ✅ Additional headers middleware
+app.use((req, res, next) => {
+  const origin = req.headers.origin;
+  if (origin === 'https://backend-polylearn-production.up.railway.app' || 
+      origin === 'https://polylearn-backend.up.railway.app') {
+    res.header('Access-Control-Allow-Origin', origin);
+  }
+  res.header('Access-Control-Allow-Credentials', 'true');
+  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS, PATCH');
+  res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization');
+  
+  // Handle preflight
+  if (req.method === 'OPTIONS') {
+    return res.sendStatus(200);
+  }
+  next();
+});
 
 // ============================================
 // STATIC FILES & VIDEO CONFIGURATION
