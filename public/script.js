@@ -14213,7 +14213,7 @@ async function loadVideoFromDatabase(contentId = null) {
             videoTitle.innerHTML = `<i class="fas fa-video"></i> ${lesson.content_title || 'Video Lesson'}`;
         }
         
-        // ===== VIDEO SOURCE - FIXED =====
+        // ===== VIDEO SOURCE - ILAGAY ITO DITO =====
         let videoUrl = null;
         let videoSource = 'none';
         let videoFilename = null;
@@ -14221,7 +14221,7 @@ async function loadVideoFromDatabase(contentId = null) {
         if (lesson.video_filename) {
             videoFilename = lesson.video_filename;
             
-            // ✅ TAMA NA ITO - /videos/ HINDI /uploads/videos/
+            // ✅ GAMITIN ANG /videos/ DAHIL ITO ANG GUMAGANA
             videoUrl = `/videos/${lesson.video_filename}`;
             
             videoSource = 'uploaded';
@@ -14258,18 +14258,40 @@ async function loadVideoFromDatabase(contentId = null) {
                 iframe.frameBorder = '0';
                 iframe.allowFullscreen = true;
                 videoElement.parentNode.replaceChild(iframe, videoElement);
+                
+                if (videoInfo) {
+                    videoInfo.innerHTML = `
+                        <p><i class="fab fa-youtube"></i> <strong>YouTube Video</strong></p>
+                        <p><i class="fas fa-link"></i> ${lesson.content_title}</p>
+                    `;
+                }
             }
         } else {
+            // ✅ CREATE VIDEO ELEMENT WITH SOURCE
             const sourceElement = document.createElement('source');
-            sourceElement.src = videoUrl + '?v=' + Date.now();
+            sourceElement.src = videoUrl + '?v=' + Date.now(); // Cache buster
             sourceElement.type = 'video/mp4';
             videoElement.appendChild(sourceElement);
             videoElement.appendChild(document.createTextNode('Your browser does not support the video tag.'));
+            
+            // ✅ ADD ERROR HANDLER
+            videoElement.onerror = function() {
+                console.error('❌ Failed to load video:', videoUrl);
+                if (videoInfo) {
+                    videoInfo.innerHTML = `
+                        <p style="color: #e74c3c;">
+                            <i class="fas fa-exclamation-triangle"></i> 
+                            Failed to load video. File may not exist.
+                        </p>
+                    `;
+                }
+            };
+            
             videoElement.load();
         }
         
         // Update video info
-        if (videoInfo) {
+        if (videoInfo && videoSource !== 'youtube') {
             let sourceText = videoSource === 'uploaded' ? '📁 Uploaded Video' : 
                             videoSource === 'youtube' ? '🔗 YouTube' : '📚 Default Video';
             
@@ -14291,6 +14313,9 @@ async function loadVideoFromDatabase(contentId = null) {
         console.error('❌ Error loading video:', error);
         if (videoElement) {
             videoElement.innerHTML = '<p style="color: #e74c3c; padding: 20px;">Failed to load video</p>';
+        }
+        if (videoInfo) {
+            videoInfo.innerHTML = '<p style="color: #e74c3c;"><i class="fas fa-exclamation-triangle"></i> Error loading video</p>';
         }
         return null;
     } finally {
