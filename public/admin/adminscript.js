@@ -16922,7 +16922,7 @@ function getLessonFormData() {
     };
 }
 
-// ===== UPDATE ACTIVE SUBJECT WITH DATABASE DATA =====
+// ===== UPDATED: UPDATE ACTIVE SUBJECT FROM DATABASE =====
 async function updateActiveSubjectFromDatabase() {
     console.log("📊 Updating active subject from database...");
     
@@ -16937,47 +16937,75 @@ async function updateActiveSubjectFromDatabase() {
         
         // Get current subject from global variable
         const subject = currentSubject || 'polynomial';
-        
-        // ===== IMPORTANT: Convert subject name to database ID =====
         const subjectId = getSubjectIdFromName(subject);
         
-        console.log(`🔍 Fetching data for active subject: ${subject} (converted to ID: ${subjectId})`);
+        console.log(`🔍 Fetching data for active subject: ${subject} (ID: ${subjectId})`);
         
-        // Get subject summary from database using the correct ID
-        const response = await fetch(`/api/subject/${subjectId}/summary`, {
-            headers: {
-                'Authorization': `Bearer ${token}`
+        // ✅ GAMITIN ANG WORKING ENDPOINTS:
+        // 1. Get lessons count from admin lessons
+        const lessonsResponse = await adminFetch(`/api/admin/lessons`);
+        
+        // 2. Get student count from dashboard stats
+        const statsResponse = await adminFetch(`/api/admin/dashboard/stats`);
+        
+        let totalLessons = 0;
+        let resources = 0;
+        let students = 0;
+        
+        // Process lessons data
+        if (lessonsResponse.ok) {
+            const lessonsData = await lessonsResponse.json();
+            if (lessonsData.success && lessonsData.lessons) {
+                // Filter lessons by subject
+                const subjectLessons = lessonsData.lessons.filter(lesson => {
+                    // Try to match by lesson_id or lesson_name
+                    return lesson.lesson_id === subjectId || 
+                           (lesson.lesson_name && lesson.lesson_name.toLowerCase() === subject.toLowerCase());
+                });
+                
+                totalLessons = subjectLessons.length;
+                resources = subjectLessons.filter(l => 
+                    l.content_type === 'video' || l.content_type === 'pdf'
+                ).length;
             }
+        }
+        
+        // Process stats for student count
+        if (statsResponse.ok) {
+            const statsData = await statsResponse.json();
+            if (statsData.success && statsData.stats) {
+                students = statsData.stats.active_users || 0;
+            }
+        }
+        
+        // If no data from API, try to get from localStorage cache
+        if (totalLessons === 0) {
+            try {
+                const cached = localStorage.getItem(`mysql_lessons_cache_subject_${subjectId}`);
+                if (cached) {
+                    const cacheData = JSON.parse(cached);
+                    if (cacheData.lessons) {
+                        totalLessons = cacheData.lessons.length;
+                        resources = cacheData.lessons.filter(l => 
+                            l.content_type === 'video' || l.content_type === 'pdf'
+                        ).length;
+                    }
+                }
+            } catch (e) {
+                console.log('No cached data found');
+            }
+        }
+        
+        // Update UI with the data we have
+        updateActiveSubjectUI({
+            subjectName: getSubjectDisplayName(subject),
+            description: getSubjectDescription(subject),
+            lessons: totalLessons,
+            resources: resources,
+            students: students
         });
         
-        if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
-        }
-        
-        const result = await response.json();
-        console.log('📥 Subject summary response:', result);
-        
-        if (result.success) {
-            const summary = result.summary;
-            
-            // Update the UI with database data
-            updateActiveSubjectUI({
-                subjectName: getSubjectDisplayName(subject),
-                description: getSubjectDescription(subject),
-                lessons: summary.lessons || 0,
-                resources: summary.resources || 0,
-                students: summary.students || 0
-            });
-            
-            console.log('✅ Active subject updated with database data:', {
-                lessons: summary.lessons,
-                resources: summary.resources,
-                students: summary.students
-            });
-            
-        } else {
-            throw new Error(result.message || 'Failed to load subject summary');
-        }
+        console.log(`✅ Active subject updated: ${totalLessons} lessons, ${resources} resources, ${students} students`);
         
     } catch (error) {
         console.error('❌ Error updating active subject from database:', error);
