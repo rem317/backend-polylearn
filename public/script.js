@@ -14137,9 +14137,8 @@ async function testVideoAccessibility(url) {
     }
 }
 
-// Load video dynamically from database - FIXED VERSION
 // ============================================
-// PERMANENT FIX: LOAD VIDEO FROM DATABASE
+// FIXED: LOAD VIDEO FROM DATABASE
 // ============================================
 async function loadVideoFromDatabase(contentId = null) {
     const videoElement = document.getElementById('lessonVideo');
@@ -14153,12 +14152,10 @@ async function loadVideoFromDatabase(contentId = null) {
     }
     
     try {
-        // Get content ID from current lesson if not provided
         if (!contentId && LessonState.currentLesson) {
             contentId = LessonState.currentLesson.content_id;
         }
         
-        // If still no contentId, try to get from URL or data attribute
         if (!contentId) {
             const urlParams = new URLSearchParams(window.location.search);
             contentId = urlParams.get('contentId') || urlParams.get('id') || 1;
@@ -14166,7 +14163,6 @@ async function loadVideoFromDatabase(contentId = null) {
         
         console.log(`🎬 Loading video for content ID: ${contentId}`);
         
-        // Show loading state
         if (videoInfo) {
             videoInfo.innerHTML = '<p><i class="fas fa-spinner fa-spin"></i> Loading video from database...</p>';
         }
@@ -14176,15 +14172,12 @@ async function loadVideoFromDatabase(contentId = null) {
             refreshVideoBtn.disabled = true;
         }
         
-        // Get auth token
         const token = localStorage.getItem('authToken') || authToken;
         if (!token) {
             throw new Error('No auth token available');
         }
         
-        // ===== STEP 1: FETCH LESSON DATA FROM DATABASE =====
-        console.log(`📥 Fetching lesson data for content ID: ${contentId}`);
-        
+        // FETCH LESSON DATA
         const lessonResponse = await fetch(`/api/lessons-db/${contentId}`, {
             headers: {
                 'Authorization': `Bearer ${token}`,
@@ -14205,7 +14198,7 @@ async function loadVideoFromDatabase(contentId = null) {
         const lesson = lessonData.lesson;
         console.log('✅ Lesson data loaded:', lesson);
         
-        // Update lesson info in UI
+        // Update UI
         const titleElement = document.getElementById('videoLessonTitle');
         if (titleElement) {
             titleElement.textContent = lesson.content_title || 'Video Lesson';
@@ -14216,77 +14209,45 @@ async function loadVideoFromDatabase(contentId = null) {
             descElement.textContent = lesson.content_description || '';
         }
         
-        // Update video title in header
         if (videoTitle) {
             videoTitle.innerHTML = `<i class="fas fa-video"></i> ${lesson.content_title || 'Video Lesson'}`;
         }
         
-        // ===== STEP 2: DETERMINE VIDEO SOURCE =====
+        // ===== VIDEO SOURCE - FIXED =====
         let videoUrl = null;
         let videoSource = 'none';
         let videoFilename = null;
         
-        // Check if lesson has video_filename (uploaded video)
         if (lesson.video_filename) {
-            // This is an uploaded video
             videoFilename = lesson.video_filename;
-            // ✅ FIXED: Use /videos/ instead of /uploads/videos/
+            
+            // ✅ TAMA NA ITO - /videos/ HINDI /uploads/videos/
             videoUrl = `/videos/${lesson.video_filename}`;
+            
             videoSource = 'uploaded';
             console.log(`🎬 Found uploaded video: ${videoFilename}`);
             console.log(`📺 Video URL: ${videoUrl}`);
         }
-        // Check if lesson has YouTube URL
         else if (lesson.content_url && (lesson.content_url.includes('youtube') || lesson.content_url.includes('youtu.be'))) {
             videoUrl = lesson.content_url;
             videoSource = 'youtube';
             console.log(`🔗 Found YouTube URL: ${videoUrl}`);
         }
-        // Check if lesson has video_path
         else if (lesson.video_path) {
             videoUrl = lesson.video_path;
             videoSource = 'path';
             console.log(`📁 Found video path: ${videoUrl}`);
         }
         
-        // ===== STEP 3: IF NO VIDEO, CHECK VIDEO_UPLOADS TABLE =====
         if (!videoUrl) {
-            console.log('🔍 No video in lesson data, checking video_uploads table...');
-            
-            try {
-                const videoResponse = await fetch(`/api/videos/content/${contentId}`, {
-                    headers: {
-                        'Authorization': `Bearer ${token}`,
-                        'Content-Type': 'application/json'
-                    }
-                });
-                
-                if (videoResponse.ok) {
-                    const videoData = await videoResponse.json();
-                    
-                    if (videoData.success && videoData.video) {
-                        videoUrl = videoData.video.url;
-                        videoFilename = videoData.video.filename;
-                        videoSource = videoData.video.source || 'video_uploads';
-                        console.log(`✅ Found video in video_uploads:`, videoData.video);
-                    }
-                }
-            } catch (videoError) {
-                console.warn('⚠️ Error checking video_uploads:', videoError.message);
-            }
-        }
-        
-        // ===== STEP 4: IF STILL NO VIDEO, USE DEFAULT =====
-        if (!videoUrl) {
-            console.log('⚠️ No video found in database, using default video');
+            console.log('⚠️ No video found, using default');
             videoUrl = '/videos/quarter1-polynomial-equations.mp4';
-            videoSource = 'default_fallback';
+            videoSource = 'default';
         }
         
-        // ===== STEP 5: CLEAR VIDEO ELEMENT AND LOAD NEW VIDEO =====
+        // LOAD VIDEO
         videoElement.innerHTML = '';
         
-        // Check if it's YouTube
         if (videoUrl.includes('youtube') || videoUrl.includes('youtu.be')) {
             const videoId = extractYoutubeId(videoUrl);
             if (videoId) {
@@ -14297,95 +14258,42 @@ async function loadVideoFromDatabase(contentId = null) {
                 iframe.frameBorder = '0';
                 iframe.allowFullscreen = true;
                 videoElement.parentNode.replaceChild(iframe, videoElement);
-                
-                if (videoInfo) {
-                    videoInfo.innerHTML = `
-                        <p><i class="fab fa-youtube"></i> <strong>YouTube Video</strong></p>
-                        <p><i class="fas fa-link"></i> Source: ${lesson.content_title}</p>
-                    `;
-                }
-                
-                console.log('✅ YouTube video loaded');
-                return { url: videoUrl, source: 'youtube' };
             }
+        } else {
+            const sourceElement = document.createElement('source');
+            sourceElement.src = videoUrl + '?v=' + Date.now();
+            sourceElement.type = 'video/mp4';
+            videoElement.appendChild(sourceElement);
+            videoElement.appendChild(document.createTextNode('Your browser does not support the video tag.'));
+            videoElement.load();
         }
-        
-        // Regular MP4 video
-        const sourceElement = document.createElement('source');
-        sourceElement.src = videoUrl + '?v=' + Date.now(); // Add cache buster
-        sourceElement.type = 'video/mp4';
-        videoElement.appendChild(sourceElement);
-        
-        // Add fallback text
-        const fallbackText = document.createTextNode('Your browser does not support the video tag.');
-        videoElement.appendChild(fallbackText);
-        
-        // Load the video
-        videoElement.load();
         
         // Update video info
         if (videoInfo) {
-            let sourceText = '';
-            if (videoSource === 'uploaded') {
-                sourceText = '📁 Uploaded by Admin';
-            } else if (videoSource === 'youtube') {
-                sourceText = '🔗 YouTube Link';
-            } else if (videoSource === 'default_fallback') {
-                sourceText = '⚠️ Default Video (No uploaded video found)';
-            } else {
-                sourceText = '📚 Lesson Video';
-            }
+            let sourceText = videoSource === 'uploaded' ? '📁 Uploaded Video' : 
+                            videoSource === 'youtube' ? '🔗 YouTube' : '📚 Default Video';
             
             videoInfo.innerHTML = `
                 <p><i class="fas fa-info-circle"></i> <strong>${lesson.content_title || 'Video Lesson'}</strong></p>
-                <p><i class="fas fa-clock"></i> Duration: ${Math.floor((lesson.video_duration_seconds || 600) / 60)} minutes</p>
+                <p><i class="fas fa-clock"></i> Duration: ${Math.floor((lesson.video_duration_seconds || 600) / 60)} min</p>
                 <p><i class="fas fa-database"></i> ${sourceText}</p>
-                ${videoFilename ? `<p><i class="fas fa-file-video"></i> Filename: ${videoFilename}</p>` : ''}
+                <p><i class="fas fa-link"></i> Path: ${videoUrl}</p>
             `;
         }
         
         // Initialize progress tracking
         initVideoProgressTracking(videoElement, contentId);
         
-        // Store video data in AppState
-        AppState.currentVideoData = {
-            url: videoUrl,
-            title: lesson.content_title,
-            filename: videoFilename,
-            source: videoSource,
-            content_id: contentId
-        };
-        
-        console.log('✅ Video loaded successfully:', {
-            url: videoUrl,
-            source: videoSource,
-            content_id: contentId,
-            filename: videoFilename
-        });
-        
-        return AppState.currentVideoData;
+        console.log('✅ Video loaded successfully:', { url: videoUrl, source: videoSource });
+        return { url: videoUrl, source: videoSource };
         
     } catch (error) {
         console.error('❌ Error loading video:', error);
-        
-        // Ultimate fallback - show error message
         if (videoElement) {
-            videoElement.innerHTML = '';
-            const errorMsg = document.createElement('p');
-            errorMsg.style.color = '#e74c3c';
-            errorMsg.style.padding = '20px';
-            errorMsg.style.textAlign = 'center';
-            errorMsg.innerHTML = '<i class="fas fa-exclamation-triangle"></i> Failed to load video. Please try again.';
-            videoElement.appendChild(errorMsg);
+            videoElement.innerHTML = '<p style="color: #e74c3c; padding: 20px;">Failed to load video</p>';
         }
-        
-        if (videoInfo) {
-            videoInfo.innerHTML = '<p style="color: #e74c3c;"><i class="fas fa-exclamation-triangle"></i> Error loading video from database</p>';
-        }
-        
         return null;
     } finally {
-        // Reset refresh button
         if (refreshVideoBtn) {
             refreshVideoBtn.innerHTML = '<i class="fas fa-sync-alt"></i>';
             refreshVideoBtn.disabled = false;
