@@ -20056,7 +20056,7 @@ function closeViewQuizModal() {
     }
 }
 
-// ===== EDIT QUIZ =====
+// ===== EDIT QUIZ - FIXED =====
 async function editQuiz(quizId) {
     console.log("✏️ Editing quiz:", quizId);
     
@@ -20081,7 +20081,7 @@ async function editQuiz(quizId) {
             document.getElementById('editQuizId').value = quiz.id;
             document.getElementById('quizTitle').value = quiz.title;
             document.getElementById('quizDescription').value = quiz.description || '';
-            document.getElementById('quizSubject').value = quiz.subject_id;
+            document.getElementById('quizSubject').value = quiz.category_id || quiz.subject_id;
             document.getElementById('quizTimeLimit').value = quiz.time_limit_minutes;
             document.getElementById('quizPassingScore').value = quiz.passing_score;
             document.getElementById('quizMaxAttempts').value = quiz.max_attempts;
@@ -20107,17 +20107,24 @@ async function editQuiz(quizId) {
                     const qNum = index + 1;
                     document.getElementById(`q_${qNum}_text`).value = q.question_text;
                     
-                    q.options.forEach(opt => {
-                        const optInput = document.getElementById(`q_${qNum}_opt_${opt.letter.toLowerCase()}`);
-                        if (optInput) {
-                            optInput.value = opt.option_text;
-                        }
-                    });
-                    
-                    // Set correct answer
-                    const correctRadio = document.querySelector(`input[name="q_${qNum}_correct"][value="${q.correct_answer.toLowerCase()}"]`);
-                    if (correctRadio) {
-                        correctRadio.checked = true;
+                    // ✅ FIXED: Check if options exist and have the right properties
+                    if (q.options && Array.isArray(q.options)) {
+                        q.options.forEach((opt, optIndex) => {
+                            // Get the letter based on index (a, b, c, d...)
+                            const letters = ['a', 'b', 'c', 'd', 'e', 'f'];
+                            const letter = letters[optIndex];
+                            
+                            const optInput = document.getElementById(`q_${qNum}_opt_${letter}`);
+                            if (optInput) {
+                                optInput.value = opt.option_text || opt.text || '';
+                            }
+                            
+                            // Set correct answer
+                            if (opt.is_correct || opt.correct) {
+                                const radio = document.querySelector(`input[name="q_${qNum}_correct"][value="${letter}"]`);
+                                if (radio) radio.checked = true;
+                            }
+                        });
                     }
                 }, 100 * (index + 1));
             });
