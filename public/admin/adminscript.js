@@ -16627,7 +16627,7 @@ function togglePasswordVisibility() {
     }
 }
 
-const API_BASE_URL = '${API_BASE_URL}/api';
+const API_BASE_URL = '';
 let authToken = localStorage.getItem('admin_token') || '';
 
 // Function para mag-check ng authentication
