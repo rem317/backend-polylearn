@@ -5195,10 +5195,10 @@ app.get('/api/progress/weekly-improvement', authenticateUser, async (req, res) =
 
 
 // ============================================
-// FORGOT PASSWORD ROUTES (WITHOUT EMAIL)
+// ✅ COMPLETE FIXED: FORGOT PASSWORD ROUTES
 // ============================================
 
-// Request password reset - generates token
+// Forgot password - request reset
 app.post('/api/auth/forgot-password', async (req, res) => {
     try {
         const { email } = req.body;
@@ -5269,14 +5269,13 @@ app.post('/api/auth/forgot-password', async (req, res) => {
         
         console.log(`✅ Reset token generated for user ${user.user_id}: ${resetToken}`);
         
-        // In a real app, you would send an email here
-        // For demo, we'll return the token in the response
+        // For demo, return the token in the response
         res.json({
             success: true,
             message: 'Password reset link generated',
             demo_mode: true,
             reset_token: resetToken,
-            reset_link: `http://localhost:5000/reset-password?token=${resetToken}`,
+            reset_link: `${req.protocol}://${req.get('host')}/reset-password?token=${resetToken}`,
             user: {
                 id: user.user_id,
                 name: user.full_name || user.username,
@@ -5433,7 +5432,7 @@ app.post('/api/auth/reset-password', async (req, res) => {
     }
 });
 
-// Get user by email (for checking)
+// Check if email exists
 app.post('/api/auth/check-email', async (req, res) => {
     try {
         const { email } = req.body;
@@ -5456,7 +5455,6 @@ app.post('/api/auth/check-email', async (req, res) => {
         });
     }
 });
-
 
 
 // Submit quiz
