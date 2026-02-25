@@ -101,10 +101,14 @@ const subjectData = {
 
 // ===== API CONFIGURATION =====
 // AUTO-DETECT BASE URL (gagana sa local at production)
+// ===== API CONFIGURATION - FIXED =====
+// Use relative paths para iwas CORS
 const API_BASE_URL = window.location.hostname.includes('localhost') 
     ? 'http://localhost:5000/api'
-    : 'https://polylearn-backend.up.railway.app/api'; // I-replace pag na-deploy na
+    : '/api'; // Relative path - same domain lang
+
 let authToken = localStorage.getItem('authToken');
+console.log('🔧 API Base URL:', API_BASE_URL);
 
 // ============================================
 // INITIALIZATION
@@ -896,7 +900,11 @@ async function loadDashboardData(forceRefresh = false) {
         
         // ===== FETCH DASHBOARD STATS =====
         const response = await fetch(`${API_BASE_URL}/teacher/dashboard/stats`, {
-            headers: { 'Authorization': `Bearer ${token}` }
+            method: 'GET',
+            headers: { 
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+            }
         });
         
         if (!response.ok) {
@@ -6215,7 +6223,11 @@ async function loadQuizzes() {
         const token = localStorage.getItem('authToken');
         
         const response = await fetch(`${API_BASE_URL}/teacher/quizzes`, {
-            headers: { 'Authorization': `Bearer ${token}` }
+            method: 'GET',
+            headers: { 
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+            }
         });
         
         if (!response.ok) {
@@ -6907,9 +6919,8 @@ function updateQuizChart(range) {
 async function loadQuizCategories() {
     try {
         const token = localStorage.getItem('authToken');
-        const response = await fetch(`${API_BASE_URL}/quiz/categories`, {
-            headers: { 'Authorization': `Bearer ${token}` }
-        });
+        // Public endpoint - no auth needed
+        const response = await fetch(`${API_BASE_URL}/quiz/categories`);
         
         if (!response.ok) throw new Error('Failed to load categories');
         
@@ -6926,7 +6937,11 @@ async function loadTopics() {
     try {
         const token = localStorage.getItem('authToken');
         const response = await fetch(`${API_BASE_URL}/teacher/topics`, {
-            headers: { 'Authorization': `Bearer ${token}` }
+            method: 'GET',
+            headers: { 
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+            }
         });
         
         if (!response.ok) {
@@ -7317,7 +7332,13 @@ async function saveQuizToDatabase() {
         const token = localStorage.getItem('authToken');
         
         // Use TEACHER endpoint, not admin
-        const response = await fetch(`${API_BASE_URL}/teacher/quizzes/create`, {
+        // Check muna kung may category_id
+    if (!quizData.category_id) {
+        showNotification('error', 'Error', 'Please select a subject');
+        return;
+    }
+
+    const response = await fetch(`${API_BASE_URL}/teacher/quizzes/create`, {
             method: 'POST',
             headers: {
                 'Authorization': `Bearer ${token}`,
