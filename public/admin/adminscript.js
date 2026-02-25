@@ -13076,7 +13076,15 @@ async function loadFeedbackData() {
         tableBody.innerHTML = getErrorHTML(error.message);
     }
 }
-
+// Add this function definition
+function showNoFeedbackMessage() {
+    const feedbackContainer = document.getElementById('feedback-list');
+    if (feedbackContainer) {
+        feedbackContainer.innerHTML = '<div class="no-feedback">No feedback available</div>';
+    }
+    // Alternatively, you might want to show a message in a different element
+    // Adjust according to your UI structure
+}
 // ===== FIXED: updateFeedbackTable with proper onclick handlers =====
 function updateFeedbackTable() {
     const tableBody = document.getElementById('feedbackTableBody');
