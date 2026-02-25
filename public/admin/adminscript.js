@@ -20192,7 +20192,7 @@ async function saveQuizToMySQL() {
         }
         
         // ✅ FIXED: Dapat ganito ang URL construction
-        const url = `/api/admin/users`;
+        const url = editId
             ? `/api/admin/quizzes/${editId}`
             : `/api/admin/quizzes`;  // Use relative URL directly
         
@@ -23511,7 +23511,7 @@ async function savePracticeExercise() {
         
         // ✅ FIXED: Use proper URL construction
         const baseUrl = `/api/admin/users`; // API_BASE_URL is usually empty string for relative URLs
-        const url = `/api/admin/users`; 
+        const url = practiceId 
             ? `/api/admin/practice/${practiceId}`
             : `/api/admin/practice`;  // Use relative URL directly for new entries
         
