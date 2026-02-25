@@ -4589,7 +4589,9 @@ function closeForgotPasswordModal() {
     }
 }
 
-// Request password reset
+// ============================================
+// ✅ KEEP THIS VERSION (should be around line 4720)
+// ============================================
 async function requestPasswordReset() {
     const email = document.getElementById('resetEmail').value.trim();
     const errorDiv = document.getElementById('forgotError');
@@ -4637,7 +4639,6 @@ async function requestPasswordReset() {
                 currentResetToken = data.reset_token;
             }
             
-            // ✅ UPDATED: Use your 3-parameter showNotification
             showNotification('success', 'Success!', 'Reset link generated! Check the modal for instructions.');
         } else {
             errorDiv.textContent = data.message || 'Failed to process request';
@@ -4652,6 +4653,7 @@ async function requestPasswordReset() {
         submitBtn.disabled = false;
     }
 }
+
 
 // Copy reset link to clipboard
 function copyResetLink() {
@@ -29846,23 +29848,63 @@ window.debugModalWhy = function() {
 
 // Override ang showForgotPasswordModal para sure
 const originalShowForgotPasswordModal = window.showForgotPasswordModal;
+// ============================================
+// 🚨 EMERGENCY MODAL FIX - ADD AT THE VERY END
+// ============================================
+
+// Override the showForgotPasswordModal function
 window.showForgotPasswordModal = function() {
-    console.log('🔑 showForgotPasswordModal called (overridden)');
+    console.log('🔑 Opening forgot password modal (FIXED VERSION)');
     
-    // Try original first
-    if (originalShowForgotPasswordModal) {
-        originalShowForgotPasswordModal();
+    const modal = document.getElementById('forgotPasswordModal');
+    
+    if (!modal) {
+        console.error('❌ Modal not found! Creating dynamically...');
+        createForgotPasswordModal();
+        setTimeout(() => window.showForgotPasswordModal(), 100);
+        return;
     }
     
-    // Force after a tiny delay
-    setTimeout(() => {
-        const modal = document.getElementById('forgotPasswordModal');
-        if (modal && window.getComputedStyle(modal).display === 'none') {
-            console.log('⚠️ Modal still hidden, forcing...');
-            forceShowForgotModal();
-        }
-    }, 200);
+    // Reset to step 1
+    const step1 = document.getElementById('forgotStep1');
+    const step2 = document.getElementById('forgotStep2');
+    const resetEmail = document.getElementById('resetEmail');
+    const forgotError = document.getElementById('forgotError');
+    
+    if (step1) step1.style.display = 'block';
+    if (step2) step2.style.display = 'none';
+    if (resetEmail) resetEmail.value = '';
+    if (forgotError) forgotError.style.display = 'none';
+    
+    // FORCE SHOW MODAL
+    modal.style.display = 'flex';
+    modal.style.position = 'fixed';
+    modal.style.top = '0';
+    modal.style.left = '0';
+    modal.style.width = '100%';
+    modal.style.height = '100%';
+    modal.style.backgroundColor = 'rgba(0, 0, 0, 0.8)';
+    modal.style.zIndex = '999999';
+    modal.style.alignItems = 'center';
+    modal.style.justifyContent = 'center';
+    
+    // Prevent body scrolling
+    document.body.classList.add('modal-open');
+    document.body.style.overflow = 'hidden';
+    
+    console.log('✅ Modal shown successfully');
 };
+
+// Direct click handler for forgot password link
+document.addEventListener('click', function(e) {
+    const target = e.target.closest('#forgotPasswordLink');
+    if (target) {
+        e.preventDefault();
+        e.stopPropagation();
+        console.log('🎯 Forgot password link clicked');
+        window.showForgotPasswordModal();
+    }
+}, true);
 
 // Auto-run kapag may error
 console.log('🚀 Emergency modal fixes loaded!');
