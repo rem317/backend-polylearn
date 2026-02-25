@@ -20,7 +20,7 @@ const app = express();
 // ============================================
 // MIDDLEWARE - FIXED CORS (COMPLETE FIX)
 // ============================================
-const cors = require('cors'); // Make sure this is at the top with other requires
+
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
