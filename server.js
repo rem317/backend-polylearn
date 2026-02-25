@@ -1203,6 +1203,127 @@ app.post('/api/user/change-password', authenticateUser, async (req, res) => {
     }
 });
 
+// ===== GET SINGLE PRACTICE EXERCISE BY ID =====
+app.get('/api/exercises/:exerciseId', authenticateToken, async (req, res) => {
+    try {
+        const { exerciseId } = req.params;
+        
+        const [exercises] = await promisePool.query(`
+            SELECT 
+                exercise_id,
+                title,
+                description,
+                content_type,
+                difficulty,
+                points,
+                content_json,
+                topic_id,
+                is_active,
+                created_at,
+                updated_at
+            FROM practice_exercises 
+            WHERE exercise_id = ? AND is_active = 1
+        `, [exerciseId]);
+        
+        if (exercises.length === 0) {
+            return res.status(404).json({
+                success: false,
+                message: 'Exercise not found'
+            });
+        }
+        
+        const exercise = exercises[0];
+        
+        // Parse JSON content
+        let contentJson = exercise.content_json;
+        if (typeof contentJson === 'string') {
+            try {
+                contentJson = JSON.parse(contentJson);
+            } catch (e) {
+                contentJson = { questions: [] };
+            }
+        }
+        
+        // Get attempt count
+        const [attemptStats] = await promisePool.query(`
+            SELECT 
+                COUNT(*) as attempts,
+                COUNT(DISTINCT user_id) as unique_students,
+                COALESCE(AVG(score), 0) as avg_score
+            FROM user_practice_progress
+            WHERE exercise_id = ?
+        `, [exerciseId]);
+        
+        res.json({
+            success: true,
+            exercise: {
+                id: exercise.exercise_id,
+                title: exercise.title,
+                description: exercise.description,
+                content_type: exercise.content_type,
+                difficulty: exercise.difficulty,
+                points: exercise.points,
+                topic_id: exercise.topic_id,
+                content_json: contentJson,
+                is_active: exercise.is_active,
+                created_at: exercise.created_at,
+                stats: attemptStats[0] || {
+                    attempts: 0,
+                    unique_students: 0,
+                    avg_score: 0
+                }
+            }
+        });
+        
+    } catch (error) {
+        console.error('❌ Error fetching exercise:', error);
+        res.status(500).json({ 
+            success: false, 
+            message: error.message 
+        });
+    }
+});
+
+
+// ===== GET PRACTICE EXERCISE ATTEMPTS =====
+app.get('/api/admin/practice/:exerciseId/attempts', authenticateAdmin, async (req, res) => {
+    try {
+        const { exerciseId } = req.params;
+        
+        const [attempts] = await promisePool.query(`
+            SELECT 
+                upp.progress_id,
+                upp.user_id,
+                u.full_name as user_name,
+                u.username,
+                upp.score,
+                upp.completion_status,
+                upp.attempts as attempt_number,
+                upp.time_spent_seconds,
+                upp.last_attempted as attempted_at,
+                upp.completed_at
+            FROM user_practice_progress upp
+            JOIN users u ON upp.user_id = u.user_id
+            WHERE upp.exercise_id = ?
+            ORDER BY upp.last_attempted DESC
+        `, [exerciseId]);
+        
+        res.json({
+            success: true,
+            attempts: attempts
+        });
+        
+    } catch (error) {
+        console.error('❌ Error fetching practice attempts:', error);
+        res.status(500).json({ 
+            success: false, 
+            message: error.message 
+        });
+    }
+});
+
+
+
 // ============================================
 // SECTION NAVIGATION FUNCTION
 // ============================================
