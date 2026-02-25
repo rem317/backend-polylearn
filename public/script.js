@@ -1763,12 +1763,34 @@ function initVideoProgressTracking(videoElement, contentId) {
         }
     });
     
-    // ===== DETECT WHEN VIDEO DURATION IS LOADED =====
     videoElement.addEventListener('loadedmetadata', function() {
-        videoDuration = videoElement.duration;
-        console.log(`📹 Video duration: ${videoDuration}s`);
-        updateCurrentLessonDisplay();
-    });
+    videoDuration = videoElement.duration;
+    console.log(`📹 Video duration: ${videoDuration}s`);
+    updateCurrentLessonDisplay();
+    
+    // Show success in video info
+    const videoInfo = document.getElementById('videoInfo');
+    if (videoInfo) {
+        videoInfo.innerHTML = `
+            <p><i class="fas fa-check-circle" style="color: #27ae60;"></i> Video loaded successfully</p>
+            <p><i class="fas fa-clock"></i> Duration: ${Math.floor(videoDuration / 60)} min</p>
+        `;
+    }
+});
+
+// Add error event listener
+videoElement.addEventListener('error', function(e) {
+    console.error('❌ Video error:', e);
+    const videoInfo = document.getElementById('videoInfo');
+    if (videoInfo) {
+        videoInfo.innerHTML = `
+            <p style="color: #e74c3c;">
+                <i class="fas fa-exclamation-triangle"></i> 
+                Error loading video. Please check if the file exists.
+            </p>
+        `;
+    }
+});
     
     // ===== PLAY EVENT =====
     videoElement.addEventListener('play', function() {
@@ -14119,7 +14141,6 @@ async function getVideoFromDatabase(contentId = 1) {
         return null;
     }
 }
-
 // Test video accessibility
 async function testVideoAccessibility(url) {
     try {
@@ -14213,97 +14234,133 @@ async function loadVideoFromDatabase(contentId = null) {
             videoTitle.innerHTML = `<i class="fas fa-video"></i> ${lesson.content_title || 'Video Lesson'}`;
         }
         
-        // ===== VIDEO SOURCE - USE THE CORRECT PATH =====
-        let videoUrl = null;
-        let videoSource = 'none';
-        let videoFilename = null;
+        // ===== VIDEO SOURCE - ILAGAY ITO DITO =====
+let videoUrl = null;
+let videoSource = 'none';
+let videoFilename = null;
+
+if (lesson.video_filename) {
+    videoFilename = lesson.video_filename;
+    
+    // ✅ GAMITIN ANG /videos/ DAHIL ITO ANG GUMAGANA
+    videoUrl = `/videos/${lesson.video_filename}`;
+    
+    videoSource = 'uploaded';
+    console.log(`🎬 Found uploaded video: ${videoFilename}`);
+    console.log(`📺 Video URL: ${videoUrl}`);
+}
+else if (lesson.content_url && (lesson.content_url.includes('youtube') || lesson.content_url.includes('youtu.be'))) {
+    videoUrl = lesson.content_url;
+    videoSource = 'youtube';
+    console.log(`🔗 Found YouTube URL: ${videoUrl}`);
+}
+else if (lesson.video_path) {
+    videoUrl = lesson.video_path;
+    videoSource = 'path';
+    console.log(`📁 Found video path: ${videoUrl}`);
+}
+
+if (!videoUrl) {
+    console.log('⚠️ No video found, using default');
+    videoUrl = '/videos/quarter1-polynomial-equations.mp4';
+    videoSource = 'default';
+}
         
-        if (lesson.video_filename) {
-            videoFilename = lesson.video_filename;
+       // LOAD VIDEO
+videoElement.innerHTML = '';
+
+if (videoUrl.includes('youtube') || videoUrl.includes('youtu.be')) {
+    const videoId = extractYoutubeId(videoUrl);
+    if (videoId) {
+        const iframe = document.createElement('iframe');
+        iframe.width = '100%';
+        iframe.height = '400';
+        iframe.src = `https://www.youtube.com/embed/${videoId}?autoplay=0`;
+        iframe.frameBorder = '0';
+        iframe.allowFullscreen = true;
+        videoElement.parentNode.replaceChild(iframe, videoElement);
+        
+        if (videoInfo) {
+            videoInfo.innerHTML = `
+                <p><i class="fab fa-youtube"></i> <strong>YouTube Video</strong></p>
+                <p><i class="fas fa-link"></i> ${lesson.content_title}</p>
+            `;
+        }
+    }
+} else {
+    // ✅ CREATE VIDEO ELEMENT WITH SOURCE
+    const sourceElement = document.createElement('source');
+    sourceElement.src = videoUrl + '?v=' + Date.now(); // Cache buster
+    sourceElement.type = 'video/mp4';
+    videoElement.appendChild(sourceElement);
+    videoElement.appendChild(document.createTextNode('Your browser does not support the video tag.'));
+    
+    // ✅ ADD ERROR HANDLER WITH FALLBACK
+    videoElement.onerror = function() {
+        console.error('❌ Failed to load video:', videoUrl);
+        
+        // Try alternative path as fallback
+        if (videoUrl.includes('/videos/')) {
+            // Try without cache buster
+            const altUrl = videoUrl.split('?')[0];
+            console.log('🔄 Trying alternative URL:', altUrl);
             
-            // ✅ FIXED: Use /uploads/videos/ which is correctly served in server.js
-            videoUrl = `/uploads/videos/${lesson.video_filename}`;
+            videoElement.innerHTML = '';
+            const altSource = document.createElement('source');
+            altSource.src = altUrl;
+            altSource.type = 'video/mp4';
+            videoElement.appendChild(altSource);
+            videoElement.load();
             
-            videoSource = 'uploaded';
-            console.log(`🎬 Found uploaded video: ${videoFilename}`);
-            console.log(`📺 Video URL: ${videoUrl}`);
-        }
-        else if (lesson.content_url && (lesson.content_url.includes('youtube') || lesson.content_url.includes('youtu.be'))) {
-            videoUrl = lesson.content_url;
-            videoSource = 'youtube';
-            console.log(`🔗 Found YouTube URL: ${videoUrl}`);
-        }
-        else if (lesson.video_path) {
-            videoUrl = lesson.video_path;
-            videoSource = 'path';
-            console.log(`📁 Found video path: ${videoUrl}`);
-        }
-        
-        if (!videoUrl) {
-            console.log('⚠️ No video found, using default');
-            videoUrl = '/uploads/videos/quarter1-polynomial-equations.mp4';
-            videoSource = 'default';
-        }
-        
-        // LOAD VIDEO
-        videoElement.innerHTML = '';
-        
-        if (videoUrl.includes('youtube') || videoUrl.includes('youtu.be')) {
-            const videoId = extractYoutubeId(videoUrl);
-            if (videoId) {
-                const iframe = document.createElement('iframe');
-                iframe.width = '100%';
-                iframe.height = '400';
-                iframe.src = `https://www.youtube.com/embed/${videoId}?autoplay=0`;
-                iframe.frameBorder = '0';
-                iframe.allowFullscreen = true;
-                videoElement.parentNode.replaceChild(iframe, videoElement);
-                
-                if (videoInfo) {
-                    videoInfo.innerHTML = `
-                        <p><i class="fab fa-youtube"></i> <strong>YouTube Video</strong></p>
-                        <p><i class="fas fa-link"></i> ${lesson.content_title}</p>
-                    `;
-                }
-            }
-        } else {
-            // ✅ CREATE VIDEO ELEMENT WITH SOURCE - USING CORRECT PATH
-            const sourceElement = document.createElement('source');
-            sourceElement.src = videoUrl + '?v=' + Date.now(); // Cache buster
-            sourceElement.type = 'video/mp4';
-            videoElement.appendChild(sourceElement);
-            videoElement.appendChild(document.createTextNode('Your browser does not support the video tag.'));
-            
-            // ✅ ADD ERROR HANDLER
-            videoElement.onerror = function() {
-                console.error('❌ Failed to load video:', videoUrl);
-                
-                // Try alternative path as fallback
-                if (videoUrl.includes('/uploads/videos/')) {
-                    const altUrl = videoUrl.replace('/uploads/videos/', '/videos/');
-                    console.log('🔄 Trying alternative path:', altUrl);
-                    
-                    videoElement.innerHTML = '';
-                    const altSource = document.createElement('source');
-                    altSource.src = altUrl + '?v=' + Date.now();
-                    altSource.type = 'video/mp4';
-                    videoElement.appendChild(altSource);
-                    
-                    videoElement.load();
-                } else {
+            // If still fails, show error
+            setTimeout(() => {
+                if (videoElement.error) {
                     if (videoInfo) {
                         videoInfo.innerHTML = `
                             <p style="color: #e74c3c;">
                                 <i class="fas fa-exclamation-triangle"></i> 
-                                Failed to load video. File may not exist.
+                                Video not found. Please check if the file exists in public/videos/ folder.
                             </p>
                         `;
                     }
+                    
+                    // Try to get list of available videos
+                    fetch('/debug/videos')
+                        .then(res => res.json())
+                        .then(data => {
+                            if (data.success && data.files.length > 0) {
+                                console.log('📋 Available videos:', data.files.map(f => f.filename));
+                            }
+                        })
+                        .catch(e => console.log('Could not fetch video list'));
                 }
-            };
-            
-            videoElement.load();
+            }, 1000);
+        } else {
+            if (videoInfo) {
+                videoInfo.innerHTML = `
+                    <p style="color: #e74c3c;">
+                        <i class="fas fa-exclamation-triangle"></i> 
+                        Failed to load video. File may not exist.
+                    </p>
+                `;
+            }
         }
+    };
+    
+    // Add load success handler
+    videoElement.onloadeddata = function() {
+        console.log('✅ Video loaded successfully');
+        if (videoInfo) {
+            videoInfo.innerHTML = `
+                <p><i class="fas fa-check-circle" style="color: #27ae60;"></i> <strong>${lesson.content_title || 'Video Lesson'}</strong></p>
+                <p><i class="fas fa-clock"></i> Duration: ${Math.floor((lesson.video_duration_seconds || 600) / 60)} min</p>
+                <p><i class="fas fa-link"></i> Path: ${videoUrl}</p>
+            `;
+        }
+    };
+    
+    videoElement.load();
+}
         
         // Update video info
         if (videoInfo && videoSource !== 'youtube') {
@@ -14778,18 +14835,56 @@ async function initializeVideo(contentId) {
     console.log('🎬 PERMANENT FIX: Initializing video from database for content ID:', contentId);
     
     const videoElement = document.getElementById('lessonVideo');
+    const videoInfo = document.getElementById('videoInfo');
+    
     if (videoElement) {
         // Show loading message
         videoElement.innerHTML = '<p style="text-align: center; padding: 20px;"><i class="fas fa-spinner fa-spin"></i> Loading video from database...</p>';
     }
     
-    // Load video from database - this will ALWAYS fetch from database
+    if (videoInfo) {
+        videoInfo.innerHTML = '<p><i class="fas fa-spinner fa-spin"></i> Fetching video data...</p>';
+    }
+    
+    // Load video from database
     const videoData = await loadVideoFromDatabase(contentId);
     
     if (videoData) {
         console.log('✅ Video loaded from database:', videoData);
+        
+        // Update video info with success
+        if (videoInfo) {
+            videoInfo.innerHTML = `
+                <p><i class="fas fa-check-circle" style="color: #27ae60;"></i> <strong>${videoData.title}</strong></p>
+                <p><i class="fas fa-clock"></i> Duration: ${Math.floor((videoData.duration || 600) / 60)} min</p>
+                <p><i class="fas fa-link"></i> ${videoData.url}</p>
+            `;
+        }
     } else {
         console.warn('⚠️ No video loaded from database');
+        
+        // Show error in video info
+        if (videoInfo) {
+            videoInfo.innerHTML = `
+                <p style="color: #e74c3c;">
+                    <i class="fas fa-exclamation-triangle"></i> 
+                    No video found in database. Please upload a video first.
+                </p>
+                <button class="btn-secondary" onclick="location.reload()" style="margin-top: 10px;">
+                    <i class="fas fa-redo"></i> Refresh
+                </button>
+            `;
+        }
+        
+        // Try default video as fallback
+        if (videoElement) {
+            videoElement.innerHTML = '';
+            const sourceElement = document.createElement('source');
+            sourceElement.src = '/videos/quarter1-polynomial-equations.mp4';
+            sourceElement.type = 'video/mp4';
+            videoElement.appendChild(sourceElement);
+            videoElement.load();
+        }
     }
 }
 
@@ -27239,6 +27334,53 @@ document.addEventListener('DOMContentLoaded', () => {
         calculator: new Calculator(),
         graph: new GraphTool()
     });
+});
+
+    // ============================================
+// 🎬 DEBUG: Check video status
+// ============================================
+window.checkVideoStatus = async function() {
+    console.log('🔍 CHECKING VIDEO STATUS...');
+    
+    const videoElement = document.getElementById('lessonVideo');
+    const videoInfo = document.getElementById('videoInfo');
+    const currentLesson = LessonState.currentLesson;
+    
+    console.log('📋 Current Lesson:', currentLesson);
+    
+    if (currentLesson) {
+        console.log('🎥 Video filename:', currentLesson.video_filename);
+        console.log('🔗 Content URL:', currentLesson.content_url);
+        console.log('📁 Video path:', currentLesson.video_path);
+    }
+    
+    if (videoElement) {
+        console.log('🎬 Video element exists');
+        console.log('📺 Current src:', videoElement.querySelector('source')?.src);
+        console.log('❌ Error state:', videoElement.error);
+    }
+    
+    // Try to fetch list of available videos
+    try {
+        const response = await fetch('/debug/videos');
+        const data = await response.json();
+        console.log('📋 Available videos on server:', data);
+    } catch (error) {
+        console.error('❌ Could not fetch video list:', error);
+    }
+    
+    console.log('✅ Video status check complete');
+};
+
+// Run on page load
+document.addEventListener('DOMContentLoaded', function() {
+    // Check if we're on module dashboard
+    const modulePage = document.getElementById('module-dashboard-page');
+    if (modulePage && !modulePage.classList.contains('hidden')) {
+        setTimeout(() => {
+            window.checkVideoStatus();
+        }, 2000);
+    }
 });
 
 // ========================================
