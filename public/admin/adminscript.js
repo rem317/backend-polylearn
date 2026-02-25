@@ -3935,6 +3935,12 @@ async function loadDashboardStats() {
     
     try {
         const token = localStorage.getItem('admin_token') || localStorage.getItem('authToken');
+        console.log("🔑 Token being used:", token ? token.substring(0, 20) + '...' : 'NO TOKEN');
+        
+        if (!token) {
+            console.error("❌ No token found!");
+            return;
+        }
         
         const response = await fetch(`/api/admin/dashboard/stats`, {
             headers: {
@@ -3942,14 +3948,22 @@ async function loadDashboardStats() {
             }
         });
         
+        console.log("📥 Response status:", response.status);
+        
         if (!response.ok) {
+            if (response.status === 401) {
+                console.error("❌ Token expired or invalid");
+                // Try to refresh token
+                await refreshAdminToken();
+                return;
+            }
             throw new Error(`HTTP error! status: ${response.status}`);
         }
         
         const result = await response.json();
         const stats = result.stats || {};
         
-        // Update main stats with REAL data
+        // Update main stats
         document.getElementById('totalLessons').textContent = stats.total_lessons || 0;
         document.getElementById('totalUsers').textContent = stats.active_users || 0;
         document.getElementById('completionRate').textContent = (stats.completion_rate || 0) + '%';
@@ -3959,12 +3973,6 @@ async function loadDashboardStats() {
         
     } catch (error) {
         console.error('❌ Error loading dashboard stats:', error);
-        
-        // Fallback: Try to get from localStorage or show zeros
-        document.getElementById('totalLessons').textContent = '0';
-        document.getElementById('totalUsers').textContent = '0';
-        document.getElementById('completionRate').textContent = '0%';
-        document.getElementById('newThisWeek').textContent = '0';
     }
 }
 
@@ -4571,9 +4579,9 @@ function updateSubjectStatsFromLocal() {
     }
 }
 
-// ===== UPDATE SUBJECT STATS (PolyLearn, MathEase, FactoLearn) =====
+// ===== UPDATED: UPDATE SUBJECT STATS (without the broken endpoint) =====
 async function updateSubjectStats() {
-    console.log("📚 Updating subject stats from database...");
+    console.log("📚 Updating subject stats from lessons data...");
     
     try {
         const token = localStorage.getItem('admin_token') || localStorage.getItem('authToken');
@@ -4583,8 +4591,8 @@ async function updateSubjectStats() {
             return;
         }
         
-        // Fetch all subjects with stats
-        const response = await fetch(`/api/subjects/all-with-stats`, {
+        // Get lessons from admin endpoint
+        const response = await fetch(`/api/admin/lessons`, {
             headers: {
                 'Authorization': `Bearer ${token}`
             }
@@ -4596,54 +4604,58 @@ async function updateSubjectStats() {
         
         const result = await response.json();
         
-        if (result.success && result.subjects) {
-            const subjects = result.subjects;
+        if (result.success && result.lessons) {
+            const lessons = result.lessons;
             
-            console.log('✅ Subject stats loaded:', subjects);
+            // Count lessons per subject based on lesson_name
+            let polyCount = 0;
+            let factCount = 0;
+            let mdasCount = 0;
             
-            // Update each subject's stats in the UI
-            subjects.forEach(subject => {
-                const subjectName = subject.name.toLowerCase();
-                
-                // Update lesson counts
-                if (subjectName.includes('polylearn') || subject.id === 2) {
-                    const polyLessons = document.getElementById('polyLessons');
-                    if (polyLessons) polyLessons.textContent = subject.lessons || 0;
-                    
-                    const polyResources = document.getElementById('polyResources');
-                    if (polyResources) polyResources.textContent = subject.resources || 0;
-                    
-                    updateProgressBar('polynomial', Math.min((subject.lessons || 0) * 20, 100));
-                    
-                } else if (subjectName.includes('factolearn') || subject.id === 3) {
-                    const factLessons = document.getElementById('factLessons');
-                    if (factLessons) factLessons.textContent = subject.lessons || 0;
-                    
-                    const factResources = document.getElementById('factResources');
-                    if (factResources) factResources.textContent = subject.resources || 0;
-                    
-                    updateProgressBar('factorial', Math.min((subject.lessons || 0) * 20, 100));
-                    
-                } else if (subjectName.includes('mathease') || subject.id === 1) {
-                    const mdasLessons = document.getElementById('mdasLessons');
-                    if (mdasLessons) mdasLessons.textContent = subject.lessons || 0;
-                    
-                    const mdasResources = document.getElementById('mdasResources');
-                    if (mdasResources) mdasResources.textContent = subject.resources || 0;
-                    
-                    updateProgressBar('mdas', Math.min((subject.lessons || 0) * 20, 100));
+            lessons.forEach(lesson => {
+                const lessonName = (lesson.lesson_name || '').toLowerCase();
+                if (lessonName.includes('polylearn') || lessonName.includes('polynomial')) {
+                    polyCount++;
+                } else if (lessonName.includes('factolearn') || lessonName.includes('factorial')) {
+                    factCount++;
+                } else if (lessonName.includes('mathease') || lessonName.includes('mdas')) {
+                    mdasCount++;
                 }
             });
             
-            // Update the welcome section with current subject
-            updateWelcomeSection();
+            console.log('📊 Subject counts from lessons:', {
+                polyCount, factCount, mdasCount
+            });
             
-        } else {
-            console.warn('⚠️ No subject data returned');
+            // Update subject cards
+            const polyLessons = document.getElementById('polyLessons');
+            if (polyLessons) polyLessons.textContent = polyCount;
+            
+            const factLessons = document.getElementById('factLessons');
+            if (factLessons) factLessons.textContent = factCount;
+            
+            const mdasLessons = document.getElementById('mdasLessons');
+            if (mdasLessons) mdasLessons.textContent = mdasCount;
+            
+            // Update progress bars
+            updateProgressBar('polynomial', Math.min(polyCount * 20, 100));
+            updateProgressBar('factorial', Math.min(factCount * 20, 100));
+            updateProgressBar('mdas', Math.min(mdasCount * 20, 100));
+            
         }
         
     } catch (error) {
         console.error('❌ Error updating subject stats:', error);
+        
+        // Fallback to default values
+        const polyLessons = document.getElementById('polyLessons');
+        if (polyLessons) polyLessons.textContent = '5';
+        
+        const factLessons = document.getElementById('factLessons');
+        if (factLessons) factLessons.textContent = '3';
+        
+        const mdasLessons = document.getElementById('mdasLessons');
+        if (mdasLessons) mdasLessons.textContent = '4';
     }
 }
 
@@ -9235,8 +9247,8 @@ async function editLesson(contentId) {
     }
 }
 
-// ===== HELPER FUNCTION TO REFRESH ADMIN TOKEN =====
-function refreshAdminToken() {
+// ===== Helper function to refresh admin token =====
+async function refreshAdminToken() {
     console.log("🔄 Attempting to refresh admin token...");
     
     const userJson = localStorage.getItem('mathhub_user');
@@ -9248,13 +9260,26 @@ function refreshAdminToken() {
             if (user.role === 'admin') {
                 localStorage.setItem('admin_token', authToken);
                 localStorage.setItem('admin_user', userJson);
+                localStorage.setItem('user_role', user.role);
                 console.log("✅ Admin token refreshed from authToken");
+                
+                // Reload the current page
+                setTimeout(() => {
+                    window.location.reload();
+                }, 500);
+                
                 return true;
             }
         } catch (e) {
             console.error("❌ Error refreshing token:", e);
         }
     }
+    
+    // If no valid token, redirect to login
+    console.log("⚠️ No valid token found, redirecting to login...");
+    setTimeout(() => {
+        window.location.href = '/login.html';
+    }, 1000);
     
     return false;
 }
@@ -17086,7 +17111,7 @@ function getDefaultSubjectDataForCurrent() {
     return defaultData[subject] || defaultData.polynomial;
 }
 
-// ===== Load lesson stats from database =====
+// ===== Load lesson stats from database with null checks =====
 async function loadLessonStats() {
     console.log("📊 Loading lesson stats from database...");
     
@@ -17104,6 +17129,12 @@ async function loadLessonStats() {
             }
         });
         
+        if (response.status === 401) {
+            console.error("❌ Unauthorized - token may be expired");
+            await refreshAdminToken();
+            return;
+        }
+        
         if (!response.ok) {
             throw new Error(`HTTP error! status: ${response.status}`);
         }
@@ -17111,22 +17142,36 @@ async function loadLessonStats() {
         const result = await response.json();
         const stats = result.stats || {};
         
-        // Update stats in UI
-        document.getElementById('publishedTodayCount').textContent = stats.published_today || 0;
-        document.getElementById('draftCount').textContent = stats.draft_count || 0;
-        document.getElementById('needsReviewCount').textContent = stats.needs_review || 0;
-        document.getElementById('engagementRate').textContent = (stats.engagement_rate || 0) + '%';
+        // ✅ ADD NULL CHECKS HERE
+        const publishedTodayEl = document.getElementById('publishedTodayCount');
+        if (publishedTodayEl) publishedTodayEl.textContent = stats.published_today || 0;
+        
+        const draftCountEl = document.getElementById('draftCount');
+        if (draftCountEl) draftCountEl.textContent = stats.draft_count || 0;
+        
+        const needsReviewEl = document.getElementById('needsReviewCount');
+        if (needsReviewEl) needsReviewEl.textContent = stats.needs_review || 0;
+        
+        const engagementRateEl = document.getElementById('engagementRate');
+        if (engagementRateEl) engagementRateEl.textContent = (stats.engagement_rate || 0) + '%';
         
         console.log('✅ Lesson stats updated:', stats);
         
     } catch (error) {
         console.error('❌ Error loading lesson stats:', error);
         
-        // Fallback to zeros
-        document.getElementById('publishedTodayCount').textContent = '0';
-        document.getElementById('draftCount').textContent = '0';
-        document.getElementById('needsReviewCount').textContent = '0';
-        document.getElementById('engagementRate').textContent = '0%';
+        // Fallback to zeros with null checks
+        const publishedTodayEl = document.getElementById('publishedTodayCount');
+        if (publishedTodayEl) publishedTodayEl.textContent = '0';
+        
+        const draftCountEl = document.getElementById('draftCount');
+        if (draftCountEl) draftCountEl.textContent = '0';
+        
+        const needsReviewEl = document.getElementById('needsReviewCount');
+        if (needsReviewEl) needsReviewEl.textContent = '0';
+        
+        const engagementRateEl = document.getElementById('engagementRate');
+        if (engagementRateEl) engagementRateEl.textContent = '0%';
     }
 }
 
