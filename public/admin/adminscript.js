@@ -11057,7 +11057,7 @@ function openSettingsTab(tabId) {
     event.target.classList.add('active');
 }
 
-// ===== LOAD USERS FROM DATABASE - FIXED VERSION WITH DEBUGGING =====
+// ===== LOAD USERS FROM DATABASE - FIXED URL =====
 async function loadUsersData() {
     console.log("📥 ===== LOAD USERS DATA FUNCTION CALLED =====");
     console.log("📥 Loading REAL users from MySQL database...");
@@ -11128,8 +11128,10 @@ async function loadUsersData() {
         
         console.log('🔑 Using token (first 20 chars):', token.substring(0, 20) + '...');
         
-        // ----- FETCH USERS FROM DATABASE -----
-        const url = '${API_BASE_URL}/api/admin/users';
+        // ✅ FIXED: Use proper URL construction
+        const baseUrl = API_BASE_URL || '';  // API_BASE_URL is usually empty string
+        const url = `/api/admin/users`;  // Use relative URL directly
+        
         console.log('📡 Fetching from:', url);
         
         const response = await fetch(url, {
@@ -11144,32 +11146,21 @@ async function loadUsersData() {
         console.log('📥 Response status:', response.status);
         console.log('📥 Response ok?', response.ok);
         
-        // Try to get response text first
-        let responseText;
-        try {
-            responseText = await response.text();
-            console.log('📥 Raw response (first 200 chars):', responseText.substring(0, 200));
-        } catch (textError) {
-            console.error('❌ Could not read response text:', textError);
-            throw new Error('Could not read server response');
-        }
-        
-        // Parse JSON
-        let result;
-        try {
-            result = JSON.parse(responseText);
-            console.log('📦 Parsed result:', result);
-        } catch (parseError) {
-            console.error('❌ JSON parse error:', parseError);
-            console.error('❌ Response was not valid JSON');
+        // Check content type
+        const contentType = response.headers.get('content-type');
+        if (!contentType || !contentType.includes('application/json')) {
+            const text = await response.text();
+            console.error('❌ Received non-JSON response:', text.substring(0, 200));
             
-            // If HTML response, server might have returned error page
-            if (responseText.includes('<!DOCTYPE html>')) {
+            if (text.includes('<!DOCTYPE html>')) {
                 throw new Error('Server returned HTML error page. Check if server is running properly.');
             } else {
                 throw new Error('Invalid JSON response from server');
             }
         }
+        
+        const result = await response.json();
+        console.log('📦 Parsed result:', result);
         
         if (!response.ok) {
             throw new Error(result.message || `Server error: ${response.status}`);
@@ -11289,7 +11280,6 @@ async function loadUsersData() {
         }
     }
 }
-
 // ===== SHOW NO USERS MESSAGE =====
 function showNoUsersMessage(message) {
     console.log("📭 No users found:", message);
@@ -20202,9 +20192,8 @@ async function saveQuizToMySQL() {
         }
         
         // ✅ FIXED: Dapat ganito ang URL construction
-        const baseUrl = API_BASE_URL || '';  // API_BASE_URL is usually empty string for relative URLs
-        const url = editId 
-            ? `${baseUrl}/api/admin/quizzes/${editId}`
+        const url = `/api/admin/users`;
+            ? `/api/admin/quizzes/${editId}`
             : `/api/admin/quizzes`;  // Use relative URL directly
         
         console.log(`📡 Sending ${editId ? 'PUT' : 'POST'} request to:`, url);
@@ -23521,8 +23510,8 @@ async function savePracticeExercise() {
         }
         
         // ✅ FIXED: Use proper URL construction
-        const baseUrl = API_BASE_URL || '';  // API_BASE_URL is usually empty string for relative URLs
-        const url = practiceId 
+        const baseUrl = `/api/admin/users`; // API_BASE_URL is usually empty string for relative URLs
+        const url = `/api/admin/users`; 
             ? `/api/admin/practice/${practiceId}`
             : `/api/admin/practice`;  // Use relative URL directly for new entries
         
