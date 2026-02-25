@@ -110,6 +110,32 @@ const API_BASE_URL = window.location.hostname.includes('localhost')
 let authToken = localStorage.getItem('authToken');
 console.log('🔧 API Base URL:', API_BASE_URL);
 
+// Helper function para sa authentication headers
+function getAuthHeaders() {
+    const token = localStorage.getItem('authToken');
+    if (!token) {
+        console.warn('⚠️ No token found in localStorage');
+        return { 
+            'Content-Type': 'application/json',
+            'Accept': 'application/json'
+        };
+    }
+    
+    // Siguraduhing may 'Bearer ' prefix
+    const formattedToken = token.startsWith('Bearer ') ? token : `Bearer ${token}`;
+    console.log('🔑 Using token:', formattedToken.substring(0, 30) + '...');
+    
+    return {
+        'Authorization': formattedToken,
+        'Content-Type': 'application/json',
+        'Accept': 'application/json'
+    };
+}
+
+console.log('🔧 API Base URL configured:', API_BASE_URL);
+console.log('🔧 Auth token exists:', !!authToken);
+
+
 // ============================================
 // INITIALIZATION
 // ============================================
@@ -147,31 +173,38 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 
 // ===== CORRECTED: CHECK TEACHER AUTHENTICATION USING TEACHERS TABLE =====
-// ===== CORRECTED: CHECK TEACHER AUTHENTICATION USING TEACHERS TABLE =====
-function checkTeacherAuth() {
+// ===== CHECK TEACHER AUTHENTICATION - WITH BACKEND VERIFICATION =====
+async function checkTeacherAuth() {
     const token = localStorage.getItem('authToken');
     const userJson = localStorage.getItem('mathhub_user');
     
+    console.log('🔍 Checking authentication...');
+    console.log('   - Token in localStorage:', !!token);
+    console.log('   - User data in localStorage:', !!userJson);
+    
     if (!token || !userJson) {
         console.log('❌ No user logged in');
-        showNotification('error', 'Not Logged In', 'Please login first');
-        
-        setTimeout(() => {
-            window.location.href = '../index.html#login';  // ← GAMITIN ITO
-        }, 2000);
+        redirectToLogin('Please login first');
         return false;
     }
     
     try {
+        // Verify token with backend
+        const isValid = await verifyTokenWithBackend(token);
+        
+        if (!isValid) {
+            console.log('❌ Token invalid or expired');
+            localStorage.removeItem('authToken');
+            localStorage.removeItem('mathhub_user');
+            redirectToLogin('Session expired. Please login again.');
+            return false;
+        }
+        
         const user = JSON.parse(userJson);
         
         if (user.role !== 'teacher' && user.role !== 'admin') {
             console.log('❌ User is not a teacher');
-            showNotification('error', 'Access Denied', 'Teacher access required');
-            
-            setTimeout(() => {
-                window.location.href = '../index.html#dashboard';  // ← GAMITIN ITO
-            }, 2000);
+            redirectToLogin('Teacher access required.');
             return false;
         }
         
@@ -182,15 +215,51 @@ function checkTeacherAuth() {
         
         console.log(`✅ Teacher authenticated: ${teacherName} (ID: ${teacherId})`);
         
-        // Fetch additional teacher details from teachers table
+        // Fetch additional teacher details
         fetchTeacherDetails(teacherId);
         
         return true;
         
     } catch (error) {
-        console.error('❌ Error parsing user data:', error);
+        console.error('❌ Error in auth check:', error);
+        redirectToLogin('Authentication error. Please login again.');
         return false;
     }
+}
+
+// ===== VERIFY TOKEN WITH BACKEND =====
+async function verifyTokenWithBackend(token) {
+    try {
+        const headers = {
+            'Authorization': token.startsWith('Bearer ') ? token : `Bearer ${token}`,
+            'Content-Type': 'application/json'
+        };
+        
+        const response = await fetch(`${API_BASE_URL}/auth/me`, {
+            method: 'GET',
+            headers: headers
+        });
+        
+        if (response.ok) {
+            const data = await response.json();
+            console.log('✅ Token verified for user:', data.user?.username);
+            return true;
+        } else {
+            console.log('❌ Token verification failed with status:', response.status);
+            return false;
+        }
+    } catch (error) {
+        console.error('❌ Error verifying token:', error);
+        return false;
+    }
+}
+
+// ===== REDIRECT HELPER =====
+function redirectToLogin(message) {
+    showNotification('error', 'Authentication Failed', message);
+    setTimeout(() => {
+        window.location.href = '../index.html#login';
+    }, 2000);
 }
 
 // ===== FETCH TEACHER DETAILS FROM TEACHERS TABLE =====
@@ -901,11 +970,17 @@ async function loadDashboardData(forceRefresh = false) {
         // ===== FETCH DASHBOARD STATS =====
         const response = await fetch(`${API_BASE_URL}/teacher/dashboard/stats`, {
             method: 'GET',
-            headers: { 
-                'Authorization': `Bearer ${token}`,
-                'Content-Type': 'application/json'
-            }
+            headers: getAuthHeaders()
         });
+        
+        // Handle 403/401 - expired token
+        if (response.status === 403 || response.status === 401) {
+            console.error('❌ Token invalid or expired');
+            localStorage.removeItem('authToken');
+            localStorage.removeItem('mathhub_user');
+            redirectToLogin('Session expired. Please login again.');
+            return;
+        }
         
         if (!response.ok) {
             throw new Error(`HTTP error! status: ${response.status}`);
@@ -6201,34 +6276,30 @@ function exportFeedbackAsCSV() {
 // QUIZ MANAGEMENT
 // ============================================
 
-// ===== LOAD QUIZZES =====
+
+// ===== LOAD QUIZZES - FIXED =====
 async function loadQuizzes() {
     console.log('📝 Loading quizzes...');
     
     const tableBody = document.getElementById('quizTableBody');
     if (!tableBody) return;
     
-    tableBody.innerHTML = `
-        <tr>
-            <td colspan="7" class="text-center py-4">
-                <div class="loading-state">
-                    <i class="fas fa-spinner fa-pulse fa-2x"></i>
-                    <p>Loading quizzes...</p>
-                </div>
-            </td>
-        </tr>
-    `;
+    tableBody.innerHTML = `<tr><td colspan="7" class="text-center py-4"><i class="fas fa-spinner fa-pulse fa-2x"></i><p>Loading quizzes...</p></td></tr>`;
     
     try {
-        const token = localStorage.getItem('authToken');
-        
         const response = await fetch(`${API_BASE_URL}/teacher/quizzes`, {
             method: 'GET',
-            headers: { 
-                'Authorization': `Bearer ${token}`,
-                'Content-Type': 'application/json'
-            }
+            headers: getAuthHeaders()  // <-- GAMITIN ANG HELPER
         });
+        
+        // Handle 403/401 - expired token
+        if (response.status === 403 || response.status === 401) {
+            console.error('❌ Token invalid or expired');
+            localStorage.removeItem('authToken');
+            localStorage.removeItem('mathhub_user');
+            redirectToLogin('Session expired. Please login again.');
+            return;
+        }
         
         if (!response.ok) {
             throw new Error(`HTTP error! status: ${response.status}`);
@@ -6241,15 +6312,8 @@ async function loadQuizzes() {
             const stats = result.stats || {};
             
             console.log(`✅ Loaded ${quizData.length} quizzes`);
-            console.log('📊 Quiz stats:', stats);
-            
-            // ===== IMPORTANT: Update stats first =====
             updateQuizStats(stats);
-            
-            // Then display quizzes
             displayQuizzes();
-            
-            // Initialize chart if element exists
             initializeQuizChart();
         } else {
             throw new Error(result.message || 'Failed to load quizzes');
@@ -6257,20 +6321,7 @@ async function loadQuizzes() {
         
     } catch (error) {
         console.error('❌ Error loading quizzes:', error);
-        
-        tableBody.innerHTML = `
-            <tr>
-                <td colspan="7" class="text-center py-4">
-                    <div class="error-state">
-                        <i class="fas fa-exclamation-circle fa-2x"></i>
-                        <p>Failed to load quizzes</p>
-                        <button class="btn btn-sm btn-primary" onclick="loadQuizzes()">
-                            <i class="fas fa-sync-alt"></i> Retry
-                        </button>
-                    </div>
-                </td>
-            </tr>
-        `;
+        tableBody.innerHTML = `<tr><td colspan="7" class="text-center py-4"><div class="error-state"><i class="fas fa-exclamation-circle fa-2x"></i><p>Failed to load quizzes</p><button class="btn btn-sm btn-primary" onclick="loadQuizzes()"><i class="fas fa-sync-alt"></i> Retry</button></div></td></tr>`;
     }
 }
 
@@ -7317,7 +7368,7 @@ function collectQuizData() {
     };
 }
 
-// ===== SAVE QUIZ TO DATABASE (TEACHER VERSION) =====
+// ===== SAVE QUIZ TO DATABASE - FIXED =====
 async function saveQuizToDatabase() {
     console.log('💾 Saving quiz to database...');
     
@@ -7325,39 +7376,43 @@ async function saveQuizToDatabase() {
     const quizData = collectQuizData();
     if (!quizData) return;
     
-    // Show loading
     showNotification('info', 'Saving', 'Creating quiz...');
     
     try {
-        const token = localStorage.getItem('authToken');
+        const headers = getAuthHeaders();
         
-        // Use TEACHER endpoint, not admin
-        // Check muna kung may category_id
-    if (!quizData.category_id) {
-        showNotification('error', 'Error', 'Please select a subject');
-        return;
-    }
-
-    const response = await fetch(`${API_BASE_URL}/teacher/quizzes/create`, {
+        // Check if headers have Authorization
+        if (!headers.Authorization) {
+            throw new Error('No authentication token found');
+        }
+        
+        const response = await fetch(`${API_BASE_URL}/teacher/quizzes/create`, {
             method: 'POST',
-            headers: {
-                'Authorization': `Bearer ${token}`,
-                'Content-Type': 'application/json'
-            },
+            headers: headers,
             body: JSON.stringify(quizData)
         });
         
-        const result = await response.json();
+        // Handle 403/401 - expired token
+        if (response.status === 403 || response.status === 401) {
+            console.error('❌ Token invalid or expired');
+            localStorage.removeItem('authToken');
+            localStorage.removeItem('mathhub_user');
+            redirectToLogin('Session expired. Please login again.');
+            return;
+        }
         
         if (!response.ok) {
-            throw new Error(result.message || `HTTP error! status: ${response.status}`);
+            const errorText = await response.text();
+            console.error('❌ Error response:', errorText);
+            throw new Error(`HTTP error! status: ${response.status}`);
         }
+        
+        const result = await response.json();
         
         if (result.success) {
             showNotification('success', 'Success!', `Quiz "${quizData.title}" created successfully!`);
             closeModal();
             
-            // Refresh quiz list
             setTimeout(() => {
                 loadQuizzes();
             }, 500);
@@ -7370,7 +7425,6 @@ async function saveQuizToDatabase() {
         showNotification('error', 'Failed', error.message);
     }
 }
-
 
 // ===== SAVE NEW QUIZ =====
 function saveNewQuiz() {
