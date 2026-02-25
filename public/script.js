@@ -14213,7 +14213,7 @@ async function loadVideoFromDatabase(contentId = null) {
             videoTitle.innerHTML = `<i class="fas fa-video"></i> ${lesson.content_title || 'Video Lesson'}`;
         }
         
-        // ===== VIDEO SOURCE - ILAGAY ITO DITO =====
+        // ===== VIDEO SOURCE - USE THE CORRECT PATH =====
         let videoUrl = null;
         let videoSource = 'none';
         let videoFilename = null;
@@ -14221,8 +14221,8 @@ async function loadVideoFromDatabase(contentId = null) {
         if (lesson.video_filename) {
             videoFilename = lesson.video_filename;
             
-            // ✅ GAMITIN ANG /videos/ DAHIL ITO ANG GUMAGANA
-            videoUrl = `/videos/${lesson.video_filename}`;
+            // ✅ FIXED: Use /uploads/videos/ which is correctly served in server.js
+            videoUrl = `/uploads/videos/${lesson.video_filename}`;
             
             videoSource = 'uploaded';
             console.log(`🎬 Found uploaded video: ${videoFilename}`);
@@ -14241,7 +14241,7 @@ async function loadVideoFromDatabase(contentId = null) {
         
         if (!videoUrl) {
             console.log('⚠️ No video found, using default');
-            videoUrl = '/videos/quarter1-polynomial-equations.mp4';
+            videoUrl = '/uploads/videos/quarter1-polynomial-equations.mp4';
             videoSource = 'default';
         }
         
@@ -14267,7 +14267,7 @@ async function loadVideoFromDatabase(contentId = null) {
                 }
             }
         } else {
-            // ✅ CREATE VIDEO ELEMENT WITH SOURCE
+            // ✅ CREATE VIDEO ELEMENT WITH SOURCE - USING CORRECT PATH
             const sourceElement = document.createElement('source');
             sourceElement.src = videoUrl + '?v=' + Date.now(); // Cache buster
             sourceElement.type = 'video/mp4';
@@ -14277,13 +14277,28 @@ async function loadVideoFromDatabase(contentId = null) {
             // ✅ ADD ERROR HANDLER
             videoElement.onerror = function() {
                 console.error('❌ Failed to load video:', videoUrl);
-                if (videoInfo) {
-                    videoInfo.innerHTML = `
-                        <p style="color: #e74c3c;">
-                            <i class="fas fa-exclamation-triangle"></i> 
-                            Failed to load video. File may not exist.
-                        </p>
-                    `;
+                
+                // Try alternative path as fallback
+                if (videoUrl.includes('/uploads/videos/')) {
+                    const altUrl = videoUrl.replace('/uploads/videos/', '/videos/');
+                    console.log('🔄 Trying alternative path:', altUrl);
+                    
+                    videoElement.innerHTML = '';
+                    const altSource = document.createElement('source');
+                    altSource.src = altUrl + '?v=' + Date.now();
+                    altSource.type = 'video/mp4';
+                    videoElement.appendChild(altSource);
+                    
+                    videoElement.load();
+                } else {
+                    if (videoInfo) {
+                        videoInfo.innerHTML = `
+                            <p style="color: #e74c3c;">
+                                <i class="fas fa-exclamation-triangle"></i> 
+                                Failed to load video. File may not exist.
+                            </p>
+                        `;
+                    }
                 }
             };
             
@@ -14756,7 +14771,6 @@ async function initializeModuleDashboard() {
     await initializeVideo(currentLesson.content_id);
 }
 
-// Initialize video from database
 // ============================================
 // FIXED: Initialize Video - ALWAYS uses database
 // ============================================
@@ -14778,6 +14792,7 @@ async function initializeVideo(contentId) {
         console.warn('⚠️ No video loaded from database');
     }
 }
+
 // Update navigation buttons
 function updateNavigationButtons(adjacent) {
     const prevLessonBtn = document.getElementById('prevLessonBtn');
