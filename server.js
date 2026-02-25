@@ -114,6 +114,8 @@ app.use('/videos', express.static(path.join(__dirname, '../frontend/videos')));
 
 // Serve uploads from uploads/videos (kung doon din ang files)
 app.use('/uploads/videos', express.static(path.join(__dirname, 'uploads/videos')));
+
+app.use('/videos', express.static(path.join(frontendPath, 'videos')));
 // ============================================
 // MULTER CONFIGURATION - VIDEO UPLOAD
 // ============================================
