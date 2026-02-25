@@ -19746,7 +19746,7 @@ function addOption(questionId) {
     optionsContainer.insertAdjacentHTML('beforeend', optionHtml);
 }
 
-// ===== SAVE QUIZ TO MYSQL WITH TEACHER ASSIGNMENT =====
+// ===== SAVE QUIZ TO MYSQL WITH TEACHER ASSIGNMENT - FIXED URL =====
 async function saveQuizToMySQL() {
     console.log("💾 ===== SAVING QUIZ TO MYSQL DATABASE =====");
     
@@ -19901,9 +19901,11 @@ async function saveQuizToMySQL() {
             saveBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Saving...';
         }
         
+        // ✅ FIXED: Dapat ganito ang URL construction
+        const baseUrl = API_BASE_URL || '';  // API_BASE_URL is usually empty string for relative URLs
         const url = editId 
-            ? `${API_BASE_URL}/api/admin/quizzes/${editId}`
-            : '${API_BASE_URL}/api/admin/quizzes';
+            ? `${baseUrl}/api/admin/quizzes/${editId}`
+            : `/api/admin/quizzes`;  // Use relative URL directly
         
         console.log(`📡 Sending ${editId ? 'PUT' : 'POST'} request to:`, url);
         
