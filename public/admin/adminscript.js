@@ -23223,7 +23223,7 @@ async function savePracticeExercise() {
         // ✅ FIXED: Use proper URL construction
         const baseUrl = API_BASE_URL || '';  // API_BASE_URL is usually empty string for relative URLs
         const url = practiceId 
-            ? `${baseUrl}/api/admin/practice/${practiceId}`
+            ? `/api/admin/practice/${practiceId}`
             : `/api/admin/practice`;  // Use relative URL directly for new entries
         
         console.log(`📡 Sending ${practiceId ? 'PUT' : 'POST'} request to:`, url);
