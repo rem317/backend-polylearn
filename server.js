@@ -1379,6 +1379,43 @@ function formatDateForUser(date) {
 }
 
 
+// ===== ADD TO server.js =====
+// GET quiz results by quiz ID
+app.get('/api/admin/quizzes/:quizId/results', authenticateAdmin, async (req, res) => {
+    try {
+        const { quizId } = req.params;
+        
+        const [results] = await promisePool.query(`
+            SELECT 
+                uqa.attempt_id,
+                uqa.user_id,
+                u.full_name as student_name,
+                u.username,
+                uqa.score,
+                uqa.passed,
+                uqa.time_spent_seconds,
+                uqa.end_time as completed_at,
+                uqa.attempt_number
+            FROM user_quiz_attempts uqa
+            JOIN users u ON uqa.user_id = u.user_id
+            WHERE uqa.quiz_id = ? AND uqa.completion_status = 'completed'
+            ORDER BY uqa.end_time DESC
+        `, [quizId]);
+        
+        res.json({
+            success: true,
+            results: results
+        });
+        
+    } catch (error) {
+        console.error('❌ Error fetching quiz results:', error);
+        res.status(500).json({ 
+            success: false, 
+            message: error.message 
+        });
+    }
+});
+
 
 // Get all real feedback from database
 // ===== FIXED: Get all real feedback from database =====
