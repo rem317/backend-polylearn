@@ -735,6 +735,298 @@ async function loadQuizCategories() {
     }
 }
 
+
+// ===== DISPLAY EXERCISE DETAILS MODAL =====
+function displayExerciseDetails(exercise) {
+    console.log("📋 Displaying exercise details:", exercise);
+    
+    // Create modal if it doesn't exist
+    let modal = document.getElementById('exerciseDetailsModal');
+    if (!modal) {
+        modal = document.createElement('div');
+        modal.id = 'exerciseDetailsModal';
+        modal.className = 'modal';
+        modal.innerHTML = `
+            <div class="modal-backdrop" onclick="closeExerciseDetailsModal()"></div>
+            <div class="modal-content" style="max-width: 700px;">
+                <div class="modal-header" style="background: #7a0000; color: white;">
+                    <h3><i class="fas fa-eye"></i> Practice Exercise Details</h3>
+                    <button class="modal-close" onclick="closeExerciseDetailsModal()" style="color: white;">&times;</button>
+                </div>
+                <div class="modal-body" id="exerciseDetailsBody" style="max-height: 70vh; overflow-y: auto; padding: 20px;">
+                    <!-- Content will be loaded here -->
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-secondary" onclick="closeExerciseDetailsModal()">Close</button>
+                    <button class="btn btn-primary" onclick="editPracticeExercise(${exercise.id})">
+                        <i class="fas fa-edit"></i> Edit
+                    </button>
+                </div>
+            </div>
+        `;
+        document.body.appendChild(modal);
+    }
+    
+    const modalBody = document.getElementById('exerciseDetailsBody');
+    if (!modalBody) return;
+    
+    // Build questions HTML
+    let questionsHtml = '';
+    if (exercise.content_json && exercise.content_json.questions) {
+        exercise.content_json.questions.forEach((q, index) => {
+            questionsHtml += `
+                <div style="background: #f8f9fa; padding: 15px; border-radius: 8px; margin-bottom: 15px; border-left: 4px solid #7a0000;">
+                    <h4 style="margin: 0 0 10px 0; color: #7a0000;">Question ${index + 1}</h4>
+                    <p style="margin: 0 0 10px 0; font-weight: 500;">${q.text || 'No question text'}</p>
+                    <div style="display: grid; gap: 8px;">
+                        ${q.options.map(opt => `
+                            <div style="display: flex; align-items: center; gap: 10px; padding: 8px; background: white; border-radius: 4px; ${opt.correct ? 'border-left: 4px solid #4CAF50; background: #f0f9f0;' : ''}">
+                                <span style="flex: 1;">${opt.text || ''}</span>
+                                ${opt.correct ? '<span style="color: #4CAF50; font-weight: bold;"><i class="fas fa-check"></i> Correct</span>' : ''}
+                            </div>
+                        `).join('')}
+                    </div>
+                </div>
+            `;
+        });
+    } else {
+        questionsHtml = '<p class="text-muted">No questions available</p>';
+    }
+    
+    // Build stats HTML
+    const stats = exercise.stats || { attempts: 0, unique_students: 0, avg_score: 0 };
+    
+    modalBody.innerHTML = `
+        <div style="margin-bottom: 20px;">
+            <h2 style="color: #7a0000; margin-bottom: 10px;">${exercise.title}</h2>
+            <p style="color: #666; margin-bottom: 15px;">${exercise.description || 'No description'}</p>
+            
+            <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 20px;">
+                <div style="background: #f8f9fa; padding: 15px; text-align: center; border-radius: 8px;">
+                    <div style="font-size: 1.5rem; font-weight: bold; color: #7a0000;">${exercise.difficulty || 'medium'}</div>
+                    <div style="font-size: 0.8rem; color: #666;">Difficulty</div>
+                </div>
+                <div style="background: #f8f9fa; padding: 15px; text-align: center; border-radius: 8px;">
+                    <div style="font-size: 1.5rem; font-weight: bold; color: #7a0000;">${exercise.content_json?.questions?.length || 0}</div>
+                    <div style="font-size: 0.8rem; color: #666;">Questions</div>
+                </div>
+                <div style="background: #f8f9fa; padding: 15px; text-align: center; border-radius: 8px;">
+                    <div style="font-size: 1.5rem; font-weight: bold; color: #7a0000;">${exercise.points || 10}</div>
+                    <div style="font-size: 0.8rem; color: #666;">Points</div>
+                </div>
+                <div style="background: #f8f9fa; padding: 15px; text-align: center; border-radius: 8px;">
+                    <div style="font-size: 1.5rem; font-weight: bold; color: #7a0000;">${exercise.is_active ? 'Active' : 'Inactive'}</div>
+                    <div style="font-size: 0.8rem; color: #666;">Status</div>
+                </div>
+            </div>
+            
+            <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 20px;">
+                <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 15px; border-radius: 8px; text-align: center; color: white;">
+                    <div style="font-size: 1.8rem; font-weight: bold;">${stats.attempts}</div>
+                    <div>Total Attempts</div>
+                </div>
+                <div style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); padding: 15px; border-radius: 8px; text-align: center; color: white;">
+                    <div style="font-size: 1.8rem; font-weight: bold;">${stats.unique_students}</div>
+                    <div>Unique Students</div>
+                </div>
+                <div style="background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); padding: 15px; border-radius: 8px; text-align: center; color: white;">
+                    <div style="font-size: 1.8rem; font-weight: bold;">${Math.round(stats.avg_score)}%</div>
+                    <div>Average Score</div>
+                </div>
+            </div>
+            
+            <h4 style="color: #7a0000; margin-bottom: 15px;">Questions Preview:</h4>
+            ${questionsHtml}
+        </div>
+    `;
+    
+    // Show modal
+    modal.style.display = 'flex';
+    document.body.classList.add('modal-open');
+}
+
+// ===== CLOSE EXERCISE DETAILS MODAL =====
+function closeExerciseDetailsModal() {
+    const modal = document.getElementById('exerciseDetailsModal');
+    if (modal) {
+        modal.style.display = 'none';
+        document.body.classList.remove('modal-open');
+    }
+}
+
+// ===== DISPLAY PRACTICE STATS MODAL =====
+function displayPracticeStatsModal(exercise, attempts) {
+    console.log("📊 Displaying practice stats modal for:", exercise.title);
+    
+    // Create modal if it doesn't exist
+    let modal = document.getElementById('practiceStatsModal');
+    if (!modal) {
+        modal = document.createElement('div');
+        modal.id = 'practiceStatsModal';
+        modal.className = 'modal';
+        modal.innerHTML = `
+            <div class="modal-backdrop" onclick="closePracticeStatsModal()"></div>
+            <div class="modal-content" style="max-width: 900px;">
+                <div class="modal-header" style="background: #7a0000; color: white;">
+                    <h3><i class="fas fa-chart-bar"></i> Practice Statistics</h3>
+                    <button class="modal-close" onclick="closePracticeStatsModal()" style="color: white;">&times;</button>
+                </div>
+                <div class="modal-body" id="practiceStatsBody" style="max-height: 70vh; overflow-y: auto; padding: 20px;">
+                    <!-- Content will be loaded here -->
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-secondary" onclick="closePracticeStatsModal()">Close</button>
+                </div>
+            </div>
+        `;
+        document.body.appendChild(modal);
+    }
+    
+    const modalBody = document.getElementById('practiceStatsBody');
+    if (!modalBody) return;
+    
+    // Calculate stats
+    const totalAttempts = attempts.length;
+    const avgScore = totalAttempts > 0 
+        ? Math.round(attempts.reduce((sum, a) => sum + (a.score || 0), 0) / totalAttempts) 
+        : 0;
+    const passedCount = attempts.filter(a => a.score >= 70).length;
+    const passRate = totalAttempts > 0 ? Math.round((passedCount / totalAttempts) * 100) : 0;
+    
+    // Calculate score distribution
+    const score90plus = attempts.filter(a => a.score >= 90).length;
+    const score80_89 = attempts.filter(a => a.score >= 80 && a.score < 90).length;
+    const score70_79 = attempts.filter(a => a.score >= 70 && a.score < 80).length;
+    const scoreBelow70 = attempts.filter(a => a.score < 70).length;
+    
+    // Build attempts table
+    let attemptsHtml = '';
+    if (attempts.length > 0) {
+        attemptsHtml = attempts.map(a => `
+            <tr>
+                <td style="padding: 10px; border-bottom: 1px solid #eee;">${a.user_name || 'Unknown'}</td>
+                <td style="padding: 10px; border-bottom: 1px solid #eee;">
+                    <span style="color: ${a.score >= 70 ? '#4CAF50' : '#f44336'}; font-weight: bold;">${a.score}%</span>
+                </td>
+                <td style="padding: 10px; border-bottom: 1px solid #eee;">${a.attempt_number || 1}</td>
+                <td style="padding: 10px; border-bottom: 1px solid #eee;">${Math.floor((a.time_spent_seconds || 0) / 60)}:${((a.time_spent_seconds || 0) % 60).toString().padStart(2, '0')}</td>
+                <td style="padding: 10px; border-bottom: 1px solid #eee;">${new Date(a.attempted_at || a.completed_at).toLocaleDateString()}</td>
+            </tr>
+        `).join('');
+    } else {
+        attemptsHtml = `
+            <tr>
+                <td colspan="5" style="text-align: center; padding: 40px;">
+                    <i class="fas fa-chart-bar" style="font-size: 3rem; color: #ccc; margin-bottom: 15px;"></i>
+                    <p style="color: #666;">No attempts yet for this exercise</p>
+                </td>
+            </tr>
+        `;
+    }
+    
+    modalBody.innerHTML = `
+        <div style="margin-bottom: 20px;">
+            <h2 style="color: #7a0000; margin-bottom: 5px;">${exercise.title}</h2>
+            <p style="color: #666; margin-bottom: 20px;">${exercise.description || ''}</p>
+            
+            <!-- Stats Summary Cards -->
+            <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 15px; margin-bottom: 25px;">
+                <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 20px; border-radius: 10px; text-align: center; color: white;">
+                    <div style="font-size: 2rem; font-weight: bold;">${totalAttempts}</div>
+                    <div>Total Attempts</div>
+                </div>
+                <div style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); padding: 20px; border-radius: 10px; text-align: center; color: white;">
+                    <div style="font-size: 2rem; font-weight: bold;">${avgScore}%</div>
+                    <div>Average Score</div>
+                </div>
+                <div style="background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); padding: 20px; border-radius: 10px; text-align: center; color: white;">
+                    <div style="font-size: 2rem; font-weight: bold;">${passRate}%</div>
+                    <div>Pass Rate</div>
+                </div>
+                <div style="background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%); padding: 20px; border-radius: 10px; text-align: center; color: white;">
+                    <div style="font-size: 2rem; font-weight: bold;">${passedCount}</div>
+                    <div>Passed</div>
+                </div>
+            </div>
+            
+            <!-- Score Distribution -->
+            <div style="background: #f8f9fa; padding: 20px; border-radius: 8px; margin-bottom: 25px;">
+                <h4 style="margin: 0 0 15px 0; color: #333;">Score Distribution</h4>
+                <div style="display: grid; gap: 10px;">
+                    <div>
+                        <div style="display: flex; justify-content: space-between; margin-bottom: 5px;">
+                            <span>90-100%</span>
+                            <span>${score90plus} students</span>
+                        </div>
+                        <div style="height: 10px; background: #e0e0e0; border-radius: 5px; overflow: hidden;">
+                            <div style="width: ${totalAttempts > 0 ? (score90plus / totalAttempts * 100) : 0}%; height: 100%; background: #4CAF50;"></div>
+                        </div>
+                    </div>
+                    <div>
+                        <div style="display: flex; justify-content: space-between; margin-bottom: 5px;">
+                            <span>80-89%</span>
+                            <span>${score80_89} students</span>
+                        </div>
+                        <div style="height: 10px; background: #e0e0e0; border-radius: 5px; overflow: hidden;">
+                            <div style="width: ${totalAttempts > 0 ? (score80_89 / totalAttempts * 100) : 0}%; height: 100%; background: #2196F3;"></div>
+                        </div>
+                    </div>
+                    <div>
+                        <div style="display: flex; justify-content: space-between; margin-bottom: 5px;">
+                            <span>70-79%</span>
+                            <span>${score70_79} students</span>
+                        </div>
+                        <div style="height: 10px; background: #e0e0e0; border-radius: 5px; overflow: hidden;">
+                            <div style="width: ${totalAttempts > 0 ? (score70_79 / totalAttempts * 100) : 0}%; height: 100%; background: #FF9800;"></div>
+                        </div>
+                    </div>
+                    <div>
+                        <div style="display: flex; justify-content: space-between; margin-bottom: 5px;">
+                            <span>Below 70%</span>
+                            <span>${scoreBelow70} students</span>
+                        </div>
+                        <div style="height: 10px; background: #e0e0e0; border-radius: 5px; overflow: hidden;">
+                            <div style="width: ${totalAttempts > 0 ? (scoreBelow70 / totalAttempts * 100) : 0}%; height: 100%; background: #f44336;"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Student Attempts -->
+            <h4 style="color: #7a0000; margin-bottom: 15px;">Student Attempts</h4>
+            <div style="max-height: 300px; overflow-y: auto; border: 1px solid #e0e0e0; border-radius: 8px;">
+                <table style="width: 100%; border-collapse: collapse;">
+                    <thead style="background: #f8f9fa; position: sticky; top: 0;">
+                        <tr>
+                            <th style="padding: 12px; text-align: left;">Student</th>
+                            <th style="padding: 12px; text-align: left;">Score</th>
+                            <th style="padding: 12px; text-align: left;">Attempt</th>
+                            <th style="padding: 12px; text-align: left;">Time</th>
+                            <th style="padding: 12px; text-align: left;">Date</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${attemptsHtml}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    `;
+    
+    // Show modal
+    modal.style.display = 'flex';
+    document.body.classList.add('modal-open');
+}
+
+// ===== CLOSE PRACTICE STATS MODAL =====
+function closePracticeStatsModal() {
+    const modal = document.getElementById('practiceStatsModal');
+    if (modal) {
+        modal.style.display = 'none';
+        document.body.classList.remove('modal-open');
+    }
+}
+
 // ===== LOAD QUIZZES FOR CATEGORY =====
 async function loadQuizzesForCategory(categoryId) {
     try {
@@ -23272,7 +23564,7 @@ async function savePracticeExercise() {
     }
 }
 
-// ===== VIEW PRACTICE EXERCISE - WITH TOKEN =====
+// ===== VIEW PRACTICE EXERCISE - WITH DISPLAY FUNCTION =====
 async function viewPracticeExercise(exerciseId) {
     console.log("👁️ Viewing practice exercise:", exerciseId);
     
@@ -23307,7 +23599,7 @@ async function viewPracticeExercise(exerciseId) {
         const result = await response.json();
         
         if (result.success && result.exercise) {
-            // Display exercise details
+            // Display exercise details using the new function
             displayExerciseDetails(result.exercise);
         } else {
             throw new Error(result.message || 'Failed to load exercise');
@@ -23521,7 +23813,7 @@ async function deletePracticeExercise(exerciseId) {
     }
 }
 
-// ===== VIEW PRACTICE STATISTICS - WITH TOKEN =====
+// ===== VIEW PRACTICE STATISTICS - WITH DISPLAY FUNCTION =====
 async function viewPracticeStats(exerciseId) {
     console.log("📊 Viewing practice statistics for exercise:", exerciseId);
     
@@ -23561,9 +23853,8 @@ async function viewPracticeStats(exerciseId) {
         }
         
         const exercise = exerciseResult.exercise;
-        const exerciseTitle = exercise.title || 'Practice Exercise';
         
-        // Then get attempts data (if endpoint exists)
+        // Then get attempts data
         let attempts = [];
         try {
             const attemptsResponse = await fetch(`/api/admin/practice/${exerciseId}/attempts`, {
@@ -23585,7 +23876,7 @@ async function viewPracticeStats(exerciseId) {
             attempts = [];
         }
         
-        // Display statistics modal
+        // Display statistics modal using the new function
         displayPracticeStatsModal(exercise, attempts);
         
     } catch (error) {
