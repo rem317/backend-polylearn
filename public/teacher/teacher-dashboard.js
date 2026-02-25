@@ -111,9 +111,12 @@ let authToken = localStorage.getItem('authToken');
 console.log('🔧 API Base URL:', API_BASE_URL);
 
 // Helper function para sa authentication headers
-// Helper function para sa authentication headers - FIXED
+// Helper function para sa authentication headers - ULTRA FIXED
 function getAuthHeaders() {
     const token = localStorage.getItem('authToken');
+    
+    console.log('🔍 getAuthHeaders - Token exists:', !!token);
+    
     if (!token) {
         console.warn('⚠️ No token found in localStorage');
         return { 
@@ -122,11 +125,19 @@ function getAuthHeaders() {
         };
     }
     
-    // Siguraduhing may 'Bearer ' prefix
-    const formattedToken = token.startsWith('Bearer ') ? token : `Bearer ${token}`;
+    // CRITICAL: Tanggalin ang "Bearer " kung meron na, para siguradong isang beses lang
+    let cleanToken = token;
+    if (token.startsWith('Bearer ')) {
+        cleanToken = token.substring(7); // Remove "Bearer "
+        console.log('🔧 Removed existing Bearer prefix');
+    }
     
-    // Log for debugging (first 20 chars lang)
-    console.log('🔑 Using token:', formattedToken.substring(0, 25) + '...');
+    // Ngayon, idagdag ang "Bearer " ng tama
+    const formattedToken = `Bearer ${cleanToken}`;
+    
+    // Log for debugging (first 15 chars lang)
+    console.log('🔑 Using token:', formattedToken.substring(0, 20) + '...');
+    console.log('🔑 Token length:', formattedToken.length);
     
     return {
         'Authorization': formattedToken,
@@ -178,13 +189,20 @@ document.addEventListener('DOMContentLoaded', function() {
 // ===== CORRECTED: CHECK TEACHER AUTHENTICATION USING TEACHERS TABLE =====
 // ===== CHECK TEACHER AUTHENTICATION - WITH BACKEND VERIFICATION =====
 // ===== CHECK TEACHER AUTHENTICATION - COMPLETELY FIXED =====
+// ===== CHECK TEACHER AUTHENTICATION - ULTRA FIXED =====
 async function checkTeacherAuth() {
     const token = localStorage.getItem('authToken');
     const userJson = localStorage.getItem('mathhub_user');
     
     console.log('🔍 Checking authentication...');
-    console.log('   - Token in localStorage:', !!token);
-    console.log('   - User data in localStorage:', !!userJson);
+    console.log('   - Raw token exists:', !!token);
+    
+    if (token) {
+        console.log('   - Token preview:', token.substring(0, 15) + '...');
+        console.log('   - Token starts with "Bearer "?', token.startsWith('Bearer '));
+    }
+    
+    console.log('   - User data exists:', !!userJson);
     
     if (!token || !userJson) {
         console.log('❌ No user logged in');
@@ -194,10 +212,8 @@ async function checkTeacherAuth() {
     }
     
     try {
-        // I-verify muna ang user role bago mag-backend call
         const user = JSON.parse(userJson);
         
-        // Check role agad
         if (user.role !== 'teacher' && user.role !== 'admin') {
             console.log('❌ User is not a teacher');
             showNotification('error', 'Access Denied', 'Teacher access required');
@@ -205,30 +221,31 @@ async function checkTeacherAuth() {
             return false;
         }
         
-        // Store basic user info MUNA bago mag-verify
         teacherId = user.id;
         teacherName = user.full_name || user.username || 'Teacher';
         authToken = token;
         
         console.log(`👋 Welcome, ${teacherName}! (ID: ${teacherId})`);
         
-        // Ngayon, subukang i-verify ang token sa backend (PERO HINDI NA MANDATORY)
+        // I-test ang token sa backend, pero huwag mag-redirect kung failed
         try {
-            const isValid = await verifyTokenWithBackend(token);
+            // Gumamit ng test endpoint
+            const testResponse = await fetch(`${API_BASE_URL}/test`, {
+                method: 'GET',
+                headers: getAuthHeaders()
+            });
             
-            if (!isValid) {
-                console.log('⚠️ Token verification failed, but continuing with local data');
-                // Huwag nang mag-redirect, tiwala muna tayo sa local data
-                // Pero i-log pa rin natin
+            if (testResponse.ok) {
+                console.log('✅ Token works with /test endpoint');
+            } else {
+                console.log('⚠️ Token may be invalid (status:', testResponse.status, ')');
+                // Huwag mag-redirect, mag-log lang
             }
-        } catch (verifyError) {
-            console.log('⚠️ Backend verification error, continuing with local data');
-            // Continue even if backend verification fails
+        } catch (e) {
+            console.log('⚠️ Token test failed, but continuing');
         }
         
-        // Fetch additional teacher details (optional)
         fetchTeacherDetails(teacherId);
-        
         return true;
         
     } catch (error) {
@@ -240,37 +257,23 @@ async function checkTeacherAuth() {
 
 // ===== VERIFY TOKEN WITH BACKEND =====
 // ===== VERIFY TOKEN WITH BACKEND - FIXED =====
+// ===== VERIFY TOKEN WITH BACKEND - SIMPLIFIED =====
 async function verifyTokenWithBackend(token) {
     try {
-        // Siguraduhing may "Bearer " prefix
-        const formattedToken = token.startsWith('Bearer ') ? token : `Bearer ${token}`;
-        
+        // HUWAG nang mag-format dito, hayaan na lang si getAuthHeaders ang bahala
         console.log('🔍 Verifying token with backend...');
         
         const response = await fetch(`${API_BASE_URL}/auth/me`, {
             method: 'GET',
-            headers: {
-                'Authorization': formattedToken,
-                'Content-Type': 'application/json'
-            }
+            headers: getAuthHeaders() // GAMITIN ANG HELPER
         });
         
         if (response.ok) {
             const data = await response.json();
             console.log('✅ Token verified for user:', data.user?.username);
-            
-            // I-save muli ang token kung kinakailangan (refresh token logic)
-            // Pero sa ngayon, tiwala lang tayo sa response
             return true;
         } else {
             console.log('❌ Token verification failed with status:', response.status);
-            
-            // Kung 401, clear local storage at mag-redirect
-            if (response.status === 401) {
-                console.log('⚠️ Unauthorized - clearing storage');
-                localStorage.removeItem('authToken');
-                localStorage.removeItem('mathhub_user');
-            }
             return false;
         }
     } catch (error) {
