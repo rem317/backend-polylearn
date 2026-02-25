@@ -5745,34 +5745,59 @@ async function ensureGeneralModuleExists(lessonId) {
     }
 }
 
-// ===== HANDLE VIDEO FILE SELECT =====
+// ===== HANDLE VIDEO FILE SELECT - MAIN MODAL =====
 function handleVideoFileSelect(event) {
     const file = event.target.files[0];
     if (!file) return;
     
     console.log("🎬 Video file selected:", file.name, file.size);
     
+    const fileName = file.name;
+    const fileSize = (file.size / (1024*1024)).toFixed(2) + ' MB';
+    
     // Update file info
-    document.getElementById('videoFileName').textContent = file.name;
-    document.getElementById('videoFileSize').textContent = (file.size / (1024*1024)).toFixed(2) + ' MB';
-    document.getElementById('videoFileInfo').style.display = 'block';
+    const videoFileNameEl = document.getElementById('videoFileName');
+    if (videoFileNameEl) videoFileNameEl.textContent = fileName;
+    
+    const videoFileSizeEl = document.getElementById('videoFileSize');
+    if (videoFileSizeEl) videoFileSizeEl.textContent = fileSize;
+    
+    const videoFileInfoEl = document.getElementById('videoFileInfo');
+    if (videoFileInfoEl) videoFileInfoEl.style.display = 'block';
     
     // Show new video indicator
-    document.getElementById('newVideoFilename').textContent = file.name + ' (' + (file.size / (1024*1024)).toFixed(2) + ' MB)';
-    document.getElementById('newVideoIndicator').style.display = 'block';
+    const newVideoFilenameEl = document.getElementById('newVideoFilename');
+    if (newVideoFilenameEl) {
+        newVideoFilenameEl.textContent = fileName + ' (' + fileSize + ')';
+    }
+    
+    const newVideoIndicatorEl = document.getElementById('newVideoIndicator');
+    if (newVideoIndicatorEl) {
+        newVideoIndicatorEl.style.display = 'block';
+    }
     
     // Hide existing video indicator if showing
-    document.getElementById('existingVideoInfo').style.display = 'none';
+    const existingVideoInfoEl = document.getElementById('existingVideoInfo');
+    if (existingVideoInfoEl) {
+        existingVideoInfoEl.style.display = 'none';
+    }
     
     // Create video preview
-    const preview = document.getElementById('videoPreview');
-    const previewContainer = document.getElementById('videoPreviewContainer');
-    preview.src = URL.createObjectURL(file);
-    previewContainer.style.display = 'block';
+    const videoPreviewEl = document.getElementById('videoPreview');
+    const previewContainerEl = document.getElementById('videoPreviewContainer');
+    
+    if (videoPreviewEl && previewContainerEl) {
+        videoPreviewEl.src = URL.createObjectURL(file);
+        previewContainerEl.style.display = 'block';
+        console.log("✅ Video preview created");
+    }
     
     // Change upload area style
-    document.getElementById('videoUploadArea').style.borderColor = '#4caf50';
-    document.getElementById('videoUploadArea').style.background = '#f1f8e9';
+    const videoUploadAreaEl = document.getElementById('videoUploadArea');
+    if (videoUploadAreaEl) {
+        videoUploadAreaEl.style.borderColor = '#4caf50';
+        videoUploadAreaEl.style.background = '#f1f8e9';
+    }
 }
 
 // ===== SET EXISTING VIDEO INFO (FOR EDIT MODE) =====
@@ -9031,20 +9056,34 @@ function cancelEditNewVideo() {
     document.getElementById('editVideoUploadArea').style.background = '';
 }
 
-// Handle edit text file select
+// ===== HANDLE EDIT TEXT FILE SELECT - WITH NULL CHECKS =====
 function handleEditTextFileSelect(event) {
     const file = event.target.files[0];
     if (!file) return;
     
     console.log("📄 Edit text file selected:", file.name);
     
-    document.getElementById('editNewTextFilename').textContent = file.name;
-    document.getElementById('editNewTextFileSize').textContent = (file.size / 1024).toFixed(2) + ' KB';
-    document.getElementById('editNewTextIndicator').style.display = 'block';
+    const newTextFilenameEl = document.getElementById('editNewTextFilename');
+    if (newTextFilenameEl) {
+        newTextFilenameEl.textContent = file.name;
+    }
+    
+    const newTextFileSizeEl = document.getElementById('editNewTextFileSize');
+    if (newTextFileSizeEl) {
+        newTextFileSizeEl.textContent = (file.size / 1024).toFixed(2) + ' KB';
+    }
+    
+    const newTextIndicatorEl = document.getElementById('editNewTextIndicator');
+    if (newTextIndicatorEl) {
+        newTextIndicatorEl.style.display = 'block';
+    }
     
     const reader = new FileReader();
     reader.onload = function(e) {
-        document.getElementById('editTextContentInput').value = e.target.result;
+        const textContentInputEl = document.getElementById('editTextContentInput');
+        if (textContentInputEl) {
+            textContentInputEl.value = e.target.result;
+        }
     };
     reader.readAsText(file);
 }
@@ -21499,26 +21538,36 @@ function triggerEditVideoUpload() {
     document.getElementById('editVideoFileInput').click();
 }
 
-// ===== HANDLE EDIT VIDEO FILE SELECT =====
+// ===== HANDLE EDIT VIDEO FILE SELECT - WITH NULL CHECKS =====
 function handleEditVideoFileSelect(event) {
     const file = event.target.files[0];
     if (!file) return;
     
     console.log("🎬 Edit video file selected:", file.name);
     
-    // Update new video indicator
-    document.getElementById('editNewVideoFilename').textContent = file.name + ' (' + (file.size / (1024*1024)).toFixed(2) + ' MB)';
-    document.getElementById('editNewVideoIndicator').style.display = 'block';
+    const newVideoFilenameEl = document.getElementById('editNewVideoFilename');
+    if (newVideoFilenameEl) {
+        newVideoFilenameEl.textContent = file.name + ' (' + (file.size / (1024*1024)).toFixed(2) + ' MB)';
+    }
     
-    // Create preview
-    const preview = document.getElementById('editVideoPreview');
-    const previewContainer = document.getElementById('editVideoPreviewContainer');
-    preview.src = URL.createObjectURL(file);
-    previewContainer.style.display = 'block';
+    const newVideoIndicatorEl = document.getElementById('editNewVideoIndicator');
+    if (newVideoIndicatorEl) {
+        newVideoIndicatorEl.style.display = 'block';
+    }
     
-    // Update upload area style
-    document.getElementById('editVideoUploadArea').style.borderColor = '#4caf50';
-    document.getElementById('editVideoUploadArea').style.background = '#f1f8e9';
+    const previewEl = document.getElementById('editVideoPreview');
+    const previewContainerEl = document.getElementById('editVideoPreviewContainer');
+    
+    if (previewEl && previewContainerEl) {
+        previewEl.src = URL.createObjectURL(file);
+        previewContainerEl.style.display = 'block';
+    }
+    
+    const uploadAreaEl = document.getElementById('editVideoUploadArea');
+    if (uploadAreaEl) {
+        uploadAreaEl.style.borderColor = '#4caf50';
+        uploadAreaEl.style.background = '#f1f8e9';
+    }
 }
 
 // ===== CANCEL EDIT NEW VIDEO =====
