@@ -7232,6 +7232,135 @@ function getSubjectDescription(subject) {
     return descriptions[subject] || 'Mathematics subject';
 }
 
+// ===== Admin fetch wrapper with token handling =====
+async function adminFetch(url, options = {}) {
+    // Get token from multiple possible locations
+    let token = localStorage.getItem('admin_token') || 
+                localStorage.getItem('authToken') || 
+                '';
+    
+    console.log(`🔑 adminFetch to ${url} - Token exists:`, !!token);
+    
+    if (!token) {
+        console.error('❌ No admin token found');
+        showNotification('error', 'Authentication Required', 'Please login as admin');
+        
+        // Try to sync from mathhub_user
+        const userJson = localStorage.getItem('mathhub_user');
+        const authToken = localStorage.getItem('authToken');
+        
+        if (userJson && authToken) {
+            try {
+                const user = JSON.parse(userJson);
+                if (user.role === 'admin') {
+                    localStorage.setItem('admin_token', authToken);
+                    token = authToken;
+                    console.log('✅ Admin token synced successfully');
+                }
+            } catch (e) {
+                console.error('❌ Error parsing user data:', e);
+            }
+        }
+        
+        if (!token) {
+            redirectToLogin();
+            throw new Error('No admin token found');
+        }
+    }
+    
+    // Set up headers with authorization
+    const headers = {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json',
+        ...options.headers
+    };
+    
+    const fetchOptions = {
+        ...options,
+        headers: headers
+    };
+    
+    try {
+        const response = await fetch(url, fetchOptions);
+        
+        // Handle 401 Unauthorized (expired token)
+        if (response.status === 401) {
+            console.error('❌ Token expired, redirecting to login...');
+            
+            // Clear expired token
+            localStorage.removeItem('admin_token');
+            
+            // Try to refresh from authToken
+            const authToken = localStorage.getItem('authToken');
+            const userJson = localStorage.getItem('mathhub_user');
+            
+            if (authToken && userJson) {
+                try {
+                    const user = JSON.parse(userJson);
+                    if (user.role === 'admin') {
+                        localStorage.setItem('admin_token', authToken);
+                        console.log('✅ Token refreshed, retrying request...');
+                        
+                        // Retry the request with new token
+                        const retryHeaders = {
+                            ...headers,
+                            'Authorization': `Bearer ${authToken}`
+                        };
+                        
+                        const retryResponse = await fetch(url, {
+                            ...fetchOptions,
+                            headers: retryHeaders
+                        });
+                        
+                        return retryResponse;
+                    }
+                } catch (e) {
+                    console.error('❌ Error refreshing token:', e);
+                }
+            }
+            
+            // If still no token, redirect to login
+            showNotification('error', 'Session Expired', 'Please login again');
+            setTimeout(() => {
+                window.location.href = '/login.html';
+            }, 2000);
+            
+            throw new Error('Token expired');
+        }
+        
+        return response;
+        
+    } catch (error) {
+        console.error(`❌ Error in adminFetch to ${url}:`, error);
+        throw error;
+    }
+}
+
+// ===== Helper function to redirect to login =====
+function redirectToLogin() {
+    console.log("🔄 Redirecting to login page...");
+    
+    // Show notification if function exists
+    if (typeof showNotification === 'function') {
+        showNotification('info', 'Session Expired', 'Please login again');
+    }
+    
+    // Redirect after a short delay
+    setTimeout(() => {
+        // Try to determine the correct login page path
+        const currentPath = window.location.pathname;
+        let loginPath = '/login.html';
+        
+        if (currentPath.includes('/admin/')) {
+            loginPath = '../login.html';
+        } else if (currentPath.endsWith('admin.html')) {
+            loginPath = 'login.html';
+        }
+        
+        window.location.href = loginPath;
+    }, 1500);
+}
+
 // ===== UPDATED: VIEW SUBJECT LESSONS - FETCH FROM MYSQL =====
 async function viewSubjectLessons(subject, e) {
     if (e) {
