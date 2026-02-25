@@ -23272,7 +23272,7 @@ async function savePracticeExercise() {
     }
 }
 
-// ===== VIEW PRACTICE EXERCISE - FIXED =====
+// ===== VIEW PRACTICE EXERCISE - WITH TOKEN =====
 async function viewPracticeExercise(exerciseId) {
     console.log("👁️ Viewing practice exercise:", exerciseId);
     
@@ -23288,8 +23288,17 @@ async function viewPracticeExercise(exerciseId) {
         showNotification('info', 'Loading', 'Fetching exercise details...');
         
         const response = await fetch(`/api/exercises/${exerciseId}`, {
-            headers: { 'Authorization': `Bearer ${token}` }
+            headers: { 
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+            }
         });
+        
+        if (response.status === 401) {
+            showNotification('error', 'Session Expired', 'Please login again');
+            handleTokenExpired();
+            return;
+        }
         
         if (!response.ok) {
             throw new Error(`HTTP error! status: ${response.status}`);
@@ -23298,80 +23307,8 @@ async function viewPracticeExercise(exerciseId) {
         const result = await response.json();
         
         if (result.success && result.exercise) {
-            const exercise = result.exercise;
-            
-            // Create modal to view exercise
-            const modal = document.createElement('div');
-            modal.className = 'modal';
-            modal.id = 'viewPracticeModal';
-            modal.style.display = 'flex';
-            
-            let questionsHtml = '';
-            if (exercise.content_json && exercise.content_json.questions) {
-                exercise.content_json.questions.forEach((q, index) => {
-                    questionsHtml += `
-                        <div style="background: #f8f9fa; padding: 15px; border-radius: 8px; margin-bottom: 15px;">
-                            <h4 style="margin: 0 0 10px 0; color: #7a0000;">Question ${index + 1}</h4>
-                            <p style="margin: 0 0 10px 0;">${q.text}</p>
-                            <div style="display: grid; gap: 8px;">
-                                ${q.options.map(opt => `
-                                    <div style="display: flex; align-items: center; gap: 10px; padding: 8px; background: white; border-radius: 4px; ${opt.correct ? 'border-left: 4px solid #4CAF50;' : ''}">
-                                        <span>${opt.text}</span>
-                                        ${opt.correct ? '<span style="color: #4CAF50; margin-left: auto;"><i class="fas fa-check"></i> Correct</span>' : ''}
-                                    </div>
-                                `).join('')}
-                            </div>
-                        </div>
-                    `;
-                });
-            }
-            
-            modal.innerHTML = `
-                <div class="modal-backdrop" onclick="closeViewPracticeModal()"></div>
-                <div class="modal-content" style="max-width: 700px;">
-                    <div class="modal-header" style="background: #7a0000; color: white;">
-                        <h3><i class="fas fa-eye"></i> Practice Exercise Details</h3>
-                        <button class="modal-close" onclick="closeViewPracticeModal()" style="color: white;">&times;</button>
-                    </div>
-                    <div class="modal-body" style="max-height: 70vh; overflow-y: auto;">
-                        <div style="margin-bottom: 20px;">
-                            <h4 style="color: #7a0000; margin-bottom: 10px;">${exercise.title}</h4>
-                            <p style="color: #666; margin-bottom: 15px;">${exercise.description || 'No description'}</p>
-                            
-                            <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 20px;">
-                                <div style="background: #f8f9fa; padding: 10px; text-align: center; border-radius: 6px;">
-                                    <span style="display: block; font-size: 1.2rem; font-weight: bold; color: #7a0000;">${exercise.difficulty || 'medium'}</span>
-                                    <span style="font-size: 0.8rem; color: #666;">Difficulty</span>
-                                </div>
-                                <div style="background: #f8f9fa; padding: 10px; text-align: center; border-radius: 6px;">
-                                    <span style="display: block; font-size: 1.2rem; font-weight: bold; color: #7a0000;">${exercise.content_json?.questions?.length || 0}</span>
-                                    <span style="font-size: 0.8rem; color: #666;">Questions</span>
-                                </div>
-                                <div style="background: #f8f9fa; padding: 10px; text-align: center; border-radius: 6px;">
-                                    <span style="display: block; font-size: 1.2rem; font-weight: bold; color: #7a0000;">${exercise.points || 10}</span>
-                                    <span style="font-size: 0.8rem; color: #666;">Points</span>
-                                </div>
-                                <div style="background: #f8f9fa; padding: 10px; text-align: center; border-radius: 6px;">
-                                    <span style="display: block; font-size: 1.2rem; font-weight: bold; color: #7a0000;">${exercise.attempts || 0}</span>
-                                    <span style="font-size: 0.8rem; color: #666;">Attempts</span>
-                                </div>
-                            </div>
-                            
-                            <h5 style="color: #7a0000; margin-bottom: 15px;">Questions Preview:</h5>
-                            ${questionsHtml}
-                        </div>
-                    </div>
-                    <div class="modal-footer">
-                        <button class="btn btn-secondary" onclick="closeViewPracticeModal()">Close</button>
-                        <button class="btn btn-primary" onclick="editPracticeExercise(${exerciseId})">
-                            <i class="fas fa-edit"></i> Edit
-                        </button>
-                    </div>
-                </div>
-            `;
-            
-            document.body.appendChild(modal);
-            
+            // Display exercise details
+            displayExerciseDetails(result.exercise);
         } else {
             throw new Error(result.message || 'Failed to load exercise');
         }
@@ -23381,7 +23318,6 @@ async function viewPracticeExercise(exerciseId) {
         showNotification('error', 'Error', error.message);
     }
 }
-
 // ===== CLOSE VIEW PRACTICE MODAL =====
 function closeViewPracticeModal() {
     const modal = document.getElementById('viewPracticeModal');
@@ -23390,7 +23326,37 @@ function closeViewPracticeModal() {
     }
 }
 
-// ===== EDIT PRACTICE EXERCISE - FIXED =====
+// ===== Handle token expired =====
+function handleTokenExpired() {
+    console.log("🔄 Token expired, attempting to refresh...");
+    
+    const userJson = localStorage.getItem('mathhub_user');
+    const authToken = localStorage.getItem('authToken');
+    
+    if (userJson && authToken) {
+        try {
+            const user = JSON.parse(userJson);
+            if (user.role === 'admin') {
+                localStorage.setItem('admin_token', authToken);
+                console.log("✅ Token refreshed, reloading page...");
+                setTimeout(() => {
+                    window.location.reload();
+                }, 500);
+                return;
+            }
+        } catch (e) {
+            console.error("❌ Error refreshing token:", e);
+        }
+    }
+    
+    // If no refresh, redirect to login
+    showNotification('error', 'Session Expired', 'Please login again');
+    setTimeout(() => {
+        window.location.href = '/login.html';
+    }, 1500);
+}
+
+// ===== EDIT PRACTICE EXERCISE - WITH TOKEN =====
 async function editPracticeExercise(exerciseId) {
     console.log("✏️ Editing practice exercise:", exerciseId);
     
@@ -23406,8 +23372,17 @@ async function editPracticeExercise(exerciseId) {
         showNotification('info', 'Loading', 'Fetching exercise data...');
         
         const response = await fetch(`/api/exercises/${exerciseId}`, {
-            headers: { 'Authorization': `Bearer ${token}` }
+            headers: { 
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+            }
         });
+        
+        if (response.status === 401) {
+            showNotification('error', 'Session Expired', 'Please login again');
+            handleTokenExpired();
+            return;
+        }
         
         if (!response.ok) {
             throw new Error(`HTTP error! status: ${response.status}`);
@@ -23422,7 +23397,8 @@ async function editPracticeExercise(exerciseId) {
             openCreatePracticeModal();
             
             // Change title to Edit mode
-            document.getElementById('modalPracticeTitle').textContent = 'Edit Practice Exercise';
+            const modalTitle = document.getElementById('modalPracticeTitle');
+            if (modalTitle) modalTitle.textContent = 'Edit Practice Exercise';
             
             // Populate form
             document.getElementById('practiceId').value = exerciseId;
@@ -23443,7 +23419,7 @@ async function editPracticeExercise(exerciseId) {
             document.getElementById('practiceDifficulty').value = exercise.difficulty || 'medium';
             document.getElementById('practiceType').value = exercise.content_type || 'multiple-choice';
             document.getElementById('practicePoints').value = exercise.points || 10;
-            document.getElementById('practiceStatus').value = exercise.status || 'active';
+            document.getElementById('practiceStatus').value = exercise.is_active ? 'active' : 'inactive';
             
             // Clear and add questions
             const container = document.getElementById('practiceQuestionsContainer');
@@ -23464,9 +23440,12 @@ async function editPracticeExercise(exerciseId) {
                         
                         // Set options
                         if (q.options && q.options.length > 0) {
+                            const letters = ['a', 'b', 'c', 'd', 'e', 'f'];
+                            
                             q.options.forEach((opt, optIndex) => {
-                                const letters = ['a', 'b', 'c', 'd', 'e', 'f'];
                                 const letter = letters[optIndex];
+                                if (!letter) return;
+                                
                                 const optInput = document.getElementById(`practice_q_${qNum}_opt_${letter}`);
                                 if (optInput) {
                                     optInput.value = opt.text || '';
@@ -23542,7 +23521,7 @@ async function deletePracticeExercise(exerciseId) {
     }
 }
 
-// ===== VIEW PRACTICE STATISTICS - WITH PDF EXPORT =====
+// ===== VIEW PRACTICE STATISTICS - WITH TOKEN =====
 async function viewPracticeStats(exerciseId) {
     console.log("📊 Viewing practice statistics for exercise:", exerciseId);
     
@@ -23557,210 +23536,57 @@ async function viewPracticeStats(exerciseId) {
         // Show loading
         showNotification('info', 'Loading', 'Fetching exercise statistics...');
         
-        const response = await fetch(`/api/admin/practice/${exerciseId}/attempts`, {
-            headers: { 'Authorization': `Bearer ${token}` }
+        // First get exercise details
+        const exerciseResponse = await fetch(`/api/exercises/${exerciseId}`, {
+            headers: { 
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+            }
         });
         
-        if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
+        if (exerciseResponse.status === 401) {
+            showNotification('error', 'Session Expired', 'Please login again');
+            handleTokenExpired();
+            return;
         }
         
-        const result = await response.json();
+        if (!exerciseResponse.ok) {
+            throw new Error(`HTTP error! status: ${exerciseResponse.status}`);
+        }
         
-        if (result.success) {
-            const attempts = result.attempts || [];
-            
-            // Create modal to show statistics
-            const modal = document.createElement('div');
-            modal.className = 'modal';
-            modal.id = 'practiceStatsModal';
-            modal.style.display = 'flex';
-            
-            // Calculate stats
-            const totalAttempts = attempts.length;
-            const avgScore = totalAttempts > 0 
-                ? Math.round(attempts.reduce((sum, a) => sum + (a.score || 0), 0) / totalAttempts) 
-                : 0;
-            const passedCount = attempts.filter(a => a.score >= 70).length;
-            const passRate = totalAttempts > 0 ? Math.round((passedCount / totalAttempts) * 100) : 0;
-            
-            // Calculate high score and low score
-            const highScore = totalAttempts > 0 
-                ? Math.max(...attempts.map(a => a.score || 0))
-                : 0;
-            const lowScore = totalAttempts > 0 
-                ? Math.min(...attempts.map(a => a.score || 0))
-                : 0;
-            
-            // Get exercise info (you may need to fetch this separately)
-            let exerciseTitle = 'Practice Exercise';
-            try {
-                const exerciseResponse = await fetch(`/api/exercises/${exerciseId}`, {
-                    headers: { 'Authorization': `Bearer ${token}` }
-                });
-                if (exerciseResponse.ok) {
-                    const exerciseData = await exerciseResponse.json();
-                    if (exerciseData.success && exerciseData.exercise) {
-                        exerciseTitle = exerciseData.exercise.title || exerciseTitle;
-                    }
+        const exerciseResult = await exerciseResponse.json();
+        
+        if (!exerciseResult.success || !exerciseResult.exercise) {
+            throw new Error('Failed to load exercise details');
+        }
+        
+        const exercise = exerciseResult.exercise;
+        const exerciseTitle = exercise.title || 'Practice Exercise';
+        
+        // Then get attempts data (if endpoint exists)
+        let attempts = [];
+        try {
+            const attemptsResponse = await fetch(`/api/admin/practice/${exerciseId}/attempts`, {
+                headers: { 
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json'
                 }
-            } catch (e) {
-                console.log('Could not fetch exercise title');
+            });
+            
+            if (attemptsResponse.ok) {
+                const attemptsResult = await attemptsResponse.json();
+                if (attemptsResult.success) {
+                    attempts = attemptsResult.attempts || [];
+                }
             }
-            
-            let attemptsHtml = '';
-            if (attempts.length > 0) {
-                attemptsHtml = attempts.map(a => `
-                    <tr>
-                        <td>${a.user_name || 'Unknown'}</td>
-                        <td><span style="color: ${a.score >= 70 ? '#4CAF50' : '#f44336'}; font-weight: bold;">${a.score}%</span></td>
-                        <td>${a.attempt_number || 1}</td>
-                        <td>${Math.floor((a.time_spent_seconds || 0) / 60)}:${((a.time_spent_seconds || 0) % 60).toString().padStart(2, '0')}</td>
-                        <td>${new Date(a.attempted_at).toLocaleDateString()}</td>
-                    </tr>
-                `).join('');
-            } else {
-                attemptsHtml = `
-                    <tr>
-                        <td colspan="5" style="text-align: center; padding: 40px;">
-                            <i class="fas fa-chart-bar" style="font-size: 2rem; color: #ccc;"></i>
-                            <p style="color: #666; margin-top: 10px;">No attempts yet</p>
-                        </td>
-                    </tr>
-                `;
-            }
-            
-            modal.innerHTML = `
-                <div class="modal-backdrop" onclick="closePracticeStatsModal()"></div>
-                <div class="modal-content" style="max-width: 900px;">
-                    <div class="modal-header" style="background: #7a0000; color: white;">
-                        <h3><i class="fas fa-chart-bar"></i> Practice Statistics: ${exerciseTitle}</h3>
-                        <button class="modal-close" onclick="closePracticeStatsModal()" style="color: white;">&times;</button>
-                    </div>
-                    <div class="modal-body">
-                        <!-- Stats Summary Cards -->
-                        <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 15px; margin-bottom: 25px;">
-                            <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 20px; border-radius: 10px; text-align: center; color: white;">
-                                <span style="display: block; font-size: 2rem; font-weight: bold;">${totalAttempts}</span>
-                                <span>Total Attempts</span>
-                            </div>
-                            <div style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); padding: 20px; border-radius: 10px; text-align: center; color: white;">
-                                <span style="display: block; font-size: 2rem; font-weight: bold;">${avgScore}%</span>
-                                <span>Average Score</span>
-                            </div>
-                            <div style="background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); padding: 20px; border-radius: 10px; text-align: center; color: white;">
-                                <span style="display: block; font-size: 2rem; font-weight: bold;">${passRate}%</span>
-                                <span>Pass Rate</span>
-                            </div>
-                            <div style="background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%); padding: 20px; border-radius: 10px; text-align: center; color: white;">
-                                <span style="display: block; font-size: 2rem; font-weight: bold;">${highScore}%</span>
-                                <span>Highest Score</span>
-                            </div>
-                        </div>
-                        
-                        <!-- Additional Stats -->
-                        <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 20px; margin-bottom: 25px;">
-                            <div style="background: #f8f9fa; padding: 15px; border-radius: 8px;">
-                                <h4 style="margin: 0 0 10px 0; color: #333;">Score Distribution</h4>
-                                <div style="margin-bottom: 8px;">
-                                    <div style="display: flex; justify-content: space-between; margin-bottom: 3px;">
-                                        <span>90-100%</span>
-                                        <span>${attempts.filter(a => a.score >= 90).length}</span>
-                                    </div>
-                                    <div style="height: 8px; background: #e0e0e0; border-radius: 4px;">
-                                        <div style="height: 100%; width: ${totalAttempts > 0 ? (attempts.filter(a => a.score >= 90).length / totalAttempts * 100) : 0}%; background: #4CAF50; border-radius: 4px;"></div>
-                                    </div>
-                                </div>
-                                <div style="margin-bottom: 8px;">
-                                    <div style="display: flex; justify-content: space-between; margin-bottom: 3px;">
-                                        <span>80-89%</span>
-                                        <span>${attempts.filter(a => a.score >= 80 && a.score < 90).length}</span>
-                                    </div>
-                                    <div style="height: 8px; background: #e0e0e0; border-radius: 4px;">
-                                        <div style="height: 100%; width: ${totalAttempts > 0 ? (attempts.filter(a => a.score >= 80 && a.score < 90).length / totalAttempts * 100) : 0}%; background: #2196F3; border-radius: 4px;"></div>
-                                    </div>
-                                </div>
-                                <div style="margin-bottom: 8px;">
-                                    <div style="display: flex; justify-content: space-between; margin-bottom: 3px;">
-                                        <span>70-79%</span>
-                                        <span>${attempts.filter(a => a.score >= 70 && a.score < 80).length}</span>
-                                    </div>
-                                    <div style="height: 8px; background: #e0e0e0; border-radius: 4px;">
-                                        <div style="height: 100%; width: ${totalAttempts > 0 ? (attempts.filter(a => a.score >= 70 && a.score < 80).length / totalAttempts * 100) : 0}%; background: #FF9800; border-radius: 4px;"></div>
-                                    </div>
-                                </div>
-                                <div style="margin-bottom: 8px;">
-                                    <div style="display: flex; justify-content: space-between; margin-bottom: 3px;">
-                                        <span>Below 70%</span>
-                                        <span>${attempts.filter(a => a.score < 70).length}</span>
-                                    </div>
-                                    <div style="height: 8px; background: #e0e0e0; border-radius: 4px;">
-                                        <div style="height: 100%; width: ${totalAttempts > 0 ? (attempts.filter(a => a.score < 70).length / totalAttempts * 100) : 0}%; background: #f44336; border-radius: 4px;"></div>
-                                    </div>
-                                </div>
-                            </div>
-                            
-                            <div style="background: #f8f9fa; padding: 15px; border-radius: 8px;">
-                                <h4 style="margin: 0 0 10px 0; color: #333;">Quick Stats</h4>
-                                <table style="width: 100%;">
-                                    <tr>
-                                        <td style="padding: 8px 0;">Lowest Score:</td>
-                                        <td style="padding: 8px 0; font-weight: bold; color: #f44336;">${lowScore}%</td>
-                                    </tr>
-                                    <tr>
-                                        <td style="padding: 8px 0;">Total Passed:</td>
-                                        <td style="padding: 8px 0; font-weight: bold; color: #4CAF50;">${passedCount}</td>
-                                    </tr>
-                                    <tr>
-                                        <td style="padding: 8px 0;">Total Failed:</td>
-                                        <td style="padding: 8px 0; font-weight: bold; color: #f44336;">${totalAttempts - passedCount}</td>
-                                    </tr>
-                                    <tr>
-                                        <td style="padding: 8px 0;">Average Time:</td>
-                                        <td style="padding: 8px 0; font-weight: bold;">
-                                            ${totalAttempts > 0 
-                                                ? Math.round(attempts.reduce((sum, a) => sum + (a.time_spent_seconds || 0), 0) / totalAttempts / 60) + ' min' 
-                                                : '0 min'}
-                                        </td>
-                                    </tr>
-                                </table>
-                            </div>
-                        </div>
-                        
-                        <h4 style="color: #7a0000; margin-bottom: 15px;">Student Attempts</h4>
-                        <div style="max-height: 300px; overflow-y: auto;">
-                            <table style="width: 100%; border-collapse: collapse;">
-                                <thead style="background: #f8f9fa; position: sticky; top: 0;">
-                                    <tr>
-                                        <th style="padding: 10px; text-align: left;">Student</th>
-                                        <th style="padding: 10px; text-align: left;">Score</th>
-                                        <th style="padding: 10px; text-align: left;">Attempt</th>
-                                        <th style="padding: 10px; text-align: left;">Time</th>
-                                        <th style="padding: 10px; text-align: left;">Date</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    ${attemptsHtml}
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
-                    <div class="modal-footer" style="display: flex; justify-content: flex-end; gap: 10px; padding: 15px 20px; border-top: 1px solid #e0e0e0;">
-                        <button class="btn btn-secondary" onclick="closePracticeStatsModal()">
-                            <i class="fas fa-times"></i> Close
-                        </button>
-                        <button class="btn btn-primary" onclick="exportPracticeStatsPDF(${exerciseId})" style="background: #7a0000; color: white;">
-                            <i class="fas fa-file-pdf"></i> Export to PDF
-                        </button>
-                    </div>
-                </div>
-            `;
-            
-            document.body.appendChild(modal);
-            
-        } else {
-            throw new Error(result.message || 'Failed to load statistics');
+        } catch (e) {
+            console.log('Attempts endpoint not available, showing placeholder data');
+            // Use placeholder data if endpoint doesn't exist
+            attempts = [];
         }
+        
+        // Display statistics modal
+        displayPracticeStatsModal(exercise, attempts);
         
     } catch (error) {
         console.error('❌ Error viewing practice statistics:', error);
