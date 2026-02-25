@@ -60,12 +60,8 @@ app.use((req, res, next) => {
 });
 
 // ============================================
-// STATIC FILES & VIDEO CONFIGURATION
+// STATIC FILES & VIDEO CONFIGURATION - FIXED
 // ============================================
-// ============================================
-// STATIC FILES & VIDEO CONFIGURATION
-// ============================================
-
 
 // I-check kung saan ang index.html
 const possiblePaths = [
@@ -89,14 +85,66 @@ for (const p of possiblePaths) {
 
 if (!frontendPath) {
     console.error('❌ Could not find frontend files!');
-    // Fallback to current directory
-    frontendPath = __dirname;
+    frontendPath = __dirname; // Fallback
 }
 
-// Serve static files
+// ===== SERVE STATIC FILES =====
+console.log('📁 Setting up static file serving...');
+
+// Serve frontend static files
 app.use(express.static(frontendPath));
 
-// Serve index.html for root route
+// ✅ IMPORTANT: I-SERVE ANG UPLOADS FOLDER SA /uploads/ PATH
+const uploadsPath = path.join(__dirname, 'uploads');
+if (fs.existsSync(uploadsPath)) {
+    app.use('/uploads', express.static(uploadsPath));
+    console.log(`✅ Uploads served from: ${uploadsPath}`);
+} else {
+    fs.mkdirSync(uploadsPath, { recursive: true });
+    app.use('/uploads', express.static(uploadsPath));
+    console.log(`📁 Created uploads folder at: ${uploadsPath}`);
+}
+
+// ✅ I-SERVE DIN ANG UPLOADS/VIDEOS SA /videos/ PATH (for backward compatibility)
+const uploadsVideosPath = path.join(__dirname, 'uploads', 'videos');
+if (fs.existsSync(uploadsVideosPath)) {
+    app.use('/videos', express.static(uploadsVideosPath));
+    console.log(`✅ Videos also served from: ${uploadsVideosPath} via /videos/`);
+} else {
+    fs.mkdirSync(uploadsVideosPath, { recursive: true });
+    app.use('/videos', express.static(uploadsVideosPath));
+    console.log(`📁 Created uploads/videos folder at: ${uploadsVideosPath}`);
+}
+
+// ===== MULTER CONFIGURATION =====
+// I-setup ang destination sa uploads/videos
+const VIDEOS_DIR = path.join(__dirname, 'uploads', 'videos');
+console.log(`📁 Videos will be saved to: ${VIDEOS_DIR}`);
+
+const storage = multer.diskStorage({
+    destination: (req, file, cb) => {
+        cb(null, VIDEOS_DIR); // Save to uploads/videos
+    },
+    filename: (req, file, cb) => {
+        const uniqueName = Date.now() + path.extname(file.originalname);
+        cb(null, uniqueName);
+    }
+});
+
+const upload = multer({ 
+    storage: storage,
+    limits: { fileSize: 500 * 1024 * 1024 }, // 500MB limit
+    fileFilter: (req, file, cb) => {
+        const allowedTypes = ['video/mp4', 'video/webm', 'video/ogg', 'video/quicktime'];
+        if (allowedTypes.includes(file.mimetype)) {
+            cb(null, true);
+        } else {
+            cb(new Error('Invalid file type. Only video files are allowed.'));
+        }
+    }
+});
+
+// ===== SERVE INDEX.HTML =====
 app.get('/', (req, res) => {
     const indexPath = path.join(frontendPath, 'index.html');
     if (fs.existsSync(indexPath)) {
@@ -118,38 +166,6 @@ app.get('*', (req, res, next) => {
         next();
     }
 });
-
-// Videos directory for serving
-const videosPath = path.join(frontendPath, 'videos');
-app.use('/videos', express.static(videosPath));
-
-// Upload directories
-const VIDEOS_DIR = path.join(__dirname, '../frontend/videos');
-const UPLOADS_DIR = path.join(__dirname, 'uploads/videos');
-
-// Create directories if they don't exist
-[VIDEOS_DIR, UPLOADS_DIR].forEach(dir => {
-    if (!fs.existsSync(dir)) {
-        fs.mkdirSync(dir, { recursive: true });
-        console.log(`📁 Created directory: ${dir}`);
-    }
-});
-
-// Serve uploads
-const uploadsAbsolutePath = path.join(__dirname, 'uploads');
-app.use('/uploads', express.static(uploadsAbsolutePath));
-
-console.log('📁 Uploads directory (absolute):', uploadsAbsolutePath);
-console.log('📁 Uploads exists?', fs.existsSync(uploadsAbsolutePath));
-
-
-// Serve videos from frontend/videos (kung doon naka-save)
-app.use('/videos', express.static(path.join(__dirname, '../frontend/videos')));
-
-// Serve uploads from uploads/videos (kung doon din ang files)
-app.use('/uploads/videos', express.static(path.join(__dirname, 'uploads/videos')));
-
-app.use('/videos', express.static(path.join(frontendPath, 'videos')));
 // ============================================
 // MULTER CONFIGURATION - VIDEO UPLOAD
 // ============================================
