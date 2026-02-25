@@ -166,31 +166,6 @@ app.get('*', (req, res, next) => {
         next();
     }
 });
-// ============================================
-// MULTER CONFIGURATION - VIDEO UPLOAD
-// ============================================
-const storage = multer.diskStorage({
-    destination: (req, file, cb) => {
-        cb(null, VIDEOS_DIR); // Save directly to frontend/videos
-    },
-    filename: (req, file, cb) => {
-        const uniqueName = Date.now() + path.extname(file.originalname);
-        cb(null, uniqueName);
-    }
-});
-
-const upload = multer({ 
-    storage: storage,
-    limits: { fileSize: 500 * 1024 * 1024 }, // 500MB limit
-    fileFilter: (req, file, cb) => {
-        const allowedTypes = ['video/mp4', 'video/webm', 'video/ogg', 'video/quicktime'];
-        if (allowedTypes.includes(file.mimetype)) {
-            cb(null, true);
-        } else {
-            cb(new Error('Invalid file type. Only video files are allowed.'));
-        }
-    }
-});
 
 
 
