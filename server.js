@@ -15117,46 +15117,7 @@ app.get('/api/teacher/modules', authenticateTeacher, async (req, res) => {
         });
     }
 });
-app.get('/api/teacher/topics', authenticateTeacher, async (req, res) => {
-    try {
-        const userId = req.user.id;
-        
-        // Test database connection first
-        const [test] = await promisePool.execute('SELECT 1');
-        console.log('✅ Database connected');
-        
-        // Test if tables exist
-        const [tables] = await promisePool.execute(`
-            SELECT table_name 
-            FROM information_schema.tables 
-            WHERE table_schema = DATABASE()
-        `);
-        console.log('📊 Tables:', tables.map(t => t.TABLE_NAME));
-        
-        // Try to get topics
-        const [topics] = await promisePool.execute(`
-            SELECT * FROM module_topics LIMIT 5
-        `);
-        
-        res.json({
-            success: true,
-            topics: topics,
-            debug: {
-                tables: tables.map(t => t.TABLE_NAME)
-            }
-        });
-        
-    } catch (error) {
-        console.error('❌ DETAILED ERROR:', error);
-        res.status(500).json({ 
-            success: false, 
-            message: error.message,
-            sqlMessage: error.sqlMessage,
-            sqlState: error.sqlState,
-            code: error.code
-        });
-    }
-});
+
 // ============================================
 // ✅ GET MODULES BY LESSON ID
 // ============================================
