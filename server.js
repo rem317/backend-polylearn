@@ -94,36 +94,43 @@ console.log('📁 Setting up static file serving...');
 // Serve frontend static files
 app.use(express.static(frontendPath));
 
-// ✅ IMPORTANT: I-SERVE ANG UPLOADS FOLDER SA /uploads/ PATH
+// ===== SERVE VIDEOS FROM public/videos/ =====
+const publicVideosPath = path.join(__dirname, 'public', 'videos');
+if (fs.existsSync(publicVideosPath)) {
+    app.use('/videos', express.static(publicVideosPath));
+    console.log(`✅ Videos served from: ${publicVideosPath} via /videos/`);
+} else {
+    console.log(`⚠️ Videos folder not found at: ${publicVideosPath}`);
+    // Try to create it
+    try {
+        fs.mkdirSync(publicVideosPath, { recursive: true });
+        app.use('/videos', express.static(publicVideosPath));
+        console.log(`📁 Created videos folder at: ${publicVideosPath}`);
+    } catch (mkdirError) {
+        console.error('❌ Could not create videos folder:', mkdirError.message);
+    }
+}
+
+// Keep uploads for backward compatibility (optional)
 const uploadsPath = path.join(__dirname, 'uploads');
 if (fs.existsSync(uploadsPath)) {
     app.use('/uploads', express.static(uploadsPath));
-    console.log(`✅ Uploads served from: ${uploadsPath}`);
-} else {
-    fs.mkdirSync(uploadsPath, { recursive: true });
-    app.use('/uploads', express.static(uploadsPath));
-    console.log(`📁 Created uploads folder at: ${uploadsPath}`);
+    console.log(`✅ Uploads served from: ${uploadsPath} (backward compatibility)`);
 }
 
-// ✅ I-SERVE DIN ANG UPLOADS/VIDEOS SA /videos/ PATH (for backward compatibility)
-const uploadsVideosPath = path.join(__dirname, 'uploads', 'videos');
-if (fs.existsSync(uploadsVideosPath)) {
-    app.use('/videos', express.static(uploadsVideosPath));
-    console.log(`✅ Videos also served from: ${uploadsVideosPath} via /videos/`);
-} else {
-    fs.mkdirSync(uploadsVideosPath, { recursive: true });
-    app.use('/videos', express.static(uploadsVideosPath));
-    console.log(`📁 Created uploads/videos folder at: ${uploadsVideosPath}`);
-}
-
-// ===== MULTER CONFIGURATION =====
-// I-setup ang destination sa uploads/videos
-const VIDEOS_DIR = path.join(__dirname, 'uploads', 'videos');
+// ===== MULTER CONFIGURATION - Save to public/videos =====
+const VIDEOS_DIR = path.join(__dirname, 'public', 'videos');
 console.log(`📁 Videos will be saved to: ${VIDEOS_DIR}`);
+
+// Create directory if it doesn't exist
+if (!fs.existsSync(VIDEOS_DIR)) {
+    fs.mkdirSync(VIDEOS_DIR, { recursive: true });
+    console.log(`📁 Created videos directory at: ${VIDEOS_DIR}`);
+}
 
 const storage = multer.diskStorage({
     destination: (req, file, cb) => {
-        cb(null, VIDEOS_DIR); // Save to uploads/videos
+        cb(null, VIDEOS_DIR); // Save to public/videos/
     },
     filename: (req, file, cb) => {
         const uniqueName = Date.now() + path.extname(file.originalname);
@@ -3753,19 +3760,19 @@ app.post('/api/admin/lessons',
             }
             
             // ===== PREPARE CONTENT URLS =====
-            let contentUrl = null;
-            let filePath = null;
-            let videoFilename = null;
-            
-            if (youtube_url) {
-                contentUrl = youtube_url;
-                console.log('🔗 YouTube URL:', contentUrl);
-            } else if (videoFile) {
-                videoFilename = videoFile.filename;
-                contentUrl = `/videos/${videoFile.filename}`;
-                filePath = `/uploads/videos/${videoFile.filename}`;
-                console.log('🎬 Video saved:', videoFilename);
-            }
+let contentUrl = null;
+let filePath = null;
+let videoFilename = null;
+
+if (youtube_url) {
+    contentUrl = youtube_url;
+    console.log('🔗 YouTube URL:', contentUrl);
+} else if (videoFile) {
+    videoFilename = videoFile.filename;
+    contentUrl = `/videos/${videoFile.filename}`;
+    filePath = `/videos/${videoFile.filename}`;  // ← PINALITAN NA
+    console.log('🎬 Video saved to public/videos/:', videoFilename);
+}
             
             const userId = req.user.id;
             
@@ -3813,68 +3820,68 @@ app.post('/api/admin/lessons',
                 console.log('✅ Lesson updated in topic_content_items');
                 
                 // ===== HANDLE VIDEO_UPLOADS TABLE =====
-                if (videoFile) {
-                    try {
-                        await promisePool.query(`
-                            CREATE TABLE IF NOT EXISTS video_uploads (
-                                upload_id INT AUTO_INCREMENT PRIMARY KEY,
-                                content_id INT NOT NULL,
-                                original_filename VARCHAR(255),
-                                stored_filename VARCHAR(255),
-                                file_path VARCHAR(500),
-                                file_size BIGINT,
-                                uploaded_by INT,
-                                upload_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-                                is_active BOOLEAN DEFAULT TRUE,
-                                FOREIGN KEY (content_id) REFERENCES topic_content_items(content_id) ON DELETE CASCADE
-                            )
-                        `);
-                        
-                        const [existingVideo] = await promisePool.query(
-                            'SELECT * FROM video_uploads WHERE content_id = ?',
-                            [content_id]
-                        );
-                        
-                        if (existingVideo.length > 0) {
-                            await promisePool.query(
-                                `UPDATE video_uploads 
-                                 SET original_filename = ?,
-                                     stored_filename = ?,
-                                     file_path = ?,
-                                     file_size = ?,
-                                     uploaded_by = ?,
-                                     updated_at = NOW()
-                                 WHERE content_id = ?`,
-                                [
-                                    videoFile.originalname,
-                                    videoFile.filename,
-                                    filePath,
-                                    videoFile.size,
-                                    userId,
-                                    content_id
-                                ]
-                            );
-                        } else {
-                            await promisePool.query(
-                                `INSERT INTO video_uploads 
-                                 (content_id, original_filename, stored_filename, file_path, 
-                                  file_size, uploaded_by, is_active)
-                                 VALUES (?, ?, ?, ?, ?, ?, TRUE)`,
-                                [
-                                    content_id,
-                                    videoFile.originalname,
-                                    videoFile.filename,
-                                    filePath,
-                                    videoFile.size,
-                                    userId
-                                ]
-                            );
-                        }
-                    } catch (videoError) {
-                        console.error('❌ Video record error:', videoError);
-                    }
-                }
+if (videoFile) {
+    try {
+        await promisePool.query(`
+            CREATE TABLE IF NOT EXISTS video_uploads (
+                upload_id INT AUTO_INCREMENT PRIMARY KEY,
+                content_id INT NOT NULL,
+                original_filename VARCHAR(255),
+                stored_filename VARCHAR(255),
+                file_path VARCHAR(500),
+                file_size BIGINT,
+                uploaded_by INT,
+                upload_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                is_active BOOLEAN DEFAULT TRUE,
+                FOREIGN KEY (content_id) REFERENCES topic_content_items(content_id) ON DELETE CASCADE
+            )
+        `);
+        
+        const [existingVideo] = await promisePool.query(
+            'SELECT * FROM video_uploads WHERE content_id = ?',
+            [content_id]
+        );
+        
+        if (existingVideo.length > 0) {
+            await promisePool.query(
+                `UPDATE video_uploads 
+                 SET original_filename = ?,
+                     stored_filename = ?,
+                     file_path = ?,
+                     file_size = ?,
+                     uploaded_by = ?,
+                     updated_at = NOW()
+                 WHERE content_id = ?`,
+                [
+                    videoFile.originalname,
+                    videoFile.filename,
+                    filePath,  // ← ITO ANG TIGNAN
+                    videoFile.size,
+                    userId,
+                    content_id
+                ]
+            );
+        } else {
+            await promisePool.query(
+                `INSERT INTO video_uploads 
+                 (content_id, original_filename, stored_filename, file_path, 
+                  file_size, uploaded_by, is_active)
+                 VALUES (?, ?, ?, ?, ?, ?, TRUE)`,
+                [
+                    content_id,
+                    videoFile.originalname,
+                    videoFile.filename,
+                    filePath,  // ← ITO ANG TIGNAN
+                    videoFile.size,
+                    userId
+                ]
+            );
+        }
+    } catch (videoError) {
+        console.error('❌ Video record error:', videoError);
+    }
+}
                 
                 return res.json({
                     success: true,
@@ -3921,43 +3928,43 @@ app.post('/api/admin/lessons',
             console.log('✅ New lesson created with ID:', newContentId);
             
             // ===== INSERT INTO VIDEO_UPLOADS =====
-            if (videoFile) {
-                try {
-                    await promisePool.query(`
-                        CREATE TABLE IF NOT EXISTS video_uploads (
-                            upload_id INT AUTO_INCREMENT PRIMARY KEY,
-                            content_id INT NOT NULL,
-                            original_filename VARCHAR(255),
-                            stored_filename VARCHAR(255),
-                            file_path VARCHAR(500),
-                            file_size BIGINT,
-                            uploaded_by INT,
-                            upload_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-                            is_active BOOLEAN DEFAULT TRUE,
-                            FOREIGN KEY (content_id) REFERENCES topic_content_items(content_id) ON DELETE CASCADE
-                        )
-                    `);
-                    
-                    await promisePool.query(
-                        `INSERT INTO video_uploads 
-                         (content_id, original_filename, stored_filename, file_path, 
-                          file_size, uploaded_by, is_active)
-                         VALUES (?, ?, ?, ?, ?, ?, TRUE)`,
-                        [
-                            newContentId,
-                            videoFile.originalname,
-                            videoFile.filename,
-                            filePath,
-                            videoFile.size,
-                            userId
-                        ]
-                    );
-                    console.log('✅ Video record inserted');
-                } catch (videoError) {
-                    console.error('❌ Video record error:', videoError);
-                }
-            }
+if (videoFile) {
+    try {
+        await promisePool.query(`
+            CREATE TABLE IF NOT EXISTS video_uploads (
+                upload_id INT AUTO_INCREMENT PRIMARY KEY,
+                content_id INT NOT NULL,
+                original_filename VARCHAR(255),
+                stored_filename VARCHAR(255),
+                file_path VARCHAR(500),
+                file_size BIGINT,
+                uploaded_by INT,
+                upload_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                is_active BOOLEAN DEFAULT TRUE,
+                FOREIGN KEY (content_id) REFERENCES topic_content_items(content_id) ON DELETE CASCADE
+            )
+        `);
+        
+        await promisePool.query(
+            `INSERT INTO video_uploads 
+             (content_id, original_filename, stored_filename, file_path, 
+              file_size, uploaded_by, is_active)
+             VALUES (?, ?, ?, ?, ?, ?, TRUE)`,
+            [
+                newContentId,
+                videoFile.originalname,
+                videoFile.filename,
+                filePath,  // ← ITO ANG TIGNAN
+                videoFile.size,
+                userId
+            ]
+        );
+        console.log('✅ Video record inserted');
+    } catch (videoError) {
+        console.error('❌ Video record error:', videoError);
+    }
+}
             
             res.json({
                 success: true,
@@ -14391,6 +14398,42 @@ app.get('/api/teacher/quizzes', authenticateTeacher, async (req, res) => {
             message: error.message
         });
     }
+});
+
+// ============================================
+// 🎬 DEBUG: Check video files
+// ============================================
+app.get('/debug/videos', (req, res) => {
+    const videosPath = path.join(__dirname, 'public', 'videos');
+    const files = [];
+    
+    if (fs.existsSync(videosPath)) {
+        const videoFiles = fs.readdirSync(videosPath);
+        videoFiles.forEach(file => {
+            const filePath = path.join(videosPath, file);
+            const stats = fs.statSync(filePath);
+            files.push({
+                filename: file,
+                size: stats.size,
+                created: stats.birthtime,
+                url: `/videos/${file}`,
+                exists: fs.existsSync(filePath)
+            });
+        });
+    }
+    
+    res.json({
+        success: true,
+        videosPath: videosPath,
+        pathExists: fs.existsSync(videosPath),
+        videoCount: files.length,
+        files: files,
+        structure: {
+            __dirname: __dirname,
+            public: fs.existsSync(path.join(__dirname, 'public')),
+            publicVideos: fs.existsSync(path.join(__dirname, 'public', 'videos'))
+        }
+    });
 });
 
 // ============================================
