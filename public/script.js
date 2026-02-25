@@ -8051,7 +8051,7 @@ async function fetchLeaderboard(period = 'weekly') {
 
 
 // ============================================
-// FETCH USER BADGES - FIXED VERSION
+// ✅ FIXED: fetchUserBadges
 // ============================================
 async function fetchUserBadges() {
     try {
@@ -8063,43 +8063,29 @@ async function fetchUserBadges() {
         
         console.log('🎖️ Fetching user badges...');
         
-        const response = await fetch(`/api/dashboard/badges`, {
+        const response = await fetch('/api/dashboard/badges', {
             headers: {
                 'Authorization': `Bearer ${token}`,
-                'Content-Type': 'application/json'
+                'Content-Type': 'application/json',
+                'Accept': 'application/json'
             }
         });
         
-        if (!response.ok) {
-            console.warn(`⚠️ Badges query failed: ${response.status}`);
-            
-            if (response.status === 404) {
-                console.log('📝 Badges endpoint not found, returning empty array');
-                return [];
-            }
-            
-            throw new Error(`Failed to fetch badges: ${response.status}`);
+        // Check if response is JSON
+        const contentType = response.headers.get('content-type');
+        if (!contentType || !contentType.includes('application/json')) {
+            const text = await response.text();
+            console.error('❌ Non-JSON response:', text.substring(0, 200));
+            return [];
         }
         
         const data = await response.json();
         
-        if (data.success) {
-            if (data.badges && data.badges.earned) {
-                console.log(`✅ Fetched ${data.badges.earned.length} badges`);
-                return data.badges.earned;
-            } else if (data.badges && Array.isArray(data.badges)) {
-                console.log(`✅ Fetched ${data.badges.length} badges`);
-                return data.badges;
-            } else if (data.earned && Array.isArray(data.earned)) {
-                console.log(`✅ Fetched ${data.earned.length} badges`);
-                return data.earned;
-            } else if (Array.isArray(data)) {
-                console.log(`✅ Fetched ${data.length} badges`);
-                return data;
-            }
+        if (data.success && data.badges) {
+            console.log(`✅ Fetched ${data.badges.length} badges`);
+            return data.badges;
         }
         
-        console.log('ℹ️ No badges found for user');
         return [];
         
     } catch (error) {
