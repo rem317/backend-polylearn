@@ -961,6 +961,342 @@ app.post('/api/auth/register', async (req, res) => {
 
 
 // ============================================
+// PERFORMANCE DASHBOARD ENDPOINTS
+// ============================================
+
+// GET performance trend data
+app.get('/api/admin/performance/trend', authenticateAdmin, async (req, res) => {
+    try {
+        const { range = 'month' } = req.query;
+        
+        let interval, periods;
+        switch(range) {
+            case 'week':
+                interval = 7;
+                periods = 7;
+                break;
+            case 'month':
+                interval = 30;
+                periods = 30;
+                break;
+            case 'quarter':
+                interval = 90;
+                periods = 12;
+                break;
+            default:
+                interval = 30;
+                periods = 30;
+        }
+        
+        // Get daily performance data
+        const [dailyData] = await promisePool.query(`
+            SELECT 
+                DATE(completed_at) as date,
+                COALESCE(AVG(score), 0) as avg_score,
+                COUNT(*) as completions
+            FROM user_content_progress
+            WHERE completion_status = 'completed'
+                AND completed_at >= DATE_SUB(NOW(), INTERVAL ? DAY)
+            GROUP BY DATE(completed_at)
+            ORDER BY date ASC
+        `, [interval]);
+        
+        // Get total users for completion rate calculation
+        const [totalUsers] = await promisePool.query(
+            'SELECT COUNT(*) as count FROM users WHERE role = "student"'
+        );
+        const totalStudentCount = totalUsers[0].count || 1;
+        
+        // Generate labels and data arrays
+        const labels = [];
+        const avgScores = [];
+        const completionRates = [];
+        
+        const today = new Date();
+        const dataMap = {};
+        
+        dailyData.forEach(day => {
+            const dateStr = new Date(day.date).toISOString().split('T')[0];
+            dataMap[dateStr] = {
+                avg_score: day.avg_score,
+                completions: day.completions
+            };
+        });
+        
+        for (let i = periods - 1; i >= 0; i--) {
+            const date = new Date();
+            date.setDate(date.getDate() - i);
+            const dateStr = date.toISOString().split('T')[0];
+            
+            if (range === 'week') {
+                labels.push(date.toLocaleDateString('en-US', { weekday: 'short' }));
+            } else if (range === 'month') {
+                labels.push(`Day ${periods - i}`);
+            } else {
+                labels.push(`Week ${periods - i}`);
+            }
+            
+            const dayData = dataMap[dateStr];
+            if (dayData) {
+                avgScores.push(Math.round(dayData.avg_score));
+                completionRates.push(Math.round((dayData.completions / totalStudentCount) * 100));
+            } else {
+                avgScores.push(0);
+                completionRates.push(0);
+            }
+        }
+        
+        res.json({
+            success: true,
+            trend: {
+                labels: labels,
+                avg_scores: avgScores,
+                completion_rates: completionRates
+            }
+        });
+        
+    } catch (error) {
+        console.error('❌ Error fetching performance trend:', error);
+        res.status(500).json({ success: false, message: error.message });
+    }
+});
+
+// GET score distribution data
+app.get('/api/admin/performance/score-distribution', authenticateAdmin, async (req, res) => {
+    try {
+        const { filter = 'all' } = req.query;
+        
+        // Get all completed progress with scores
+        let query = `
+            SELECT score
+            FROM user_content_progress
+            WHERE completion_status = 'completed' AND score IS NOT NULL
+        `;
+        
+        const params = [];
+        
+        // Add subject filter if needed
+        if (filter !== 'all') {
+            query += `
+                AND content_id IN (
+                    SELECT content_id FROM topic_content_items tci
+                    JOIN module_topics mt ON tci.topic_id = mt.topic_id
+                    JOIN course_modules cm ON mt.module_id = cm.module_id
+                    JOIN lessons l ON cm.lesson_id = l.lesson_id
+                    WHERE l.lesson_name = ?
+                )
+            `;
+            params.push(filter);
+        }
+        
+        const [results] = await promisePool.query(query, params);
+        
+        // Calculate distribution
+        let range90plus = 0;
+        let range80_89 = 0;
+        let range70_79 = 0;
+        let range60_69 = 0;
+        let rangeBelow60 = 0;
+        
+        results.forEach(row => {
+            const score = row.score;
+            if (score >= 90) range90plus++;
+            else if (score >= 80) range80_89++;
+            else if (score >= 70) range70_79++;
+            else if (score >= 60) range60_69++;
+            else rangeBelow60++;
+        });
+        
+        const total = results.length;
+        
+        res.json({
+            success: true,
+            distribution: {
+                '90-100%': range90plus,
+                '80-89%': range80_89,
+                '70-79%': range70_79,
+                '60-69%': range60_69,
+                'Below 60%': rangeBelow60,
+                total: total
+            }
+        });
+        
+    } catch (error) {
+        console.error('❌ Error fetching score distribution:', error);
+        res.status(500).json({ success: false, message: error.message });
+    }
+});
+
+
+// ============================================
+// GET SUBJECT SUMMARY
+// ============================================
+app.get('/api/subject/:id/summary', authenticateToken, async (req, res) => {
+    try {
+        const subjectId = parseInt(req.params.id);
+        
+        // Get lessons count for this subject
+        const [lessons] = await promisePool.query(`
+            SELECT COUNT(*) as count 
+            FROM topic_content_items tci
+            JOIN module_topics mt ON tci.topic_id = mt.topic_id
+            JOIN course_modules cm ON mt.module_id = cm.module_id
+            JOIN lessons l ON cm.lesson_id = l.lesson_id
+            WHERE l.lesson_id = ? AND tci.is_active = 1
+        `, [subjectId]);
+        
+        // Get resources count (videos + PDFs)
+        const [resources] = await promisePool.query(`
+            SELECT COUNT(*) as count 
+            FROM topic_content_items tci
+            JOIN module_topics mt ON tci.topic_id = mt.topic_id
+            JOIN course_modules cm ON mt.module_id = cm.module_id
+            JOIN lessons l ON cm.lesson_id = l.lesson_id
+            WHERE l.lesson_id = ? AND tci.is_active = 1 
+            AND (tci.content_type = 'video' OR tci.content_type = 'pdf')
+        `, [subjectId]);
+        
+        // Get active students count
+        const [students] = await promisePool.query(`
+            SELECT COUNT(DISTINCT user_id) as count 
+            FROM users WHERE role = 'student' AND is_active = 1
+        `);
+        
+        res.json({
+            success: true,
+            summary: {
+                lessons: lessons[0].count || 0,
+                resources: resources[0].count || 0,
+                students: students[0].count || 0
+            }
+        });
+        
+    } catch (error) {
+        console.error('❌ Error getting subject summary:', error);
+        res.status(500).json({ success: false, message: error.message });
+    }
+});
+
+// ============================================
+// GET SUBJECTS WITH STATS
+// ============================================
+app.get('/api/subjects/all-with-stats', authenticateAdmin, async (req, res) => {
+    try {
+        const [subjects] = await promisePool.query(`
+            SELECT 
+                l.lesson_id as id,
+                l.lesson_name as name,
+                l.lesson_title,
+                COUNT(DISTINCT tci.content_id) as lessons,
+                COUNT(DISTINCT CASE WHEN tci.content_type IN ('video', 'pdf') THEN tci.content_id END) as resources
+            FROM lessons l
+            LEFT JOIN course_modules cm ON l.lesson_id = cm.lesson_id
+            LEFT JOIN module_topics mt ON cm.module_id = mt.module_id
+            LEFT JOIN topic_content_items tci ON mt.topic_id = tci.topic_id AND tci.is_active = 1
+            WHERE l.is_active = 1
+            GROUP BY l.lesson_id
+        `);
+        
+        res.json({
+            success: true,
+            subjects: subjects
+        });
+        
+    } catch (error) {
+        console.error('❌ Error fetching subjects with stats:', error);
+        res.status(500).json({ success: false, message: error.message });
+    }
+});
+
+
+// ============================================
+// GET LESSONS BY SUBJECT
+// ============================================
+app.get('/api/lessons/by-subject/:subjectId', authenticateToken, async (req, res) => {
+    try {
+        const { subjectId } = req.params;
+        
+        const [lessons] = await promisePool.query(`
+            SELECT 
+                tci.content_id,
+                tci.content_title,
+                tci.content_description,
+                tci.content_type,
+                tci.content_url,
+                tci.video_filename,
+                tci.created_at,
+                mt.topic_id,
+                mt.topic_title,
+                cm.module_id,
+                cm.module_name,
+                l.lesson_id,
+                l.lesson_name
+            FROM topic_content_items tci
+            JOIN module_topics mt ON tci.topic_id = mt.topic_id
+            JOIN course_modules cm ON mt.module_id = cm.module_id
+            JOIN lessons l ON cm.lesson_id = l.lesson_id
+            WHERE l.lesson_id = ? AND tci.is_active = 1
+            ORDER BY tci.created_at DESC
+        `, [subjectId]);
+        
+        // Count videos and PDFs
+        const videos = lessons.filter(l => l.content_type === 'video').length;
+        const pdfs = lessons.filter(l => l.content_type === 'pdf').length;
+        
+        res.json({
+            success: true,
+            lessons: lessons,
+            stats: {
+                videos: videos,
+                pdfs: pdfs
+            }
+        });
+        
+    } catch (error) {
+        console.error('❌ Error fetching lessons by subject:', error);
+        res.status(500).json({ success: false, message: error.message });
+    }
+});
+
+// ============================================
+// GET QUIZ RESULTS BY QUIZ ID
+// ============================================
+app.get('/api/admin/quizzes/:quizId/results', authenticateAdmin, async (req, res) => {
+    try {
+        const { quizId } = req.params;
+        
+        const [results] = await promisePool.query(`
+            SELECT 
+                uqa.attempt_id,
+                uqa.user_id,
+                u.full_name as student_name,
+                u.username,
+                uqa.score,
+                uqa.passed,
+                uqa.time_spent_seconds,
+                uqa.end_time as completed_at,
+                uqa.attempt_number
+            FROM user_quiz_attempts uqa
+            JOIN users u ON uqa.user_id = u.user_id
+            WHERE uqa.quiz_id = ? AND uqa.completion_status = 'completed'
+            ORDER BY uqa.end_time DESC
+        `, [quizId]);
+        
+        res.json({
+            success: true,
+            results: results
+        });
+        
+    } catch (error) {
+        console.error('❌ Error fetching quiz results:', error);
+        res.status(500).json({ success: false, message: error.message });
+    }
+});
+
+
+
+
+// ============================================
 // USER PROFILE ENDPOINTS - ADD THIS
 // ============================================
 
@@ -8387,24 +8723,15 @@ app.get('/api/admin/quizzes-with-subjects', authenticateAdmin, async (req, res) 
     }
 });
 
-// GET recent quiz results (for dashboard widget)
+// ============================================
+// GET RECENT QUIZ RESULTS
+// ============================================
 app.get('/api/admin/quizzes/recent-results', authenticateAdmin, async (req, res) => {
     try {
-        console.log('📋 Fetching recent quiz results...');
-
-        // Check if tables exist
-        const [tables] = await promisePool.query("SHOW TABLES LIKE 'user_quiz_attempts'");
-        if (tables.length === 0) {
-            return res.json({
-                success: true,
-                results: []
-            });
-        }
-
         const [results] = await promisePool.query(`
             SELECT 
                 uqa.attempt_id,
-                u.user_id,
+                uqa.user_id,
                 u.full_name as student_name,
                 u.username,
                 q.quiz_id,
@@ -8420,20 +8747,215 @@ app.get('/api/admin/quizzes/recent-results', authenticateAdmin, async (req, res)
             ORDER BY uqa.end_time DESC
             LIMIT 10
         `);
-
-        console.log(`✅ Found ${results.length} recent results`);
-
+        
         res.json({
             success: true,
             results: results
         });
-
+        
     } catch (error) {
         console.error('❌ Error fetching recent results:', error);
-        res.status(500).json({ 
-            success: false, 
-            message: 'Failed to fetch recent results: ' + error.message 
+        res.status(500).json({ success: false, message: error.message });
+    }
+});
+
+
+// ============================================
+// GET STUDENT BY ID
+// ============================================
+app.get('/api/admin/students/:studentId', authenticateAdmin, async (req, res) => {
+    try {
+        const { studentId } = req.params;
+        
+        const [students] = await promisePool.query(`
+            SELECT 
+                u.user_id as id,
+                u.full_name as name,
+                u.username,
+                u.email,
+                u.role,
+                u.is_active as status,
+                u.created_at as joinedDate,
+                u.last_login as lastActive,
+                (
+                    SELECT COUNT(*) 
+                    FROM user_content_progress 
+                    WHERE user_id = u.user_id AND completion_status = 'completed'
+                ) as lessonsCompleted,
+                (
+                    SELECT COALESCE(AVG(score), 0) 
+                    FROM user_quiz_attempts 
+                    WHERE user_id = u.user_id AND completion_status = 'completed'
+                ) as avgScore,
+                (
+                    SELECT COUNT(*) 
+                    FROM user_quiz_attempts 
+                    WHERE user_id = u.user_id AND passed = 1
+                ) as quizzesPassed,
+                (
+                    SELECT COUNT(*) 
+                    FROM user_practice_progress 
+                    WHERE user_id = u.user_id AND completion_status = 'completed'
+                ) as exercisesCompleted,
+                (
+                    SELECT COALESCE(SUM(time_spent_seconds), 0) / 3600
+                    FROM user_content_progress 
+                    WHERE user_id = u.user_id
+                ) as totalHours,
+                (
+                    SELECT COUNT(*) 
+                    FROM daily_progress 
+                    WHERE user_id = u.user_id AND lessons_completed > 0
+                    AND progress_date >= DATE_SUB(CURDATE(), INTERVAL 7 DAY)
+                ) as streakDays
+            FROM users u
+            WHERE u.user_id = ? AND u.role = 'student'
+        `, [studentId]);
+        
+        if (students.length === 0) {
+            return res.status(404).json({
+                success: false,
+                message: 'Student not found'
+            });
+        }
+        
+        res.json({
+            success: true,
+            student: students[0]
         });
+        
+    } catch (error) {
+        console.error('❌ Error fetching student:', error);
+        res.status(500).json({ success: false, message: error.message });
+    }
+});
+
+// ============================================
+// SEARCH PERFORMERS
+// ============================================
+app.get('/api/admin/performance/search', authenticateAdmin, async (req, res) => {
+    try {
+        const { q } = req.query;
+        
+        if (!q || q.trim() === '') {
+            return res.json({ success: true, performers: [] });
+        }
+        
+        const searchTerm = `%${q}%`;
+        
+        const [performers] = await promisePool.query(`
+            SELECT 
+                u.user_id as id,
+                u.full_name as name,
+                COUNT(ucp.content_id) as lessons_completed,
+                COALESCE(AVG(ucp.score), 0) as score,
+                0 as progress,
+                'General' as subject,
+                CONCAT(SUBSTRING(u.full_name, 1, 1), COALESCE(SUBSTRING(SUBSTRING_INDEX(u.full_name, ' ', -1), 1, 1), '')) as avatar
+            FROM users u
+            LEFT JOIN user_content_progress ucp ON u.user_id = ucp.user_id AND ucp.completion_status = 'completed'
+            WHERE u.role = 'student' AND u.is_active = 1
+            AND (u.full_name LIKE ? OR u.username LIKE ? OR u.email LIKE ?)
+            GROUP BY u.user_id
+            HAVING lessons_completed > 0
+            ORDER BY score DESC, lessons_completed DESC
+            LIMIT 10
+        `, [searchTerm, searchTerm, searchTerm]);
+        
+        res.json({
+            success: true,
+            performers: performers
+        });
+        
+    } catch (error) {
+        console.error('❌ Error searching performers:', error);
+        res.status(500).json({ success: false, message: error.message });
+    }
+});
+
+// ============================================
+// SEND MESSAGE TO STUDENT
+// ============================================
+app.post('/api/admin/messages', authenticateAdmin, async (req, res) => {
+    try {
+        const { recipient_id, message, type = 'notification' } = req.body;
+        const adminId = req.userId || req.user.id;
+        
+        // Check if notifications table exists
+        const [tables] = await promisePool.query("SHOW TABLES LIKE 'notifications'");
+        
+        if (tables.length === 0) {
+            await promisePool.query(`
+                CREATE TABLE IF NOT EXISTS notifications (
+                    notification_id INT AUTO_INCREMENT PRIMARY KEY,
+                    user_id INT NOT NULL,
+                    from_user_id INT,
+                    title VARCHAR(255),
+                    message TEXT,
+                    type VARCHAR(50),
+                    is_read BOOLEAN DEFAULT FALSE,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    FOREIGN KEY (user_id) REFERENCES users(user_id) ON DELETE CASCADE
+                )
+            `);
+        }
+        
+        await promisePool.query(`
+            INSERT INTO notifications (user_id, from_user_id, title, message, type)
+            VALUES (?, ?, ?, ?, ?)
+        `, [recipient_id, adminId, 'Message from Admin', message, type]);
+        
+        res.json({
+            success: true,
+            message: 'Message sent successfully'
+        });
+        
+    } catch (error) {
+        console.error('❌ Error sending message:', error);
+        res.status(500).json({ success: false, message: error.message });
+    }
+});
+
+// ============================================
+// GET RECENT ACTIVITY
+// ============================================
+app.get('/api/admin/recent-activity', authenticateAdmin, async (req, res) => {
+    try {
+        const { limit = 10 } = req.query;
+        
+        const [activities] = await promisePool.query(`
+            SELECT 
+                al.activity_id,
+                al.user_id,
+                u.full_name as user_name,
+                u.username,
+                al.activity_type,
+                al.related_id,
+                al.details,
+                al.points_earned,
+                al.activity_timestamp
+            FROM user_activity_log al
+            JOIN users u ON al.user_id = u.user_id
+            ORDER BY al.activity_timestamp DESC
+            LIMIT ?
+        `, [parseInt(limit)]);
+        
+        // Get count of recent users (active in last 7 days)
+        const [recentUsers] = await promisePool.query(`
+            SELECT COUNT(DISTINCT user_id) as count
+            FROM user_activity_log
+            WHERE activity_timestamp >= DATE_SUB(NOW(), INTERVAL 7 DAY)
+        `);
+        
+        res.json({
+            success: true,
+            activities: activities,
+            recent_users: recentUsers[0].count || 0
+        });
+        
+    } catch (error) {
+        console.error('❌ Error fetching recent activity:', error);
+        res.status(500).json({ success: false, message: error.message });
     }
 });
 
