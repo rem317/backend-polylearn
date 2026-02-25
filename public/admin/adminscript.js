@@ -43,7 +43,7 @@ async function loadPerformanceTrendData() {
     try {
         const token = localStorage.getItem('admin_token') || localStorage.getItem('authToken');
         
-        const response = await fetch(`${API_BASE_URL}/api/admin/performance/trend?range=${timeRange}`, {
+        const response = await fetch(`${API_BASE_URL}/admin/performance/trend?range=${timeRange}`, {
             headers: {
                 'Authorization': `Bearer ${token}`
             }
@@ -118,7 +118,7 @@ async function loadTeachersForAssignment() {
         
         console.log("📡 Fetching users from server...");
         
-        const response = await fetch('${API_BASE_URL}/api/admin/users', {
+        const response = await fetch(`${API_BASE_URL}/admin/users', {
             headers: { 
                 'Authorization': `Bearer ${token}`,
                 'Content-Type': 'application/json'
@@ -3936,7 +3936,7 @@ async function loadDashboardStats() {
     try {
         const token = localStorage.getItem('admin_token') || localStorage.getItem('authToken');
         
-        const response = await fetch('${API_BASE_URL}/api/admin/dashboard/stats', {
+        const response = await fetch(`${API_BASE_URL}/admin/dashboard/stats', {
             headers: {
                 'Authorization': `Bearer ${token}`
             }
@@ -3988,7 +3988,7 @@ async function loadRecentLessons() {
     try {
         const token = localStorage.getItem('admin_token') || localStorage.getItem('authToken');
         
-        const response = await fetch('${API_BASE_URL}/api/admin/lessons/recent', {
+        const response = await fetch(`${API_BASE_URL}/admin/lessons/recent', {
             headers: {
                 'Authorization': `Bearer ${token}`
             }
@@ -4410,7 +4410,7 @@ async function loadSidebarStats() {
     try {
         console.log('🔑 Fetching from /api/stats/quick...');
         
-        const response = await fetch('${API_BASE_URL}/api/stats/quick', {
+        const response = await fetch(`${API_BASE_URL}/stats/quick', {
             method: 'GET',
             headers: {
                 'Content-Type': 'application/json'
@@ -4483,7 +4483,7 @@ async function updateSubjectStatsFromDatabase() {
         }
         
         // Get lessons count per subject from database
-        const response = await fetch('${API_BASE_URL}/api/admin/lessons', {
+        const response = await fetch(`${API_BASE_URL}/admin/lessons', {
             headers: {
                 'Authorization': `Bearer ${token}`
             }
@@ -4584,7 +4584,7 @@ async function updateSubjectStats() {
         }
         
         // Fetch all subjects with stats
-        const response = await fetch('${API_BASE_URL}/api/subjects/all-with-stats', {
+        const response = await fetch(`${API_BASE_URL}/subjects/all-with-stats', {
             headers: {
                 'Authorization': `Bearer ${token}`
             }
@@ -4885,7 +4885,7 @@ async function saveLessonToMySQL() {
         // ===== SEND TO SERVER =====
         console.log("📡 Sending request to server...");
         
-        const response = await fetch('${API_BASE_URL}/api/admin/lessons', {
+        const response = await fetch(`${API_BASE_URL}/admin/lessons', {
             method: 'POST',
             headers: {
                 'Authorization': `Bearer ${token}`
@@ -5108,7 +5108,7 @@ async function openQuickTopicModal() {
         }
         
         console.log("📡 Fetching structure from server...");
-        const response = await fetch('${API_BASE_URL}/api/admin/structure', {
+        const response = await fetch(`${API_BASE_URL}/admin/structure', {
             headers: { 'Authorization': `Bearer ${token}` }
         });
         
@@ -5441,7 +5441,7 @@ async function saveQuickModule() {
             description: moduleDescription
         });
         
-        const response = await fetch('${API_BASE_URL}/api/admin/modules', {
+        const response = await fetch(`${API_BASE_URL}/admin/modules', {
             method: 'POST',
             headers: {
                 'Authorization': `Bearer ${token}`,
@@ -5465,7 +5465,7 @@ async function saveQuickModule() {
             
             // Refresh structure from server
             try {
-                const structureResponse = await fetch('${API_BASE_URL}/api/admin/structure', {
+                const structureResponse = await fetch(`${API_BASE_URL}/admin/structure', {
                     headers: { 'Authorization': `Bearer ${token}` }
                 });
                 const structureResult = await structureResponse.json();
@@ -5699,7 +5699,7 @@ async function ensureGeneralModuleExists(lessonId) {
         // If none exists, create General Module
         console.log("📦 No General Module found, creating one...");
         
-        const response = await fetch('${API_BASE_URL}/api/admin/modules', {
+        const response = await fetch(`${API_BASE_URL}/admin/modules', {
             method: 'POST',
             headers: {
                 'Authorization': `Bearer ${token}`,
@@ -6006,7 +6006,7 @@ function openQuickTopicModal() {
         }
         
         console.log("📡 Fetching structure from server...");
-        fetch('${API_BASE_URL}/api/admin/structure', {
+        fetch(`${API_BASE_URL}/admin/structure', {
             headers: { 'Authorization': `Bearer ${token}` }
         })
         .then(response => response.json())
@@ -6090,7 +6090,7 @@ async function fetchTopicsFromDatabase() {
             return;
         }
         
-        const response = await fetch('${API_BASE_URL}/api/admin/structure', {
+        const response = await fetch(`${API_BASE_URL}/admin/structure', {
             headers: { 'Authorization': `Bearer ${token}` }
         });
         
@@ -6348,7 +6348,7 @@ async function saveQuickTopic() {
             // Create new General Module
             try {
                 const token = localStorage.getItem('admin_token');
-                const response = await fetch('${API_BASE_URL}/api/admin/modules', {
+                const response = await fetch(`${API_BASE_URL}/admin/modules', {
                     method: 'POST',
                     headers: {
                         'Authorization': `Bearer ${token}`,
@@ -6420,7 +6420,7 @@ async function saveQuickTopic() {
     try {
         const token = localStorage.getItem('admin_token');
         
-        const response = await fetch('${API_BASE_URL}/api/admin/topics', {
+        const response = await fetch(`${API_BASE_URL}/admin/topics', {
             method: 'POST',
             headers: {
                 'Authorization': `Bearer ${token}`,
@@ -6511,7 +6511,7 @@ async function loadManageTopicsList() {
     
     try {
         const token = localStorage.getItem('admin_token');
-        const response = await fetch('${API_BASE_URL}/api/admin/structure', {
+        const response = await fetch(`${API_BASE_URL}/admin/structure', {
             headers: { 'Authorization': `Bearer ${token}` }
         });
         
@@ -6674,7 +6674,7 @@ async function saveLessonHybrid() {
             } else {
                 // Create new General Module
                 try {
-                    const response = await fetch('${API_BASE_URL}/api/admin/modules', {
+                    const response = await fetch(`${API_BASE_URL}/admin/modules', {
                         method: 'POST',
                         headers: {
                             'Authorization': `Bearer ${token}`,
@@ -7672,7 +7672,7 @@ async function loadRecentActivitiesForDashboard() {
         
         console.log("📡 Fetching from /api/admin/activity-log?limit=5...");
         
-        const response = await fetch('${API_BASE_URL}/api/admin/activity-log?limit=5', {
+        const response = await fetch(`${API_BASE_URL}/admin/activity-log?limit=5', {
             headers: {
                 'Authorization': `Bearer ${token}`,
                 'Content-Type': 'application/json',
@@ -8628,7 +8628,7 @@ async function saveQuickTopicFromPanel() {
             // Create new General Module
             try {
                 const token = localStorage.getItem('admin_token');
-                const response = await fetch('${API_BASE_URL}/api/admin/modules', {
+                const response = await fetch(`${API_BASE_URL}/admin/modules', {
                     method: 'POST',
                     headers: {
                         'Authorization': `Bearer ${token}`,
@@ -8679,7 +8679,7 @@ async function saveQuickTopicFromPanel() {
     try {
         const token = localStorage.getItem('admin_token');
         
-        const response = await fetch('${API_BASE_URL}/api/admin/topics', {
+        const response = await fetch(`${API_BASE_URL}/admin/topics', {
             method: 'POST',
             headers: {
                 'Authorization': `Bearer ${token}`,
@@ -8762,7 +8762,7 @@ async function loadEditTopics() {
     try {
         const token = localStorage.getItem('admin_token') || localStorage.getItem('authToken');
         
-        const response = await fetch('${API_BASE_URL}/api/admin/structure', {
+        const response = await fetch(`${API_BASE_URL}/admin/structure', {
             headers: { 'Authorization': `Bearer ${token}` }
         });
         
@@ -12518,7 +12518,7 @@ async function loadFeedbackData() {
         
         console.log('📡 Fetching from /api/admin/feedback...');
         
-        const response = await fetch('${API_BASE_URL}/api/admin/feedback', {
+        const response = await fetch(`${API_BASE_URL}/admin/feedback', {
             method: 'GET',
             headers: {
                 'Authorization': `Bearer ${token}`,
@@ -14461,7 +14461,7 @@ async function loadPerformanceStats() {
     try {
         const token = localStorage.getItem('admin_token') || localStorage.getItem('authToken');
         
-        const response = await fetch('${API_BASE_URL}/api/admin/performance/stats', {
+        const response = await fetch(`${API_BASE_URL}/admin/performance/stats', {
             headers: {
                 'Authorization': `Bearer ${token}`
             }
@@ -15081,7 +15081,7 @@ async function sendMessageToStudent(studentId) {
     try {
         const token = localStorage.getItem('admin_token') || localStorage.getItem('authToken');
         
-        const response = await fetch('${API_BASE_URL}/api/admin/messages', {
+        const response = await fetch(`${API_BASE_URL}/admin/messages', {
             method: 'POST',
             headers: {
                 'Authorization': `Bearer ${token}`,
@@ -15133,7 +15133,7 @@ async function loadSubjectBreakdown() {
     try {
         const token = localStorage.getItem('admin_token') || localStorage.getItem('authToken');
         
-        const response = await fetch('${API_BASE_URL}/api/admin/performance/subject-breakdown', {
+        const response = await fetch(`${API_BASE_URL}/admin/performance/subject-breakdown', {
             headers: {
                 'Authorization': `Bearer ${token}`
             }
@@ -15280,7 +15280,7 @@ async function loadAnalyticsStats() {
         }
         
         // Get total users
-        const usersResponse = await fetch('${API_BASE_URL}/api/admin/users', {
+        const usersResponse = await fetch(`${API_BASE_URL}/admin/users', {
             headers: { 'Authorization': `Bearer ${token}` }
         });
         
@@ -15293,7 +15293,7 @@ async function loadAnalyticsStats() {
         }
         
         // Get total lessons
-        const lessonsResponse = await fetch('${API_BASE_URL}/api/admin/lessons', {
+        const lessonsResponse = await fetch(`${API_BASE_URL}/admin/lessons', {
             headers: { 'Authorization': `Bearer ${token}` }
         });
         
@@ -15306,7 +15306,7 @@ async function loadAnalyticsStats() {
         }
         
         // Get completion rate from progress data
-        const progressResponse = await fetch('${API_BASE_URL}/api/progress/summary', {
+        const progressResponse = await fetch(`${API_BASE_URL}/progress/summary', {
             headers: { 'Authorization': `Bearer ${token}` }
         });
         
@@ -15325,7 +15325,7 @@ async function loadAnalyticsStats() {
         let engagementRate = 0;
         if (totalUsers > 0) {
             // Get recent activity
-            const activityResponse = await fetch('${API_BASE_URL}/api/admin/recent-activity', {
+            const activityResponse = await fetch(`${API_BASE_URL}/admin/recent-activity', {
                 headers: { 'Authorization': `Bearer ${token}` }
             });
             
@@ -15380,7 +15380,7 @@ async function loadUserGrowthData() {
         }
         
         // Fetch all users from database
-        const response = await fetch('${API_BASE_URL}/api/admin/users', {
+        const response = await fetch(`${API_BASE_URL}/admin/users', {
             headers: { 'Authorization': `Bearer ${token}` }
         });
         
@@ -17098,7 +17098,7 @@ async function loadLessonStats() {
             return;
         }
         
-        const response = await fetch('${API_BASE_URL}/api/admin/lessons/stats', {
+        const response = await fetch(`${API_BASE_URL}/admin/lessons/stats', {
             headers: {
                 'Authorization': `Bearer ${token}`
             }
@@ -17177,7 +17177,7 @@ async function loadTopicStructure() {
             throw new Error('No admin token found');
         }
         
-        const response = await fetch('${API_BASE_URL}/api/admin/topics', {
+        const response = await fetch(`${API_BASE_URL}/admin/topics', {
             headers: { 'Authorization': `Bearer ${token}` }
         });
         
@@ -17343,7 +17343,7 @@ async function loadAdminLessons() {
         
         showNotification('info', 'Loading', 'Fetching lessons from database...');
         
-        const response = await fetch('${API_BASE_URL}/api/admin/lessons', {
+        const response = await fetch(`${API_BASE_URL}/admin/lessons', {
             headers: {
                 'Authorization': `Bearer ${token}`,
                 'Content-Type': 'application/json'
@@ -17857,7 +17857,7 @@ async function loadModuleStructure() {
             throw new Error('No admin token found');
         }
         
-        const response = await fetch('${API_BASE_URL}/api/admin/structure', {
+        const response = await fetch(`${API_BASE_URL}/admin/structure', {
             headers: { 'Authorization': `Bearer ${token}` }
         });
         
@@ -18906,7 +18906,7 @@ async function loadQuizzesFromMySQL() {
         
         // Try new endpoint first
         try {
-            const response = await fetch('${API_BASE_URL}/api/admin/quizzes-with-subjects', {
+            const response = await fetch(`${API_BASE_URL}/admin/quizzes-with-subjects', {
                 headers: { 'Authorization': `Bearer ${token}` }
             });
             
@@ -18955,7 +18955,7 @@ async function loadQuizzesFromMySQL() {
         }
         
         // Fallback: Try regular endpoint
-        const fallbackResponse = await fetch('${API_BASE_URL}/api/admin/quizzes', {
+        const fallbackResponse = await fetch(`${API_BASE_URL}/admin/quizzes', {
             headers: { 'Authorization': `Bearer ${token}` }
         });
         
@@ -20401,7 +20401,7 @@ async function updateRecentResults() {
     try {
         const token = localStorage.getItem('admin_token') || localStorage.getItem('authToken');
         
-        const response = await fetch('${API_BASE_URL}/api/admin/quizzes/recent-results', {
+        const response = await fetch(`${API_BASE_URL}/admin/quizzes/recent-results', {
             headers: {
                 'Authorization': `Bearer ${token}`
             }
@@ -20510,7 +20510,7 @@ async function initializeQuizChart() {
         
         console.log('📡 Fetching quiz performance data...');
         
-        const response = await fetch('${API_BASE_URL}/api/admin/quiz-performance', {
+        const response = await fetch(`${API_BASE_URL}/admin/quiz-performance', {
             headers: {
                 'Authorization': `Bearer ${token}`,
                 'Content-Type': 'application/json'
@@ -21180,7 +21180,7 @@ async function loadEditTopics() {
     try {
         const token = localStorage.getItem('admin_token') || localStorage.getItem('authToken');
         
-        const response = await fetch('${API_BASE_URL}/api/admin/structure', {
+        const response = await fetch(`${API_BASE_URL}/admin/structure', {
             headers: { 'Authorization': `Bearer ${token}` }
         });
         
@@ -21485,7 +21485,7 @@ async function saveEditedLesson() {
         }
         
         // Send to server
-        const response = await fetch('${API_BASE_URL}/api/admin/lessons', {
+        const response = await fetch(`${API_BASE_URL}/admin/lessons', {
             method: 'POST',
             headers: {
                 'Authorization': `Bearer ${token}`
@@ -22348,7 +22348,7 @@ async function loadAdminPracticeExercises() {
             return;
         }
         
-        const response = await fetch('${API_BASE_URL}/api/admin/practice', {
+        const response = await fetch(`${API_BASE_URL}/admin/practice', {
             headers: { 'Authorization': `Bearer ${token}` }
         });
         
@@ -22671,7 +22671,7 @@ async function loadPracticeTopics() {
         
         if (!token) return;
         
-        const response = await fetch('${API_BASE_URL}/api/admin/structure', {
+        const response = await fetch(`${API_BASE_URL}/admin/structure', {
             headers: { 'Authorization': `Bearer ${token}` }
         });
         
