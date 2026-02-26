@@ -1219,7 +1219,7 @@ function closeCreateLessonModal() {
 }
 
 // ============================================
-// SAVE LESSON TO DATABASE - WITH TOPIC_ID
+// SAVE LESSON TO DATABASE - WITH TOPIC_ID - FIXED VERSION
 // ============================================
 
 async function saveLessonToMySQL() {
@@ -1276,38 +1276,6 @@ async function saveLessonToMySQL() {
             contentType = 'pdf';
         }
         
-        // Create FormData
-        const formData = new FormData();
-        formData.append('title', title);
-        formData.append('description', description);
-        formData.append('topic_id', parseInt(topicId)); // CRITICAL: topic_id, NOT subject_id
-        formData.append('content_type', contentType);
-        
-        if (isUpdate) {
-            formData.append('is_update', 'true');
-            formData.append('content_id', editLessonId);
-        }
-        
-        // Add content based on type
-        if (contentType === 'video') {
-            if (youtubeUrl && youtubeUrl.trim() !== '') {
-                formData.append('youtube_url', youtubeUrl);
-                console.log("🔗 Adding YouTube URL:", youtubeUrl);
-            }
-            if (videoFile) {
-                formData.append('video_file', videoFile);
-                console.log("🎬 Adding video file:", videoFile.name);
-            }
-        } else if (contentType === 'pdf') {
-            if (pdfFile) {
-                formData.append('pdf_file', pdfFile);
-            }
-        } else if (contentType === 'text') {
-            if (textContent) {
-                formData.append('text_content', textContent);
-            }
-        }
-        
         // Get auth token
         const token = localStorage.getItem('authToken') || authToken;
         if (!token) {
@@ -1324,8 +1292,69 @@ async function saveLessonToMySQL() {
             saveBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Saving...';
         }
         
-        // Send to server
-        console.log("📡 Sending request to server...");
+        // ===== STEP 1: Kung bagong lesson, gumawa muna para makuha ang ID =====
+        let finalContentId = editLessonId;
+        
+        if (!isUpdate) {
+            console.log("📝 Creating new lesson to get ID first...");
+            
+            const createResponse = await fetch('/api/admin/lessons/create-temp', {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    title: title,
+                    description: description,
+                    topic_id: parseInt(topicId)
+                })
+            });
+            
+            if (!createResponse.ok) {
+                throw new Error(`Failed to create lesson: ${createResponse.status}`);
+            }
+            
+            const createData = await createResponse.json();
+            
+            if (!createData.success || !createData.content_id) {
+                throw new Error(createData.message || 'Failed to create lesson');
+            }
+            
+            finalContentId = createData.content_id;
+            console.log(`✅ Created lesson with ID: ${finalContentId}`);
+        }
+        
+        // ===== STEP 2: I-update ang lesson kasama ang video =====
+        const formData = new FormData();
+        formData.append('title', title);
+        formData.append('description', description);
+        formData.append('topic_id', parseInt(topicId));
+        formData.append('content_type', contentType);
+        formData.append('content_id', finalContentId); // CRITICAL: I-attach ang content_id
+        
+        // Add content based on type
+        if (contentType === 'video') {
+            if (youtubeUrl && youtubeUrl.trim() !== '') {
+                formData.append('youtube_url', youtubeUrl);
+                console.log(`🔗 Adding YouTube URL for lesson ${finalContentId}:`, youtubeUrl);
+            }
+            if (videoFile) {
+                formData.append('video_file', videoFile);
+                console.log(`🎬 Adding video file for lesson ${finalContentId}:`, videoFile.name);
+            }
+        } else if (contentType === 'pdf') {
+            if (pdfFile) {
+                formData.append('pdf_file', pdfFile);
+            }
+        } else if (contentType === 'text') {
+            if (textContent) {
+                formData.append('text_content', textContent);
+            }
+        }
+        
+        // Send to server para i-update
+        console.log(`📡 Sending update request for lesson ${finalContentId}...`);
         
         const response = await fetch('/api/admin/lessons', {
             method: 'POST',
@@ -1393,6 +1422,7 @@ async function saveLessonToMySQL() {
         }
     }
 }
+
 
 function resetLessonForm() {
     console.log("🔄 Resetting lesson form...");
@@ -4009,6 +4039,9 @@ async function updateDashboardWidgets(widgetConfig) {
 // ============================================
 // INITIALIZE PROGRESS DASHBOARD - UPDATED
 // ============================================
+// ============================================
+// INITIALIZE PROGRESS DASHBOARD - UPDATED
+// ============================================
 async function initProgressDashboard() {
     console.log('📈 Initializing progress dashboard with database integration...');
     
@@ -4031,14 +4064,23 @@ async function initProgressDashboard() {
         // Initialize charts
         await initProgressCharts();
         
-        // Start auto-refresh (every 60 seconds)
-        startProgressAutoRefresh(60);
+        // ✅ SIGURADUHING may value ang progressRefreshInterval bago gamitin
+        if (typeof progressRefreshInterval !== 'undefined') {
+            // Start auto-refresh (every 60 seconds)
+            startProgressAutoRefresh(60);
+        } else {
+            console.error('❌ progressRefreshInterval is not defined!');
+            // Fallback: initialize it first
+            progressRefreshInterval = null;
+            startProgressAutoRefresh(60);
+        }
         
         console.log('✅ Progress dashboard initialized with database integration');
     } catch (error) {
         console.error('Error initializing progress dashboard:', error);
     }
 }
+
 
 // ============================================
 // CHECK AND AWARD BADGES AUTOMATICALLY
@@ -5003,10 +5045,13 @@ function initForgotPasswordLink() {
 }
 
 // ============================================
-// FIXED: DOMContentLoaded with proper initialization order
+// DOM CONTENT LOADED - COMPLETE VERSION
 // ============================================
 document.addEventListener('DOMContentLoaded', function() {
     console.log('📄 DOM fully loaded - initializing all features');
+    
+    // ✅ I-initialize ang progressRefreshInterval
+    progressRefreshInterval = null;
     
     // Initialize app first
     initApp();
@@ -5019,6 +5064,7 @@ document.addEventListener('DOMContentLoaded', function() {
     addSettingsStyles();
     addFeedbackStyles();
     addLessonContentStyles();
+    addReviewModalStyles();
     
     // Force modal styles
     forceModalStyles();
@@ -5049,41 +5095,149 @@ document.addEventListener('DOMContentLoaded', function() {
         observer.observe(loginPage, { attributes: true });
     }
     
-    // Add review modal styles
+    // Initialize progress dashboard if visible
+    const progressPage = document.getElementById('progress-page');
+    if (progressPage) {
+        if (!progressPage.classList.contains('hidden')) {
+            console.log('📊 Progress page is already visible - loading data NOW');
+            setTimeout(() => {
+                showProgressDashboardLoading();
+                initProgressDashboard();
+            }, 50);
+        }
+        
+        // Observe for when progress page becomes visible
+        const progressObserver = new MutationObserver(function(mutations) {
+            mutations.forEach(function(mutation) {
+                if (mutation.type === 'attributes' && mutation.attributeName === 'class') {
+                    if (!progressPage.classList.contains('hidden')) {
+                        console.log('📊 Progress page became visible');
+                        setTimeout(() => {
+                            showProgressDashboardLoading();
+                            initProgressDashboard();
+                        }, 300);
+                    } else {
+                        // Stop refresh when hidden
+                        if (typeof stopProgressAutoRefresh === 'function') {
+                            stopProgressAutoRefresh();
+                        }
+                    }
+                }
+            });
+        });
+        
+        progressObserver.observe(progressPage, { attributes: true });
+    }
+    
+    // Initialize quiz dashboard if visible
+    const quizPage = document.getElementById('quiz-dashboard-page');
+    if (quizPage) {
+        if (!quizPage.classList.contains('hidden')) {
+            setTimeout(() => {
+                initQuizDashboard();
+            }, 300);
+        }
+        
+        const quizObserver = new MutationObserver(function(mutations) {
+            mutations.forEach(function(mutation) {
+                if (mutation.type === 'attributes' && mutation.attributeName === 'class') {
+                    if (!quizPage.classList.contains('hidden')) {
+                        console.log('🧠 Quiz page became visible');
+                        setTimeout(() => {
+                            initQuizDashboard();
+                        }, 300);
+                    }
+                }
+            });
+        });
+        
+        quizObserver.observe(quizPage, { attributes: true });
+    }
+    
+    // Initialize practice page if visible
+    const practicePage = document.getElementById('practice-exercises-page');
+    if (practicePage) {
+        if (!practicePage.classList.contains('hidden')) {
+            setTimeout(() => {
+                initPracticePage();
+            }, 300);
+        }
+        
+        const practiceObserver = new MutationObserver(function(mutations) {
+            mutations.forEach(function(mutation) {
+                if (mutation.type === 'attributes' && mutation.attributeName === 'class') {
+                    if (!practicePage.classList.contains('hidden')) {
+                        console.log('💪 Practice page became visible');
+                        setTimeout(() => {
+                            initPracticePage();
+                        }, 300);
+                    }
+                }
+            });
+        });
+        
+        practiceObserver.observe(practicePage, { attributes: true });
+    }
+    
+    // Initialize time tracker
     setTimeout(() => {
-        addReviewModalStyles();
-        console.log('✅ Review modal styles added');
-    }, 500);
+        if (typeof initializeTimeTracker === 'function') {
+            initializeTimeTracker();
+        }
+    }, 2000);
+    
+    // Check for reset token in URL
+    if (typeof checkForResetToken === 'function') {
+        checkForResetToken();
+    }
+    
+    // Ensure feedback history loads
+    if (typeof ensureFeedbackHistoryLoads === 'function') {
+        ensureFeedbackHistoryLoads();
+    }
+    
+    // Connect tool buttons
+    if (typeof connectToolButtons === 'function') {
+        connectToolButtons();
+    }
     
     // Connect review buttons
     setTimeout(() => {
-        connectReviewButtons();
+        if (typeof connectReviewButtons === 'function') {
+            connectReviewButtons();
+        }
         console.log('✅ Review buttons connected');
     }, 1000);
     
     // Connect quiz buttons
-    setTimeout(setupQuizButtons, 1000);
+    setTimeout(() => {
+        if (typeof setupQuizButtons === 'function') {
+            setupQuizButtons();
+        }
+    }, 1000);
     
-    // Initialize quiz dashboard if visible
-    const quizPage = document.getElementById('quiz-dashboard-page');
-    if (quizPage && !quizPage.classList.contains('hidden')) {
-        initQuizDashboard();
-    }
-    
-    // Initialize time tracker
-    setTimeout(initializeTimeTracker, 2000);
-    
-    // Check for reset token in URL
-    checkForResetToken();
-    
-    // Ensure feedback history loads
-    ensureFeedbackHistoryLoads();
-    
-    // Connect tool buttons
-    connectToolButtons();
+    // Check visibility on page load
+    setTimeout(() => {
+        if (typeof checkAndFixQuizVisibility === 'function') {
+            checkAndFixQuizVisibility();
+        }
+    }, 100);
     
     console.log('✅ All features initialized');
+    
+    // Add window unload handler to clean up intervals
+    window.addEventListener('beforeunload', function() {
+        if (progressRefreshInterval) {
+            clearInterval(progressRefreshInterval);
+            progressRefreshInterval = null;
+        }
+        
+        if (typeof stopQuizStatsAutoRefresh === 'function') {
+            stopQuizStatsAutoRefresh();
+        }
+    });
 });
+
 
 // ============================================
 // FIXED: Add a direct click handler as backup
@@ -11243,43 +11397,75 @@ function getWeeklyFeedbackData() {
         suggestions: weeklySuggestions
     };
 }
-// Setup feedback form submission
+
+// ============================================
+// SETUP FEEDBACK FORM - FIXED VERSION
+// ============================================
 function setupFeedbackForm() {
+    console.log('📝 Setting up feedback form...');
+    
     const feedbackForm = document.getElementById('feedbackForm');
     const feedbackSuccess = document.getElementById('feedbackSuccess');
     
-    if (!feedbackForm) return;
+    if (!feedbackForm) {
+        console.log('Feedback form not found');
+        return;
+    }
     
-    feedbackForm.addEventListener('submit', async function(e) {
-        e.preventDefault();
+    // Remove any existing event listeners
+    const newForm = feedbackForm.cloneNode(true);
+    feedbackForm.parentNode.replaceChild(newForm, feedbackForm);
+    
+    newForm.addEventListener('submit', async function(e) {
+        e.preventDefault(); // CRITICAL: Prevent page reload
+        e.stopPropagation();
+        
+        console.log('📝 Feedback form submitted');
         
         // Get form data
-        const feedbackType = document.getElementById('feedbackType').value;
-        const feedbackMessage = document.getElementById('feedbackMessage').value.trim();
-        const rating = parseInt(document.getElementById('ratingValue').value) || 0;
+        const feedbackType = document.getElementById('feedbackType')?.value;
+        const feedbackMessage = document.getElementById('feedbackMessage')?.value.trim();
+        const rating = parseInt(document.getElementById('ratingValue')?.value) || 0;
+        
+        console.log('📋 Feedback data:', { feedbackType, feedbackMessage, rating });
         
         // Validation
         if (!feedbackMessage) {
-            showNotification('Please enter your feedback message', 'error');
+            showNotification('error', 'Error', 'Please enter your feedback message');
             return;
         }
         
         if (feedbackMessage.length < 10) {
-            showNotification('Please provide more detailed feedback (at least 10 characters)', 'error');
+            showNotification('error', 'Error', 'Please provide more detailed feedback (at least 10 characters)');
             return;
         }
         
+        // Show loading state
+        const submitBtn = newForm.querySelector('button[type="submit"]');
+        const originalText = submitBtn.innerHTML;
+        submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Submitting...';
+        submitBtn.disabled = true;
+        
         // Submit feedback
         const success = await submitFeedback(feedbackType, feedbackMessage, rating);
+        
+        // Reset button
+        submitBtn.innerHTML = originalText;
+        submitBtn.disabled = false;
         
         if (success) {
             // Show success message
             if (feedbackSuccess) {
                 feedbackSuccess.style.display = 'block';
+                
+                // Auto-hide after 3 seconds
+                setTimeout(() => {
+                    feedbackSuccess.style.display = 'none';
+                }, 3000);
             }
             
             // Reset form
-            feedbackForm.reset();
+            newForm.reset();
             
             // Reset rating stars
             const stars = document.querySelectorAll('.star');
@@ -11289,62 +11475,86 @@ function setupFeedbackForm() {
             });
             document.getElementById('ratingValue').value = 0;
             
-            // Hide success message after 5 seconds
-            setTimeout(() => {
-                if (feedbackSuccess) {
-                    feedbackSuccess.style.display = 'none';
-                }
-            }, 5000);
+            showNotification('success', 'Thank You!', 'Your feedback has been submitted successfully!');
             
-            showNotification('Thank you for your feedback!', 'success');
+            // ✅ Refresh feedback history WITHOUT reloading page
+            if (typeof loadFeedbackHistory === 'function') {
+                setTimeout(() => {
+                    loadFeedbackHistory(10);
+                }, 500);
+            }
         }
     });
+    
+    console.log('✅ Feedback form setup complete');
 }
 
-// Submit feedback to database
+
+// ============================================
+// SUBMIT FEEDBACK TO DATABASE - FIXED VERSION
+// ============================================
 async function submitFeedback(feedbackType, feedbackMessage, rating = 0) {
     try {
         const token = localStorage.getItem('authToken') || authToken;
+        
+        if (!token) {
+            showNotification('error', 'Auth Error', 'Please login to submit feedback');
+            return false;
+        }
+        
+        // Get current user
+        const userJson = localStorage.getItem('mathhub_user');
+        let userId = null;
+        let userEmail = '';
+        let userName = '';
+        
+        if (userJson) {
+            try {
+                const user = JSON.parse(userJson);
+                userId = user.id || user.user_id;
+                userEmail = user.email || '';
+                userName = user.full_name || user.username || '';
+            } catch (e) {
+                console.error('Error parsing user:', e);
+            }
+        }
         
         // Prepare feedback data
         const feedbackData = {
             feedback_type: feedbackType,
             feedback_message: feedbackMessage,
-            rating: rating
+            rating: rating,
+            user_id: userId,
+            email: userEmail,
+            name: userName,
+            page_url: window.location.href,
+            user_agent: navigator.userAgent
         };
         
-        console.log('📤 Submitting feedback:', feedbackData);
+        console.log('📤 Submitting feedback to database:', feedbackData);
         
-        // Determine which endpoint to use (authenticated or anonymous)
-        const endpoint = token ? 
-            `/feedback/submit` : 
-            `/feedback/submit-anonymous`;
-        
-        const response = await fetch(endpoint, {
+        // Use the correct endpoint
+        const response = await fetch('/api/feedback/submit', {
             method: 'POST',
             headers: {
-                'Content-Type': 'application/json',
-                ...(token && { 'Authorization': `Bearer ${token}` })
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
             },
             body: JSON.stringify(feedbackData)
         });
         
-        // ✅ NEW: Handle 404 gracefully
+        // Handle response
         if (response.status === 404) {
-            console.warn('⚠️ Feedback endpoint not found (404) - saving locally');
-            
-            // Save to localStorage
+            console.warn('⚠️ Feedback endpoint not found - saving locally');
             saveFeedbackLocally(feedbackData);
-            
-            // Show success message pa rin
-            showNotification('Thank you for your feedback! (Saved locally)', 'success');
+            showNotification('success', 'Feedback Saved!', 'Your feedback has been saved locally.');
             return true;
         }
         
         if (!response.ok) {
             const errorText = await response.text();
             console.error('Failed to submit feedback:', errorText);
-            throw new Error(`Failed to submit feedback: ${response.status}`);
+            throw new Error(`HTTP ${response.status}`);
         }
         
         const data = await response.json();
@@ -11352,56 +11562,134 @@ async function submitFeedback(feedbackType, feedbackMessage, rating = 0) {
         if (data.success) {
             console.log('✅ Feedback submitted successfully. ID:', data.feedback_id);
             
-            // Save locally as backup
+            // Save to localStorage as backup
             saveFeedbackLocally(feedbackData);
             
-            showNotification('Thank you for your feedback!', 'success');
             return true;
         } else {
             throw new Error(data.message || 'Failed to submit feedback');
         }
-    } catch (error) {
-        console.error('Error submitting feedback:', error);
         
-        // ✅ NEW: Save locally even on error
+    } catch (error) {
+        console.error('❌ Error submitting feedback:', error);
+        
+        // Save locally as fallback
         saveFeedbackLocally({
             feedback_type: feedbackType,
             feedback_message: feedbackMessage,
-            rating: rating
+            rating: rating,
+            error: error.message
         });
         
-        showNotification('Feedback saved locally!', 'success');
+        showNotification('success', 'Feedback Saved!', 'Your feedback has been saved locally.');
         return true; // Return true para hindi mag-error ang form
     }
 }
 
-// Helper function to save feedback locally
+
+// ============================================
+// SAVE FEEDBACK LOCALLY - ENHANCED
+// ============================================
 function saveFeedbackLocally(feedbackData) {
     try {
         // Get existing feedback from localStorage
         const existingFeedback = JSON.parse(localStorage.getItem('local_feedback') || '[]');
         
         // Add new feedback with timestamp
-        existingFeedback.push({
+        const newFeedback = {
             ...feedbackData,
             id: Date.now(),
             created_at: new Date().toISOString(),
             status: 'pending'
-        });
+        };
         
-        // Keep only last 20 items
-        if (existingFeedback.length > 20) {
-            existingFeedback.shift();
+        existingFeedback.push(newFeedback);
+        
+        // Keep only last 50 items
+        if (existingFeedback.length > 50) {
+            existingFeedback = existingFeedback.slice(-50);
         }
         
         // Save back to localStorage
         localStorage.setItem('local_feedback', JSON.stringify(existingFeedback));
         
         console.log('💾 Feedback saved locally, total:', existingFeedback.length);
+        
+        // Also update the feedback history display
+        displayLocalFeedbackHistory();
+        
     } catch (e) {
         console.error('Failed to save feedback locally:', e);
     }
 }
+
+
+// ============================================
+// DISPLAY LOCAL FEEDBACK HISTORY
+// ============================================
+function displayLocalFeedbackHistory() {
+    const historyContainer = document.getElementById('feedbackHistory');
+    if (!historyContainer) return;
+    
+    try {
+        const localFeedback = JSON.parse(localStorage.getItem('local_feedback') || '[]');
+        
+        if (localFeedback.length === 0) {
+            // Try to load from server first
+            loadFeedbackHistory(10);
+            return;
+        }
+        
+        let html = '<div class="feedback-history-list">';
+        
+        // Sort by date (newest first)
+        localFeedback.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+        
+        localFeedback.slice(0, 10).forEach(item => {
+            const date = new Date(item.created_at || Date.now());
+            const formattedDate = date.toLocaleDateString('en-US', { 
+                month: 'short', 
+                day: 'numeric', 
+                year: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit'
+            });
+            
+            const ratingStars = '★'.repeat(item.rating || 0) + '☆'.repeat(5 - (item.rating || 0));
+            
+            html += `
+                <div class="feedback-history-item status-pending">
+                    <div class="feedback-history-header">
+                        <div>
+                            <span class="feedback-type-badge">${item.feedback_type || 'feedback'}</span>
+                            <span class="local-badge">(Saved locally)</span>
+                        </div>
+                        <span class="feedback-date">${formattedDate}</span>
+                    </div>
+                    
+                    <div class="feedback-history-body">
+                        <p class="feedback-message">${escapeHtml(item.feedback_message || '')}</p>
+                        
+                        ${item.rating > 0 ? `
+                            <div class="feedback-rating-display">
+                                <span class="rating-stars">${ratingStars}</span>
+                                <span class="rating-value">${item.rating}/5</span>
+                            </div>
+                        ` : ''}
+                    </div>
+                </div>
+            `;
+        });
+        
+        html += '</div>';
+        historyContainer.innerHTML = html;
+        
+    } catch (e) {
+        console.error('Error displaying local feedback:', e);
+    }
+}
+
+
 // Fetch user feedback (for display in admin or user profile)
 async function fetchUserFeedback(limit = 10, page = 1) {
     try {
@@ -14211,7 +14499,7 @@ async function testVideoAccessibility(url) {
 }
 
 // ============================================
-// FIXED: LOAD VIDEO FROM DATABASE - Using /videos/ folder
+// FIXED: LOAD VIDEO FROM DATABASE - SPECIFIC LESSON ONLY
 // ============================================
 async function loadVideoFromDatabase(contentId = null) {
     const videoElement = document.getElementById('lessonVideo');
@@ -14234,7 +14522,7 @@ async function loadVideoFromDatabase(contentId = null) {
             contentId = urlParams.get('contentId') || urlParams.get('id') || 1;
         }
         
-        console.log(`🎬 Loading video for content ID: ${contentId}`);
+        console.log(`🎬 Loading video for SPECIFIC content ID: ${contentId}`);
         
         if (videoInfo) {
             videoInfo.innerHTML = '<p><i class="fas fa-spinner fa-spin"></i> Loading video from database...</p>';
@@ -14250,7 +14538,7 @@ async function loadVideoFromDatabase(contentId = null) {
             throw new Error('No auth token available');
         }
         
-        // FETCH LESSON DATA
+        // FETCH SPECIFIC LESSON DATA
         const lessonResponse = await fetch(`/api/lessons-db/${contentId}`, {
             headers: {
                 'Authorization': `Bearer ${token}`,
@@ -14269,7 +14557,7 @@ async function loadVideoFromDatabase(contentId = null) {
         }
         
         const lesson = lessonData.lesson;
-        console.log('✅ Lesson data loaded:', lesson);
+        console.log('✅ Lesson data loaded for specific lesson:', lesson.content_title);
         
         // Update UI
         const titleElement = document.getElementById('videoLessonTitle');
@@ -14286,46 +14574,44 @@ async function loadVideoFromDatabase(contentId = null) {
             videoTitle.innerHTML = `<i class="fas fa-video"></i> ${lesson.content_title || 'Video Lesson'}`;
         }
         
-        // ===== ✅ FIXED: VIDEO SOURCE - Use /videos/ folder =====
+        // ===== GET VIDEO SPECIFIC TO THIS LESSON =====
         let videoUrl = null;
         let videoSource = 'none';
         let videoFilename = null;
 
+        // ✅ Check specific lesson's video_filename
         if (lesson.video_filename) {
             videoFilename = lesson.video_filename;
-            
-            // ✅ USE /videos/ FOLDER, NOT /uploads/videos/
             videoUrl = `/videos/${lesson.video_filename}`;
-            
             videoSource = 'uploaded';
-            console.log(`🎬 Found uploaded video: ${videoFilename}`);
-            console.log(`📺 Video URL: ${videoUrl}`);
+            console.log(`🎬 Found uploaded video for lesson ${contentId}: ${videoFilename}`);
         }
+        // ✅ Check specific lesson's content_url (YouTube)
         else if (lesson.content_url && (lesson.content_url.includes('youtube') || lesson.content_url.includes('youtu.be'))) {
             videoUrl = lesson.content_url;
             videoSource = 'youtube';
-            console.log(`🔗 Found YouTube URL: ${videoUrl}`);
+            console.log(`🔗 Found YouTube URL for lesson ${contentId}: ${videoUrl}`);
         }
+        // ✅ Check video_path as fallback
         else if (lesson.video_path) {
-            // Check if video_path already has the correct format
             if (lesson.video_path.includes('/videos/')) {
                 videoUrl = lesson.video_path;
             } else {
-                // Extract filename from old path
                 const filename = lesson.video_path.split('/').pop();
                 videoUrl = `/videos/${filename}`;
             }
             videoSource = 'path';
-            console.log(`📁 Found video path: ${videoUrl}`);
+            console.log(`📁 Found video path for lesson ${contentId}: ${videoUrl}`);
         }
 
+        // Fallback to default video if none found
         if (!videoUrl) {
-            console.log('⚠️ No video found, using default');
+            console.log(`⚠️ No video found for lesson ${contentId}, using default`);
             videoUrl = '/videos/quarter1-polynomial-equations.mp4';
             videoSource = 'default';
         }
         
-        // LOAD VIDEO
+        // LOAD VIDEO - CLEAR PREVIOUS FIRST
         videoElement.innerHTML = '';
         
         if (videoUrl.includes('youtube') || videoUrl.includes('youtu.be')) {
@@ -14347,73 +14633,32 @@ async function loadVideoFromDatabase(contentId = null) {
                 }
             }
         } else {
-            // ✅ CREATE VIDEO ELEMENT WITH SOURCE FROM /videos/ FOLDER
+            // CREATE VIDEO ELEMENT WITH SPECIFIC SOURCE
             const sourceElement = document.createElement('source');
             sourceElement.src = videoUrl + '?v=' + Date.now(); // Cache buster
             sourceElement.type = 'video/mp4';
             videoElement.appendChild(sourceElement);
             videoElement.appendChild(document.createTextNode('Your browser does not support the video tag.'));
             
-            // Add error handler with fallback
-            videoElement.onerror = function() {
-                console.error('❌ Failed to load video:', videoUrl);
-                
-                // Try alternative path as fallback (just in case)
-                if (videoUrl.includes('/videos/')) {
-                    // Try without cache buster
-                    const altUrl = videoUrl.split('?')[0];
-                    console.log('🔄 Trying alternative URL:', altUrl);
-                    
-                    videoElement.innerHTML = '';
-                    const altSource = document.createElement('source');
-                    altSource.src = altUrl;
-                    altSource.type = 'video/mp4';
-                    videoElement.appendChild(altSource);
-                    videoElement.load();
-                    
-                    // If still fails, show error
-                    setTimeout(() => {
-                        if (videoElement.error) {
-                            if (videoInfo) {
-                                videoInfo.innerHTML = `
-                                    <p style="color: #e74c3c;">
-                                        <i class="fas fa-exclamation-triangle"></i> 
-                                        Video not found. Please check if the file exists in public/videos/ folder.
-                                    </p>
-                                `;
-                            }
-                            
-                            // Try to get list of available videos
-                            fetch('/debug/videos')
-                                .then(res => res.json())
-                                .then(data => {
-                                    if (data.success && data.files.length > 0) {
-                                        console.log('📋 Available videos:', data.files.map(f => f.filename));
-                                    }
-                                })
-                                .catch(e => console.log('Could not fetch video list'));
-                        }
-                    }, 1000);
-                } else {
-                    if (videoInfo) {
-                        videoInfo.innerHTML = `
-                            <p style="color: #e74c3c;">
-                                <i class="fas fa-exclamation-triangle"></i> 
-                                Failed to load video. File may not exist.
-                            </p>
-                        `;
-                    }
-                }
-            };
-            
-            // Add load success handler
             videoElement.onloadeddata = function() {
-                console.log('✅ Video loaded successfully');
+                console.log(`✅ Video loaded successfully for lesson ${contentId}`);
                 if (videoInfo) {
                     videoInfo.innerHTML = `
                         <p><i class="fas fa-check-circle" style="color: #27ae60;"></i> <strong>${lesson.content_title || 'Video Lesson'}</strong></p>
                         <p><i class="fas fa-clock"></i> Duration: ${Math.floor((lesson.video_duration_seconds || 600) / 60)} min</p>
-                        <p><i class="fas fa-link"></i> Path: ${videoUrl}</p>
+                        <p><i class="fas fa-database"></i> Video for Lesson #${contentId}</p>
+                    `;
+                }
+            };
+            
+            videoElement.onerror = function() {
+                console.error(`❌ Failed to load video for lesson ${contentId}:`, videoUrl);
+                if (videoInfo) {
+                    videoInfo.innerHTML = `
+                        <p style="color: #e74c3c;">
+                            <i class="fas fa-exclamation-triangle"></i> 
+                            Video not found for this lesson. Please upload a video first.
+                        </p>
                     `;
                 }
             };
@@ -14421,27 +14666,14 @@ async function loadVideoFromDatabase(contentId = null) {
             videoElement.load();
         }
         
-        // Update video info
-        if (videoInfo && videoSource !== 'youtube') {
-            let sourceText = videoSource === 'uploaded' ? '📁 Uploaded Video' : 
-                            videoSource === 'youtube' ? '🔗 YouTube' : '📚 Default Video';
-            
-            videoInfo.innerHTML = `
-                <p><i class="fas fa-info-circle"></i> <strong>${lesson.content_title || 'Video Lesson'}</strong></p>
-                <p><i class="fas fa-clock"></i> Duration: ${Math.floor((lesson.video_duration_seconds || 600) / 60)} min</p>
-                <p><i class="fas fa-database"></i> ${sourceText}</p>
-                <p><i class="fas fa-link"></i> Path: ${videoUrl}</p>
-            `;
-        }
-        
-        // Initialize progress tracking
+        // Initialize progress tracking for this specific lesson
         initVideoProgressTracking(videoElement, contentId);
         
-        console.log('✅ Video loaded successfully:', { url: videoUrl, source: videoSource });
+        console.log(`✅ Video loaded successfully for lesson ${contentId}:`, { url: videoUrl, source: videoSource });
         return { url: videoUrl, source: videoSource };
         
     } catch (error) {
-        console.error('❌ Error loading video:', error);
+        console.error(`❌ Error loading video for lesson ${contentId}:`, error);
         if (videoElement) {
             videoElement.innerHTML = '<p style="color: #e74c3c; padding: 20px;">Failed to load video</p>';
         }
@@ -14456,6 +14688,7 @@ async function loadVideoFromDatabase(contentId = null) {
         }
     }
 }
+
 
 // Get default video (fallback)
 async function getDefaultVideo() {
@@ -21654,15 +21887,17 @@ async function fetchActivityLog(limit = 10) {
 }
 
 // ============================================
-// AUTO-REFRESH PROGRESS DASHBOARD
+// AUTO-REFRESH PROGRESS DASHBOARD - FIXED VERSION
 // ============================================
-let progressRefreshInterval = null;
-
 function startProgressAutoRefresh(intervalSeconds = 60) {
-    // Clear existing interval
+    // ✅ I-check muna kung may existing interval
     if (progressRefreshInterval) {
+        console.log('⏱️ Clearing existing refresh interval...');
         clearInterval(progressRefreshInterval);
+        progressRefreshInterval = null;
     }
+    
+    console.log(`⏱️ Starting progress dashboard auto-refresh (every ${intervalSeconds} seconds)`);
     
     // Start new interval
     progressRefreshInterval = setInterval(() => {
@@ -21674,16 +21909,23 @@ function startProgressAutoRefresh(intervalSeconds = 60) {
         }
     }, intervalSeconds * 1000);
     
-    console.log(`⏱️ Progress Dashboard auto-refresh started (every ${intervalSeconds} seconds)`);
+    console.log(`✅ Progress Dashboard auto-refresh started`);
 }
 
+// ============================================
+// STOP PROGRESS AUTO-REFRESH
+// ============================================
 function stopProgressAutoRefresh() {
     if (progressRefreshInterval) {
+        console.log('⏹️ Stopping progress dashboard auto-refresh...');
         clearInterval(progressRefreshInterval);
         progressRefreshInterval = null;
-        console.log('⏹️ Progress Dashboard auto-refresh stopped');
+        console.log('✅ Progress Dashboard auto-refresh stopped');
+    } else {
+        console.log('ℹ️ No active refresh interval to stop');
     }
 }
+
 
 
 // ============================================
@@ -23396,6 +23638,22 @@ if (originalNavigateTo) originalNavigateTo(page);
     if (!window.activeTimeTracker) {
         setTimeout(initializeTimeTracker, 1000);
     }
+
+    // Stop auto-refresh when leaving progress page
+    if (page !== 'progress') {
+        stopProgressAutoRefresh();
+    }
+    
+    // Start auto-refresh when entering progress page
+    if (page === 'progress') {
+        // Small delay to ensure page is ready
+        setTimeout(() => {
+            if (typeof startProgressAutoRefresh === 'function') {
+                startProgressAutoRefresh(60);
+            }
+        }, 500);
+    }
+
 
     originalNavigateTo(page);
     
