@@ -5085,6 +5085,7 @@ if (typeof animateNumber !== 'function') {
 // KEEP ONLY ONE VERSION OF THESE FUNCTIONS:
 
 // ===== SAVE LESSON TO MYSQL DATABASE =====
+// ===== UPDATED: SAVE LESSON TO MYSQL WITH MODULE ID =====
 async function saveLessonToMySQL() {
     console.log("=== SAVING TO MYSQL DATABASE ===");
     
@@ -5094,6 +5095,11 @@ async function saveLessonToMySQL() {
         const description = document.getElementById('createLessonDescription')?.value.trim();
         const topicSelect = document.getElementById('topicSelect');
         const topic_id = topicSelect?.value;
+        
+        // ===== FIXED: GET MODULE ID =====
+        const moduleSelect = document.getElementById('moduleSelect');
+        const module_id = moduleSelect?.value;
+        
         const editId = document.getElementById('editLessonId')?.value || '';
         const isUpdate = editId && editId !== '';
         
@@ -5129,7 +5135,6 @@ async function saveLessonToMySQL() {
             contentType = 'text';
             console.log("📝 Content type: TEXT");
         } else {
-            // If no content specified, default to text with description
             contentType = 'text';
             console.log("📝 Content type: TEXT (using description)");
         }
@@ -5139,6 +5144,13 @@ async function saveLessonToMySQL() {
         formData.append('title', title);
         formData.append('description', description);
         formData.append('topic_id', parseInt(topic_id));
+        
+        // ===== FIXED: ADD MODULE ID =====
+        if (module_id && module_id !== '') {
+            formData.append('module_id', parseInt(module_id));
+            console.log(`📦 Adding module_id: ${module_id}`);
+        }
+        
         formData.append('content_type', contentType);
         
         // Add update flag if editing
@@ -5149,7 +5161,7 @@ async function saveLessonToMySQL() {
         }
         
         // Add assigned teacher if admin specified one
-        if (assignedTeacherId) {
+        if (assignedTeacherId && assignedTeacherId !== '') {
             formData.append('assigned_teacher_id', parseInt(assignedTeacherId));
             console.log(`👨‍🏫 Assigning to teacher ID: ${assignedTeacherId}`);
         }
@@ -5193,34 +5205,35 @@ async function saveLessonToMySQL() {
             method: 'POST',
             headers: {
                 'Authorization': `Bearer ${token}`
-                // Note: Don't set Content-Type header when using FormData
             },
             body: formData
         });
         
         console.log("📥 Response status:", response.status);
         
-        // Check if response is OK
         if (!response.ok) {
             const errorText = await response.text();
             console.error("❌ Server error response:", errorText);
             throw new Error(`Server error (${response.status}): ${errorText.substring(0, 100)}`);
         }
         
-        // Parse JSON response
         const result = await response.json();
         console.log("📥 Server response:", result);
         
         if (result.success) {
-            // ===== SUCCESS =====
             let successMessage = isUpdate ? 'Lesson updated successfully!' : 'Lesson created successfully!';
             
-            // Add teacher assignment info to message
             if (assignedTeacherId) {
                 successMessage += ' (Assigned to teacher)';
             }
             
             showNotification('success', 'Success!', successMessage);
+            
+            // Log what was recorded
+            console.log('📝 Lesson recorded with:');
+            console.log(`   - module_id: ${result.lesson?.module_id || 'NULL'}`);
+            console.log(`   - created_by: ${result.lesson?.created_by || 'NULL'}`);
+            console.log(`   - teacher_id: ${result.lesson?.teacher_id || 'NULL'}`);
             
             // Close modal
             closeCreateLessonModal();
@@ -5235,24 +5248,20 @@ async function saveLessonToMySQL() {
             setTimeout(() => {
                 console.log("🔄 Refreshing lessons...");
                 
-                // Refresh admin lessons table if it exists
                 if (document.getElementById('adminLessonsTableBody')) {
                     if (typeof loadAdminLessons === 'function') {
                         loadAdminLessons();
                     }
                 }
                 
-                // Refresh teacher lessons if on teacher dashboard
                 if (typeof loadMyLessons === 'function') {
                     loadMyLessons();
                 }
                 
-                // Refresh recent lessons on dashboard
                 if (typeof loadRecentLessons === 'function') {
                     loadRecentLessons();
                 }
                 
-                // Refresh subject data
                 if (typeof fetchSubjectDataFromDatabase === 'function') {
                     fetchSubjectDataFromDatabase();
                 }
@@ -5265,10 +5274,8 @@ async function saveLessonToMySQL() {
         }
         
     } catch (error) {
-        // ===== ERROR HANDLING =====
         console.error('❌ Save error:', error);
         
-        // Show user-friendly error message
         let errorMessage = error.message;
         if (error.message.includes('Failed to fetch')) {
             errorMessage = 'Cannot connect to server. Make sure the backend is running.';
@@ -5278,13 +5285,11 @@ async function saveLessonToMySQL() {
         
         showNotification('error', 'Save Failed', errorMessage);
         
-        // Optional: Fallback to localStorage
         if (confirm('Server save failed. Save to local storage instead?')) {
             saveLessonToLocalStorage();
         }
         
     } finally {
-        // ===== RESTORE BUTTON STATE =====
         const saveBtn = document.querySelector('#createLessonModal .btn-primary');
         if (saveBtn) {
             saveBtn.disabled = false;
@@ -20039,8 +20044,7 @@ function addOption(questionId) {
     
     optionsContainer.insertAdjacentHTML('beforeend', optionHtml);
 }
-
-// ===== SAVE QUIZ TO MYSQL WITH TEACHER ASSIGNMENT - FIXED URL =====
+// ===== UPDATED: SAVE QUIZ TO MYSQL WITH MODULE ID AND TEACHER ID =====
 async function saveQuizToMySQL() {
     console.log("💾 ===== SAVING QUIZ TO MYSQL DATABASE =====");
     
@@ -20049,6 +20053,15 @@ async function saveQuizToMySQL() {
     const description = document.getElementById('quizDescription')?.value.trim();
     const categoryId = document.getElementById('quizSubject')?.value;
     const topicId = document.getElementById('quizTopic')?.value;
+    
+    // ===== FIXED: GET MODULE ID =====
+    const moduleSelect = document.getElementById('quizModule');
+    let moduleId = null;
+    if (moduleSelect && moduleSelect.value) {
+        moduleId = parseInt(moduleSelect.value);
+        console.log(`📦 Module ID selected: ${moduleId}`);
+    }
+    
     const timeLimit = document.getElementById('quizTimeLimit')?.value;
     const passingScore = document.getElementById('quizPassingScore')?.value;
     const maxAttempts = document.getElementById('quizMaxAttempts')?.value;
@@ -20056,14 +20069,15 @@ async function saveQuizToMySQL() {
     const status = document.getElementById('quizStatus')?.value;
     const editId = document.getElementById('editQuizId')?.value;
     
-    // ===== GET ASSIGNED TEACHER (NEW) =====
+    // ===== GET ASSIGNED TEACHER =====
     const assignedTeacherId = document.getElementById('quizAssignedTeacherId')?.value;
     
     console.log('📋 Quiz form values:', { 
         title, 
         description, 
         categoryId, 
-        topicId, 
+        topicId,
+        moduleId,
         timeLimit, 
         passingScore, 
         maxAttempts,
@@ -20155,6 +20169,8 @@ async function saveQuizToMySQL() {
     // ===== PREPARE DATA FOR SERVER =====
     const quizData = {
         category_id: parseInt(categoryId),
+        topic_id: topicId ? parseInt(topicId) : null,
+        module_id: moduleId,  // ← FIXED: ADD MODULE ID
         title: title,
         description: description || '',
         difficulty: difficulty || 'medium',
@@ -20167,7 +20183,7 @@ async function saveQuizToMySQL() {
     };
     
     // ===== ADD TEACHER ASSIGNMENT IF SELECTED =====
-    if (assignedTeacherId) {
+    if (assignedTeacherId && assignedTeacherId !== '') {
         quizData.assigned_teacher_id = parseInt(assignedTeacherId);
         console.log(`👨‍🏫 Quiz will be assigned to teacher ID: ${assignedTeacherId}`);
     }
@@ -20195,10 +20211,9 @@ async function saveQuizToMySQL() {
             saveBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Saving...';
         }
         
-        // ✅ FIXED: Dapat ganito ang URL construction
         const url = editId
             ? `/api/admin/quizzes/${editId}`
-            : `/api/admin/quizzes`;  // Use relative URL directly
+            : `/api/admin/quizzes`;
         
         console.log(`📡 Sending ${editId ? 'PUT' : 'POST'} request to:`, url);
         
@@ -20226,6 +20241,11 @@ async function saveQuizToMySQL() {
             if (assignedTeacherId) {
                 message += ' (Assigned to teacher)';
             }
+            
+            console.log('✅ Quiz saved with:');
+            console.log(`   - module_id: ${moduleId || 'NULL'}`);
+            console.log(`   - topic_id: ${topicId || 'NULL'}`);
+            console.log(`   - teacher_id: ${assignedTeacherId || 'NULL (self)'}`);
             
             showNotification('success', 'Success!', message);
             closeCreateQuizModal();
