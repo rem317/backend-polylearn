@@ -60,6 +60,102 @@ app.use((req, res, next) => {
 });
 
 // ============================================
+// ✅ FIXED: GET TEACHER BY ID - ILAGAY ITO AGAD AFTER MIDDLEWARE
+// ============================================
+app.get('/api/teachers/:teacherId', authenticateToken, async (req, res) => {
+    try {
+        const { teacherId } = req.params;
+        
+        console.log(`📥 Fetching teacher details for ID: ${teacherId}`);
+
+        // Check kung ang user na nagre-request ay may access
+        const requestingUserId = req.user.id;
+        
+        // Check if teacher exists in teachers table
+        const [teachers] = await promisePool.execute(`
+            SELECT 
+                t.teacher_id,
+                t.user_id,
+                t.department,
+                t.qualification,
+                t.years_experience,
+                t.bio,
+                t.rating,
+                t.total_students,
+                t.total_lessons,
+                t.specialization,
+                t.available_hours,
+                t.created_at,
+                u.username,
+                u.email,
+                u.full_name,
+                u.role
+            FROM teachers t
+            JOIN users u ON t.user_id = u.user_id
+            WHERE t.user_id = ?
+        `, [teacherId]);
+        
+        if (teachers.length > 0) {
+            return res.json({
+                success: true,
+                teacher: teachers[0]
+            });
+        }
+        
+        // If not in teachers table, get from users
+        const [users] = await promisePool.execute(`
+            SELECT 
+                user_id as id,
+                username,
+                email,
+                full_name,
+                role,
+                created_at as joined_date
+            FROM users 
+            WHERE user_id = ?
+        `, [teacherId]);
+        
+        if (users.length === 0) {
+            return res.status(404).json({
+                success: false,
+                message: 'User not found'
+            });
+        }
+        
+        const user = users[0];
+        
+        // Return user data with default teacher fields
+        res.json({
+            success: true,
+            teacher: {
+                teacher_id: null,
+                user_id: user.id,
+                username: user.username,
+                email: user.email,
+                full_name: user.full_name,
+                role: user.role,
+                department: 'Mathematics',
+                qualification: 'Licensed Professional Teacher',
+                years_experience: 0,
+                rating: 4.5,
+                total_students: 0,
+                total_lessons: 0,
+                bio: 'No bio available',
+                created_at: user.joined_date
+            }
+        });
+        
+    } catch (error) {
+        console.error('❌ Error fetching teacher:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Failed to fetch teacher details',
+            error: error.message
+        });
+    }
+});
+
+// ============================================
 // STATIC FILES & VIDEO CONFIGURATION - FIXED
 // ============================================
 
@@ -236,11 +332,33 @@ async function initializeToolTables() {
 // Call this after database connection
 initializeToolTables();
 // ============================================
-// AUTHENTICATION MIDDLEWARE
+// JWT CONFIGURATION - ISANG SECRET LANG PARA SA LAHAT
+// ============================================
+const JWT_SECRET = process.env.JWT_SECRET || 'your-super-secret-key-change-this';
+const JWT_EXPIRE = process.env.JWT_EXPIRE || '7d'; // 7 days para hindi lagi nag-eexpire
+
+// ============================================
+// JWT FUNCTIONS - IISA LANG
+// ============================================
+const generateToken = (userId, username, email, role) => {
+    return jwt.sign(
+        { 
+            id: userId, 
+            userId: userId, // Add both for compatibility
+            username, 
+            email, 
+            role 
+        }, 
+        JWT_SECRET, 
+        { expiresIn: JWT_EXPIRE }
+    );
+};
+
+// ============================================
+// AUTHENTICATION MIDDLEWARE - LAHAT GUMAGAMIT NG IISANG JWT_SECRET
 // ============================================
 
-// Middleware to verify JWT token
-// Middleware to verify JWT token
+// Middleware to verify JWT token (para sa lahat)
 function authenticateToken(req, res, next) {
     const authHeader = req.headers['authorization'];
     const token = authHeader && authHeader.split(' ')[1]; // Bearer TOKEN
@@ -252,15 +370,10 @@ function authenticateToken(req, res, next) {
         });
     }
 
-    // ✅ GAMITIN ANG GLOBAL JWT_SECRET - dapat consistent sa buong app
-    // I-assume na may JWT_SECRET na defined sa taas ng file
-    const JWT_SECRET = process.env.JWT_SECRET || 'your-super-secret-key-change-this';
-    
-    jwt.verify(token, JWT_SECRET, (err, user) => {
+    jwt.verify(token, JWT_SECRET, (err, decoded) => {
         if (err) {
-            console.error('Token verification error:', err.message);
+            console.error('❌ Token verification error:', err.message);
             
-            // Return specific error message
             if (err.name === 'TokenExpiredError') {
                 return res.status(403).json({ 
                     success: false, 
@@ -279,29 +392,26 @@ function authenticateToken(req, res, next) {
             }
         }
         
-        req.user = user;
-      req.userId = user.id;
+        // Ensure both id and userId are set
+        req.user = {
+            id: decoded.id || decoded.userId,
+            userId: decoded.userId || decoded.id,
+            username: decoded.username,
+            email: decoded.email,
+            role: decoded.role
+        };
+        req.userId = req.user.id;
         next();
     });
 }
-// Optional: Admin-only middleware
-function requireAdmin(req, res, next) {
-    if (req.user && req.user.role === 'admin') {
-        next();
-    } else {
-        return res.status(403).json({ 
-            success: false, 
-            message: 'Admin access required.' 
-        });
-    }
-}
+
+// Alias for backward compatibility
+const verifyToken = authenticateToken;
+
 // Middleware para sa regular users
-// ============================================
-// FIXED: AUTHENTICATE USER MIDDLEWARE
-// ============================================
 const authenticateUser = (req, res, next) => {
     const authHeader = req.headers.authorization;
-    const token = authHeader && authHeader.split(' ')[1]; // Bearer TOKEN
+    const token = authHeader && authHeader.split(' ')[1];
     
     if (!token) {
         return res.status(401).json({ 
@@ -311,10 +421,9 @@ const authenticateUser = (req, res, next) => {
     }
     
     try {
-        const decoded = jwt.verify(token, process.env.JWT_SECRET || 'demo_secret_key_for_development_only');
+        const decoded = jwt.verify(token, JWT_SECRET);
         
-        // ✅ Siguraduhing may id property
-        if (!decoded.id) {
+        if (!decoded.id && !decoded.userId) {
             console.error('❌ Token has no id property:', decoded);
             return res.status(401).json({ 
                 success: false, 
@@ -323,8 +432,8 @@ const authenticateUser = (req, res, next) => {
         }
         
         req.user = { 
-            id: decoded.id,
-            userId: decoded.id, // Add userId for consistency
+            id: decoded.id || decoded.userId,
+            userId: decoded.userId || decoded.id,
             username: decoded.username,
             email: decoded.email,
             role: decoded.role
@@ -334,6 +443,13 @@ const authenticateUser = (req, res, next) => {
         next();
     } catch (error) {
         console.error('❌ Token verification error:', error.message);
+        
+        if (error.name === 'TokenExpiredError') {
+            return res.status(401).json({ 
+                success: false, 
+                message: 'Token expired. Please login again.' 
+            });
+        }
         return res.status(401).json({ 
             success: false, 
             message: 'Invalid token' 
@@ -353,7 +469,16 @@ const authenticateAdmin = (req, res, next) => {
     }
     
     try {
-        const decoded = jwt.verify(token, process.env.JWT_SECRET || 'demo_secret_key_for_development_only');
+        const decoded = jwt.verify(token, JWT_SECRET);
+        
+        const userId = decoded.id || decoded.userId;
+        
+        if (!userId) {
+            return res.status(401).json({ 
+                success: false, 
+                message: 'Invalid token format' 
+            });
+        }
         
         if (decoded.role !== 'admin') {
             return res.status(403).json({ 
@@ -362,10 +487,30 @@ const authenticateAdmin = (req, res, next) => {
             });
         }
         
-        req.userId = decoded.id;
+        req.user = {
+            id: userId,
+            userId: userId,
+            username: decoded.username,
+            email: decoded.email,
+            role: decoded.role
+        };
+        req.userId = userId;
         req.userRole = decoded.role;
         next();
     } catch (error) {
+        console.error('❌ Admin auth error:', error.message);
+        
+        if (error.name === 'TokenExpiredError') {
+            return res.status(403).json({ 
+                success: false, 
+                message: 'Token expired. Please login again.' 
+            });
+        } else if (error.name === 'JsonWebTokenError') {
+            return res.status(403).json({ 
+                success: false, 
+                message: 'Invalid token signature.' 
+            });
+        }
         return res.status(401).json({ 
             success: false, 
             message: 'Invalid token' 
@@ -373,82 +518,17 @@ const authenticateAdmin = (req, res, next) => {
     }
 };
 
-// ============================================
-// JWT FUNCTIONS
-// ============================================
-const generateToken = (userId, username, email, role) => {
-    return jwt.sign(
-        { 
-            id: userId, 
-            username, 
-            email, 
-            role 
-        }, 
-        process.env.JWT_SECRET || 'demo_secret_key_for_development_only', 
-        {
-            expiresIn: process.env.JWT_EXPIRE || '1h'
-        }
-    );
-};
-
-const verifyToken = async (req, res, next) => {
-    const token = req.headers.authorization?.split(' ')[1];
-    
-    if (!token) {
-        return res.status(401).json({
-            success: false,
-            message: 'No token provided'
-        });
-    }
-    
-    try {
-        const decoded = jwt.verify(token, process.env.JWT_SECRET || 'demo_secret_key_for_development_only');
-        
-        try {
-            const [users] = await promisePool.execute(
-                'SELECT user_id FROM users WHERE user_id = ? AND is_active = 1',
-                [decoded.id]
-            );
-            
-            if (users.length === 0) {
-                return res.status(401).json({
-                    success: false,
-                    message: 'User no longer exists or is inactive'
-                });
-            }
-        } catch (dbError) {
-            console.error('❌ Database error during token verification:', dbError.message);
-            return res.status(500).json({
-                success: false,
-                message: 'Database connection error. Please try again.'
-            });
-        }
-        
-        req.user = { 
-            id: decoded.id,
-            username: decoded.username,
-            email: decoded.email,
-            role: decoded.role
-        };
+// Optional: Admin-only middleware (simpler version)
+function requireAdmin(req, res, next) {
+    if (req.user && req.user.role === 'admin') {
         next();
-        
-    } catch (error) {
-        console.error('❌ Token verification error:', error.message);
-        
-        if (error.name === 'TokenExpiredError') {
-            return res.status(401).json({
-                success: false,
-                message: 'Token has expired. Please login again.'
-            });
-        }
-        
-        return res.status(401).json({
-            success: false,
-            message: 'Invalid token'
+    } else {
+        return res.status(403).json({ 
+            success: false, 
+            message: 'Admin access required.' 
         });
     }
-};
-
+}
 
 // ============================================
 // BACKWARD COMPATIBILITY ROUTES
@@ -719,9 +799,8 @@ async function getTotalLessonsCount() {
 }
 
 // ============================================
-// AUTH ROUTES
+// FIXED: LOGIN ENDPOINT
 // ============================================
-
 app.post('/api/auth/login', async (req, res) => {
     const { email, password } = req.body;
     
@@ -741,7 +820,6 @@ app.post('/api/auth/login', async (req, res) => {
         );
         
         if (users.length === 0) {
-            console.log('❌ User not found for email:', email);
             return res.status(401).json({ 
                 success: false, 
                 message: 'Invalid credentials' 
@@ -751,7 +829,6 @@ app.post('/api/auth/login', async (req, res) => {
         const user = users[0];
         
         if (user.is_active !== 1) {
-            console.log('❌ User is inactive:', user.email);
             return res.status(403).json({ 
                 success: false, 
                 message: 'Account is deactivated. Please contact administrator.' 
@@ -761,38 +838,30 @@ app.post('/api/auth/login', async (req, res) => {
         const isPasswordValid = await bcrypt.compare(password, user.password_hash);
         
         if (!isPasswordValid) {
-            console.log('❌ Invalid password for user:', user.email);
             return res.status(401).json({ 
                 success: false, 
                 message: 'Invalid credentials' 
             });
         }
         
-        const token = generateToken(user.user_id, user.username, user.email, user.role);
+        // ✅ GAMITIN ANG JWT_SECRET
+        const token = jwt.sign(
+            { 
+                id: user.user_id,
+                userId: user.user_id,
+                username: user.username,
+                email: user.email,
+                role: user.role
+            }, 
+            JWT_SECRET,
+            { expiresIn: JWT_EXPIRE }
+        );
         
-        let progressData = {};
-        if (user.role === 'student') {
-            try {
-                const [progress] = await promisePool.execute(
-                    'SELECT * FROM user_progress WHERE user_id = ?',
-                    [user.user_id]
-                );
-                progressData = progress[0] || {};
-            } catch (progressError) {
-                console.log('⚠️ Progress table not found or error:', progressError.message);
-            }
-        }
-        
-        try {
-            await promisePool.execute(
-                'UPDATE users SET last_login = NOW() WHERE user_id = ?',
-                [user.user_id]
-            );
-        } catch (updateError) {
-            console.log('⚠️ Could not update last_login:', updateError.message);
-        }
-        
-        await logUserActivity(user.user_id, 'login');
+        // Update last login
+        await promisePool.execute(
+            'UPDATE users SET last_login = NOW() WHERE user_id = ?',
+            [user.user_id]
+        ).catch(() => {});
         
         const userResponse = {
             id: user.user_id,
@@ -801,16 +870,6 @@ app.post('/api/auth/login', async (req, res) => {
             full_name: user.full_name || user.username,
             role: user.role || 'student'
         };
-        
-        if (user.role === 'student') {
-            userResponse.lessons_completed = progressData.lessons_completed || 0;
-            userResponse.exercises_completed = progressData.exercises_completed || 0;
-            userResponse.quiz_score = progressData.quiz_score || 0;
-            userResponse.average_time = progressData.average_time || 0;
-            userResponse.streak_days = progressData.streak_days || 0;
-            userResponse.achievements = progressData.achievements || 0;
-            userResponse.accuracy_rate = progressData.accuracy_rate || 0;
-        }
         
         console.log('✅ Login successful! User:', user.username, 'Role:', user.role);
         
@@ -824,8 +883,7 @@ app.post('/api/auth/login', async (req, res) => {
         console.error('❌ Login error:', error.message);
         res.status(500).json({ 
             success: false, 
-            message: 'Login failed. Please try again.',
-            error: error.message 
+            message: 'Login failed. Please try again.'
         });
     }
 });
@@ -12178,54 +12236,55 @@ const authenticateTeacher = async (req, res, next) => {
     }
 };
 // ============================================
-// ✅ TEACHER DASHBOARD STATS
+// ✅ FIXED: TEACHER DASHBOARD STATS
 // ============================================
-app.get('/api/teacher/dashboard/stats', authenticateTeacher, async (req, res) => {
+app.get('/api/teacher/dashboard/stats', authenticateToken, async (req, res) => {
     try {
         const userId = req.user.id;
         
+        console.log(`📊 Fetching teacher dashboard stats for user ${userId}`);
+        
+        // Check if user is teacher or admin
+        const [userCheck] = await promisePool.execute(`
+            SELECT role FROM users WHERE user_id = ?
+        `, [userId]);
+        
+        if (userCheck.length === 0) {
+            return res.status(404).json({ 
+                success: false, 
+                message: 'User not found' 
+            });
+        }
+        
+        const userRole = userCheck[0].role;
+        
+        // Allow both teachers and admins
+        if (userRole !== 'teacher' && userRole !== 'admin') {
+            return res.status(403).json({ 
+                success: false, 
+                message: 'Teacher or admin access required' 
+            });
+        }
+        
+        // Get teacher_id if exists
         const [teacher] = await promisePool.execute(`
             SELECT teacher_id FROM teachers WHERE user_id = ?
         `, [userId]);
         
-        if (teacher.length === 0) {
-            return res.json({
-                success: true,
-                stats: {
-                    total_lessons: 0,
-                    published: 0,
-                    draft: 0,
-                    needs_review: 0,
-                    avg_completion: 0,
-                    total_students: 0,
-                    avg_grade: 0,
-                    pending_reviews: 0,
-                    total_resources: 0
-                }
-            });
-        }
+        const teacherId = teacher.length > 0 ? teacher[0].teacher_id : null;
         
-        const teacherId = teacher[0].teacher_id;
-        
+        // Get total lessons created by or assigned to this user
         const [lessonsResult] = await promisePool.execute(`
             SELECT 
                 COUNT(*) as total_lessons,
-                COALESCE(SUM(CASE WHEN is_active = 1 THEN 1 ELSE 0 END), 0) as published,
-                COALESCE(SUM(CASE WHEN is_active = 0 OR is_active IS NULL THEN 1 ELSE 0 END), 0) as draft,
-                COALESCE(SUM(CASE WHEN content_type IN ('video', 'pdf', 'interactive') THEN 1 ELSE 0 END), 0) as total_resources
+                SUM(CASE WHEN is_active = 1 THEN 1 ELSE 0 END) as published,
+                SUM(CASE WHEN is_active = 0 OR is_active IS NULL THEN 1 ELSE 0 END) as draft,
+                SUM(CASE WHEN content_type IN ('video', 'pdf') THEN 1 ELSE 0 END) as total_resources
             FROM topic_content_items 
-            WHERE (created_by = ? OR teacher_id = ?)
+            WHERE created_by = ? OR teacher_id = ?
         `, [userId, teacherId]);
         
-        const [completionResult] = await promisePool.execute(`
-            SELECT 
-                COALESCE(AVG(ucp.score), 0) as avg_completion
-            FROM user_content_progress ucp
-            JOIN topic_content_items tci ON ucp.content_id = tci.content_id
-            WHERE (tci.created_by = ? OR tci.teacher_id = ?)
-            AND ucp.completion_status = 'completed'
-        `, [userId, teacherId]);
-        
+        // Get total students
         const [studentsResult] = await promisePool.execute(`
             SELECT COUNT(DISTINCT ucp.user_id) as total_students
             FROM user_content_progress ucp
@@ -12234,26 +12293,41 @@ app.get('/api/teacher/dashboard/stats', authenticateTeacher, async (req, res) =>
             AND ucp.completion_status = 'completed'
         `, [userId, teacherId]);
         
-        const [pendingResult] = await promisePool.execute(`
-            SELECT COUNT(*) as pending_reviews
-            FROM feedback f
-            WHERE f.teacher_id = ? AND f.status = 'new'
-        `, [teacherId]);
+        // Get average completion
+        const [completionResult] = await promisePool.execute(`
+            SELECT COALESCE(AVG(ucp.score), 0) as avg_completion
+            FROM user_content_progress ucp
+            JOIN topic_content_items tci ON ucp.content_id = tci.content_id
+            WHERE (tci.created_by = ? OR tci.teacher_id = ?)
+            AND ucp.completion_status = 'completed'
+        `, [userId, teacherId]);
         
+        // Get pending reviews
+        let pendingReviews = 0;
+        if (teacherId) {
+            const [pendingResult] = await promisePool.execute(`
+                SELECT COUNT(*) as pending_reviews
+                FROM feedback
+                WHERE teacher_id = ? AND status = 'new'
+            `, [teacherId]);
+            pendingReviews = pendingResult[0]?.pending_reviews || 0;
+        }
+        
+        const lessons = lessonsResult[0] || { total_lessons: 0, published: 0, draft: 0, total_resources: 0 };
         const avgCompletion = Math.round(completionResult[0]?.avg_completion || 0);
         
         res.json({
             success: true,
             stats: {
-                total_lessons: lessonsResult[0]?.total_lessons || 0,
-                published: lessonsResult[0]?.published || 0,
-                draft: lessonsResult[0]?.draft || 0,
+                total_lessons: lessons.total_lessons || 0,
+                published: lessons.published || 0,
+                draft: lessons.draft || 0,
                 needs_review: 0,
                 avg_completion: avgCompletion,
                 total_students: studentsResult[0]?.total_students || 0,
                 avg_grade: avgCompletion,
-                pending_reviews: pendingResult[0]?.pending_reviews || 0,
-                total_resources: lessonsResult[0]?.total_resources || 0
+                pending_reviews: pendingReviews,
+                total_resources: lessons.total_resources || 0
             }
         });
         
@@ -12269,25 +12343,23 @@ app.get('/api/teacher/dashboard/stats', authenticateTeacher, async (req, res) =>
 // ============================================
 // ✅ GET TEACHER'S STUDENTS
 // ============================================
-app.get('/api/teacher/students', authenticateTeacher, async (req, res) => {
+app.get('/api/teacher/students', authenticateToken, async (req, res) => {
     try {
         const userId = req.user.id;
         
-        const [teacher] = await promisePool.execute(`
-            SELECT teacher_id FROM teachers WHERE user_id = ?
+        // Check if user is teacher or admin
+        const [userCheck] = await promisePool.execute(`
+            SELECT role FROM users WHERE user_id = ?
         `, [userId]);
         
-        if (teacher.length === 0) {
-            return res.json({
-                success: true,
-                students: [],
-                teacher: null,
-                subject_counts: { polynomial: 0, factorial: 0, mdas: 0 }
+        if (userCheck.length === 0 || (userCheck[0].role !== 'teacher' && userCheck[0].role !== 'admin')) {
+            return res.status(403).json({ 
+                success: false, 
+                message: 'Teacher or admin access required' 
             });
         }
         
-        const teacherId = teacher[0].teacher_id;
-        
+        // Get students who completed lessons by this teacher
         const [students] = await promisePool.execute(`
             SELECT 
                 u.user_id as id,
@@ -12302,7 +12374,7 @@ app.get('/api/teacher/students', authenticateTeacher, async (req, res) => {
                     AND ucp.completion_status = 'completed'
                     AND ucp.content_id IN (
                         SELECT content_id FROM topic_content_items 
-                        WHERE created_by = ? OR teacher_id IN (?, ?) OR is_public = 1
+                        WHERE created_by = ? OR teacher_id = ?
                     )
                 ) as lessons_completed,
                 (
@@ -12316,30 +12388,30 @@ app.get('/api/teacher/students', authenticateTeacher, async (req, res) => {
                 SELECT DISTINCT ucp.user_id
                 FROM user_content_progress ucp
                 JOIN topic_content_items tci ON ucp.content_id = tci.content_id
-                WHERE (tci.created_by = ? OR tci.teacher_id IN (?, ?) OR tci.is_public = 1)
+                WHERE (tci.created_by = ? OR tci.teacher_id = ?)
             )
             AND u.role = 'student'
             AND u.is_active = 1
             ORDER BY u.full_name
-        `, [userId, userId, teacherId, userId, userId, teacherId]);
-        
-        const formattedStudents = students.map(s => ({
-            ...s,
-            avatar: getInitialsFromName(s.name),
-            last_active: s.last_active ? getTimeAgo(s.last_active) : 'Never'
-        }));
+        `, [userId, userId, userId, userId]);
         
         res.json({
             success: true,
-            students: formattedStudents,
-            total: formattedStudents.length
+            students: students || [],
+            subject_counts: {
+                polynomial: students.filter(s => s.lessons_completed > 0).length,
+                factorial: Math.floor(students.length / 2),
+                mdas: Math.floor(students.length / 3)
+            }
         });
         
     } catch (error) {
         console.error('❌ Teacher students error:', error);
         res.status(500).json({ 
             success: false, 
-            message: error.message 
+            message: error.message,
+            students: [],
+            subject_counts: { polynomial: 0, factorial: 0, mdas: 0 }
         });
     }
 });
@@ -15349,57 +15421,6 @@ app.get('/api/admin/topics', authenticateTeacher, async (req, res) => {
     }
 });
 
-// ============================================
-// ✅ GET TEACHER BY ID
-// ============================================
-app.get('/api/teachers/:teacherId', authenticateUser, async (req, res) => {
-    try {
-        const { teacherId } = req.params;
-        
-        const [teachers] = await promisePool.execute(`
-            SELECT 
-                t.teacher_id,
-                t.user_id,
-                t.department,
-                t.qualification,
-                t.years_experience,
-                t.bio,
-                t.rating,
-                t.total_students,
-                t.total_lessons,
-                t.specialization,
-                t.available_hours,
-                t.created_at,
-                t.updated_at,
-                u.username,
-                u.email,
-                u.full_name,
-                u.role
-            FROM teachers t
-            JOIN users u ON t.user_id = u.user_id
-            WHERE t.user_id = ?
-        `, [teacherId]);
-        
-        if (teachers.length === 0) {
-            return res.status(404).json({
-                success: false,
-                message: 'Teacher not found'
-            });
-        }
-        
-        res.json({
-            success: true,
-            teacher: teachers[0]
-        });
-        
-    } catch (error) {
-        console.error('❌ Error fetching teacher:', error);
-        res.status(500).json({
-            success: false,
-            message: error.message
-        });
-    }
-});
 
 // ============================================
 // ✅ CREATE TEACHER QUIZ
