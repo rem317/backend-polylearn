@@ -2082,9 +2082,7 @@ function loadLessonsForDropdown() {
     console.log('✅ Lessons dropdown ready');
 }
 
-// ===== UPDATED: LOAD MODULES FOR LESSON =====
-// ===== UPDATED: LOAD MODULES FOR LESSON (NO DEFAULTS) =====
-// ===== UPDATED: LOAD MODULES FOR LESSON =====
+// ===== SIMPLIFIED: GET ALL MODULES FOR LESSON =====
 async function loadModulesForLesson() {
     const lessonSelect = document.getElementById('createLessonLesson');
     if (!lessonSelect) return;
@@ -2113,30 +2111,31 @@ async function loadModulesForLesson() {
     moduleSelect.disabled = false;
     
     try {
-        // Load modules from database
-        await loadTeacherModules();
+        const token = localStorage.getItem('authToken');
         
-        // Filter modules for this lesson
-        const lessonModules = teacherModules.filter(m => 
-            m.lesson_id == lessonId || m.lesson_name?.toLowerCase().includes(lessonName.toLowerCase())
-        );
+        // ===== GET ALL MODULES FOR THIS LESSON =====
+        // Using admin endpoint to get ALL modules regardless of creator
+        const response = await fetch(`/api/admin/modules?lesson_id=${lessonId}`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
         
-        console.log(`Found ${lessonModules.length} modules for ${lessonName}`);
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        
+        const result = await response.json();
+        const modules = result.modules || [];
+        
+        console.log(`Found ${modules.length} modules for ${lessonName}`);
         
         // Build dropdown options
-        let options = '';
+        let options = '<option value="">-- Select Module --</option>';
         
-        // Add "Create New Module" option FIRST
-        options += `<option value="create_new" style="color: #7a0000; font-weight: bold; background: #fff0f0;">➕ CREATE NEW MODULE...</option>`;
-        
-        // Add separator if there are existing modules
-        if (lessonModules.length > 0) {
-            options += `<option value="" disabled style="font-weight: bold; background: #f0f0f0;">─────────────────────</option>`;
-            
-            lessonModules.forEach(module => {
-                const creatorBadge = module.created_by === 'teacher' ? ' (My Module)' : 
-                                     (module.created_by === 'admin' ? ' (Admin)' : '');
-                options += `<option value="${module.id}">📂 ${module.name}${creatorBadge}</option>`;
+        if (modules.length === 0) {
+            options = `<option value="">-- No modules found for this lesson --</option>`;
+        } else {
+            modules.forEach(module => {
+                options += `<option value="${module.id}">📂 ${module.name}</option>`;
             });
         }
         
@@ -2144,69 +2143,34 @@ async function loadModulesForLesson() {
         
         // Add change event listener for module selection
         moduleSelect.onchange = function() {
-            if (this.value === 'create_new') {
-                // Open create module modal
-                openCreateModuleModal();
-                // Reset selection
-                this.value = '';
-            } else if (this.value) {
-                // Load topics for selected module
+            if (this.value) {
                 loadTopicsForModule();
             }
         };
         
     } catch (error) {
         console.error('❌ Error loading modules:', error);
-        
-        // Kung may error, Create New Module option lang
-        moduleSelect.innerHTML = `
-            <option value="create_new" style="color: #7a0000; font-weight: bold; background: #fff0f0;">➕ CREATE NEW MODULE...</option>
-            <option value="" disabled style="font-weight: bold; background: #f0f0f0;">─────────────────────</option>
-            <option value="" disabled style="color: #999;">No modules found. Create one above.</option>
-        `;
-        
-        moduleSelect.onchange = function() {
-            if (this.value === 'create_new') {
-                openCreateModuleModal();
-                this.value = '';
-            }
-        };
+        moduleSelect.innerHTML = `<option value="">-- Error loading modules --</option>`;
     }
 }
 
-// ===== LOAD TOPICS BASED ON SELECTED MODULE =====
-// ===== UPDATED: LOAD TOPICS FOR MODULE =====
+// ===== SIMPLIFIED: GET ALL TOPICS FOR MODULE =====
 async function loadTopicsForModule() {
     const moduleSelect = document.getElementById('createLessonModule');
     if (!moduleSelect) return;
     
-    const moduleValue = moduleSelect.value;
+    const moduleId = moduleSelect.value;
     const moduleText = moduleSelect.options[moduleSelect.selectedIndex]?.text || '';
     
-    console.log(`📚 Loading topics for module: ${moduleText} (Value: ${moduleValue})`);
+    console.log(`📚 Loading topics for module: ${moduleText} (ID: ${moduleId})`);
     
     const topicSelect = document.getElementById('createLessonTopic');
     if (!topicSelect) return;
     
-    // Handle "Create New Module" selection
-    if (moduleValue === 'create_new') {
-        openCreateModuleModal();
-        // Reset module selection
-        moduleSelect.value = '';
-        return;
-    }
-    
-    // Handle "General Module" selection
-    if (moduleValue === 'general') {
-        // Auto-create a general module
-        await autoCreateGeneralModule();
-        return;
-    }
-    
     // Reset topic dropdown
     topicSelect.innerHTML = '';
     
-    if (!moduleValue) {
+    if (!moduleId) {
         topicSelect.innerHTML = '<option value="">-- Select Module First --</option>';
         topicSelect.disabled = true;
         return;
@@ -2215,47 +2179,39 @@ async function loadTopicsForModule() {
     topicSelect.disabled = false;
     
     try {
-        // Load topics from database
-        await loadTeacherTopics();
+        const token = localStorage.getItem('authToken');
         
-        // Filter topics for this module
-        const moduleTopics = teacherTopics.filter(t => 
-            t.module_id == moduleValue || t.module_name?.toLowerCase().includes(moduleText.toLowerCase())
-        );
+        // ===== GET ALL TOPICS FOR THIS MODULE =====
+        // Using admin endpoint to get ALL topics
+        const response = await fetch(`/api/admin/topics?module_id=${moduleId}`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
         
-        console.log(`Found ${moduleTopics.length} topics for module: ${moduleText}`);
-        
-        // Build dropdown options
-        let options = '';
-        
-        // Add "General Topic" as first option
-        options += `<option value="general" style="color: #4CAF50; font-weight: bold;">📄 General Topic (Auto-create)</option>`;
-        
-        // Add separator if there are existing topics
-        if (moduleTopics.length > 0) {
-            options += `<option value="" disabled style="font-weight: bold; background: #f0f0f0;">─── EXISTING TOPICS ───</option>`;
-            
-            moduleTopics.forEach(topic => {
-                const creatorBadge = topic.created_by === 'teacher' ? ' (My Topic)' : '';
-                options += `<option value="${topic.id}">📌 ${topic.name}${creatorBadge}</option>`;
-            });
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
         }
         
-        // Add "Create New" option at the end
-        options += `<option value="" disabled style="font-weight: bold; background: #f0f0f0;">─── ACTIONS ───</option>`;
-        options += `<option value="create_new" style="color: #7a0000; font-weight: bold;">➕ Create New Topic...</option>`;
+        const result = await response.json();
+        const topics = result.topics || [];
+        
+        console.log(`Found ${topics.length} topics for module: ${moduleText}`);
+        
+        // Build dropdown options
+        let options = '<option value="">-- Select Topic --</option>';
+        
+        if (topics.length === 0) {
+            options = `<option value="">-- No topics found for this module --</option>`;
+        } else {
+            topics.forEach(topic => {
+                options += `<option value="${topic.id}">📌 ${topic.name}</option>`;
+            });
+        }
         
         topicSelect.innerHTML = options;
         
     } catch (error) {
         console.error('❌ Error loading topics:', error);
-        
-        // Fallback: Show default options
-        topicSelect.innerHTML = `
-            <option value="general" style="color: #4CAF50; font-weight: bold;">📄 General Topic (Auto-create)</option>
-            <option value="" disabled style="font-weight: bold; background: #f0f0f0;">─── ACTIONS ───</option>
-            <option value="create_new" style="color: #7a0000; font-weight: bold;">➕ Create New Topic...</option>
-        `;
+        topicSelect.innerHTML = `<option value="">-- Error loading topics --</option>`;
     }
 }
 
@@ -2722,11 +2678,11 @@ async function loadTeacherModules(forceRefresh = false) {
         return teacherModules;
     }
 }
-// ===== LOAD TEACHER TOPICS FROM DATABASE =====
+// ===== SIMPLIFIED: GET ALL TOPICS (NO FILTERING) =====
 async function loadTeacherTopics(forceRefresh = false) {
-    console.log('📚 Loading teacher topics from database...');
+    console.log('📚 Loading ALL topics from database (no filtering)...');
     
-    if (!forceRefresh && teacherTopics.length > 0) {
+    if (!forceRefresh && teacherTopics && teacherTopics.length > 0) {
         console.log(`✅ Using cached topics: ${teacherTopics.length} topics`);
         return teacherTopics;
     }
@@ -2734,9 +2690,19 @@ async function loadTeacherTopics(forceRefresh = false) {
     try {
         const token = localStorage.getItem('authToken');
         
-        const response = await fetch(`/api/teacher/topics`, {
+        if (!token) {
+            console.error('❌ No auth token found');
+            showNotification('error', 'Auth Error', 'Please login again');
+            return [];
+        }
+        
+        // ===== GET ALL TOPICS FROM MODULE_TOPICS TABLE =====
+        // This gets ALL topics regardless of who created them
+        const response = await fetch(`/api/admin/topics`, {
             headers: { 'Authorization': `Bearer ${token}` }
         });
+        
+        console.log('📥 Response status:', response.status);
         
         if (!response.ok) {
             throw new Error(`HTTP error! status: ${response.status}`);
@@ -2746,7 +2712,14 @@ async function loadTeacherTopics(forceRefresh = false) {
         
         if (result.success) {
             teacherTopics = result.topics || [];
-            console.log(`✅ Loaded ${teacherTopics.length} topics from database`);
+            console.log(`✅ Loaded ${teacherTopics.length} ALL topics from database`);
+            
+            // Update dropdown if it exists
+            const topicSelect = document.getElementById('createLessonTopic');
+            if (topicSelect) {
+                populateTopicDropdown(teacherTopics);
+            }
+            
             return teacherTopics;
         } else {
             throw new Error(result.message || 'Failed to load topics');
@@ -2754,13 +2727,51 @@ async function loadTeacherTopics(forceRefresh = false) {
         
     } catch (error) {
         console.error('❌ Error loading topics:', error);
-        showNotification('warning', 'Topics Unavailable', 'Using default topics');
         
-        // Fallback to default topics
-        teacherTopics = getDefaultTopics();
-        return teacherTopics;
+        // Fallback to structure endpoint
+        return await loadTopicsFromStructure(token);
     }
 }
+
+// ===== FALLBACK: GET TOPICS FROM STRUCTURE ENDPOINT =====
+async function loadTopicsFromStructure(token) {
+    console.log('📚 Loading topics from structure endpoint...');
+    
+    try {
+        const response = await fetch(`/api/admin/structure`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        
+        const result = await response.json();
+        
+        if (result.success && result.structure) {
+            teacherTopics = result.structure.topics || [];
+            console.log(`✅ Loaded ${teacherTopics.length} topics from structure`);
+            
+            // Update dropdown
+            const topicSelect = document.getElementById('createLessonTopic');
+            if (topicSelect) {
+                populateTopicDropdown(teacherTopics);
+            }
+            
+            return teacherTopics;
+        } else {
+            throw new Error(result.message || 'Failed to load structure');
+        }
+        
+    } catch (error) {
+        console.error('❌ Error loading from structure:', error);
+        
+        // Ultimate fallback - return empty array
+        teacherTopics = [];
+        return [];
+    }
+}
+
 // ===== NEW: AUTO-CREATE GENERAL MODULE =====
 // ===== UPDATED: AUTO-CREATE GENERAL MODULE =====
 async function autoCreateGeneralModule() {
@@ -10253,93 +10264,4 @@ function showNotification(type, title, message) {
 }
 
 
-// ===== UPDATED: LOAD TEACHER TOPICS FROM DATABASE =====
-async function loadTeacherTopics(forceRefresh = false) {
-    console.log('📚 Loading teacher topics from database...');
-    
-    if (!forceRefresh && teacherTopics && teacherTopics.length > 0) {
-        console.log(`✅ Using cached topics: ${teacherTopics.length} topics`);
-        return teacherTopics;
-    }
-    
-    try {
-        const token = localStorage.getItem('authToken');
-        
-        const response = await fetch(`/api/teacher/topics`, {
-            headers: { 'Authorization': `Bearer ${token}` }
-        });
-        
-        if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
-        }
-        
-        const result = await response.json();
-        
-        if (result.success) {
-            teacherTopics = result.topics || [];
-            console.log(`✅ Loaded ${teacherTopics.length} topics from database`);
-            return teacherTopics;
-        } else {
-            throw new Error(result.message || 'Failed to load topics');
-        }
-        
-    } catch (error) {
-        console.error('❌ Error loading topics:', error);
-        showNotification('warning', 'Topics Unavailable', 'Using default topics');
-        
-        // ===== FALLBACK TO DEFAULT TOPICS =====
-        teacherTopics = getDefaultTopics();  // <-- This will now work
-        console.log(`✅ Using ${teacherTopics.length} default topics as fallback`);
-        return teacherTopics;
-    }
-}
-// ===== DEFAULT MODULES (FALLBACK) - ADD THIS =====
-function getDefaultModules() {
-    console.log('📦 Using default modules (fallback)');
-    return [
-        // PolyLearn Modules
-        { id: 101, name: 'Introduction to Polynomials', lesson_id: 1, lesson_name: 'PolyLearn', created_by: 'system' },
-        { id: 102, name: 'Operations with Polynomials', lesson_id: 1, lesson_name: 'PolyLearn', created_by: 'system' },
-        { id: 103, name: 'Factoring Polynomials', lesson_id: 1, lesson_name: 'PolyLearn', created_by: 'system' },
-        
-        // FactoLearn Modules
-        { id: 201, name: 'Introduction to Factorials', lesson_id: 2, lesson_name: 'FactoLearn', created_by: 'system' },
-        { id: 202, name: 'Factorial Notation', lesson_id: 2, lesson_name: 'FactoLearn', created_by: 'system' },
-        { id: 203, name: 'Applications of Factorials', lesson_id: 2, lesson_name: 'FactoLearn', created_by: 'system' },
-        
-        // MathEase Modules
-        { id: 301, name: 'Order of Operations', lesson_id: 3, lesson_name: 'MathEase', created_by: 'system' },
-        { id: 302, name: 'Multiplication & Division', lesson_id: 3, lesson_name: 'MathEase', created_by: 'system' },
-        { id: 303, name: 'Addition & Subtraction', lesson_id: 3, lesson_name: 'MathEase', created_by: 'system' }
-    ];
-}
 
-// ===== DEFAULT TOPICS (FALLBACK) - ADD THIS =====
-function getDefaultTopics() {
-    console.log('📚 Using default topics (fallback)');
-    return [
-        // Polynomial Topics
-        { id: 1001, name: 'Basic Concepts', module_id: 101, module_name: 'Introduction to Polynomials', created_by: 'system' },
-        { id: 1002, name: 'Polynomial Expressions', module_id: 101, module_name: 'Introduction to Polynomials', created_by: 'system' },
-        { id: 1003, name: 'Addition of Polynomials', module_id: 102, module_name: 'Operations with Polynomials', created_by: 'system' },
-        { id: 1004, name: 'Subtraction of Polynomials', module_id: 102, module_name: 'Operations with Polynomials', created_by: 'system' },
-        { id: 1005, name: 'Multiplication of Polynomials', module_id: 102, module_name: 'Operations with Polynomials', created_by: 'system' },
-        { id: 1006, name: 'Factoring Basics', module_id: 103, module_name: 'Factoring Polynomials', created_by: 'system' },
-        
-        // Factorial Topics
-        { id: 2001, name: 'Factorial Definition', module_id: 201, module_name: 'Introduction to Factorials', created_by: 'system' },
-        { id: 2002, name: 'Factorial Examples', module_id: 201, module_name: 'Introduction to Factorials', created_by: 'system' },
-        { id: 2003, name: 'Factorial Notation Rules', module_id: 202, module_name: 'Factorial Notation', created_by: 'system' },
-        { id: 2004, name: 'Simplifying Factorials', module_id: 202, module_name: 'Factorial Notation', created_by: 'system' },
-        { id: 2005, name: 'Permutations', module_id: 203, module_name: 'Applications of Factorials', created_by: 'system' },
-        { id: 2006, name: 'Combinations', module_id: 203, module_name: 'Applications of Factorials', created_by: 'system' },
-        
-        // MathEase Topics
-        { id: 3001, name: 'PEMDAS Rule', module_id: 301, module_name: 'Order of Operations', created_by: 'system' },
-        { id: 3002, name: 'Examples and Practice', module_id: 301, module_name: 'Order of Operations', created_by: 'system' },
-        { id: 3003, name: 'Multiplication Practice', module_id: 302, module_name: 'Multiplication & Division', created_by: 'system' },
-        { id: 3004, name: 'Division Practice', module_id: 302, module_name: 'Multiplication & Division', created_by: 'system' },
-        { id: 3005, name: 'Addition Practice', module_id: 303, module_name: 'Addition & Subtraction', created_by: 'system' },
-        { id: 3006, name: 'Subtraction Practice', module_id: 303, module_name: 'Addition & Subtraction', created_by: 'system' }
-    ];
-}
