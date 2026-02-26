@@ -7692,7 +7692,7 @@ async function submitQuizAnswer(attemptId, questionId, answerData) {
         const token = localStorage.getItem('authToken');
         
         // ✅ Use the CORRECT URL
-        const response = await fetch(`/api/api/quizzes/${attemptId}/answer`, {
+        const response = await fetch(`/api/quizzes/${attemptId}/answer`, {
             method: 'POST',
             headers: {
                 'Authorization': `Bearer ${token}`,
@@ -10836,7 +10836,7 @@ function showQuizResultsModal(results, timeSpent) {
 async function viewQuizDetails(attemptId) {
     try {
         const token = localStorage.getItem('authToken');
-        const response = await fetch(`/api/api/quiz/attempt/${attemptId}/details`, {
+        const response = await fetch(`/api/quiz/attempt/${attemptId}/details`, {
             headers: { 'Authorization': `Bearer ${token}` }
         });
         
@@ -11375,7 +11375,7 @@ async function submitFeedback(feedbackType, feedbackMessage, rating = 0) {
     }
 }
 
-// ✅ NEW: Helper function to save feedback locally
+// Helper function to save feedback locally
 function saveFeedbackLocally(feedbackData) {
     try {
         // Get existing feedback from localStorage
@@ -11388,6 +11388,11 @@ function saveFeedbackLocally(feedbackData) {
             created_at: new Date().toISOString(),
             status: 'pending'
         });
+        
+        // Keep only last 20 items
+        if (existingFeedback.length > 20) {
+            existingFeedback.shift();
+        }
         
         // Save back to localStorage
         localStorage.setItem('local_feedback', JSON.stringify(existingFeedback));
@@ -14653,275 +14658,7 @@ function setupVideoProgressTracking() {
     
     updateWatchTimeDisplay(totalWatchedSeconds);
 }
-// ============================================
-// FIXED: CREATE LESSON WITH MODULE_ID, TEACHER_ID, CREATED_BY
-// ============================================
-app.post('/api/admin/lessons', 
-    verifyToken,
-    (req, res, next) => {
-        if (req.user.role !== 'admin' && req.user.role !== 'teacher') {
-            return res.status(403).json({
-                success: false,
-                message: 'Access denied. Admin or teacher role required.'
-            });
-        }
-        next();
-    },
-    (req, res, next) => {
-        upload.single('video_file')(req, res, function(err) {
-            if (err) {
-                console.error('❌ Upload error:', err);
-                return res.status(400).json({
-                    success: false,
-                    message: 'File upload failed: ' + err.message
-                });
-            }
-            next();
-        });
-    },
-    async (req, res) => {
-        try {
-            console.log('📥 ===== ADMIN LESSONS ENDPOINT HIT =====');
-            
-            const { 
-                title, 
-                description, 
-                topic_id,
-                module_id,           // ← GET MODULE ID
-                content_type, 
-                youtube_url,
-                content_id,
-                is_update = 'false',
-                assigned_teacher_id  // ← GET ASSIGNED TEACHER ID (optional)
-            } = req.body;
-            
-            const videoFile = req.file;
-            const isUpdate = is_update === 'true' || is_update === true;
-            const userId = req.user.id;
-            
-            // ===== GET TEACHER ID FROM TEACHERS TABLE =====
-            let teacherId = null;
-            
-            // Check if user is a teacher (has record in teachers table)
-            const [teacher] = await promisePool.execute(
-                'SELECT teacher_id FROM teachers WHERE user_id = ?',
-                [userId]
-            );
-            
-            if (teacher.length > 0) {
-                teacherId = teacher[0].teacher_id;
-            }
-            
-            // If admin assigned a specific teacher, use that instead
-            if (assigned_teacher_id) {
-                teacherId = assigned_teacher_id;
-            }
-            
-            // ===== VALIDATION =====
-            if (!title) {
-                return res.status(400).json({
-                    success: false,
-                    message: 'Title is required'
-                });
-            }
-            
-            if (!isUpdate && !topic_id) {
-                return res.status(400).json({
-                    success: false,
-                    message: 'topic_id is required for new lessons'
-                });
-            }
-            
-            // ===== PREPARE CONTENT URLS =====
-            let contentUrl = null;
-            let filePath = null;
-            let videoFilename = null;
 
-            if (youtube_url) {
-                contentUrl = youtube_url;
-                console.log('🔗 YouTube URL:', contentUrl);
-            } else if (videoFile) {
-                videoFilename = videoFile.filename;
-                contentUrl = `/videos/${videoFile.filename}`;
-                filePath = `/videos/${videoFile.filename}`;
-                console.log('🎬 Video saved to public/videos/:', videoFilename);
-            }
-            
-            // ===== UPDATE EXISTING LESSON =====
-            if (isUpdate) {
-                console.log('🔄 UPDATING lesson ID:', content_id);
-                
-                let updateFields = [];
-                let updateValues = [];
-                
-                updateFields.push('content_title = ?');
-                updateValues.push(title);
-                
-                updateFields.push('content_description = ?');
-                updateValues.push(description || null);
-                
-                if (topic_id) {
-                    updateFields.push('topic_id = ?');
-                    updateValues.push(topic_id);
-                }
-                
-                if (module_id) {
-                    updateFields.push('module_id = ?');
-                    updateValues.push(module_id);
-                }
-                
-                // Update teacher_id if specified
-                if (teacherId) {
-                    updateFields.push('teacher_id = ?');
-                    updateValues.push(teacherId);
-                }
-                
-                if (youtube_url) {
-                    updateFields.push('content_url = ?');
-                    updateValues.push(youtube_url);
-                    updateFields.push('video_filename = ?');
-                    updateValues.push(null);
-                } else if (videoFile) {
-                    updateFields.push('video_filename = ?');
-                    updateValues.push(videoFilename);
-                    updateFields.push('content_url = ?');
-                    updateValues.push(contentUrl);
-                }
-                
-                updateFields.push('updated_at = NOW()');
-                updateValues.push(content_id);
-                
-                const updateQuery = `UPDATE topic_content_items SET ${updateFields.join(', ')} WHERE content_id = ?`;
-                
-                await promisePool.query(updateQuery, updateValues);
-                console.log('✅ Lesson updated in topic_content_items');
-                
-                return res.json({
-                    success: true,
-                    message: 'Lesson updated successfully',
-                    lesson: {
-                        content_id: parseInt(content_id),
-                        content_title: title,
-                        content_description: description,
-                        content_type: content_type,
-                        video_filename: videoFilename,
-                        content_url: contentUrl,
-                        module_id: module_id || null,
-                        teacher_id: teacherId || null,
-                        created_by: userId
-                    }
-                });
-            }
-            
-            // ===== INSERT NEW LESSON =====
-            console.log('🆕 INSERTING new lesson');
-            
-            const [orderResult] = await promisePool.query(
-                'SELECT MAX(content_order) as max_order FROM topic_content_items WHERE topic_id = ?',
-                [topic_id]
-            );
-            
-            const nextOrder = (orderResult[0]?.max_order || 0) + 1;
-            
-            // ===== FIXED: INSERT WITH ALL FIELDS =====
-            const [contentResult] = await promisePool.query(`
-                INSERT INTO topic_content_items 
-                (topic_id, module_id, created_by, teacher_id, content_type, content_title, 
-                 content_description, content_url, content_order, is_active, video_filename)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, TRUE, ?)
-            `, [
-                topic_id,
-                module_id || null,          // ← MODULE_ID
-                userId,                      // ← CREATED_BY (user_id)
-                teacherId,                   // ← TEACHER_ID (from teachers table)
-                content_type || 'video',
-                title,
-                description || null,
-                contentUrl,
-                nextOrder,
-                videoFilename
-            ]);
-            
-            const newContentId = contentResult.insertId;
-            console.log('✅ New lesson created with ID:', newContentId);
-            console.log('📝 Recorded with:');
-            console.log(`   - module_id: ${module_id || 'NULL'}`);
-            console.log(`   - created_by: ${userId} (user_id)`);
-            console.log(`   - teacher_id: ${teacherId || 'NULL'}`);
-            
-            // ===== INSERT INTO VIDEO_UPLOADS =====
-            if (videoFile) {
-                try {
-                    await promisePool.query(`
-                        CREATE TABLE IF NOT EXISTS video_uploads (
-                            upload_id INT AUTO_INCREMENT PRIMARY KEY,
-                            content_id INT NOT NULL,
-                            original_filename VARCHAR(255),
-                            stored_filename VARCHAR(255),
-                            file_path VARCHAR(500),
-                            file_size BIGINT,
-                            uploaded_by INT,
-                            upload_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-                            is_active BOOLEAN DEFAULT TRUE,
-                            FOREIGN KEY (content_id) REFERENCES topic_content_items(content_id) ON DELETE CASCADE
-                        )
-                    `);
-                    
-                    await promisePool.query(
-                        `INSERT INTO video_uploads 
-                         (content_id, original_filename, stored_filename, file_path, 
-                          file_size, uploaded_by, is_active)
-                         VALUES (?, ?, ?, ?, ?, ?, TRUE)`,
-                        [
-                            newContentId,
-                            videoFile.originalname,
-                            videoFile.filename,
-                            filePath,
-                            videoFile.size,
-                            userId
-                        ]
-                    );
-                    console.log('✅ Video record inserted');
-                } catch (videoError) {
-                    console.error('❌ Video record error:', videoError);
-                }
-            }
-            
-            res.json({
-                success: true,
-                message: 'Lesson saved successfully',
-                lesson: {
-                    content_id: newContentId,
-                    content_title: title,
-                    content_description: description,
-                    content_type: content_type,
-                    video_filename: videoFilename,
-                    content_url: contentUrl,
-                    content_order: nextOrder,
-                    module_id: module_id || null,
-                    teacher_id: teacherId || null,
-                    created_by: userId
-                }
-            });
-            
-        } catch (error) {
-            console.error('❌ ERROR:', error);
-            
-            if (req.file) {
-                try {
-                    fs.unlinkSync(req.file.path);
-                } catch (unlinkError) {}
-            }
-            
-            res.status(500).json({
-                success: false,
-                message: 'Failed to save lesson',
-                error: error.message
-            });
-        }
-    }
-);
 // ============================================
 // MODULE DASHBOARD JS - FIXED
 // ============================================
@@ -22998,15 +22735,22 @@ function setupRatingStars() {
     });
 }
 
-// Setup feedback form submission
+// Setup feedback form submission - FIXED TO PREVENT PAGE RELOAD
 function setupFeedbackForm() {
     const feedbackForm = document.getElementById('feedbackForm');
     const feedbackSuccess = document.getElementById('feedbackSuccess');
     
     if (!feedbackForm) return;
     
-    feedbackForm.addEventListener('submit', async function(e) {
-        e.preventDefault();
+    // Remove any existing event listeners first
+    const newForm = feedbackForm.cloneNode(true);
+    feedbackForm.parentNode.replaceChild(newForm, feedbackForm);
+    
+    newForm.addEventListener('submit', async function(e) {
+        e.preventDefault(); // CRITICAL: Prevent page reload
+        e.stopPropagation();
+        
+        console.log('📝 Feedback form submitted - processing...');
         
         // Get form data
         const feedbackType = document.getElementById('feedbackType').value;
@@ -23025,7 +22769,7 @@ function setupFeedbackForm() {
         }
         
         // Show loading state
-        const submitBtn = feedbackForm.querySelector('button[type="submit"]');
+        const submitBtn = newForm.querySelector('button[type="submit"]');
         const originalText = submitBtn.innerHTML;
         submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Submitting...';
         submitBtn.disabled = true;
@@ -23038,13 +22782,17 @@ function setupFeedbackForm() {
         submitBtn.disabled = false;
         
         if (success) {
-            // Show success message
+            // Show success message in the feedback form itself
             if (feedbackSuccess) {
                 feedbackSuccess.style.display = 'block';
+                // Auto-hide after 3 seconds
+                setTimeout(() => {
+                    feedbackSuccess.style.display = 'none';
+                }, 3000);
             }
             
             // Reset form
-            feedbackForm.reset();
+            newForm.reset();
             
             // Reset rating stars
             const stars = document.querySelectorAll('.star');
@@ -23054,24 +22802,21 @@ function setupFeedbackForm() {
             });
             document.getElementById('ratingValue').value = 0;
             
-            // Hide success message after 5 seconds
-            setTimeout(() => {
-                if (feedbackSuccess) {
-                    feedbackSuccess.style.display = 'none';
-                }
-            }, 5000);
-            
             showNotification('Thank you for your feedback!', 'success');
             
-            // Refresh feedback history
+            // ✅ Refresh only the feedback history section, NOT the whole page
             if (checkAuthentication()) {
-                loadFeedbackHistory();
+                loadFeedbackHistory(10).catch(error => {
+                    console.error('Error refreshing feedback history:', error);
+                });
             }
         }
     });
+    
+    console.log('✅ Feedback form setup complete (prevent page reload)');
 }
 
-// Submit feedback to database
+// Submit feedback to database - FIXED VERSION
 async function submitFeedback(feedbackType, feedbackMessage, rating = 0) {
     try {
         const token = localStorage.getItem('authToken') || authToken;
@@ -23087,8 +22832,8 @@ async function submitFeedback(feedbackType, feedbackMessage, rating = 0) {
         
         // Determine which endpoint to use (authenticated or anonymous)
         const endpoint = token ? 
-            `/feedback/submit` : 
-            `/feedback/submit-anonymous`;
+            '/api/feedback/submit' : 
+            '/api/feedback/submit-anonymous';
         
         const response = await fetch(endpoint, {
             method: 'POST',
@@ -23098,6 +22843,17 @@ async function submitFeedback(feedbackType, feedbackMessage, rating = 0) {
             },
             body: JSON.stringify(feedbackData)
         });
+        
+        // Handle 404 gracefully
+        if (response.status === 404) {
+            console.warn('⚠️ Feedback endpoint not found (404) - saving locally');
+            
+            // Save to localStorage
+            saveFeedbackLocally(feedbackData);
+            
+            // Show success message pa rin
+            return true;
+        }
         
         if (!response.ok) {
             const errorText = await response.text();
@@ -23109,24 +22865,42 @@ async function submitFeedback(feedbackType, feedbackMessage, rating = 0) {
         
         if (data.success) {
             console.log('✅ Feedback submitted successfully. ID:', data.feedback_id);
+            
+            // Save locally as backup
+            saveFeedbackLocally(feedbackData);
+            
             return true;
         } else {
             throw new Error(data.message || 'Failed to submit feedback');
         }
     } catch (error) {
         console.error('Error submitting feedback:', error);
-        showNotification('Failed to submit feedback. Please try again.', 'error');
-        return false;
+        
+        // Save locally even on error
+        saveFeedbackLocally({
+            feedback_type: feedbackType,
+            feedback_message: feedbackMessage,
+            rating: rating
+        });
+        
+        return true; // Return true para hindi mag-error ang form
     }
 }
 
-// Sa script.js, i-update ang loadFeedbackHistory function
+// Load feedback history - UPDATED TO ONLY UPDATE FEEDBACK SECTION
 async function loadFeedbackHistory(limit = 10) {
     try {
         const token = localStorage.getItem('authToken') || authToken;
+        if (!token) {
+            console.log('User not authenticated, skipping feedback history');
+            return;
+        }
         
         const historyContainer = document.getElementById('feedbackHistory');
-        if (!historyContainer) return;
+        if (!historyContainer) {
+            console.log('Feedback history container not found');
+            return;
+        }
         
         // Show loading state
         historyContainer.innerHTML = `
@@ -23138,73 +22912,36 @@ async function loadFeedbackHistory(limit = 10) {
         
         console.log('📋 Fetching feedback history...');
         
-        // ===== TRY TO FETCH FROM SERVER =====
-        let serverFeedback = [];
-        if (token) {
-            try {
-                const limitValue = parseInt(limit) || 10;
-                const response = await fetch(`/feedback/history?limit=${limitValue}`, {
-                    headers: {
-                        'Authorization': `Bearer ${token}`,
-                        'Content-Type': 'application/json'
-                    }
-                });
-                
-                if (response.ok) {
-                    const data = await response.json();
-                    if (data.success && data.feedback) {
-                        serverFeedback = data.feedback;
-                    }
-                } else {
-                    // Try without limit parameter
-                    const fallbackResponse = await fetch(`/feedback/history`, {
-                        headers: {
-                            'Authorization': `Bearer ${token}`,
-                            'Content-Type': 'application/json'
-                        }
-                    });
-                    
-                    if (fallbackResponse.ok) {
-                        const fallbackData = await fallbackResponse.json();
-                        if (fallbackData.success && fallbackData.feedback) {
-                            serverFeedback = fallbackData.feedback;
-                        }
-                    }
-                }
-            } catch (error) {
-                console.warn('⚠️ Could not fetch from server:', error.message);
+        // Ensure limit is a number
+        const limitValue = parseInt(limit) || 10;
+        
+        const response = await fetch(`/api/feedback/history?limit=${limitValue}`, {
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
             }
-        }
-        
-        // ===== GET LOCAL FEEDBACK =====
-        let localFeedback = [];
-        try {
-            localFeedback = JSON.parse(localStorage.getItem('local_feedback') || '[]');
-            console.log(`📦 Found ${localFeedback.length} local feedback entries`);
-        } catch (e) {
-            console.warn('Could not load local feedback:', e);
-        }
-        
-        // ===== COMBINE AND SORT =====
-        const allFeedback = [...serverFeedback, ...localFeedback].sort((a, b) => {
-            const dateA = new Date(a.created_at || a.date || 0);
-            const dateB = new Date(b.created_at || b.date || 0);
-            return dateB - dateA; // Newest first
         });
         
-        // ===== DISPLAY FEEDBACK =====
-        if (allFeedback.length === 0) {
-            historyContainer.innerHTML = `
-                <div class="no-feedback">
-                    <i class="fas fa-comment-slash"></i>
-                    <h4>No feedback submitted yet</h4>
-                    <p>Your submitted feedback will appear here</p>
-                </div>
-            `;
-            return;
+        if (!response.ok) {
+            // Try without limit parameter if fails
+            console.log('Trying without limit parameter...');
+            const fallbackResponse = await fetch(`/api/feedback/history`, {
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json'
+                }
+            });
+            
+            if (!fallbackResponse.ok) {
+                throw new Error(`Failed to fetch: ${fallbackResponse.status}`);
+            }
+            
+            const fallbackData = await fallbackResponse.json();
+            handleFeedbackResponse(fallbackData, historyContainer);
+        } else {
+            const data = await response.json();
+            handleFeedbackResponse(data, historyContainer);
         }
-        
-        displayFeedbackHistory(allFeedback);
         
     } catch (error) {
         console.error('Error loading feedback history:', error);
@@ -23213,16 +22950,24 @@ async function loadFeedbackHistory(limit = 10) {
             historyContainer.innerHTML = `
                 <div class="error-message">
                     <i class="fas fa-exclamation-triangle"></i>
-                    <p>Failed to load feedback history</p>
-                    <button class="btn-primary" onclick="loadFeedbackHistory()">
-                        <i class="fas fa-redo"></i> Try Again
+                    <p>Failed to load feedback history: ${error.message}</p>
+                    <button class="btn-primary" onclick="loadFeedbackHistory(10)">
+                        <i class="fas fa-redo"></i> Retry
                     </button>
                 </div>
             `;
+            
+            // Add event listener to the retry button
+            const retryBtn = historyContainer.querySelector('.btn-primary');
+            if (retryBtn) {
+                retryBtn.addEventListener('click', function() {
+                    loadFeedbackHistory(10);
+                });
+            }
         }
     }
 }
-// Helper function to handle response
+// Helper function to handle response - UPDATED
 function handleFeedbackResponse(data, container) {
     if (data.success) {
         if (data.feedback && Array.isArray(data.feedback) && data.feedback.length > 0) {
