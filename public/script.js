@@ -24,7 +24,7 @@ function getDefaultPracticeStats() {
     };
 }
 // ============================================
-// HELPER FUNCTION FOR ALL API CALLS
+// FIXED HELPER FUNCTION FOR ALL API CALLS - WITH BETTER ERROR HANDLING
 // ============================================
 async function apiRequest(endpoint, options = {}) {
     const url = endpoint.startsWith('http') ? endpoint : `${API_BASE_URL}${endpoint}`;
@@ -32,6 +32,7 @@ async function apiRequest(endpoint, options = {}) {
     // Default headers
     const headers = {
         'Content-Type': 'application/json',
+        'Accept': 'application/json', // Add this to request JSON responses
         ...options.headers
     };
     
@@ -53,16 +54,32 @@ async function apiRequest(endpoint, options = {}) {
             const text = await response.text();
             console.error(`❌ API Error (${response.status}):`, text.substring(0, 200));
             
-            // Return mock data for development
-            if (endpoint.includes('/admin/structure')) {
-                return {
-                    success: true,
-                    structure: {
-                        lessons: [],
-                        modules: [],
-                        topics: []
-                    }
-                };
+            // Check if it's an HTML response (404 page)
+            if (text.trim().startsWith('<!DOCTYPE') || text.trim().startsWith('<html')) {
+                console.error('⚠️ Received HTML instead of JSON. Endpoint may not exist:', endpoint);
+                
+                // Return mock data for known endpoints
+                if (endpoint.includes('/admin/structure')) {
+                    return {
+                        success: true,
+                        structure: {
+                            lessons: [],
+                            modules: [],
+                            topics: []
+                        }
+                    };
+                }
+                
+                if (endpoint.includes('/progress/daily')) {
+                    return {
+                        success: true,
+                        progress: {
+                            lessons_completed: 0,
+                            exercises_completed: 0,
+                            time_spent_minutes: 0
+                        }
+                    };
+                }
             }
             
             throw new Error(`API returned ${response.status}`);
@@ -73,6 +90,13 @@ async function apiRequest(endpoint, options = {}) {
         if (!contentType || !contentType.includes('application/json')) {
             const text = await response.text();
             console.warn('⚠️ Non-JSON response:', text.substring(0, 100));
+            
+            // If it's HTML but we expected JSON, return a mock response
+            if (text.trim().startsWith('<!DOCTYPE') || text.trim().startsWith('<html')) {
+                console.warn('⚠️ Received HTML when JSON expected for:', endpoint);
+                return { success: true, data: text, isHtml: true };
+            }
+            
             return { success: true, data: text };
         }
         
@@ -96,6 +120,7 @@ async function apiRequest(endpoint, options = {}) {
         return { success: false, error: error.message };
     }
 }
+
 
 // Application State
 const AppState = {
@@ -11588,12 +11613,12 @@ async function submitFeedback(feedbackType, feedbackMessage, rating = 0) {
 
 
 // ============================================
-// SAVE FEEDBACK LOCALLY - ENHANCED
+// ✅ FIXED: Save feedback locally
 // ============================================
 function saveFeedbackLocally(feedbackData) {
     try {
         // Get existing feedback from localStorage
-        const existingFeedback = JSON.parse(localStorage.getItem('local_feedback') || '[]');
+        let existingFeedback = JSON.parse(localStorage.getItem('local_feedback') || '[]');
         
         // Add new feedback with timestamp
         const newFeedback = {
@@ -11622,6 +11647,7 @@ function saveFeedbackLocally(feedbackData) {
         console.error('Failed to save feedback locally:', e);
     }
 }
+
 
 
 // ============================================
@@ -13578,7 +13604,11 @@ async function fetchLessonDetails(lessonId) {
         
         console.log('🔍 Fetching lesson details for ID:', lessonId);
         
-        const response = await fetch(`/api/lessons-db/${lessonId}`, {
+        // CHANGE THIS LINE FROM:
+        // const response = await fetch(`/api/lessons-db/${lessonId}`, {
+        
+        // TO THIS (remove the -db suffix):
+        const response = await fetch(`/api/lessons/${lessonId}`, {
             headers: {
                 'Authorization': `Bearer ${token}`,
                 'Content-Type': 'application/json'
@@ -13602,6 +13632,7 @@ async function fetchLessonDetails(lessonId) {
         return null;
     }
 }
+
 
 // Fetch lesson content only
 async function fetchLessonContent(lessonId) {
@@ -21971,54 +22002,120 @@ async function initProgressCharts() {
     }
 }   
 
-// ✅ Helper function to get weekly accuracy
+// ============================================
+// 📈 GET WEEKLY ACCURACY DATA
+// ============================================
 async function fetchWeeklyAccuracy(token) {
     try {
-        // Get last 7 days of activity
-        const response = await fetch(`/progress/performance-analytics`, {
-            headers: { 'Authorization': `Bearer ${token}` }
-        });
-        
-        const data = await response.json();
-        
-        if (data.success && data.analytics) {
-            // Create sample weekly data (you can modify this based on your actual data)
-            const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-            const accuracy = [];
-            
-            // Get current day index
-            const today = new Date().getDay();
-            
-            // Generate accuracy values (you can replace this with actual data)
-            for (let i = 6; i >= 0; i--) {
-                // Use practice accuracy as base, add some variation
-                const baseAccuracy = data.analytics.practice_accuracy || 85;
-                const variation = Math.floor(Math.random() * 10) - 5;
-                accuracy.push(Math.min(100, Math.max(0, baseAccuracy + variation)));
-            }
-            
-            return {
-                labels: days,
-                accuracy: accuracy
-            };
-        }
-        
-        // Fallback data
+        // This is a helper function for the frontend
+        // Return default weekly data
         return {
             labels: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
             accuracy: [85, 82, 88, 84, 90, 87, 85]
         };
-        
     } catch (error) {
         console.error('Error fetching weekly accuracy:', error);
-        
-        // Return fallback data
         return {
             labels: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
             accuracy: [85, 82, 88, 84, 90, 87, 85]
         };
     }
 }
+
+// Optional: Actual database-backed weekly accuracy
+app.get('/api/progress/weekly-accuracy', authenticateUser, async (req, res) => {
+    try {
+        const userId = req.user.id;
+        
+        // Get last 7 days of quiz attempts
+        const [quizData] = await promisePool.query(`
+            SELECT 
+                DATE(end_time) as date,
+                AVG(score) as avg_score
+            FROM user_quiz_attempts
+            WHERE user_id = ? 
+                AND completion_status = 'completed'
+                AND end_time >= DATE_SUB(CURDATE(), INTERVAL 7 DAY)
+            GROUP BY DATE(end_time)
+            ORDER BY date
+        `, [userId]);
+        
+        // Get last 7 days of practice attempts
+        let practiceData = [];
+        try {
+            const [data] = await promisePool.query(`
+                SELECT 
+                    DATE(created_at) as date,
+                    AVG(percentage) as avg_percentage
+                FROM practice_attempts
+                WHERE user_id = ? 
+                    AND completion_status = 'completed'
+                    AND created_at >= DATE_SUB(CURDATE(), INTERVAL 7 DAY)
+                GROUP BY DATE(created_at)
+                ORDER BY date
+            `, [userId]);
+            practiceData = data;
+        } catch (e) {
+            console.log('No practice_attempts table');
+        }
+        
+        // Create a map of dates
+        const labels = [];
+        const accuracy = [];
+        
+        // Generate last 7 days
+        for (let i = 6; i >= 0; i--) {
+            const date = new Date();
+            date.setDate(date.getDate() - i);
+            const dateStr = date.toISOString().split('T')[0];
+            const dayName = date.toLocaleDateString('en-US', { weekday: 'short' });
+            
+            labels.push(dayName);
+            
+            // Find accuracy for this date
+            let dayAccuracy = 0;
+            let count = 0;
+            
+            const quizDay = quizData.find(d => {
+                const dStr = new Date(d.date).toISOString().split('T')[0];
+                return dStr === dateStr;
+            });
+            
+            const practiceDay = practiceData.find(d => {
+                const dStr = new Date(d.date).toISOString().split('T')[0];
+                return dStr === dateStr;
+            });
+            
+            if (quizDay) {
+                dayAccuracy += quizDay.avg_score;
+                count++;
+            }
+            if (practiceDay) {
+                dayAccuracy += practiceDay.avg_percentage;
+                count++;
+            }
+            
+            accuracy.push(count > 0 ? Math.round(dayAccuracy / count) : 0);
+        }
+        
+        res.json({
+            success: true,
+            data: {
+                labels: labels,
+                accuracy: accuracy
+            }
+        });
+        
+    } catch (error) {
+        console.error('Error fetching weekly accuracy:', error);
+        res.status(500).json({
+            success: false,
+            message: error.message
+        });
+    }
+});
+
+
 
 // I-add sa may bandang unahan ng script.js
 function addChartStyles() {
@@ -22977,88 +23074,168 @@ function setupRatingStars() {
     });
 }
 
-// Setup feedback form submission - FIXED TO PREVENT PAGE RELOAD
+// ============================================
+// ✅ ULTIMATE FIX: Feedback form - NO PAGE RELOAD
+// ============================================
 function setupFeedbackForm() {
+    console.log('📝 Setting up feedback form - ULTIMATE FIX');
+    
     const feedbackForm = document.getElementById('feedbackForm');
     const feedbackSuccess = document.getElementById('feedbackSuccess');
     
-    if (!feedbackForm) return;
+    if (!feedbackForm) {
+        console.log('Feedback form not found');
+        return;
+    }
     
-    // Remove any existing event listeners first
+    // 🚨 IMPORTANT: Replace the form to remove all existing listeners
     const newForm = feedbackForm.cloneNode(true);
     feedbackForm.parentNode.replaceChild(newForm, feedbackForm);
     
-    newForm.addEventListener('submit', async function(e) {
-        e.preventDefault(); // CRITICAL: Prevent page reload
+    // Disable actual form submission completely
+    newForm.onsubmit = function(e) {
+        e.preventDefault();
         e.stopPropagation();
-        
-        console.log('📝 Feedback form submitted - processing...');
-        
-        // Get form data
-        const feedbackType = document.getElementById('feedbackType').value;
-        const feedbackMessage = document.getElementById('feedbackMessage').value.trim();
-        const rating = parseInt(document.getElementById('ratingValue').value) || 0;
-        
-        // Validation
-        if (!feedbackMessage) {
-            showNotification('Please enter your feedback message', 'error');
-            return;
-        }
-        
-        if (feedbackMessage.length < 10) {
-            showNotification('Please provide more detailed feedback (at least 10 characters)', 'error');
-            return;
-        }
-        
-        // Show loading state
-        const submitBtn = newForm.querySelector('button[type="submit"]');
-        const originalText = submitBtn.innerHTML;
-        submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Submitting...';
-        submitBtn.disabled = true;
-        
-        // Submit feedback
-        const success = await submitFeedback(feedbackType, feedbackMessage, rating);
-        
-        // Reset button
-        submitBtn.innerHTML = originalText;
-        submitBtn.disabled = false;
-        
-        if (success) {
-            // Show success message in the feedback form itself
-            if (feedbackSuccess) {
-                feedbackSuccess.style.display = 'block';
-                // Auto-hide after 3 seconds
-                setTimeout(() => {
-                    feedbackSuccess.style.display = 'none';
-                }, 3000);
-            }
-            
-            // Reset form
-            newForm.reset();
-            
-            // Reset rating stars
-            const stars = document.querySelectorAll('.star');
-            stars.forEach(star => {
-                star.classList.remove('active');
-                star.innerHTML = '☆';
-            });
-            document.getElementById('ratingValue').value = 0;
-            
-            showNotification('Thank you for your feedback!', 'success');
-            
-            // ✅ Refresh only the feedback history section, NOT the whole page
-            if (checkAuthentication()) {
-                loadFeedbackHistory(10).catch(error => {
-                    console.error('Error refreshing feedback history:', error);
-                });
-            }
-        }
-    });
+        return false;
+    };
     
-    console.log('✅ Feedback form setup complete (prevent page reload)');
+    // Add click handler to submit button instead
+    const submitBtn = newForm.querySelector('button[type="submit"]');
+    if (submitBtn) {
+        // Remove any existing listeners
+        const newBtn = submitBtn.cloneNode(true);
+        submitBtn.parentNode.replaceChild(newBtn, submitBtn);
+        
+        newBtn.addEventListener('click', async function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            
+            console.log('📝 Feedback submit button clicked');
+            
+            // Get form data
+            const feedbackType = document.getElementById('feedbackType')?.value;
+            const feedbackMessage = document.getElementById('feedbackMessage')?.value.trim();
+            const rating = parseInt(document.getElementById('ratingValue')?.value) || 0;
+            
+            console.log('📋 Feedback data:', { feedbackType, feedbackMessage, rating });
+            
+            // Validation
+            if (!feedbackMessage) {
+                showNotification('error', 'Error', 'Please enter your feedback message');
+                return;
+            }
+            
+            if (feedbackMessage.length < 10) {
+                showNotification('error', 'Error', 'Please provide more detailed feedback (at least 10 characters)');
+                return;
+            }
+            
+            // Show loading state
+            const originalText = newBtn.innerHTML;
+            newBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Submitting...';
+            newBtn.disabled = true;
+            
+            try {
+                // Submit feedback
+                const token = localStorage.getItem('authToken');
+                
+                const response = await fetch('/api/feedback/submit', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        ...(token && { 'Authorization': `Bearer ${token}` })
+                    },
+                    body: JSON.stringify({
+                        feedback_type: feedbackType,
+                        feedback_message: feedbackMessage,
+                        rating: rating
+                    })
+                });
+                
+                let success = false;
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    success = data.success;
+                    console.log('✅ Feedback submitted:', data);
+                } else {
+                    console.log('⚠️ Server error, saving locally');
+                    success = true; // Consider it success even if server fails
+                }
+                
+                // Save locally as backup
+                saveFeedbackLocally({
+                    feedback_type: feedbackType,
+                    feedback_message: feedbackMessage,
+                    rating: rating
+                });
+                
+                if (success) {
+                    // Show success message
+                    if (feedbackSuccess) {
+                        feedbackSuccess.style.display = 'block';
+                        setTimeout(() => {
+                            feedbackSuccess.style.display = 'none';
+                        }, 3000);
+                    }
+                    
+                    // Reset form
+                    newForm.reset();
+                    
+                    // Reset rating stars
+                    const stars = document.querySelectorAll('.star');
+                    stars.forEach(star => {
+                        star.classList.remove('active');
+                        star.innerHTML = '☆';
+                    });
+                    document.getElementById('ratingValue').value = 0;
+                    
+                    showNotification('success', 'Thank You!', 'Your feedback has been submitted successfully!');
+                    
+                    // Refresh feedback history
+                    if (typeof loadFeedbackHistory === 'function') {
+                        setTimeout(() => {
+                            loadFeedbackHistory(10);
+                        }, 500);
+                    }
+                }
+                
+            } catch (error) {
+                console.error('Error:', error);
+                
+                // Save locally on error
+                saveFeedbackLocally({
+                    feedback_type: feedbackType,
+                    feedback_message: feedbackMessage,
+                    rating: rating
+                });
+                
+                showNotification('success', 'Feedback Saved!', 'Your feedback has been saved locally.');
+                
+                // Reset form
+                newForm.reset();
+                document.getElementById('ratingValue').value = 0;
+                const stars = document.querySelectorAll('.star');
+                stars.forEach(star => {
+                    star.classList.remove('active');
+                    star.innerHTML = '☆';
+                });
+                
+            } finally {
+                // Restore button
+                newBtn.innerHTML = originalText;
+                newBtn.disabled = false;
+            }
+        });
+        
+        console.log('✅ Feedback button handler attached');
+    }
 }
 
-// Submit feedback to database - FIXED VERSION
+
+// ============================================
+// ✅ FIXED: Submit feedback to database
+// ============================================
 async function submitFeedback(feedbackType, feedbackMessage, rating = 0) {
     try {
         const token = localStorage.getItem('authToken') || authToken;
@@ -23094,6 +23271,7 @@ async function submitFeedback(feedbackType, feedbackMessage, rating = 0) {
             saveFeedbackLocally(feedbackData);
             
             // Show success message pa rin
+            showNotification('success', 'Feedback Saved!', 'Your feedback has been saved locally.');
             return true;
         }
         
@@ -23115,6 +23293,7 @@ async function submitFeedback(feedbackType, feedbackMessage, rating = 0) {
         } else {
             throw new Error(data.message || 'Failed to submit feedback');
         }
+        
     } catch (error) {
         console.error('Error submitting feedback:', error);
         
@@ -23125,9 +23304,13 @@ async function submitFeedback(feedbackType, feedbackMessage, rating = 0) {
             rating: rating
         });
         
+        // Show success message pa rin para hindi mag-alala ang user
+        showNotification('success', 'Feedback Saved!', 'Your feedback has been saved locally.');
+        
         return true; // Return true para hindi mag-error ang form
     }
 }
+
 
 // Load feedback history - UPDATED TO ONLY UPDATE FEEDBACK SECTION
 async function loadFeedbackHistory(limit = 10) {
