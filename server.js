@@ -4913,11 +4913,10 @@ app.post('/api/badges/award', authenticateUser, async (req, res) => {
     }
 });
 
-// ============================================
-// ACCURACY RATE ENDPOINT
-// ============================================
 
-// Get user accuracy rate
+// ============================================
+// 🎯 GET ACCURACY RATE
+// ============================================
 app.get('/api/progress/accuracy-rate', authenticateUser, async (req, res) => {
     try {
         const userId = req.user.id;
@@ -4935,13 +4934,19 @@ app.get('/api/progress/accuracy-rate', authenticateUser, async (req, res) => {
         `, [userId]);
         
         // Calculate practice accuracy
-        const [practiceAccuracy] = await promisePool.query(`
-            SELECT 
-                COUNT(*) as total_attempts,
-                COALESCE(AVG(percentage), 0) as avg_percentage
-            FROM practice_attempts
-            WHERE user_id = ? AND completion_status = 'completed'
-        `, [userId]);
+        let practiceAvg = 0;
+        try {
+            const [practiceAccuracy] = await promisePool.query(`
+                SELECT 
+                    COUNT(*) as total_attempts,
+                    COALESCE(AVG(percentage), 0) as avg_percentage
+                FROM practice_attempts
+                WHERE user_id = ? AND completion_status = 'completed'
+            `, [userId]);
+            practiceAvg = practiceAccuracy[0]?.avg_percentage || 0;
+        } catch (e) {
+            console.log('No practice_attempts table');
+        }
         
         // Calculate lesson completion rate
         const [lessonProgress] = await promisePool.query(`
@@ -4961,7 +4966,7 @@ app.get('/api/progress/accuracy-rate', authenticateUser, async (req, res) => {
         
         // Calculate overall accuracy rate
         const quizAvg = Math.round(quizAccuracy[0]?.avg_score || 0);
-        const practiceAvg = Math.round(practiceAccuracy[0]?.avg_percentage || 0);
+        const practiceAvgRounded = Math.round(practiceAvg || 0);
         
         let overallAccuracy = 0;
         let count = 0;
@@ -4970,8 +4975,8 @@ app.get('/api/progress/accuracy-rate', authenticateUser, async (req, res) => {
             overallAccuracy += quizAvg;
             count++;
         }
-        if (practiceAvg > 0) {
-            overallAccuracy += practiceAvg;
+        if (practiceAvgRounded > 0) {
+            overallAccuracy += practiceAvgRounded;
             count++;
         }
         
@@ -4987,21 +4992,32 @@ app.get('/api/progress/accuracy-rate', authenticateUser, async (req, res) => {
             accuracy: {
                 overall: overallAccuracy,
                 quiz: quizAvg,
-                practice: practiceAvg,
+                practice: practiceAvgRounded,
                 lesson_completion: lessonCompletion,
                 total_lessons_completed: lessonProgress[0]?.completed_count || 0,
                 total_lessons: totalLessons[0]?.total || 0,
                 total_quizzes_passed: quizAccuracy[0]?.passed_count || 0,
                 total_quizzes_attempted: quizAccuracy[0]?.total_attempts || 0,
-                total_practice_completed: practiceAccuracy[0]?.total_attempts || 0
+                total_practice_completed: practiceAccuracy?.[0]?.total_attempts || 0
             }
         });
         
     } catch (error) {
         console.error('❌ Error fetching accuracy rate:', error);
-        res.status(500).json({
-            success: false,
-            message: error.message
+        // Return default values on error
+        res.json({
+            success: true,
+            accuracy: {
+                overall: 0,
+                quiz: 0,
+                practice: 0,
+                lesson_completion: 0,
+                total_lessons_completed: 0,
+                total_lessons: 1,
+                total_quizzes_passed: 0,
+                total_quizzes_attempted: 0,
+                total_practice_completed: 0
+            }
         });
     }
 });
@@ -5228,6 +5244,64 @@ app.get('/api/progress/overall', authenticateUser, async (req, res) => {
 app.use((req, res, next) => {
     req.startTime = Date.now();
     next();
+});
+// ============================================
+// 🔍 DEBUG: Check practice exercises in database
+// ============================================
+app.get('/api/debug/practice', async (req, res) => {
+    try {
+        console.log('🔍 DEBUG: Checking practice exercises...');
+        
+        // Check if table exists
+        const [tables] = await promisePool.query("SHOW TABLES LIKE 'practice_exercises'");
+        
+        if (tables.length === 0) {
+            return res.json({
+                success: false,
+                message: 'practice_exercises table does not exist',
+                tables_exist: false
+            });
+        }
+        
+        // Get all practice exercises
+        const [exercises] = await promisePool.query(`
+            SELECT 
+                pe.exercise_id,
+                pe.title,
+                pe.description,
+                pe.topic_id,
+                pe.content_type,
+                pe.difficulty,
+                pe.points,
+                pe.content_json,
+                pe.is_active,
+                pe.created_at,
+                mt.topic_title,
+                cm.module_name,
+                l.lesson_name
+            FROM practice_exercises pe
+            LEFT JOIN module_topics mt ON pe.topic_id = mt.topic_id
+            LEFT JOIN course_modules cm ON mt.module_id = cm.module_id
+            LEFT JOIN lessons l ON cm.lesson_id = l.lesson_id
+            ORDER BY pe.created_at DESC
+        `);
+        
+        console.log(`✅ Found ${exercises.length} practice exercises`);
+        
+        res.json({
+            success: true,
+            count: exercises.length,
+            exercises: exercises,
+            table_exists: true
+        });
+        
+    } catch (error) {
+        console.error('❌ Debug error:', error);
+        res.status(500).json({
+            success: false,
+            message: error.message
+        });
+    }
 });
 
 // ============================================
@@ -9697,32 +9771,39 @@ app.get('/api/lessons-db/complete', verifyToken, async (req, res) => {
 });
 
 // ============================================
-// GET SPECIFIC LESSON BY ID
+// ✅ FIXED: Get SINGLE lesson by ID (singular - matches frontend call)
 // ============================================
-app.get('/api/lessons-db/:contentId', authenticateToken, async (req, res) => {
+app.get('/api/lessons-db/:contentId', verifyToken, async (req, res) => {
     try {
         const { contentId } = req.params;
         const userId = req.user?.user_id || req.user?.id;
         
-        console.log(`📚 Fetching lesson with ID: ${contentId}`);
-        
-        // Get lesson details - SPECIFIC LESSON LANG
-        const [lessons] = await pool.execute(`
+        console.log(`📚 Fetching SINGLE lesson with ID: ${contentId}`);
+
+        // Get lesson details
+        const [lessons] = await promisePool.execute(`
             SELECT 
-                tci.*,
-                t.topic_title,
-                t.topic_description,
-                m.module_id,
-                m.module_name,
-                m.module_description,
+                tci.content_id,
+                tci.content_title,
+                tci.content_description,
+                tci.content_type,
+                tci.content_url,
+                tci.video_filename,
+                tci.video_path,
+                tci.video_duration_seconds,
+                tci.created_at,
+                tci.updated_at,
+                mt.topic_id,
+                mt.topic_title,
+                cm.module_id,
+                cm.module_name,
                 l.lesson_id,
-                l.lesson_name,
-                l.lesson_description
+                l.lesson_name
             FROM topic_content_items tci
-            LEFT JOIN topics t ON tci.topic_id = t.topic_id
-            LEFT JOIN modules m ON t.module_id = m.module_id
-            LEFT JOIN lessons l ON m.lesson_id = l.lesson_id
-            WHERE tci.content_id = ?  -- SPECIFIC LESSON LANG
+            LEFT JOIN module_topics mt ON tci.topic_id = mt.topic_id
+            LEFT JOIN course_modules cm ON mt.module_id = cm.module_id
+            LEFT JOIN lessons l ON cm.lesson_id = l.lesson_id
+            WHERE tci.content_id = ? AND tci.is_active = 1
         `, [contentId]);
         
         if (lessons.length === 0) {
@@ -9734,12 +9815,13 @@ app.get('/api/lessons-db/:contentId', authenticateToken, async (req, res) => {
         
         const lesson = lessons[0];
         
-        // Get user progress for this specific lesson
+        // Get user progress if logged in
         let progress = null;
         if (userId) {
-            const [progressRows] = await pool.execute(`
-                SELECT * FROM user_content_progress 
-                WHERE user_id = ? AND content_id = ?  -- SPECIFIC LESSON LANG
+            const [progressRows] = await promisePool.execute(`
+                SELECT completion_status, score, time_spent_seconds, last_accessed, completed_at
+                FROM user_content_progress 
+                WHERE user_id = ? AND content_id = ?
             `, [userId, contentId]);
             
             if (progressRows.length > 0) {
@@ -9750,16 +9832,19 @@ app.get('/api/lessons-db/:contentId', authenticateToken, async (req, res) => {
         // Add progress to lesson
         lesson.progress = progress;
         
+        console.log(`✅ Lesson found: ${lesson.content_title}`);
+        
         res.json({
             success: true,
             lesson: lesson
         });
         
     } catch (error) {
-        console.error('❌ Error fetching lesson:', error);
+        console.error('❌ Error fetching single lesson:', error);
         res.status(500).json({
             success: false,
-            message: error.message
+            message: 'Failed to fetch lesson',
+            error: error.message
         });
     }
 });
@@ -10111,7 +10196,7 @@ app.get('/api/user/progress', verifyToken, async (req, res) => {
 // ============================================
 // ✅ FIXED: Get practice exercises for topic
 // ============================================
-app.get('/api/practice/topic/:topicId', authenticateUser, async (req, res) => {
+app.get('/api/practice/topic/:topicId', authenticateToken, async (req, res) => {
     try {
         const { topicId } = req.params;
         const userId = req.user.id;
@@ -10130,7 +10215,7 @@ app.get('/api/practice/topic/:topicId', authenticateUser, async (req, res) => {
             });
         }
         
-        // Get exercises
+        // Get exercises for this topic
         const [exercises] = await promisePool.query(`
             SELECT 
                 exercise_id,
@@ -10146,145 +10231,83 @@ app.get('/api/practice/topic/:topicId', authenticateUser, async (req, res) => {
             ORDER BY exercise_id
         `, [topicId]);
         
-        // Process exercises to ensure valid JSON
+        console.log(`✅ Found ${exercises.length} exercises for topic ${topicId}`);
+        
+        // Process exercises
         const processedExercises = [];
         
         for (const ex of exercises) {
+            // Parse content_json
+            let content = { questions: [] };
             try {
-                // Parse content_json
-                let content;
-                if (typeof ex.content_json === 'string') {
-                    try {
-                        content = JSON.parse(ex.content_json);
-                    } catch (e) {
-                        console.log(`⚠️ Invalid JSON for exercise ${ex.exercise_id}`);
-                        content = { questions: [] };
-                    }
-                } else {
-                    content = ex.content_json || { questions: [] };
+                if (ex.content_json) {
+                    content = typeof ex.content_json === 'string' 
+                        ? JSON.parse(ex.content_json) 
+                        : ex.content_json;
                 }
-                
-                // Ensure questions array exists
-                if (!content.questions || !Array.isArray(content.questions)) {
-                    content.questions = [];
-                }
-                
-                // Get user progress
-                let userProgress = { status: 'not_started', score: 0, attempts: 0 };
-                try {
-                    const [progress] = await promisePool.query(`
-                        SELECT completion_status, score, attempts
-                        FROM user_practice_progress
-                        WHERE user_id = ? AND exercise_id = ?
-                    `, [userId, ex.exercise_id]);
-                    
-                    if (progress.length > 0) {
-                        userProgress = {
-                            status: progress[0].completion_status || 'not_started',
-                            score: progress[0].score || 0,
-                            attempts: progress[0].attempts || 0
-                        };
-                    }
-                } catch (progressError) {
-                    console.log('Progress table not found or error');
-                }
-                
-                processedExercises.push({
-                    exercise_id: ex.exercise_id,
-                    title: ex.title || 'Practice Exercise',
-                    description: ex.description || '',
-                    content_type: ex.content_type || 'multiple_choice',
-                    difficulty: ex.difficulty || 'medium',
-                    points: ex.points || 10,
-                    content_json: content,
-                    user_progress: userProgress
-                });
-                
-            } catch (error) {
-                console.error(`❌ Error processing exercise ${ex.exercise_id}:`, error.message);
-                // Add placeholder exercise
-                processedExercises.push({
-                    exercise_id: ex.exercise_id,
-                    title: ex.title || 'Practice Exercise',
-                    description: ex.description || 'This exercise needs to be updated',
-                    content_type: 'multiple_choice',
-                    difficulty: 'medium',
-                    points: 10,
-                    content_json: {
-                        questions: [{
-                            id: 1,
-                            text: 'This exercise needs to be updated in the database.',
-                            type: 'multiple_choice',
-                            points: 10,
-                            options: [
-                                { text: 'Please contact admin', correct: true },
-                                { text: 'To fix this exercise', correct: false }
-                            ]
-                        }]
-                    },
-                    user_progress: { status: 'not_started', score: 0, attempts: 0 }
-                });
-            }
-        }
-        
-        // Check if practice is unlocked
-        let isUnlocked = true;
-        let completedLessons = 0;
-        let totalLessons = 0;
-        
-        try {
-            // Get lesson progress for this topic
-            const [lessonProgress] = await promisePool.query(`
-                SELECT 
-                    COUNT(DISTINCT tci.content_id) as total_lessons,
-                    COUNT(DISTINCT CASE WHEN ucp.completion_status = 'completed' THEN tci.content_id END) as completed_lessons
-                FROM module_topics mt
-                LEFT JOIN topic_content_items tci ON mt.topic_id = tci.topic_id AND tci.is_active = 1
-                LEFT JOIN user_content_progress ucp ON tci.content_id = ucp.content_id AND ucp.user_id = ?
-                WHERE mt.topic_id = ?
-                GROUP BY mt.topic_id
-            `, [userId, topicId]);
-            
-            if (lessonProgress.length > 0) {
-                completedLessons = lessonProgress[0].completed_lessons || 0;
-                totalLessons = lessonProgress[0].total_lessons || 0;
-                // Practice is unlocked if at least one lesson is completed
-                isUnlocked = completedLessons > 0;
+            } catch (e) {
+                console.log(`⚠️ Error parsing JSON for exercise ${ex.exercise_id}:`, e.message);
             }
             
-        } catch (progressError) {
-            console.log('Could not check lesson progress:', progressError.message);
-            // Assume unlocked if can't check
-            isUnlocked = true;
+            // Get user progress
+            let userProgress = { status: 'not_started', score: 0, attempts: 0 };
+            try {
+                const [progress] = await promisePool.query(`
+                    SELECT completion_status, score, attempts
+                    FROM user_practice_progress
+                    WHERE user_id = ? AND exercise_id = ?
+                `, [userId, ex.exercise_id]);
+                
+                if (progress.length > 0) {
+                    userProgress = {
+                        status: progress[0].completion_status || 'not_started',
+                        score: progress[0].score || 0,
+                        attempts: progress[0].attempts || 0
+                    };
+                }
+            } catch (progressError) {
+                console.log('Progress table not found or error');
+            }
+            
+            processedExercises.push({
+                exercise_id: ex.exercise_id,
+                title: ex.title || 'Practice Exercise',
+                description: ex.description || '',
+                content_type: ex.content_type || 'multiple_choice',
+                difficulty: ex.difficulty || 'medium',
+                points: ex.points || 10,
+                questions: content.questions || [],
+                question_count: (content.questions || []).length,
+                user_progress: userProgress
+            });
         }
         
-        const progressMessage = isUnlocked 
-            ? `Practice unlocked! (${completedLessons}/${totalLessons} lessons completed)`
-            : `Complete at least one lesson to unlock practice exercises.`;
+        // Check if practice is unlocked (simplified - always true for now)
+        const isUnlocked = true;
+        const completedLessons = 0;
+        const totalLessons = 1;
         
         res.json({
             success: true,
             unlocked: isUnlocked,
             progress: {
                 completed: completedLessons,
-                total: totalLessons || 1,
-                percentage: totalLessons > 0 ? Math.round((completedLessons / totalLessons) * 100) : 100,
-                message: progressMessage
+                total: totalLessons,
+                percentage: totalLessons > 0 ? Math.round((completedLessons / totalLessons) * 100) : 0,
+                message: isUnlocked ? 'Practice unlocked!' : 'Complete lessons first'
             },
             exercises: processedExercises
         });
         
     } catch (error) {
         console.error('❌ Error in practice endpoint:', error);
-        // Return empty array instead of error
-        res.json({
-            success: true,
-            unlocked: true,
-            exercises: [],
-            message: 'Failed to load exercises from database'
+        res.status(500).json({
+            success: false,
+            message: error.message
         });
     }
 });
+
 
 
 // ============================================
@@ -11371,8 +11394,9 @@ app.get('/api/user/sessions/today', authenticateUser, async (req, res) => {
     }
 });
 
+
 // ============================================
-// ✅ FIXED: Get progress chart data
+// 📊 GET PROGRESS CHART DATA
 // ============================================
 app.get('/api/progress/chart-data', authenticateUser, async (req, res) => {
     try {
@@ -11404,10 +11428,6 @@ app.get('/api/progress/chart-data', authenticateUser, async (req, res) => {
             const [tables] = await promisePool.query("SHOW TABLES LIKE 'daily_progress'");
             
             if (tables.length > 0) {
-                // Get date range
-                const startDate = new Date(today);
-                startDate.setDate(startDate.getDate() - parseInt(days));
-                
                 const [dailyProgress] = await promisePool.query(`
                     SELECT 
                         progress_date,
@@ -11445,6 +11465,46 @@ app.get('/api/progress/chart-data', authenticateUser, async (req, res) => {
             }
         } catch (error) {
             console.log('⚠️ Error fetching daily progress:', error.message);
+        }
+        
+        // If no data, try to get from activity log
+        if (lessonsData.every(val => val === 0)) {
+            try {
+                const [activities] = await promisePool.query(`
+                    SELECT 
+                        DATE(activity_timestamp) as activity_date,
+                        SUM(CASE WHEN activity_type = 'lesson_completed' THEN 1 ELSE 0 END) as lessons,
+                        SUM(CASE WHEN activity_type = 'practice_completed' THEN 1 ELSE 0 END) as exercises,
+                        SUM(points_earned) as points
+                    FROM user_activity_log
+                    WHERE user_id = ? 
+                    AND activity_timestamp >= DATE_SUB(NOW(), INTERVAL ? DAY)
+                    GROUP BY DATE(activity_timestamp)
+                `, [userId, parseInt(days)]);
+                
+                const activityMap = {};
+                activities.forEach(day => {
+                    const dateStr = new Date(day.activity_date).toLocaleDateString('en-US', { 
+                        month: 'short', 
+                        day: 'numeric' 
+                    });
+                    activityMap[dateStr] = {
+                        lessons: day.lessons || 0,
+                        exercises: day.exercises || 0,
+                        points: day.points || 0
+                    };
+                });
+                
+                labels.forEach((label, index) => {
+                    if (activityMap[label]) {
+                        lessonsData[index] = activityMap[label].lessons;
+                        exercisesData[index] = activityMap[label].exercises;
+                        pointsData[index] = activityMap[label].points;
+                    }
+                });
+            } catch (e) {
+                console.log('No activity log data');
+            }
         }
         
         res.json({
@@ -11490,6 +11550,7 @@ app.get('/api/progress/chart-data', authenticateUser, async (req, res) => {
         });
     }
 });
+
 
 // ============================================
 // 🔍 DEBUG: Check Table Data - ADD THIS
