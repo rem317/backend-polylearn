@@ -8,6 +8,8 @@
 
 let authToken = localStorage.getItem('authToken') || null;
 
+const API_BASE_URL = window.location.origin;
+
 // Define default practice statistics function
 function getDefaultPracticeStats() {
     return {
