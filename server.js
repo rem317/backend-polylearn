@@ -1579,6 +1579,9 @@ app.put('/api/user/profile', authenticateUser, async (req, res) => {
     }
 });
 
+
+
+
 // Change password
 app.post('/api/user/change-password', authenticateUser, async (req, res) => {
     try {
@@ -1658,6 +1661,126 @@ app.post('/api/user/change-password', authenticateUser, async (req, res) => {
         });
     }
 });
+
+
+// ============================================
+// ✅ FIX: Get SINGLE lesson by ID (without -db suffix)
+// ============================================
+app.get('/api/lessons/:contentId', verifyToken, async (req, res) => {
+    try {
+        const { contentId } = req.params;
+        const userId = req.user?.user_id || req.user?.id;
+        
+        console.log(`📚 Fetching lesson with ID: ${contentId}`);
+
+        // Get lesson details
+        const [lessons] = await promisePool.execute(`
+            SELECT 
+                tci.content_id,
+                tci.content_title,
+                tci.content_description,
+                tci.content_type,
+                tci.content_url,
+                tci.video_filename,
+                tci.video_path,
+                tci.video_duration_seconds,
+                tci.created_at,
+                tci.updated_at,
+                mt.topic_id,
+                mt.topic_title,
+                cm.module_id,
+                cm.module_name,
+                l.lesson_id,
+                l.lesson_name
+            FROM topic_content_items tci
+            LEFT JOIN module_topics mt ON tci.topic_id = mt.topic_id
+            LEFT JOIN course_modules cm ON mt.module_id = cm.module_id
+            LEFT JOIN lessons l ON cm.lesson_id = l.lesson_id
+            WHERE tci.content_id = ? AND tci.is_active = 1
+        `, [contentId]);
+        
+        if (lessons.length === 0) {
+            return res.status(404).json({
+                success: false,
+                message: 'Lesson not found'
+            });
+        }
+        
+        const lesson = lessons[0];
+        
+        // Get user progress if logged in
+        let progress = null;
+        if (userId) {
+            const [progressRows] = await promisePool.execute(`
+                SELECT completion_status, score, time_spent_seconds, last_accessed, completed_at
+                FROM user_content_progress 
+                WHERE user_id = ? AND content_id = ?
+            `, [userId, contentId]);
+            
+            if (progressRows.length > 0) {
+                progress = progressRows[0];
+            }
+        }
+        
+        // Add progress to lesson
+        lesson.progress = progress;
+        
+        console.log(`✅ Lesson found: ${lesson.content_title}`);
+        
+        res.json({
+            success: true,
+            lesson: lesson
+        });
+        
+    } catch (error) {
+        console.error('❌ Error fetching lesson:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Failed to fetch lesson',
+            error: error.message
+        });
+    }
+});
+
+
+// ============================================
+// 🔍 DEBUG: List all lesson endpoints
+// ============================================
+app.get('/api/debug/lesson-endpoints', (req, res) => {
+    const routes = [];
+    
+    app._router.stack.forEach(middleware => {
+        if (middleware.route) {
+            // Routes registered directly
+            routes.push({
+                path: middleware.route.path,
+                methods: Object.keys(middleware.route.methods)
+            });
+        } else if (middleware.name === 'router') {
+            // Router middleware
+            middleware.handle.stack.forEach(handler => {
+                if (handler.route) {
+                    routes.push({
+                        path: handler.route.path,
+                        methods: Object.keys(handler.route.methods)
+                    });
+                }
+            });
+        }
+    });
+    
+    // Filter for lesson-related routes
+    const lessonRoutes = routes.filter(r => 
+        r.path.includes('lesson') || r.path.includes('lessons')
+    );
+    
+    res.json({
+        success: true,
+        all_routes_count: routes.length,
+        lesson_routes: lessonRoutes
+    });
+});
+
 
 // ===== GET SINGLE PRACTICE EXERCISE BY ID =====
 app.get('/api/exercises/:exerciseId', authenticateToken, async (req, res) => {
