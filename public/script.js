@@ -14653,7 +14653,275 @@ function setupVideoProgressTracking() {
     
     updateWatchTimeDisplay(totalWatchedSeconds);
 }
+// ============================================
+// FIXED: CREATE LESSON WITH MODULE_ID, TEACHER_ID, CREATED_BY
+// ============================================
+app.post('/api/admin/lessons', 
+    verifyToken,
+    (req, res, next) => {
+        if (req.user.role !== 'admin' && req.user.role !== 'teacher') {
+            return res.status(403).json({
+                success: false,
+                message: 'Access denied. Admin or teacher role required.'
+            });
+        }
+        next();
+    },
+    (req, res, next) => {
+        upload.single('video_file')(req, res, function(err) {
+            if (err) {
+                console.error('❌ Upload error:', err);
+                return res.status(400).json({
+                    success: false,
+                    message: 'File upload failed: ' + err.message
+                });
+            }
+            next();
+        });
+    },
+    async (req, res) => {
+        try {
+            console.log('📥 ===== ADMIN LESSONS ENDPOINT HIT =====');
+            
+            const { 
+                title, 
+                description, 
+                topic_id,
+                module_id,           // ← GET MODULE ID
+                content_type, 
+                youtube_url,
+                content_id,
+                is_update = 'false',
+                assigned_teacher_id  // ← GET ASSIGNED TEACHER ID (optional)
+            } = req.body;
+            
+            const videoFile = req.file;
+            const isUpdate = is_update === 'true' || is_update === true;
+            const userId = req.user.id;
+            
+            // ===== GET TEACHER ID FROM TEACHERS TABLE =====
+            let teacherId = null;
+            
+            // Check if user is a teacher (has record in teachers table)
+            const [teacher] = await promisePool.execute(
+                'SELECT teacher_id FROM teachers WHERE user_id = ?',
+                [userId]
+            );
+            
+            if (teacher.length > 0) {
+                teacherId = teacher[0].teacher_id;
+            }
+            
+            // If admin assigned a specific teacher, use that instead
+            if (assigned_teacher_id) {
+                teacherId = assigned_teacher_id;
+            }
+            
+            // ===== VALIDATION =====
+            if (!title) {
+                return res.status(400).json({
+                    success: false,
+                    message: 'Title is required'
+                });
+            }
+            
+            if (!isUpdate && !topic_id) {
+                return res.status(400).json({
+                    success: false,
+                    message: 'topic_id is required for new lessons'
+                });
+            }
+            
+            // ===== PREPARE CONTENT URLS =====
+            let contentUrl = null;
+            let filePath = null;
+            let videoFilename = null;
 
+            if (youtube_url) {
+                contentUrl = youtube_url;
+                console.log('🔗 YouTube URL:', contentUrl);
+            } else if (videoFile) {
+                videoFilename = videoFile.filename;
+                contentUrl = `/videos/${videoFile.filename}`;
+                filePath = `/videos/${videoFile.filename}`;
+                console.log('🎬 Video saved to public/videos/:', videoFilename);
+            }
+            
+            // ===== UPDATE EXISTING LESSON =====
+            if (isUpdate) {
+                console.log('🔄 UPDATING lesson ID:', content_id);
+                
+                let updateFields = [];
+                let updateValues = [];
+                
+                updateFields.push('content_title = ?');
+                updateValues.push(title);
+                
+                updateFields.push('content_description = ?');
+                updateValues.push(description || null);
+                
+                if (topic_id) {
+                    updateFields.push('topic_id = ?');
+                    updateValues.push(topic_id);
+                }
+                
+                if (module_id) {
+                    updateFields.push('module_id = ?');
+                    updateValues.push(module_id);
+                }
+                
+                // Update teacher_id if specified
+                if (teacherId) {
+                    updateFields.push('teacher_id = ?');
+                    updateValues.push(teacherId);
+                }
+                
+                if (youtube_url) {
+                    updateFields.push('content_url = ?');
+                    updateValues.push(youtube_url);
+                    updateFields.push('video_filename = ?');
+                    updateValues.push(null);
+                } else if (videoFile) {
+                    updateFields.push('video_filename = ?');
+                    updateValues.push(videoFilename);
+                    updateFields.push('content_url = ?');
+                    updateValues.push(contentUrl);
+                }
+                
+                updateFields.push('updated_at = NOW()');
+                updateValues.push(content_id);
+                
+                const updateQuery = `UPDATE topic_content_items SET ${updateFields.join(', ')} WHERE content_id = ?`;
+                
+                await promisePool.query(updateQuery, updateValues);
+                console.log('✅ Lesson updated in topic_content_items');
+                
+                return res.json({
+                    success: true,
+                    message: 'Lesson updated successfully',
+                    lesson: {
+                        content_id: parseInt(content_id),
+                        content_title: title,
+                        content_description: description,
+                        content_type: content_type,
+                        video_filename: videoFilename,
+                        content_url: contentUrl,
+                        module_id: module_id || null,
+                        teacher_id: teacherId || null,
+                        created_by: userId
+                    }
+                });
+            }
+            
+            // ===== INSERT NEW LESSON =====
+            console.log('🆕 INSERTING new lesson');
+            
+            const [orderResult] = await promisePool.query(
+                'SELECT MAX(content_order) as max_order FROM topic_content_items WHERE topic_id = ?',
+                [topic_id]
+            );
+            
+            const nextOrder = (orderResult[0]?.max_order || 0) + 1;
+            
+            // ===== FIXED: INSERT WITH ALL FIELDS =====
+            const [contentResult] = await promisePool.query(`
+                INSERT INTO topic_content_items 
+                (topic_id, module_id, created_by, teacher_id, content_type, content_title, 
+                 content_description, content_url, content_order, is_active, video_filename)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, TRUE, ?)
+            `, [
+                topic_id,
+                module_id || null,          // ← MODULE_ID
+                userId,                      // ← CREATED_BY (user_id)
+                teacherId,                   // ← TEACHER_ID (from teachers table)
+                content_type || 'video',
+                title,
+                description || null,
+                contentUrl,
+                nextOrder,
+                videoFilename
+            ]);
+            
+            const newContentId = contentResult.insertId;
+            console.log('✅ New lesson created with ID:', newContentId);
+            console.log('📝 Recorded with:');
+            console.log(`   - module_id: ${module_id || 'NULL'}`);
+            console.log(`   - created_by: ${userId} (user_id)`);
+            console.log(`   - teacher_id: ${teacherId || 'NULL'}`);
+            
+            // ===== INSERT INTO VIDEO_UPLOADS =====
+            if (videoFile) {
+                try {
+                    await promisePool.query(`
+                        CREATE TABLE IF NOT EXISTS video_uploads (
+                            upload_id INT AUTO_INCREMENT PRIMARY KEY,
+                            content_id INT NOT NULL,
+                            original_filename VARCHAR(255),
+                            stored_filename VARCHAR(255),
+                            file_path VARCHAR(500),
+                            file_size BIGINT,
+                            uploaded_by INT,
+                            upload_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                            is_active BOOLEAN DEFAULT TRUE,
+                            FOREIGN KEY (content_id) REFERENCES topic_content_items(content_id) ON DELETE CASCADE
+                        )
+                    `);
+                    
+                    await promisePool.query(
+                        `INSERT INTO video_uploads 
+                         (content_id, original_filename, stored_filename, file_path, 
+                          file_size, uploaded_by, is_active)
+                         VALUES (?, ?, ?, ?, ?, ?, TRUE)`,
+                        [
+                            newContentId,
+                            videoFile.originalname,
+                            videoFile.filename,
+                            filePath,
+                            videoFile.size,
+                            userId
+                        ]
+                    );
+                    console.log('✅ Video record inserted');
+                } catch (videoError) {
+                    console.error('❌ Video record error:', videoError);
+                }
+            }
+            
+            res.json({
+                success: true,
+                message: 'Lesson saved successfully',
+                lesson: {
+                    content_id: newContentId,
+                    content_title: title,
+                    content_description: description,
+                    content_type: content_type,
+                    video_filename: videoFilename,
+                    content_url: contentUrl,
+                    content_order: nextOrder,
+                    module_id: module_id || null,
+                    teacher_id: teacherId || null,
+                    created_by: userId
+                }
+            });
+            
+        } catch (error) {
+            console.error('❌ ERROR:', error);
+            
+            if (req.file) {
+                try {
+                    fs.unlinkSync(req.file.path);
+                } catch (unlinkError) {}
+            }
+            
+            res.status(500).json({
+                success: false,
+                message: 'Failed to save lesson',
+                error: error.message
+            });
+        }
+    }
+);
 // ============================================
 // MODULE DASHBOARD JS - FIXED
 // ============================================
@@ -18387,7 +18655,118 @@ document.addEventListener('DOMContentLoaded', function() {
         observer.observe(quizInterface, { attributes: true });
     }
 });
-
+// ============================================
+// ✅ GET TEACHER BY USER ID - FIXED ENDPOINT
+// ============================================
+app.get('/api/teachers/:userId', authenticateUser, async (req, res) => {
+    try {
+        const { userId } = req.params;
+        
+        console.log(`👨‍🏫 Fetching teacher with user ID: ${userId}`);
+        
+        // First check if user exists and is a teacher or admin
+        const [users] = await promisePool.execute(`
+            SELECT 
+                user_id as id,
+                username,
+                email,
+                full_name as name,
+                role,
+                created_at as joined_date,
+                last_login as last_active
+            FROM users 
+            WHERE user_id = ? AND (role = 'teacher' OR role = 'admin')
+        `, [userId]);
+        
+        if (users.length === 0) {
+            return res.status(404).json({
+                success: false,
+                message: 'Teacher not found'
+            });
+        }
+        
+        const user = users[0];
+        
+        // Check if teacher record exists in teachers table
+        const [teachers] = await promisePool.execute(`
+            SELECT 
+                teacher_id,
+                department,
+                qualification,
+                years_experience,
+                bio,
+                rating,
+                total_students,
+                total_lessons,
+                specialization,
+                available_hours,
+                created_at as teacher_since
+            FROM teachers 
+            WHERE user_id = ?
+        `, [userId]);
+        
+        // Get teacher's stats
+        const [stats] = await promisePool.execute(`
+            SELECT 
+                (SELECT COUNT(*) FROM topic_content_items WHERE created_by = ? OR teacher_id = ?) as total_lessons_created,
+                (SELECT COUNT(DISTINCT user_id) FROM user_content_progress ucp 
+                 JOIN topic_content_items tci ON ucp.content_id = tci.content_id 
+                 WHERE (tci.created_by = ? OR tci.teacher_id = ?)) as total_students_taught,
+                (SELECT COUNT(*) FROM quizzes WHERE created_by = ?) as total_quizzes,
+                (SELECT COUNT(*) FROM practice_exercises WHERE created_by = ?) as total_practice,
+                (SELECT COALESCE(AVG(ucp.score), 0) FROM user_content_progress ucp
+                 JOIN topic_content_items tci ON ucp.content_id = tci.content_id
+                 WHERE (tci.created_by = ? OR tci.teacher_id = ?) 
+                 AND ucp.completion_status = 'completed') as avg_student_score,
+                (SELECT COUNT(*) FROM feedback WHERE teacher_id = (SELECT teacher_id FROM teachers WHERE user_id = ?)) as total_feedback,
+                (SELECT COALESCE(AVG(rating), 0) FROM feedback 
+                 WHERE teacher_id = (SELECT teacher_id FROM teachers WHERE user_id = ?) 
+                 AND rating IS NOT NULL) as avg_rating
+        `, [userId, userId, userId, userId, userId, userId, userId, userId, userId, userId]);
+        
+        // Combine user and teacher data
+        const teacherData = {
+            id: user.id,
+            name: user.name || user.username,
+            username: user.username,
+            email: user.email,
+            role: user.role,
+            joined_date: user.joined_date,
+            last_active: user.last_active,
+            department: teachers.length > 0 ? teachers[0].department : 'Mathematics',
+            qualification: teachers.length > 0 ? teachers[0].qualification : 'Licensed Professional Teacher',
+            years_experience: teachers.length > 0 ? teachers[0].years_experience : 0,
+            bio: teachers.length > 0 ? teachers[0].bio : '',
+            rating: teachers.length > 0 ? (teachers[0].rating || 4.8) : 4.8,
+            total_students: teachers.length > 0 ? (teachers[0].total_students || 0) : 0,
+            total_lessons: teachers.length > 0 ? (teachers[0].total_lessons || 0) : 0,
+            specialization: teachers.length > 0 ? teachers[0].specialization : null,
+            available_hours: teachers.length > 0 ? teachers[0].available_hours : null,
+            teacher_since: teachers.length > 0 ? teachers[0].teacher_since : null,
+            stats: stats[0] || {
+                total_lessons_created: 0,
+                total_students_taught: 0,
+                total_quizzes: 0,
+                total_practice: 0,
+                avg_student_score: 0,
+                total_feedback: 0,
+                avg_rating: 0
+            }
+        };
+        
+        res.json({
+            success: true,
+            teacher: teacherData
+        });
+        
+    } catch (error) {
+        console.error('❌ Error fetching teacher:', error);
+        res.status(500).json({
+            success: false,
+            message: error.message
+        });
+    }
+});
 // ============================================
 // AUTHENTICATION FUNCTIONS
 // ============================================
