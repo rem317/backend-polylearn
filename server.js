@@ -272,7 +272,7 @@ function authenticateToken(req, res, next) {
                     message: 'Invalid token signature.' 
                 });
             } else {
-                return res.status(403).json({ 
+                return res.status(403).json({     
                     success: false, 
                     message: 'Invalid token.' 
                 });
@@ -280,6 +280,7 @@ function authenticateToken(req, res, next) {
         }
         
         req.user = user;
+      req.userId = user.id;
         next();
     });
 }
@@ -1264,6 +1265,10 @@ app.get('/api/subjects/all-with-stats', authenticateAdmin, async (req, res) => {
 app.get('/api/lessons/by-subject/:subjectId', authenticateToken, async (req, res) => {
     try {
         const { subjectId } = req.params;
+
+       // ✅ FIX: Use the authenticated user ID from either source
+        const userId = req.user?.id || req.userId;
+        console.log(📚 Fetching lessons for subject ${subjectId} by user ${userId});
         
         const [lessons] = await promisePool.query(`
             SELECT 
@@ -13131,7 +13136,88 @@ app.post('/api/teacher/feedback/:feedbackId/reply', authenticateTeacher, async (
         });
     }
 });
-
+// ===== GET TEACHER BY ID - FIX FOR 404 ERROR =====
+app.get('/api/teachers/:teacherId', authenticateToken, async (req, res) => {
+    try {
+        const { teacherId } = req.params;
+        
+        console.log(`📥 Fetching teacher details for ID: ${teacherId}`);
+        
+        // Try to get teacher from teachers table
+        const [teachers] = await promisePool.execute(`
+            SELECT 
+                t.teacher_id,
+                t.user_id,
+                t.department,
+                t.qualification,
+                t.years_experience,
+                t.bio,
+                t.rating,
+                t.total_students,
+                t.total_lessons,
+                t.specialization,
+                t.available_hours,
+                t.created_at,
+                u.username,
+                u.email,
+                u.full_name,
+                u.role
+            FROM teachers t
+            JOIN users u ON t.user_id = u.user_id
+            WHERE t.user_id = ?
+        `, [teacherId]);
+        
+        if (teachers.length > 0) {
+            return res.json({
+                success: true,
+                teacher: teachers[0]
+            });
+        }
+        
+        // If not in teachers table, get from users
+        const [users] = await promisePool.execute(`
+            SELECT 
+                user_id as id,
+                username,
+                email,
+                full_name,
+                role,
+                created_at as joined_date
+            FROM users 
+            WHERE user_id = ? AND (role = 'teacher' OR role = 'admin')
+        `, [teacherId]);
+        
+        if (users.length === 0) {
+            return res.status(404).json({
+                success: false,
+                message: 'Teacher not found'
+            });
+        }
+        
+        const user = users[0];
+        
+        res.json({
+            success: true,
+            teacher: {
+                ...user,
+                department: 'Mathematics',
+                qualification: 'Licensed Professional Teacher',
+                years_experience: 0,
+                rating: 4.5,
+                total_students: 0,
+                total_lessons: 0
+            }
+        });
+        
+    } catch (error) {
+        console.error('❌ Error fetching teacher:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Failed to fetch teacher details',
+            error: error.message
+        });
+    }
+});
 // ============================================
 // ✅ GET TEACHER PROFILE
 // ============================================
