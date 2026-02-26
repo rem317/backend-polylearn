@@ -3716,11 +3716,12 @@ app.get('/api/admin/lessons', verifyToken, async (req, res) => {
     }
 });
 
-// ===== CREATE / UPDATE LESSON (WITH VIDEO UPLOAD) =====
+// ============================================
+// FIXED: CREATE LESSON WITH MODULE_ID, TEACHER_ID, CREATED_BY
+// ============================================
 app.post('/api/admin/lessons', 
     verifyToken,
     (req, res, next) => {
-        // Check if user is admin or teacher
         if (req.user.role !== 'admin' && req.user.role !== 'teacher') {
             return res.status(403).json({
                 success: false,
@@ -3749,15 +3750,35 @@ app.post('/api/admin/lessons',
                 title, 
                 description, 
                 topic_id,
+                module_id,           // ← GET MODULE ID
                 content_type, 
                 youtube_url,
-                module_id,
                 content_id,
-                is_update = 'false'
+                is_update = 'false',
+                assigned_teacher_id  // ← GET ASSIGNED TEACHER ID (optional)
             } = req.body;
             
             const videoFile = req.file;
             const isUpdate = is_update === 'true' || is_update === true;
+            const userId = req.user.id;
+            
+            // ===== GET TEACHER ID FROM TEACHERS TABLE =====
+            let teacherId = null;
+            
+            // Check if user is a teacher (has record in teachers table)
+            const [teacher] = await promisePool.execute(
+                'SELECT teacher_id FROM teachers WHERE user_id = ?',
+                [userId]
+            );
+            
+            if (teacher.length > 0) {
+                teacherId = teacher[0].teacher_id;
+            }
+            
+            // If admin assigned a specific teacher, use that instead
+            if (assigned_teacher_id) {
+                teacherId = assigned_teacher_id;
+            }
             
             // ===== VALIDATION =====
             if (!title) {
@@ -3775,21 +3796,19 @@ app.post('/api/admin/lessons',
             }
             
             // ===== PREPARE CONTENT URLS =====
-let contentUrl = null;
-let filePath = null;
-let videoFilename = null;
+            let contentUrl = null;
+            let filePath = null;
+            let videoFilename = null;
 
-if (youtube_url) {
-    contentUrl = youtube_url;
-    console.log('🔗 YouTube URL:', contentUrl);
-} else if (videoFile) {
-    videoFilename = videoFile.filename;
-    contentUrl = `/videos/${videoFile.filename}`;
-    filePath = `/videos/${videoFile.filename}`;  // ← PINALITAN NA
-    console.log('🎬 Video saved to public/videos/:', videoFilename);
-}
-            
-            const userId = req.user.id;
+            if (youtube_url) {
+                contentUrl = youtube_url;
+                console.log('🔗 YouTube URL:', contentUrl);
+            } else if (videoFile) {
+                videoFilename = videoFile.filename;
+                contentUrl = `/videos/${videoFile.filename}`;
+                filePath = `/videos/${videoFile.filename}`;
+                console.log('🎬 Video saved to public/videos/:', videoFilename);
+            }
             
             // ===== UPDATE EXISTING LESSON =====
             if (isUpdate) {
@@ -3814,6 +3833,12 @@ if (youtube_url) {
                     updateValues.push(module_id);
                 }
                 
+                // Update teacher_id if specified
+                if (teacherId) {
+                    updateFields.push('teacher_id = ?');
+                    updateValues.push(teacherId);
+                }
+                
                 if (youtube_url) {
                     updateFields.push('content_url = ?');
                     updateValues.push(youtube_url);
@@ -3834,70 +3859,6 @@ if (youtube_url) {
                 await promisePool.query(updateQuery, updateValues);
                 console.log('✅ Lesson updated in topic_content_items');
                 
-                // ===== HANDLE VIDEO_UPLOADS TABLE =====
-if (videoFile) {
-    try {
-        await promisePool.query(`
-            CREATE TABLE IF NOT EXISTS video_uploads (
-                upload_id INT AUTO_INCREMENT PRIMARY KEY,
-                content_id INT NOT NULL,
-                original_filename VARCHAR(255),
-                stored_filename VARCHAR(255),
-                file_path VARCHAR(500),
-                file_size BIGINT,
-                uploaded_by INT,
-                upload_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-                is_active BOOLEAN DEFAULT TRUE,
-                FOREIGN KEY (content_id) REFERENCES topic_content_items(content_id) ON DELETE CASCADE
-            )
-        `);
-        
-        const [existingVideo] = await promisePool.query(
-            'SELECT * FROM video_uploads WHERE content_id = ?',
-            [content_id]
-        );
-        
-        if (existingVideo.length > 0) {
-            await promisePool.query(
-                `UPDATE video_uploads 
-                 SET original_filename = ?,
-                     stored_filename = ?,
-                     file_path = ?,
-                     file_size = ?,
-                     uploaded_by = ?,
-                     updated_at = NOW()
-                 WHERE content_id = ?`,
-                [
-                    videoFile.originalname,
-                    videoFile.filename,
-                    filePath,  // ← ITO ANG TIGNAN
-                    videoFile.size,
-                    userId,
-                    content_id
-                ]
-            );
-        } else {
-            await promisePool.query(
-                `INSERT INTO video_uploads 
-                 (content_id, original_filename, stored_filename, file_path, 
-                  file_size, uploaded_by, is_active)
-                 VALUES (?, ?, ?, ?, ?, ?, TRUE)`,
-                [
-                    content_id,
-                    videoFile.originalname,
-                    videoFile.filename,
-                    filePath,  // ← ITO ANG TIGNAN
-                    videoFile.size,
-                    userId
-                ]
-            );
-        }
-    } catch (videoError) {
-        console.error('❌ Video record error:', videoError);
-    }
-}
-                
                 return res.json({
                     success: true,
                     message: 'Lesson updated successfully',
@@ -3907,7 +3868,10 @@ if (videoFile) {
                         content_description: description,
                         content_type: content_type,
                         video_filename: videoFilename,
-                        content_url: contentUrl
+                        content_url: contentUrl,
+                        module_id: module_id || null,
+                        teacher_id: teacherId || null,
+                        created_by: userId
                     }
                 });
             }
@@ -3922,64 +3886,70 @@ if (videoFile) {
             
             const nextOrder = (orderResult[0]?.max_order || 0) + 1;
             
-            const [contentResult] = await promisePool.query(
-                `INSERT INTO topic_content_items 
-                 (topic_id, content_type, content_title, content_description, 
-                  content_url, content_order, is_active, video_filename, module_id)
-                 VALUES (?, ?, ?, ?, ?, ?, TRUE, ?, ?)`,
-                [
-                    topic_id,
-                    content_type || 'video',
-                    title,
-                    description || null,
-                    contentUrl,
-                    nextOrder,
-                    videoFilename,
-                    module_id || null
-                ]
-            );
+            // ===== FIXED: INSERT WITH ALL FIELDS =====
+            const [contentResult] = await promisePool.query(`
+                INSERT INTO topic_content_items 
+                (topic_id, module_id, created_by, teacher_id, content_type, content_title, 
+                 content_description, content_url, content_order, is_active, video_filename)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, TRUE, ?)
+            `, [
+                topic_id,
+                module_id || null,          // ← MODULE_ID
+                userId,                      // ← CREATED_BY (user_id)
+                teacherId,                   // ← TEACHER_ID (from teachers table)
+                content_type || 'video',
+                title,
+                description || null,
+                contentUrl,
+                nextOrder,
+                videoFilename
+            ]);
             
             const newContentId = contentResult.insertId;
             console.log('✅ New lesson created with ID:', newContentId);
+            console.log('📝 Recorded with:');
+            console.log(`   - module_id: ${module_id || 'NULL'}`);
+            console.log(`   - created_by: ${userId} (user_id)`);
+            console.log(`   - teacher_id: ${teacherId || 'NULL'}`);
             
             // ===== INSERT INTO VIDEO_UPLOADS =====
-if (videoFile) {
-    try {
-        await promisePool.query(`
-            CREATE TABLE IF NOT EXISTS video_uploads (
-                upload_id INT AUTO_INCREMENT PRIMARY KEY,
-                content_id INT NOT NULL,
-                original_filename VARCHAR(255),
-                stored_filename VARCHAR(255),
-                file_path VARCHAR(500),
-                file_size BIGINT,
-                uploaded_by INT,
-                upload_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-                is_active BOOLEAN DEFAULT TRUE,
-                FOREIGN KEY (content_id) REFERENCES topic_content_items(content_id) ON DELETE CASCADE
-            )
-        `);
-        
-        await promisePool.query(
-            `INSERT INTO video_uploads 
-             (content_id, original_filename, stored_filename, file_path, 
-              file_size, uploaded_by, is_active)
-             VALUES (?, ?, ?, ?, ?, ?, TRUE)`,
-            [
-                newContentId,
-                videoFile.originalname,
-                videoFile.filename,
-                filePath,  // ← ITO ANG TIGNAN
-                videoFile.size,
-                userId
-            ]
-        );
-        console.log('✅ Video record inserted');
-    } catch (videoError) {
-        console.error('❌ Video record error:', videoError);
-    }
-}
+            if (videoFile) {
+                try {
+                    await promisePool.query(`
+                        CREATE TABLE IF NOT EXISTS video_uploads (
+                            upload_id INT AUTO_INCREMENT PRIMARY KEY,
+                            content_id INT NOT NULL,
+                            original_filename VARCHAR(255),
+                            stored_filename VARCHAR(255),
+                            file_path VARCHAR(500),
+                            file_size BIGINT,
+                            uploaded_by INT,
+                            upload_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                            is_active BOOLEAN DEFAULT TRUE,
+                            FOREIGN KEY (content_id) REFERENCES topic_content_items(content_id) ON DELETE CASCADE
+                        )
+                    `);
+                    
+                    await promisePool.query(
+                        `INSERT INTO video_uploads 
+                         (content_id, original_filename, stored_filename, file_path, 
+                          file_size, uploaded_by, is_active)
+                         VALUES (?, ?, ?, ?, ?, ?, TRUE)`,
+                        [
+                            newContentId,
+                            videoFile.originalname,
+                            videoFile.filename,
+                            filePath,
+                            videoFile.size,
+                            userId
+                        ]
+                    );
+                    console.log('✅ Video record inserted');
+                } catch (videoError) {
+                    console.error('❌ Video record error:', videoError);
+                }
+            }
             
             res.json({
                 success: true,
@@ -3991,7 +3961,10 @@ if (videoFile) {
                     content_type: content_type,
                     video_filename: videoFilename,
                     content_url: contentUrl,
-                    content_order: nextOrder
+                    content_order: nextOrder,
+                    module_id: module_id || null,
+                    teacher_id: teacherId || null,
+                    created_by: userId
                 }
             });
             
