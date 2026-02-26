@@ -12151,9 +12151,7 @@ app.get('/api/health', async (req, res) => {
 });
 
 
-// ============================================
-// ✅ FIXED: AUTHENTICATE TEACHER MIDDLEWARE - Use consistent JWT secret
-// ============================================
+// ===== FIXED: AUTHENTICATE TEACHER MIDDLEWARE =====
 const authenticateTeacher = async (req, res, next) => {
     try {
         const authHeader = req.headers['authorization'];
@@ -12165,49 +12163,46 @@ const authenticateTeacher = async (req, res, next) => {
                 message: 'Access token required' 
             });
         }
-        
-        // ✅ Use the SAME JWT secret as authenticateUser and authenticateAdmin
-        const JWT_SECRET = process.env.JWT_SECRET || 'demo_secret_key_for_development_only';
-        
-        // Verify token with consistent secret
+
+        // Verify token using the SAME JWT_SECRET
         const decoded = jwt.verify(token, JWT_SECRET);
         
-        console.log('🔍 Teacher auth - decoded token:', decoded);
-        
-        // Handle both possible id field names (id or userId)
         const userId = decoded.id || decoded.userId;
         
         if (!userId) {
             return res.status(403).json({ 
                 success: false, 
-                message: 'Invalid token format - no user ID' 
+                message: 'Invalid token format' 
             });
         }
-        
-        // Check if user exists and is teacher or admin
+
+        // CHECK 1: Get user from users table ONLY - no teachers table required!
         const [users] = await promisePool.execute(
             'SELECT user_id, username, email, full_name, role FROM users WHERE user_id = ? AND is_active = 1',
             [userId]
         );
         
         if (users.length === 0) {
+            console.log(`❌ User ${userId} not found or inactive`);
             return res.status(403).json({ 
                 success: false, 
                 message: 'User not found or inactive' 
             });
         }
-        
+
         const user = users[0];
-        
-        // Allow both teachers and admins
+        console.log(`👤 User found: ID=${user.user_id}, Role=${user.role}`);
+
+        // CHECK 2: Verify role is teacher or admin
         if (user.role !== 'teacher' && user.role !== 'admin') {
+            console.log(`⛔ Access denied - role is ${user.role}, not teacher/admin`);
             return res.status(403).json({ 
                 success: false, 
                 message: 'Teacher or admin access required' 
             });
         }
-        
-        // Set user in request object (consistent format)
+
+        // ✅ SUCCESS - attach user to request
         req.user = {
             id: user.user_id,
             userId: user.user_id,
@@ -12216,29 +12211,29 @@ const authenticateTeacher = async (req, res, next) => {
             full_name: user.full_name,
             role: user.role
         };
-        
-        console.log(`✅ Teacher authenticated: ID ${user.user_id}, Role: ${user.role}`);
+
+        console.log(`✅ Teacher auth successful for ${user.username} (${user.role})`);
         next();
         
     } catch (error) {
         console.error('❌ Teacher auth error:', error.message);
         
         if (error.name === 'TokenExpiredError') {
-            return res.status(403).json({ 
+            return res.status(401).json({ 
                 success: false, 
                 message: 'Token expired. Please login again.' 
             });
         } else if (error.name === 'JsonWebTokenError') {
-            return res.status(403).json({ 
+            return res.status(401).json({ 
                 success: false, 
                 message: 'Invalid token signature.' 
             });
-        } else {
-            return res.status(403).json({ 
-                success: false, 
-                message: 'Invalid token: ' + error.message 
-            });
         }
+        
+        return res.status(401).json({ 
+            success: false, 
+            message: 'Authentication failed: ' + error.message 
+        });
     }
 };
 // ===== GET TEACHER DASHBOARD STATS =====
@@ -12333,52 +12328,23 @@ app.get('/api/teacher/dashboard/stats', authenticateToken, async (req, res) => {
     }
 });
 
-// ============================================
-// ✅ GET TEACHER'S STUDENTS
-// ============================================
-// ===== GET TEACHER'S STUDENTS =====
-app.get('/api/teacher/students', authenticateToken, async (req, res) => {
+// ===== FIXED: GET TEACHER'S STUDENTS =====
+app.get('/api/teacher/students', authenticateTeacher, async (req, res) => {
     try {
         const userId = req.user.id;
         
-        console.log(`👥 Fetching students for teacher ${userId}`);
-        
-        // Check if user is teacher or admin
-        const [userCheck] = await promisePool.execute(`
-            SELECT role FROM users WHERE user_id = ?
-        `, [userId]);
-        
-        if (userCheck.length === 0 || (userCheck[0].role !== 'teacher' && userCheck[0].role !== 'admin')) {
-            return res.status(403).json({ 
-                success: false, 
-                message: 'Teacher or admin access required' 
-            });
-        }
-        
-        // Get teacher_id if exists
-        const [teacher] = await promisePool.execute(`
-            SELECT teacher_id FROM teachers WHERE user_id = ?
-        `, [userId]);
-        
-        const teacherId = teacher.length > 0 ? teacher[0].teacher_id : null;
-        
-        // Get students
+        // Don't require teachers table - just use user_id
         const [students] = await promisePool.execute(`
-            SELECT 
+            SELECT DISTINCT
                 u.user_id as id,
                 u.full_name as name,
                 u.email,
                 u.last_login as last_active,
-                u.created_at as joined_date,
                 (
                     SELECT COUNT(*) 
                     FROM user_content_progress ucp 
                     WHERE ucp.user_id = u.user_id 
                     AND ucp.completion_status = 'completed'
-                    AND ucp.content_id IN (
-                        SELECT content_id FROM topic_content_items 
-                        WHERE created_by = ? OR teacher_id = ?
-                    )
                 ) as lessons_completed,
                 (
                     SELECT COALESCE(AVG(score), 0)
@@ -12387,59 +12353,37 @@ app.get('/api/teacher/students', authenticateToken, async (req, res) => {
                     AND uqa.completion_status = 'completed'
                 ) as avg_score
             FROM users u
-            WHERE u.user_id IN (
-                SELECT DISTINCT ucp.user_id
-                FROM user_content_progress ucp
-                JOIN topic_content_items tci ON ucp.content_id = tci.content_id
-                WHERE (tci.created_by = ? OR tci.teacher_id = ?)
-            )
-            AND u.role = 'student'
+            WHERE u.role = 'student'
             AND u.is_active = 1
             ORDER BY u.full_name
-        `, [userId, teacherId, userId, teacherId]);
+        `);
+        
+        const formattedStudents = students.map(s => ({
+            ...s,
+            avatar: getInitials(s.name),
+            last_active: s.last_active ? getTimeAgo(s.last_active) : 'Never'
+        }));
         
         res.json({
             success: true,
-            students: students || []
+            students: formattedStudents,
+            total: formattedStudents.length
         });
         
     } catch (error) {
-        console.error('❌ Error fetching students:', error);
+        console.error('❌ Teacher students error:', error);
         res.status(500).json({ 
             success: false, 
-            message: error.message,
-            students: []
+            message: error.message 
         });
     }
 });
 
-// ===== GET TEACHER'S LESSONS =====
-app.get('/api/teacher/lessons', authenticateToken, async (req, res) => {
+// ===== FIXED: GET TEACHER'S LESSONS =====
+app.get('/api/teacher/lessons', authenticateTeacher, async (req, res) => {
     try {
         const userId = req.user.id;
         
-        console.log(`📚 Fetching lessons for teacher ${userId}`);
-        
-        // Check if user is teacher or admin
-        const [userCheck] = await promisePool.execute(`
-            SELECT role FROM users WHERE user_id = ?
-        `, [userId]);
-        
-        if (userCheck.length === 0 || (userCheck[0].role !== 'teacher' && userCheck[0].role !== 'admin')) {
-            return res.status(403).json({ 
-                success: false, 
-                message: 'Teacher or admin access required' 
-            });
-        }
-        
-        // Get teacher_id if exists
-        const [teacher] = await promisePool.execute(`
-            SELECT teacher_id FROM teachers WHERE user_id = ?
-        `, [userId]);
-        
-        const teacherId = teacher.length > 0 ? teacher[0].teacher_id : null;
-        
-        // Get lessons
         const [lessons] = await promisePool.execute(`
             SELECT 
                 tci.content_id,
@@ -12452,7 +12396,7 @@ app.get('/api/teacher/lessons', authenticateToken, async (req, res) => {
                 tci.created_at,
                 tci.created_by,
                 tci.teacher_id,
-                tci.is_public,
+                tci.topic_id,
                 mt.topic_title,
                 cm.module_name,
                 l.lesson_name,
@@ -12480,17 +12424,18 @@ app.get('/api/teacher/lessons', authenticateToken, async (req, res) => {
             LEFT JOIN course_modules cm ON mt.module_id = cm.module_id
             LEFT JOIN lessons l ON cm.lesson_id = l.lesson_id
             LEFT JOIN users creator ON tci.created_by = creator.user_id
-            WHERE tci.created_by = ? OR tci.teacher_id = ?
+            WHERE 
+                tci.created_by = ?  -- Simple: lessons created by this user
             ORDER BY tci.created_at DESC
-        `, [userId, teacherId]);
+        `, [userId]);
         
         res.json({
             success: true,
-            lessons: lessons || []
+            lessons: lessons
         });
         
     } catch (error) {
-        console.error('❌ Error fetching teacher lessons:', error);
+        console.error('❌ Teacher lessons error:', error);
         res.status(500).json({ 
             success: false, 
             message: error.message 
