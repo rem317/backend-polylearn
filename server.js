@@ -4054,6 +4054,283 @@ app.post('/api/admin/lessons',
         }
     }
 );
+// ============================================
+// TEMPORARY CREATE LESSON ENDPOINT - PARA MAKUHA ANG ID
+// ============================================
+app.post('/api/admin/lessons/create-temp', authenticateAdmin, async (req, res) => {
+    try {
+        const { title, description, topic_id } = req.body;
+        
+        console.log('📝 Creating temporary lesson:', { title, topic_id });
+        
+        // Validate required fields
+        if (!title || !topic_id) {
+            return res.status(400).json({
+                success: false,
+                message: 'Title and topic_id are required'
+            });
+        }
+        
+        // Insert lesson with text content type muna
+        const [result] = await pool.execute(`
+            INSERT INTO topic_content_items (
+                content_title,
+                content_description,
+                topic_id,
+                content_type,
+                created_at,
+                updated_at
+            ) VALUES (?, ?, ?, 'text', NOW(), NOW())
+        `, [title, description || '', topic_id]);
+        
+        const contentId = result.insertId;
+        
+        console.log(`✅ Temporary lesson created with ID: ${contentId}`);
+        
+        res.json({
+            success: true,
+            content_id: contentId,
+            message: 'Temporary lesson created successfully'
+        });
+        
+    } catch (error) {
+        console.error('❌ Error creating temporary lesson:', error);
+        res.status(500).json({
+            success: false,
+            message: error.message,
+            sqlMessage: error.sqlMessage
+        });
+    }
+});
+// ============================================
+// CREATE PERMANENT ADMIN TABLE ENDPOINT
+// ============================================
+app.post('/api/admin/create-permanent-table', authenticateAdmin, async (req, res) => {
+    try {
+        console.log('🛠️ Creating permanent admin table...');
+        
+        // Create admin_users table if not exists
+        await pool.execute(`
+            CREATE TABLE IF NOT EXISTS admin_users (
+                admin_id INT PRIMARY KEY AUTO_INCREMENT,
+                user_id INT UNIQUE NOT NULL,
+                role ENUM('super_admin', 'admin', 'moderator') DEFAULT 'admin',
+                permissions JSON,
+                last_login DATETIME,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                FOREIGN KEY (user_id) REFERENCES users(user_id) ON DELETE CASCADE
+            )
+        `);
+        
+        // Create admin_logs table
+        await pool.execute(`
+            CREATE TABLE IF NOT EXISTS admin_logs (
+                log_id INT PRIMARY KEY AUTO_INCREMENT,
+                admin_id INT,
+                action VARCHAR(255) NOT NULL,
+                details JSON,
+                ip_address VARCHAR(45),
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (admin_id) REFERENCES admin_users(admin_id) ON DELETE SET NULL
+            )
+        `);
+        
+        // Create admin_settings table
+        await pool.execute(`
+            CREATE TABLE IF NOT EXISTS admin_settings (
+                id INT PRIMARY KEY AUTO_INCREMENT,
+                setting_key VARCHAR(100) UNIQUE NOT NULL,
+                setting_value TEXT,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+            )
+        `);
+        
+        // Insert default settings
+        const defaultSettings = {
+            'site_name': 'MathHub Admin',
+            'items_per_page': '20',
+            'session_timeout': '60',
+            'password_min_length': '6',
+            'backup_frequency': 'daily',
+            'log_retention_days': '30',
+            'theme_color': '#7a0000'
+        };
+        
+        for (const [key, value] of Object.entries(defaultSettings)) {
+            await pool.execute(`
+                INSERT IGNORE INTO admin_settings (setting_key, setting_value) 
+                VALUES (?, ?)
+            `, [key, value]);
+        }
+        
+        // Get count of admin users
+        const [adminCount] = await pool.execute(`
+            SELECT COUNT(*) as count FROM admin_users
+        `);
+        
+        res.json({
+            success: true,
+            message: 'Permanent admin tables created successfully',
+            table: 'admin_users, admin_logs, admin_settings',
+            count: adminCount[0].count
+        });
+        
+    } catch (error) {
+        console.error('❌ Error creating admin tables:', error);
+        res.status(500).json({
+            success: false,
+            message: error.message
+        });
+    }
+});
+
+// ============================================
+// ADMIN LESSONS ENDPOINT - CREATE OR UPDATE
+// ============================================
+app.post('/api/admin/lessons', upload.fields([
+    { name: 'video_file', maxCount: 1 },
+    { name: 'pdf_file', maxCount: 1 }
+]), authenticateAdmin, async (req, res) => {
+    try {
+        const { 
+            title, 
+            description, 
+            topic_id, 
+            content_type,
+            content_id,  // ✅ CRITICAL: Kunin ang content_id
+            youtube_url,
+            text_content 
+        } = req.body;
+        
+        const files = req.files;
+        
+        console.log('📥 Received lesson data:', { 
+            title, 
+            topic_id, 
+            content_type, 
+            content_id,  // Dapat may laman ito
+            hasVideo: !!files?.video_file,
+            hasYoutube: !!youtube_url,
+            hasPDF: !!files?.pdf_file
+        });
+
+        // Validate required fields
+        if (!title || !topic_id || !content_type) {
+            return res.status(400).json({
+                success: false,
+                message: 'Missing required fields'
+            });
+        }
+
+        // ✅ Kung may content_id, UPDATE ang existing lesson
+        if (content_id) {
+            console.log(`🔄 Updating existing lesson with ID: ${content_id}`);
+            
+            // Build dynamic SQL based on what's provided
+            let updateFields = [];
+            let queryParams = [];
+            
+            updateFields.push('content_title = ?');
+            queryParams.push(title);
+            
+            updateFields.push('content_description = ?');
+            queryParams.push(description || '');
+            
+            updateFields.push('topic_id = ?');
+            queryParams.push(topic_id);
+            
+            updateFields.push('content_type = ?');
+            queryParams.push(content_type);
+            
+            // Add video filename if uploaded
+            if (files?.video_file) {
+                updateFields.push('video_filename = ?');
+                queryParams.push(files.video_file[0].filename);
+                console.log(`🎬 Updating video_filename: ${files.video_file[0].filename}`);
+            }
+            
+            // Add YouTube URL if provided
+            if (youtube_url && youtube_url.trim() !== '') {
+                updateFields.push('content_url = ?');
+                queryParams.push(youtube_url);
+                console.log(`🔗 Updating content_url: ${youtube_url}`);
+            }
+            
+            // Add text content if provided
+            if (text_content && text_content.trim() !== '') {
+                updateFields.push('text_content = ?');
+                queryParams.push(text_content);
+            }
+            
+            // Always update updated_at
+            updateFields.push('updated_at = NOW()');
+            
+            // Add content_id at the end for WHERE clause
+            queryParams.push(content_id);
+            
+            // Execute update
+            const [updateResult] = await pool.execute(`
+                UPDATE topic_content_items 
+                SET ${updateFields.join(', ')}
+                WHERE content_id = ?
+            `, queryParams);
+            
+            console.log(`✅ Lesson ${content_id} updated successfully`);
+            
+            res.json({
+                success: true,
+                message: 'Lesson updated successfully',
+                content_id: content_id
+            });
+            
+        } else {
+            // INSERT new lesson
+            console.log('➕ Creating new lesson');
+            
+            const [insertResult] = await pool.execute(`
+                INSERT INTO topic_content_items (
+                    content_title,
+                    content_description,
+                    topic_id,
+                    content_type,
+                    video_filename,
+                    content_url,
+                    text_content,
+                    created_at,
+                    updated_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, NOW(), NOW())
+            `, [
+                title,
+                description || '',
+                topic_id,
+                content_type,
+                files?.video_file ? files.video_file[0].filename : null,
+                youtube_url || null,
+                text_content || null
+            ]);
+            
+            const newContentId = insertResult.insertId;
+            
+            console.log(`✅ New lesson created with ID: ${newContentId}`);
+            
+            res.json({
+                success: true,
+                message: 'Lesson created successfully',
+                content_id: newContentId
+            });
+        }
+        
+    } catch (error) {
+        console.error('❌ Error saving lesson:', error);
+        res.status(500).json({
+            success: false,
+            message: error.message,
+            sqlMessage: error.sqlMessage
+        });
+    }
+});
+
 
 // ===== DELETE LESSON =====
 app.delete('/api/admin/lessons/:contentId', verifyToken, async (req, res) => {
@@ -9019,7 +9296,133 @@ app.post('/api/admin/messages', authenticateAdmin, async (req, res) => {
         res.status(500).json({ success: false, message: error.message });
     }
 });
-
+// ============================================
+// ADMIN REPORTS ENDPOINT
+// ============================================
+app.get('/api/admin/reports/:type', authenticateAdmin, async (req, res) => {
+    try {
+        const { type } = req.params;
+        const { date_from, date_to } = req.query;
+        
+        console.log(`📊 Generating ${type} report...`);
+        
+        let data = [];
+        
+        // Build date filter
+        let dateFilter = '';
+        const params = [];
+        
+        if (date_from && date_to) {
+            dateFilter = ' WHERE DATE(created_at) BETWEEN ? AND ?';
+            params.push(date_from, date_to);
+        } else if (date_from) {
+            dateFilter = ' WHERE DATE(created_at) >= ?';
+            params.push(date_from);
+        } else if (date_to) {
+            dateFilter = ' WHERE DATE(created_at) <= ?';
+            params.push(date_to);
+        }
+        
+        switch(type) {
+            case 'feedback':
+                const [feedback] = await pool.execute(`
+                    SELECT 
+                        f.feedback_id as ID,
+                        f.feedback_type as Type,
+                        f.feedback_message as Message,
+                        f.rating as Rating,
+                        f.status as Status,
+                        u.username as User,
+                        u.email as Email,
+                        f.created_at as Date
+                    FROM feedback f
+                    LEFT JOIN users u ON f.user_id = u.user_id
+                    ${dateFilter}
+                    ORDER BY f.created_at DESC
+                `, params);
+                data = feedback;
+                break;
+                
+            case 'users':
+                const [users] = await pool.execute(`
+                    SELECT 
+                        user_id as ID,
+                        username as Username,
+                        email as Email,
+                        full_name as Name,
+                        role as Role,
+                        created_at as Registered,
+                        last_login as LastLogin
+                    FROM users
+                    ${dateFilter}
+                    ORDER BY created_at DESC
+                `, params);
+                data = users;
+                break;
+                
+            case 'lessons':
+                const [lessons] = await pool.execute(`
+                    SELECT 
+                        tci.content_id as ID,
+                        tci.content_title as Title,
+                        t.topic_title as Topic,
+                        m.module_name as Module,
+                        l.lesson_name as Lesson,
+                        tci.content_type as Type,
+                        tci.created_at as Created,
+                        (SELECT COUNT(*) FROM user_content_progress WHERE content_id = tci.content_id) as TotalAttempts,
+                        (SELECT COUNT(*) FROM user_content_progress WHERE content_id = tci.content_id AND completion_status = 'completed') as Completed
+                    FROM topic_content_items tci
+                    JOIN topics t ON tci.topic_id = t.topic_id
+                    JOIN modules m ON t.module_id = m.module_id
+                    JOIN lessons l ON m.lesson_id = l.lesson_id
+                    ${dateFilter}
+                    ORDER BY tci.created_at DESC
+                `, params);
+                data = lessons;
+                break;
+                
+            case 'activity':
+                const [activity] = await pool.execute(`
+                    SELECT 
+                        al.log_id as ID,
+                        u.username as User,
+                        al.action as Action,
+                        al.details as Details,
+                        al.ip_address as IP,
+                        al.created_at as Time
+                    FROM admin_logs al
+                    JOIN admin_users au ON al.admin_id = au.admin_id
+                    JOIN users u ON au.user_id = u.user_id
+                    ${dateFilter}
+                    ORDER BY al.created_at DESC
+                    LIMIT 1000
+                `, params);
+                data = activity;
+                break;
+                
+            default:
+                return res.status(400).json({
+                    success: false,
+                    message: 'Invalid report type'
+                });
+        }
+        
+        res.json({
+            success: true,
+            type: type,
+            count: data.length,
+            data: data
+        });
+        
+    } catch (error) {
+        console.error('❌ Error generating report:', error);
+        res.status(500).json({
+            success: false,
+            message: error.message
+        });
+    }
+});
 // ============================================
 // GET RECENT ACTIVITY
 // ============================================
@@ -9188,28 +9591,33 @@ app.get('/api/lessons-db/complete', verifyToken, async (req, res) => {
     }
 });
 
-// Get specific lesson content
-app.get('/api/lessons-db/:contentId', verifyToken, async (req, res) => {
+// ============================================
+// GET SPECIFIC LESSON BY ID
+// ============================================
+app.get('/api/lessons-db/:contentId', authenticateToken, async (req, res) => {
     try {
         const { contentId } = req.params;
-        const userId = req.user.id;
+        const userId = req.user?.user_id || req.user?.id;
         
-        console.log('📖 Fetching lesson content ID:', contentId);
+        console.log(`📚 Fetching lesson with ID: ${contentId}`);
         
-        const [lessons] = await promisePool.execute(`
+        // Get lesson details - SPECIFIC LESSON LANG
+        const [lessons] = await pool.execute(`
             SELECT 
                 tci.*,
-                mt.topic_id,
-                mt.topic_title,
-                cm.module_id,
-                cm.module_name,
+                t.topic_title,
+                t.topic_description,
+                m.module_id,
+                m.module_name,
+                m.module_description,
                 l.lesson_id,
-                l.lesson_name
+                l.lesson_name,
+                l.lesson_description
             FROM topic_content_items tci
-            JOIN module_topics mt ON tci.topic_id = mt.topic_id
-            JOIN course_modules cm ON mt.module_id = cm.module_id
-            JOIN lessons l ON cm.lesson_id = l.lesson_id
-            WHERE tci.content_id = ? AND tci.is_active = TRUE
+            LEFT JOIN topics t ON tci.topic_id = t.topic_id
+            LEFT JOIN modules m ON t.module_id = m.module_id
+            LEFT JOIN lessons l ON m.lesson_id = l.lesson_id
+            WHERE tci.content_id = ?  -- SPECIFIC LESSON LANG
         `, [contentId]);
         
         if (lessons.length === 0) {
@@ -9221,70 +9629,36 @@ app.get('/api/lessons-db/:contentId', verifyToken, async (req, res) => {
         
         const lesson = lessons[0];
         
-        const [progress] = await promisePool.execute(`
-            SELECT * FROM user_content_progress 
-            WHERE user_id = ? AND content_id = ?
-        `, [userId, contentId]);
+        // Get user progress for this specific lesson
+        let progress = null;
+        if (userId) {
+            const [progressRows] = await pool.execute(`
+                SELECT * FROM user_content_progress 
+                WHERE user_id = ? AND content_id = ?  -- SPECIFIC LESSON LANG
+            `, [userId, contentId]);
+            
+            if (progressRows.length > 0) {
+                progress = progressRows[0];
+            }
+        }
         
-        const lessonProgress = progress.length > 0 ? progress[0] : null;
-        
-        const [adjacentLessons] = await promisePool.execute(`
-            SELECT 
-                prev.content_id as prev_id,
-                prev.content_title as prev_title,
-                next.content_id as next_id,
-                next.content_title as next_title
-            FROM topic_content_items current
-            LEFT JOIN topic_content_items prev ON (
-                prev.topic_id = current.topic_id 
-                AND prev.content_order = current.content_order - 1
-                AND prev.is_active = TRUE
-            )
-            LEFT JOIN topic_content_items next ON (
-                next.topic_id = current.topic_id 
-                AND next.content_order = current.content_order + 1
-                AND next.is_active = TRUE
-            )
-            WHERE current.content_id = ?
-        `, [contentId]);
-        
-        const adjacent = adjacentLessons[0] || {};
+        // Add progress to lesson
+        lesson.progress = progress;
         
         res.json({
             success: true,
-            lesson: {
-                ...lesson,
-                progress: lessonProgress ? {
-                    status: lessonProgress.completion_status,
-                    percentage: lessonProgress.score || 0,
-                    time_spent_seconds: lessonProgress.time_spent_seconds,
-                    last_accessed: lessonProgress.last_accessed
-                } : {
-                    status: 'not_started',
-                    percentage: 0,
-                    time_spent_seconds: 0
-                },
-                adjacent: {
-                    previous: adjacent.prev_id ? {
-                        id: adjacent.prev_id,
-                        title: adjacent.prev_title
-                    } : null,
-                    next: adjacent.next_id ? {
-                        id: adjacent.next_id,
-                        title: adjacent.next_title
-                    } : null
-                }
-            }
+            lesson: lesson
         });
         
     } catch (error) {
-        console.error('❌ Get lesson error:', error.message);
+        console.error('❌ Error fetching lesson:', error);
         res.status(500).json({
             success: false,
-            message: 'Failed to get lesson'
+            message: error.message
         });
     }
 });
+
 
 // Mark lesson as complete
 app.post('/api/lessons/:contentId/complete', verifyToken, async (req, res) => {
@@ -10289,10 +10663,6 @@ app.get('/api/practice/user/stats', authenticateUser, async (req, res) => {
     }
 });
 
-
-// ============================================
-// TOPICS PROGRESS ENDPOINT - GET ALL TOPICS WITH USER PROGRESS
-// ============================================
 // ============================================
 // FIXED: PRACTICE TOPIC ENDPOINT - WITH PROPER ERROR CHECKING
 // ============================================
@@ -10720,6 +11090,49 @@ app.post('/api/progress/update-daily', authenticateUser, async (req, res) => {
 });
 
 
+// ============================================
+// ADMIN SETTINGS ENDPOINT
+// ============================================
+app.post('/api/admin/settings', authenticateAdmin, async (req, res) => {
+    try {
+        const settings = req.body;
+        
+        console.log('📥 Saving admin settings:', settings);
+        
+        // Check if settings table exists, create if not
+        await pool.execute(`
+            CREATE TABLE IF NOT EXISTS admin_settings (
+                id INT PRIMARY KEY AUTO_INCREMENT,
+                setting_key VARCHAR(100) UNIQUE NOT NULL,
+                setting_value TEXT,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+            )
+        `);
+        
+        // Save each setting
+        for (const [key, value] of Object.entries(settings)) {
+            const stringValue = typeof value === 'boolean' ? (value ? '1' : '0') : String(value);
+            
+            await pool.execute(`
+                INSERT INTO admin_settings (setting_key, setting_value) 
+                VALUES (?, ?)
+                ON DUPLICATE KEY UPDATE setting_value = VALUES(setting_value)
+            `, [key, stringValue]);
+        }
+        
+        res.json({
+            success: true,
+            message: 'Settings saved successfully'
+        });
+        
+    } catch (error) {
+        console.error('❌ Error saving settings:', error);
+        res.status(500).json({
+            success: false,
+            message: error.message
+        });
+    }
+});
 
 
 // GET /api/auth/me
@@ -12331,11 +12744,9 @@ app.get('/api/teacher/dashboard/stats', authenticateToken, async (req, res) => {
 // ===== FIXED: GET ALL STUDENTS FROM USERS TABLE =====
 app.get('/api/teacher/students', authenticateTeacher, async (req, res) => {
     try {
-        const userId = req.user.id;
+        console.log('📥 Fetching all students from users table...');
         
-        console.log(`📥 Fetching ALL students for teacher ID: ${userId}`);
-        
-        // Get ALL users with role 'student' from the users table
+        // Get ALL users with role 'student' from users table
         const [students] = await promisePool.execute(`
             SELECT 
                 u.user_id as id,
@@ -12345,7 +12756,7 @@ app.get('/api/teacher/students', authenticateTeacher, async (req, res) => {
                 u.last_login as last_active,
                 u.created_at as joined_date,
                 u.is_active,
-                -- Get lesson completion stats (optional, can be 0)
+                -- Get lesson completion stats (can be 0 for new students)
                 (
                     SELECT COUNT(*) 
                     FROM user_content_progress ucp 
@@ -12369,35 +12780,40 @@ app.get('/api/teacher/students', authenticateTeacher, async (req, res) => {
             ORDER BY u.full_name, u.username
         `);
         
-        console.log(`✅ Found ${students.length} total students in users table`);
+        console.log(`✅ Found ${students.length} students in users table`);
         
         // Log all student IDs for debugging
-        console.log('Student IDs:', students.map(s => s.id).join(', '));
+        if (students.length > 0) {
+            console.log('Student IDs:', students.map(s => s.id).join(', '));
+        } else {
+            console.log('⚠️ No students found with role = "student"');
+            
+            // Debug: Check what roles exist
+            const [allUsers] = await promisePool.execute(`
+                SELECT role, COUNT(*) as count 
+                FROM users 
+                GROUP BY role
+            `);
+            console.log('User roles in database:', allUsers);
+        }
         
-        // Format the response
+        // Format the response for frontend
         const formattedStudents = students.map(s => ({
             id: s.id,
-            name: s.name || s.username || 'Unknown',
+            name: s.name || s.username || 'Unknown Student',
             username: s.username,
-            email: s.email,
-            avatar: getInitials(s.name || s.username || 'Student'),
-            lessons_completed: s.lessons_completed || 0,
-            avg_score: Math.round(s.avg_score || 0),
-            quizzes_taken: s.quizzes_taken || 0,
+            email: s.email || 'No email',
+            avatar: getInitials(s.name || s.username || 'S'),
+            lessons_completed: parseInt(s.lessons_completed) || 0,
+            avg_score: Math.round(parseFloat(s.avg_score) || 0),
+            quizzes_taken: parseInt(s.quizzes_taken) || 0,
             last_active: s.last_active ? getTimeAgo(s.last_active) : 'Never',
             joined_date: s.joined_date,
             is_active: s.is_active === 1
         }));
         
-        // Count students per subject (based on their completed lessons)
-        const subjectCounts = {
-            polynomial: 0,
-            factorial: 0,
-            mdas: 0
-        };
-        
-        // Get subject distribution
-        const [subjectStudents] = await promisePool.execute(`
+        // Get subject counts (optional)
+        const [subjectCounts] = await promisePool.execute(`
             SELECT 
                 l.lesson_name,
                 COUNT(DISTINCT ucp.user_id) as student_count
@@ -12411,30 +12827,57 @@ app.get('/api/teacher/students', authenticateTeacher, async (req, res) => {
             GROUP BY l.lesson_id
         `);
         
-        subjectStudents.forEach(row => {
+        const subjectData = {
+            polynomial: 0,
+            factorial: 0,
+            mdas: 0
+        };
+        
+        subjectCounts.forEach(row => {
             const name = row.lesson_name?.toLowerCase() || '';
-            if (name.includes('poly')) subjectCounts.polynomial = row.student_count || 0;
-            else if (name.includes('fact')) subjectCounts.factorial = row.student_count || 0;
-            else if (name.includes('math')) subjectCounts.mdas = row.student_count || 0;
+            if (name.includes('poly')) subjectData.polynomial = row.student_count || 0;
+            else if (name.includes('fact')) subjectData.factorial = row.student_count || 0;
+            else if (name.includes('math')) subjectData.mdas = row.student_count || 0;
         });
         
         res.json({
             success: true,
             students: formattedStudents,
             total: formattedStudents.length,
-            subject_counts: subjectCounts
+            subject_counts: subjectData
         });
         
     } catch (error) {
-        console.error('❌ Teacher students error:', error);
+        console.error('❌ Error fetching students:', error);
         res.status(500).json({ 
             success: false, 
             message: error.message,
             students: [],
+            total: 0,
             subject_counts: { polynomial: 0, factorial: 0, mdas: 0 }
         });
     }
 });
+// Helper function for time ago formatting
+function getTimeAgo(date) {
+    if (!date) return 'Never';
+    
+    const now = new Date();
+    const past = new Date(date);
+    const diffMs = now - past;
+    const diffMins = Math.floor(diffMs / 60000);
+    const diffHours = Math.floor(diffMs / 3600000);
+    const diffDays = Math.floor(diffMs / 86400000);
+    
+    if (diffMins < 1) return 'Just now';
+    if (diffMins < 60) return `${diffMins} min ago`;
+    if (diffHours < 24) return `${diffHours} hour${diffHours > 1 ? 's' : ''} ago`;
+    if (diffDays === 1) return 'Yesterday';
+    if (diffDays < 7) return `${diffDays} days ago`;
+    
+    return past.toLocaleDateString();
+}
+
 
 // ===== FIXED: GET TEACHER'S LESSONS =====
 app.get('/api/teacher/lessons', authenticateTeacher, async (req, res) => {
