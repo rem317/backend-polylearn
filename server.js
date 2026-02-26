@@ -60,18 +60,6 @@ app.use((req, res, next) => {
 });
 
 
-// Sa may bandang simula ng server.js, after database connection
-app.listen(PORT, async () => {
-    console.log(`🚀 Server running on port ${PORT}`);
-    
-    // Create feedback table on startup
-    try {
-        await createFeedbackTable();
-        console.log('✅ Feedback table ready');
-    } catch (error) {
-        console.error('❌ Failed to create feedback table:', error);
-    }
-});
 
 // ============================================
 // ✅ TEACHER ROUTES - I-ORDER NG MAAYOS
