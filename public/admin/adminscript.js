@@ -196,6 +196,220 @@ async function loadTeachersForAssignment() {
     }
 }
 
+
+// ============================================
+// SAVE ALL ADMIN SETTINGS
+// ============================================
+async function saveAllSettings() {
+    console.log("💾 Saving all admin settings...");
+    
+    try {
+        const token = localStorage.getItem('admin_token') || localStorage.getItem('authToken');
+        
+        if (!token) {
+            alert('Please login as admin first');
+            return;
+        }
+        
+        // Collect all settings from the form
+        const settings = {
+            site_name: document.getElementById('siteName')?.value || 'MathHub',
+            site_description: document.getElementById('siteDescription')?.value || '',
+            admin_email: document.getElementById('adminEmail')?.value || '',
+            maintenance_mode: document.getElementById('maintenanceMode')?.checked || false,
+            allow_registration: document.getElementById('allowRegistration')?.checked || true,
+            default_user_role: document.getElementById('defaultUserRole')?.value || 'student',
+            items_per_page: parseInt(document.getElementById('itemsPerPage')?.value) || 20,
+            session_timeout: parseInt(document.getElementById('sessionTimeout')?.value) || 60,
+            password_min_length: parseInt(document.getElementById('passwordMinLength')?.value) || 6,
+            require_email_verification: document.getElementById('requireEmailVerification')?.checked || false,
+            enable_notifications: document.getElementById('enableNotifications')?.checked || true,
+            enable_email_alerts: document.getElementById('enableEmailAlerts')?.checked || false,
+            enable_sms_alerts: document.getElementById('enableSmsAlerts')?.checked || false,
+            backup_frequency: document.getElementById('backupFrequency')?.value || 'daily',
+            log_retention_days: parseInt(document.getElementById('logRetentionDays')?.value) || 30,
+            theme_color: document.getElementById('themeColor')?.value || '#7a0000',
+            sidebar_collapsed: document.getElementById('sidebarCollapsed')?.checked || false
+        };
+        
+        console.log('📤 Saving settings:', settings);
+        
+        // Show loading
+        const saveBtn = document.querySelector('button[onclick="saveAllSettings()"]');
+        const originalText = saveBtn.innerHTML;
+        saveBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Saving...';
+        saveBtn.disabled = true;
+        
+        const response = await fetch('/api/admin/settings', {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(settings)
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            alert('✅ Settings saved successfully!');
+            
+            // Apply theme color if changed
+            if (settings.theme_color) {
+                document.documentElement.style.setProperty('--primary-color', settings.theme_color);
+                localStorage.setItem('admin_theme_color', settings.theme_color);
+            }
+        } else {
+            alert('❌ Failed to save settings: ' + result.message);
+        }
+        
+    } catch (error) {
+        console.error('Error saving settings:', error);
+        alert('Error: ' + error.message);
+    } finally {
+        // Restore button
+        const saveBtn = document.querySelector('button[onclick="saveAllSettings()"]');
+        if (saveBtn) {
+            saveBtn.innerHTML = '<i class="fas fa-save"></i> Save All Settings';
+            saveBtn.disabled = false;
+        }
+    }
+}
+
+// Make function globally available
+window.saveAllSettings = saveAllSettings;
+
+
+// ============================================
+// GENERATE REPORT - DOWNLOAD AS CSV/EXCEL
+// ============================================
+async function generateReport() {
+    console.log("📊 Generating report...");
+    
+    try {
+        const token = localStorage.getItem('admin_token') || localStorage.getItem('authToken');
+        
+        if (!token) {
+            alert('Please login as admin first');
+            return;
+        }
+        
+        // Get report type from dropdown
+        const reportTypeSelect = document.getElementById('reportType');
+        const reportType = reportTypeSelect ? reportTypeSelect.value : 'feedback';
+        
+        // Get date range
+        const dateFrom = document.getElementById('dateFrom')?.value || '';
+        const dateTo = document.getElementById('dateTo')?.value || '';
+        
+        // Show loading
+        const reportBtn = document.querySelector('button[onclick="generateReport()"]');
+        const originalText = reportBtn.innerHTML;
+        reportBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Generating...';
+        reportBtn.disabled = true;
+        
+        console.log(`📥 Fetching ${reportType} report data...`);
+        
+        // Build URL with query parameters
+        let url = `/api/admin/reports/${reportType}`;
+        const params = new URLSearchParams();
+        if (dateFrom) params.append('date_from', dateFrom);
+        if (dateTo) params.append('date_to', dateTo);
+        if (params.toString()) url += '?' + params.toString();
+        
+        const response = await fetch(url, {
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+            }
+        });
+        
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        
+        const result = await response.json();
+        
+        if (result.success && result.data) {
+            // Convert to CSV
+            const csv = convertToCSV(result.data);
+            
+            // Create filename with date
+            const today = new Date().toISOString().split('T')[0];
+            const filename = `${reportType}_report_${today}.csv`;
+            
+            // Download file
+            downloadFile(csv, filename, 'text/csv');
+            
+            console.log(`✅ Report downloaded: ${filename}`);
+        } else {
+            alert('No data available for the selected period');
+        }
+        
+    } catch (error) {
+        console.error('❌ Error generating report:', error);
+        alert('Error generating report: ' + error.message);
+    } finally {
+        // Restore button
+        const reportBtn = document.querySelector('button[onclick="generateReport()"]');
+        if (reportBtn) {
+            reportBtn.innerHTML = '<i class="fas fa-download"></i> Generate Report';
+            reportBtn.disabled = false;
+        }
+    }
+}
+
+// ============================================
+// CONVERT JSON TO CSV
+// ============================================
+function convertToCSV(data) {
+    if (!data || data.length === 0) return '';
+    
+    // Get headers
+    const headers = Object.keys(data[0]);
+    
+    // Create CSV rows
+    const csvRows = [];
+    
+    // Add headers
+    csvRows.push(headers.join(','));
+    
+    // Add data rows
+    for (const row of data) {
+        const values = headers.map(header => {
+            const value = row[header] || '';
+            // Escape commas and quotes
+            return `"${String(value).replace(/"/g, '""')}"`;
+        });
+        csvRows.push(values.join(','));
+    }
+    
+    return csvRows.join('\n');
+}
+
+// ============================================
+// DOWNLOAD FILE
+// ============================================
+function downloadFile(content, filename, contentType) {
+    const blob = new Blob([content], { type: contentType });
+    const url = window.URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    window.URL.revokeObjectURL(url);
+}
+
+// Make functions globally available
+window.generateReport = generateReport;
+window.convertToCSV = convertToCSV;
+window.downloadFile = downloadFile;
+
+
+
+
 // ===== POPULATE TEACHER DROPDOWN =====
 function populateTeacherDropdown(dropdownId, teachers) {
     const dropdown = document.getElementById(dropdownId);
