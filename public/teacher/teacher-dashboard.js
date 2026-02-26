@@ -68,6 +68,20 @@ window.viewSubjectLessons = viewSubjectLessons;
 
 console.log("✅ All functions registered globally");
 
+// ===== DEFAULT MODULES FUNCTION =====
+function getDefaultModules() {
+    return [
+        { id: 1, name: 'Introduction', lesson_id: 1, lesson_name: 'PolyLearn' },
+        { id: 2, name: 'Basic Concepts', lesson_id: 1, lesson_name: 'PolyLearn' },
+        { id: 3, name: 'Advanced Topics', lesson_id: 1, lesson_name: 'PolyLearn' },
+        { id: 4, name: 'Introduction', lesson_id: 2, lesson_name: 'FactoLearn' },
+        { id: 5, name: 'Fundamentals', lesson_id: 2, lesson_name: 'FactoLearn' },
+        { id: 6, name: 'Practice Problems', lesson_id: 2, lesson_name: 'FactoLearn' },
+        { id: 7, name: 'Getting Started', lesson_id: 3, lesson_name: 'MathEase' },
+        { id: 8, name: 'Core Operations', lesson_id: 3, lesson_name: 'MathEase' },
+        { id: 9, name: 'Applications', lesson_id: 3, lesson_name: 'MathEase' }
+    ];
+}
 // ===== FIXED: SUBJECT DATA WITH STUDENTS PROPERTY =====
 const subjectData = {
     polynomial: {
@@ -789,7 +803,24 @@ function showLessonDashboard(e) {
         loadLessonData();
     }
 }
-
+// ===== POPULATE TOPIC DROPDOWN =====
+function populateTopicDropdown(topics) {
+    const topicSelect = document.getElementById('createLessonTopic');
+    if (!topicSelect) return;
+    
+    let options = '<option value="">-- Select Topic --</option>';
+    
+    if (topics && topics.length > 0) {
+        topics.forEach(topic => {
+            options += `<option value="${topic.id}">📌 ${topic.name}</option>`;
+        });
+    } else {
+        options = '<option value="">-- No topics available --</option>';
+    }
+    
+    topicSelect.innerHTML = options;
+    console.log(`✅ Populated topic dropdown with ${topics ? topics.length : 0} topics`);
+}
 // ===== SHOW FEEDBACK DASHBOARD (WITH SCROLL TO TOP) =====
 function showFeedbackDashboard(e) {
     if (e) e.preventDefault();
@@ -2637,8 +2668,7 @@ async function createNewLesson() {
         saveBtn.innerHTML = originalText;
     }
 }
-// ===== LOAD TEACHER MODULES FROM DATABASE =====
-// ===== UPDATED: LOAD TEACHER MODULES FROM DATABASE =====
+// ===== UPDATED: LOAD TEACHER MODULES =====
 async function loadTeacherModules(forceRefresh = false) {
     console.log('📦 Loading teacher modules from database...');
     
@@ -2649,6 +2679,10 @@ async function loadTeacherModules(forceRefresh = false) {
     
     try {
         const token = localStorage.getItem('authToken');
+        
+        if (!token) {
+            throw new Error('No authentication token found');
+        }
         
         const response = await fetch(`/api/teacher/modules`, {
             headers: { 'Authorization': `Bearer ${token}` }
@@ -2670,15 +2704,15 @@ async function loadTeacherModules(forceRefresh = false) {
         
     } catch (error) {
         console.error('❌ Error loading modules:', error);
-        showNotification('warning', 'Modules Unavailable', 'Using default modules');
+        console.warn('📢 [warning] Modules Unavailable: Using default modules');
         
         // ===== FALLBACK TO DEFAULT MODULES =====
-        teacherModules = getDefaultModules();  // <-- This will now work
+        teacherModules = getDefaultModules();  // <-- Now this will work
         console.log(`✅ Using ${teacherModules.length} default modules as fallback`);
         return teacherModules;
     }
 }
-// ===== SIMPLIFIED: GET ALL TOPICS (NO FILTERING) =====
+// ===== FIXED: LOAD TEACHER TOPICS =====
 async function loadTeacherTopics(forceRefresh = false) {
     console.log('📚 Loading ALL topics from database (no filtering)...');
     
@@ -2688,7 +2722,7 @@ async function loadTeacherTopics(forceRefresh = false) {
     }
     
     try {
-        const token = localStorage.getItem('authToken');
+        const token = localStorage.getItem('authToken'); // <-- MOVE THIS INSIDE
         
         if (!token) {
             console.error('❌ No auth token found');
@@ -2697,7 +2731,6 @@ async function loadTeacherTopics(forceRefresh = false) {
         }
         
         // ===== GET ALL TOPICS FROM MODULE_TOPICS TABLE =====
-        // This gets ALL topics regardless of who created them
         const response = await fetch(`/api/admin/topics`, {
             headers: { 'Authorization': `Bearer ${token}` }
         });
@@ -2729,15 +2762,22 @@ async function loadTeacherTopics(forceRefresh = false) {
         console.error('❌ Error loading topics:', error);
         
         // Fallback to structure endpoint
-        return await loadTopicsFromStructure(token);
+        return await loadTopicsFromStructure();
     }
 }
 
-// ===== FALLBACK: GET TOPICS FROM STRUCTURE ENDPOINT =====
-async function loadTopicsFromStructure(token) {
+// ===== FALLBACK: LOAD TOPICS FROM STRUCTURE =====
+async function loadTopicsFromStructure() {
     console.log('📚 Loading topics from structure endpoint...');
     
     try {
+        const token = localStorage.getItem('authToken');
+        
+        if (!token) {
+            teacherTopics = [];
+            return [];
+        }
+        
         const response = await fetch(`/api/admin/structure`, {
             headers: { 'Authorization': `Bearer ${token}` }
         });
@@ -2771,7 +2811,6 @@ async function loadTopicsFromStructure(token) {
         return [];
     }
 }
-
 // ===== NEW: AUTO-CREATE GENERAL MODULE =====
 // ===== UPDATED: AUTO-CREATE GENERAL MODULE =====
 async function autoCreateGeneralModule() {
