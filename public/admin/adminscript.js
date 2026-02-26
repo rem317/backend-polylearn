@@ -8728,8 +8728,7 @@ async function editAllLessons(subject, e) {
     }
 }
 
-// ===== OPEN EDIT LESSONS LIST =====
-// ===== FIXED OPEN EDIT LESSONS LIST =====
+// ===== OPEN EDIT LESSONS LIST - COMPLETE FIXED VERSION =====
 async function openEditLessonsList(subject, e) {
     if (e) {
         e.preventDefault();
@@ -8746,12 +8745,19 @@ async function openEditLessonsList(subject, e) {
     const subjectId = getSubjectIdFromName(subject);
     const subjectDisplayName = getSubjectDisplayName(subject);
     
-    // GET THE MODAL - I-VERIFY MUNA KUNG EXIST
+    // GET THE MODAL
     let modal = document.getElementById('questionModal');
     if (!modal) {
         console.error("❌ questionModal not found!");
-        alert("Modal not found. Please check the HTML.");
-        return;
+        
+        // Try to create modal if it doesn't exist
+        createQuestionModal();
+        modal = document.getElementById('questionModal');
+        
+        if (!modal) {
+            alert("Modal not found. Please refresh the page.");
+            return;
+        }
     }
     
     // GET MODAL BODY
@@ -8760,6 +8766,12 @@ async function openEditLessonsList(subject, e) {
         console.error("❌ modalBody not found!");
         alert("Modal body not found!");
         return;
+    }
+    
+    // HIDE SEND MESSAGE BUTTON
+    const sendMsgBtn = document.getElementById('sendMessageBtn');
+    if (sendMsgBtn) {
+        sendMsgBtn.style.display = 'none';
     }
     
     // CLEAR PREVIOUS CONTENT AT MAG-SHOW NG LOADING
@@ -8776,19 +8788,37 @@ async function openEditLessonsList(subject, e) {
         modalTitle.innerHTML = `<i class="fas fa-edit"></i> ${subjectDisplayName} Lessons`;
     }
     
-    // HIDE SEND MESSAGE BUTTON (kung meron)
-    const sendMsgBtn = document.getElementById('sendMessageBtn');
-    if (sendMsgBtn) {
-        sendMsgBtn.style.display = 'none';
-    }
-    
     // SHOW MODAL
     modal.style.display = 'flex';
     modal.style.zIndex = '9999';
     document.body.classList.add('modal-open');
     
     try {
-        const token = localStorage.getItem('admin_token') || localStorage.getItem('authToken');
+        // ✅ GET TOKEN FROM MULTIPLE POSSIBLE LOCATIONS
+        let token = localStorage.getItem('admin_token') || 
+                    localStorage.getItem('authToken') || 
+                    '';
+        
+        console.log("🔑 Token check:", token ? "Token exists" : "No token");
+        
+        if (!token) {
+            console.log("⚠️ No token found, trying to sync admin auth...");
+            
+            // Try to sync from mathhub_user
+            const userJson = localStorage.getItem('mathhub_user');
+            if (userJson) {
+                try {
+                    const user = JSON.parse(userJson);
+                    if (user.role === 'admin') {
+                        token = localStorage.getItem('authToken');
+                        localStorage.setItem('admin_token', token);
+                        console.log("✅ Admin token synced successfully");
+                    }
+                } catch (e) {
+                    console.error("❌ Error parsing user data:", e);
+                }
+            }
+        }
         
         if (!token) {
             modalBody.innerHTML = `
@@ -8796,19 +8826,77 @@ async function openEditLessonsList(subject, e) {
                     <i class="fas fa-lock" style="font-size: 3rem; color: #f57c00; margin-bottom: 15px;"></i>
                     <h4 style="color: #f57c00; margin-bottom: 10px;">Authentication Required</h4>
                     <p style="color: #666;">Please login as admin first.</p>
+                    <div style="display: flex; gap: 10px; justify-content: center; margin-top: 20px;">
+                        <button class="btn btn-primary" onclick="window.location.href='login.html'" style="background: #7a0000;">
+                            <i class="fas fa-sign-in-alt"></i> Go to Login
+                        </button>
+                        <button class="btn btn-secondary" onclick="closeModal()">
+                            <i class="fas fa-times"></i> Close
+                        </button>
+                    </div>
                 </div>
             `;
             return;
         }
         
-        console.log("📡 Fetching from:", `${API_BASE_URL}/api/lessons/by-subject/${subjectId}`);
+        console.log("📡 Fetching from:", `/api/lessons/by-subject/${subjectId}`);
+        console.log("🔑 Using token (first 20 chars):", token.substring(0, 20) + '...');
         
         const response = await fetch(`/api/lessons/by-subject/${subjectId}`, {
+            method: 'GET',
             headers: { 
                 'Authorization': `Bearer ${token}`,
-                'Content-Type': 'application/json'
+                'Content-Type': 'application/json',
+                'Accept': 'application/json'
             }
         });
+        
+        console.log("📥 Response status:", response.status);
+        
+        // ✅ HANDLE 403 - TRY TO REFRESH TOKEN
+        if (response.status === 403 || response.status === 401) {
+            console.log("🔄 403/401 error - trying to refresh token...");
+            
+            // Try to refresh token
+            const userJson = localStorage.getItem('mathhub_user');
+            const authToken = localStorage.getItem('authToken');
+            
+            if (userJson && authToken) {
+                try {
+                    const user = JSON.parse(userJson);
+                    if (user.role === 'admin') {
+                        localStorage.setItem('admin_token', authToken);
+                        console.log("✅ Token refreshed, retrying...");
+                        
+                        // Retry with new token
+                        setTimeout(() => {
+                            openEditLessonsList(subject, e);
+                        }, 100);
+                        return;
+                    }
+                } catch (e) {
+                    console.error("❌ Error refreshing token:", e);
+                }
+            }
+            
+            // If refresh failed, show login message
+            modalBody.innerHTML = `
+                <div style="text-align: center; padding: 40px;">
+                    <i class="fas fa-exclamation-triangle" style="font-size: 3rem; color: #f44336; margin-bottom: 15px;"></i>
+                    <h4 style="color: #f44336; margin-bottom: 10px;">Session Expired</h4>
+                    <p style="color: #666; margin-bottom: 20px;">Please login again.</p>
+                    <div style="display: flex; gap: 10px; justify-content: center;">
+                        <button class="btn btn-primary" onclick="window.location.href='login.html'" style="background: #7a0000;">
+                            <i class="fas fa-sign-in-alt"></i> Login
+                        </button>
+                        <button class="btn btn-secondary" onclick="closeModal()">
+                            <i class="fas fa-times"></i> Close
+                        </button>
+                    </div>
+                </div>
+            `;
+            return;
+        }
         
         if (!response.ok) {
             throw new Error(`HTTP error! status: ${response.status}`);
@@ -8826,26 +8914,44 @@ async function openEditLessonsList(subject, e) {
                         <i class="fas fa-book-open" style="font-size: 3rem; color: #ccc; margin-bottom: 15px;"></i>
                         <h4 style="color: #666; margin-bottom: 5px;">No Lessons Found</h4>
                         <p style="color: #999; margin-bottom: 20px;">Create your first lesson for ${subjectDisplayName}</p>
-                        <button class="btn btn-primary" onclick="openCreateLessonPopup(); closeModal();">
-                            <i class="fas fa-plus"></i> Create Lesson
-                        </button>
+                        <div style="display: flex; gap: 10px; justify-content: center;">
+                            <button class="btn btn-primary" onclick="openCreateLessonPopup(); closeModal();" style="background: #7a0000;">
+                                <i class="fas fa-plus"></i> Create Lesson
+                            </button>
+                            <button class="btn btn-secondary" onclick="closeModal()">
+                                <i class="fas fa-times"></i> Close
+                            </button>
+                        </div>
                     </div>
                 `;
                 return;
             }
             
-            // BUILD LESSONS LIST
+            // ✅ BUILD LESSONS LIST HTML
             let lessonsHtml = `
-                <div style="margin-bottom: 20px;">
-                    <p style="color: #666;">Click any lesson to edit:</p>
+                <div style="margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center;">
+                    <div>
+                        <p style="color: #666;">Found <strong>${lessons.length}</strong> lessons. Click any lesson to edit:</p>
+                    </div>
+                    <div>
+                        <span style="background: #e8f5e9; color: #2e7d32; padding: 5px 10px; border-radius: 20px; font-size: 0.8rem;">
+                            <i class="fas fa-info-circle"></i> Total: ${lessons.length} lessons
+                        </span>
+                    </div>
                 </div>
             `;
             
-            lessons.forEach((lesson, index) => {
+            lessons.forEach((lesson) => {
+                const date = lesson.created_at ? new Date(lesson.created_at).toLocaleDateString() : 'Unknown';
                 const typeIcon = lesson.content_type === 'video' ? 'fa-video' : 
                                 lesson.content_type === 'pdf' ? 'fa-file-pdf' : 'fa-file-alt';
                 const typeColor = lesson.content_type === 'video' ? '#f44336' : 
                                  lesson.content_type === 'pdf' ? '#ff9800' : '#2196F3';
+                
+                // Get module/topic info
+                const moduleName = lesson.module_name || 'No Module';
+                const topicName = lesson.topic_title || 'General';
+                const lessonName = lesson.lesson_name || 'General Lesson';
                 
                 lessonsHtml += `
                     <div class="lesson-edit-item" onclick="editLesson(${lesson.content_id})" style="
@@ -8860,44 +8966,58 @@ async function openEditLessonsList(subject, e) {
                         justify-content: space-between;
                         align-items: center;
                         border-left: 4px solid #7a0000;
+                        box-shadow: 0 1px 3px rgba(0,0,0,0.1);
                     ">
                         <div style="flex: 1;">
-                            <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 5px;">
+                            <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 8px;">
                                 <span style="
-                                    width: 30px;
-                                    height: 30px;
+                                    width: 36px;
+                                    height: 36px;
                                     background: ${typeColor}20;
                                     color: ${typeColor};
-                                    border-radius: 6px;
+                                    border-radius: 8px;
                                     display: flex;
                                     align-items: center;
                                     justify-content: center;
+                                    font-size: 1rem;
                                 ">
                                     <i class="fas ${typeIcon}"></i>
                                 </span>
-                                <h4 style="margin: 0; color: #333;">${lesson.content_title || 'Untitled'}</h4>
+                                <h4 style="margin: 0; color: #333; font-size: 1.1rem;">${lesson.content_title || 'Untitled Lesson'}</h4>
+                                <span style="background: ${typeColor}10; color: ${typeColor}; padding: 2px 8px; border-radius: 12px; font-size: 0.7rem; font-weight: 500;">
+                                    ${lesson.content_type || 'text'}
+                                </span>
                             </div>
-                            <p style="margin: 5px 0 5px 40px; color: #666; font-size: 0.85rem;">
+                            
+                            <p style="margin: 5px 0 8px 46px; color: #666; font-size: 0.9rem;">
                                 ${lesson.content_description ? 
-                                  (lesson.content_description.length > 80 ? 
-                                    lesson.content_description.substring(0, 80) + '...' : 
+                                  (lesson.content_description.length > 100 ? 
+                                    lesson.content_description.substring(0, 100) + '...' : 
                                     lesson.content_description) 
-                                  : 'No description'}
+                                  : '<span style="color: #999; font-style: italic;">No description</span>'}
                             </p>
-                            <div style="display: flex; gap: 15px; margin-left: 40px; font-size: 0.75rem;">
-                                <span style="color: #999;">
-                                    <i class="fas fa-layer-group"></i> ${lesson.module_name || 'No Module'}
+                            
+                            <div style="display: flex; gap: 15px; margin-left: 46px; font-size: 0.8rem; flex-wrap: wrap;">
+                                <span style="color: #666; background: #f5f5f5; padding: 2px 8px; border-radius: 12px;">
+                                    <i class="fas fa-layer-group" style="color: #7a0000;"></i> ${moduleName}
                                 </span>
-                                <span style="color: #999;">
-                                    <i class="far fa-calendar"></i> ${new Date(lesson.created_at).toLocaleDateString()}
+                                <span style="color: #666; background: #f5f5f5; padding: 2px 8px; border-radius: 12px;">
+                                    <i class="fas fa-tag" style="color: #2196F3;"></i> ${topicName}
                                 </span>
-                                <span style="color: ${typeColor};">
-                                    <i class="fas ${typeIcon}"></i> ${lesson.content_type || 'text'}
+                                <span style="color: #666; background: #f5f5f5; padding: 2px 8px; border-radius: 12px;">
+                                    <i class="far fa-calendar" style="color: #4CAF50;"></i> ${date}
                                 </span>
                             </div>
+                            
+                            ${lesson.video_filename ? `
+                                <div style="margin-left: 46px; margin-top: 8px; font-size: 0.75rem; color: #f44336; background: #ffebee; padding: 3px 8px; border-radius: 4px; display: inline-block;">
+                                    <i class="fas fa-video"></i> ${lesson.video_filename}
+                                </div>
+                            ` : ''}
                         </div>
+                        
                         <div style="display: flex; align-items: center; gap: 10px;">
-                            <span style="color: #7a0000; background: #f8f9fa; padding: 8px; border-radius: 50%;">
+                            <span style="color: #7a0000; background: #f8f9fa; padding: 10px; border-radius: 50%; transition: all 0.2s;">
                                 <i class="fas fa-chevron-right"></i>
                             </span>
                         </div>
@@ -8905,7 +9025,40 @@ async function openEditLessonsList(subject, e) {
                 `;
             });
             
+            // Add CSS for hover effect
+            const style = document.createElement('style');
+            style.textContent = `
+                .lesson-edit-item:hover {
+                    background: #f8f9fa !important;
+                    transform: translateX(5px);
+                    box-shadow: 0 4px 12px rgba(122,0,0,0.15) !important;
+                }
+                .lesson-edit-item:hover span[style*="background: #f8f9fa"] {
+                    background: #7a0000 !important;
+                    color: white !important;
+                }
+            `;
+            document.head.appendChild(style);
+            
             modalBody.innerHTML = lessonsHtml;
+            
+            // Add "Create New Lesson" button at the bottom
+            const createBtnDiv = document.createElement('div');
+            createBtnDiv.style.cssText = `
+                margin-top: 20px;
+                padding-top: 15px;
+                border-top: 1px solid #eee;
+                display: flex;
+                justify-content: center;
+            `;
+            createBtnDiv.innerHTML = `
+                <button class="btn btn-primary" onclick="openCreateLessonPopup(); closeModal();" style="background: #7a0000; padding: 10px 20px;">
+                    <i class="fas fa-plus-circle"></i> Create New Lesson
+                </button>
+            `;
+            modalBody.appendChild(createBtnDiv);
+            
+            console.log(`✅ Displayed ${lessons.length} lessons for ${subjectDisplayName}`);
             
         } else {
             throw new Error(result.message || 'Failed to load lessons');
@@ -8915,9 +9068,7 @@ async function openEditLessonsList(subject, e) {
         console.error('❌ Error loading lessons:', error);
         
         let errorMessage = error.message;
-        if (error.message.includes('401')) {
-            errorMessage = 'Session expired. Please refresh and login again.';
-        } else if (error.message.includes('Failed to fetch')) {
+        if (error.message.includes('Failed to fetch')) {
             errorMessage = 'Cannot connect to server. Make sure backend is running.';
         }
         
@@ -8927,14 +9078,74 @@ async function openEditLessonsList(subject, e) {
                 <h4 style="color: #f44336; margin-bottom: 10px;">Failed to Load Lessons</h4>
                 <p style="color: #666; margin-bottom: 5px;">${errorMessage}</p>
                 <p style="color: #999; margin-bottom: 20px;">Check console for details (F12)</p>
-                <button class="btn btn-primary" onclick="openEditLessonsList('${subject}')">
-                    <i class="fas fa-sync-alt"></i> Retry
-                </button>
+                <div style="display: flex; gap: 10px; justify-content: center;">
+                    <button class="btn btn-primary" onclick="openEditLessonsList('${subject}')" style="background: #7a0000;">
+                        <i class="fas fa-sync-alt"></i> Retry
+                    </button>
+                    <button class="btn btn-secondary" onclick="closeModal()">
+                        <i class="fas fa-times"></i> Close
+                    </button>
+                </div>
             </div>
         `;
     }
 }
 
+// ===== HELPER FUNCTION TO CREATE MODAL IF NOT EXISTS =====
+function createQuestionModal() {
+    console.log("📦 Creating question modal...");
+    
+    // Check if modal already exists
+    if (document.getElementById('questionModal')) {
+        return;
+    }
+    
+    const modalHTML = `
+        <div id="questionModal" class="modal" style="display: none;">
+            <div class="modal-backdrop" onclick="closeModal()"></div>
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h3 class="modal-title"><i class="fas fa-question-circle"></i> Modal Title</h3>
+                    <button class="modal-close" onclick="closeModal()">&times;</button>
+                </div>
+                <div class="modal-body" id="modalBody">
+                    <!-- Content will be loaded here -->
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-secondary" onclick="closeModal()">Close</button>
+                    <button class="btn btn-primary" id="sendMessageBtn" style="display: none;">Send Message</button>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    document.body.insertAdjacentHTML('beforeend', modalHTML);
+    console.log("✅ Question modal created");
+}
+
+// ===== HELPER FUNCTION TO REFRESH ADMIN TOKEN =====
+async function refreshAdminToken() {
+    console.log("🔄 Refreshing admin token...");
+    
+    const userJson = localStorage.getItem('mathhub_user');
+    const authToken = localStorage.getItem('authToken');
+    
+    if (userJson && authToken) {
+        try {
+            const user = JSON.parse(userJson);
+            if (user.role === 'admin') {
+                localStorage.setItem('admin_token', authToken);
+                localStorage.setItem('admin_user', userJson);
+                console.log("✅ Admin token refreshed successfully");
+                return true;
+            }
+        } catch (e) {
+            console.error("❌ Error refreshing token:", e);
+        }
+    }
+    
+    return false;
+}
 // ===== INTEGRATED TOPIC CREATION FUNCTIONS =====
 
 // Global variables for panel
@@ -9712,9 +9923,9 @@ async function editLesson(contentId) {
     }
 }
 
-// ===== Helper function to refresh admin token =====
+// Helper function to refresh admin token
 async function refreshAdminToken() {
-    console.log("🔄 Attempting to refresh admin token...");
+    console.log("🔄 Refreshing admin token...");
     
     const userJson = localStorage.getItem('mathhub_user');
     const authToken = localStorage.getItem('authToken');
@@ -9725,14 +9936,7 @@ async function refreshAdminToken() {
             if (user.role === 'admin') {
                 localStorage.setItem('admin_token', authToken);
                 localStorage.setItem('admin_user', userJson);
-                localStorage.setItem('user_role', user.role);
-                console.log("✅ Admin token refreshed from authToken");
-                
-                // Reload the current page
-                setTimeout(() => {
-                    window.location.reload();
-                }, 500);
-                
+                console.log("✅ Admin token refreshed successfully");
                 return true;
             }
         } catch (e) {
