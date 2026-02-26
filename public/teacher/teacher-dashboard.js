@@ -290,6 +290,7 @@ function redirectToLogin(message) {
     }, 2000);
 }
 
+
 // ===== FETCH TEACHER DETAILS FROM TEACHERS TABLE =====
 async function fetchTeacherDetails(teacherId) {
     try {
@@ -313,12 +314,17 @@ async function fetchTeacherDetails(teacherId) {
             
             // Update UI with teacher details
             updateTeacherProfileUI(result.teacher);
+        } else {
+            console.log('⚠️ Teacher details not found in response');
         }
         
     } catch (error) {
         console.error('❌ Error fetching teacher details:', error);
+        // Don't show error - it's not critical
+        console.log('⚠️ Teacher details fetch failed (non-critical)');
     }
 }
+
 
 // ===== UPDATE TEACHER PROFILE UI =====
 function updateTeacherProfileUI(teacher) {
@@ -2776,7 +2782,7 @@ async function loadTeacherTopics(forceRefresh = false) {
         teacherTopics = getDefaultTopics();
         return teacherTopics;
     }
-}d
+}
 // ===== NEW: AUTO-CREATE GENERAL MODULE =====
 // ===== UPDATED: AUTO-CREATE GENERAL MODULE =====
 async function autoCreateGeneralModule() {
@@ -6305,7 +6311,7 @@ function exportFeedbackAsCSV() {
 // ============================================
 
 
-// ===== LOAD QUIZZES - FIXED =====
+// ===== VERIFY: LOAD QUIZZES - ADD DEBUGGING =====
 async function loadQuizzes() {
     console.log('📝 Loading quizzes...');
     
@@ -6317,10 +6323,9 @@ async function loadQuizzes() {
     try {
         const response = await fetch(`${API_BASE_URL}/teacher/quizzes`, {
             method: 'GET',
-            headers: getAuthHeaders()  // <-- GAMITIN ANG HELPER
+            headers: getAuthHeaders()
         });
         
-        // Handle 403/401 - expired token
         if (response.status === 403 || response.status === 401) {
             console.error('❌ Token invalid or expired');
             localStorage.removeItem('authToken');
@@ -6334,15 +6339,25 @@ async function loadQuizzes() {
         }
         
         const result = await response.json();
+        console.log('📥 Raw quiz data from server:', result);
         
         if (result.success) {
             quizData = result.quizzes || [];
             const stats = result.stats || {};
             
             console.log(`✅ Loaded ${quizData.length} quizzes`);
+            console.log('📊 Quiz stats from server:', stats);
+            console.log('📊 Calculated total:', quizData.length);
+            
             updateQuizStats(stats);
             displayQuizzes();
             initializeQuizChart();
+            
+            // Force update of all quiz-related UI elements
+            setTimeout(() => {
+                updateDashboardQuizStats();
+                updateSidebarStats(); // This might also update quiz counts
+            }, 100);
         } else {
             throw new Error(result.message || 'Failed to load quizzes');
         }
@@ -6353,74 +6368,97 @@ async function loadQuizzes() {
     }
 }
 
-// ===== UPDATE QUIZ STATS - FIXED =====
-function updateQuizStats(stats) {
-    console.log('📊 Updating quiz stats with:', stats);
-    console.log('📊 quizData length:', quizData.length);
+// ===== DEBUG FUNCTION - Add this temporarily =====
+function debugQuizStats() {
+    console.log('🔍 QUIZ DEBUG:');
+    console.log('quizData:', quizData);
+    console.log('quizData length:', quizData.length);
     
-    // Update stat cards
+    // Check if elements exist
     const totalQuizzesEl = document.getElementById('totalQuizzes');
     const activeQuizzesEl = document.getElementById('activeQuizzes');
     const draftQuizzesEl = document.getElementById('draftQuizzes');
     const avgQuizScoreEl = document.getElementById('avgQuizScore');
     
-    // Update Total Quizzes
+    console.log('Elements found:', {
+        totalQuizzes: !!totalQuizzesEl,
+        activeQuizzes: !!activeQuizzesEl,
+        draftQuizzes: !!draftQuizzesEl,
+        avgQuizScore: !!avgQuizScoreEl
+    });
+    
     if (totalQuizzesEl) {
-        const total = stats.total_quizzes || quizData.length || 0;
-        console.log('Setting totalQuizzes to:', total);
-        totalQuizzesEl.textContent = total;
-        // Optional: animate
-        // animateNumber('totalQuizzes', total);
-    } else {
-        console.log('⚠️ totalQuizzes element not found');
+        console.log('Current totalQuizzes value:', totalQuizzesEl.textContent);
+    }
+    
+    // Force update
+    if (quizData && quizData.length > 0) {
+        updateQuizStats({ total_quizzes: quizData.length });
+    }
+}
+
+// Call it after loading quizzes
+setTimeout(debugQuizStats, 2000);
+
+// ===== UPDATED: UPDATE QUIZ STATS - FIXED =====
+function updateQuizStats(stats) {
+    console.log('📊 Updating quiz stats with:', stats);
+    console.log('📊 quizData length:', quizData.length);
+    
+    // Get stat elements
+    const totalQuizzesEl = document.getElementById('totalQuizzes');
+    const activeQuizzesEl = document.getElementById('activeQuizzes');
+    const draftQuizzesEl = document.getElementById('draftQuizzes');
+    const avgQuizScoreEl = document.getElementById('avgQuizScore');
+    
+    // Calculate from quizData if stats is empty
+    const totalQuizzes = stats.total_quizzes || quizData.length || 0;
+    const activeQuizzes = stats.active_quizzes || 
+        quizData.filter(q => q.status === 'active').length || 0;
+    const draftQuizzes = stats.draft_quizzes || 
+        quizData.filter(q => q.status === 'draft').length || 0;
+    
+    // Calculate average score
+    let avgScore = stats.avg_score_all || 0;
+    
+    // If stats doesn't have avg_score_all, calculate from quizData
+    if (avgScore === 0 && quizData.length > 0) {
+        const scores = quizData
+            .map(q => q.stats?.avg_score || 0)
+            .filter(score => score > 0);
+        
+        if (scores.length > 0) {
+            avgScore = Math.round(scores.reduce((a, b) => a + b, 0) / scores.length);
+        }
+    }
+    
+    // Update Total Quizzes with animation
+    if (totalQuizzesEl) {
+        console.log('Setting totalQuizzes to:', totalQuizzes);
+        animateNumber('totalQuizzes', totalQuizzes);
     }
     
     // Update Active Quizzes
     if (activeQuizzesEl) {
-        const active = stats.active_quizzes || 
-            quizData.filter(q => q.status === 'active').length || 0;
-        console.log('Setting activeQuizzes to:', active);
-        activeQuizzesEl.textContent = active;
+        console.log('Setting activeQuizzes to:', activeQuizzes);
+        activeQuizzesEl.textContent = activeQuizzes;
     }
     
     // Update Draft Quizzes
     if (draftQuizzesEl) {
-        const draft = stats.draft_quizzes || 
-            quizData.filter(q => q.status === 'draft').length || 0;
-        console.log('Setting draftQuizzes to:', draft);
-        draftQuizzesEl.textContent = draft;
+        console.log('Setting draftQuizzes to:', draftQuizzes);
+        draftQuizzesEl.textContent = draftQuizzes;
     }
     
-    // ===== FIXED: Update Average Score =====
+    // Update Average Score
     if (avgQuizScoreEl) {
-        let avgScore = 0;
-        
-        // Try to get from stats first
-        if (stats.avg_score_all !== undefined) {
-            avgScore = stats.avg_score_all;
-            console.log('Using stats.avg_score_all:', avgScore);
-        } 
-        // Otherwise calculate from quizData
-        else if (quizData.length > 0) {
-            const scores = quizData
-                .map(q => q.stats?.avg_score || 0)
-                .filter(score => score > 0);
-            
-            if (scores.length > 0) {
-                avgScore = Math.round(scores.reduce((a, b) => a + b, 0) / scores.length);
-                console.log(`Calculated from ${scores.length} quizzes with scores:`, avgScore);
-            } else {
-                console.log('No quizzes with scores found');
-            }
-        }
-        
-        console.log('Final avgScore:', avgScore);
+        console.log('Setting avgQuizScore to:', avgScore + '%');
         avgQuizScoreEl.textContent = avgScore + '%';
-    } else {
-        console.log('⚠️ avgQuizScore element not found');
     }
+    
+    // Also update any other quiz-related stats in the dashboard
+    updateDashboardQuizStats();
 }
-
 // Helper to calculate average score from quizData
 function calculateAverageScore() {
     const scores = quizData.filter(q => q.stats?.avg_score > 0)
@@ -6430,7 +6468,22 @@ function calculateAverageScore() {
     
     return Math.round(scores.reduce((a, b) => a + b, 0) / scores.length);
 }
-
+// ===== ADD THIS FUNCTION =====
+function updateDashboardQuizStats() {
+    console.log('📊 Updating dashboard quiz stats...');
+    
+    // Update the quiz count in the dashboard sidebar if it exists
+    const sidebarQuizCount = document.getElementById('sidebarQuizCount');
+    if (sidebarQuizCount && quizData) {
+        sidebarQuizCount.textContent = quizData.length;
+    }
+    
+    // Update any other dashboard elements that show quiz counts
+    const dashboardQuizCount = document.getElementById('dashboardQuizCount');
+    if (dashboardQuizCount && quizData) {
+        dashboardQuizCount.textContent = quizData.length;
+    }
+}
 // ===== DISPLAY QUIZZES =====
 function displayQuizzes() {
     const tableBody = document.getElementById('quizTableBody');
