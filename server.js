@@ -59,6 +59,20 @@ app.use((req, res, next) => {
   next();
 });
 
+
+// Sa may bandang simula ng server.js, after database connection
+app.listen(PORT, async () => {
+    console.log(`🚀 Server running on port ${PORT}`);
+    
+    // Create feedback table on startup
+    try {
+        await createFeedbackTable();
+        console.log('✅ Feedback table ready');
+    } catch (error) {
+        console.error('❌ Failed to create feedback table:', error);
+    }
+});
+
 // ============================================
 // ✅ TEACHER ROUTES - I-ORDER NG MAAYOS
 // ============================================
@@ -2162,75 +2176,110 @@ function generateLast30DaysLabels() {
 // ============================================
 // FEEDBACK ENDPOINTS
 // ============================================
-
-// Submit feedback (public - no authentication required)
-app.post('/api/feedback/submit', async (req, res) => {
+// ============================================
+// CREATE FEEDBACK TABLE
+// ============================================
+async function createFeedbackTable() {
     try {
-        console.log('📝 Received feedback submission:', req.body);
-        
+        await pool.execute(`
+            CREATE TABLE IF NOT EXISTS feedback (
+                feedback_id INT AUTO_INCREMENT PRIMARY KEY,
+                user_id INT,
+                feedback_type ENUM('suggestion', 'complaint', 'question', 'rating', 'bug', 'other') DEFAULT 'other',
+                feedback_message TEXT NOT NULL,
+                rating INT DEFAULT 0,
+                status ENUM('new', 'reviewed', 'in_progress', 'resolved', 'closed') DEFAULT 'new',
+                admin_notes TEXT,
+                page_url VARCHAR(500),
+                user_agent TEXT,
+                email VARCHAR(255),
+                name VARCHAR(255),
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                FOREIGN KEY (user_id) REFERENCES users(user_id) ON DELETE SET NULL
+            )
+        `);
+        console.log('✅ Feedback table created');
+    } catch (error) {
+        console.error('❌ Error creating feedback table:', error);
+    }
+}
+
+// Call this when server starts
+createFeedbackTable();
+
+// ============================================
+// SUBMIT FEEDBACK ENDPOINT
+// ============================================
+app.post('/api/feedback/submit', authenticateOptional, async (req, res) => {
+    try {
         const { 
             feedback_type, 
             feedback_message, 
-            rating, 
-            user_agent, 
-            page_url 
+            rating,
+            user_id,
+            email,
+            name,
+            page_url,
+            user_agent 
         } = req.body;
         
-        // Validate required fields
-        if (!feedback_type || !feedback_message) {
+        console.log('📥 Received feedback submission:', {
+            type: feedback_type,
+            messageLength: feedback_message?.length,
+            rating,
+            userId: user_id || req.user?.user_id
+        });
+
+        // Validate
+        if (!feedback_message || feedback_message.trim() === '') {
             return res.status(400).json({
                 success: false,
-                message: 'Feedback type and message are required'
+                message: 'Feedback message is required'
             });
         }
-        
-        // Get user ID from token if authenticated
-        let userId = null;
-        const token = req.headers.authorization?.split(' ')[1];
-        
-        if (token) {
-            try {
-                const decoded = jwt.verify(token, process.env.JWT_SECRET || 'demo_secret_key_for_development_only');
-                userId = decoded.id;
-            } catch (e) {
-                // Token invalid, but that's ok - feedback can be anonymous
-                console.log('Anonymous feedback (invalid token)');
-            }
-        }
-        
-        // Get IP address
-        const ipAddress = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
-        
+
+        // Use user_id from token if available, otherwise from request body
+        const finalUserId = req.user?.user_id || user_id || null;
+
         // Insert into database
-        const [result] = await promisePool.query(
-            `INSERT INTO feedback 
-             (user_id, feedback_type, feedback_message, rating, user_agent, page_url, ip_address, status, created_at)
-             VALUES (?, ?, ?, ?, ?, ?, ?, 'new', NOW())`,
-            [
-                userId,
+        const [result] = await pool.execute(`
+            INSERT INTO feedback (
+                user_id,
                 feedback_type,
                 feedback_message,
-                rating || null,
-                user_agent || null,
-                page_url || null,
-                ipAddress || null
-            ]
-        );
-        
+                rating,
+                status,
+                page_url,
+                user_agent,
+                email,
+                name,
+                created_at
+            ) VALUES (?, ?, ?, ?, 'new', ?, ?, ?, ?, NOW())
+        `, [
+            finalUserId,
+            feedback_type || 'other',
+            feedback_message.trim(),
+            rating || 0,
+            page_url || null,
+            user_agent || null,
+            email || null,
+            name || null
+        ]);
+
         console.log(`✅ Feedback saved with ID: ${result.insertId}`);
-        
-        res.status(201).json({
+
+        res.json({
             success: true,
             message: 'Feedback submitted successfully',
             feedback_id: result.insertId
         });
-        
+
     } catch (error) {
         console.error('❌ Error saving feedback:', error);
         res.status(500).json({
             success: false,
-            message: 'Failed to save feedback',
-            error: error.message
+            message: error.message
         });
     }
 });
@@ -2289,6 +2338,74 @@ app.get('/api/feedback/stats', authenticateAdmin, async (req, res) => {
         });
     }
 });
+// ============================================
+// GET FEEDBACK HISTORY ENDPOINT
+// ============================================
+app.get('/api/feedback/history', authenticateToken, async (req, res) => {
+    try {
+        const userId = req.user?.user_id;
+        const limit = parseInt(req.query.limit) || 10;
+        
+        if (!userId) {
+            return res.status(401).json({
+                success: false,
+                message: 'User not authenticated'
+            });
+        }
+
+        console.log(`📋 Fetching feedback history for user ${userId}, limit ${limit}`);
+
+        const [feedback] = await pool.execute(`
+            SELECT 
+                feedback_id,
+                feedback_type,
+                feedback_message,
+                rating,
+                status,
+                admin_notes,
+                created_at
+            FROM feedback 
+            WHERE user_id = ?
+            ORDER BY created_at DESC
+            LIMIT ?
+        `, [userId, limit]);
+
+        res.json({
+            success: true,
+            count: feedback.length,
+            feedback: feedback
+        });
+
+    } catch (error) {
+        console.error('❌ Error fetching feedback history:', error);
+        res.status(500).json({
+            success: false,
+            message: error.message
+        });
+    }
+});
+
+// ============================================
+// OPTIONAL AUTHENTICATION MIDDLEWARE
+// ============================================
+function authenticateOptional(req, res, next) {
+    const authHeader = req.headers['authorization'];
+    const token = authHeader && authHeader.split(' ')[1];
+    
+    if (!token) {
+        req.user = null;
+        return next();
+    }
+    
+    jwt.verify(token, JWT_SECRET, (err, user) => {
+        if (err) {
+            req.user = null;
+        } else {
+            req.user = user;
+        }
+        next();
+    });
+}
 
 // Get all feedback (admin only)
 app.get('/api/feedback/all', authenticateAdmin, async (req, res) => {
@@ -12858,6 +12975,7 @@ app.get('/api/teacher/students', authenticateTeacher, async (req, res) => {
         });
     }
 });
+
 // Helper function for time ago formatting
 function getTimeAgo(date) {
     if (!date) return 'Never';
@@ -12877,7 +12995,6 @@ function getTimeAgo(date) {
     
     return past.toLocaleDateString();
 }
-
 
 // ===== FIXED: GET TEACHER'S LESSONS =====
 app.get('/api/teacher/lessons', authenticateTeacher, async (req, res) => {
@@ -15617,11 +15734,9 @@ app.get('/api/teacher/pending-reviews-count', authenticateTeacher, async (req, r
 // ============================================
 // ✅ GET TEACHER TOPICS
 // ============================================
-// ===== SIMPLIFIED GET TEACHER TOPICS =====
+// ===== FIXED: GET TEACHER TOPICS =====
 app.get('/api/teacher/topics', authenticateTeacher, async (req, res) => {
     try {
-        const userId = req.user.id;
-        
         // Simple query - get all topics
         const [topics] = await promisePool.execute(`
             SELECT 
@@ -16230,7 +16345,7 @@ app.get('/api/teacher/topics', authenticateToken, async (req, res) => {
         });
     }
 });
-// POST /api/teacher/modules/create - Create new module
+// ===== FIXED: CREATE NEW MODULE =====
 app.post('/api/teacher/modules/create', authenticateTeacher, async (req, res) => {
     try {
         const { name, description, lesson_id, lesson_name } = req.body;
@@ -16243,19 +16358,20 @@ app.post('/api/teacher/modules/create', authenticateTeacher, async (req, res) =>
             });
         }
         
-        // Get teacher_id
-        const [teacher] = await promisePool.execute(`
-            SELECT teacher_id FROM teachers WHERE user_id = ?
-        `, [userId]);
+        // Check if module already exists (prevent duplicates)
+        const [existing] = await promisePool.execute(`
+            SELECT module_id FROM course_modules 
+            WHERE lesson_id = ? AND module_name = ?
+        `, [lesson_id, name]);
         
-        if (teacher.length === 0) {
-            return res.status(403).json({
-                success: false,
-                message: 'Teacher not found'
+        if (existing.length > 0) {
+            return res.json({
+                success: true,
+                message: 'Module already exists',
+                module_id: existing[0].module_id,
+                existing: true
             });
         }
-        
-        const teacherId = teacher[0].teacher_id;
         
         // Get max module order
         const [maxOrder] = await promisePool.execute(`
@@ -16304,8 +16420,7 @@ app.post('/api/teacher/modules/create', authenticateTeacher, async (req, res) =>
         });
     }
 });
-// POST /api/teacher/topics/create - Create new topic
-// CREATE new topic
+// ===== FIXED: CREATE NEW TOPIC =====
 app.post('/api/teacher/topics/create', authenticateTeacher, async (req, res) => {
     try {
         const { name, description, module_id, module_name } = req.body;
@@ -16315,6 +16430,21 @@ app.post('/api/teacher/topics/create', authenticateTeacher, async (req, res) => 
             return res.status(400).json({
                 success: false,
                 message: 'Topic name and module ID are required'
+            });
+        }
+        
+        // Check if topic already exists (prevent duplicates)
+        const [existing] = await promisePool.execute(`
+            SELECT topic_id FROM module_topics 
+            WHERE module_id = ? AND topic_title = ?
+        `, [module_id, name]);
+        
+        if (existing.length > 0) {
+            return res.json({
+                success: true,
+                message: 'Topic already exists',
+                topic_id: existing[0].topic_id,
+                existing: true
             });
         }
         
