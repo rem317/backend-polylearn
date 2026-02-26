@@ -288,7 +288,7 @@ function redirectToLogin(message) {
 }
 
 
-// ===== FIXED: FETCH TEACHER DETAILS - DIRECT DATABASE CALL =====
+// ===== FIXED: FETCH TEACHER DETAILS =====
 async function fetchTeacherDetails(teacherId) {
     try {
         console.log(`🔍 Fetching teacher details for ID: ${teacherId}`);
@@ -300,8 +300,8 @@ async function fetchTeacherDetails(teacherId) {
             return;
         }
         
-        // Use relative path to avoid CORS issues
-        const response = await fetch(`/api/teacher/${teacherId}`, {
+        // TAMA NA - plural na "teachers"
+        const response = await fetch(`/api/teachers/${teacherId}`, {
             method: 'GET',
             headers: getAuthHeaders()
         });
@@ -311,12 +311,8 @@ async function fetchTeacherDetails(teacherId) {
         if (!response.ok) {
             if (response.status === 403 || response.status === 401) {
                 console.error('❌ Token invalid or expired');
-                // Check if we can refresh token
-                const refreshed = await refreshToken();
-                if (refreshed) {
-                    // Retry the request
-                    return fetchTeacherDetails(teacherId);
-                }
+                // Try to refresh or redirect
+                redirectToLogin('Session expired. Please login again.');
                 return;
             }
             throw new Error(`HTTP error! status: ${response.status}`);
@@ -334,7 +330,6 @@ async function fetchTeacherDetails(teacherId) {
         
     } catch (error) {
         console.error('❌ Error fetching teacher details:', error);
-        // Show user-friendly message but don't break the dashboard
         showNotification('warning', 'Profile Info', 'Teacher details loading...');
     }
 }
@@ -1012,11 +1007,6 @@ async function loadDashboardData(forceRefresh = false) {
         if (!response.ok) {
             if (response.status === 403 || response.status === 401) {
                 console.error('❌ Token invalid or expired');
-                // Try to refresh token
-                const refreshed = await refreshToken();
-                if (refreshed) {
-                    return loadDashboardData(forceRefresh);
-                }
                 redirectToLogin('Session expired. Please login again.');
                 return;
             }
@@ -1187,11 +1177,10 @@ async function loadQuickStats() {
     }
 }
 
-// ===== LOAD MY STUDENTS (WITH CACHE) =====
+// ===== FIXED: LOAD MY STUDENTS =====
 async function loadMyStudents(forceRefresh = false) {
     console.log('========== LOAD MY STUDENTS ==========');
     
-    // Check cache
     if (!forceRefresh && myStudents && myStudents.length > 0) {
         console.log(`✅ Using cached students: ${myStudents.length} students`);
         displayStudentsList(myStudents);
@@ -1204,16 +1193,20 @@ async function loadMyStudents(forceRefresh = false) {
     try {
         const token = localStorage.getItem('authToken');
         
+        // TAMA NA
         const response = await fetch(`/api/teacher/students`, {
             headers: { 'Authorization': `Bearer ${token}` }
         });
         
         if (!response.ok) {
+            if (response.status === 403 || response.status === 401) {
+                console.error('❌ Token invalid or expired');
+                return [];
+            }
             throw new Error(`HTTP error! status: ${response.status}`);
         }
         
         const result = await response.json();
-        console.log('Server response:', result);
         
         if (result.success) {
             const students = result.students || [];
@@ -1221,16 +1214,7 @@ async function loadMyStudents(forceRefresh = false) {
             
             console.log(`✅ Students loaded and cached: ${students.length}`);
             
-            // Update subject counts
-            if (result.subject_counts) {
-                subjectData.polynomial.students = result.subject_counts.polynomial || 0;
-                subjectData.factorial.students = result.subject_counts.factorial || 0;
-                subjectData.mdas.students = result.subject_counts.mdas || 0;
-            }
-            
-            // Display students
             displayStudentsList(students);
-            
             return students;
         }
         
@@ -1244,7 +1228,6 @@ async function loadMyStudents(forceRefresh = false) {
         `;
     }
 }
-
 // Helper function to display students
 function displayStudentsList(students) {
     const studentsContainer = document.getElementById('myStudentsList');
@@ -1968,12 +1951,11 @@ async function markAsRead(reviewId) {
     }
 }
 
-// ===== LOAD RECENT LESSONS (WITH CACHE) =====
+// ===== FIXED: LOAD RECENT LESSONS =====
 async function loadRecentLessons(forceRefresh = false) {
     const lessonsList = document.querySelector('.activity-list');
     if (!lessonsList) return;
     
-    // Check cache
     if (!forceRefresh && window.cachedRecentLessons) {
         console.log('✅ Using cached recent lessons');
         displayRecentLessons(window.cachedRecentLessons);
@@ -1983,24 +1965,24 @@ async function loadRecentLessons(forceRefresh = false) {
     try {
         const token = localStorage.getItem('authToken');
         
+        // TAMA NA
         const response = await fetch(`/api/teacher/lessons`, {
             headers: { 'Authorization': `Bearer ${token}` }
         });
         
-        const result = await response.json();
-        
         if (!response.ok) {
+            if (response.status === 403 || response.status === 401) {
+                console.error('❌ Token invalid or expired');
+                return;
+            }
             throw new Error(`HTTP error! status: ${response.status}`);
         }
         
+        const result = await response.json();
         const lessons = result.lessons || [];
-        
-        // Get recent 5 lessons
         const recent = lessons.slice(0, 5);
         
-        // Cache the data
         window.cachedRecentLessons = recent;
-        
         displayRecentLessons(recent);
         
     } catch (error) {
@@ -3770,9 +3752,10 @@ function updateSidebarStats() {
     }
 }
 
-// ===== LOAD MY LESSONS (WITH CACHE) =====
+// ===== FIXED: LOAD MY LESSONS =====
 async function loadMyLessons(forceRefresh = false) {
-    // Check cache
+    console.log('========== LOAD MY LESSONS ==========');
+    
     if (!forceRefresh && myLessons && myLessons.length > 0) {
         console.log(`✅ Using cached lessons: ${myLessons.length} lessons`);
         return myLessons;
@@ -3781,9 +3764,18 @@ async function loadMyLessons(forceRefresh = false) {
     try {
         const token = localStorage.getItem('authToken');
         
+        // TAMA NA
         const response = await fetch(`/api/teacher/lessons`, {
             headers: { 'Authorization': `Bearer ${token}` }
         });
+        
+        if (!response.ok) {
+            if (response.status === 403 || response.status === 401) {
+                console.error('❌ Token invalid or expired');
+                return [];
+            }
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
         
         const result = await response.json();
         
@@ -3798,20 +3790,6 @@ async function loadMyLessons(forceRefresh = false) {
             
             publishedLessons = ownLessons.filter(l => l.is_active === 1).length;
             draftLessons = ownLessons.filter(l => l.is_active === 0).length;
-            
-            // Calculate average completion
-            const ownWithCompletion = ownLessons.filter(l => l.completion_rate);
-            const totalCompletion = ownWithCompletion.reduce((sum, l) => sum + (parseInt(l.completion_rate) || 0), 0);
-            avgCompletion = ownWithCompletion.length > 0 ? Math.round(totalCompletion / ownWithCompletion.length) : 0;
-            
-            // Update quick stats
-            updateQuickStats();
-            
-            // Update subject stats
-            await loadSubjectStats();
-            
-            // Update sidebar stats
-            updateSidebarStats();
             
             return myLessons;
         }
