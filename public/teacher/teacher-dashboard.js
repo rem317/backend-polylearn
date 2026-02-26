@@ -1259,7 +1259,7 @@ async function loadMyStudents(forceRefresh = false) {
         `;
     }
 }
-// Helper function to display students
+// ===== UPDATED: DISPLAY STUDENTS LIST =====
 function displayStudentsList(students) {
     const studentsContainer = document.getElementById('myStudentsList');
     if (!studentsContainer) return;
@@ -1275,10 +1275,16 @@ function displayStudentsList(students) {
         return;
     }
     
-    const recentStudents = students.slice(0, 5);
+    // Show ALL students (you have only 2, so no pagination needed)
     studentsContainer.innerHTML = '';
     
-    recentStudents.forEach(student => {
+    students.forEach(student => {
+        // Format the last_active time nicely
+        let lastActive = student.last_active;
+        if (lastActive === 'Never' || !lastActive) {
+            lastActive = 'Recently joined';
+        }
+        
         const studentItem = document.createElement('div');
         studentItem.className = 'student-item';
         studentItem.innerHTML = `
@@ -1288,14 +1294,25 @@ function displayStudentsList(students) {
             <div class="student-info">
                 <h4>${student.name}</h4>
                 <div class="student-meta">
-                    <span><i class="fas fa-book"></i> ${student.lessons_completed} lessons</span>
-                    <span><i class="fas fa-star"></i> ${student.avg_score}% avg</span>
+                    <span><i class="fas fa-book"></i> ${student.lessons_completed || 0} lessons</span>
+                    <span><i class="fas fa-star"></i> ${student.avg_score || 0}% avg</span>
+                </div>
+                <div class="student-email" style="font-size: 0.7rem; color: #999; margin-top: 3px;">
+                    <i class="fas fa-envelope"></i> ${student.email}
                 </div>
             </div>
-            <span class="student-time">${student.last_active}</span>
+            <span class="student-time">${lastActive}</span>
         `;
         studentsContainer.appendChild(studentItem);
     });
+    
+    // Add a total count at the bottom
+    const countDiv = document.createElement('div');
+    countDiv.style.cssText = 'text-align: right; padding: 10px; font-size: 0.8rem; color: #666; border-top: 1px solid #eee; margin-top: 10px;';
+    countDiv.innerHTML = `<i class="fas fa-users"></i> Total: ${students.length} student${students.length > 1 ? 's' : ''}`;
+    studentsContainer.appendChild(countDiv);
+    
+    console.log(`✅ Displayed ${students.length} students in dashboard`);
 }
 
 // ===== LOAD TEACHER FEEDBACK (UPDATED) =====
