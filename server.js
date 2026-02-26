@@ -60,18 +60,17 @@ app.use((req, res, next) => {
 });
 
 // ============================================
-// ✅ FIXED: GET TEACHER BY ID - ILAGAY ITO AGAD AFTER MIDDLEWARE
+// ✅ TEACHER ROUTES - I-ORDER NG MAAYOS
 // ============================================
+
+// ===== GET TEACHER BY ID (plural - teachers) =====
 app.get('/api/teachers/:teacherId', authenticateToken, async (req, res) => {
     try {
         const { teacherId } = req.params;
         
         console.log(`📥 Fetching teacher details for ID: ${teacherId}`);
 
-        // Check kung ang user na nagre-request ay may access
-        const requestingUserId = req.user.id;
-        
-        // Check if teacher exists in teachers table
+        // Check if user exists in teachers table
         const [teachers] = await promisePool.execute(`
             SELECT 
                 t.teacher_id,
@@ -124,6 +123,14 @@ app.get('/api/teachers/:teacherId', authenticateToken, async (req, res) => {
         
         const user = users[0];
         
+        // Check if user is teacher or admin
+        if (user.role !== 'teacher' && user.role !== 'admin') {
+            return res.status(403).json({
+                success: false,
+                message: 'User is not a teacher'
+            });
+        }
+        
         // Return user data with default teacher fields
         res.json({
             success: true,
@@ -154,7 +161,6 @@ app.get('/api/teachers/:teacherId', authenticateToken, async (req, res) => {
         });
     }
 });
-
 // ============================================
 // STATIC FILES & VIDEO CONFIGURATION - FIXED
 // ============================================
@@ -12235,9 +12241,7 @@ const authenticateTeacher = async (req, res, next) => {
         }
     }
 };
-// ============================================
-// ✅ FIXED: TEACHER DASHBOARD STATS
-// ============================================
+// ===== GET TEACHER DASHBOARD STATS =====
 app.get('/api/teacher/dashboard/stats', authenticateToken, async (req, res) => {
     try {
         const userId = req.user.id;
@@ -12273,7 +12277,7 @@ app.get('/api/teacher/dashboard/stats', authenticateToken, async (req, res) => {
         
         const teacherId = teacher.length > 0 ? teacher[0].teacher_id : null;
         
-        // Get total lessons created by or assigned to this user
+        // Get total lessons
         const [lessonsResult] = await promisePool.execute(`
             SELECT 
                 COUNT(*) as total_lessons,
@@ -12302,17 +12306,6 @@ app.get('/api/teacher/dashboard/stats', authenticateToken, async (req, res) => {
             AND ucp.completion_status = 'completed'
         `, [userId, teacherId]);
         
-        // Get pending reviews
-        let pendingReviews = 0;
-        if (teacherId) {
-            const [pendingResult] = await promisePool.execute(`
-                SELECT COUNT(*) as pending_reviews
-                FROM feedback
-                WHERE teacher_id = ? AND status = 'new'
-            `, [teacherId]);
-            pendingReviews = pendingResult[0]?.pending_reviews || 0;
-        }
-        
         const lessons = lessonsResult[0] || { total_lessons: 0, published: 0, draft: 0, total_resources: 0 };
         const avgCompletion = Math.round(completionResult[0]?.avg_completion || 0);
         
@@ -12326,7 +12319,7 @@ app.get('/api/teacher/dashboard/stats', authenticateToken, async (req, res) => {
                 avg_completion: avgCompletion,
                 total_students: studentsResult[0]?.total_students || 0,
                 avg_grade: avgCompletion,
-                pending_reviews: pendingReviews,
+                pending_reviews: 0,
                 total_resources: lessons.total_resources || 0
             }
         });
@@ -12343,9 +12336,12 @@ app.get('/api/teacher/dashboard/stats', authenticateToken, async (req, res) => {
 // ============================================
 // ✅ GET TEACHER'S STUDENTS
 // ============================================
+// ===== GET TEACHER'S STUDENTS =====
 app.get('/api/teacher/students', authenticateToken, async (req, res) => {
     try {
         const userId = req.user.id;
+        
+        console.log(`👥 Fetching students for teacher ${userId}`);
         
         // Check if user is teacher or admin
         const [userCheck] = await promisePool.execute(`
@@ -12359,7 +12355,14 @@ app.get('/api/teacher/students', authenticateToken, async (req, res) => {
             });
         }
         
-        // Get students who completed lessons by this teacher
+        // Get teacher_id if exists
+        const [teacher] = await promisePool.execute(`
+            SELECT teacher_id FROM teachers WHERE user_id = ?
+        `, [userId]);
+        
+        const teacherId = teacher.length > 0 ? teacher[0].teacher_id : null;
+        
+        // Get students
         const [students] = await promisePool.execute(`
             SELECT 
                 u.user_id as id,
@@ -12393,49 +12396,50 @@ app.get('/api/teacher/students', authenticateToken, async (req, res) => {
             AND u.role = 'student'
             AND u.is_active = 1
             ORDER BY u.full_name
-        `, [userId, userId, userId, userId]);
+        `, [userId, teacherId, userId, teacherId]);
         
         res.json({
             success: true,
-            students: students || [],
-            subject_counts: {
-                polynomial: students.filter(s => s.lessons_completed > 0).length,
-                factorial: Math.floor(students.length / 2),
-                mdas: Math.floor(students.length / 3)
-            }
+            students: students || []
         });
         
     } catch (error) {
-        console.error('❌ Teacher students error:', error);
+        console.error('❌ Error fetching students:', error);
         res.status(500).json({ 
             success: false, 
             message: error.message,
-            students: [],
-            subject_counts: { polynomial: 0, factorial: 0, mdas: 0 }
+            students: []
         });
     }
 });
 
-// ============================================
-// ✅ GET TEACHER'S LESSONS
-// ============================================
-app.get('/api/teacher/lessons', authenticateTeacher, async (req, res) => {
+// ===== GET TEACHER'S LESSONS =====
+app.get('/api/teacher/lessons', authenticateToken, async (req, res) => {
     try {
         const userId = req.user.id;
         
+        console.log(`📚 Fetching lessons for teacher ${userId}`);
+        
+        // Check if user is teacher or admin
+        const [userCheck] = await promisePool.execute(`
+            SELECT role FROM users WHERE user_id = ?
+        `, [userId]);
+        
+        if (userCheck.length === 0 || (userCheck[0].role !== 'teacher' && userCheck[0].role !== 'admin')) {
+            return res.status(403).json({ 
+                success: false, 
+                message: 'Teacher or admin access required' 
+            });
+        }
+        
+        // Get teacher_id if exists
         const [teacher] = await promisePool.execute(`
             SELECT teacher_id FROM teachers WHERE user_id = ?
         `, [userId]);
         
-        if (teacher.length === 0) {
-            return res.json({
-                success: true,
-                lessons: []
-            });
-        }
+        const teacherId = teacher.length > 0 ? teacher[0].teacher_id : null;
         
-        const teacherId = teacher[0].teacher_id;
-        
+        // Get lessons
         const [lessons] = await promisePool.execute(`
             SELECT 
                 tci.content_id,
@@ -12449,11 +12453,9 @@ app.get('/api/teacher/lessons', authenticateTeacher, async (req, res) => {
                 tci.created_by,
                 tci.teacher_id,
                 tci.is_public,
-                tci.topic_id,
                 mt.topic_title,
                 cm.module_name,
                 l.lesson_name,
-                l.lesson_id,
                 creator.full_name as creator_name,
                 creator.role as creator_role,
                 (
@@ -12478,39 +12480,17 @@ app.get('/api/teacher/lessons', authenticateTeacher, async (req, res) => {
             LEFT JOIN course_modules cm ON mt.module_id = cm.module_id
             LEFT JOIN lessons l ON cm.lesson_id = l.lesson_id
             LEFT JOIN users creator ON tci.created_by = creator.user_id
-            WHERE 
-                tci.teacher_id = ?  
-                OR tci.teacher_id = ?  
-                OR tci.created_by = ?
+            WHERE tci.created_by = ? OR tci.teacher_id = ?
             ORDER BY tci.created_at DESC
-        `, [userId, teacherId, userId]);
-        
-        const formattedLessons = lessons.map(lesson => ({
-            content_id: lesson.content_id,
-            content_title: lesson.content_title,
-            content_description: lesson.content_description,
-            content_type: lesson.content_type,
-            content_url: lesson.content_url,
-            video_filename: lesson.video_filename,
-            is_active: lesson.is_active,
-            created_at: lesson.created_at,
-            lesson_name: lesson.lesson_name || 'General',
-            creator_name: lesson.creator_name,
-            creator_role: lesson.creator_role,
-            is_from_admin: lesson.creator_role === 'admin',
-            is_own: lesson.created_by === userId,
-            completions: lesson.completions || 0,
-            unique_students: lesson.unique_students || 0,
-            avg_score: Math.round(lesson.avg_score || 0)
-        }));
+        `, [userId, teacherId]);
         
         res.json({
             success: true,
-            lessons: formattedLessons
+            lessons: lessons || []
         });
         
     } catch (error) {
-        console.error('❌ Teacher lessons error:', error);
+        console.error('❌ Error fetching teacher lessons:', error);
         res.status(500).json({ 
             success: false, 
             message: error.message 
@@ -13208,88 +13188,7 @@ app.post('/api/teacher/feedback/:feedbackId/reply', authenticateTeacher, async (
         });
     }
 });
-// ===== GET TEACHER BY ID - FIX FOR 404 ERROR =====
-app.get('/api/teachers/:teacherId', authenticateToken, async (req, res) => {
-    try {
-        const { teacherId } = req.params;
-        
-        console.log(`📥 Fetching teacher details for ID: ${teacherId}`);
-        
-        // Try to get teacher from teachers table
-        const [teachers] = await promisePool.execute(`
-            SELECT 
-                t.teacher_id,
-                t.user_id,
-                t.department,
-                t.qualification,
-                t.years_experience,
-                t.bio,
-                t.rating,
-                t.total_students,
-                t.total_lessons,
-                t.specialization,
-                t.available_hours,
-                t.created_at,
-                u.username,
-                u.email,
-                u.full_name,
-                u.role
-            FROM teachers t
-            JOIN users u ON t.user_id = u.user_id
-            WHERE t.user_id = ?
-        `, [teacherId]);
-        
-        if (teachers.length > 0) {
-            return res.json({
-                success: true,
-                teacher: teachers[0]
-            });
-        }
-        
-        // If not in teachers table, get from users
-        const [users] = await promisePool.execute(`
-            SELECT 
-                user_id as id,
-                username,
-                email,
-                full_name,
-                role,
-                created_at as joined_date
-            FROM users 
-            WHERE user_id = ? AND (role = 'teacher' OR role = 'admin')
-        `, [teacherId]);
-        
-        if (users.length === 0) {
-            return res.status(404).json({
-                success: false,
-                message: 'Teacher not found'
-            });
-        }
-        
-        const user = users[0];
-        
-        res.json({
-            success: true,
-            teacher: {
-                ...user,
-                department: 'Mathematics',
-                qualification: 'Licensed Professional Teacher',
-                years_experience: 0,
-                rating: 4.5,
-                total_students: 0,
-                total_lessons: 0
-            }
-        });
-        
-    } catch (error) {
-        console.error('❌ Error fetching teacher:', error);
-        res.status(500).json({
-            success: false,
-            message: 'Failed to fetch teacher details',
-            error: error.message
-        });
-    }
-});
+
 // ============================================
 // ✅ GET TEACHER PROFILE
 // ============================================
