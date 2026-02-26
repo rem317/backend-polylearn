@@ -13552,10 +13552,15 @@ async function updateContinueLearningModule() {
     }
 }
 
-// Open a specific lesson
+// ============================================
+// ✅ FIXED: Open lesson with specific video
+// ============================================
 async function openLesson(lessonId) {
     try {
         console.log('📖 Opening lesson:', lessonId);
+        
+        // Show loading
+        showNotification('Loading lesson...', 'info');
         
         // Fetch lesson details
         const lesson = await fetchLessonDetails(lessonId);
@@ -13573,6 +13578,12 @@ async function openLesson(lessonId) {
             
             // Navigate to module dashboard
             navigateTo('moduleDashboard');
+            
+            // Load the specific video for this lesson
+            setTimeout(() => {
+                loadVideoFromDatabase(lessonId);
+            }, 500);
+            
         } else {
             showNotification('Failed to load lesson. Please try again.', 'error');
         }
@@ -14530,13 +14541,12 @@ async function testVideoAccessibility(url) {
 }
 
 // ============================================
-// FIXED: LOAD VIDEO FROM DATABASE - SPECIFIC LESSON ONLY
+// ✅ FIXED: Load video SPECIFIC to the lesson
 // ============================================
 async function loadVideoFromDatabase(contentId = null) {
     const videoElement = document.getElementById('lessonVideo');
     const videoInfo = document.getElementById('videoInfo');
     const refreshVideoBtn = document.getElementById('refreshVideoBtn');
-    const videoTitle = document.querySelector('.media-header span');
     
     if (!videoElement) {
         console.error('Video element not found!');
@@ -14544,19 +14554,21 @@ async function loadVideoFromDatabase(contentId = null) {
     }
     
     try {
+        // Use provided contentId or get from current lesson
         if (!contentId && LessonState.currentLesson) {
             contentId = LessonState.currentLesson.content_id;
         }
         
+        // If still no contentId, try from URL
         if (!contentId) {
             const urlParams = new URLSearchParams(window.location.search);
             contentId = urlParams.get('contentId') || urlParams.get('id') || 1;
         }
         
-        console.log(`🎬 Loading video for SPECIFIC content ID: ${contentId}`);
+        console.log(`🎬 Loading video SPECIFIC to lesson ID: ${contentId}`);
         
         if (videoInfo) {
-            videoInfo.innerHTML = '<p><i class="fas fa-spinner fa-spin"></i> Loading video from database...</p>';
+            videoInfo.innerHTML = '<p><i class="fas fa-spinner fa-spin"></i> Loading video for this specific lesson...</p>';
         }
         
         if (refreshVideoBtn) {
@@ -14569,7 +14581,7 @@ async function loadVideoFromDatabase(contentId = null) {
             throw new Error('No auth token available');
         }
         
-        // FETCH SPECIFIC LESSON DATA
+        // ✅ FETCH SPECIFIC LESSON DATA (this is the key!)
         const lessonResponse = await fetch(`/api/lessons-db/${contentId}`, {
             headers: {
                 'Authorization': `Bearer ${token}`,
@@ -14588,9 +14600,9 @@ async function loadVideoFromDatabase(contentId = null) {
         }
         
         const lesson = lessonData.lesson;
-        console.log('✅ Lesson data loaded for specific lesson:', lesson.content_title);
+        console.log('✅ Lesson data loaded:', lesson.content_title);
         
-        // Update UI
+        // Update lesson info in UI
         const titleElement = document.getElementById('videoLessonTitle');
         if (titleElement) {
             titleElement.textContent = lesson.content_title || 'Video Lesson';
@@ -14601,27 +14613,27 @@ async function loadVideoFromDatabase(contentId = null) {
             descElement.textContent = lesson.content_description || '';
         }
         
-        if (videoTitle) {
-            videoTitle.innerHTML = `<i class="fas fa-video"></i> ${lesson.content_title || 'Video Lesson'}`;
-        }
-        
         // ===== GET VIDEO SPECIFIC TO THIS LESSON =====
         let videoUrl = null;
         let videoSource = 'none';
-        let videoFilename = null;
-
-        // ✅ Check specific lesson's video_filename
+        
+        // ✅ Check lesson's video_filename (uploaded video)
         if (lesson.video_filename) {
-            videoFilename = lesson.video_filename;
             videoUrl = `/videos/${lesson.video_filename}`;
             videoSource = 'uploaded';
-            console.log(`🎬 Found uploaded video for lesson ${contentId}: ${videoFilename}`);
+            console.log(`🎬 Found uploaded video for lesson ${contentId}: ${lesson.video_filename}`);
         }
-        // ✅ Check specific lesson's content_url (YouTube)
-        else if (lesson.content_url && (lesson.content_url.includes('youtube') || lesson.content_url.includes('youtu.be'))) {
-            videoUrl = lesson.content_url;
-            videoSource = 'youtube';
-            console.log(`🔗 Found YouTube URL for lesson ${contentId}: ${videoUrl}`);
+        // ✅ Check lesson's content_url (YouTube)
+        else if (lesson.content_url) {
+            if (lesson.content_url.includes('youtube') || lesson.content_url.includes('youtu.be')) {
+                videoUrl = lesson.content_url;
+                videoSource = 'youtube';
+                console.log(`🔗 Found YouTube URL for lesson ${contentId}: ${videoUrl}`);
+            } else {
+                // Maybe it's a direct video path
+                videoUrl = lesson.content_url;
+                videoSource = 'url';
+            }
         }
         // ✅ Check video_path as fallback
         else if (lesson.video_path) {
@@ -14634,17 +14646,37 @@ async function loadVideoFromDatabase(contentId = null) {
             videoSource = 'path';
             console.log(`📁 Found video path for lesson ${contentId}: ${videoUrl}`);
         }
-
-        // Fallback to default video if none found
+        
+        // If no video found, show error
         if (!videoUrl) {
-            console.log(`⚠️ No video found for lesson ${contentId}, using default`);
-            videoUrl = '/videos/quarter1-polynomial-equations.mp4';
-            videoSource = 'default';
+            console.log(`⚠️ No video found for lesson ${contentId}`);
+            
+            videoElement.innerHTML = '';
+            const errorMsg = document.createElement('p');
+            errorMsg.style.cssText = 'color: #e74c3c; text-align: center; padding: 40px;';
+            errorMsg.innerHTML = `
+                <i class="fas fa-exclamation-triangle" style="font-size: 48px; margin-bottom: 15px;"></i><br>
+                <strong>No video assigned to this lesson</strong><br>
+                <span style="font-size: 14px;">Lesson ID: ${contentId}</span>
+            `;
+            videoElement.appendChild(errorMsg);
+            
+            if (videoInfo) {
+                videoInfo.innerHTML = `
+                    <p style="color: #e74c3c;">
+                        <i class="fas fa-exclamation-triangle"></i> 
+                        This lesson has no video. Please upload a video first.
+                    </p>
+                `;
+            }
+            return null;
         }
         
-        // LOAD VIDEO - CLEAR PREVIOUS FIRST
+        // ===== LOAD THE VIDEO =====
+        // Clear previous video
         videoElement.innerHTML = '';
         
+        // Handle YouTube videos
         if (videoUrl.includes('youtube') || videoUrl.includes('youtu.be')) {
             const videoId = extractYoutubeId(videoUrl);
             if (videoId) {
@@ -14654,41 +14686,46 @@ async function loadVideoFromDatabase(contentId = null) {
                 iframe.src = `https://www.youtube.com/embed/${videoId}?autoplay=0`;
                 iframe.frameBorder = '0';
                 iframe.allowFullscreen = true;
-                videoElement.parentNode.replaceChild(iframe, videoElement);
+                iframe.allow = 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture';
+                videoElement.appendChild(iframe);
                 
                 if (videoInfo) {
                     videoInfo.innerHTML = `
-                        <p><i class="fab fa-youtube"></i> <strong>YouTube Video</strong></p>
+                        <p><i class="fab fa-youtube" style="color: #ff0000;"></i> <strong>YouTube Video</strong></p>
                         <p><i class="fas fa-link"></i> ${lesson.content_title}</p>
+                        <p><i class="fas fa-tag"></i> Lesson ID: ${contentId}</p>
                     `;
                 }
             }
         } else {
-            // CREATE VIDEO ELEMENT WITH SPECIFIC SOURCE
+            // Regular video file
             const sourceElement = document.createElement('source');
             sourceElement.src = videoUrl + '?v=' + Date.now(); // Cache buster
             sourceElement.type = 'video/mp4';
             videoElement.appendChild(sourceElement);
             videoElement.appendChild(document.createTextNode('Your browser does not support the video tag.'));
             
+            // Video loaded successfully
             videoElement.onloadeddata = function() {
                 console.log(`✅ Video loaded successfully for lesson ${contentId}`);
                 if (videoInfo) {
                     videoInfo.innerHTML = `
                         <p><i class="fas fa-check-circle" style="color: #27ae60;"></i> <strong>${lesson.content_title || 'Video Lesson'}</strong></p>
                         <p><i class="fas fa-clock"></i> Duration: ${Math.floor((lesson.video_duration_seconds || 600) / 60)} min</p>
-                        <p><i class="fas fa-database"></i> Video for Lesson #${contentId}</p>
+                        <p><i class="fas fa-database"></i> Lesson #${contentId}</p>
                     `;
                 }
             };
             
+            // Video failed to load
             videoElement.onerror = function() {
                 console.error(`❌ Failed to load video for lesson ${contentId}:`, videoUrl);
                 if (videoInfo) {
                     videoInfo.innerHTML = `
                         <p style="color: #e74c3c;">
                             <i class="fas fa-exclamation-triangle"></i> 
-                            Video not found for this lesson. Please upload a video first.
+                            Video file not found for this lesson.<br>
+                            <small>Filename: ${lesson.video_filename || 'unknown'}</small>
                         </p>
                     `;
                 }
@@ -14706,10 +14743,10 @@ async function loadVideoFromDatabase(contentId = null) {
     } catch (error) {
         console.error(`❌ Error loading video for lesson ${contentId}:`, error);
         if (videoElement) {
-            videoElement.innerHTML = '<p style="color: #e74c3c; padding: 20px;">Failed to load video</p>';
+            videoElement.innerHTML = `<p style="color: #e74c3c; padding: 20px;">Failed to load video: ${error.message}</p>`;
         }
         if (videoInfo) {
-            videoInfo.innerHTML = '<p style="color: #e74c3c;"><i class="fas fa-exclamation-triangle"></i> Error loading video</p>';
+            videoInfo.innerHTML = `<p style="color: #e74c3c;"><i class="fas fa-exclamation-triangle"></i> Error loading video</p>`;
         }
         return null;
     } finally {
@@ -15079,7 +15116,9 @@ if (completeLessonBtn) {
     console.log('✅ Module dashboard initialized with database-driven content');
 }
 
-// Initialize module dashboard with current lesson data
+// ============================================
+// ✅ FIXED: Initialize module dashboard with specific lesson
+// ============================================
 async function initializeModuleDashboard() {
     const currentLesson = LessonState.currentLesson;
     
@@ -15091,6 +15130,7 @@ async function initializeModuleDashboard() {
     }
     
     console.log('📖 Initializing module dashboard for lesson:', currentLesson.content_title);
+    console.log('📌 Lesson ID:', currentLesson.content_id);
     
     // Update UI with lesson data
     const moduleTitle = document.getElementById('moduleTitle');
@@ -15107,7 +15147,7 @@ async function initializeModuleDashboard() {
     }
     
     if (moduleSubtitle) {
-        const subtitle = `${currentLesson.lesson_name} - ${currentLesson.module_name}`;
+        const subtitle = `${currentLesson.lesson_name || ''} - ${currentLesson.module_name || ''}`;
         moduleSubtitle.textContent = subtitle;
     }
     
@@ -15123,7 +15163,7 @@ async function initializeModuleDashboard() {
     
     const progressPercentage = document.getElementById('progressPercentage');
     if (progressPercentage) {
-        progressPercentage.textContent = `${percentage}%`;
+        progressPercentage.textContent = `${percentage}% Complete`;
     }
     
     // Update complete button based on status
@@ -15140,15 +15180,14 @@ async function initializeModuleDashboard() {
         }
     }
     
-    // Update navigation buttons
-    updateNavigationButtons(currentLesson.adjacent);
+    // Load the specific video for this lesson
+    await loadVideoFromDatabase(currentLesson.content_id);
     
-    // Display lesson content from database
-    addLessonContentStyles(); // Add CSS styles
-    await displayLessonContent(); // Display content from database
+    // Display lesson content
+    addLessonContentStyles();
+    await displayLessonContent();
     
-    // Initialize video from database
-    await initializeVideo(currentLesson.content_id);
+    console.log(`✅ Module dashboard initialized for lesson ${currentLesson.content_id}`);
 }
 
 // ============================================
@@ -24149,11 +24188,10 @@ async function loadFeedbackHistory(limit = 10) {
 }
 
 // ============================================
-// SETTINGS DASHBOARD - COMPLETE DATABASE CONNECTION
+// FIXED: initSettingsDashboard - With better error handling
 // ============================================
-
 async function initSettingsDashboard() {
-    console.log('⚙️ Initializing settings dashboard with database connection...');
+    console.log('⚙️ Initializing settings dashboard...');
     
     try {
         // Initialize settings sections
@@ -24162,20 +24200,50 @@ async function initSettingsDashboard() {
         // Initialize theme
         initTheme();
         
-        // Load profile data from database
-        await loadProfileData();
+        // Try to load profile data, but don't block if it fails
+        try {
+            await loadProfileData();
+        } catch (profileError) {
+            console.error('Profile load failed (continuing):', profileError);
+            // Use localStorage as fallback
+            const userJson = localStorage.getItem('mathhub_user');
+            if (userJson) {
+                const user = JSON.parse(userJson);
+                updateProfilePreview(user);
+            }
+        }
         
-        // Load user preferences from database
-        await loadUserPreferences();
+        // Load user preferences (with fallback)
+        try {
+            await loadUserPreferences();
+        } catch (prefError) {
+            console.error('Preferences load failed (continuing):', prefError);
+            loadPreferencesFromLocalStorage();
+        }
         
-        // Load notification settings from database
-        await loadNotificationSettings();
+        // Load notification settings (with fallback)
+        try {
+            await loadNotificationSettings();
+        } catch (notifError) {
+            console.error('Notifications load failed (continuing):', notifError);
+            loadNotificationsFromLocalStorage();
+        }
         
-        // Load privacy settings from database
-        await loadPrivacySettings();
+        // Load privacy settings (with fallback)
+        try {
+            await loadPrivacySettings();
+        } catch (privacyError) {
+            console.error('Privacy load failed (continuing):', privacyError);
+            loadPrivacyFromLocalStorage();
+        }
         
-        // Load display settings from database
-        await loadDisplaySettings();
+        // Load display settings (with fallback)
+        try {
+            await loadDisplaySettings();
+        } catch (displayError) {
+            console.error('Display load failed (continuing):', displayError);
+            loadDisplayFromLocalStorage();
+        }
         
         // Setup theme listeners
         setupThemeListeners();
@@ -24198,10 +24266,10 @@ async function initSettingsDashboard() {
         // Setup settings save
         setupSettingsSave();
         
-        console.log('✅ Settings dashboard initialized with database connection');
+        console.log('✅ Settings dashboard initialized (some data may be from localStorage)');
     } catch (error) {
         console.error('Error initializing settings dashboard:', error);
-        showNotification('Failed to load settings from database', 'error');
+        showNotification('Settings loaded from local storage', 'info');
     }
 }
 
@@ -24255,6 +24323,9 @@ window.deleteAccount = deleteAccount;
 /**
  * Load profile data from database
  */
+// ============================================
+// FIXED: Load profile data from database - With better error handling
+// ============================================
 async function loadProfileData() {
     try {
         const token = localStorage.getItem('authToken') || authToken;
@@ -24266,50 +24337,85 @@ async function loadProfileData() {
         
         console.log('👤 Loading profile data from database...');
         
-        const response = await fetch(`/user/profile`, {
-            headers: {
-                'Authorization': `Bearer ${token}`,
-                'Content-Type': 'application/json'
-            }
-        });
+        // TRY MULTIPLE ENDPOINTS
+        let profileData = null;
+        let response = null;
         
-        if (!response.ok) {
-            throw new Error(`Failed to load profile: ${response.status}`);
+        // Try multiple possible endpoints
+        const endpoints = [
+            `/user/profile`,
+            `/api/user/profile`,
+            `/profile`,
+            `/api/profile`
+        ];
+        
+        for (const endpoint of endpoints) {
+            try {
+                console.log(`📡 Trying endpoint: ${endpoint}`);
+                const res = await fetch(endpoint, {
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Accept': 'application/json'
+                    }
+                });
+                
+                const contentType = res.headers.get('content-type');
+                
+                if (res.ok && contentType && contentType.includes('application/json')) {
+                    const data = await res.json();
+                    if (data.success && data.profile) {
+                        profileData = data.profile;
+                        console.log(`✅ Profile loaded from ${endpoint}`);
+                        break;
+                    } else if (data.success && data.user) {
+                        profileData = data.user;
+                        console.log(`✅ User data loaded from ${endpoint}`);
+                        break;
+                    } else if (data.id || data.user_id) {
+                        // Direct user object
+                        profileData = data;
+                        console.log(`✅ Direct user data loaded from ${endpoint}`);
+                        break;
+                    }
+                }
+            } catch (e) {
+                console.log(`⚠️ Endpoint ${endpoint} failed:`, e.message);
+            }
         }
         
-        const data = await response.json();
-        
-        if (data.success && data.profile) {
-            const profile = data.profile;
+        // If we got profile data from server
+        if (profileData) {
+            console.log('✅ Profile data loaded from database:', profileData);
             
             // Update form fields
             const displayNameInput = document.getElementById('displayName');
             const emailInput = document.getElementById('userEmail');
             
             if (displayNameInput) {
-                displayNameInput.value = profile.full_name || profile.username || '';
+                displayNameInput.value = profileData.full_name || profileData.name || profileData.username || '';
             }
             
             if (emailInput) {
-                emailInput.value = profile.email || '';
+                emailInput.value = profileData.email || '';
             }
             
             // Update profile preview
-            updateProfilePreview(profile);
+            updateProfilePreview(profileData);
             
-            console.log('✅ Profile data loaded from database');
-            return profile;
-        } else {
-            throw new Error(data.message || 'Failed to load profile');
-        }
-    } catch (error) {
-        console.error('Error loading profile data:', error);
+            // Update account stats
+            updateAccountStats(profileData);
+            
+            return profileData;
+        } 
         
-        // Use local storage as fallback
+        // If all endpoints fail, use localStorage as fallback
+        console.log('⚠️ Using localStorage as fallback for profile data');
         const userJson = localStorage.getItem('mathhub_user');
         if (userJson) {
             try {
                 const user = JSON.parse(userJson);
+                console.log('📂 Using localStorage user data:', user);
+                
                 const displayNameInput = document.getElementById('displayName');
                 const emailInput = document.getElementById('userEmail');
                 
@@ -24317,6 +24423,38 @@ async function loadProfileData() {
                 if (emailInput) emailInput.value = user.email || '';
                 
                 updateProfilePreview(user);
+                updateAccountStats(user);
+                
+                return user;
+            } catch (e) {
+                console.error('Fallback also failed:', e);
+            }
+        }
+        
+        // If all fails, use default empty values
+        console.log('ℹ️ No profile data available, using defaults');
+        return null;
+        
+    } catch (error) {
+        console.error('Error loading profile data:', error);
+        
+        // Use local storage as final fallback
+        const userJson = localStorage.getItem('mathhub_user');
+        if (userJson) {
+            try {
+                const user = JSON.parse(userJson);
+                console.log('📂 Using localStorage user data (error fallback):', user);
+                
+                const displayNameInput = document.getElementById('displayName');
+                const emailInput = document.getElementById('userEmail');
+                
+                if (displayNameInput) displayNameInput.value = user.full_name || user.username || '';
+                if (emailInput) emailInput.value = user.email || '';
+                
+                updateProfilePreview(user);
+                updateAccountStats(user);
+                
+                return user;
             } catch (e) {
                 console.error('Fallback also failed:', e);
             }
@@ -24325,14 +24463,15 @@ async function loadProfileData() {
         return null;
     }
 }
-/**
- * Update profile preview with user data
- */
+
+// ============================================
+// Helper: Update profile preview
+// ============================================
 function updateProfilePreview(profile) {
     const profilePreview = document.getElementById('profilePreview');
     if (!profilePreview) return;
     
-    const fullName = profile.full_name || profile.username || 'User';
+    const fullName = profile.full_name || profile.name || profile.username || 'User';
     const initials = getInitials(fullName);
     
     profilePreview.innerHTML = `
@@ -24340,7 +24479,34 @@ function updateProfilePreview(profile) {
             ${initials}
         </div>
     `;
+    
+    // Also update profile overview if it exists
+    const profileInitials = document.getElementById('profileInitials');
+    if (profileInitials) {
+        profileInitials.innerHTML = `<span>${initials}</span>`;
+    }
+    
+    const profileInitialsPreview = document.getElementById('profileInitialsPreview');
+    if (profileInitialsPreview) {
+        profileInitialsPreview.textContent = initials;
+    }
+    
+    const profileDisplayName = document.getElementById('profileDisplayName');
+    if (profileDisplayName) {
+        profileDisplayName.textContent = fullName;
+    }
+    
+    const profileEmail = document.getElementById('profileEmail');
+    if (profileEmail && profile.email) {
+        profileEmail.textContent = profile.email;
+    }
+    
+    const profileRole = document.getElementById('profileRole');
+    if (profileRole && profile.role) {
+        profileRole.textContent = profile.role.charAt(0).toUpperCase() + profile.role.slice(1);
+    }
 }
+
 /**
  * Load user preferences from database
  */
@@ -25208,15 +25374,17 @@ function getInitials(name) {
     }
 }
 
-// Update account statistics
+// ============================================
+// Helper: Update account stats
+// ============================================
 function updateAccountStats(profile) {
-    // Member since
     const memberSince = document.getElementById('memberSince');
     if (memberSince && profile.joined_date) {
         memberSince.textContent = formatDate(profile.joined_date);
+    } else if (memberSince) {
+        memberSince.textContent = 'Recently';
     }
     
-    // Last login
     const lastLogin = document.getElementById('lastLogin');
     if (lastLogin && profile.last_login) {
         lastLogin.textContent = formatDateTime(profile.last_login);
@@ -25224,13 +25392,12 @@ function updateAccountStats(profile) {
         lastLogin.textContent = 'First login';
     }
     
-    // Account role
     const accountRole = document.getElementById('accountRole');
     if (accountRole && profile.role) {
-        const role = profile.role.charAt(0).toUpperCase() + profile.role.slice(1);
-        accountRole.textContent = role;
+        accountRole.textContent = profile.role.charAt(0).toUpperCase() + profile.role.slice(1);
     }
 }
+
 
 // Format date
 function formatDate(dateString) {
