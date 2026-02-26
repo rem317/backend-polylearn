@@ -281,35 +281,31 @@ app.get('*', (req, res, next) => {
 
 
 // ============================================
-// ✅ FIXED: DATABASE CONNECTION - GAMIT ANG RAILWAY DATABASE_URL
+// DATABASE CONNECTION - FIXED
 // ============================================
-const getDatabaseConfig = () => {
-    // Kung may DATABASE_URL sa environment, gamitin iyon
-    if (process.env.DATABASE_URL) {
-        console.log('✅ Using Railway DATABASE_URL');
-        return {
-            uri: process.env.DATABASE_URL,
-            connectionLimit: 10
-        };
+const pool = mysql.createPool({
+    host: process.env.DB_HOST || 'localhost',
+    user: process.env.DB_USER || 'root',
+    password: process.env.DB_PASSWORD || 'thesis',
+    database: process.env.DB_NAME || 'polylearn_db',
+    waitForConnections: true,
+    connectionLimit: 10,
+    queueLimit: 0,
+    enableKeepAlive: true,
+    keepAliveInitialDelay: 0
+});
+
+const promisePool = pool.promise();
+
+// Test connection
+pool.getConnection((err, connection) => {
+    if (err) {
+        console.error('❌ Database connection failed:', err.message);
+    } else {
+        console.log('✅ Connected to MySQL database');
+        connection.release();
     }
-    
-    // Fallback sa manual config
-    console.log('⚠️ Using fallback database config');
-    return {
-        host: process.env.DB_HOST || 'localhost',
-        user: process.env.DB_USER || 'root',
-        password: process.env.DB_PASSWORD || 'thesis',
-        database: process.env.DB_NAME || 'polylearn_db',
-        waitForConnections: true,
-        connectionLimit: 10,
-        queueLimit: 0,
-        enableKeepAlive: true,
-        keepAliveInitialDelay: 0
-    };
-};
-
-const dbConfig = getDatabaseConfig();
-
+});
 
 // ============================================
 // AUTHENTICATION MIDDLEWARE - ADDED HERE
