@@ -291,28 +291,45 @@ function redirectToLogin(message) {
 }
 
 
-// ===== FETCH TEACHER DETAILS FROM TEACHERS TABLE =====
+// ===== FIXED: FETCH TEACHER DETAILS - DIRECT DATABASE CALL =====
 async function fetchTeacherDetails(teacherId) {
     try {
+        console.log(`🔍 Fetching teacher details for ID: ${teacherId}`);
+        
         const token = localStorage.getItem('authToken');
         
-        const response = await fetch(`${API_BASE_URL}/teachers/${teacherId}`, {
-            headers: { 'Authorization': `Bearer ${token}` }
+        if (!token) {
+            console.error('❌ No auth token found');
+            return;
+        }
+        
+        // Use relative path to avoid CORS issues
+        const response = await fetch(`/api/teachers/${teacherId}`, {
+            method: 'GET',
+            headers: getAuthHeaders()
         });
         
+        console.log('📥 Response status:', response.status);
+        
         if (!response.ok) {
+            if (response.status === 403 || response.status === 401) {
+                console.error('❌ Token invalid or expired');
+                // Check if we can refresh token
+                const refreshed = await refreshToken();
+                if (refreshed) {
+                    // Retry the request
+                    return fetchTeacherDetails(teacherId);
+                }
+                return;
+            }
             throw new Error(`HTTP error! status: ${response.status}`);
         }
         
         const result = await response.json();
         
         if (result.success && result.teacher) {
-            // Store teacher details in global state
             window.teacherDetails = result.teacher;
-            
             console.log('✅ Teacher details loaded:', result.teacher);
-            
-            // Update UI with teacher details
             updateTeacherProfileUI(result.teacher);
         } else {
             console.log('⚠️ Teacher details not found in response');
@@ -320,8 +337,8 @@ async function fetchTeacherDetails(teacherId) {
         
     } catch (error) {
         console.error('❌ Error fetching teacher details:', error);
-        // Don't show error - it's not critical
-        console.log('⚠️ Teacher details fetch failed (non-critical)');
+        // Show user-friendly message but don't break the dashboard
+        showNotification('warning', 'Profile Info', 'Teacher details loading...');
     }
 }
 
@@ -976,21 +993,9 @@ function closeMobileMenu() {
         document.body.classList.remove('menu-open');
     }
 }
-
-// ============================================
-// DASHBOARD DATA LOADING
-// ============================================
-
-// ===== LOAD DASHBOARD DATA (WITH CACHE) =====
+// ===== FIXED: LOAD DASHBOARD DATA =====
 async function loadDashboardData(forceRefresh = false) {
     console.log('📊 Loading dashboard data from database...');
-    
-    // Check kung may cached data na at hindi force refresh
-    if (!forceRefresh && window.cachedDashboardData) {
-        console.log('📊 Using cached dashboard data');
-        applyDashboardData(window.cachedDashboardData);
-        return;
-    }
     
     try {
         const token = localStorage.getItem('authToken');
@@ -1002,30 +1007,29 @@ async function loadDashboardData(forceRefresh = false) {
         animateNumber('pendingReviews', 0);
         
         // ===== FETCH DASHBOARD STATS =====
-        const response = await fetch(`${API_BASE_URL}/teacher/dashboard/stats`, {
+        const response = await fetch(`/api/teacher/dashboard/stats`, {
             method: 'GET',
             headers: getAuthHeaders()
         });
         
-        // Handle 403/401 - expired token
-        if (response.status === 403 || response.status === 401) {
-            console.error('❌ Token invalid or expired');
-            localStorage.removeItem('authToken');
-            localStorage.removeItem('mathhub_user');
-            redirectToLogin('Session expired. Please login again.');
-            return;
-        }
-        
         if (!response.ok) {
+            if (response.status === 403 || response.status === 401) {
+                console.error('❌ Token invalid or expired');
+                // Try to refresh token
+                const refreshed = await refreshToken();
+                if (refreshed) {
+                    return loadDashboardData(forceRefresh);
+                }
+                redirectToLogin('Session expired. Please login again.');
+                return;
+            }
             throw new Error(`HTTP error! status: ${response.status}`);
         }
         
         const result = await response.json();
-        const dashboardData = {};
         
         if (result.success) {
             const stats = result.stats;
-            dashboardData.stats = stats;
             
             // Update main stats cards
             animateNumber('totalLessons', stats.total_lessons || 0);
@@ -1048,24 +1052,19 @@ async function loadDashboardData(forceRefresh = false) {
         // ===== LOAD STUDENTS =====
         console.log('📥 Loading students...');
         await loadMyStudents(forceRefresh);
-        dashboardData.students = myStudents;
         
         // ===== LOAD LESSONS =====
         console.log('📥 Loading lessons...');
         await loadMyLessons(forceRefresh);
-        dashboardData.lessons = myLessons;
         
         // ===== LOAD RECENT LESSONS =====
         await loadRecentLessons(forceRefresh);
-        
-        // ===== SAVE TO CACHE =====
-        window.cachedDashboardData = dashboardData;
         
         // ===== FINAL UPDATE =====
         updateSidebarStats();
         updateActiveSubject();
         
-        console.log('✅ All dashboard data cached');
+        console.log('✅ All dashboard data loaded');
         
     } catch (error) {
         console.error('❌ Error loading dashboard data:', error);
