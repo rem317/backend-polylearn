@@ -279,20 +279,46 @@ app.get('*', (req, res, next) => {
 
 
 
+
 // ============================================
-// DATABASE CONNECTION - FIXED
+// ✅ FIXED: DATABASE CONNECTION - GAMIT ANG RAILWAY DATABASE_URL
 // ============================================
-const pool = mysql.createPool({
-    host: process.env.DB_HOST || 'localhost',
-    user: process.env.DB_USER || 'root',
-    password: process.env.DB_PASSWORD || 'thesis',
-    database: process.env.DB_NAME || 'polylearn_db',
-    waitForConnections: true,
-    connectionLimit: 10,
-    queueLimit: 0,
-    enableKeepAlive: true,
-    keepAliveInitialDelay: 0
-});
+const getDatabaseConfig = () => {
+    // Kung may DATABASE_URL sa environment, gamitin iyon
+    if (process.env.DATABASE_URL) {
+        console.log('✅ Using Railway DATABASE_URL');
+        return {
+            uri: process.env.DATABASE_URL,
+            connectionLimit: 10
+        };
+    }
+    
+    // Fallback sa manual config
+    console.log('⚠️ Using fallback database config');
+    return {
+        host: process.env.DB_HOST || 'localhost',
+        user: process.env.DB_USER || 'root',
+        password: process.env.DB_PASSWORD || 'thesis',
+        database: process.env.DB_NAME || 'polylearn_db',
+        waitForConnections: true,
+        connectionLimit: 10,
+        queueLimit: 0,
+        enableKeepAlive: true,
+        keepAliveInitialDelay: 0
+    };
+};
+
+const dbConfig = getDatabaseConfig();
+
+let pool;
+if (dbConfig.uri) {
+    // Gumamit ng connection string kung available
+    const mysql = require('mysql2');
+    pool = mysql.createPool(dbConfig.uri);
+} else {
+    // Gumamit ng object config kung walang URI
+    pool = mysql.createPool(dbConfig);
+}
 
 const promisePool = pool.promise();
 
@@ -300,11 +326,59 @@ const promisePool = pool.promise();
 pool.getConnection((err, connection) => {
     if (err) {
         console.error('❌ Database connection failed:', err.message);
+        console.error('🔧 Please check your Railway database variables');
     } else {
-        console.log('✅ Connected to MySQL database');
+        console.log('✅ Connected to MySQL database via Railway');
         connection.release();
     }
 });
+
+// ============================================
+// 🚀 FORCE REFRESH ENDPOINT - PARA I-RELOAD ANG LAHAT NG DATA
+// ============================================
+app.post('/api/admin/force-refresh', authenticateAdmin, async (req, res) => {
+    try {
+        console.log('🔄 Force refreshing all data...');
+        
+        // I-clear ang anumang cached data
+        const results = {};
+        
+        // I-refresh ang lessons
+        const [lessons] = await promisePool.query(`
+            SELECT COUNT(*) as count FROM topic_content_items
+        `);
+        results.lessons_count = lessons[0].count;
+        
+        // I-refresh ang users
+        const [users] = await promisePool.query(`
+            SELECT COUNT(*) as count FROM users
+        `);
+        results.users_count = users[0].count;
+        
+        // I-refresh ang quizzes
+        const [quizzes] = await promisePool.query(`
+            SELECT COUNT(*) as count FROM quizzes
+        `);
+        results.quizzes_count = quizzes[0].count;
+        
+        console.log('✅ Data refreshed:', results);
+        
+        res.json({
+            success: true,
+            message: 'Data refreshed successfully',
+            stats: results
+        });
+        
+    } catch (error) {
+        console.error('❌ Error refreshing data:', error);
+        res.status(500).json({
+            success: false,
+            message: error.message
+        });
+    }
+});
+
+
 
 // ============================================
 // AUTHENTICATION MIDDLEWARE - ADDED HERE
