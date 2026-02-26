@@ -1268,7 +1268,7 @@ app.get('/api/lessons/by-subject/:subjectId', authenticateToken, async (req, res
 
        // ✅ FIX: Use the authenticated user ID from either source
         const userId = req.user?.id || req.userId;
-        console.log(📚 Fetching lessons for subject ${subjectId} by user ${userId});
+        console.log(`📚 Fetching lessons for subject ${subjectId} by user ${userId}`);
         
         const [lessons] = await promisePool.query(`
             SELECT 
