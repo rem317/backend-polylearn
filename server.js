@@ -118,19 +118,18 @@ if (fs.existsSync(uploadsPath)) {
     console.log(`✅ Uploads served from: ${uploadsPath} (backward compatibility)`);
 }
 
-// ===== MULTER CONFIGURATION - Save to public/videos =====
+// ===== MULTER CONFIGURATION - FIXED (SA public/videos) =====
 const VIDEOS_DIR = path.join(__dirname, 'public', 'videos');
-console.log(`📁 Videos will be saved to: ${VIDEOS_DIR}`);
 
 // Create directory if it doesn't exist
 if (!fs.existsSync(VIDEOS_DIR)) {
     fs.mkdirSync(VIDEOS_DIR, { recursive: true });
-    console.log(`📁 Created videos directory at: ${VIDEOS_DIR}`);
+    console.log(📁 Created videos directory at: ${VIDEOS_DIR});
 }
 
 const storage = multer.diskStorage({
     destination: (req, file, cb) => {
-        cb(null, VIDEOS_DIR); // Save to public/videos/
+        cb(null, VIDEOS_DIR); // ✅ TAMA - sa public/videos napupunta
     },
     filename: (req, file, cb) => {
         const uniqueName = Date.now() + path.extname(file.originalname);
@@ -253,16 +252,31 @@ function authenticateToken(req, res, next) {
         });
     }
 
-    // Add this line - hardcoded fallback
-    const JWT_SECRET = process.env.JWT_SECRET || 'demo_secret_key_for_development_only';
+    // ✅ GAMITIN ANG GLOBAL JWT_SECRET - dapat consistent sa buong app
+    // I-assume na may JWT_SECRET na defined sa taas ng file
+    const JWT_SECRET = process.env.JWT_SECRET || 'your-super-secret-key-change-this';
     
     jwt.verify(token, JWT_SECRET, (err, user) => {
         if (err) {
             console.error('Token verification error:', err.message);
-            return res.status(403).json({ 
-                success: false, 
-                message: 'Invalid or expired token.' 
-            });
+            
+            // Return specific error message
+            if (err.name === 'TokenExpiredError') {
+                return res.status(403).json({ 
+                    success: false, 
+                    message: 'Token expired. Please login again.' 
+                });
+            } else if (err.name === 'JsonWebTokenError') {
+                return res.status(403).json({ 
+                    success: false, 
+                    message: 'Invalid token signature.' 
+                });
+            } else {
+                return res.status(403).json({ 
+                    success: false, 
+                    message: 'Invalid token.' 
+                });
+            }
         }
         
         req.user = user;
@@ -309,6 +323,7 @@ const authenticateUser = (req, res, next) => {
         
         req.user = { 
             id: decoded.id,
+            userId: decoded.id, // Add userId for consistency
             username: decoded.username,
             email: decoded.email,
             role: decoded.role
@@ -12094,12 +12109,9 @@ app.get('/api/health', async (req, res) => {
 });
 
 
-
 // ============================================
-// ✅ TEACHER ROUTES - COMPLETE FUNCTIONALITIES
+// ✅ FIXED: AUTHENTICATE TEACHER MIDDLEWARE - Use consistent JWT secret
 // ============================================
-
-// ===== AUTHENTICATE TEACHER MIDDLEWARE =====
 const authenticateTeacher = async (req, res, next) => {
     try {
         const authHeader = req.headers['authorization'];
@@ -12112,19 +12124,34 @@ const authenticateTeacher = async (req, res, next) => {
             });
         }
         
-        // Verify token
-        const decoded = jwt.verify(token, process.env.JWT_SECRET || 'your-secret-key');
+        // ✅ Use the SAME JWT secret as authenticateUser and authenticateAdmin
+        const JWT_SECRET = process.env.JWT_SECRET || 'demo_secret_key_for_development_only';
         
-        // Check if user is teacher or admin
+        // Verify token with consistent secret
+        const decoded = jwt.verify(token, JWT_SECRET);
+        
+        console.log('🔍 Teacher auth - decoded token:', decoded);
+        
+        // Handle both possible id field names (id or userId)
+        const userId = decoded.id || decoded.userId;
+        
+        if (!userId) {
+            return res.status(403).json({ 
+                success: false, 
+                message: 'Invalid token format - no user ID' 
+            });
+        }
+        
+        // Check if user exists and is teacher or admin
         const [users] = await promisePool.execute(
-            'SELECT user_id, role FROM users WHERE user_id = ?',
-            [decoded.userId || decoded.id]
+            'SELECT user_id, username, email, full_name, role FROM users WHERE user_id = ? AND is_active = 1',
+            [userId]
         );
         
         if (users.length === 0) {
             return res.status(403).json({ 
                 success: false, 
-                message: 'User not found' 
+                message: 'User not found or inactive' 
             });
         }
         
@@ -12134,26 +12161,44 @@ const authenticateTeacher = async (req, res, next) => {
         if (user.role !== 'teacher' && user.role !== 'admin') {
             return res.status(403).json({ 
                 success: false, 
-                message: 'Teacher access required' 
+                message: 'Teacher or admin access required' 
             });
         }
         
+        // Set user in request object (consistent format)
         req.user = {
             id: user.user_id,
+            userId: user.user_id,
+            username: user.username,
+            email: user.email,
+            full_name: user.full_name,
             role: user.role
         };
         
+        console.log(`✅ Teacher authenticated: ID ${user.user_id}, Role: ${user.role}`);
         next();
         
     } catch (error) {
-        console.error('❌ Auth error:', error);
-        return res.status(403).json({ 
-            success: false, 
-            message: 'Invalid or expired token' 
-        });
+        console.error('❌ Teacher auth error:', error.message);
+        
+        if (error.name === 'TokenExpiredError') {
+            return res.status(403).json({ 
+                success: false, 
+                message: 'Token expired. Please login again.' 
+            });
+        } else if (error.name === 'JsonWebTokenError') {
+            return res.status(403).json({ 
+                success: false, 
+                message: 'Invalid token signature.' 
+            });
+        } else {
+            return res.status(403).json({ 
+                success: false, 
+                message: 'Invalid token: ' + error.message 
+            });
+        }
     }
 };
-
 // ============================================
 // ✅ TEACHER DASHBOARD STATS
 // ============================================
