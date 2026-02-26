@@ -12328,18 +12328,24 @@ app.get('/api/teacher/dashboard/stats', authenticateToken, async (req, res) => {
     }
 });
 
-// ===== FIXED: GET TEACHER'S STUDENTS =====
+// ===== FIXED: GET ALL STUDENTS FROM USERS TABLE =====
 app.get('/api/teacher/students', authenticateTeacher, async (req, res) => {
     try {
         const userId = req.user.id;
         
-        // Don't require teachers table - just use user_id
+        console.log(`📥 Fetching ALL students for teacher ID: ${userId}`);
+        
+        // Get ALL users with role 'student' from the users table
         const [students] = await promisePool.execute(`
-            SELECT DISTINCT
+            SELECT 
                 u.user_id as id,
                 u.full_name as name,
+                u.username,
                 u.email,
                 u.last_login as last_active,
+                u.created_at as joined_date,
+                u.is_active,
+                -- Get lesson completion stats (optional, can be 0)
                 (
                     SELECT COUNT(*) 
                     FROM user_content_progress ucp 
@@ -12351,30 +12357,81 @@ app.get('/api/teacher/students', authenticateTeacher, async (req, res) => {
                     FROM user_quiz_attempts uqa
                     WHERE uqa.user_id = u.user_id 
                     AND uqa.completion_status = 'completed'
-                ) as avg_score
+                ) as avg_score,
+                (
+                    SELECT COUNT(*)
+                    FROM user_quiz_attempts uqa
+                    WHERE uqa.user_id = u.user_id
+                ) as quizzes_taken
             FROM users u
-            WHERE u.role = 'student'
-            AND u.is_active = 1
-            ORDER BY u.full_name
+            WHERE u.role = 'student'  -- Only get users with student role
+            AND u.is_active = 1        -- Only active users
+            ORDER BY u.full_name, u.username
         `);
         
+        console.log(`✅ Found ${students.length} total students in users table`);
+        
+        // Log all student IDs for debugging
+        console.log('Student IDs:', students.map(s => s.id).join(', '));
+        
+        // Format the response
         const formattedStudents = students.map(s => ({
-            ...s,
-            avatar: getInitials(s.name),
-            last_active: s.last_active ? getTimeAgo(s.last_active) : 'Never'
+            id: s.id,
+            name: s.name || s.username || 'Unknown',
+            username: s.username,
+            email: s.email,
+            avatar: getInitials(s.name || s.username || 'Student'),
+            lessons_completed: s.lessons_completed || 0,
+            avg_score: Math.round(s.avg_score || 0),
+            quizzes_taken: s.quizzes_taken || 0,
+            last_active: s.last_active ? getTimeAgo(s.last_active) : 'Never',
+            joined_date: s.joined_date,
+            is_active: s.is_active === 1
         }));
+        
+        // Count students per subject (based on their completed lessons)
+        const subjectCounts = {
+            polynomial: 0,
+            factorial: 0,
+            mdas: 0
+        };
+        
+        // Get subject distribution
+        const [subjectStudents] = await promisePool.execute(`
+            SELECT 
+                l.lesson_name,
+                COUNT(DISTINCT ucp.user_id) as student_count
+            FROM lessons l
+            LEFT JOIN course_modules cm ON l.lesson_id = cm.lesson_id
+            LEFT JOIN module_topics mt ON cm.module_id = mt.module_id
+            LEFT JOIN topic_content_items tci ON mt.topic_id = tci.topic_id
+            LEFT JOIN user_content_progress ucp ON tci.content_id = ucp.content_id 
+                AND ucp.completion_status = 'completed'
+            WHERE l.is_active = 1
+            GROUP BY l.lesson_id
+        `);
+        
+        subjectStudents.forEach(row => {
+            const name = row.lesson_name?.toLowerCase() || '';
+            if (name.includes('poly')) subjectCounts.polynomial = row.student_count || 0;
+            else if (name.includes('fact')) subjectCounts.factorial = row.student_count || 0;
+            else if (name.includes('math')) subjectCounts.mdas = row.student_count || 0;
+        });
         
         res.json({
             success: true,
             students: formattedStudents,
-            total: formattedStudents.length
+            total: formattedStudents.length,
+            subject_counts: subjectCounts
         });
         
     } catch (error) {
         console.error('❌ Teacher students error:', error);
         res.status(500).json({ 
             success: false, 
-            message: error.message 
+            message: error.message,
+            students: [],
+            subject_counts: { polynomial: 0, factorial: 0, mdas: 0 }
         });
     }
 });
