@@ -124,7 +124,7 @@ const VIDEOS_DIR = path.join(__dirname, 'public', 'videos');
 // Create directory if it doesn't exist
 if (!fs.existsSync(VIDEOS_DIR)) {
     fs.mkdirSync(VIDEOS_DIR, { recursive: true });
-    console.log(📁 Created videos directory at: ${VIDEOS_DIR});
+    console.log(`📁 Created videos directory at: ${VIDEOS_DIR}`);
 }
 
 const storage = multer.diskStorage({
