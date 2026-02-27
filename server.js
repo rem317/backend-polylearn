@@ -13017,7 +13017,8 @@ const authenticateTeacher = async (req, res, next) => {
         });
     }
 };
-// ===== FIX: ADD TEACHER DASHBOARD STATS ENDPOINT =====
+
+// ===== FIXED: TEACHER DASHBOARD STATS ENDPOINT =====
 app.get('/api/teacher/dashboard/stats', authenticateTeacher, async (req, res) => {
     try {
         const userId = req.user.id;
@@ -13036,13 +13037,18 @@ app.get('/api/teacher/dashboard/stats', authenticateTeacher, async (req, res) =>
             SELECT 
                 COUNT(*) as total_lessons,
                 SUM(CASE WHEN is_active = 1 THEN 1 ELSE 0 END) as published,
-                SUM(CASE WHEN is_active = 0 OR is_active IS NULL THEN 1 ELSE 0 END) as draft,
-                COALESCE(AVG(
-                    SELECT AVG(score) FROM user_content_progress 
-                    WHERE content_id = tci.content_id
-                ), 0) as avg_completion
-            FROM topic_content_items tci
+                SUM(CASE WHEN is_active = 0 OR is_active IS NULL THEN 1 ELSE 0 END) as draft
+            FROM topic_content_items 
             WHERE created_by = ? OR teacher_id = ?
+        `, [userId, teacherId]);
+
+        // Get average completion separately (fixed syntax)
+        const [avgCompletionResult] = await promisePool.execute(`
+            SELECT COALESCE(AVG(ucp.score), 0) as avg_completion
+            FROM user_content_progress ucp
+            JOIN topic_content_items tci ON ucp.content_id = tci.content_id
+            WHERE (tci.created_by = ? OR tci.teacher_id = ?)
+            AND ucp.completion_status = 'completed'
         `, [userId, teacherId]);
 
         // Get total students who completed lessons
@@ -13064,24 +13070,32 @@ app.get('/api/teacher/dashboard/stats', authenticateTeacher, async (req, res) =>
         `, [userId, teacherId]);
 
         // Get pending reviews (feedback with status 'new')
-        const [pendingResult] = await promisePool.execute(`
-            SELECT COUNT(*) as pending_reviews
-            FROM feedback f
-            JOIN teachers t ON f.teacher_id = t.teacher_id
-            WHERE t.user_id = ? AND f.status = 'new'
-        `, [userId]);
+        let pendingReviews = 0;
+        try {
+            const [pendingResult] = await promisePool.execute(`
+                SELECT COUNT(*) as pending_reviews
+                FROM feedback f
+                LEFT JOIN teachers t ON f.teacher_id = t.teacher_id
+                WHERE (t.user_id = ? OR f.teacher_id = ?) AND f.status = 'new'
+            `, [userId, teacherId]);
+            
+            pendingReviews = pendingResult[0]?.pending_reviews || 0;
+        } catch (e) {
+            console.log('Feedback table might not exist:', e.message);
+        }
 
-        const lessons = lessonsResult[0] || { total_lessons: 0, published: 0, draft: 0, avg_completion: 0 };
+        const lessons = lessonsResult[0] || { total_lessons: 0, published: 0, draft: 0 };
+        const avgCompletion = Math.round(avgCompletionResult[0]?.avg_completion || 0);
         const avgGrade = Math.round(avgGradeResult[0]?.avg_grade || 0);
 
         const stats = {
             total_lessons: lessons.total_lessons || 0,
             total_students: studentsResult[0]?.total_students || 0,
             avg_grade: avgGrade,
-            pending_reviews: pendingResult[0]?.pending_reviews || 0,
+            pending_reviews: pendingReviews,
             published: lessons.published || 0,
             draft: lessons.draft || 0,
-            avg_completion: avgGrade
+            avg_completion: avgCompletion
         };
 
         console.log('✅ Dashboard stats:', stats);
@@ -13100,12 +13114,19 @@ app.get('/api/teacher/dashboard/stats', authenticateTeacher, async (req, res) =>
     }
 });
 
-// ===== FIX: GET TEACHER STUDENTS =====
+// ===== FIXED: GET TEACHER STUDENTS =====
 app.get('/api/teacher/students', authenticateTeacher, async (req, res) => {
     try {
         const userId = req.user.id;
         
         console.log(`📥 Fetching students for teacher ${userId}`);
+
+        // Get teacher ID if exists
+        const [teacher] = await promisePool.execute(`
+            SELECT teacher_id FROM teachers WHERE user_id = ?
+        `, [userId]);
+        
+        const teacherId = teacher.length > 0 ? teacher[0].teacher_id : userId;
 
         // Get students who have completed lessons created by this teacher
         const [students] = await promisePool.execute(`
@@ -13115,23 +13136,7 @@ app.get('/api/teacher/students', authenticateTeacher, async (req, res) => {
                 u.username,
                 u.email,
                 u.last_login as last_active,
-                u.created_at as joined_date,
-                (
-                    SELECT COUNT(*) 
-                    FROM user_content_progress ucp2
-                    JOIN topic_content_items tci2 ON ucp2.content_id = tci2.content_id
-                    WHERE ucp2.user_id = u.user_id 
-                    AND ucp2.completion_status = 'completed'
-                    AND (tci2.created_by = ? OR tci2.teacher_id = ?)
-                ) as lessons_completed,
-                (
-                    SELECT COALESCE(AVG(ucp2.score), 0)
-                    FROM user_content_progress ucp2
-                    JOIN topic_content_items tci2 ON ucp2.content_id = tci2.content_id
-                    WHERE ucp2.user_id = u.user_id 
-                    AND (tci2.created_by = ? OR tci2.teacher_id = ?)
-                    AND ucp2.completion_status = 'completed'
-                ) as avg_score
+                u.created_at as joined_date
             FROM users u
             WHERE EXISTS (
                 SELECT 1
@@ -13142,20 +13147,44 @@ app.get('/api/teacher/students', authenticateTeacher, async (req, res) => {
                 AND ucp.completion_status = 'completed'
             )
             ORDER BY u.full_name
-        `, [userId, userId, userId, userId, userId, userId]);
+        `, [userId, teacherId]);
 
-        console.log(`✅ Found ${students.length} students`);
+        // Get stats for each student (separate query to avoid complexity)
+        const formattedStudents = [];
+        
+        for (const student of students) {
+            // Get lessons completed count
+            const [completedResult] = await promisePool.execute(`
+                SELECT COUNT(*) as lessons_completed
+                FROM user_content_progress ucp
+                JOIN topic_content_items tci ON ucp.content_id = tci.content_id
+                WHERE ucp.user_id = ? 
+                AND (tci.created_by = ? OR tci.teacher_id = ?)
+                AND ucp.completion_status = 'completed'
+            `, [student.id, userId, teacherId]);
+            
+            // Get average score
+            const [avgResult] = await promisePool.execute(`
+                SELECT COALESCE(AVG(ucp.score), 0) as avg_score
+                FROM user_content_progress ucp
+                JOIN topic_content_items tci ON ucp.content_id = tci.content_id
+                WHERE ucp.user_id = ? 
+                AND (tci.created_by = ? OR tci.teacher_id = ?)
+                AND ucp.completion_status = 'completed'
+            `, [student.id, userId, teacherId]);
+            
+            formattedStudents.push({
+                id: student.id,
+                name: student.name || student.username || 'Student',
+                email: student.email || 'No email',
+                avatar: (student.name || student.username || 'S').charAt(0).toUpperCase(),
+                lessons_completed: completedResult[0]?.lessons_completed || 0,
+                avg_score: Math.round(avgResult[0]?.avg_score || 0),
+                last_active: student.last_active ? formatDateForStudent(student.last_active) : 'Recently'
+            });
+        }
 
-        // Format students for frontend
-        const formattedStudents = students.map(s => ({
-            id: s.id,
-            name: s.name || s.username || 'Student',
-            email: s.email || 'No email',
-            avatar: (s.name || s.username || 'S').charAt(0).toUpperCase(),
-            lessons_completed: s.lessons_completed || 0,
-            avg_score: Math.round(s.avg_score || 0),
-            last_active: s.last_active ? new Date(s.last_active).toLocaleDateString() : 'Recently'
-        }));
+        console.log(`✅ Found ${formattedStudents.length} students`);
 
         res.json({
             success: true,
@@ -13171,6 +13200,113 @@ app.get('/api/teacher/students', authenticateTeacher, async (req, res) => {
         });
     }
 });
+
+// ===== FIXED: GET TEACHER STUDENTS =====
+app.get('/api/teacher/students', authenticateTeacher, async (req, res) => {
+    try {
+        const userId = req.user.id;
+        
+        console.log(`📥 Fetching students for teacher ${userId}`);
+
+        // Get teacher ID if exists
+        const [teacher] = await promisePool.execute(`
+            SELECT teacher_id FROM teachers WHERE user_id = ?
+        `, [userId]);
+        
+        const teacherId = teacher.length > 0 ? teacher[0].teacher_id : userId;
+
+        // Get students who have completed lessons created by this teacher
+        const [students] = await promisePool.execute(`
+            SELECT DISTINCT 
+                u.user_id as id,
+                u.full_name as name,
+                u.username,
+                u.email,
+                u.last_login as last_active,
+                u.created_at as joined_date
+            FROM users u
+            WHERE EXISTS (
+                SELECT 1
+                FROM user_content_progress ucp
+                JOIN topic_content_items tci ON ucp.content_id = tci.content_id
+                WHERE ucp.user_id = u.user_id
+                AND (tci.created_by = ? OR tci.teacher_id = ?)
+                AND ucp.completion_status = 'completed'
+            )
+            ORDER BY u.full_name
+        `, [userId, teacherId]);
+
+        // Get stats for each student (separate query to avoid complexity)
+        const formattedStudents = [];
+        
+        for (const student of students) {
+            // Get lessons completed count
+            const [completedResult] = await promisePool.execute(`
+                SELECT COUNT(*) as lessons_completed
+                FROM user_content_progress ucp
+                JOIN topic_content_items tci ON ucp.content_id = tci.content_id
+                WHERE ucp.user_id = ? 
+                AND (tci.created_by = ? OR tci.teacher_id = ?)
+                AND ucp.completion_status = 'completed'
+            `, [student.id, userId, teacherId]);
+            
+            // Get average score
+            const [avgResult] = await promisePool.execute(`
+                SELECT COALESCE(AVG(ucp.score), 0) as avg_score
+                FROM user_content_progress ucp
+                JOIN topic_content_items tci ON ucp.content_id = tci.content_id
+                WHERE ucp.user_id = ? 
+                AND (tci.created_by = ? OR tci.teacher_id = ?)
+                AND ucp.completion_status = 'completed'
+            `, [student.id, userId, teacherId]);
+            
+            formattedStudents.push({
+                id: student.id,
+                name: student.name || student.username || 'Student',
+                email: student.email || 'No email',
+                avatar: (student.name || student.username || 'S').charAt(0).toUpperCase(),
+                lessons_completed: completedResult[0]?.lessons_completed || 0,
+                avg_score: Math.round(avgResult[0]?.avg_score || 0),
+                last_active: student.last_active ? formatDateForStudent(student.last_active) : 'Recently'
+            });
+        }
+
+        console.log(`✅ Found ${formattedStudents.length} students`);
+
+        res.json({
+            success: true,
+            students: formattedStudents
+        });
+
+    } catch (error) {
+        console.error('❌ Error fetching teacher students:', error);
+        res.status(500).json({ 
+            success: false, 
+            message: error.message,
+            students: [] 
+        });
+    }
+});
+
+// Helper function for date formatting
+function formatDateForStudent(date) {
+    if (!date) return 'Never';
+    
+    const now = new Date();
+    const past = new Date(date);
+    const diffMs = now - past;
+    const diffMins = Math.floor(diffMs / 60000);
+    const diffHours = Math.floor(diffMs / 3600000);
+    const diffDays = Math.floor(diffMs / 86400000);
+    
+    if (diffMins < 1) return 'Just now';
+    if (diffMins < 60) return `${diffMins} min ago`;
+    if (diffHours < 24) return `${diffHours} hour${diffHours > 1 ? 's' : ''} ago`;
+    if (diffDays === 1) return 'Yesterday';
+    if (diffDays < 7) return `${diffDays} days ago`;
+    
+    return past.toLocaleDateString();
+}
 
 // Helper function for time ago formatting
 function getTimeAgo(date) {
