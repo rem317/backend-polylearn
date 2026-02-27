@@ -1022,8 +1022,6 @@ async function loadDashboardData(forceRefresh = false) {
     console.log('📊 Loading dashboard data from database...');
     
     try {
-        const token = localStorage.getItem('authToken');
-        
         // Show loading states
         animateNumber('totalLessons', 0);
         animateNumber('totalStudents', 0);
@@ -1090,6 +1088,45 @@ async function loadDashboardData(forceRefresh = false) {
         showNotification('error', 'Dashboard Error', 'Could not load dashboard data');
     }
 }
+
+// Add this function temporarily to check what data is being loaded
+async function debugDataLoad() {
+    console.log('🔍 DEBUGGING DATA LOAD:');
+    
+    try {
+        // Test dashboard stats
+        console.log('Testing dashboard stats endpoint...');
+        const statsResponse = await fetch('/api/teacher/dashboard/stats', {
+            headers: getAuthHeaders()
+        });
+        console.log('Stats response status:', statsResponse.status);
+        if (statsResponse.ok) {
+            const statsData = await statsResponse.json();
+            console.log('Stats data:', statsData);
+        } else {
+            console.log('Stats failed:', await statsResponse.text());
+        }
+        
+        // Test students endpoint
+        console.log('Testing students endpoint...');
+        const studentsResponse = await fetch('/api/teacher/students', {
+            headers: getAuthHeaders()
+        });
+        console.log('Students response status:', studentsResponse.status);
+        if (studentsResponse.ok) {
+            const studentsData = await studentsResponse.json();
+            console.log('Students data:', studentsData);
+        } else {
+            console.log('Students failed:', await studentsResponse.text());
+        }
+        
+    } catch (error) {
+        console.error('Debug error:', error);
+    }
+}
+
+// Call it after page loads
+setTimeout(debugDataLoad, 2000);
 
 // ===== HELPER: NAVIGATE TO SECTION WITH SCROLL =====
 function navigateToSection(sectionId, title, navItem, callback) {
