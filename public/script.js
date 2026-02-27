@@ -1414,7 +1414,7 @@ async function apiRequest(endpoint, options = {}) {
                     };
                 }
                 
-                if (endpoint.includes('/progress/daily')) {
+                if (endpoint.includes('/api/progress/daily')) {
                     return {
                         success: true,
                         progress: {
@@ -1450,7 +1450,7 @@ async function apiRequest(endpoint, options = {}) {
         console.error(`❌ API Request Failed: ${url}`, error);
         
         // Return fallback data para hindi mag-crash ang app
-        if (endpoint.includes('/progress/daily')) {
+        if (endpoint.includes('/api/progress/daily')) {
             return {
                 success: true,
                 progress: {
@@ -22558,7 +22558,7 @@ async function debugLessonCount() {
     try {
         const token = localStorage.getItem('authToken');
         if (token) {
-            const response = await fetch(`/progress/daily`, {
+            const response = await fetch(`/api/progress/daily`, {
                 headers: { 'Authorization': `Bearer ${token}` }
             });
             const data = await response.json();
@@ -23169,7 +23169,7 @@ async function markLessonComplete() {
             } else {
                 console.warn('⚠️ Daily progress endpoint returned:', dailyResponse.status);
                 // Try alternative endpoint
-                const altResponse = await fetch(`/progress/daily`, {
+                const altResponse = await fetch(`/api/progress/daily`, {
                     method: 'POST',
                     headers: {
                         'Authorization': `Bearer ${token}`,
@@ -23492,7 +23492,8 @@ async function fetchProgressDashboardSummary() {
         
         console.log('📊 Fetching Progress Dashboard Summary...');
         
-        const response = await fetch(`/progress/dashboard-summary`, {
+        // ✅ FIX: Add /api/ prefix
+        const response = await fetch(`/api/progress/dashboard-summary`, {
             headers: {
                 'Authorization': `Bearer ${token}`,
                 'Content-Type': 'application/json'
@@ -23500,6 +23501,13 @@ async function fetchProgressDashboardSummary() {
         });
         
         if (!response.ok) return null;
+        
+        // Check if response is JSON
+        const contentType = response.headers.get('content-type');
+        if (!contentType || !contentType.includes('application/json')) {
+            console.error('❌ Non-JSON response:', await response.text().substring(0, 200));
+            return null;
+        }
         
         const data = await response.json();
         
@@ -23524,90 +23532,131 @@ async function updateProgressDashboardFromDatabase() {
         showProgressDashboardLoading();
         
         // Fetch all data in parallel
-        const [dashboardData, badges, accuracy] = await Promise.all([
+        const [dashboardData, badges, accuracy] = await Promise.allSettled([
             fetchProgressDashboardSummary(),
             fetchUserBadges(),
             fetchAccuracyRate()
         ]);
         
-        if (!dashboardData) {
-            console.warn('No dashboard data received');
-            return;
+        if (dashboardData.status === 'fulfilled' && dashboardData.value) {
+            console.log('📊 Updating Progress Dashboard UI:', dashboardData.value);
+            
+            // Update UI with dashboard data
+            updateDashboardUI(dashboardData.value);
+        } else {
+            console.warn('No dashboard data received, using fallback');
+            // Use fallback data from other sources
+            await updateDashboardWithFallback();
         }
         
-        console.log('📊 Updating Progress Dashboard UI:', dashboardData);
-        
-        // 1. Update Welcome Title and Date
-        const welcomeTitle = document.getElementById('progressWelcomeTitle');
-        if (welcomeTitle) {
-            welcomeTitle.textContent = dashboardData.welcomeTitle || 'Your Learning Progress';
+        // Update badges display
+        if (badges.status === 'fulfilled' && badges.value) {
+            updateBadgesDisplay(badges.value);
         }
         
-        const progressDate = document.getElementById('progressDate');
-        if (progressDate) {
-            progressDate.textContent = dashboardData.lastUpdated || `Last updated: ${new Date().toLocaleDateString()}`;
+        // Update accuracy display
+        if (accuracy.status === 'fulfilled' && accuracy.value) {
+            updateAccuracyDisplay(accuracy.value);
         }
         
-        // 2. Update Overall Progress
-        const overallProgress = document.getElementById('overallProgress');
-        const overallProgressBar = document.getElementById('overallProgressBar');
-        if (overallProgress && overallProgressBar) {
-            overallProgress.textContent = `${dashboardData.overallProgress?.percentage || 0}%`;
-            overallProgressBar.style.width = dashboardData.overallProgress?.barWidth || '0%';
-            overallProgressBar.className = `progress-fill ${dashboardData.overallProgress?.barClass || 'progress-low'}`;
-        }
-        
-        // 3. Update Total Points
-        const totalPointsProgress = document.getElementById('totalPointsProgress');
-        if (totalPointsProgress) {
-            totalPointsProgress.textContent = dashboardData.totalPoints?.current || 0;
-        }
-        
-        const pointsChange = document.getElementById('pointsChange');
-        if (pointsChange) {
-            pointsChange.textContent = dashboardData.totalPoints?.change || '+0 this week';
-        }
-        
-        // 4. Update Time Invested
-        const totalTime = document.getElementById('totalTime');
-        if (totalTime) {
-            totalTime.textContent = dashboardData.timeInvested?.total || '0h';
-        }
-        
-        const timeChange = document.getElementById('timeChange');
-        if (timeChange) {
-            timeChange.textContent = dashboardData.timeInvested?.change || '0h this week';
-        }
-        
-        // 5. Update Badges Earned - NOW WITH REAL DATA
-        const totalBadges = document.getElementById('totalBadges');
-        if (totalBadges) {
-            totalBadges.textContent = badges ? `${badges.length}/10` : dashboardData.badgesEarned?.display || '0/10';
-        }
-        
-        const badgesChange = document.getElementById('badgesChange');
-        if (badgesChange) {
-            badgesChange.textContent = badges ? `+${badges.length} total badges` : (dashboardData.badgesEarned?.change || '+0 this month');
-        }
-        
-        // 6. Update Accuracy Rate in Stats
-        if (accuracy) {
-            // Find accuracy elements in the dashboard
-            const accuracyElements = document.querySelectorAll('.stat-value.accuracy, [data-stat="accuracy"]');
-            accuracyElements.forEach(el => {
-                el.textContent = `${accuracy.overall}%`;
-            });
-        }
-        
-        // Store in ProgressState
-        ProgressState.dashboardSummary = dashboardData;
-        ProgressState.userBadges = badges;
-        ProgressState.accuracyRate = accuracy;
-        
-        console.log('✅ Progress Dashboard UI updated successfully from database');
+        console.log('✅ Progress Dashboard UI updated');
         
     } catch (error) {
         console.error('❌ Error updating progress dashboard:', error);
+    }
+}
+
+// Fallback function
+async function updateDashboardWithFallback() {
+    try {
+        const [cumulative, daily] = await Promise.all([
+            fetchCumulativeProgress(),
+            fetchDailyProgress()
+        ]);
+        
+        // Create fallback dashboard data
+        const fallbackData = {
+            welcomeTitle: 'Your Learning Progress',
+            lastUpdated: `Last updated: ${new Date().toLocaleDateString()}`,
+            overallProgress: {
+                percentage: cumulative?.overall_percentage || 0,
+                barWidth: `${cumulative?.overall_percentage || 0}%`,
+                barClass: (cumulative?.overall_percentage || 0) >= 70 ? 'progress-good' : 
+                         (cumulative?.overall_percentage || 0) >= 40 ? 'progress-medium' : 'progress-low'
+            },
+            totalPoints: {
+                current: cumulative?.total_points_earned || 0,
+                change: `+${cumulative?.weekly?.points || 0} this week`
+            },
+            timeInvested: {
+                total: formatTime(cumulative?.total_time_spent_minutes || 0),
+                change: `${cumulative?.weekly?.minutes || 0} min this week`
+            },
+            badgesEarned: {
+                display: '0/10',
+                change: '+0 this month'
+            }
+        };
+        
+        updateDashboardUI(fallbackData);
+        
+    } catch (error) {
+        console.error('Fallback also failed:', error);
+    }
+}
+
+function updateDashboardUI(data) {
+    // 1. Update Welcome Title and Date
+    const welcomeTitle = document.getElementById('progressWelcomeTitle');
+    if (welcomeTitle) {
+        welcomeTitle.textContent = data.welcomeTitle || 'Your Learning Progress';
+    }
+    
+    const progressDate = document.getElementById('progressDate');
+    if (progressDate) {
+        progressDate.textContent = data.lastUpdated || `Last updated: ${new Date().toLocaleDateString()}`;
+    }
+    
+    // 2. Update Overall Progress
+    const overallProgress = document.getElementById('overallProgress');
+    const overallProgressBar = document.getElementById('overallProgressBar');
+    if (overallProgress && overallProgressBar) {
+        overallProgress.textContent = `${data.overallProgress?.percentage || 0}%`;
+        overallProgressBar.style.width = data.overallProgress?.barWidth || '0%';
+        overallProgressBar.className = `progress-fill ${data.overallProgress?.barClass || 'progress-low'}`;
+    }
+    
+    // 3. Update Total Points
+    const totalPointsProgress = document.getElementById('totalPointsProgress');
+    if (totalPointsProgress) {
+        totalPointsProgress.textContent = data.totalPoints?.current || 0;
+    }
+    
+    const pointsChange = document.getElementById('pointsChange');
+    if (pointsChange) {
+        pointsChange.textContent = data.totalPoints?.change || '+0 this week';
+    }
+    
+    // 4. Update Time Invested
+    const totalTime = document.getElementById('totalTime');
+    if (totalTime) {
+        totalTime.textContent = data.timeInvested?.total || '0h';
+    }
+    
+    const timeChange = document.getElementById('timeChange');
+    if (timeChange) {
+        timeChange.textContent = data.timeInvested?.change || '0 min this week';
+    }
+    
+    // 5. Update Badges
+    const totalBadges = document.getElementById('totalBadges');
+    if (totalBadges) {
+        totalBadges.textContent = data.badgesEarned?.display || '0/10';
+    }
+    
+    const badgesChange = document.getElementById('badgesChange');
+    if (badgesChange) {
+        badgesChange.textContent = data.badgesEarned?.change || '+0 this month';
     }
 }
 
@@ -23757,9 +23806,17 @@ async function fetchActivityLog(limit = 10) {
         
         console.log('📋 Fetching activity log...');
         
+        // ✅ FIX: Add /api/ prefix
         const response = await fetch(`/api/dashboard/activity-feed?limit=${limit}`, {
             headers: { 'Authorization': `Bearer ${token}` }
         });
+        
+        // Check if response is JSON
+        const contentType = response.headers.get('content-type');
+        if (!contentType || !contentType.includes('application/json')) {
+            console.warn('⚠️ Non-JSON response from activity feed');
+            return [];
+        }
         
         if (!response.ok) return [];
         
@@ -28187,7 +28244,7 @@ async function fetchTodaysLearningStats() {
 async function fetchDailyProgressFallback() {
     try {
         const token = localStorage.getItem('authToken') || authToken;
-        const response = await fetch(`/progress/daily`, {
+        const response = await fetch(`/api/progress/daily`, {
             headers: {
                 'Authorization': `Bearer ${token}`,
                 'Content-Type': 'application/json'
