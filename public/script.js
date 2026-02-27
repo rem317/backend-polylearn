@@ -52,7 +52,144 @@ class ToolManager {
 
     createModals() {
         console.log('📦 Creating tool modals...');
-        // ... (keep your existing modal HTML here) ...
+        // Check if modals already exist
+        const existingModals = [
+            'calculatorModal', 'graphModal', 'whiteboardModal', 
+            'notepadModal', 'formulaModal', 'timerModal'
+        ];
+        
+        let anyModalMissing = false;
+        existingModals.forEach(id => {
+            if (!document.getElementById(id)) {
+                anyModalMissing = true;
+            }
+        });
+        
+        // If any modal is missing, create them
+        if (anyModalMissing) {
+            this.injectModalHTML();
+        }
+    }
+
+    injectModalHTML() {
+        const modalHTML = `
+            <!-- Calculator Modal -->
+            <div id="calculatorModal" class="modal-overlay">
+                <div class="modal-container">
+                    <div class="modal-header" style="background: #7a0000; color: white;">
+                        <h3 style="margin: 0;"><i class="fas fa-calculator"></i> Calculator</h3>
+                        <button class="modal-close" onclick="window.toolManager.closeTool()" style="color: white;">&times;</button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="calculator-container">
+                            <div class="calculator-display" id="calcDisplay">0</div>
+                            <div class="calculator-buttons" id="calcButtons"></div>
+                            <div class="calculator-history">
+                                <h3><i class="fas fa-history"></i> History</h3>
+                                <div class="history-list" id="calcHistory"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Graph Modal -->
+            <div id="graphModal" class="modal-overlay">
+                <div class="modal-container">
+                    <div class="modal-header" style="background: #7a0000; color: white;">
+                        <h3 style="margin: 0;"><i class="fas fa-chart-line"></i> Graph Tool</h3>
+                        <button class="modal-close" onclick="window.toolManager.closeTool()" style="color: white;">&times;</button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="graph-tool">
+                            <canvas id="graphCanvas" width="600" height="400"></canvas>
+                            <div class="graph-controls">
+                                <input type="text" id="graphExpression" placeholder="f(x) = " value="x^3 - 2x^2 + x - 1">
+                                <button id="plotGraphBtn">Plot</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Whiteboard Modal -->
+            <div id="whiteboardModal" class="modal-overlay">
+                <div class="modal-container">
+                    <div class="modal-header" style="background: #7a0000; color: white;">
+                        <h3 style="margin: 0;"><i class="fas fa-paint-brush"></i> Whiteboard</h3>
+                        <button class="modal-close" onclick="window.toolManager.closeTool()" style="color: white;">&times;</button>
+                    </div>
+                    <div class="modal-body">
+                        <canvas id="whiteboardCanvas" width="600" height="400"></canvas>
+                        <div class="whiteboard-controls">
+                            <button onclick="window.toolManager.tools.whiteboard.setTool('pen')">Pen</button>
+                            <button onclick="window.toolManager.tools.whiteboard.setTool('eraser')">Eraser</button>
+                            <button onclick="window.toolManager.tools.whiteboard.clear()">Clear</button>
+                            <input type="color" id="colorPicker" value="#7a0000">
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Notepad Modal -->
+            <div id="notepadModal" class="modal-overlay">
+                <div class="modal-container">
+                    <div class="modal-header" style="background: #7a0000; color: white;">
+                        <h3 style="margin: 0;"><i class="fas fa-sticky-note"></i> Notepad</h3>
+                        <button class="modal-close" onclick="window.toolManager.closeTool()" style="color: white;">&times;</button>
+                    </div>
+                    <div class="modal-body">
+                        <input type="text" id="noteTitle" placeholder="Note Title">
+                        <textarea id="noteContent" placeholder="Write your notes here..." rows="10"></textarea>
+                        <button onclick="window.toolManager.tools.notepad.save()">Save Note</button>
+                        <button onclick="window.toolManager.tools.notepad.clear()">Clear</button>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Formula Sheet Modal -->
+            <div id="formulaModal" class="modal-overlay">
+                <div class="modal-container">
+                    <div class="modal-header" style="background: #7a0000; color: white;">
+                        <h3 style="margin: 0;"><i class="fas fa-square-root-alt"></i> Formula Sheet</h3>
+                        <button class="modal-close" onclick="window.toolManager.closeTool()" style="color: white;">&times;</button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="formula-categories">
+                            <button onclick="window.toolManager.tools.formula.showCategory('polynomial')">Polynomial</button>
+                            <button onclick="window.toolManager.tools.formula.showCategory('algebra')">Algebra</button>
+                            <button onclick="window.toolManager.tools.formula.showCategory('calculus')">Calculus</button>
+                        </div>
+                        <div id="formulaList"></div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Timer Modal -->
+            <div id="timerModal" class="modal-overlay">
+                <div class="modal-container">
+                    <div class="modal-header" style="background: #7a0000; color: white;">
+                        <h3 style="margin: 0;"><i class="fas fa-clock"></i> Study Timer</h3>
+                        <button class="modal-close" onclick="window.toolManager.closeTool()" style="color: white;">&times;</button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="timer-display" id="timerDisplay">25:00</div>
+                        <div class="timer-controls">
+                            <button id="timerStartBtn">Start</button>
+                            <button id="timerPauseBtn">Pause</button>
+                            <button id="timerResetBtn">Reset</button>
+                        </div>
+                        <div class="timer-presets">
+                            <button id="timer15min">15 min</button>
+                            <button id="timer25min" class="active">25 min</button>
+                            <button id="timer50min">50 min</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        this.modalsContainer.innerHTML = modalHTML;
     }
 
     initializeTools() {
@@ -67,7 +204,6 @@ class ToolManager {
         };
     }
 
-    // ✅ ITO ANG BAHAGING NAAYOS
     setupEventListeners() {
         console.log('🔗 Setting up event listeners...');
         
@@ -75,7 +211,7 @@ class ToolManager {
         window.addEventListener('click', (e) => {
             if (e.target.classList.contains('modal-overlay')) {
                 console.log('🔘 Clicked on overlay, closing tool');
-                this.closeTool();  // <- TAMA NA ITO
+                this.closeTool();
             }
         });
 
@@ -83,7 +219,7 @@ class ToolManager {
         document.addEventListener('keydown', (e) => {
             if (e.key === 'Escape') {
                 console.log('🔘 ESC key pressed, closing tool');
-                this.closeTool();  // <- TAMA NA ITO
+                this.closeTool();
             }
         });
     }
@@ -123,12 +259,13 @@ class ToolManager {
             }
             
             console.log(`✅ ${toolName} opened successfully`);
+            return true;
         } else {
             console.error(`❌ Modal not found: ${toolName}Modal`);
+            return false;
         }
     }
 
-    // ✅ TANDAAN: Ang method na ito ay tinatawag ng setupEventListeners
     closeTool() {
         console.log('🔧 Closing current tool');
         document.querySelectorAll('.modal-overlay').forEach(modal => {
@@ -138,7 +275,7 @@ class ToolManager {
         this.currentTool = null;
     }
 
-    // Timer bridge methods (keep these)
+    // Timer bridge methods
     startTimer() {
         if (this.tools && this.tools.timer) {
             this.tools.timer.start();
@@ -157,6 +294,7 @@ class ToolManager {
         }
     }
 }
+
 // ========================================
 // CALCULATOR TOOL - FIXED VERSION
 // ========================================
@@ -5041,33 +5179,26 @@ window.goToNextPractice = function() {
 };
 // Call this function when initializing practice page
 addPracticeResultModalStyles();
+
 // ============================================
-// ✅ ENHANCED: fetchPracticeStatistics - Records both lessons and exercises
+// ✅ FIXED: fetchPracticeStatistics - WITH CORRECT ENDPOINTS
 // ============================================
 async function fetchPracticeStatistics(topicId = null) {
     try {
         const token = localStorage.getItem('authToken') || authToken;
         if (!token) {
             console.warn('No auth token available');
-            return {
-                total_exercises_completed: 0,
-                total_attempts: 0,
-                average_score: 0,
-                lessons_completed: 0,
-                exercises_completed: 0,
-                practice_unlocked: false,
-                total_lessons: 3
-            };
+            return getDefaultPracticeStats();
         }
         
-        console.log('📊 Fetching practice statistics DIRECTLY FROM DATABASE...');
+        console.log('📊 Fetching practice statistics FROM DATABASE...');
         
         // ===== STEP 1: GET LESSONS COMPLETED =====
         let lessonsCompleted = 0;
         let totalLessons = 3; // Default
         
         try {
-            // Get lesson progress
+            // ✅ FIX: Add /api/ prefix
             const progressResponse = await fetch(`/api/progress/lessons`, {
                 headers: {
                     'Authorization': `Bearer ${token}`,
@@ -5075,7 +5206,9 @@ async function fetchPracticeStatistics(topicId = null) {
                 }
             });
             
-            if (progressResponse.ok) {
+            // Check if response is JSON
+            const contentType = progressResponse.headers.get('content-type');
+            if (contentType && contentType.includes('application/json') && progressResponse.ok) {
                 const progressData = await progressResponse.json();
                 if (progressData.success && progressData.progress) {
                     // Count completed lessons
@@ -5085,6 +5218,9 @@ async function fetchPracticeStatistics(topicId = null) {
                     
                     console.log(`✅ Found ${lessonsCompleted} completed lessons`);
                 }
+            } else {
+                console.log('⚠️ Using default lesson count');
+                lessonsCompleted = 0;
             }
             
             // Get total lessons count
@@ -5096,9 +5232,12 @@ async function fetchPracticeStatistics(topicId = null) {
             });
             
             if (lessonsResponse.ok) {
-                const lessonsData = await lessonsResponse.json();
-                if (lessonsData.success && lessonsData.lessons) {
-                    totalLessons = lessonsData.lessons.length;
+                const contentType = lessonsResponse.headers.get('content-type');
+                if (contentType && contentType.includes('application/json')) {
+                    const lessonsData = await lessonsResponse.json();
+                    if (lessonsData.success && lessonsData.lessons) {
+                        totalLessons = lessonsData.lessons.length;
+                    }
                 }
             }
             
@@ -5113,6 +5252,7 @@ async function fetchPracticeStatistics(topicId = null) {
         let totalTimeSeconds = 0;
         
         try {
+            // ✅ FIX: Add /api/ prefix
             const attemptsResponse = await fetch(`/api/progress/practice-attempts`, {
                 headers: {
                     'Authorization': `Bearer ${token}`,
@@ -5120,12 +5260,13 @@ async function fetchPracticeStatistics(topicId = null) {
                 }
             });
             
-            if (attemptsResponse.ok) {
+            const contentType = attemptsResponse.headers.get('content-type');
+            if (contentType && contentType.includes('application/json') && attemptsResponse.ok) {
                 const attemptsData = await attemptsResponse.json();
                 if (attemptsData.success && attemptsData.attempts) {
                     const attempts = attemptsData.attempts;
                     
-                    // Count COMPLETED exercises (hindi lang attempts)
+                    // Count COMPLETED exercises
                     const completedExercises = attempts.filter(a => 
                         a.completion_status === 'completed' || 
                         a.score > 0 || 
@@ -5153,71 +5294,24 @@ async function fetchPracticeStatistics(topicId = null) {
             console.warn('⚠️ Could not fetch practice attempts:', attemptsError.message);
         }
         
-        // ===== STEP 3: GET TODAY'S PRACTICE =====
-        let todayPracticeCount = 0;
-        let todayTimeSeconds = 0;
-        
-        try {
-            const today = new Date();
-            today.setHours(0, 0, 0, 0);
-            const todayISO = today.toISOString();
-            
-            const attemptsResponse = await fetch(`/api/progress/practice-attempts`, {
-                headers: {
-                    'Authorization': `Bearer ${token}`,
-                    'Content-Type': 'application/json'
-                }
-            });
-            
-            if (attemptsResponse.ok) {
-                const attemptsData = await attemptsResponse.json();
-                if (attemptsData.success && attemptsData.attempts) {
-                    const todayAttempts = attemptsData.attempts.filter(a => {
-                        if (!a.created_at) return false;
-                        const attemptDate = new Date(a.created_at);
-                        return attemptDate >= today;
-                    });
-                    
-                    todayPracticeCount = todayAttempts.length;
-                    todayTimeSeconds = todayAttempts.reduce((sum, a) => sum + (a.time_spent_seconds || 0), 0);
-                }
-            }
-        } catch (todayError) {
-            console.warn('⚠️ Could not fetch today\'s practice:', todayError.message);
-        }
-        
-        // ===== STEP 4: CALCULATE ACCURACY RATE =====
-        let accuracyRate = 85; // Default
-        if (totalAttempts > 0) {
-            accuracyRate = Math.round(totalScore);
-        }
-        
-        // ===== STEP 5: CREATE STATS OBJECT =====
+        // ===== CREATE STATS OBJECT =====
         const stats = {
-            // For practice statistics display
             total_exercises_completed: exercisesCompleted,
             total_attempts: totalAttempts,
-            average_score: accuracyRate,
+            average_score: totalScore,
             lessons_completed: lessonsCompleted,
             exercises_completed: exercisesCompleted,
             practice_unlocked: true,
             total_lessons: totalLessons,
-            
-            // Additional stats for detailed display
             total_time_minutes: Math.round(totalTimeSeconds / 60),
             total_time_seconds: totalTimeSeconds,
-            today_practice_count: todayPracticeCount,
-            today_time_seconds: todayTimeSeconds,
-            today_time_minutes: Math.round(todayTimeSeconds / 60),
-            accuracy_rate: accuracyRate,
-            
-            // For the progress bar
+            accuracy_rate: totalScore,
             lessons_display: `${lessonsCompleted}/${totalLessons}`,
             exercises_display: `${exercisesCompleted}`,
             lessons_percentage: totalLessons > 0 ? Math.round((lessonsCompleted / totalLessons) * 100) : 0
         };
         
-        console.log('✅ FINAL PRACTICE STATISTICS FROM DATABASE:', stats);
+        console.log('✅ FINAL PRACTICE STATISTICS:', stats);
         
         // Save to PracticeState
         PracticeState.userPracticeProgress = stats;
@@ -5226,17 +5320,7 @@ async function fetchPracticeStatistics(topicId = null) {
         
     } catch (error) {
         console.error('❌ Error fetching practice statistics:', error);
-        return {
-            total_exercises_completed: 0,
-            total_attempts: 0,
-            average_score: 0,
-            lessons_completed: 0,
-            exercises_completed: 0,
-            practice_unlocked: false,
-            total_lessons: 3,
-            lessons_percentage: 0,
-            lessons_display: '0/3'
-        };
+        return getDefaultPracticeStats();
     }
 }
 
@@ -6119,6 +6203,49 @@ async function requestPasswordReset() {
 }
 
 
+// ============================================
+// FORCE MODAL STYLES - FIXED
+// ============================================
+
+// I-DECLARE MUNA ang function bago gamitin
+function forceModalStyles() {
+    const style = document.createElement('style');
+    style.textContent = `
+        .modal-overlay {
+            display: none !important;
+            position: fixed !important;
+            top: 0 !important;
+            left: 0 !important;
+            width: 100% !important;
+            height: 100% !important;
+            background: rgba(0, 0, 0, 0.7) !important;
+            z-index: 10000 !important;
+            justify-content: center !important;
+            align-items: center !important;
+        }
+        
+        .modal-overlay.active,
+        .modal-overlay[style*="display: flex"] {
+            display: flex !important;
+        }
+        
+        .modal-container {
+            background: white !important;
+            border-radius: 10px !important;
+            max-width: 800px !important;
+            width: 90% !important;
+            max-height: 90vh !important;
+            overflow-y: auto !important;
+        }
+    `;
+    document.head.appendChild(style);
+}
+
+// Ngayon safe nang tawagin
+forceModalStyles();
+
+
+
 // Copy reset link to clipboard
 function copyResetLink() {
     const linkText = document.getElementById('resetLinkDisplay').textContent;
@@ -6435,8 +6562,7 @@ document.addEventListener('DOMContentLoaded', function() {
     addLessonContentStyles();
     addReviewModalStyles();
     
-    // Force modal styles
-    forceModalStyles();
+  
     
     // Initialize forgot password link - call it multiple times to ensure it works
     setTimeout(() => {
@@ -6650,6 +6776,7 @@ function connectToolButtons() {
 
     // Initialize ToolManager if not exists
     if (!window.toolManager) {
+        console.log('🔧 Creating new ToolManager...');
         window.toolManager = new ToolManager();
     }
 
@@ -6657,7 +6784,9 @@ function connectToolButtons() {
     tools.forEach(tool => {
         const btn = document.getElementById(tool.id);
         if (btn) {
-            // Remove old listeners
+            console.log(`🔧 Found button: ${tool.id}`);
+            
+            // Remove old listeners by cloning
             const newBtn = btn.cloneNode(true);
             btn.parentNode.replaceChild(newBtn, btn);
             
@@ -6666,6 +6795,13 @@ function connectToolButtons() {
                 e.preventDefault();
                 e.stopPropagation();
                 console.log(`🎯 Opening ${tool.name}`);
+                
+                // Make sure ToolManager exists
+                if (!window.toolManager) {
+                    window.toolManager = new ToolManager();
+                }
+                
+                // Open the tool
                 window.toolManager.openTool(tool.name);
             });
             
@@ -6674,8 +6810,32 @@ function connectToolButtons() {
             console.warn(`⚠️ Button not found: ${tool.id}`);
         }
     });
+    
+    // Also connect buttons with data-tool attribute
+    document.querySelectorAll('[data-tool]').forEach(btn => {
+        const toolName = btn.getAttribute('data-tool');
+        if (toolName) {
+            console.log(`🔧 Found button with data-tool: ${toolName}`);
+            
+            const newBtn = btn.cloneNode(true);
+            btn.parentNode.replaceChild(newBtn, btn);
+            
+            newBtn.addEventListener('click', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                console.log(`🎯 Opening ${toolName} via data-tool`);
+                
+                if (!window.toolManager) {
+                    window.toolManager = new ToolManager();
+                }
+                
+                window.toolManager.openTool(toolName);
+            });
+        }
+    });
+    
+    console.log('✅ All tool buttons connected');
 }
-
 
 // ============================================
 // ✅ NEW: Fetch total exercises count from database
@@ -28697,7 +28857,7 @@ const forceModalStyles = () => {
     document.head.appendChild(style);
 };
 
-forceModalStyles();
+
 
 // ============================================
 // FIX: Connect HTML tool buttons to ToolManager
