@@ -28647,6 +28647,223 @@ document.addEventListener('DOMContentLoaded', function() {
 })();
 
 
+// ============================================
+// 🚨 EMERGENCY FIX: DIRECT TOOL BUTTON HANDLERS
+// ============================================
+
+// Make sure toolManager exists
+if (!window.toolManager) {
+    console.log('🔧 Creating ToolManager...');
+    window.toolManager = new ToolManager();
+}
+
+// Direct click handlers for each tool button
+function setupDirectToolHandlers() {
+    console.log('🔧 Setting up direct tool handlers...');
+    
+    // Calculator button
+    const calcBtn = document.getElementById('openCalculator');
+    if (calcBtn) {
+        calcBtn.onclick = function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            console.log('🧮 Calculator clicked (direct)');
+            
+            // Show the modal directly
+            const modal = document.getElementById('calculatorModal');
+            if (modal) {
+                // Hide all modals first
+                document.querySelectorAll('.modal-overlay').forEach(m => {
+                    m.style.display = 'none';
+                    m.classList.remove('active');
+                });
+                
+                // Show this modal
+                modal.style.display = 'flex';
+                modal.classList.add('active');
+                
+                // Initialize calculator
+                setTimeout(() => {
+                    if (window.toolManager && window.toolManager.tools) {
+                        window.toolManager.tools.calculator.onOpen();
+                    }
+                }, 100);
+            } else {
+                console.error('❌ Calculator modal not found!');
+            }
+            return false;
+        };
+        console.log('✅ Calculator handler attached directly');
+    }
+    
+    // Graph button
+    const graphBtn = document.getElementById('openGraphTools');
+    if (graphBtn) {
+        graphBtn.onclick = function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            console.log('📈 Graph clicked (direct)');
+            
+            const modal = document.getElementById('graphModal');
+            if (modal) {
+                document.querySelectorAll('.modal-overlay').forEach(m => {
+                    m.style.display = 'none';
+                    m.classList.remove('active');
+                });
+                
+                modal.style.display = 'flex';
+                modal.classList.add('active');
+                
+                setTimeout(() => {
+                    if (window.toolManager && window.toolManager.tools) {
+                        window.toolManager.tools.graph.onOpen();
+                    }
+                }, 100);
+            }
+            return false;
+        };
+    }
+    
+    // Notepad button
+    const notepadBtn = document.getElementById('openNotepad');
+    if (notepadBtn) {
+        notepadBtn.onclick = function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            console.log('📝 Notepad clicked (direct)');
+            
+            const modal = document.getElementById('notepadModal');
+            if (modal) {
+                document.querySelectorAll('.modal-overlay').forEach(m => {
+                    m.style.display = 'none';
+                    m.classList.remove('active');
+                });
+                
+                modal.style.display = 'flex';
+                modal.classList.add('active');
+                
+                setTimeout(() => {
+                    if (window.toolManager && window.toolManager.tools) {
+                        window.toolManager.tools.notepad.onOpen();
+                    }
+                }, 100);
+            }
+            return false;
+        };
+    }
+    
+    // Formula sheet button
+    const formulaBtn = document.getElementById('openFormulaSheet');
+    if (formulaBtn) {
+        formulaBtn.onclick = function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            console.log('📚 Formula sheet clicked (direct)');
+            
+            const modal = document.getElementById('formulaModal');
+            if (modal) {
+                document.querySelectorAll('.modal-overlay').forEach(m => {
+                    m.style.display = 'none';
+                    m.classList.remove('active');
+                });
+                
+                modal.style.display = 'flex';
+                modal.classList.add('active');
+                
+                setTimeout(() => {
+                    if (window.toolManager && window.toolManager.tools) {
+                        window.toolManager.tools.formula.onOpen();
+                    }
+                }, 100);
+            }
+            return false;
+        };
+    }
+    
+    // Whiteboard button
+    const whiteboardBtn = document.getElementById('openWhiteboard');
+    if (whiteboardBtn) {
+        whiteboardBtn.onclick = function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            console.log('🎨 Whiteboard clicked (direct)');
+            
+            const modal = document.getElementById('whiteboardModal');
+            if (modal) {
+                document.querySelectorAll('.modal-overlay').forEach(m => {
+                    m.style.display = 'none';
+                    m.classList.remove('active');
+                });
+                
+                modal.style.display = 'flex';
+                modal.classList.add('active');
+                
+                setTimeout(() => {
+                    if (window.toolManager && window.toolManager.tools) {
+                        window.toolManager.tools.whiteboard.onOpen();
+                    }
+                }, 100);
+            }
+            return false;
+        };
+    }
+    
+    // Timer button
+    const timerBtn = document.getElementById('openTimer');
+    if (timerBtn) {
+        timerBtn.onclick = function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            console.log('⏱️ Timer clicked (direct)');
+            
+            const modal = document.getElementById('timerModal');
+            if (modal) {
+                document.querySelectorAll('.modal-overlay').forEach(m => {
+                    m.style.display = 'none';
+                    m.classList.remove('active');
+                });
+                
+                modal.style.display = 'flex';
+                modal.classList.add('active');
+                
+                setTimeout(() => {
+                    if (window.toolManager && window.toolManager.tools) {
+                        window.toolManager.tools.timer.onOpen();
+                        // Also fix timer display
+                        if (window.fixTimerDisplay) window.fixTimerDisplay();
+                    }
+                }, 100);
+            }
+            return false;
+        };
+    }
+}
+
+// Also add a global close function
+window.closeToolModal = function() {
+    console.log('🔧 Closing tool modal');
+    document.querySelectorAll('.modal-overlay').forEach(modal => {
+        modal.style.display = 'none';
+        modal.classList.remove('active');
+    });
+};
+
+// Run after page load
+document.addEventListener('DOMContentLoaded', function() {
+    // Small delay to ensure everything is loaded
+    setTimeout(setupDirectToolHandlers, 500);
+});
+
+// Also run when page becomes visible
+if (document.readyState === 'complete') {
+    setupDirectToolHandlers();
+} else {
+    window.addEventListener('load', function() {
+        setTimeout(setupDirectToolHandlers, 500);
+    });
+}
+
+console.log('🚨 Emergency tool handlers loaded!');
 
 // ============================================
 // SIMPLIFIED FIX: Force calculator modal to show
