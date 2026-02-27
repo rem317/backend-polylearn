@@ -13098,101 +13098,6 @@ document.addEventListener('submit', function(e) {
 }, true);
 
 
-// ============================================
-// SUBMIT FEEDBACK TO DATABASE - FIXED VERSION
-// ============================================
-async function submitFeedback(feedbackType, feedbackMessage, rating = 0) {
-    try {
-        const token = localStorage.getItem('authToken') || authToken;
-        
-        if (!token) {
-            showNotification('error', 'Auth Error', 'Please login to submit feedback');
-            return false;
-        }
-        
-        // Get current user
-        const userJson = localStorage.getItem('mathhub_user');
-        let userId = null;
-        let userEmail = '';
-        let userName = '';
-        
-        if (userJson) {
-            try {
-                const user = JSON.parse(userJson);
-                userId = user.id || user.user_id;
-                userEmail = user.email || '';
-                userName = user.full_name || user.username || '';
-            } catch (e) {
-                console.error('Error parsing user:', e);
-            }
-        }
-        
-        // Prepare feedback data
-        const feedbackData = {
-            feedback_type: feedbackType,
-            feedback_message: feedbackMessage,
-            rating: rating,
-            user_id: userId,
-            email: userEmail,
-            name: userName,
-            page_url: window.location.href,
-            user_agent: navigator.userAgent
-        };
-        
-        console.log('📤 Submitting feedback to database:', feedbackData);
-        
-        // Use the correct endpoint
-        const response = await fetch('/api/feedback/submit', {
-            method: 'POST',
-            headers: {
-                'Authorization': `Bearer ${token}`,
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify(feedbackData)
-        });
-        
-        // Handle response
-        if (response.status === 404) {
-            console.warn('⚠️ Feedback endpoint not found - saving locally');
-            saveFeedbackLocally(feedbackData);
-            showNotification('success', 'Feedback Saved!', 'Your feedback has been saved locally.');
-            return true;
-        }
-        
-        if (!response.ok) {
-            const errorText = await response.text();
-            console.error('Failed to submit feedback:', errorText);
-            throw new Error(`HTTP ${response.status}`);
-        }
-        
-        const data = await response.json();
-        
-        if (data.success) {
-            console.log('✅ Feedback submitted successfully. ID:', data.feedback_id);
-            
-            // Save to localStorage as backup
-            saveFeedbackLocally(feedbackData);
-            
-            return true;
-        } else {
-            throw new Error(data.message || 'Failed to submit feedback');
-        }
-        
-    } catch (error) {
-        console.error('❌ Error submitting feedback:', error);
-        
-        // Save locally as fallback
-        saveFeedbackLocally({
-            feedback_type: feedbackType,
-            feedback_message: feedbackMessage,
-            rating: rating,
-            error: error.message
-        });
-        
-        showNotification('success', 'Feedback Saved!', 'Your feedback has been saved locally.');
-        return true; // Return true para hindi mag-error ang form
-    }
-}
 
 
 // ============================================
@@ -25436,74 +25341,94 @@ async function submitFeedback(feedbackType, feedbackMessage, rating = 0) {
     try {
         const token = localStorage.getItem('authToken') || authToken;
         
-        // Prepare feedback data
+        // Get current user
+        const userJson = localStorage.getItem('mathhub_user');
+        let userId = null;
+        let userEmail = '';
+        let userName = '';
+        
+        if (userJson) {
+            try {
+                const user = JSON.parse(userJson);
+                userId = user.id || user.user_id;
+                userEmail = user.email || '';
+                userName = user.full_name || user.username || '';
+            } catch (e) {
+                console.error('Error parsing user:', e);
+            }
+        }
+        
+        // Prepare feedback data with ALL fields
         const feedbackData = {
-            feedback_type: feedbackType,
+            feedback_type: feedbackType || 'general',
             feedback_message: feedbackMessage,
-            rating: rating
+            rating: rating,
+            user_id: userId,
+            email: userEmail,
+            name: userName,
+            page_url: window.location.href,
+            user_agent: navigator.userAgent
         };
         
-        console.log('📤 Submitting feedback:', feedbackData);
+        console.log('📤 Submitting feedback to database:', feedbackData);
         
-        // Determine which endpoint to use (authenticated or anonymous)
-        const endpoint = token ? 
-            '/api/feedback/submit' : 
-            '/api/feedback/submit-anonymous';
-        
-        const response = await fetch(endpoint, {
+        const response = await fetch('/api/feedback/submit', {
             method: 'POST',
             headers: {
-                'Content-Type': 'application/json',
-                ...(token && { 'Authorization': `Bearer ${token}` })
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
             },
             body: JSON.stringify(feedbackData)
         });
         
-        // Handle 404 gracefully
-        if (response.status === 404) {
-            console.warn('⚠️ Feedback endpoint not found (404) - saving locally');
-            
-            // Save to localStorage
-            saveFeedbackLocally(feedbackData);
-            
-            // Show success message pa rin
-            showNotification('success', 'Feedback Saved!', 'Your feedback has been saved locally.');
-            return true;
+        // Check response
+        const responseText = await response.text();
+        console.log('📥 Raw response:', responseText);
+        
+        let data;
+        try {
+            data = JSON.parse(responseText);
+        } catch (e) {
+            console.error('Failed to parse JSON:', responseText);
+            data = { success: false, message: 'Invalid server response' };
         }
         
-        if (!response.ok) {
-            const errorText = await response.text();
-            console.error('Failed to submit feedback:', errorText);
-            throw new Error(`Failed to submit feedback: ${response.status}`);
-        }
-        
-        const data = await response.json();
-        
-        if (data.success) {
+        if (response.ok && data.success) {
             console.log('✅ Feedback submitted successfully. ID:', data.feedback_id);
             
-            // Save locally as backup
-            saveFeedbackLocally(feedbackData);
+            // Show success message
+            const feedbackSuccess = document.getElementById('feedbackSuccess');
+            if (feedbackSuccess) {
+                feedbackSuccess.style.display = 'block';
+                feedbackSuccess.innerHTML = `
+                    <i class="fas fa-check-circle"></i> 
+                    Thank you! Your feedback has been submitted successfully (ID: ${data.feedback_id})
+                `;
+                setTimeout(() => {
+                    feedbackSuccess.style.display = 'none';
+                }, 3000);
+            } else {
+                alert(`✅ Feedback submitted! (ID: ${data.feedback_id})`);
+            }
+            
+            // Refresh feedback history
+            if (typeof loadFeedbackHistory === 'function') {
+                setTimeout(() => {
+                    loadFeedbackHistory(10);
+                }, 500);
+            }
             
             return true;
         } else {
-            throw new Error(data.message || 'Failed to submit feedback');
+            console.error('❌ Server error:', data);
+            alert(`Error: ${data.message || 'Failed to submit feedback'}`);
+            return false;
         }
         
     } catch (error) {
-        console.error('Error submitting feedback:', error);
-        
-        // Save locally even on error
-        saveFeedbackLocally({
-            feedback_type: feedbackType,
-            feedback_message: feedbackMessage,
-            rating: rating
-        });
-        
-        // Show success message pa rin para hindi mag-alala ang user
-        showNotification('success', 'Feedback Saved!', 'Your feedback has been saved locally.');
-        
-        return true; // Return true para hindi mag-error ang form
+        console.error('❌ Error submitting feedback:', error);
+        alert('Error: ' + error.message);
+        return false;
     }
 }
 
