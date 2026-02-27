@@ -7,7 +7,7 @@
 // ============================================
 
 let authToken = localStorage.getItem('authToken') || null;
-
+   
 const API_BASE_URL = window.location.origin;
 
 // Define default practice statistics function
@@ -23,6 +23,1454 @@ function getDefaultPracticeStats() {
         recentActivity: []
     };
 }
+
+// ============================================
+// ✅ FIXED: ToolManager with better error handling
+// ============================================
+class ToolManager {
+    constructor() {
+        this.tools = {};
+        this.currentTool = null;
+        this.modalsContainer = document.getElementById('toolModalsContainer');
+        
+        // Create modals container if it doesn't exist
+        if (!this.modalsContainer) {
+            this.modalsContainer = document.createElement('div');
+            this.modalsContainer.id = 'toolModalsContainer';
+            document.body.appendChild(this.modalsContainer);
+        }
+        
+        this.init();
+    }
+
+    init() {
+        console.log('🔧 Initializing ToolManager...');
+        this.createModals();
+        this.initializeTools();
+        this.setupEventListeners();
+    }
+
+    createModals() {
+        console.log('📦 Creating tool modals...');
+        
+        this.modalsContainer.innerHTML = `
+            <!-- Calculator Modal -->
+            <div id="calculatorModal" class="modal-overlay" style="display: none;">
+                <div class="modal-container" style="background: white; border-radius: 10px; max-width: 500px; width: 90%;">
+                    <div class="modal-header" style="background: #7a0000; color: white; padding: 15px 20px; border-radius: 10px 10px 0 0; display: flex; justify-content: space-between; align-items: center;">
+                        <h3 style="margin: 0;"><i class="fas fa-calculator"></i> Calculator</h3>
+                        <button onclick="window.toolManager.closeTool()" style="background: none; border: none; color: white; font-size: 24px; cursor: pointer;">&times;</button>
+                    </div>
+                    <div class="modal-body" style="padding: 20px;">
+                        <div class="calculator-container">
+                            <div id="calcDisplay" class="calculator-display" style="background: #f8f9fa; padding: 15px; text-align: right; font-size: 24px; margin-bottom: 15px; border-radius: 5px;">0</div>
+                            <div class="calculator-buttons" id="calcButtons" style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 5px;"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Graph Modal -->
+            <div id="graphModal" class="modal-overlay" style="display: none;">
+                <div class="modal-container" style="background: white; border-radius: 10px; max-width: 800px; width: 90%;">
+                    <div class="modal-header" style="background: #7a0000; color: white; padding: 15px 20px; border-radius: 10px 10px 0 0; display: flex; justify-content: space-between; align-items: center;">
+                        <h3 style="margin: 0;"><i class="fas fa-chart-line"></i> Graph Tool</h3>
+                        <button onclick="window.toolManager.closeTool()" style="background: none; border: none; color: white; font-size: 24px; cursor: pointer;">&times;</button>
+                    </div>
+                    <div class="modal-body" style="padding: 20px;">
+                        <div class="graph-controls" style="margin-bottom: 15px;">
+                            <input type="text" id="graphExpression" placeholder="e.g., x^2, 2x+1" style="width: 70%; padding: 8px;">
+                            <button onclick="window.toolManager.tools.graph.plot()" style="padding: 8px 15px; background: #7a0000; color: white; border: none; border-radius: 5px;">Plot</button>
+                        </div>
+                        <canvas id="graphCanvas" width="600" height="400" style="border: 1px solid #ddd; width: 100%; height: auto;"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Whiteboard Modal -->
+            <div id="whiteboardModal" class="modal-overlay" style="display: none;">
+                <div class="modal-container" style="background: white; border-radius: 10px; max-width: 800px; width: 90%;">
+                    <div class="modal-header" style="background: #7a0000; color: white; padding: 15px 20px; border-radius: 10px 10px 0 0; display: flex; justify-content: space-between; align-items: center;">
+                        <h3 style="margin: 0;"><i class="fas fa-paint-brush"></i> Whiteboard</h3>
+                        <button onclick="window.toolManager.closeTool()" style="background: none; border: none; color: white; font-size: 24px; cursor: pointer;">&times;</button>
+                    </div>
+                    <div class="modal-body" style="padding: 20px;">
+                        <div class="whiteboard-toolbar" style="margin-bottom: 10px;">
+                            <button onclick="window.toolManager.tools.whiteboard.setTool('pen')">✏️ Pen</button>
+                            <button onclick="window.toolManager.tools.whiteboard.setTool('eraser')">🧽 Eraser</button>
+                            <input type="color" id="colorPicker" value="#000000">
+                            <button onclick="window.toolManager.tools.whiteboard.clear()">🗑️ Clear</button>
+                        </div>
+                        <canvas id="whiteboardCanvas" width="600" height="400" style="border: 1px solid #ddd; width: 100%; height: auto;"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Notepad Modal -->
+            <div id="notepadModal" class="modal-overlay" style="display: none;">
+                <div class="modal-container" style="background: white; border-radius: 10px; max-width: 500px; width: 90%;">
+                    <div class="modal-header" style="background: #7a0000; color: white; padding: 15px 20px; border-radius: 10px 10px 0 0; display: flex; justify-content: space-between; align-items: center;">
+                        <h3 style="margin: 0;"><i class="fas fa-sticky-note"></i> Notepad</h3>
+                        <button onclick="window.toolManager.closeTool()" style="background: none; border: none; color: white; font-size: 24px; cursor: pointer;">&times;</button>
+                    </div>
+                    <div class="modal-body" style="padding: 20px;">
+                        <input type="text" id="noteTitle" placeholder="Note title" style="width: 100%; padding: 8px; margin-bottom: 10px;">
+                        <textarea id="noteContent" placeholder="Write your notes here..." rows="10" style="width: 100%; padding: 8px;"></textarea>
+                        <button onclick="window.toolManager.tools.notepad.save()" style="margin-top: 10px; padding: 8px 15px; background: #7a0000; color: white; border: none; border-radius: 5px;">Save Note</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Formula Sheet Modal -->
+            <div id="formulaModal" class="modal-overlay" style="display: none;">
+                <div class="modal-container" style="background: white; border-radius: 10px; max-width: 600px; width: 90%;">
+                    <div class="modal-header" style="background: #7a0000; color: white; padding: 15px 20px; border-radius: 10px 10px 0 0; display: flex; justify-content: space-between; align-items: center;">
+                        <h3 style="margin: 0;"><i class="fas fa-book"></i> Formula Sheet</h3>
+                        <button onclick="window.toolManager.closeTool()" style="background: none; border: none; color: white; font-size: 24px; cursor: pointer;">&times;</button>
+                    </div>
+                    <div class="modal-body" style="padding: 20px;">
+                        <div class="formula-categories" style="margin-bottom: 15px;">
+                            <button onclick="window.toolManager.tools.formula.showCategory('polynomial')">Polynomials</button>
+                            <button onclick="window.toolManager.tools.formula.showCategory('algebra')">Algebra</button>
+                            <button onclick="window.toolManager.tools.formula.showCategory('calculus')">Calculus</button>
+                        </div>
+                        <div id="formulaList" class="formula-list"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Timer Modal -->
+            <div id="timerModal" class="modal-overlay" style="display: none;">
+                <div class="modal-container" style="background: white; border-radius: 10px; max-width: 400px; width: 90%;">
+                    <div class="modal-header" style="background: #7a0000; color: white; padding: 15px 20px; border-radius: 10px 10px 0 0; display: flex; justify-content: space-between; align-items: center;">
+                        <h3 style="margin: 0;"><i class="fas fa-stopwatch"></i> Study Timer</h3>
+                        <button onclick="window.toolManager.closeTool()" style="background: none; border: none; color: white; font-size: 24px; cursor: pointer;">&times;</button>
+                    </div>
+                    <div class="modal-body" style="padding: 20px;">
+                        <div id="timerDisplay" class="timer-display" style="font-size: 48px; text-align: center; margin: 20px 0;">25:00</div>
+                        <div class="timer-controls" style="display: flex; gap: 10px; justify-content: center;">
+                            <button onclick="window.toolManager.startTimer()" style="padding: 10px 20px; background: #27ae60; color: white; border: none; border-radius: 5px;">Start</button>
+                            <button onclick="window.toolManager.pauseTimer()" style="padding: 10px 20px; background: #f39c12; color: white; border: none; border-radius: 5px;">Pause</button>
+                            <button onclick="window.toolManager.resetTimer()" style="padding: 10px 20px; background: #e74c3c; color: white; border: none; border-radius: 5px;">Reset</button>
+                        </div>
+                        <div class="timer-presets" style="display: flex; gap: 10px; justify-content: center; margin-top: 15px;">
+                            <button onclick="window.toolManager.tools.timer.setTime(15)" style="padding: 5px 10px;">15 min</button>
+                            <button onclick="window.toolManager.tools.timer.setTime(25)" style="padding: 5px 10px;">25 min</button>
+                            <button onclick="window.toolManager.tools.timer.setTime(50)" style="padding: 5px 10px;">50 min</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        console.log('✅ Tool modals created');
+    }
+
+    initializeTools() {
+        console.log('🔧 Initializing tool instances...');
+        this.tools = {
+            calculator: new Calculator(),
+            whiteboard: new Whiteboard(),
+            notepad: new Notepad(),
+            formula: new FormulaSheet(),
+            timer: new StudyTimer(),
+            graph: new GraphTool()
+        };
+    }
+
+    setupEventListeners() {
+        window.addEventListener('click', (e) => {
+            if (e.target.classList.contains('modal-overlay')) {
+                this.closeTool();
+            }
+        });
+
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') {
+                this.closeTool();
+            }
+        });
+    }
+
+    openTool(toolName) {
+        console.log(`🔧 Opening tool: ${toolName}`);
+        
+        // Close any open tool first
+        this.closeTool();
+        
+        const modal = document.getElementById(`${toolName}Modal`);
+        if (modal) {
+            // Force show modal
+            modal.style.display = 'flex';
+            modal.style.position = 'fixed';
+            modal.style.top = '0';
+            modal.style.left = '0';
+            modal.style.width = '100%';
+            modal.style.height = '100%';
+            modal.style.backgroundColor = 'rgba(0, 0, 0, 0.7)';
+            modal.style.zIndex = '10000';
+            modal.style.alignItems = 'center';
+            modal.style.justifyContent = 'center';
+            
+            modal.classList.add('active');
+            this.currentTool = toolName;
+            
+            // Initialize tool when opened
+            if (this.tools[toolName] && typeof this.tools[toolName].onOpen === 'function') {
+                setTimeout(() => {
+                    try {
+                        this.tools[toolName].onOpen();
+                    } catch (e) {
+                        console.error(`Error opening ${toolName}:`, e);
+                    }
+                }, 100);
+            }
+            
+            console.log(`✅ ${toolName} opened successfully`);
+        } else {
+            console.error(`❌ Modal not found: ${toolName}Modal`);
+        }
+    }
+
+    closeTool() {
+        console.log('🔧 Closing current tool');
+        document.querySelectorAll('.modal-overlay').forEach(modal => {
+            modal.style.display = 'none';
+            modal.classList.remove('active');
+        });
+        this.currentTool = null;
+    }
+
+    // Timer bridge methods
+    startTimer() {
+        if (this.tools && this.tools.timer) {
+            this.tools.timer.start();
+        }
+    }
+
+    pauseTimer() {
+        if (this.tools && this.tools.timer) {
+            this.tools.timer.pause();
+        }
+    }
+
+    resetTimer() {
+        if (this.tools && this.tools.timer) {
+            this.tools.timer.reset();
+        }
+    }
+}
+
+// ========================================
+// CALCULATOR TOOL - FIXED VERSION
+// ========================================
+class Calculator {
+    constructor() {
+        this.display = '0';
+        this.history = [];
+        this.memory = 0;
+        this.expression = '';
+        this.lastResult = null;
+    }
+
+    onOpen() {
+        this.display = '0';
+        this.expression = '';
+        this.renderButtons();
+        this.loadHistory();
+    }
+
+    renderButtons() {
+        const buttons = [
+            ['C', '⌫', '%', '÷'],
+            ['7', '8', '9', '×'],
+            ['4', '5', '6', '-'],
+            ['1', '2', '3', '+'],
+            ['00', '0', '.', '=']
+        ];
+
+        const buttonsHtml = buttons.map(row => 
+            row.map(btn => {
+                let className = 'calc-btn';
+                if (['+', '-', '×', '÷', '%'].includes(btn)) className += ' operator';
+                if (btn === '=') className += ' equals';
+                if (btn === 'C') className += ' clear';
+                if (btn === '⌫') className += ' backspace';
+                
+                return `<button class="${className}" data-value="${btn}">${btn}</button>`;
+            }).join('')
+        ).join('');
+
+        const buttonsContainer = document.getElementById('calcButtons');
+        if (buttonsContainer) {
+            buttonsContainer.innerHTML = buttonsHtml;
+            
+            // Add event listeners to buttons
+            buttonsContainer.querySelectorAll('button').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    const value = btn.getAttribute('data-value');
+                    this.handleButton(value);
+                });
+            });
+        }
+        
+        this.updateDisplay();
+    }
+
+    handleButton(btn) {
+        switch(btn) {
+            case 'C':
+                this.display = '0';
+                this.expression = '';
+                this.lastResult = null;
+                break;
+                
+            case '⌫':
+                if (this.display.length > 1) {
+                    this.display = this.display.slice(0, -1);
+                } else {
+                    this.display = '0';
+                }
+                break;
+                
+            case '=':
+                this.calculate();
+                break;
+                
+            case '÷':
+                this.addToExpression('/');
+                break;
+                
+            case '×':
+                this.addToExpression('*');
+                break;
+                
+            default:
+                this.addToExpression(btn);
+        }
+        this.updateDisplay();
+    }
+
+    addToExpression(value) {
+        // Handle numbers and operators
+        if (this.display === '0' && !isNaN(value)) {
+            this.display = value;
+        } else {
+            this.display += value;
+        }
+    }
+
+    calculate() {
+        try {
+            // Replace display operators with JavaScript operators
+            let expression = this.display
+                .replace(/÷/g, '/')
+                .replace(/×/g, '*');
+            
+            // Don't calculate if expression is empty or just operators
+            if (!expression || expression.match(/^[+\-*/]+$/)) {
+                return;
+            }
+            
+            let result = eval(expression);
+            
+            // Handle decimal places
+            if (result.toString().includes('.')) {
+                result = Math.round(result * 1000000) / 1000000;
+            }
+            
+            // Add to history
+            this.history.unshift({
+                expression: this.display,
+                result: result,
+                timestamp: new Date().toLocaleTimeString()
+            });
+            
+            // Keep history to 10 items
+            if (this.history.length > 10) {
+                this.history.pop();
+            }
+            
+            // Save to backend
+            this.saveToHistory(this.display, result);
+            
+            // Update display
+            this.display = result.toString();
+            this.lastResult = result;
+            this.updateHistory();
+            
+        } catch (error) {
+            console.error('Calculation error:', error);
+            this.display = 'Error';
+            setTimeout(() => {
+                this.display = '0';
+                this.updateDisplay();
+            }, 1500);
+        }
+    }
+
+    async saveToHistory(expression, result) {
+        try {
+            const token = localStorage.getItem('authToken') || authToken;
+            if (!token) return;
+
+            await fetch(`/calculator/save`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
+                body: JSON.stringify({ expression, result })
+            });
+        } catch (error) {
+            console.log('Failed to save calculation:', error);
+        }
+    }
+
+    async loadHistory() {
+        try {
+            const token = localStorage.getItem('authToken') || authToken;
+            if (!token) return;
+
+            const response = await fetch(`/calculator/history`, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            
+            if (!response.ok) return;
+            
+            const data = await response.json();
+            
+            if (data.success && data.history) {
+                this.history = data.history.map(item => ({
+                    expression: item.expression,
+                    result: item.result,
+                    timestamp: new Date(item.created_at).toLocaleTimeString()
+                }));
+                this.updateHistory();
+            }
+        } catch (error) {
+            console.log('Failed to load history:', error);
+        }
+    }
+
+    updateDisplay() {
+        const displayEl = document.getElementById('calcDisplay');
+        if (displayEl) {
+            displayEl.textContent = this.display;
+        }
+    }
+
+    updateHistory() {
+        const historyEl = document.getElementById('calcHistory');
+        if (!historyEl) return;
+
+        if (this.history.length === 0) {
+            historyEl.innerHTML = '<div class="history-empty">No calculations yet</div>';
+            return;
+        }
+
+        historyEl.innerHTML = this.history.map(item => `
+            <div class="history-item" onclick="window.toolManager.tools.calculator.useHistory('${item.expression}')">
+                <div class="history-expression">${item.expression} =</div>
+                <div class="history-result">${item.result}</div>
+                <div class="history-time">${item.timestamp}</div>
+            </div>
+        `).join('');
+    }
+
+    useHistory(expression) {
+        this.display = expression;
+        this.updateDisplay();
+    }
+}
+
+// ========================================
+// GRAPH TOOL - FOR ANY POLYNOMIAL FUNCTION
+// ========================================
+class GraphTool {
+    constructor() {
+        this.canvas = null;
+        this.ctx = null;
+        this.expression = 'x^3 - 2x^2 + x - 1'; // Default polynomial
+        this.range = { min: -5, max: 5 };
+        this.points = [];
+        this.isDarkMode = false;
+        this.xRoots = []; // X-intercepts (y=0)
+        this.yRoots = []; // Y-intercepts (x=0)
+        this.turningPoints = []; // Local maxima/minima
+    }
+
+    onOpen() {
+        setTimeout(() => {
+            this.canvas = document.getElementById('graphCanvas');
+            if (this.canvas) {
+                this.ctx = this.canvas.getContext('2d');
+                this.setupCanvas();
+                this.setupEventListeners();
+                this.drawGrid();
+                this.plotFunction();
+            }
+        }, 100);
+    }
+
+    setupCanvas() {
+        // Set canvas size
+        this.canvas.width = this.canvas.offsetWidth;
+        this.canvas.height = this.canvas.offsetHeight;
+        
+        // Set default styles
+        this.ctx.lineWidth = 2;
+        this.ctx.strokeStyle = '#667eea';
+        this.ctx.fillStyle = '#667eea';
+        this.ctx.font = '12px Arial';
+    }
+
+    setupEventListeners() {
+        // Expression input
+        const exprInput = document.getElementById('graphExpression');
+        if (exprInput) {
+            exprInput.addEventListener('input', (e) => {
+                this.expression = e.target.value;
+            });
+        }
+
+        // Plot button
+        const plotBtn = document.getElementById('plotGraphBtn');
+        if (plotBtn) {
+            plotBtn.addEventListener('click', () => {
+                this.plotFunction();
+            });
+        }
+
+        // Range inputs
+        const minRange = document.getElementById('graphMinRange');
+        const maxRange = document.getElementById('graphMaxRange');
+        
+        if (minRange) {
+            minRange.addEventListener('change', (e) => {
+                this.range.min = parseFloat(e.target.value) || -5;
+                this.drawGrid();
+                this.plotFunction();
+            });
+        }
+        
+        if (maxRange) {
+            maxRange.addEventListener('change', (e) => {
+                this.range.max = parseFloat(e.target.value) || 5;
+                this.drawGrid();
+                this.plotFunction();
+            });
+        }
+
+        // Clear button
+        const clearBtn = document.getElementById('clearGraphBtn');
+        if (clearBtn) {
+            clearBtn.addEventListener('click', () => {
+                this.expression = 'x^3 - 2x^2 + x - 1';
+                if (exprInput) exprInput.value = 'x^3 - 2x^2 + x - 1';
+                this.drawGrid();
+                this.plotFunction();
+            });
+        }
+
+        // Save button
+        const saveBtn = document.getElementById('saveGraphBtn');
+        if (saveBtn) {
+            saveBtn.addEventListener('click', () => {
+                this.saveGraph();
+            });
+        }
+
+        // Dark mode toggle
+        const darkModeBtn = document.getElementById('graphDarkMode');
+        if (darkModeBtn) {
+            darkModeBtn.addEventListener('click', () => {
+                this.isDarkMode = !this.isDarkMode;
+                this.drawGrid();
+                this.plotFunction();
+            });
+        }
+    }
+
+    f(x) {
+        // Evaluate ANY polynomial function
+        try {
+            if (!this.expression || this.expression.trim() === '') {
+                return 0;
+            }
+            
+            // Replace ^ with ** for JavaScript exponentiation
+            let expr = this.expression.replace(/\^/g, '**');
+            
+            // Handle implicit multiplication (e.g., "2x" becomes "2*x")
+            expr = expr.replace(/(\d)(x)/g, '$1*$2');
+            
+            // Create a safe evaluation function
+            const fn = new Function('x', `return ${expr}`);
+            return fn(x);
+        } catch (e) {
+            console.error('Error evaluating function:', e);
+            return NaN;
+        }
+    }
+
+    generatePoints() {
+        this.points = [];
+        const step = (this.range.max - this.range.min) / 500; // Higher resolution for better accuracy
+        
+        for (let x = this.range.min; x <= this.range.max; x += step) {
+            try {
+                const y = this.f(x);
+                
+                if (isFinite(y) && !isNaN(y) && Math.abs(y) < 100) { // Limit y-range to avoid extreme values
+                    this.points.push({ x, y });
+                }
+            } catch (e) {
+                // Skip points where function fails
+            }
+        }
+    }
+
+    findRoots() {
+        this.xRoots = []; // X-intercepts (y=0)
+        this.yRoots = []; // Y-intercepts (x=0)
+        this.turningPoints = []; // Local maxima/minima
+        
+        // Find Y-intercept (x=0)
+        try {
+            const yAtZero = this.f(0);
+            if (isFinite(yAtZero) && !isNaN(yAtZero) && Math.abs(yAtZero) < 100) {
+                this.yRoots.push({ x: 0, y: yAtZero });
+            }
+        } catch (e) {
+            console.log('Could not calculate y-intercept');
+        }
+        
+        // Find X-intercepts (where y=0) using zero-crossing detection
+        if (this.points.length < 2) return;
+        
+        for (let i = 1; i < this.points.length; i++) {
+            const p1 = this.points[i-1];
+            const p2 = this.points[i];
+            
+            // Check if function crosses zero
+            if (p1.y * p2.y <= 0 && Math.abs(p1.y) < 100 && Math.abs(p2.y) < 100) {
+                // Linear interpolation to find root
+                const rootX = p1.x - p1.y * (p2.x - p1.x) / (p2.y - p1.y);
+                
+                // Check if this root is unique (avoid duplicates)
+                const isDuplicate = this.xRoots.some(r => Math.abs(r.x - rootX) < 0.01);
+                
+                if (!isDuplicate && rootX >= this.range.min && rootX <= this.range.max) {
+                    this.xRoots.push({ x: rootX, y: 0 });
+                }
+            }
+        }
+        
+        // Find turning points (where derivative changes sign)
+        for (let i = 1; i < this.points.length - 1; i++) {
+            const prev = this.points[i-1];
+            const curr = this.points[i];
+            const next = this.points[i+1];
+            
+            // Check for local maximum
+            if (curr.y > prev.y && curr.y > next.y) {
+                this.turningPoints.push({ x: curr.x, y: curr.y, type: 'max' });
+            }
+            
+            // Check for local minimum
+            if (curr.y < prev.y && curr.y < next.y) {
+                this.turningPoints.push({ x: curr.x, y: curr.y, type: 'min' });
+            }
+        }
+        
+        // Display all features
+        this.displayFeatures();
+    }
+
+    displayFeatures() {
+        const rootsEl = document.getElementById('graphRoots');
+        if (!rootsEl) return;
+        
+        let html = '<div class="roots-container">';
+        
+        // Display X-intercepts
+        if (this.xRoots.length > 0) {
+            html += '<div class="roots-section">';
+            html += '<h4 style="color: #e74c3c;"><i class="fas fa-arrow-right"></i> X-Intercepts (y=0):</h4>';
+            html += '<ul>';
+            this.xRoots.forEach((root, index) => {
+                html += `<li>x = ${root.x.toFixed(3)}</li>`;
+            });
+            html += '</ul>';
+            html += '</div>';
+        }
+        
+        // Display Y-intercept
+        if (this.yRoots.length > 0) {
+            html += '<div class="roots-section">';
+            html += '<h4 style="color: #2980b9;"><i class="fas fa-arrow-up"></i> Y-Intercept (x=0):</h4>';
+            html += '<ul>';
+            this.yRoots.forEach(root => {
+                html += `<li>y = ${root.y.toFixed(3)}</li>`;
+            });
+            html += '</ul>';
+            html += '</div>';
+        }
+        
+        // Display Turning Points
+        if (this.turningPoints.length > 0) {
+            html += '<div class="roots-section">';
+            html += '<h4 style="color: #f39c12;"><i class="fas fa-chart-line"></i> Turning Points:</h4>';
+            html += '<ul>';
+            this.turningPoints.forEach(point => {
+                const icon = point.type === 'max' ? '▲' : '▼';
+                html += `<li>${icon} (${point.x.toFixed(3)}, ${point.y.toFixed(3)}) - ${point.type === 'max' ? 'Maximum' : 'Minimum'}</li>`;
+            });
+            html += '</ul>';
+            html += '</div>';
+        }
+        
+        // If no features found
+        if (this.xRoots.length === 0 && this.yRoots.length === 0 && this.turningPoints.length === 0) {
+            html += '<p class="no-roots">No intercepts or turning points found in current range</p>';
+        }
+        
+        html += '</div>';
+        rootsEl.innerHTML = html;
+    }
+
+    drawGrid() {
+        if (!this.ctx || !this.canvas) return;
+        
+        const w = this.canvas.width;
+        const h = this.canvas.height;
+        
+        // Clear canvas
+        this.ctx.clearRect(0, 0, w, h);
+        
+        // Set colors based on mode
+        const gridColor = this.isDarkMode ? '#333' : '#ddd';
+        const axisColor = this.isDarkMode ? '#666' : '#999';
+        const textColor = this.isDarkMode ? '#ccc' : '#333';
+        const bgColor = this.isDarkMode ? '#1a1a1a' : '#fff';
+        
+        // Fill background
+        this.ctx.fillStyle = bgColor;
+        this.ctx.fillRect(0, 0, w, h);
+        
+        // Calculate y-range based on function values
+        let yMin = -10, yMax = 10;
+        if (this.points.length > 0) {
+            const yValues = this.points.map(p => p.y).filter(y => isFinite(y) && !isNaN(y) && Math.abs(y) < 100);
+            if (yValues.length > 0) {
+                yMin = Math.min(...yValues);
+                yMax = Math.max(...yValues);
+                // Add some padding
+                const padding = (yMax - yMin) * 0.1;
+                yMin -= padding;
+                yMax += padding;
+            }
+        }
+        
+        const yRange = yMax - yMin;
+        
+        // Pixel to coordinate mapping
+        const xToPx = (x) => ((x - this.range.min) / (this.range.max - this.range.min)) * w;
+        const yToPx = (y) => h - ((y - yMin) / yRange) * h;
+        
+        // Draw grid lines
+        this.ctx.strokeStyle = gridColor;
+        this.ctx.lineWidth = 0.5;
+        
+        // Vertical grid lines (every integer)
+        for (let x = Math.ceil(this.range.min); x <= this.range.max; x++) {
+            if (x === 0) continue; // Skip axis
+            const px = xToPx(x);
+            if (px >= 0 && px <= w) {
+                this.ctx.beginPath();
+                this.ctx.moveTo(px, 0);
+                this.ctx.lineTo(px, h);
+                this.ctx.stroke();
+            }
+        }
+        
+        // Horizontal grid lines (every integer in y-range)
+        for (let y = Math.ceil(yMin); y <= yMax; y++) {
+            if (y === 0) continue; // Skip axis
+            const py = yToPx(y);
+            if (py >= 0 && py <= h) {
+                this.ctx.beginPath();
+                this.ctx.moveTo(0, py);
+                this.ctx.lineTo(w, py);
+                this.ctx.stroke();
+            }
+        }
+        
+        // Draw axes
+        this.ctx.strokeStyle = axisColor;
+        this.ctx.lineWidth = 2;
+        
+        // Y-axis
+        const xZero = xToPx(0);
+        if (xZero >= 0 && xZero <= w) {
+            this.ctx.beginPath();
+            this.ctx.moveTo(xZero, 0);
+            this.ctx.lineTo(xZero, h);
+            this.ctx.stroke();
+        }
+        
+        // X-axis
+        const yZero = yToPx(0);
+        if (yZero >= 0 && yZero <= h) {
+            this.ctx.beginPath();
+            this.ctx.moveTo(0, yZero);
+            this.ctx.lineTo(w, yZero);
+            this.ctx.stroke();
+        }
+        
+        // Draw axis labels
+        this.ctx.fillStyle = textColor;
+        this.ctx.font = '12px Arial';
+        
+        // X-axis labels
+        for (let x = Math.ceil(this.range.min); x <= this.range.max; x++) {
+            if (x === 0) continue;
+            const px = xToPx(x);
+            const py = yZero;
+            if (px >= 0 && px <= w && py >= 0 && py <= h) {
+                this.ctx.fillText(x, px - 5, py - 5);
+            }
+        }
+        
+        // Y-axis labels
+        for (let y = Math.ceil(yMin); y <= yMax; y++) {
+            if (y === 0) continue;
+            const px = xZero;
+            const py = yToPx(y);
+            if (px >= 0 && px <= w && py >= 0 && py <= h) {
+                this.ctx.fillText(y, px + 5, py - 5);
+            }
+        }
+        
+        // Draw origin
+        if (xZero >= 0 && xZero <= w && yZero >= 0 && yZero <= h) {
+            this.ctx.fillStyle = textColor;
+            this.ctx.fillText('0', xZero + 5, yZero - 5);
+        }
+    }
+
+    plotFunction() {
+        this.generatePoints();
+        this.findRoots();
+        this.drawGrid();
+        
+        if (this.points.length === 0) return;
+        
+        const w = this.canvas.width;
+        const h = this.canvas.height;
+        
+        // Calculate y-range
+        let yMin = -10, yMax = 10;
+        const yValues = this.points.map(p => p.y).filter(y => isFinite(y) && !isNaN(y) && Math.abs(y) < 100);
+        if (yValues.length > 0) {
+            yMin = Math.min(...yValues);
+            yMax = Math.max(...yValues);
+            const padding = (yMax - yMin) * 0.1;
+            yMin -= padding;
+            yMax += padding;
+        }
+        
+        const yRange = yMax - yMin;
+        
+        // Pixel to coordinate mapping
+        const xToPx = (x) => ((x - this.range.min) / (this.range.max - this.range.min)) * w;
+        const yToPx = (y) => h - ((y - yMin) / yRange) * h;
+        
+        // Draw function
+        this.ctx.strokeStyle = '#667eea';
+        this.ctx.lineWidth = 3;
+        this.ctx.beginPath();
+        
+        let first = true;
+        for (const point of this.points) {
+            const px = xToPx(point.x);
+            const py = yToPx(point.y);
+            
+            if (px >= 0 && px <= w && py >= 0 && py <= h) {
+                if (first) {
+                    this.ctx.moveTo(px, py);
+                    first = false;
+                } else {
+                    this.ctx.lineTo(px, py);
+                }
+            } else {
+                first = true; // Break line when going out of bounds
+            }
+        }
+        
+        this.ctx.stroke();
+        
+        // Draw X-intercepts (red circles)
+        const yZero = yToPx(0);
+        this.ctx.fillStyle = '#e74c3c';
+        this.xRoots.forEach(root => {
+            const px = xToPx(root.x);
+            if (px >= 0 && px <= w && yZero >= 0 && yZero <= h) {
+                this.ctx.beginPath();
+                this.ctx.arc(px, yZero, 6, 0, 2 * Math.PI);
+                this.ctx.fill();
+                
+                // Add label
+                this.ctx.fillStyle = this.isDarkMode ? '#fff' : '#000';
+                this.ctx.font = 'bold 10px Arial';
+                this.ctx.fillText(`x=${root.x.toFixed(2)}`, px - 25, yZero - 15);
+                this.ctx.fillStyle = '#e74c3c';
+            }
+        });
+        
+        // Draw Y-intercept (blue circle)
+        const xZero = xToPx(0);
+        this.ctx.fillStyle = '#2980b9';
+        this.yRoots.forEach(root => {
+            const px = xZero;
+            const py = yToPx(root.y);
+            if (px >= 0 && px <= w && py >= 0 && py <= h) {
+                this.ctx.beginPath();
+                this.ctx.arc(px, py, 6, 0, 2 * Math.PI);
+                this.ctx.fill();
+                
+                // Add label
+                this.ctx.fillStyle = this.isDarkMode ? '#fff' : '#000';
+                this.ctx.font = 'bold 10px Arial';
+                this.ctx.fillText(`y=${root.y.toFixed(2)}`, px + 10, py - 10);
+                this.ctx.fillStyle = '#2980b9';
+            }
+        });
+        
+        // Draw Turning Points (orange circles)
+        this.ctx.fillStyle = '#f39c12';
+        this.turningPoints.forEach(point => {
+            const px = xToPx(point.x);
+            const py = yToPx(point.y);
+            if (px >= 0 && px <= w && py >= 0 && py <= h) {
+                this.ctx.beginPath();
+                this.ctx.arc(px, py, 5, 0, 2 * Math.PI);
+                this.ctx.fill();
+            }
+        });
+    }
+
+    async saveGraph() {
+        try {
+            const token = localStorage.getItem('authToken') || authToken;
+            if (!token) {
+                alert('Please login to save graphs');
+                return;
+            }
+            
+            const response = await fetch(`/graph/save`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
+                body: JSON.stringify({
+                    expression: this.expression,
+                    graph_type: 'polynomial',
+                    range: this.range,
+                    xRoots: this.xRoots,
+                    yRoots: this.yRoots,
+                    turningPoints: this.turningPoints
+                })
+            });
+            
+            const data = await response.json();
+            
+            if (data.success) {
+                alert('Graph saved successfully!');
+            } else {
+                alert('Failed to save graph');
+            }
+        } catch (error) {
+            console.error('Error saving graph:', error);
+            alert('Error saving graph');
+        }
+    }
+}
+
+// ========================================
+// WHITEBOARD TOOL - FIXED VERSION
+// ========================================
+class Whiteboard {
+    constructor() {
+        this.canvas = null;
+        this.ctx = null;
+        this.drawing = false;
+        this.currentTool = 'pen';
+        this.color = '#667eea';
+    }
+
+    onOpen() {
+        setTimeout(() => {
+            this.canvas = document.getElementById('whiteboardCanvas');
+            if (this.canvas) {
+                this.ctx = this.canvas.getContext('2d');
+                this.setupCanvas();
+                this.setupEventListeners();
+            }
+        }, 100);
+    }
+
+    setupCanvas() {
+        // Set canvas size
+        this.canvas.width = this.canvas.offsetWidth;
+        this.canvas.height = this.canvas.offsetHeight;
+        
+        // Set styles
+        this.ctx.strokeStyle = this.color;
+        this.ctx.lineWidth = 2;
+        this.ctx.lineCap = 'round';
+        this.ctx.lineJoin = 'round';
+    }
+
+    setupEventListeners() {
+        this.canvas.addEventListener('mousedown', this.startDrawing.bind(this));
+        this.canvas.addEventListener('mousemove', this.draw.bind(this));
+        this.canvas.addEventListener('mouseup', this.stopDrawing.bind(this));
+        this.canvas.addEventListener('mouseout', this.stopDrawing.bind(this));
+
+        // FIXED: Safely add color picker event listener
+        const colorPicker = document.getElementById('colorPicker');
+        if (colorPicker) {
+            colorPicker.addEventListener('input', (e) => {
+                this.color = e.target.value;
+                if (this.ctx) {
+                    this.ctx.strokeStyle = this.color;
+                }
+            });
+        } else {
+            console.warn('Color picker element not found');
+        }
+    }
+
+    startDrawing(e) {
+        this.drawing = true;
+        this.ctx.beginPath();
+        this.ctx.moveTo(e.offsetX, e.offsetY);
+    }
+
+    draw(e) {
+        if (!this.drawing) return;
+        
+        if (this.currentTool === 'pen') {
+            this.ctx.lineTo(e.offsetX, e.offsetY);
+            this.ctx.stroke();
+        } else if (this.currentTool === 'eraser') {
+            this.ctx.clearRect(e.offsetX - 10, e.offsetY - 10, 20, 20);
+        }
+    }
+
+    stopDrawing() {
+        this.drawing = false;
+    }
+
+    setTool(tool) {
+        this.currentTool = tool;
+        if (tool === 'pen') {
+            this.ctx.strokeStyle = this.color;
+            this.ctx.lineWidth = 2;
+        } else {
+            this.ctx.strokeStyle = '#ffffff';
+            this.ctx.lineWidth = 20;
+        }
+    }
+
+    clear() {
+        this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+    }
+}
+
+// ========================================
+// NOTEPAD TOOL
+// ========================================
+class Notepad {
+    constructor() {
+        this.notes = JSON.parse(localStorage.getItem('notes') || '[]');
+        this.currentNoteId = null;
+    }
+
+    onOpen() {
+        this.loadNotes();
+    }
+
+    save() {
+        const title = document.getElementById('noteTitle').value || 'Untitled';
+        const content = document.getElementById('noteContent').value;
+        
+        if (!content) {
+            alert('Please write something before saving!');
+            return;
+        }
+
+        const note = {
+            id: Date.now(),
+            title: title,
+            content: content,
+            created: new Date().toISOString()
+        };
+
+        this.notes.unshift(note);
+        localStorage.setItem('notes', JSON.stringify(this.notes));
+        
+        alert('Note saved!');
+        this.clear();
+    }
+
+    loadNotes() {
+        // Display recent notes in a list (optional)
+    }
+
+    clear() {
+        document.getElementById('noteTitle').value = '';
+        document.getElementById('noteContent').value = '';
+        this.currentNoteId = null;
+    }
+}
+
+// ========================================
+// FORMULA SHEET TOOL
+// ========================================
+class FormulaSheet {
+    constructor() {
+        this.formulas = {
+            polynomial: [
+                { name: 'Quadratic Formula', formula: 'x = (-b ± √(b² - 4ac)) / 2a' },
+                { name: 'Synthetic Division', formula: 'P(x) ÷ (x - r) = Q(x) + R/(x - r)' },
+                { name: 'Factor Theorem', formula: 'If P(r) = 0, then (x - r) is a factor' },
+                { name: 'Remainder Theorem', formula: 'P(r) = remainder when P(x) ÷ (x - r)' }
+            ],
+            algebra: [
+                { name: 'FOIL Method', formula: '(a + b)(c + d) = ac + ad + bc + bd' },
+                { name: 'Perfect Square', formula: '(a + b)² = a² + 2ab + b²' },
+                { name: 'Difference of Squares', formula: 'a² - b² = (a - b)(a + b)' }
+            ],
+            calculus: [
+                { name: 'Power Rule', formula: 'd/dx [xⁿ] = n·xⁿ⁻¹' },
+                { name: 'Product Rule', formula: 'd/dx [f·g] = f·g\' + f\'·g' },
+                { name: 'Chain Rule', formula: 'd/dx [f(g(x))] = f\'(g(x))·g\'(x)' }
+            ]
+        };
+    }
+
+    onOpen() {
+        this.showCategory('polynomial');
+    }
+
+    showCategory(category) {
+        // Update active button
+        document.querySelectorAll('.formula-category-btn').forEach(btn => {
+            btn.classList.remove('active');
+        });
+        event.target.classList.add('active');
+
+        // Show formulas
+        const formulas = this.formulas[category] || [];
+        const listEl = document.getElementById('formulaList');
+        
+        listEl.innerHTML = formulas.map(f => `
+            <div class="formula-item">
+                <div class="formula-name">${f.name}</div>
+                <div class="formula-expression">${f.formula}</div>
+            </div>
+        `).join('');
+    }
+}
+
+// ========================================
+// STUDY TIMER TOOL - ULTIMATE FIXED VERSION WITH MUTATION OBSERVER
+// ========================================
+class StudyTimer {
+    constructor() {
+        this.timeLeft = 25 * 60; // 25 minutes in seconds
+        this.initialTime = 25 * 60;
+        this.timerId = null;
+        this.isRunning = false;
+        this.timerElement = null;
+        self = this; // Store reference
+        
+        // Bind methods
+        this.start = this.start.bind(this);
+        this.pause = this.pause.bind(this);
+        this.reset = this.reset.bind(this);
+        this.setTime = this.setTime.bind(this);
+        this.updateDisplay = this.updateDisplay.bind(this);
+        this.findTimerElement = this.findTimerElement.bind(this);
+    }
+
+    findTimerElement() {
+    // Try multiple ways to find the timer element
+    let element = document.getElementById('timerDisplay');
+    
+    if (!element) {
+        element = document.querySelector('.timer-display');
+    }
+    
+    // If still not found, search in all modals
+    if (!element) {
+        const modals = document.querySelectorAll('.modal-overlay');
+        for (let modal of modals) {
+            if (modal.style.display === 'flex' || modal.classList.contains('active')) {
+                element = modal.querySelector('#timerDisplay') || modal.querySelector('.timer-display');
+                if (element) break;
+            }
+        }
+    }
+    
+    return element;
+}
+
+    onOpen() {
+    console.log('⏱️ Timer onOpen called');
+    
+    // Reset timer
+    this.timeLeft = this.initialTime;
+    this.isRunning = false;
+    
+    if (this.timerId) {
+        clearInterval(this.timerId);
+        this.timerId = null;
+    }
+    
+    // Try multiple times to find and update the timer element
+    const findAndUpdateTimer = () => {
+        this.timerElement = this.findTimerElement();
+        if (this.timerElement) {
+            console.log('✅ Timer element found');
+            this.updateDisplay();
+            this.attachEventListeners();
+        } else {
+            console.log('⏱️ Timer element not found, retrying...');
+            setTimeout(findAndUpdateTimer, 100);
+        }
+    };
+    
+    // Start trying to find the element
+    findAndUpdateTimer();
+}
+
+    updateDisplay() {
+        // Find element if not stored
+        if (!this.timerElement) {
+            this.timerElement = this.findTimerElement();
+        }
+        
+        if (this.timerElement) {
+            const minutes = Math.floor(this.timeLeft / 60);
+            const seconds = this.timeLeft % 60;
+            const display = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+            
+            // Update the display
+            this.timerElement.textContent = display;
+            
+            console.log(`⏱️ Timer display updated to: ${display}`);
+        } else {
+            console.warn('⏱️ Timer element not available for update');
+            
+            // Try to find it again
+            this.timerElement = this.findTimerElement();
+            if (this.timerElement) {
+                this.updateDisplay();
+            }
+        }
+    }
+
+    attachEventListeners() {
+        console.log('🔗 Attaching timer event listeners');
+        
+        // Helper function to safely get button
+        const getButton = (id) => {
+            let btn = document.getElementById(id);
+            
+            // If not found, search in active modal
+            if (!btn) {
+                const activeModal = document.querySelector('.modal-overlay.active, .modal-overlay[style*="display: flex"]');
+                if (activeModal) {
+                    btn = activeModal.querySelector(`#${id}`) || activeModal.querySelector(`.${id}`);
+                }
+            }
+            
+            return btn;
+        };
+        
+        // Get all buttons
+        const startBtn = getButton('timerStartBtn');
+        const pauseBtn = getButton('timerPauseBtn');
+        const resetBtn = getButton('timerResetBtn');
+        const btn15 = getButton('timer15min');
+        const btn25 = getButton('timer25min');
+        const btn50 = getButton('timer50min');
+        
+        console.log('Buttons found:', {
+            start: !!startBtn,
+            pause: !!pauseBtn,
+            reset: !!resetBtn,
+            btn15: !!btn15,
+            btn25: !!btn25,
+            btn50: !!btn50
+        });
+        
+        // Remove old listeners and add new ones
+        if (startBtn) {
+            startBtn.replaceWith(startBtn.cloneNode(true));
+            const newStartBtn = getButton('timerStartBtn');
+            newStartBtn.addEventListener('click', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                console.log('▶️ Start clicked');
+                this.start();
+            });
+        }
+        
+        if (pauseBtn) {
+            pauseBtn.replaceWith(pauseBtn.cloneNode(true));
+            const newPauseBtn = getButton('timerPauseBtn');
+            newPauseBtn.addEventListener('click', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                console.log('⏸️ Pause clicked');
+                this.pause();
+            });
+        }
+        
+        if (resetBtn) {
+            resetBtn.replaceWith(resetBtn.cloneNode(true));
+            const newResetBtn = getButton('timerResetBtn');
+            newResetBtn.addEventListener('click', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                console.log('🔄 Reset clicked');
+                this.reset();
+            });
+        }
+        
+        if (btn15) {
+            btn15.replaceWith(btn15.cloneNode(true));
+            const newBtn15 = getButton('timer15min');
+            newBtn15.addEventListener('click', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                console.log('⏱️ 15 min preset');
+                this.setTime(15);
+            });
+        }
+        
+        if (btn25) {
+            btn25.replaceWith(btn25.cloneNode(true));
+            const newBtn25 = getButton('timer25min');
+            newBtn25.addEventListener('click', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                this.setTime(25);
+            });
+        }
+        
+        if (btn50) {
+            btn50.replaceWith(btn50.cloneNode(true));
+            const newBtn50 = getButton('timer50min');
+            newBtn50.addEventListener('click', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                this.setTime(50);
+            });
+        }
+    }
+
+    start() {
+        console.log('▶️ Timer start');
+        
+        if (!this.isRunning && this.timeLeft > 0) {
+            this.isRunning = true;
+            
+            // Update display immediately
+            this.updateDisplay();
+            
+            this.timerId = setInterval(() => {
+                if (this.timeLeft > 0) {
+                    this.timeLeft--;
+                    this.updateDisplay();
+                    
+                    if (this.timeLeft <= 0) {
+                        this.complete();
+                    }
+                }
+            }, 1000);
+        }
+    }
+
+    pause() {
+        console.log('⏸️ Timer pause');
+        
+        if (this.isRunning) {
+            clearInterval(this.timerId);
+            this.isRunning = false;
+            this.timerId = null;
+        }
+        
+        this.updateDisplay();
+    }
+
+    reset() {
+        console.log('🔄 Timer reset');
+        this.pause();
+        this.timeLeft = this.initialTime;
+        this.updateDisplay();
+    }
+
+    setTime(minutes) {
+        console.log(`⏱️ Timer set to ${minutes} minutes`);
+        this.pause();
+        this.initialTime = minutes * 60;
+        this.timeLeft = this.initialTime;
+        this.updateDisplay();
+    }
+
+    complete() {
+        console.log('🎉 Timer complete!');
+        this.pause();
+        
+        // Show notification
+        alert('🎉 Study session complete! Great job!');
+        
+        // Play sound
+        try {
+            const audio = new Audio('https://www.soundjay.com/misc/sounds/bell-ringing-05.mp3');
+            audio.play();
+        } catch (e) {
+            console.log('Sound not available');
+        }
+        
+        this.reset();
+    }
+}
+// ============================================
+// ✅ INITIALIZE TOOL MANAGER
+// ============================================
+window.toolManager = new ToolManager();
+console.log('✅ ToolManager initialized and attached to window');
+
+// ========================================
+// MAKE TOOLS GLOBALLY AVAILABLE
+// ========================================
+window.Calculator = Calculator;
+window.GraphTool = GraphTool;
+window.Whiteboard = Whiteboard;
+window.Notepad = Notepad;
+window.FormulaSheet = FormulaSheet;
+window.StudyTimer = StudyTimer;
+
+console.log('✅ Tools globally available');
+
 // ============================================
 // FIXED HELPER FUNCTION FOR ALL API CALLS - WITH BETTER ERROR HANDLING
 // ============================================
@@ -13543,45 +14991,112 @@ async function updateContinueLearningModule() {
 }
 
 // ============================================
-// ✅ FIXED: Open lesson with specific video
+// RAILWAY FIX: Enhanced openLesson function
 // ============================================
 async function openLesson(lessonId) {
     try {
-        console.log('📖 Opening lesson:', lessonId);
+        console.log('📖 Opening lesson on Railway:', lessonId);
         
         // Show loading
         showNotification('Loading lesson...', 'info');
         
-        // Fetch lesson details
-        const lesson = await fetchLessonDetails(lessonId);
+        // Fetch lesson details using apiRequest (automatically handles /api prefix)
+        const data = await apiRequest(`/api/lessons-db/${lessonId}`);
         
-        if (lesson) {
-            LessonState.currentLesson = lesson;
-            LessonState.currentTopic = lesson.topic_id || 1;
-            
-            // Log activity
-            await logUserActivity('lesson_started', lessonId, {
-                lesson_title: lesson.content_title,
-                module_name: lesson.module_name,
-                topic_title: lesson.topic_title
-            });
-            
-            // Navigate to module dashboard
-            navigateTo('moduleDashboard');
-            
-            // Load the specific video for this lesson
-            setTimeout(() => {
-                loadVideoFromDatabase(lessonId);
-            }, 500);
-            
-        } else {
-            showNotification('Failed to load lesson. Please try again.', 'error');
+        if (!data.success || !data.lesson) {
+            throw new Error('Lesson not found');
         }
+        
+        const lesson = data.lesson;
+        LessonState.currentLesson = lesson;
+        LessonState.currentTopic = lesson.topic_id || 1;
+        
+        // Log activity
+        await logUserActivity('lesson_started', lessonId, {
+            lesson_title: lesson.content_title
+        });
+        
+        // Update URL without reload
+        const url = new URL(window.location);
+        url.searchParams.set('lessonId', lessonId);
+        window.history.pushState({}, '', url);
+        
+        // Navigate to module dashboard
+        navigateTo('moduleDashboard');
+        
+        // Wait for page to load then update everything
+        setTimeout(async () => {
+            // Update navigation buttons
+            updateNavigationButtons(lesson.adjacent);
+            
+            // Setup navigation listeners
+            setupLessonNavigation();
+            
+            // Load video
+            await loadVideoFromDatabase(lessonId);
+            
+            // Update complete button
+            await checkLessonCompletionStatus();
+            
+            console.log('✅ Lesson fully loaded on Railway');
+        }, 500);
+        
     } catch (error) {
-        console.error('Error opening lesson:', error);
-        showNotification('Error loading lesson', 'error');
+        console.error('Error opening lesson on Railway:', error);
+        showNotification('Error loading lesson: ' + error.message, 'error');
     }
 }
+
+// Update navigation buttons function
+function updateNavigationButtons(adjacent) {
+    const prevLessonBtn = document.getElementById('prevLessonBtn');
+    const nextLessonBtn = document.getElementById('nextLessonBtn');
+    
+    if (prevLessonBtn) {
+        if (adjacent?.previous) {
+            prevLessonBtn.disabled = false;
+            prevLessonBtn.setAttribute('data-lesson-id', adjacent.previous.id);
+            prevLessonBtn.innerHTML = `<i class="fas fa-arrow-left"></i> Previous: ${adjacent.previous.title}`;
+        } else {
+            prevLessonBtn.disabled = true;
+            prevLessonBtn.innerHTML = `<i class="fas fa-arrow-left"></i> No Previous Lesson`;
+        }
+    }
+    
+    if (nextLessonBtn) {
+        if (adjacent?.next) {
+            nextLessonBtn.disabled = false;
+            nextLessonBtn.setAttribute('data-lesson-id', adjacent.next.id);
+            nextLessonBtn.innerHTML = `Next: ${adjacent.next.title} <i class="fas fa-arrow-right"></i>`;
+        } else {
+            nextLessonBtn.disabled = true;
+            nextLessonBtn.innerHTML = `No Next Lesson <i class="fas fa-arrow-right"></i>`;
+        }
+    }
+}
+
+// Add this to your DOMContentLoaded or initModuleDashboard function
+function initModuleDashboardJS() {
+    console.log('📚 Initializing module dashboard with Railway fixes...');
+    
+    // Setup navigation
+    setupLessonNavigation();
+    
+    // Initialize with current lesson
+    initializeModuleDashboard();
+    
+    // Back button
+    const backToLessonDashboardBtn = document.getElementById('backToLessonDashboard');
+    if (backToLessonDashboardBtn) {
+        backToLessonDashboardBtn.addEventListener('click', function() {
+            console.log('Back to dashboard button clicked');
+            navigateTo('dashboard');
+        });
+    }
+    
+    console.log('✅ Module dashboard initialized with Railway fixes');
+}
+
 
 // Open practice for a specific topic
 function openPracticeForTopic(topicId) {
@@ -14531,15 +16046,15 @@ async function testVideoAccessibility(url) {
 }
 
 // ============================================
-// ✅ FIXED: Load video SPECIFIC to the lesson
+// RAILWAY FIX: Load video from database with better error handling
 // ============================================
 async function loadVideoFromDatabase(contentId = null) {
-    const videoElement = document.getElementById('lessonVideo');
+    const videoContainer = document.getElementById('videoContainer');
     const videoInfo = document.getElementById('videoInfo');
     const refreshVideoBtn = document.getElementById('refreshVideoBtn');
     
-    if (!videoElement) {
-        console.error('Video element not found!');
+    if (!videoContainer) {
+        console.error('Video container not found!');
         return null;
     }
     
@@ -14552,13 +16067,21 @@ async function loadVideoFromDatabase(contentId = null) {
         // If still no contentId, try from URL
         if (!contentId) {
             const urlParams = new URLSearchParams(window.location.search);
-            contentId = urlParams.get('contentId') || urlParams.get('id') || 1;
+            contentId = urlParams.get('lessonId') || urlParams.get('id') || urlParams.get('contentId') || 1;
         }
         
-        console.log(`🎬 Loading video SPECIFIC to lesson ID: ${contentId}`);
+        console.log(`🎬 Loading video for lesson ID: ${contentId} on Railway`);
+        
+        // Show loading
+        videoContainer.innerHTML = `
+            <div style="background: #f0f0f0; height: 400px; display: flex; align-items: center; justify-content: center; flex-direction: column;">
+                <i class="fas fa-spinner fa-spin" style="font-size: 40px; color: #7a0000; margin-bottom: 20px;"></i>
+                <p style="color: #666;">Loading video from database...</p>
+            </div>
+        `;
         
         if (videoInfo) {
-            videoInfo.innerHTML = '<p><i class="fas fa-spinner fa-spin"></i> Loading video for this specific lesson...</p>';
+            videoInfo.innerHTML = '<p><i class="fas fa-spinner fa-spin"></i> Fetching video data...</p>';
         }
         
         if (refreshVideoBtn) {
@@ -14566,24 +16089,8 @@ async function loadVideoFromDatabase(contentId = null) {
             refreshVideoBtn.disabled = true;
         }
         
-        const token = localStorage.getItem('authToken') || authToken;
-        if (!token) {
-            throw new Error('No auth token available');
-        }
-        
-        // ✅ FETCH SPECIFIC LESSON DATA (this is the key!)
-        const lessonResponse = await fetch(`/api/lessons-db/${contentId}`, {
-            headers: {
-                'Authorization': `Bearer ${token}`,
-                'Content-Type': 'application/json'
-            }
-        });
-        
-        if (!lessonResponse.ok) {
-            throw new Error(`Failed to fetch lesson: ${lessonResponse.status}`);
-        }
-        
-        const lessonData = await lessonResponse.json();
+        // Use apiRequest for consistency
+        const lessonData = await apiRequest(`/api/lessons-db/${contentId}`);
         
         if (!lessonData.success || !lessonData.lesson) {
             throw new Error('Lesson not found');
@@ -14592,7 +16099,7 @@ async function loadVideoFromDatabase(contentId = null) {
         const lesson = lessonData.lesson;
         console.log('✅ Lesson data loaded:', lesson.content_title);
         
-        // Update lesson info in UI
+        // Update lesson info
         const titleElement = document.getElementById('videoLessonTitle');
         if (titleElement) {
             titleElement.textContent = lesson.content_title || 'Video Lesson';
@@ -14603,142 +16110,151 @@ async function loadVideoFromDatabase(contentId = null) {
             descElement.textContent = lesson.content_description || '';
         }
         
-        // ===== GET VIDEO SPECIFIC TO THIS LESSON =====
+        // Determine video source
         let videoUrl = null;
-        let videoSource = 'none';
+        let videoType = 'none';
         
-        // ✅ Check lesson's video_filename (uploaded video)
+        // Check for video_filename (uploaded video)
         if (lesson.video_filename) {
-            videoUrl = `/videos/${lesson.video_filename}`;
-            videoSource = 'uploaded';
-            console.log(`🎬 Found uploaded video for lesson ${contentId}: ${lesson.video_filename}`);
-        }
-        // ✅ Check lesson's content_url (YouTube)
-        else if (lesson.content_url) {
-            if (lesson.content_url.includes('youtube') || lesson.content_url.includes('youtu.be')) {
-                videoUrl = lesson.content_url;
-                videoSource = 'youtube';
-                console.log(`🔗 Found YouTube URL for lesson ${contentId}: ${videoUrl}`);
+            // Handle full URL or relative path
+            if (lesson.video_filename.startsWith('http')) {
+                videoUrl = lesson.video_filename;
             } else {
-                // Maybe it's a direct video path
-                videoUrl = lesson.content_url;
-                videoSource = 'url';
+                // For Railway, use absolute URL
+                videoUrl = `${window.location.origin}/videos/${lesson.video_filename}`;
             }
+            videoType = 'uploaded';
+            console.log('🎬 Using uploaded video:', videoUrl);
         }
-        // ✅ Check video_path as fallback
+        // Check for YouTube URL
+        else if (lesson.content_url && (lesson.content_url.includes('youtube') || lesson.content_url.includes('youtu.be'))) {
+            videoUrl = lesson.content_url;
+            videoType = 'youtube';
+            console.log('🔗 Using YouTube video:', videoUrl);
+        }
+        // Check for video_path
         else if (lesson.video_path) {
-            if (lesson.video_path.includes('/videos/')) {
+            if (lesson.video_path.startsWith('http')) {
                 videoUrl = lesson.video_path;
             } else {
                 const filename = lesson.video_path.split('/').pop();
-                videoUrl = `/videos/${filename}`;
+                videoUrl = `${window.location.origin}/videos/${filename}`;
             }
-            videoSource = 'path';
-            console.log(`📁 Found video path for lesson ${contentId}: ${videoUrl}`);
+            videoType = 'path';
+            console.log('📁 Using video path:', videoUrl);
         }
         
-        // If no video found, show error
-        if (!videoUrl) {
-            console.log(`⚠️ No video found for lesson ${contentId}`);
-            
-            videoElement.innerHTML = '';
-            const errorMsg = document.createElement('p');
-            errorMsg.style.cssText = 'color: #e74c3c; text-align: center; padding: 40px;';
-            errorMsg.innerHTML = `
-                <i class="fas fa-exclamation-triangle" style="font-size: 48px; margin-bottom: 15px;"></i><br>
-                <strong>No video assigned to this lesson</strong><br>
-                <span style="font-size: 14px;">Lesson ID: ${contentId}</span>
-            `;
-            videoElement.appendChild(errorMsg);
-            
-            if (videoInfo) {
-                videoInfo.innerHTML = `
-                    <p style="color: #e74c3c;">
-                        <i class="fas fa-exclamation-triangle"></i> 
-                        This lesson has no video. Please upload a video first.
-                    </p>
-                `;
-            }
-            return null;
-        }
-        
-        // ===== LOAD THE VIDEO =====
-        // Clear previous video
-        videoElement.innerHTML = '';
+        // Clear container
+        videoContainer.innerHTML = '';
         
         // Handle YouTube videos
-        if (videoUrl.includes('youtube') || videoUrl.includes('youtu.be')) {
+        if (videoType === 'youtube' && videoUrl) {
             const videoId = extractYoutubeId(videoUrl);
             if (videoId) {
                 const iframe = document.createElement('iframe');
                 iframe.width = '100%';
                 iframe.height = '400';
-                iframe.src = `https://www.youtube.com/embed/${videoId}?autoplay=0`;
+                iframe.src = `https://www.youtube.com/embed/${videoId}`;
                 iframe.frameBorder = '0';
                 iframe.allowFullscreen = true;
                 iframe.allow = 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture';
-                videoElement.appendChild(iframe);
+                videoContainer.appendChild(iframe);
                 
                 if (videoInfo) {
                     videoInfo.innerHTML = `
                         <p><i class="fab fa-youtube" style="color: #ff0000;"></i> <strong>YouTube Video</strong></p>
-                        <p><i class="fas fa-link"></i> ${lesson.content_title}</p>
-                        <p><i class="fas fa-tag"></i> Lesson ID: ${contentId}</p>
+                        <p>${lesson.content_title || ''}</p>
                     `;
                 }
+                return;
             }
-        } else {
-            // Regular video file
-            const sourceElement = document.createElement('source');
-            sourceElement.src = videoUrl + '?v=' + Date.now(); // Cache buster
-            sourceElement.type = 'video/mp4';
-            videoElement.appendChild(sourceElement);
-            videoElement.appendChild(document.createTextNode('Your browser does not support the video tag.'));
+        }
+        
+        // Handle uploaded videos
+        if (videoUrl) {
+            const video = document.createElement('video');
+            video.id = 'lessonVideo';
+            video.controls = true;
+            video.style.width = '100%';
+            video.style.maxHeight = '400px';
+            video.style.backgroundColor = '#000';
             
-            // Video loaded successfully
-            videoElement.onloadeddata = function() {
-                console.log(`✅ Video loaded successfully for lesson ${contentId}`);
+            const source = document.createElement('source');
+            source.src = videoUrl + '?v=' + Date.now(); // Cache buster
+            source.type = 'video/mp4';
+            
+            video.appendChild(source);
+            video.appendChild(document.createTextNode('Your browser does not support the video tag.'));
+            
+            // Success handler
+            video.onloadeddata = function() {
+                console.log(`✅ Video loaded successfully: ${videoUrl}`);
                 if (videoInfo) {
                     videoInfo.innerHTML = `
                         <p><i class="fas fa-check-circle" style="color: #27ae60;"></i> <strong>${lesson.content_title || 'Video Lesson'}</strong></p>
                         <p><i class="fas fa-clock"></i> Duration: ${Math.floor((lesson.video_duration_seconds || 600) / 60)} min</p>
-                        <p><i class="fas fa-database"></i> Lesson #${contentId}</p>
                     `;
                 }
+                // Initialize progress tracking
+                initVideoProgressTracking(video, contentId);
             };
             
-            // Video failed to load
-            videoElement.onerror = function() {
-                console.error(`❌ Failed to load video for lesson ${contentId}:`, videoUrl);
+            // Error handler
+            video.onerror = function() {
+                console.error('❌ Video failed to load:', videoUrl);
+                videoContainer.innerHTML = `
+                    <div style="background: #fee; height: 400px; display: flex; align-items: center; justify-content: center; flex-direction: column;">
+                        <i class="fas fa-exclamation-triangle" style="font-size: 60px; color: #e74c3c; margin-bottom: 20px;"></i>
+                        <h3 style="color: #c0392b;">Video not found</h3>
+                        <p style="color: #e74c3c;">The video file may be missing or inaccessible.</p>
+                        <p style="color: #666; font-size: 12px; margin-top: 10px;">Path: ${videoUrl}</p>
+                    </div>
+                `;
                 if (videoInfo) {
                     videoInfo.innerHTML = `
                         <p style="color: #e74c3c;">
                             <i class="fas fa-exclamation-triangle"></i> 
-                            Video file not found for this lesson.<br>
-                            <small>Filename: ${lesson.video_filename || 'unknown'}</small>
+                            Video failed to load. Please check if the file exists.
                         </p>
                     `;
                 }
             };
             
-            videoElement.load();
+            videoContainer.appendChild(video);
+            video.load();
+        } else {
+            // No video available
+            videoContainer.innerHTML = `
+                <div style="background: #f0f0f0; height: 400px; display: flex; align-items: center; justify-content: center; flex-direction: column;">
+                    <i class="fas fa-video-slash" style="font-size: 60px; color: #999; margin-bottom: 20px;"></i>
+                    <h3 style="color: #666;">No video available for this lesson</h3>
+                    <p style="color: #999;">The video will appear here once uploaded.</p>
+                </div>
+            `;
+            
+            if (videoInfo) {
+                videoInfo.innerHTML = `
+                    <p style="color: #f39c12;">
+                        <i class="fas fa-info-circle"></i> 
+                        This lesson has no video assigned.
+                    </p>
+                `;
+            }
         }
-        
-        // Initialize progress tracking for this specific lesson
-        initVideoProgressTracking(videoElement, contentId);
-        
-        console.log(`✅ Video loaded successfully for lesson ${contentId}:`, { url: videoUrl, source: videoSource });
-        return { url: videoUrl, source: videoSource };
         
     } catch (error) {
-        console.error(`❌ Error loading video for lesson ${contentId}:`, error);
-        if (videoElement) {
-            videoElement.innerHTML = `<p style="color: #e74c3c; padding: 20px;">Failed to load video: ${error.message}</p>`;
-        }
-        if (videoInfo) {
-            videoInfo.innerHTML = `<p style="color: #e74c3c;"><i class="fas fa-exclamation-triangle"></i> Error loading video</p>`;
-        }
-        return null;
+        console.error('❌ Error loading video:', error);
+        
+        videoContainer.innerHTML = `
+            <div style="background: #fee; height: 400px; display: flex; align-items: center; justify-content: center; flex-direction: column;">
+                <i class="fas fa-exclamation-triangle" style="font-size: 60px; color: #e74c3c; margin-bottom: 20px;"></i>
+                <h3 style="color: #c0392b;">Failed to load video</h3>
+                <p style="color: #e74c3c;">${error.message}</p>
+                <button onclick="location.reload()" class="btn-primary" style="margin-top: 20px; padding: 10px 20px;">
+                    <i class="fas fa-redo"></i> Reload Page
+                </button>
+            </div>
+        `;
     } finally {
         if (refreshVideoBtn) {
             refreshVideoBtn.innerHTML = '<i class="fas fa-sync-alt"></i>';
@@ -14951,51 +16467,289 @@ function setupVideoProgressTracking() {
 }
 
 // ============================================
-// MODULE DASHBOARD JS - FIXED
+// MODULE DASHBOARD JS - COMPLETE RAILWAY FIX
 // ============================================
 
 function initModuleDashboardJS() {
-    console.log('📚 Initializing module dashboard with database-driven content...');
+    console.log('📚 Initializing module dashboard with Railway fixes...');
     
-    // Video setup
-    const videoElement = document.getElementById('lessonVideo');
-    const videoTimeDisplay = document.getElementById('videoTime');
-    
-    // Initialize module dashboard with current lesson
-    initializeModuleDashboard();
-    
-    // =============== EVENT LISTENERS ===============
-    
-    // Back button
-    const backToLessonDashboardBtn = document.getElementById('backToLessonDashboard');
-    if (backToLessonDashboardBtn) {
-        backToLessonDashboardBtn.addEventListener('click', function() {
-            console.log('Back to dashboard button clicked');
-            navigateTo('dashboard');
-        });
+    // Get current lesson
+    const currentLesson = LessonState.currentLesson;
+    if (!currentLesson) {
+        console.error('❌ No current lesson found');
+        showNotification('No lesson data available', 'error');
+        navigateTo('dashboard');
+        return;
     }
     
-    // Practice buttons
-    const showHintBtn = document.getElementById('showHintBtn');
-    const showSolutionBtn = document.getElementById('showSolutionBtn');
-    const checkAnswerBtn = document.getElementById('checkAnswerBtn');
-    const practiceMoreBtn = document.getElementById('practiceMoreBtn');
-    const completeLessonBtn = document.getElementById('completeLessonBtn');
+    console.log('📖 Current lesson:', currentLesson.content_title, '(ID:', currentLesson.content_id, ')');
     
-    if (showHintBtn) {
-        showHintBtn.addEventListener('click', function() {
+    // ============================================
+    // 1. UPDATE UI WITH LESSON DATA
+    // ============================================
+    updateLessonUI(currentLesson);
+    
+    // ============================================
+    // 2. SETUP ALL BUTTONS (with cloneNode to remove old listeners)
+    // ============================================
+    setupBackButton();
+    setupNavigationButtons();
+    setupPracticeButtons();
+    setupCompleteLessonButton();
+    
+    // ============================================
+    // 3. LOAD VIDEO AND CONTENT
+    // ============================================
+    loadVideoAndContent(currentLesson);
+    
+    console.log('✅ Module dashboard initialized with Railway fixes');
+}
+
+// ============================================
+// HELPER: Update UI with lesson data
+// ============================================
+function updateLessonUI(lesson) {
+    // Module title
+    const moduleTitle = document.getElementById('moduleTitle');
+    if (moduleTitle) {
+        moduleTitle.textContent = lesson.content_title || 'PolyLearn Lesson';
+    }
+    
+    // Lesson title in sidebar
+    const moduleLessonTitle = document.getElementById('moduleLessonTitle');
+    if (moduleLessonTitle) {
+        const title = lesson.content_title || 'Lesson';
+        moduleLessonTitle.innerHTML = `<i class="fas fa-book"></i> ${title}`;
+    }
+    
+    // Subtitle
+    const moduleSubtitle = document.getElementById('moduleSubtitle');
+    if (moduleSubtitle) {
+        const subtitle = `${lesson.lesson_name || ''} - ${lesson.module_name || ''}`;
+        moduleSubtitle.textContent = subtitle;
+    }
+    
+    // Progress bar
+    updateProgressDisplay(lesson);
+}
+
+// ============================================
+// HELPER: Update progress display
+// ============================================
+async function updateProgressDisplay(lesson) {
+    const contentId = lesson.content_id;
+    
+    // Get progress from state or server
+    let percentage = 0;
+    let status = 'not_started';
+    
+    if (LessonState.userProgress && LessonState.userProgress[contentId]) {
+        percentage = LessonState.userProgress[contentId].percentage || 0;
+        status = LessonState.userProgress[contentId].status || 'not_started';
+    } else {
+        // Try to fetch from server
+        try {
+            const token = localStorage.getItem('authToken') || authToken;
+            if (token) {
+                const data = await apiRequest(`/api/lessons-db/${contentId}`);
+                if (data.success && data.lesson && data.lesson.progress) {
+                    percentage = data.lesson.progress.percentage || 0;
+                    status = data.lesson.progress.status || 'not_started';
+                    
+                    // Save to state
+                    if (!LessonState.userProgress) LessonState.userProgress = {};
+                    LessonState.userProgress[contentId] = data.lesson.progress;
+                }
+            }
+        } catch (error) {
+            console.log('Could not fetch progress:', error);
+        }
+    }
+    
+    // Update progress bar
+    const lessonProgressFill = document.getElementById('lessonProgressFill');
+    if (lessonProgressFill) {
+        lessonProgressFill.style.width = `${percentage}%`;
+    }
+    
+    // Update percentage text
+    const progressPercentage = document.getElementById('progressPercentage');
+    if (progressPercentage) {
+        progressPercentage.textContent = `${percentage}% Complete`;
+    }
+    
+    // Store in LessonState for button to use
+    if (!LessonState.userProgress) LessonState.userProgress = {};
+    if (!LessonState.userProgress[contentId]) LessonState.userProgress[contentId] = {};
+    LessonState.userProgress[contentId].percentage = percentage;
+    LessonState.userProgress[contentId].status = status;
+}
+
+// ============================================
+// HELPER: Setup back button
+// ============================================
+function setupBackButton() {
+    const backBtn = document.getElementById('backToLessonDashboard');
+    if (!backBtn) return;
+    
+    // Clone to remove old listeners
+    const newBackBtn = backBtn.cloneNode(true);
+    backBtn.parentNode.replaceChild(newBackBtn, backBtn);
+    
+    newBackBtn.addEventListener('click', function(e) {
+        e.preventDefault();
+        e.stopPropagation();
+        console.log('Back button clicked - returning to dashboard');
+        navigateTo('dashboard');
+    });
+    
+    console.log('✅ Back button setup complete');
+}
+
+// ============================================
+// HELPER: Setup navigation buttons (PREV/NEXT)
+// ============================================
+function setupNavigationButtons() {
+    const currentLesson = LessonState.currentLesson;
+    if (!currentLesson) return;
+    
+    // Previous button
+    const prevBtn = document.getElementById('prevLessonBtn');
+    if (prevBtn) {
+        const newPrevBtn = prevBtn.cloneNode(true);
+        prevBtn.parentNode.replaceChild(newPrevBtn, prevBtn);
+        
+        if (currentLesson.adjacent?.previous) {
+            newPrevBtn.disabled = false;
+            newPrevBtn.innerHTML = `<i class="fas fa-arrow-left"></i> Previous: ${currentLesson.adjacent.previous.title}`;
+            
+            newPrevBtn.addEventListener('click', async function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                
+                const prevId = currentLesson.adjacent.previous.id;
+                console.log('⬅️ Loading previous lesson:', prevId);
+                
+                // Show loading
+                showNotification('Loading previous lesson...', 'info');
+                
+                // Disable button
+                newPrevBtn.disabled = true;
+                
+                try {
+                    // Fetch lesson data
+                    const data = await apiRequest(`/api/lessons-db/${prevId}`);
+                    
+                    if (data.success && data.lesson) {
+                        LessonState.currentLesson = data.lesson;
+                        
+                        // Update URL
+                        const url = new URL(window.location);
+                        url.searchParams.set('lessonId', prevId);
+                        window.history.pushState({}, '', url);
+                        
+                        // Refresh the page
+                        navigateTo('moduleDashboard');
+                    } else {
+                        throw new Error('Lesson not found');
+                    }
+                } catch (error) {
+                    console.error('Error loading previous lesson:', error);
+                    showNotification('Failed to load previous lesson', 'error');
+                    newPrevBtn.disabled = false;
+                }
+            });
+        } else {
+            newPrevBtn.disabled = true;
+            newPrevBtn.innerHTML = `<i class="fas fa-arrow-left"></i> No Previous Lesson`;
+        }
+    }
+    
+    // Next button
+    const nextBtn = document.getElementById('nextLessonBtn');
+    if (nextBtn) {
+        const newNextBtn = nextBtn.cloneNode(true);
+        nextBtn.parentNode.replaceChild(newNextBtn, nextBtn);
+        
+        if (currentLesson.adjacent?.next) {
+            newNextBtn.disabled = false;
+            newNextBtn.innerHTML = `Next: ${currentLesson.adjacent.next.title} <i class="fas fa-arrow-right"></i>`;
+            
+            newNextBtn.addEventListener('click', async function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                
+                const nextId = currentLesson.adjacent.next.id;
+                console.log('➡️ Loading next lesson:', nextId);
+                
+                // Show loading
+                showNotification('Loading next lesson...', 'info');
+                
+                // Disable button
+                newNextBtn.disabled = true;
+                
+                try {
+                    // Fetch lesson data
+                    const data = await apiRequest(`/api/lessons-db/${nextId}`);
+                    
+                    if (data.success && data.lesson) {
+                        LessonState.currentLesson = data.lesson;
+                        
+                        // Update URL
+                        const url = new URL(window.location);
+                        url.searchParams.set('lessonId', nextId);
+                        window.history.pushState({}, '', url);
+                        
+                        // Refresh the page
+                        navigateTo('moduleDashboard');
+                    } else {
+                        throw new Error('Lesson not found');
+                    }
+                } catch (error) {
+                    console.error('Error loading next lesson:', error);
+                    showNotification('Failed to load next lesson', 'error');
+                    newNextBtn.disabled = false;
+                }
+            });
+        } else {
+            newNextBtn.disabled = true;
+            newNextBtn.innerHTML = `No Next Lesson <i class="fas fa-arrow-right"></i>`;
+        }
+    }
+    
+    console.log('✅ Navigation buttons setup complete');
+}
+
+// ============================================
+// HELPER: Setup practice buttons
+// ============================================
+function setupPracticeButtons() {
+    // Show Hint button
+    const hintBtn = document.getElementById('showHintBtn');
+    if (hintBtn) {
+        const newHintBtn = hintBtn.cloneNode(true);
+        hintBtn.parentNode.replaceChild(newHintBtn, hintBtn);
+        newHintBtn.addEventListener('click', () => {
             alert('Hint: Try grouping the first two terms together and the last two terms together.');
         });
     }
     
-    if (showSolutionBtn) {
-        showSolutionBtn.addEventListener('click', function() {
+    // Show Solution button
+    const solutionBtn = document.getElementById('showSolutionBtn');
+    if (solutionBtn) {
+        const newSolutionBtn = solutionBtn.cloneNode(true);
+        solutionBtn.parentNode.replaceChild(newSolutionBtn, solutionBtn);
+        newSolutionBtn.addEventListener('click', () => {
             alert('Solution: \n(4x³ - 8x²) + (5x - 10) = 4x²(x - 2) + 5(x - 2) = (x - 2)(4x² + 5)');
         });
     }
     
-    if (checkAnswerBtn) {
-        checkAnswerBtn.addEventListener('click', function() {
+    // Check Answer button
+    const checkBtn = document.getElementById('checkAnswerBtn');
+    if (checkBtn) {
+        const newCheckBtn = checkBtn.cloneNode(true);
+        checkBtn.parentNode.replaceChild(newCheckBtn, checkBtn);
+        newCheckBtn.addEventListener('click', () => {
             const answer = prompt('Enter your factored expression:');
             if (answer && answer.replace(/\s/g, '') === '(x-2)(4x²+5)') {
                 alert('Correct! Well done.');
@@ -15005,28 +16759,55 @@ function initModuleDashboardJS() {
         });
     }
     
-    if (practiceMoreBtn) {
-        practiceMoreBtn.addEventListener('click', function() {
+    // Practice More button
+    const moreBtn = document.getElementById('practiceMoreBtn');
+    if (moreBtn) {
+        const newMoreBtn = moreBtn.cloneNode(true);
+        moreBtn.parentNode.replaceChild(newMoreBtn, moreBtn);
+        newMoreBtn.addEventListener('click', () => {
             const problems = [
                 "6x³ + 9x² + 4x + 6",
                 "3x³ - 12x² + 2x - 8",
                 "5x³ + 10x² + 3x + 6",
                 "2x³ - 4x² + 7x - 14"
             ];
-           
             const randomProblem = problems[Math.floor(Math.random() * problems.length)];
             alert(`New practice problem: ${randomProblem}`);
         });
     }
     
-    // Complete lesson button
-    // Hanapin ang completeLessonBtn event listener (around line 1700) at palitan ng:
-if (completeLessonBtn) {
+    console.log('✅ Practice buttons setup complete');
+}
+
+// ============================================
+// HELPER: Setup complete lesson button
+// ============================================
+function setupCompleteLessonButton() {
+    const completeBtn = document.getElementById('completeLessonBtn');
+    if (!completeBtn) return;
+    
+    const newCompleteBtn = completeBtn.cloneNode(true);
+    completeBtn.parentNode.replaceChild(newCompleteBtn, completeBtn);
+    
+    // Check initial status
+    const contentId = LessonState.currentLesson?.content_id;
+    if (contentId && LessonState.userProgress?.[contentId]?.status === 'completed') {
+        newCompleteBtn.disabled = true;
+        newCompleteBtn.innerHTML = '<i class="fas fa-check"></i> Lesson Completed';
+        newCompleteBtn.style.background = '#2ecc71';
+    }
+    
     let isProcessing = false;
     
-    completeLessonBtn.addEventListener('click', async function() {
+    newCompleteBtn.addEventListener('click', async function(e) {
+        e.preventDefault();
+        e.stopPropagation();
+        
         const contentId = LessonState.currentLesson?.content_id;
-        if (!contentId) return;
+        if (!contentId) {
+            showNotification('Cannot identify lesson', 'error');
+            return;
+        }
         
         if (isProcessing) {
             console.log('⚠️ Already processing, please wait...');
@@ -15034,39 +16815,54 @@ if (completeLessonBtn) {
         }
         
         isProcessing = true;
-        const originalText = completeLessonBtn.innerHTML;
-        const originalDisabled = completeLessonBtn.disabled;
+        const originalText = newCompleteBtn.innerHTML;
+        const originalDisabled = newCompleteBtn.disabled;
         
-        completeLessonBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Saving...';
-        completeLessonBtn.disabled = true;
+        newCompleteBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Saving...';
+        newCompleteBtn.disabled = true;
         
         try {
-            // Check current progress first
-            const currentProgress = LessonState.userProgress[contentId] || {};
-            if (currentProgress.status === 'completed') {
+            // Check if already completed
+            if (LessonState.userProgress?.[contentId]?.status === 'completed') {
                 showNotification('Lesson already completed!', 'info');
-                completeLessonBtn.innerHTML = '<i class="fas fa-check"></i> Already Completed';
-                completeLessonBtn.style.background = '#2ecc71';
+                newCompleteBtn.innerHTML = '<i class="fas fa-check"></i> Already Completed';
+                newCompleteBtn.style.background = '#2ecc71';
                 return;
             }
             
-            // Update lesson progress
+            // Calculate time spent
+            let timeSpentSeconds = 300;
+            const videoElement = document.getElementById('lessonVideo');
+            if (videoElement && videoElement.duration) {
+                timeSpentSeconds = Math.floor(videoElement.currentTime || videoElement.duration);
+            }
+            
+            // Update progress
             const success = await updateLessonProgress(contentId, {
                 completion_status: 'completed',
                 percentage: 100,
-                time_spent_seconds: 300
+                time_spent_seconds: timeSpentSeconds
             });
             
             if (success) {
-                completeLessonBtn.innerHTML = '<i class="fas fa-check"></i> Lesson Completed';
-                completeLessonBtn.style.background = '#2ecc71';
+                newCompleteBtn.innerHTML = '<i class="fas fa-check"></i> Lesson Completed';
+                newCompleteBtn.style.background = '#2ecc71';
                 
                 showNotification('🎉 Lesson marked as complete!', 'success');
                 
-                // Clear saved watch time
+                // Update local state
+                if (!LessonState.userProgress) LessonState.userProgress = {};
+                if (!LessonState.userProgress[contentId]) LessonState.userProgress[contentId] = {};
+                LessonState.userProgress[contentId].status = 'completed';
+                LessonState.userProgress[contentId].percentage = 100;
+                
+                // Clear watch time
                 localStorage.removeItem(`video_watch_time_video_${contentId}`);
                 
-                // Refresh dashboard after 1 second
+                // Update daily progress
+                await updateDailyProgress({ lessons_completed: 1 });
+                
+                // Update dashboard
                 setTimeout(() => {
                     updateProgressSummaryCards();
                     if (AppState.currentPage === 'dashboard') {
@@ -15074,36 +16870,35 @@ if (completeLessonBtn) {
                     }
                 }, 1000);
             } else {
-                showNotification('Failed to save completion', 'error');
-                completeLessonBtn.innerHTML = originalText;
-                completeLessonBtn.disabled = originalDisabled;
+                throw new Error('Failed to save completion');
             }
         } catch (error) {
             console.error('Error:', error);
             showNotification('Error: ' + error.message, 'error');
-            completeLessonBtn.innerHTML = originalText;
-            completeLessonBtn.disabled = originalDisabled;
+            newCompleteBtn.innerHTML = originalText;
+            newCompleteBtn.disabled = originalDisabled;
         } finally {
             setTimeout(() => {
                 isProcessing = false;
             }, 1000);
         }
     });
+    
+    console.log('✅ Complete button setup complete');
 }
+
+// ============================================
+// HELPER: Load video and content
+// ============================================
+async function loadVideoAndContent(lesson) {
+    // Add styles
+    addLessonContentStyles();
     
-    // Navigation buttons
-    const prevLessonBtn = document.getElementById('prevLessonBtn');
-    const nextLessonBtn = document.getElementById('nextLessonBtn');
+    // Load video
+    await loadVideoFromDatabase(lesson.content_id);
     
-    if (prevLessonBtn) {
-        prevLessonBtn.addEventListener('click', navigateToPreviousLesson);
-    }
-    
-    if (nextLessonBtn) {
-        nextLessonBtn.addEventListener('click', navigateToNextLesson);
-    }
-    
-    console.log('✅ Module dashboard initialized with database-driven content');
+    // Load content
+    await displayLessonContent();
 }
 
 // ============================================
@@ -15240,33 +17035,6 @@ async function initializeVideo(contentId) {
     }
 }
 
-// Update navigation buttons
-function updateNavigationButtons(adjacent) {
-    const prevLessonBtn = document.getElementById('prevLessonBtn');
-    const nextLessonBtn = document.getElementById('nextLessonBtn');
-    
-    if (prevLessonBtn) {
-        if (adjacent?.previous) {
-            prevLessonBtn.disabled = false;
-            prevLessonBtn.setAttribute('data-lesson-id', adjacent.previous.id);
-            prevLessonBtn.innerHTML = `<i class="fas fa-arrow-left"></i> Previous: ${adjacent.previous.title}`;
-        } else {
-            prevLessonBtn.disabled = true;
-            prevLessonBtn.innerHTML = `<i class="fas fa-arrow-left"></i> No Previous Lesson`;
-        }
-    }
-    
-    if (nextLessonBtn) {
-        if (adjacent?.next) {
-            nextLessonBtn.disabled = false;
-            nextLessonBtn.setAttribute('data-lesson-id', adjacent.next.id);
-            nextLessonBtn.innerHTML = `Next: ${adjacent.next.title} <i class="fas fa-arrow-right"></i>`;
-        } else {
-            nextLessonBtn.disabled = true;
-            nextLessonBtn.innerHTML = `No Next Lesson <i class="fas fa-arrow-right"></i>`;
-        }
-    }
-}
 
 // Navigate to previous lesson
 async function navigateToPreviousLesson() {
@@ -21738,26 +23506,7 @@ function getRandomColor() {
 }
 
 
-// ============================================
-// Setup Complete Lesson Button
-// ============================================
-function setupCompleteLessonButton() {
-    const completeLessonBtn = document.getElementById('completeLessonBtn');
-    
-    if (completeLessonBtn) {
-        // Remove existing listeners to avoid duplicates
-        const newBtn = completeLessonBtn.cloneNode(true);
-        completeLessonBtn.parentNode.replaceChild(newBtn, completeLessonBtn);
-        
-        // Add new listener
-        newBtn.addEventListener('click', markLessonComplete);
-        
-        // Check initial completion status
-        setTimeout(checkLessonCompletionStatus, 500);
-        
-        console.log('✅ Complete lesson button setup complete');
-    }
-}
+
 
 // ============================================
 // Initialize on page load
@@ -26870,1457 +28619,7 @@ async function fetchQuizAccuracy() {
 // ============================================
 
 
-// ============================================
-// ✅ FIXED: ToolManager with better error handling
-// ============================================
-class ToolManager {
-    constructor() {
-        this.tools = {};
-        this.currentTool = null;
-        this.modalsContainer = document.getElementById('toolModalsContainer');
-        
-        // Create modals container if it doesn't exist
-        if (!this.modalsContainer) {
-            this.modalsContainer = document.createElement('div');
-            this.modalsContainer.id = 'toolModalsContainer';
-            document.body.appendChild(this.modalsContainer);
-        }
-        
-        this.init();
-    }
 
-    init() {
-        console.log('🔧 Initializing ToolManager...');
-        this.createModals();
-        this.initializeTools();
-        this.setupEventListeners();
-    }
-
-    createModals() {
-        console.log('📦 Creating tool modals...');
-        
-        this.modalsContainer.innerHTML = `
-            <!-- Calculator Modal -->
-            <div id="calculatorModal" class="modal-overlay" style="display: none;">
-                <div class="modal-container" style="background: white; border-radius: 10px; max-width: 500px; width: 90%;">
-                    <div class="modal-header" style="background: #7a0000; color: white; padding: 15px 20px; border-radius: 10px 10px 0 0; display: flex; justify-content: space-between; align-items: center;">
-                        <h3 style="margin: 0;"><i class="fas fa-calculator"></i> Calculator</h3>
-                        <button onclick="window.toolManager.closeTool()" style="background: none; border: none; color: white; font-size: 24px; cursor: pointer;">&times;</button>
-                    </div>
-                    <div class="modal-body" style="padding: 20px;">
-                        <div class="calculator-container">
-                            <div id="calcDisplay" class="calculator-display" style="background: #f8f9fa; padding: 15px; text-align: right; font-size: 24px; margin-bottom: 15px; border-radius: 5px;">0</div>
-                            <div class="calculator-buttons" id="calcButtons" style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 5px;"></div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Graph Modal -->
-            <div id="graphModal" class="modal-overlay" style="display: none;">
-                <div class="modal-container" style="background: white; border-radius: 10px; max-width: 800px; width: 90%;">
-                    <div class="modal-header" style="background: #7a0000; color: white; padding: 15px 20px; border-radius: 10px 10px 0 0; display: flex; justify-content: space-between; align-items: center;">
-                        <h3 style="margin: 0;"><i class="fas fa-chart-line"></i> Graph Tool</h3>
-                        <button onclick="window.toolManager.closeTool()" style="background: none; border: none; color: white; font-size: 24px; cursor: pointer;">&times;</button>
-                    </div>
-                    <div class="modal-body" style="padding: 20px;">
-                        <div class="graph-controls" style="margin-bottom: 15px;">
-                            <input type="text" id="graphExpression" placeholder="e.g., x^2, 2x+1" style="width: 70%; padding: 8px;">
-                            <button onclick="window.toolManager.tools.graph.plot()" style="padding: 8px 15px; background: #7a0000; color: white; border: none; border-radius: 5px;">Plot</button>
-                        </div>
-                        <canvas id="graphCanvas" width="600" height="400" style="border: 1px solid #ddd; width: 100%; height: auto;"></canvas>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Whiteboard Modal -->
-            <div id="whiteboardModal" class="modal-overlay" style="display: none;">
-                <div class="modal-container" style="background: white; border-radius: 10px; max-width: 800px; width: 90%;">
-                    <div class="modal-header" style="background: #7a0000; color: white; padding: 15px 20px; border-radius: 10px 10px 0 0; display: flex; justify-content: space-between; align-items: center;">
-                        <h3 style="margin: 0;"><i class="fas fa-paint-brush"></i> Whiteboard</h3>
-                        <button onclick="window.toolManager.closeTool()" style="background: none; border: none; color: white; font-size: 24px; cursor: pointer;">&times;</button>
-                    </div>
-                    <div class="modal-body" style="padding: 20px;">
-                        <div class="whiteboard-toolbar" style="margin-bottom: 10px;">
-                            <button onclick="window.toolManager.tools.whiteboard.setTool('pen')">✏️ Pen</button>
-                            <button onclick="window.toolManager.tools.whiteboard.setTool('eraser')">🧽 Eraser</button>
-                            <input type="color" id="colorPicker" value="#000000">
-                            <button onclick="window.toolManager.tools.whiteboard.clear()">🗑️ Clear</button>
-                        </div>
-                        <canvas id="whiteboardCanvas" width="600" height="400" style="border: 1px solid #ddd; width: 100%; height: auto;"></canvas>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Notepad Modal -->
-            <div id="notepadModal" class="modal-overlay" style="display: none;">
-                <div class="modal-container" style="background: white; border-radius: 10px; max-width: 500px; width: 90%;">
-                    <div class="modal-header" style="background: #7a0000; color: white; padding: 15px 20px; border-radius: 10px 10px 0 0; display: flex; justify-content: space-between; align-items: center;">
-                        <h3 style="margin: 0;"><i class="fas fa-sticky-note"></i> Notepad</h3>
-                        <button onclick="window.toolManager.closeTool()" style="background: none; border: none; color: white; font-size: 24px; cursor: pointer;">&times;</button>
-                    </div>
-                    <div class="modal-body" style="padding: 20px;">
-                        <input type="text" id="noteTitle" placeholder="Note title" style="width: 100%; padding: 8px; margin-bottom: 10px;">
-                        <textarea id="noteContent" placeholder="Write your notes here..." rows="10" style="width: 100%; padding: 8px;"></textarea>
-                        <button onclick="window.toolManager.tools.notepad.save()" style="margin-top: 10px; padding: 8px 15px; background: #7a0000; color: white; border: none; border-radius: 5px;">Save Note</button>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Formula Sheet Modal -->
-            <div id="formulaModal" class="modal-overlay" style="display: none;">
-                <div class="modal-container" style="background: white; border-radius: 10px; max-width: 600px; width: 90%;">
-                    <div class="modal-header" style="background: #7a0000; color: white; padding: 15px 20px; border-radius: 10px 10px 0 0; display: flex; justify-content: space-between; align-items: center;">
-                        <h3 style="margin: 0;"><i class="fas fa-book"></i> Formula Sheet</h3>
-                        <button onclick="window.toolManager.closeTool()" style="background: none; border: none; color: white; font-size: 24px; cursor: pointer;">&times;</button>
-                    </div>
-                    <div class="modal-body" style="padding: 20px;">
-                        <div class="formula-categories" style="margin-bottom: 15px;">
-                            <button onclick="window.toolManager.tools.formula.showCategory('polynomial')">Polynomials</button>
-                            <button onclick="window.toolManager.tools.formula.showCategory('algebra')">Algebra</button>
-                            <button onclick="window.toolManager.tools.formula.showCategory('calculus')">Calculus</button>
-                        </div>
-                        <div id="formulaList" class="formula-list"></div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Timer Modal -->
-            <div id="timerModal" class="modal-overlay" style="display: none;">
-                <div class="modal-container" style="background: white; border-radius: 10px; max-width: 400px; width: 90%;">
-                    <div class="modal-header" style="background: #7a0000; color: white; padding: 15px 20px; border-radius: 10px 10px 0 0; display: flex; justify-content: space-between; align-items: center;">
-                        <h3 style="margin: 0;"><i class="fas fa-stopwatch"></i> Study Timer</h3>
-                        <button onclick="window.toolManager.closeTool()" style="background: none; border: none; color: white; font-size: 24px; cursor: pointer;">&times;</button>
-                    </div>
-                    <div class="modal-body" style="padding: 20px;">
-                        <div id="timerDisplay" class="timer-display" style="font-size: 48px; text-align: center; margin: 20px 0;">25:00</div>
-                        <div class="timer-controls" style="display: flex; gap: 10px; justify-content: center;">
-                            <button onclick="window.toolManager.startTimer()" style="padding: 10px 20px; background: #27ae60; color: white; border: none; border-radius: 5px;">Start</button>
-                            <button onclick="window.toolManager.pauseTimer()" style="padding: 10px 20px; background: #f39c12; color: white; border: none; border-radius: 5px;">Pause</button>
-                            <button onclick="window.toolManager.resetTimer()" style="padding: 10px 20px; background: #e74c3c; color: white; border: none; border-radius: 5px;">Reset</button>
-                        </div>
-                        <div class="timer-presets" style="display: flex; gap: 10px; justify-content: center; margin-top: 15px;">
-                            <button onclick="window.toolManager.tools.timer.setTime(15)" style="padding: 5px 10px;">15 min</button>
-                            <button onclick="window.toolManager.tools.timer.setTime(25)" style="padding: 5px 10px;">25 min</button>
-                            <button onclick="window.toolManager.tools.timer.setTime(50)" style="padding: 5px 10px;">50 min</button>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        `;
-        
-        console.log('✅ Tool modals created');
-    }
-
-    initializeTools() {
-        console.log('🔧 Initializing tool instances...');
-        this.tools = {
-            calculator: new Calculator(),
-            whiteboard: new Whiteboard(),
-            notepad: new Notepad(),
-            formula: new FormulaSheet(),
-            timer: new StudyTimer(),
-            graph: new GraphTool()
-        };
-    }
-
-    setupEventListeners() {
-        window.addEventListener('click', (e) => {
-            if (e.target.classList.contains('modal-overlay')) {
-                this.closeTool();
-            }
-        });
-
-        document.addEventListener('keydown', (e) => {
-            if (e.key === 'Escape') {
-                this.closeTool();
-            }
-        });
-    }
-
-    openTool(toolName) {
-        console.log(`🔧 Opening tool: ${toolName}`);
-        
-        // Close any open tool first
-        this.closeTool();
-        
-        const modal = document.getElementById(`${toolName}Modal`);
-        if (modal) {
-            // Force show modal
-            modal.style.display = 'flex';
-            modal.style.position = 'fixed';
-            modal.style.top = '0';
-            modal.style.left = '0';
-            modal.style.width = '100%';
-            modal.style.height = '100%';
-            modal.style.backgroundColor = 'rgba(0, 0, 0, 0.7)';
-            modal.style.zIndex = '10000';
-            modal.style.alignItems = 'center';
-            modal.style.justifyContent = 'center';
-            
-            modal.classList.add('active');
-            this.currentTool = toolName;
-            
-            // Initialize tool when opened
-            if (this.tools[toolName] && typeof this.tools[toolName].onOpen === 'function') {
-                setTimeout(() => {
-                    try {
-                        this.tools[toolName].onOpen();
-                    } catch (e) {
-                        console.error(`Error opening ${toolName}:`, e);
-                    }
-                }, 100);
-            }
-            
-            console.log(`✅ ${toolName} opened successfully`);
-        } else {
-            console.error(`❌ Modal not found: ${toolName}Modal`);
-        }
-    }
-
-    closeTool() {
-        console.log('🔧 Closing current tool');
-        document.querySelectorAll('.modal-overlay').forEach(modal => {
-            modal.style.display = 'none';
-            modal.classList.remove('active');
-        });
-        this.currentTool = null;
-    }
-
-    // Timer bridge methods
-    startTimer() {
-        if (this.tools && this.tools.timer) {
-            this.tools.timer.start();
-        }
-    }
-
-    pauseTimer() {
-        if (this.tools && this.tools.timer) {
-            this.tools.timer.pause();
-        }
-    }
-
-    resetTimer() {
-        if (this.tools && this.tools.timer) {
-            this.tools.timer.reset();
-        }
-    }
-}
-   
-
-// ========================================
-// CALCULATOR TOOL - FIXED VERSION
-// ========================================
-class Calculator {
-    constructor() {
-        this.display = '0';
-        this.history = [];
-        this.memory = 0;
-        this.expression = '';
-        this.lastResult = null;
-    }
-
-    onOpen() {
-        this.display = '0';
-        this.expression = '';
-        this.renderButtons();
-        this.loadHistory();
-    }
-
-    renderButtons() {
-        const buttons = [
-            ['C', '⌫', '%', '÷'],
-            ['7', '8', '9', '×'],
-            ['4', '5', '6', '-'],
-            ['1', '2', '3', '+'],
-            ['00', '0', '.', '=']
-        ];
-
-        const buttonsHtml = buttons.map(row => 
-            row.map(btn => {
-                let className = 'calc-btn';
-                if (['+', '-', '×', '÷', '%'].includes(btn)) className += ' operator';
-                if (btn === '=') className += ' equals';
-                if (btn === 'C') className += ' clear';
-                if (btn === '⌫') className += ' backspace';
-                
-                return `<button class="${className}" data-value="${btn}">${btn}</button>`;
-            }).join('')
-        ).join('');
-
-        const buttonsContainer = document.getElementById('calcButtons');
-        if (buttonsContainer) {
-            buttonsContainer.innerHTML = buttonsHtml;
-            
-            // Add event listeners to buttons
-            buttonsContainer.querySelectorAll('button').forEach(btn => {
-                btn.addEventListener('click', () => {
-                    const value = btn.getAttribute('data-value');
-                    this.handleButton(value);
-                });
-            });
-        }
-        
-        this.updateDisplay();
-    }
-
-    handleButton(btn) {
-        switch(btn) {
-            case 'C':
-                this.display = '0';
-                this.expression = '';
-                this.lastResult = null;
-                break;
-                
-            case '⌫':
-                if (this.display.length > 1) {
-                    this.display = this.display.slice(0, -1);
-                } else {
-                    this.display = '0';
-                }
-                break;
-                
-            case '=':
-                this.calculate();
-                break;
-                
-            case '÷':
-                this.addToExpression('/');
-                break;
-                
-            case '×':
-                this.addToExpression('*');
-                break;
-                
-            default:
-                this.addToExpression(btn);
-        }
-        this.updateDisplay();
-    }
-
-    addToExpression(value) {
-        // Handle numbers and operators
-        if (this.display === '0' && !isNaN(value)) {
-            this.display = value;
-        } else {
-            this.display += value;
-        }
-    }
-
-    calculate() {
-        try {
-            // Replace display operators with JavaScript operators
-            let expression = this.display
-                .replace(/÷/g, '/')
-                .replace(/×/g, '*');
-            
-            // Don't calculate if expression is empty or just operators
-            if (!expression || expression.match(/^[+\-*/]+$/)) {
-                return;
-            }
-            
-            let result = eval(expression);
-            
-            // Handle decimal places
-            if (result.toString().includes('.')) {
-                result = Math.round(result * 1000000) / 1000000;
-            }
-            
-            // Add to history
-            this.history.unshift({
-                expression: this.display,
-                result: result,
-                timestamp: new Date().toLocaleTimeString()
-            });
-            
-            // Keep history to 10 items
-            if (this.history.length > 10) {
-                this.history.pop();
-            }
-            
-            // Save to backend
-            this.saveToHistory(this.display, result);
-            
-            // Update display
-            this.display = result.toString();
-            this.lastResult = result;
-            this.updateHistory();
-            
-        } catch (error) {
-            console.error('Calculation error:', error);
-            this.display = 'Error';
-            setTimeout(() => {
-                this.display = '0';
-                this.updateDisplay();
-            }, 1500);
-        }
-    }
-
-    async saveToHistory(expression, result) {
-        try {
-            const token = localStorage.getItem('authToken') || authToken;
-            if (!token) return;
-
-            await fetch(`/calculator/save`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${token}`
-                },
-                body: JSON.stringify({ expression, result })
-            });
-        } catch (error) {
-            console.log('Failed to save calculation:', error);
-        }
-    }
-
-    async loadHistory() {
-        try {
-            const token = localStorage.getItem('authToken') || authToken;
-            if (!token) return;
-
-            const response = await fetch(`/calculator/history`, {
-                headers: { 'Authorization': `Bearer ${token}` }
-            });
-            
-            if (!response.ok) return;
-            
-            const data = await response.json();
-            
-            if (data.success && data.history) {
-                this.history = data.history.map(item => ({
-                    expression: item.expression,
-                    result: item.result,
-                    timestamp: new Date(item.created_at).toLocaleTimeString()
-                }));
-                this.updateHistory();
-            }
-        } catch (error) {
-            console.log('Failed to load history:', error);
-        }
-    }
-
-    updateDisplay() {
-        const displayEl = document.getElementById('calcDisplay');
-        if (displayEl) {
-            displayEl.textContent = this.display;
-        }
-    }
-
-    updateHistory() {
-        const historyEl = document.getElementById('calcHistory');
-        if (!historyEl) return;
-
-        if (this.history.length === 0) {
-            historyEl.innerHTML = '<div class="history-empty">No calculations yet</div>';
-            return;
-        }
-
-        historyEl.innerHTML = this.history.map(item => `
-            <div class="history-item" onclick="window.toolManager.tools.calculator.useHistory('${item.expression}')">
-                <div class="history-expression">${item.expression} =</div>
-                <div class="history-result">${item.result}</div>
-                <div class="history-time">${item.timestamp}</div>
-            </div>
-        `).join('');
-    }
-
-    useHistory(expression) {
-        this.display = expression;
-        this.updateDisplay();
-    }
-}
-
-// ========================================
-// GRAPH TOOL - FOR ANY POLYNOMIAL FUNCTION
-// ========================================
-class GraphTool {
-    constructor() {
-        this.canvas = null;
-        this.ctx = null;
-        this.expression = 'x^3 - 2x^2 + x - 1'; // Default polynomial
-        this.range = { min: -5, max: 5 };
-        this.points = [];
-        this.isDarkMode = false;
-        this.xRoots = []; // X-intercepts (y=0)
-        this.yRoots = []; // Y-intercepts (x=0)
-        this.turningPoints = []; // Local maxima/minima
-    }
-
-    onOpen() {
-        setTimeout(() => {
-            this.canvas = document.getElementById('graphCanvas');
-            if (this.canvas) {
-                this.ctx = this.canvas.getContext('2d');
-                this.setupCanvas();
-                this.setupEventListeners();
-                this.drawGrid();
-                this.plotFunction();
-            }
-        }, 100);
-    }
-
-    setupCanvas() {
-        // Set canvas size
-        this.canvas.width = this.canvas.offsetWidth;
-        this.canvas.height = this.canvas.offsetHeight;
-        
-        // Set default styles
-        this.ctx.lineWidth = 2;
-        this.ctx.strokeStyle = '#667eea';
-        this.ctx.fillStyle = '#667eea';
-        this.ctx.font = '12px Arial';
-    }
-
-    setupEventListeners() {
-        // Expression input
-        const exprInput = document.getElementById('graphExpression');
-        if (exprInput) {
-            exprInput.addEventListener('input', (e) => {
-                this.expression = e.target.value;
-            });
-        }
-
-        // Plot button
-        const plotBtn = document.getElementById('plotGraphBtn');
-        if (plotBtn) {
-            plotBtn.addEventListener('click', () => {
-                this.plotFunction();
-            });
-        }
-
-        // Range inputs
-        const minRange = document.getElementById('graphMinRange');
-        const maxRange = document.getElementById('graphMaxRange');
-        
-        if (minRange) {
-            minRange.addEventListener('change', (e) => {
-                this.range.min = parseFloat(e.target.value) || -5;
-                this.drawGrid();
-                this.plotFunction();
-            });
-        }
-        
-        if (maxRange) {
-            maxRange.addEventListener('change', (e) => {
-                this.range.max = parseFloat(e.target.value) || 5;
-                this.drawGrid();
-                this.plotFunction();
-            });
-        }
-
-        // Clear button
-        const clearBtn = document.getElementById('clearGraphBtn');
-        if (clearBtn) {
-            clearBtn.addEventListener('click', () => {
-                this.expression = 'x^3 - 2x^2 + x - 1';
-                if (exprInput) exprInput.value = 'x^3 - 2x^2 + x - 1';
-                this.drawGrid();
-                this.plotFunction();
-            });
-        }
-
-        // Save button
-        const saveBtn = document.getElementById('saveGraphBtn');
-        if (saveBtn) {
-            saveBtn.addEventListener('click', () => {
-                this.saveGraph();
-            });
-        }
-
-        // Dark mode toggle
-        const darkModeBtn = document.getElementById('graphDarkMode');
-        if (darkModeBtn) {
-            darkModeBtn.addEventListener('click', () => {
-                this.isDarkMode = !this.isDarkMode;
-                this.drawGrid();
-                this.plotFunction();
-            });
-        }
-    }
-
-    f(x) {
-        // Evaluate ANY polynomial function
-        try {
-            if (!this.expression || this.expression.trim() === '') {
-                return 0;
-            }
-            
-            // Replace ^ with ** for JavaScript exponentiation
-            let expr = this.expression.replace(/\^/g, '**');
-            
-            // Handle implicit multiplication (e.g., "2x" becomes "2*x")
-            expr = expr.replace(/(\d)(x)/g, '$1*$2');
-            
-            // Create a safe evaluation function
-            const fn = new Function('x', `return ${expr}`);
-            return fn(x);
-        } catch (e) {
-            console.error('Error evaluating function:', e);
-            return NaN;
-        }
-    }
-
-    generatePoints() {
-        this.points = [];
-        const step = (this.range.max - this.range.min) / 500; // Higher resolution for better accuracy
-        
-        for (let x = this.range.min; x <= this.range.max; x += step) {
-            try {
-                const y = this.f(x);
-                
-                if (isFinite(y) && !isNaN(y) && Math.abs(y) < 100) { // Limit y-range to avoid extreme values
-                    this.points.push({ x, y });
-                }
-            } catch (e) {
-                // Skip points where function fails
-            }
-        }
-    }
-
-    findRoots() {
-        this.xRoots = []; // X-intercepts (y=0)
-        this.yRoots = []; // Y-intercepts (x=0)
-        this.turningPoints = []; // Local maxima/minima
-        
-        // Find Y-intercept (x=0)
-        try {
-            const yAtZero = this.f(0);
-            if (isFinite(yAtZero) && !isNaN(yAtZero) && Math.abs(yAtZero) < 100) {
-                this.yRoots.push({ x: 0, y: yAtZero });
-            }
-        } catch (e) {
-            console.log('Could not calculate y-intercept');
-        }
-        
-        // Find X-intercepts (where y=0) using zero-crossing detection
-        if (this.points.length < 2) return;
-        
-        for (let i = 1; i < this.points.length; i++) {
-            const p1 = this.points[i-1];
-            const p2 = this.points[i];
-            
-            // Check if function crosses zero
-            if (p1.y * p2.y <= 0 && Math.abs(p1.y) < 100 && Math.abs(p2.y) < 100) {
-                // Linear interpolation to find root
-                const rootX = p1.x - p1.y * (p2.x - p1.x) / (p2.y - p1.y);
-                
-                // Check if this root is unique (avoid duplicates)
-                const isDuplicate = this.xRoots.some(r => Math.abs(r.x - rootX) < 0.01);
-                
-                if (!isDuplicate && rootX >= this.range.min && rootX <= this.range.max) {
-                    this.xRoots.push({ x: rootX, y: 0 });
-                }
-            }
-        }
-        
-        // Find turning points (where derivative changes sign)
-        for (let i = 1; i < this.points.length - 1; i++) {
-            const prev = this.points[i-1];
-            const curr = this.points[i];
-            const next = this.points[i+1];
-            
-            // Check for local maximum
-            if (curr.y > prev.y && curr.y > next.y) {
-                this.turningPoints.push({ x: curr.x, y: curr.y, type: 'max' });
-            }
-            
-            // Check for local minimum
-            if (curr.y < prev.y && curr.y < next.y) {
-                this.turningPoints.push({ x: curr.x, y: curr.y, type: 'min' });
-            }
-        }
-        
-        // Display all features
-        this.displayFeatures();
-    }
-
-    displayFeatures() {
-        const rootsEl = document.getElementById('graphRoots');
-        if (!rootsEl) return;
-        
-        let html = '<div class="roots-container">';
-        
-        // Display X-intercepts
-        if (this.xRoots.length > 0) {
-            html += '<div class="roots-section">';
-            html += '<h4 style="color: #e74c3c;"><i class="fas fa-arrow-right"></i> X-Intercepts (y=0):</h4>';
-            html += '<ul>';
-            this.xRoots.forEach((root, index) => {
-                html += `<li>x = ${root.x.toFixed(3)}</li>`;
-            });
-            html += '</ul>';
-            html += '</div>';
-        }
-        
-        // Display Y-intercept
-        if (this.yRoots.length > 0) {
-            html += '<div class="roots-section">';
-            html += '<h4 style="color: #2980b9;"><i class="fas fa-arrow-up"></i> Y-Intercept (x=0):</h4>';
-            html += '<ul>';
-            this.yRoots.forEach(root => {
-                html += `<li>y = ${root.y.toFixed(3)}</li>`;
-            });
-            html += '</ul>';
-            html += '</div>';
-        }
-        
-        // Display Turning Points
-        if (this.turningPoints.length > 0) {
-            html += '<div class="roots-section">';
-            html += '<h4 style="color: #f39c12;"><i class="fas fa-chart-line"></i> Turning Points:</h4>';
-            html += '<ul>';
-            this.turningPoints.forEach(point => {
-                const icon = point.type === 'max' ? '▲' : '▼';
-                html += `<li>${icon} (${point.x.toFixed(3)}, ${point.y.toFixed(3)}) - ${point.type === 'max' ? 'Maximum' : 'Minimum'}</li>`;
-            });
-            html += '</ul>';
-            html += '</div>';
-        }
-        
-        // If no features found
-        if (this.xRoots.length === 0 && this.yRoots.length === 0 && this.turningPoints.length === 0) {
-            html += '<p class="no-roots">No intercepts or turning points found in current range</p>';
-        }
-        
-        html += '</div>';
-        rootsEl.innerHTML = html;
-    }
-
-    drawGrid() {
-        if (!this.ctx || !this.canvas) return;
-        
-        const w = this.canvas.width;
-        const h = this.canvas.height;
-        
-        // Clear canvas
-        this.ctx.clearRect(0, 0, w, h);
-        
-        // Set colors based on mode
-        const gridColor = this.isDarkMode ? '#333' : '#ddd';
-        const axisColor = this.isDarkMode ? '#666' : '#999';
-        const textColor = this.isDarkMode ? '#ccc' : '#333';
-        const bgColor = this.isDarkMode ? '#1a1a1a' : '#fff';
-        
-        // Fill background
-        this.ctx.fillStyle = bgColor;
-        this.ctx.fillRect(0, 0, w, h);
-        
-        // Calculate y-range based on function values
-        let yMin = -10, yMax = 10;
-        if (this.points.length > 0) {
-            const yValues = this.points.map(p => p.y).filter(y => isFinite(y) && !isNaN(y) && Math.abs(y) < 100);
-            if (yValues.length > 0) {
-                yMin = Math.min(...yValues);
-                yMax = Math.max(...yValues);
-                // Add some padding
-                const padding = (yMax - yMin) * 0.1;
-                yMin -= padding;
-                yMax += padding;
-            }
-        }
-        
-        const yRange = yMax - yMin;
-        
-        // Pixel to coordinate mapping
-        const xToPx = (x) => ((x - this.range.min) / (this.range.max - this.range.min)) * w;
-        const yToPx = (y) => h - ((y - yMin) / yRange) * h;
-        
-        // Draw grid lines
-        this.ctx.strokeStyle = gridColor;
-        this.ctx.lineWidth = 0.5;
-        
-        // Vertical grid lines (every integer)
-        for (let x = Math.ceil(this.range.min); x <= this.range.max; x++) {
-            if (x === 0) continue; // Skip axis
-            const px = xToPx(x);
-            if (px >= 0 && px <= w) {
-                this.ctx.beginPath();
-                this.ctx.moveTo(px, 0);
-                this.ctx.lineTo(px, h);
-                this.ctx.stroke();
-            }
-        }
-        
-        // Horizontal grid lines (every integer in y-range)
-        for (let y = Math.ceil(yMin); y <= yMax; y++) {
-            if (y === 0) continue; // Skip axis
-            const py = yToPx(y);
-            if (py >= 0 && py <= h) {
-                this.ctx.beginPath();
-                this.ctx.moveTo(0, py);
-                this.ctx.lineTo(w, py);
-                this.ctx.stroke();
-            }
-        }
-        
-        // Draw axes
-        this.ctx.strokeStyle = axisColor;
-        this.ctx.lineWidth = 2;
-        
-        // Y-axis
-        const xZero = xToPx(0);
-        if (xZero >= 0 && xZero <= w) {
-            this.ctx.beginPath();
-            this.ctx.moveTo(xZero, 0);
-            this.ctx.lineTo(xZero, h);
-            this.ctx.stroke();
-        }
-        
-        // X-axis
-        const yZero = yToPx(0);
-        if (yZero >= 0 && yZero <= h) {
-            this.ctx.beginPath();
-            this.ctx.moveTo(0, yZero);
-            this.ctx.lineTo(w, yZero);
-            this.ctx.stroke();
-        }
-        
-        // Draw axis labels
-        this.ctx.fillStyle = textColor;
-        this.ctx.font = '12px Arial';
-        
-        // X-axis labels
-        for (let x = Math.ceil(this.range.min); x <= this.range.max; x++) {
-            if (x === 0) continue;
-            const px = xToPx(x);
-            const py = yZero;
-            if (px >= 0 && px <= w && py >= 0 && py <= h) {
-                this.ctx.fillText(x, px - 5, py - 5);
-            }
-        }
-        
-        // Y-axis labels
-        for (let y = Math.ceil(yMin); y <= yMax; y++) {
-            if (y === 0) continue;
-            const px = xZero;
-            const py = yToPx(y);
-            if (px >= 0 && px <= w && py >= 0 && py <= h) {
-                this.ctx.fillText(y, px + 5, py - 5);
-            }
-        }
-        
-        // Draw origin
-        if (xZero >= 0 && xZero <= w && yZero >= 0 && yZero <= h) {
-            this.ctx.fillStyle = textColor;
-            this.ctx.fillText('0', xZero + 5, yZero - 5);
-        }
-    }
-
-    plotFunction() {
-        this.generatePoints();
-        this.findRoots();
-        this.drawGrid();
-        
-        if (this.points.length === 0) return;
-        
-        const w = this.canvas.width;
-        const h = this.canvas.height;
-        
-        // Calculate y-range
-        let yMin = -10, yMax = 10;
-        const yValues = this.points.map(p => p.y).filter(y => isFinite(y) && !isNaN(y) && Math.abs(y) < 100);
-        if (yValues.length > 0) {
-            yMin = Math.min(...yValues);
-            yMax = Math.max(...yValues);
-            const padding = (yMax - yMin) * 0.1;
-            yMin -= padding;
-            yMax += padding;
-        }
-        
-        const yRange = yMax - yMin;
-        
-        // Pixel to coordinate mapping
-        const xToPx = (x) => ((x - this.range.min) / (this.range.max - this.range.min)) * w;
-        const yToPx = (y) => h - ((y - yMin) / yRange) * h;
-        
-        // Draw function
-        this.ctx.strokeStyle = '#667eea';
-        this.ctx.lineWidth = 3;
-        this.ctx.beginPath();
-        
-        let first = true;
-        for (const point of this.points) {
-            const px = xToPx(point.x);
-            const py = yToPx(point.y);
-            
-            if (px >= 0 && px <= w && py >= 0 && py <= h) {
-                if (first) {
-                    this.ctx.moveTo(px, py);
-                    first = false;
-                } else {
-                    this.ctx.lineTo(px, py);
-                }
-            } else {
-                first = true; // Break line when going out of bounds
-            }
-        }
-        
-        this.ctx.stroke();
-        
-        // Draw X-intercepts (red circles)
-        const yZero = yToPx(0);
-        this.ctx.fillStyle = '#e74c3c';
-        this.xRoots.forEach(root => {
-            const px = xToPx(root.x);
-            if (px >= 0 && px <= w && yZero >= 0 && yZero <= h) {
-                this.ctx.beginPath();
-                this.ctx.arc(px, yZero, 6, 0, 2 * Math.PI);
-                this.ctx.fill();
-                
-                // Add label
-                this.ctx.fillStyle = this.isDarkMode ? '#fff' : '#000';
-                this.ctx.font = 'bold 10px Arial';
-                this.ctx.fillText(`x=${root.x.toFixed(2)}`, px - 25, yZero - 15);
-                this.ctx.fillStyle = '#e74c3c';
-            }
-        });
-        
-        // Draw Y-intercept (blue circle)
-        const xZero = xToPx(0);
-        this.ctx.fillStyle = '#2980b9';
-        this.yRoots.forEach(root => {
-            const px = xZero;
-            const py = yToPx(root.y);
-            if (px >= 0 && px <= w && py >= 0 && py <= h) {
-                this.ctx.beginPath();
-                this.ctx.arc(px, py, 6, 0, 2 * Math.PI);
-                this.ctx.fill();
-                
-                // Add label
-                this.ctx.fillStyle = this.isDarkMode ? '#fff' : '#000';
-                this.ctx.font = 'bold 10px Arial';
-                this.ctx.fillText(`y=${root.y.toFixed(2)}`, px + 10, py - 10);
-                this.ctx.fillStyle = '#2980b9';
-            }
-        });
-        
-        // Draw Turning Points (orange circles)
-        this.ctx.fillStyle = '#f39c12';
-        this.turningPoints.forEach(point => {
-            const px = xToPx(point.x);
-            const py = yToPx(point.y);
-            if (px >= 0 && px <= w && py >= 0 && py <= h) {
-                this.ctx.beginPath();
-                this.ctx.arc(px, py, 5, 0, 2 * Math.PI);
-                this.ctx.fill();
-            }
-        });
-    }
-
-    async saveGraph() {
-        try {
-            const token = localStorage.getItem('authToken') || authToken;
-            if (!token) {
-                alert('Please login to save graphs');
-                return;
-            }
-            
-            const response = await fetch(`/graph/save`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${token}`
-                },
-                body: JSON.stringify({
-                    expression: this.expression,
-                    graph_type: 'polynomial',
-                    range: this.range,
-                    xRoots: this.xRoots,
-                    yRoots: this.yRoots,
-                    turningPoints: this.turningPoints
-                })
-            });
-            
-            const data = await response.json();
-            
-            if (data.success) {
-                alert('Graph saved successfully!');
-            } else {
-                alert('Failed to save graph');
-            }
-        } catch (error) {
-            console.error('Error saving graph:', error);
-            alert('Error saving graph');
-        }
-    }
-}
-
-// ========================================
-// WHITEBOARD TOOL - FIXED VERSION
-// ========================================
-class Whiteboard {
-    constructor() {
-        this.canvas = null;
-        this.ctx = null;
-        this.drawing = false;
-        this.currentTool = 'pen';
-        this.color = '#667eea';
-    }
-
-    onOpen() {
-        setTimeout(() => {
-            this.canvas = document.getElementById('whiteboardCanvas');
-            if (this.canvas) {
-                this.ctx = this.canvas.getContext('2d');
-                this.setupCanvas();
-                this.setupEventListeners();
-            }
-        }, 100);
-    }
-
-    setupCanvas() {
-        // Set canvas size
-        this.canvas.width = this.canvas.offsetWidth;
-        this.canvas.height = this.canvas.offsetHeight;
-        
-        // Set styles
-        this.ctx.strokeStyle = this.color;
-        this.ctx.lineWidth = 2;
-        this.ctx.lineCap = 'round';
-        this.ctx.lineJoin = 'round';
-    }
-
-    setupEventListeners() {
-        this.canvas.addEventListener('mousedown', this.startDrawing.bind(this));
-        this.canvas.addEventListener('mousemove', this.draw.bind(this));
-        this.canvas.addEventListener('mouseup', this.stopDrawing.bind(this));
-        this.canvas.addEventListener('mouseout', this.stopDrawing.bind(this));
-
-        // FIXED: Safely add color picker event listener
-        const colorPicker = document.getElementById('colorPicker');
-        if (colorPicker) {
-            colorPicker.addEventListener('input', (e) => {
-                this.color = e.target.value;
-                if (this.ctx) {
-                    this.ctx.strokeStyle = this.color;
-                }
-            });
-        } else {
-            console.warn('Color picker element not found');
-        }
-    }
-
-    startDrawing(e) {
-        this.drawing = true;
-        this.ctx.beginPath();
-        this.ctx.moveTo(e.offsetX, e.offsetY);
-    }
-
-    draw(e) {
-        if (!this.drawing) return;
-        
-        if (this.currentTool === 'pen') {
-            this.ctx.lineTo(e.offsetX, e.offsetY);
-            this.ctx.stroke();
-        } else if (this.currentTool === 'eraser') {
-            this.ctx.clearRect(e.offsetX - 10, e.offsetY - 10, 20, 20);
-        }
-    }
-
-    stopDrawing() {
-        this.drawing = false;
-    }
-
-    setTool(tool) {
-        this.currentTool = tool;
-        if (tool === 'pen') {
-            this.ctx.strokeStyle = this.color;
-            this.ctx.lineWidth = 2;
-        } else {
-            this.ctx.strokeStyle = '#ffffff';
-            this.ctx.lineWidth = 20;
-        }
-    }
-
-    clear() {
-        this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
-    }
-}
-
-// ========================================
-// NOTEPAD TOOL
-// ========================================
-class Notepad {
-    constructor() {
-        this.notes = JSON.parse(localStorage.getItem('notes') || '[]');
-        this.currentNoteId = null;
-    }
-
-    onOpen() {
-        this.loadNotes();
-    }
-
-    save() {
-        const title = document.getElementById('noteTitle').value || 'Untitled';
-        const content = document.getElementById('noteContent').value;
-        
-        if (!content) {
-            alert('Please write something before saving!');
-            return;
-        }
-
-        const note = {
-            id: Date.now(),
-            title: title,
-            content: content,
-            created: new Date().toISOString()
-        };
-
-        this.notes.unshift(note);
-        localStorage.setItem('notes', JSON.stringify(this.notes));
-        
-        alert('Note saved!');
-        this.clear();
-    }
-
-    loadNotes() {
-        // Display recent notes in a list (optional)
-    }
-
-    clear() {
-        document.getElementById('noteTitle').value = '';
-        document.getElementById('noteContent').value = '';
-        this.currentNoteId = null;
-    }
-}
-
-// ========================================
-// FORMULA SHEET TOOL
-// ========================================
-class FormulaSheet {
-    constructor() {
-        this.formulas = {
-            polynomial: [
-                { name: 'Quadratic Formula', formula: 'x = (-b ± √(b² - 4ac)) / 2a' },
-                { name: 'Synthetic Division', formula: 'P(x) ÷ (x - r) = Q(x) + R/(x - r)' },
-                { name: 'Factor Theorem', formula: 'If P(r) = 0, then (x - r) is a factor' },
-                { name: 'Remainder Theorem', formula: 'P(r) = remainder when P(x) ÷ (x - r)' }
-            ],
-            algebra: [
-                { name: 'FOIL Method', formula: '(a + b)(c + d) = ac + ad + bc + bd' },
-                { name: 'Perfect Square', formula: '(a + b)² = a² + 2ab + b²' },
-                { name: 'Difference of Squares', formula: 'a² - b² = (a - b)(a + b)' }
-            ],
-            calculus: [
-                { name: 'Power Rule', formula: 'd/dx [xⁿ] = n·xⁿ⁻¹' },
-                { name: 'Product Rule', formula: 'd/dx [f·g] = f·g\' + f\'·g' },
-                { name: 'Chain Rule', formula: 'd/dx [f(g(x))] = f\'(g(x))·g\'(x)' }
-            ]
-        };
-    }
-
-    onOpen() {
-        this.showCategory('polynomial');
-    }
-
-    showCategory(category) {
-        // Update active button
-        document.querySelectorAll('.formula-category-btn').forEach(btn => {
-            btn.classList.remove('active');
-        });
-        event.target.classList.add('active');
-
-        // Show formulas
-        const formulas = this.formulas[category] || [];
-        const listEl = document.getElementById('formulaList');
-        
-        listEl.innerHTML = formulas.map(f => `
-            <div class="formula-item">
-                <div class="formula-name">${f.name}</div>
-                <div class="formula-expression">${f.formula}</div>
-            </div>
-        `).join('');
-    }
-}
-
-// ========================================
-// STUDY TIMER TOOL - ULTIMATE FIXED VERSION WITH MUTATION OBSERVER
-// ========================================
-class StudyTimer {
-    constructor() {
-        this.timeLeft = 25 * 60; // 25 minutes in seconds
-        this.initialTime = 25 * 60;
-        this.timerId = null;
-        this.isRunning = false;
-        this.timerElement = null;
-        self = this; // Store reference
-        
-        // Bind methods
-        this.start = this.start.bind(this);
-        this.pause = this.pause.bind(this);
-        this.reset = this.reset.bind(this);
-        this.setTime = this.setTime.bind(this);
-        this.updateDisplay = this.updateDisplay.bind(this);
-        this.findTimerElement = this.findTimerElement.bind(this);
-    }
-
-    findTimerElement() {
-    // Try multiple ways to find the timer element
-    let element = document.getElementById('timerDisplay');
-    
-    if (!element) {
-        element = document.querySelector('.timer-display');
-    }
-    
-    // If still not found, search in all modals
-    if (!element) {
-        const modals = document.querySelectorAll('.modal-overlay');
-        for (let modal of modals) {
-            if (modal.style.display === 'flex' || modal.classList.contains('active')) {
-                element = modal.querySelector('#timerDisplay') || modal.querySelector('.timer-display');
-                if (element) break;
-            }
-        }
-    }
-    
-    return element;
-}
-
-    onOpen() {
-    console.log('⏱️ Timer onOpen called');
-    
-    // Reset timer
-    this.timeLeft = this.initialTime;
-    this.isRunning = false;
-    
-    if (this.timerId) {
-        clearInterval(this.timerId);
-        this.timerId = null;
-    }
-    
-    // Try multiple times to find and update the timer element
-    const findAndUpdateTimer = () => {
-        this.timerElement = this.findTimerElement();
-        if (this.timerElement) {
-            console.log('✅ Timer element found');
-            this.updateDisplay();
-            this.attachEventListeners();
-        } else {
-            console.log('⏱️ Timer element not found, retrying...');
-            setTimeout(findAndUpdateTimer, 100);
-        }
-    };
-    
-    // Start trying to find the element
-    findAndUpdateTimer();
-}
-
-    updateDisplay() {
-        // Find element if not stored
-        if (!this.timerElement) {
-            this.timerElement = this.findTimerElement();
-        }
-        
-        if (this.timerElement) {
-            const minutes = Math.floor(this.timeLeft / 60);
-            const seconds = this.timeLeft % 60;
-            const display = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
-            
-            // Update the display
-            this.timerElement.textContent = display;
-            
-            console.log(`⏱️ Timer display updated to: ${display}`);
-        } else {
-            console.warn('⏱️ Timer element not available for update');
-            
-            // Try to find it again
-            this.timerElement = this.findTimerElement();
-            if (this.timerElement) {
-                this.updateDisplay();
-            }
-        }
-    }
-
-    attachEventListeners() {
-        console.log('🔗 Attaching timer event listeners');
-        
-        // Helper function to safely get button
-        const getButton = (id) => {
-            let btn = document.getElementById(id);
-            
-            // If not found, search in active modal
-            if (!btn) {
-                const activeModal = document.querySelector('.modal-overlay.active, .modal-overlay[style*="display: flex"]');
-                if (activeModal) {
-                    btn = activeModal.querySelector(`#${id}`) || activeModal.querySelector(`.${id}`);
-                }
-            }
-            
-            return btn;
-        };
-        
-        // Get all buttons
-        const startBtn = getButton('timerStartBtn');
-        const pauseBtn = getButton('timerPauseBtn');
-        const resetBtn = getButton('timerResetBtn');
-        const btn15 = getButton('timer15min');
-        const btn25 = getButton('timer25min');
-        const btn50 = getButton('timer50min');
-        
-        console.log('Buttons found:', {
-            start: !!startBtn,
-            pause: !!pauseBtn,
-            reset: !!resetBtn,
-            btn15: !!btn15,
-            btn25: !!btn25,
-            btn50: !!btn50
-        });
-        
-        // Remove old listeners and add new ones
-        if (startBtn) {
-            startBtn.replaceWith(startBtn.cloneNode(true));
-            const newStartBtn = getButton('timerStartBtn');
-            newStartBtn.addEventListener('click', (e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                console.log('▶️ Start clicked');
-                this.start();
-            });
-        }
-        
-        if (pauseBtn) {
-            pauseBtn.replaceWith(pauseBtn.cloneNode(true));
-            const newPauseBtn = getButton('timerPauseBtn');
-            newPauseBtn.addEventListener('click', (e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                console.log('⏸️ Pause clicked');
-                this.pause();
-            });
-        }
-        
-        if (resetBtn) {
-            resetBtn.replaceWith(resetBtn.cloneNode(true));
-            const newResetBtn = getButton('timerResetBtn');
-            newResetBtn.addEventListener('click', (e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                console.log('🔄 Reset clicked');
-                this.reset();
-            });
-        }
-        
-        if (btn15) {
-            btn15.replaceWith(btn15.cloneNode(true));
-            const newBtn15 = getButton('timer15min');
-            newBtn15.addEventListener('click', (e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                console.log('⏱️ 15 min preset');
-                this.setTime(15);
-            });
-        }
-        
-        if (btn25) {
-            btn25.replaceWith(btn25.cloneNode(true));
-            const newBtn25 = getButton('timer25min');
-            newBtn25.addEventListener('click', (e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                this.setTime(25);
-            });
-        }
-        
-        if (btn50) {
-            btn50.replaceWith(btn50.cloneNode(true));
-            const newBtn50 = getButton('timer50min');
-            newBtn50.addEventListener('click', (e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                this.setTime(50);
-            });
-        }
-    }
-
-    start() {
-        console.log('▶️ Timer start');
-        
-        if (!this.isRunning && this.timeLeft > 0) {
-            this.isRunning = true;
-            
-            // Update display immediately
-            this.updateDisplay();
-            
-            this.timerId = setInterval(() => {
-                if (this.timeLeft > 0) {
-                    this.timeLeft--;
-                    this.updateDisplay();
-                    
-                    if (this.timeLeft <= 0) {
-                        this.complete();
-                    }
-                }
-            }, 1000);
-        }
-    }
-
-    pause() {
-        console.log('⏸️ Timer pause');
-        
-        if (this.isRunning) {
-            clearInterval(this.timerId);
-            this.isRunning = false;
-            this.timerId = null;
-        }
-        
-        this.updateDisplay();
-    }
-
-    reset() {
-        console.log('🔄 Timer reset');
-        this.pause();
-        this.timeLeft = this.initialTime;
-        this.updateDisplay();
-    }
-
-    setTime(minutes) {
-        console.log(`⏱️ Timer set to ${minutes} minutes`);
-        this.pause();
-        this.initialTime = minutes * 60;
-        this.timeLeft = this.initialTime;
-        this.updateDisplay();
-    }
-
-    complete() {
-        console.log('🎉 Timer complete!');
-        this.pause();
-        
-        // Show notification
-        alert('🎉 Study session complete! Great job!');
-        
-        // Play sound
-        try {
-            const audio = new Audio('https://www.soundjay.com/misc/sounds/bell-ringing-05.mp3');
-            audio.play();
-        } catch (e) {
-            console.log('Sound not available');
-        }
-        
-        this.reset();
-    }
-}
-
-
-// ========================================
-// INITIALIZE EVERYTHING
-// ========================================
-document.addEventListener('DOMContentLoaded', () => {
-    window.toolManager = new ToolManager();
-    
-    // Make tools globally accessible for HTML onclick
-    window.Calculator = Calculator;
-    window.GraphTool = GraphTool;
-    window.Whiteboard = Whiteboard;
-    window.Notepad = Notepad;
-    window.FormulaSheet = FormulaSheet;
-    window.StudyTimer = StudyTimer;
-    
-    console.log('✅ Tools initialized:', {
-        calculator: new Calculator(),
-        graph: new GraphTool()
-    });
-});
 
     // ============================================
 // 🎬 DEBUG: Check video status
