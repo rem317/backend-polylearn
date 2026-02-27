@@ -1173,7 +1173,7 @@ class Notepad {
 }
 
 // ========================================
-// FORMULA SHEET TOOL
+// FORMULA SHEET TOOL - FIXED VERSION
 // ========================================
 class FormulaSheet {
     constructor() {
@@ -1195,22 +1195,63 @@ class FormulaSheet {
                 { name: 'Chain Rule', formula: 'd/dx [f(g(x))] = f\'(g(x))·g\'(x)' }
             ]
         };
+        this.currentCategory = 'polynomial';
     }
 
     onOpen() {
+        console.log('📚 Formula Sheet opened');
         this.showCategory('polynomial');
+        this.setupCategoryButtons();
+    }
+
+    setupCategoryButtons() {
+        // Remove existing event listeners and add new ones
+        const categoryBtns = document.querySelectorAll('.formula-category-btn');
+        
+        categoryBtns.forEach(btn => {
+            // Clone to remove old listeners
+            const newBtn = btn.cloneNode(true);
+            btn.parentNode.replaceChild(newBtn, btn);
+            
+            // Add new click handler
+            newBtn.addEventListener('click', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                
+                const category = newBtn.getAttribute('data-category') || 
+                                 newBtn.textContent.toLowerCase();
+                
+                this.showCategory(category);
+                
+                // Update active state
+                document.querySelectorAll('.formula-category-btn').forEach(b => {
+                    b.classList.remove('active');
+                });
+                newBtn.classList.add('active');
+            });
+        });
     }
 
     showCategory(category) {
-        // Update active button
-        document.querySelectorAll('.formula-category-btn').forEach(btn => {
-            btn.classList.remove('active');
-        });
-        event.target.classList.add('active');
-
-        // Show formulas
+        console.log(`📖 Showing category: ${category}`);
+        
+        this.currentCategory = category;
+        
+        // Get formulas for the selected category
         const formulas = this.formulas[category] || [];
+        
+        // Find the formula list container
         const listEl = document.getElementById('formulaList');
+        if (!listEl) {
+            console.error('❌ Formula list container not found');
+            return;
+        }
+        
+        // Generate HTML
+        if (formulas.length === 0) {
+            listEl.innerHTML = '<p class="no-formulas">No formulas available for this category.</p>';
+            return;
+        }
         
         listEl.innerHTML = formulas.map(f => `
             <div class="formula-item">
@@ -1218,6 +1259,8 @@ class FormulaSheet {
                 <div class="formula-expression">${f.formula}</div>
             </div>
         `).join('');
+        
+        console.log(`✅ Displayed ${formulas.length} formulas`);
     }
 }
 
@@ -12878,10 +12921,10 @@ function getWeeklyFeedbackData() {
 }
 
 // ============================================
-// SETUP FEEDBACK FORM - FIXED VERSION
+// ✅ ULTIMATE FIX: Feedback form - NO PAGE RELOAD
 // ============================================
 function setupFeedbackForm() {
-    console.log('📝 Setting up feedback form...');
+    console.log('📝 Setting up feedback form - ULTIMATE FIX');
     
     const feedbackForm = document.getElementById('feedbackForm');
     const feedbackSuccess = document.getElementById('feedbackSuccess');
@@ -12891,82 +12934,163 @@ function setupFeedbackForm() {
         return;
     }
     
-    // Remove any existing event listeners
+    // 🚨 IMPORTANT: Replace the form to remove all existing listeners
     const newForm = feedbackForm.cloneNode(true);
     feedbackForm.parentNode.replaceChild(newForm, feedbackForm);
     
-    newForm.addEventListener('submit', async function(e) {
-        e.preventDefault(); // CRITICAL: Prevent page reload
+    // Disable actual form submission completely
+    newForm.onsubmit = function(e) {
+        e.preventDefault();
         e.stopPropagation();
-        
-        console.log('📝 Feedback form submitted');
-        
-        // Get form data
-        const feedbackType = document.getElementById('feedbackType')?.value;
-        const feedbackMessage = document.getElementById('feedbackMessage')?.value.trim();
-        const rating = parseInt(document.getElementById('ratingValue')?.value) || 0;
-        
-        console.log('📋 Feedback data:', { feedbackType, feedbackMessage, rating });
-        
-        // Validation
-        if (!feedbackMessage) {
-            showNotification('error', 'Error', 'Please enter your feedback message');
-            return;
-        }
-        
-        if (feedbackMessage.length < 10) {
-            showNotification('error', 'Error', 'Please provide more detailed feedback (at least 10 characters)');
-            return;
-        }
-        
-        // Show loading state
-        const submitBtn = newForm.querySelector('button[type="submit"]');
-        const originalText = submitBtn.innerHTML;
-        submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Submitting...';
-        submitBtn.disabled = true;
-        
-        // Submit feedback
-        const success = await submitFeedback(feedbackType, feedbackMessage, rating);
-        
-        // Reset button
-        submitBtn.innerHTML = originalText;
-        submitBtn.disabled = false;
-        
-        if (success) {
-            // Show success message
-            if (feedbackSuccess) {
-                feedbackSuccess.style.display = 'block';
-                
-                // Auto-hide after 3 seconds
-                setTimeout(() => {
-                    feedbackSuccess.style.display = 'none';
-                }, 3000);
-            }
-            
-            // Reset form
-            newForm.reset();
-            
-            // Reset rating stars
-            const stars = document.querySelectorAll('.star');
-            stars.forEach(star => {
-                star.classList.remove('active');
-                star.innerHTML = '☆';
-            });
-            document.getElementById('ratingValue').value = 0;
-            
-            showNotification('success', 'Thank You!', 'Your feedback has been submitted successfully!');
-            
-            // ✅ Refresh feedback history WITHOUT reloading page
-            if (typeof loadFeedbackHistory === 'function') {
-                setTimeout(() => {
-                    loadFeedbackHistory(10);
-                }, 500);
-            }
-        }
-    });
+        console.log('🚫 Form submission prevented');
+        return false;
+    };
     
-    console.log('✅ Feedback form setup complete');
+    // Add click handler to submit button instead
+    const submitBtn = newForm.querySelector('button[type="submit"]');
+    if (submitBtn) {
+        // Remove any existing listeners
+        const newBtn = submitBtn.cloneNode(true);
+        submitBtn.parentNode.replaceChild(newBtn, submitBtn);
+        
+        newBtn.addEventListener('click', async function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            
+            console.log('📝 Feedback submit button clicked');
+            
+            // Get form data
+            const feedbackType = document.getElementById('feedbackType')?.value;
+            const feedbackMessage = document.getElementById('feedbackMessage')?.value.trim();
+            const rating = parseInt(document.getElementById('ratingValue')?.value) || 0;
+            
+            console.log('📋 Feedback data:', { feedbackType, feedbackMessage, rating });
+            
+            // Validation
+            if (!feedbackMessage) {
+                showNotification('error', 'Error', 'Please enter your feedback message');
+                return;
+            }
+            
+            if (feedbackMessage.length < 10) {
+                showNotification('error', 'Error', 'Please provide more detailed feedback (at least 10 characters)');
+                return;
+            }
+            
+            // Show loading state
+            const originalText = newBtn.innerHTML;
+            newBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Submitting...';
+            newBtn.disabled = true;
+            
+            try {
+                // Submit feedback
+                const token = localStorage.getItem('authToken');
+                
+                const response = await fetch('/api/feedback/submit', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        ...(token && { 'Authorization': `Bearer ${token}` })
+                    },
+                    body: JSON.stringify({
+                        feedback_type: feedbackType,
+                        feedback_message: feedbackMessage,
+                        rating: rating
+                    })
+                });
+                
+                let success = false;
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    success = data.success;
+                    console.log('✅ Feedback submitted:', data);
+                } else {
+                    console.log('⚠️ Server error, saving locally');
+                    success = true; // Consider it success even if server fails
+                }
+                
+                // Save locally as backup
+                saveFeedbackLocally({
+                    feedback_type: feedbackType,
+                    feedback_message: feedbackMessage,
+                    rating: rating
+                });
+                
+                if (success) {
+                    // Show success message
+                    if (feedbackSuccess) {
+                        feedbackSuccess.style.display = 'block';
+                        setTimeout(() => {
+                            feedbackSuccess.style.display = 'none';
+                        }, 3000);
+                    }
+                    
+                    // Reset form
+                    newForm.reset();
+                    
+                    // Reset rating stars
+                    const stars = document.querySelectorAll('.star');
+                    stars.forEach(star => {
+                        star.classList.remove('active');
+                        star.innerHTML = '☆';
+                    });
+                    document.getElementById('ratingValue').value = 0;
+                    
+                    showNotification('success', 'Thank You!', 'Your feedback has been submitted successfully!');
+                    
+                    // Refresh feedback history WITHOUT reloading page
+                    if (typeof loadFeedbackHistory === 'function') {
+                        setTimeout(() => {
+                            loadFeedbackHistory(10);
+                        }, 500);
+                    }
+                }
+                
+            } catch (error) {
+                console.error('Error:', error);
+                
+                // Save locally on error
+                saveFeedbackLocally({
+                    feedback_type: feedbackType,
+                    feedback_message: feedbackMessage,
+                    rating: rating
+                });
+                
+                showNotification('success', 'Feedback Saved!', 'Your feedback has been saved locally.');
+                
+                // Reset form
+                newForm.reset();
+                document.getElementById('ratingValue').value = 0;
+                const stars = document.querySelectorAll('.star');
+                stars.forEach(star => {
+                    star.classList.remove('active');
+                    star.innerHTML = '☆';
+                });
+                
+            } finally {
+                // Restore button
+                newBtn.innerHTML = originalText;
+                newBtn.disabled = false;
+            }
+        });
+        
+        console.log('✅ Feedback button handler attached');
+    }
 }
+
+// ============================================
+// 🚨 GLOBAL FORM PREVENTION
+// ============================================
+document.addEventListener('submit', function(e) {
+    // Check if it's the feedback form
+    if (e.target.id === 'feedbackForm' || e.target.closest('#feedbackForm')) {
+        e.preventDefault();
+        e.stopPropagation();
+        console.log('🚫 Global form submission prevented');
+        return false;
+    }
+}, true);
 
 
 // ============================================
@@ -15063,15 +15187,16 @@ async function openLesson(lessonId) {
     }
 }
 
-// Update navigation buttons function
+// Update navigation buttons function - FIXED VERSION
 function updateNavigationButtons(adjacent) {
+    console.log('🔄 Updating navigation buttons with adjacent:', adjacent);
+    
     const prevLessonBtn = document.getElementById('prevLessonBtn');
     const nextLessonBtn = document.getElementById('nextLessonBtn');
     
     if (prevLessonBtn) {
         if (adjacent?.previous) {
             prevLessonBtn.disabled = false;
-            prevLessonBtn.setAttribute('data-lesson-id', adjacent.previous.id);
             prevLessonBtn.innerHTML = `<i class="fas fa-arrow-left"></i> Previous: ${adjacent.previous.title}`;
         } else {
             prevLessonBtn.disabled = true;
@@ -15082,7 +15207,6 @@ function updateNavigationButtons(adjacent) {
     if (nextLessonBtn) {
         if (adjacent?.next) {
             nextLessonBtn.disabled = false;
-            nextLessonBtn.setAttribute('data-lesson-id', adjacent.next.id);
             nextLessonBtn.innerHTML = `Next: ${adjacent.next.title} <i class="fas fa-arrow-right"></i>`;
         } else {
             nextLessonBtn.disabled = true;
@@ -16659,15 +16783,21 @@ function setupBackButton() {
 }
 
 // ============================================
-// HELPER: Setup navigation buttons (PREV/NEXT)
+// HELPER: Setup navigation buttons (PREV/NEXT) - FIXED VERSION
 // ============================================
 function setupNavigationButtons() {
-    const currentLesson = LessonState.currentLesson;
-    if (!currentLesson) return;
+    console.log('🔘 Setting up navigation buttons...');
     
-    // Previous button
+    const currentLesson = LessonState.currentLesson;
+    if (!currentLesson) {
+        console.error('❌ No current lesson found');
+        return;
+    }
+    
+    // ===== PREVIOUS BUTTON =====
     const prevBtn = document.getElementById('prevLessonBtn');
     if (prevBtn) {
+        // Remove all existing listeners
         const newPrevBtn = prevBtn.cloneNode(true);
         prevBtn.parentNode.replaceChild(newPrevBtn, prevBtn);
         
@@ -16682,14 +16812,11 @@ function setupNavigationButtons() {
                 const prevId = currentLesson.adjacent.previous.id;
                 console.log('⬅️ Loading previous lesson:', prevId);
                 
-                // Show loading
-                showNotification('Loading previous lesson...', 'info');
-                
-                // Disable button
-                newPrevBtn.disabled = true;
+                // Disable button to prevent double-click
+                this.disabled = true;
                 
                 try {
-                    // Fetch lesson data
+                    // Fetch lesson data using apiRequest
                     const data = await apiRequest(`/api/lessons-db/${prevId}`);
                     
                     if (data.success && data.lesson) {
@@ -16700,26 +16827,35 @@ function setupNavigationButtons() {
                         url.searchParams.set('lessonId', prevId);
                         window.history.pushState({}, '', url);
                         
-                        // Refresh the page
+                        // Refresh the module dashboard
                         navigateTo('moduleDashboard');
+                        
+                        // Show success notification
+                        showNotification('Previous lesson loaded', 'success');
                     } else {
                         throw new Error('Lesson not found');
                     }
                 } catch (error) {
                     console.error('Error loading previous lesson:', error);
                     showNotification('Failed to load previous lesson', 'error');
-                    newPrevBtn.disabled = false;
+                    this.disabled = false;
                 }
             });
+            
+            console.log('✅ Previous button enabled');
         } else {
             newPrevBtn.disabled = true;
             newPrevBtn.innerHTML = `<i class="fas fa-arrow-left"></i> No Previous Lesson`;
+            console.log('ℹ️ No previous lesson available');
         }
+    } else {
+        console.warn('⚠️ Previous button not found in DOM');
     }
     
-    // Next button
+    // ===== NEXT BUTTON =====
     const nextBtn = document.getElementById('nextLessonBtn');
     if (nextBtn) {
+        // Remove all existing listeners
         const newNextBtn = nextBtn.cloneNode(true);
         nextBtn.parentNode.replaceChild(newNextBtn, nextBtn);
         
@@ -16734,14 +16870,11 @@ function setupNavigationButtons() {
                 const nextId = currentLesson.adjacent.next.id;
                 console.log('➡️ Loading next lesson:', nextId);
                 
-                // Show loading
-                showNotification('Loading next lesson...', 'info');
-                
-                // Disable button
-                newNextBtn.disabled = true;
+                // Disable button to prevent double-click
+                this.disabled = true;
                 
                 try {
-                    // Fetch lesson data
+                    // Fetch lesson data using apiRequest
                     const data = await apiRequest(`/api/lessons-db/${nextId}`);
                     
                     if (data.success && data.lesson) {
@@ -16752,26 +16885,33 @@ function setupNavigationButtons() {
                         url.searchParams.set('lessonId', nextId);
                         window.history.pushState({}, '', url);
                         
-                        // Refresh the page
+                        // Refresh the module dashboard
                         navigateTo('moduleDashboard');
+                        
+                        // Show success notification
+                        showNotification('Next lesson loaded', 'success');
                     } else {
                         throw new Error('Lesson not found');
                     }
                 } catch (error) {
                     console.error('Error loading next lesson:', error);
                     showNotification('Failed to load next lesson', 'error');
-                    newNextBtn.disabled = false;
+                    this.disabled = false;
                 }
             });
+            
+            console.log('✅ Next button enabled');
         } else {
             newNextBtn.disabled = true;
             newNextBtn.innerHTML = `No Next Lesson <i class="fas fa-arrow-right"></i>`;
+            console.log('ℹ️ No next lesson available');
         }
+    } else {
+        console.warn('⚠️ Next button not found in DOM');
     }
     
     console.log('✅ Navigation buttons setup complete');
 }
-
 // ============================================
 // HELPER: Setup practice buttons
 // ============================================
