@@ -14991,7 +14991,7 @@ async function updateContinueLearningModule() {
 }
 
 // ============================================
-// RAILWAY FIX: Enhanced openLesson function
+// FIXED: openLesson function - RAILWAY VERSION
 // ============================================
 async function openLesson(lessonId) {
     try {
@@ -15026,17 +15026,17 @@ async function openLesson(lessonId) {
         
         // Wait for page to load then update everything
         setTimeout(async () => {
-            // Update navigation buttons
-            updateNavigationButtons(lesson.adjacent);
-            
-            // Setup navigation listeners
-            setupLessonNavigation();
+            // ✅ FIXED: Use setupNavigationButtons() instead of setupLessonNavigation()
+            setupNavigationButtons();  // ← ITO ANG TAMA
             
             // Load video
             await loadVideoFromDatabase(lessonId);
             
             // Update complete button
             await checkLessonCompletionStatus();
+            
+            // Update navigation buttons display
+            updateNavigationButtons(lesson.adjacent);
             
             console.log('✅ Lesson fully loaded on Railway');
         }, 500);
@@ -15046,7 +15046,6 @@ async function openLesson(lessonId) {
         showNotification('Error loading lesson: ' + error.message, 'error');
     }
 }
-
 // Update navigation buttons function
 function updateNavigationButtons(adjacent) {
     const prevLessonBtn = document.getElementById('prevLessonBtn');
@@ -23752,47 +23751,69 @@ function showProgressDashboardLoading() {
 }
 
 // ============================================
-// UPDATE MODULE DASHBOARD STATS - INCLUDING ACCURACY
+// FIXED: updateModuleDashboardStats - RAILWAY VERSION
 // ============================================
 async function updateModuleDashboardStats() {
     try {
         const token = localStorage.getItem('authToken') || authToken;
         if (!token) return;
         
-        // Get accuracy rate
-        const accuracyResponse = await fetch(`/progress/accuracy-rate`, {
-            headers: { 'Authorization': `Bearer ${token}` }
-        });
+        console.log('📊 Updating module dashboard stats...');
         
-        if (accuracyResponse.ok) {
-            const accuracyData = await accuracyResponse.json();
-            if (accuracyData.success) {
-                const accuracyRate = document.getElementById('accuracyRate');
-                if (accuracyRate) {
-                    accuracyRate.textContent = `${accuracyData.accuracy.overall}%`;
+        // Get accuracy rate - with error handling for Railway
+        try {
+            // ✅ FIXED: Add /api/ prefix
+            const accuracyResponse = await fetch(`/api/progress/accuracy-rate`, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            
+            if (accuracyResponse.ok) {
+                const contentType = accuracyResponse.headers.get('content-type');
+                if (contentType && contentType.includes('application/json')) {
+                    const accuracyData = await accuracyResponse.json();
+                    if (accuracyData.success) {
+                        const accuracyRate = document.getElementById('accuracyRate');
+                        if (accuracyRate) {
+                            accuracyRate.textContent = `${accuracyData.accuracy.overall}%`;
+                        }
+                    }
                 }
+            } else {
+                console.log('⚠️ Accuracy endpoint returned:', accuracyResponse.status);
             }
+        } catch (accuracyError) {
+            console.log('⚠️ Could not fetch accuracy rate:', accuracyError.message);
         }
         
-        // Get today's stats
-        const todayResponse = await fetch(`/progress/today-stats`, {
-            headers: { 'Authorization': `Bearer ${token}` }
-        });
-        
-        if (todayResponse.ok) {
-            const todayData = await todayResponse.json();
-            if (todayData.success) {
-                const totalLearningTime = document.getElementById('totalLearningTime');
-                if (totalLearningTime) {
-                    const minutes = Math.floor(todayData.stats.totalLearningTime / 60);
-                    totalLearningTime.textContent = `${minutes} min`;
+        // Get today's stats - with error handling for Railway
+        try {
+            // ✅ FIXED: Add /api/ prefix
+            const todayResponse = await fetch(`/api/progress/today-stats`, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            
+            if (todayResponse.ok) {
+                const contentType = todayResponse.headers.get('content-type');
+                if (contentType && contentType.includes('application/json')) {
+                    const todayData = await todayResponse.json();
+                    if (todayData.success) {
+                        const totalLearningTime = document.getElementById('totalLearningTime');
+                        if (totalLearningTime) {
+                            const minutes = Math.floor(todayData.stats.totalLearningTime / 60);
+                            totalLearningTime.textContent = `${minutes} min`;
+                        }
+                        
+                        const exercisesCompleted = document.getElementById('exercisesCompleted');
+                        if (exercisesCompleted) {
+                            exercisesCompleted.textContent = `${todayData.stats.exercisesCompleted}/5`;
+                        }
+                    }
                 }
-                
-                const exercisesCompleted = document.getElementById('exercisesCompleted');
-                if (exercisesCompleted) {
-                    exercisesCompleted.textContent = `${todayData.stats.exercisesCompleted}/5`;
-                }
+            } else {
+                console.log('⚠️ Today stats endpoint returned:', todayResponse.status);
             }
+        } catch (todayError) {
+            console.log('⚠️ Could not fetch today stats:', todayError.message);
         }
         
     } catch (error) {
@@ -29151,6 +29172,7 @@ window.closeToolModal = function() {
 document.addEventListener('DOMContentLoaded', function() {
     // Small delay to ensure everything is loaded
     setTimeout(setupDirectToolHandlers, 500);
+    setTimeout(setupDirectToolHandlers, 1000);
 });
 
 // Also run when page becomes visible
@@ -31870,7 +31892,12 @@ document.addEventListener('DOMContentLoaded', function() {
         observer.observe(timerModal, { attributes: true });
     }
 });
-
+// Also run when navigating
+const originalNavigateTo = window.navigateTo;
+window.navigateTo = function(page) {
+    originalNavigateTo(page);
+    setTimeout(setupDirectToolHandlers, 500);
+};
 // Also fix when page becomes fully loaded
 window.addEventListener('load', function() {
     setTimeout(fixAllToolButtons, 500);
