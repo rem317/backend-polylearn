@@ -2326,13 +2326,13 @@ async function createFeedbackTable() {
 createFeedbackTable();
 
 // ============================================
-// SUBMIT FEEDBACK ENDPOINT - ULTRA SIMPLE VERSION
+// SUBMIT FEEDBACK ENDPOINT - FIXED VERSION
 // ============================================
-app.post('/api/feedback/submit', async (req, res) => {
+app.post('/api/feedback/submit', authenticateOptional, async (req, res) => {
     try {
         console.log('📥 Feedback received:', req.body);
         
-        const { feedback_message } = req.body;
+        const { feedback_type, feedback_message, rating, user_id } = req.body;
         
         if (!feedback_message) {
             return res.status(400).json({
@@ -2341,41 +2341,40 @@ app.post('/api/feedback/submit', async (req, res) => {
             });
         }
         
-        // Try to save to database (with try-catch para hindi mag-error)
-        try {
-            const [result] = await pool.execute(`
-                INSERT INTO feedback (feedback_message, created_at) 
-                VALUES (?, NOW())
-            `, [feedback_message]);
-            
-            console.log(`✅ Saved with ID: ${result.insertId}`);
-            
-            return res.json({
-                success: true,
-                message: 'Feedback submitted successfully',
-                feedback_id: result.insertId
-            });
-            
-        } catch (dbError) {
-            console.error('Database error:', dbError);
-            
-            // Return success even if database fails (para hindi mag-error ang user)
-            return res.json({
-                success: true,
-                message: 'Feedback received (demo mode)',
-                feedback_id: Date.now()
-            });
-        }
+        // Insert into database
+        const [result] = await pool.execute(`
+            INSERT INTO feedback (
+                user_id, 
+                feedback_type, 
+                feedback_message, 
+                rating, 
+                status,
+                created_at
+            ) VALUES (?, ?, ?, ?, 'new', NOW())
+        `, [
+            user_id || null,
+            feedback_type || 'general',
+            feedback_message,
+            rating || 0
+        ]);
+        
+        console.log(`✅ Feedback saved with ID: ${result.insertId}`);
+        
+        res.json({
+            success: true,
+            message: 'Feedback submitted successfully',
+            feedback_id: result.insertId
+        });
         
     } catch (error) {
-        console.error('❌ Error:', error);
+        console.error('❌ Error saving feedback:', error);
         res.status(500).json({
             success: false,
-            message: error.message
+            message: 'Failed to submit feedback',
+            error: error.message
         });
     }
 });
-
 // ============================================
 // GET FEEDBACK STATS (admin only)
 // ============================================
