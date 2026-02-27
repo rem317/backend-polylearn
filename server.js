@@ -2292,25 +2292,32 @@ function generateLast30DaysLabels() {
 // ============================================
 async function createFeedbackTable() {
     try {
-        await pool.execute(`
-            CREATE TABLE IF NOT EXISTS feedback (
-                feedback_id INT AUTO_INCREMENT PRIMARY KEY,
-                user_id INT,
-                feedback_type ENUM('suggestion', 'complaint', 'question', 'rating', 'bug', 'other') DEFAULT 'other',
-                feedback_message TEXT NOT NULL,
-                rating INT DEFAULT 0,
-                status ENUM('new', 'reviewed', 'in_progress', 'resolved', 'closed') DEFAULT 'new',
-                admin_notes TEXT,
-                page_url VARCHAR(500),
-                user_agent TEXT,
-                email VARCHAR(255),
-                name VARCHAR(255),
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-                FOREIGN KEY (user_id) REFERENCES users(user_id) ON DELETE SET NULL
-            )
-        `);
-        console.log('✅ Feedback table created');
+        // Check if table exists
+        const [tables] = await pool.execute("SHOW TABLES LIKE 'feedback'");
+        
+        if (tables.length === 0) {
+            await pool.execute(`
+                CREATE TABLE feedback (
+                    feedback_id INT AUTO_INCREMENT PRIMARY KEY,
+                    user_id INT,
+                    feedback_type VARCHAR(50) DEFAULT 'general',
+                    feedback_message TEXT NOT NULL,
+                    rating INT DEFAULT 0,
+                    status ENUM('new', 'reviewed', 'in_progress', 'resolved', 'closed') DEFAULT 'new',
+                    admin_notes TEXT,
+                    page_url VARCHAR(500),
+                    user_agent TEXT,
+                    email VARCHAR(255),
+                    name VARCHAR(255),
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                    FOREIGN KEY (user_id) REFERENCES users(user_id) ON DELETE SET NULL
+                )
+            `);
+            console.log('✅ Feedback table created');
+        } else {
+            console.log('✅ Feedback table already exists');
+        }
     } catch (error) {
         console.error('❌ Error creating feedback table:', error);
     }
@@ -2324,6 +2331,8 @@ createFeedbackTable();
 // ============================================
 app.post('/api/feedback/submit', authenticateOptional, async (req, res) => {
     try {
+        console.log('📥 Received feedback submission:', req.body);
+        
         const { 
             feedback_type, 
             feedback_message, 
@@ -2334,13 +2343,6 @@ app.post('/api/feedback/submit', authenticateOptional, async (req, res) => {
             page_url,
             user_agent 
         } = req.body;
-        
-        console.log('📥 Received feedback submission:', {
-            type: feedback_type,
-            messageLength: feedback_message?.length,
-            rating,
-            userId: user_id || req.user?.user_id
-        });
 
         // Validate
         if (!feedback_message || feedback_message.trim() === '') {
@@ -2351,7 +2353,7 @@ app.post('/api/feedback/submit', authenticateOptional, async (req, res) => {
         }
 
         // Use user_id from token if available, otherwise from request body
-        const finalUserId = req.user?.user_id || user_id || null;
+        const finalUserId = req.user?.user_id || req.user?.id || user_id || null;
 
         // Insert into database
         const [result] = await pool.execute(`
@@ -2369,7 +2371,7 @@ app.post('/api/feedback/submit', authenticateOptional, async (req, res) => {
             ) VALUES (?, ?, ?, ?, 'new', ?, ?, ?, ?, NOW())
         `, [
             finalUserId,
-            feedback_type || 'other',
+            feedback_type || 'general',
             feedback_message.trim(),
             rating || 0,
             page_url || null,
@@ -2395,35 +2397,26 @@ app.post('/api/feedback/submit', authenticateOptional, async (req, res) => {
     }
 });
 
-// Get feedback statistics (admin only)
+// ============================================
+// GET FEEDBACK STATS (admin only)
+// ============================================
 app.get('/api/feedback/stats', authenticateAdmin, async (req, res) => {
     try {
         // Get total count
-        const [total] = await promisePool.query('SELECT COUNT(*) as count FROM feedback');
+        const [total] = await pool.execute('SELECT COUNT(*) as count FROM feedback');
         
         // Get counts by status
-        const [byStatus] = await promisePool.query(`
+        const [byStatus] = await pool.execute(`
             SELECT status, COUNT(*) as count 
             FROM feedback 
             GROUP BY status
         `);
         
         // Get average rating
-        const [avgRating] = await promisePool.query(`
+        const [avgRating] = await pool.execute(`
             SELECT COALESCE(AVG(rating), 0) as average 
             FROM feedback 
             WHERE rating IS NOT NULL
-        `);
-        
-        // Get recent trends (last 7 days)
-        const [trends] = await promisePool.query(`
-            SELECT 
-                DATE(created_at) as date,
-                COUNT(*) as count
-            FROM feedback
-            WHERE created_at >= DATE_SUB(NOW(), INTERVAL 7 DAY)
-            GROUP BY DATE(created_at)
-            ORDER BY date
         `);
         
         const statusMap = {};
@@ -2436,8 +2429,7 @@ app.get('/api/feedback/stats', authenticateAdmin, async (req, res) => {
             stats: {
                 total: total[0].count,
                 by_status: statusMap,
-                average_rating: parseFloat(avgRating[0].average).toFixed(1),
-                trends: trends
+                average_rating: parseFloat(avgRating[0].average).toFixed(1)
             }
         });
         
@@ -2449,12 +2441,13 @@ app.get('/api/feedback/stats', authenticateAdmin, async (req, res) => {
         });
     }
 });
+
 // ============================================
-// GET FEEDBACK HISTORY ENDPOINT
+// GET FEEDBACK HISTORY
 // ============================================
 app.get('/api/feedback/history', authenticateToken, async (req, res) => {
     try {
-        const userId = req.user?.user_id;
+        const userId = req.user?.user_id || req.user?.id;
         const limit = parseInt(req.query.limit) || 10;
         
         if (!userId) {
@@ -2464,7 +2457,7 @@ app.get('/api/feedback/history', authenticateToken, async (req, res) => {
             });
         }
 
-        console.log(`📋 Fetching feedback history for user ${userId}, limit ${limit}`);
+        console.log(`📋 Fetching feedback history for user ${userId}`);
 
         const [feedback] = await pool.execute(`
             SELECT 
@@ -2517,6 +2510,7 @@ function authenticateOptional(req, res, next) {
         next();
     });
 }
+
 
 // Get all feedback (admin only)
 app.get('/api/feedback/all', authenticateAdmin, async (req, res) => {
@@ -15289,7 +15283,7 @@ app.get('/api/teacher/quizzes', authenticateTeacher, async (req, res) => {
 // ============================================
 // 🎬 DEBUG: Check video files
 // ============================================
-app.get('/debug/videos', (req, res) => {
+app.get('/api/debug/videos', (req, res) => {
     const videosPath = path.join(__dirname, 'public', 'videos');
     const files = [];
     
@@ -16380,7 +16374,7 @@ app.get('/api/health', async (req, res) => {
 // ============================================
 // DEBUG - Check where files are
 // ============================================
-app.get('/debug/paths', (req, res) => {
+app.get('/api/debug/paths', (req, res) => {
     const debug = {
         __dirname: __dirname,
         cwd: process.cwd(),
