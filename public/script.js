@@ -14896,7 +14896,7 @@ async function openLesson(lessonId) {
         // Show loading
         showNotification('Loading lesson...', 'info');
         
-        // Fetch lesson details using apiRequest (automatically handles /api prefix)
+        // ✅ FIX: Add /api/ prefix
         const data = await apiRequest(`/api/lessons-db/${lessonId}`);
         
         if (!data.success || !data.lesson) {
@@ -14942,6 +14942,7 @@ async function openLesson(lessonId) {
         showNotification('Error loading lesson: ' + error.message, 'error');
     }
 }
+
 // Update navigation buttons function
 function updateNavigationButtons(adjacent) {
     const prevLessonBtn = document.getElementById('prevLessonBtn');
@@ -15015,16 +15016,20 @@ async function fetchLessonDetails(lessonId) {
         
         console.log('🔍 Fetching lesson details for ID:', lessonId);
         
-        // CHANGE THIS LINE FROM:
-        // const response = await fetch(`/api/lessons-db/${lessonId}`, {
-        
-        // TO THIS (remove the -db suffix):
+        // ✅ FIX: Add /api/ prefix
         const response = await fetch(`/api/lessons/${lessonId}`, {
             headers: {
                 'Authorization': `Bearer ${token}`,
                 'Content-Type': 'application/json'
             }
         });
+        
+        // Check if response is JSON
+        const contentType = response.headers.get('content-type');
+        if (!contentType || !contentType.includes('application/json')) {
+            console.error('❌ Non-JSON response from lesson details');
+            return null;
+        }
         
         if (!response.ok) {
             throw new Error(`Failed to fetch lesson details: ${response.status}`);
@@ -23022,7 +23027,8 @@ document.addEventListener('DOMContentLoaded', function() {
 console.log('✨ MathHub Application Script Loaded with Time Tracking');
 // Initialize the time tracker
 const timeTracker = new TimeTrackingManager();
-// Check if lesson is already completed
+
+
 // ============================================
 // Check Lesson Completion Status on Load
 // ============================================
@@ -23040,13 +23046,20 @@ async function checkLessonCompletionStatus() {
             return;
         }
         
-        // Fetch from server
-        const response = await fetch(`/lessons-db/${contentId}`, {
+        // ✅ FIX: Add /api/ prefix
+        const response = await fetch(`/api/lessons-db/${contentId}`, {
             headers: {
                 'Authorization': `Bearer ${token}`,
                 'Content-Type': 'application/json'
             }
         });
+        
+        // Check if response is JSON
+        const contentType = response.headers.get('content-type');
+        if (!contentType || !contentType.includes('application/json')) {
+            console.warn('⚠️ Non-JSON response from lesson endpoint');
+            return;
+        }
         
         if (response.ok) {
             const data = await response.json();
@@ -23066,7 +23079,7 @@ async function checkLessonCompletionStatus() {
             }
         }
     } catch (error) {
-        console.log('Could not check lesson status:', error);
+        console.log('Could not check lesson status:', error.message);
     }
 }
 
@@ -23122,7 +23135,7 @@ async function markLessonComplete() {
             return;
         }
         
-        const progressResponse = await fetch(`/lessons-db/${contentId}/progress`, {
+        const progressResponse = await fetch(`/api/lessons-db/${contentId}/progress`, {
             method: 'POST',
             headers: {
                 'Authorization': `Bearer ${token}`,
@@ -26058,9 +26071,9 @@ async function loadProfileData() {
         
         // Try multiple possible endpoints
         const endpoints = [
-            `/user/profile`,
             `/api/user/profile`,
-            `/profile`,
+            `/api/user/profile`,
+            `/api/profile`,
             `/api/profile`
         ];
         
@@ -26232,7 +26245,7 @@ async function loadUserPreferences() {
         
         console.log('🎯 Loading user preferences from database...');
         
-        const response = await fetch(`/user/preferences`, {
+        const response = await fetch(`/api/user/preferences`, {
             headers: {
                 'Authorization': `Bearer ${token}`,
                 'Content-Type': 'application/json'
@@ -26317,7 +26330,7 @@ async function loadNotificationSettings() {
         
         console.log('🔔 Loading notification settings from database...');
         
-        const response = await fetch(`/user/notifications`, {
+        const response = await fetch(`/api/user/notifications`, {
             headers: {
                 'Authorization': `Bearer ${token}`,
                 'Accept': 'application/json'
@@ -26398,7 +26411,7 @@ async function loadPrivacySettings() {
         
         console.log('🔒 Loading privacy settings from database...');
         
-        const response = await fetch(`/user/privacy`, {
+        const response = await fetch(`/api/user/privacy`, {
             headers: {
                 'Authorization': `Bearer ${token}`,
                 'Accept': 'application/json'
@@ -26461,9 +26474,9 @@ function loadPrivacyFromLocalStorage() {
     }
 }
 
-// ============================================
-// FIXED: loadDisplaySettings - With better error handling
-// ============================================
+/**
+ * Load display settings from database
+ */
 async function loadDisplaySettings() {
     try {
         const token = localStorage.getItem('authToken') || authToken;
@@ -26475,35 +26488,30 @@ async function loadDisplaySettings() {
         
         console.log('🎨 Loading display settings from database...');
         
-        const response = await fetch(`/user/display`, {
+        // ✅ FIX: Add /api/ prefix
+        const response = await fetch(`/api/user/display`, {
             headers: {
                 'Authorization': `Bearer ${token}`,
-                'Content-Type': 'application/json',
-                'Accept': 'application/json'  // Important: Request JSON
+                'Content-Type': 'application/json'
             }
         });
         
-        // Check if response is OK and is JSON
+        // Check if response is JSON
         const contentType = response.headers.get('content-type');
-        
-        if (!response.ok) {
-            console.warn(`⚠️ Display endpoint returned ${response.status}`);
-            
-            // Check if it's HTML (404 page)
-            if (contentType && contentType.includes('text/html')) {
-                console.log('ℹ️ Display endpoint not found (HTML response), using localStorage');
-                loadDisplayFromLocalStorage();
-                return;
-            }
-            
-            throw new Error(`HTTP ${response.status}`);
-        }
-        
-        // Verify we got JSON
         if (!contentType || !contentType.includes('application/json')) {
-            console.warn('⚠️ Non-JSON response from display endpoint, using localStorage');
+            console.warn('⚠️ Non-JSON response from display endpoint');
             loadDisplayFromLocalStorage();
             return;
+        }
+        
+        if (response.status === 404) {
+            console.log('ℹ️ Display endpoint not found, using localStorage');
+            loadDisplayFromLocalStorage();
+            return;
+        }
+        
+        if (!response.ok) {
+            throw new Error(`HTTP ${response.status}`);
         }
         
         const data = await response.json();
@@ -26760,7 +26768,7 @@ async function saveProfileToDatabase(profileData) {
     try {
         const token = localStorage.getItem('authToken') || authToken;
         
-        const response = await fetch(`/user/profile`, {
+        const response = await fetch(`/api/user/profile`, {
             method: 'PUT',
             headers: {
                 'Authorization': `Bearer ${token}`,
@@ -26797,7 +26805,7 @@ async function savePreferencesToDatabase(preferences) {
     try {
         const token = localStorage.getItem('authToken') || authToken;
         
-        const response = await fetch(`/user/preferences`, {
+        const response = await fetch(`/api/user/preferences`, {
             method: 'POST',
             headers: {
                 'Authorization': `Bearer ${token}`,
@@ -26824,7 +26832,7 @@ async function saveNotificationsToDatabase(notifications) {
     try {
         const token = localStorage.getItem('authToken') || authToken;
         
-        const response = await fetch(`/user/notifications`, {
+        const response = await fetch(`/api/user/notifications`, {
             method: 'POST',
             headers: {
                 'Authorization': `Bearer ${token}`,
@@ -26851,7 +26859,7 @@ async function savePrivacyToDatabase(privacy) {
     try {
         const token = localStorage.getItem('authToken') || authToken;
         
-        const response = await fetch(`/user/privacy`, {
+        const response = await fetch(`/api/user/privacy`, {
             method: 'POST',
             headers: {
                 'Authorization': `Bearer ${token}`,
@@ -26878,7 +26886,7 @@ async function saveDisplayToDatabase(display) {
     try {
         const token = localStorage.getItem('authToken') || authToken;
         
-        const response = await fetch(`/user/display`, {
+        const response = await fetch(`/api/user/display`, {
             method: 'POST',
             headers: {
                 'Authorization': `Bearer ${token}`,
@@ -27193,7 +27201,7 @@ async function updateProfile(updateData) {
         
         console.log('✏️ Updating profile with:', updateData);
         
-        const response = await fetch(`/user/profile`, {
+        const response = await fetch(`/api/user/profile`, {
             method: 'PUT',
             headers: {
                 'Authorization': `Bearer ${token}`,
@@ -27513,7 +27521,7 @@ async function changePassword(currentPassword, newPassword, confirmPassword, sub
             confirm_password: confirmPassword
         };
         
-        const response = await fetch(`/user/change-password`, {
+        const response = await fetch(`/api/user/change-password`, {
             method: 'POST',
             headers: {
                 'Authorization': `Bearer ${token}`,
@@ -27620,7 +27628,7 @@ async function changePassword(currentPassword, newPassword, confirmPassword) {
             confirm_password: confirmPassword
         };
         
-        const response = await fetch(`/user/change-password`, {
+        const response = await fetch(`/api/user/change-password`, {
             method: 'POST',
             headers: {
                 'Authorization': `Bearer ${token}`,
@@ -31032,73 +31040,7 @@ function initTheme() {
 /**
  * Load display settings from database
  */
-async function loadDisplaySettings() {
-    try {
-        const token = localStorage.getItem('authToken') || authToken;
-        if (!token) {
-            console.log('No token, using localStorage for display settings');
-            loadDisplayFromLocalStorage();
-            return;
-        }
-        
-        console.log('🎨 Loading display settings from database...');
-        
-        const response = await fetch(`/user/display`, {
-            headers: {
-                'Authorization': `Bearer ${token}`,
-                'Content-Type': 'application/json'
-            }
-        });
-        
-        if (response.status === 404) {
-            console.log('ℹ️ Display endpoint not found, using localStorage');
-            loadDisplayFromLocalStorage();
-            return;
-        }
-        
-        if (!response.ok) {
-            throw new Error(`HTTP ${response.status}`);
-        }
-        
-        const data = await response.json();
-        
-        if (data.success && data.display) {
-            const display = data.display;
-            
-            // Set theme
-            if (display.theme) {
-                applyTheme(display.theme);
-            }
-            
-            // Set math symbol style
-            const mathStyle = document.getElementById('mathSymbolStyle');
-            if (mathStyle && display.math_style) {
-                mathStyle.value = display.math_style;
-            }
-            
-            // Set high contrast
-            const highContrast = document.getElementById('highContrast');
-            if (highContrast) {
-                highContrast.checked = display.high_contrast === true;
-                applyHighContrast(display.high_contrast);
-            }
-            
-            // Set font size
-            const fontSize = document.getElementById('fontSize');
-            if (fontSize && display.font_size) {
-                fontSize.value = display.font_size;
-                applyFontSize(display.font_size);
-            }
-            
-            console.log('✅ Display settings loaded from database');
-        } else {
-            loadDisplayFromLocalStorage();
-        }
-    } catch (error) {
-        console.error('Error loading display:', error);
-        loadDisplayFromLocalStorage();
-    }
-}
+
 
 /**
  * Load display from localStorage as fallback
