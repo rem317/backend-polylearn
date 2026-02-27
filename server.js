@@ -281,28 +281,27 @@ app.get('*', (req, res, next) => {
 
 
 // ============================================
-// DATABASE CONNECTION - FIXED
+// DATABASE CONNECTION - SIMPLE VERSION
 // ============================================
 const pool = mysql.createPool({
-    host: process.env.DB_HOST || 'localhost',
-    user: process.env.DB_USER || 'root',
-    password: process.env.DB_PASSWORD || 'thesis',
-    database: process.env.DB_NAME || 'polylearn_db',
+    host: process.env.DB_HOST,
+    user: process.env.DB_USER,
+    password: process.env.DB_PASSWORD,
+    database: process.env.DB_NAME,
+    port: process.env.DB_PORT || 3306,
     waitForConnections: true,
     connectionLimit: 10,
-    queueLimit: 0,
-    enableKeepAlive: true,
-    keepAliveInitialDelay: 0
+    ssl: { rejectUnauthorized: false }  // Required for Railway
 });
 
 const promisePool = pool.promise();
 
-// Test connection
+// Quick test
 pool.getConnection((err, connection) => {
     if (err) {
-        console.error('❌ Database connection failed:', err.message);
+        console.log('❌ DB Error - Check Railway variables');
     } else {
-        console.log('✅ Connected to MySQL database');
+        console.log('✅ Connected to Railway MySQL');
         connection.release();
     }
 });
