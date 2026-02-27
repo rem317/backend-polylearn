@@ -31892,12 +31892,7 @@ document.addEventListener('DOMContentLoaded', function() {
         observer.observe(timerModal, { attributes: true });
     }
 });
-// Also run when navigating
-const originalNavigateTo = window.navigateTo;
-window.navigateTo = function(page) {
-    originalNavigateTo(page);
-    setTimeout(setupDirectToolHandlers, 500);
-};
+
 // Also fix when page becomes fully loaded
 window.addEventListener('load', function() {
     setTimeout(fixAllToolButtons, 500);
