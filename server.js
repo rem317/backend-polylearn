@@ -13018,54 +13018,35 @@ const authenticateTeacher = async (req, res, next) => {
         });
     }
 };
-// ===== GET TEACHER DASHBOARD STATS =====
-app.get('/api/teacher/dashboard/stats', authenticateToken, async (req, res) => {
+// ===== FIX: ADD TEACHER DASHBOARD STATS ENDPOINT =====
+app.get('/api/teacher/dashboard/stats', authenticateTeacher, async (req, res) => {
     try {
         const userId = req.user.id;
         
         console.log(`📊 Fetching teacher dashboard stats for user ${userId}`);
-        
-        // Check if user is teacher or admin
-        const [userCheck] = await promisePool.execute(`
-            SELECT role FROM users WHERE user_id = ?
-        `, [userId]);
-        
-        if (userCheck.length === 0) {
-            return res.status(404).json({ 
-                success: false, 
-                message: 'User not found' 
-            });
-        }
-        
-        const userRole = userCheck[0].role;
-        
-        // Allow both teachers and admins
-        if (userRole !== 'teacher' && userRole !== 'admin') {
-            return res.status(403).json({ 
-                success: false, 
-                message: 'Teacher or admin access required' 
-            });
-        }
-        
-        // Get teacher_id if exists
+
+        // Get teacher ID if exists
         const [teacher] = await promisePool.execute(`
             SELECT teacher_id FROM teachers WHERE user_id = ?
         `, [userId]);
         
-        const teacherId = teacher.length > 0 ? teacher[0].teacher_id : null;
-        
-        // Get total lessons
+        const teacherId = teacher.length > 0 ? teacher[0].teacher_id : userId;
+
+        // Get total lessons created by this teacher
         const [lessonsResult] = await promisePool.execute(`
             SELECT 
                 COUNT(*) as total_lessons,
                 SUM(CASE WHEN is_active = 1 THEN 1 ELSE 0 END) as published,
                 SUM(CASE WHEN is_active = 0 OR is_active IS NULL THEN 1 ELSE 0 END) as draft,
-                SUM(CASE WHEN content_type IN ('video', 'pdf') THEN 1 ELSE 0 END) as total_resources
-            FROM topic_content_items 
+                COALESCE(AVG(
+                    SELECT AVG(score) FROM user_content_progress 
+                    WHERE content_id = tci.content_id
+                ), 0) as avg_completion
+            FROM topic_content_items tci
             WHERE created_by = ? OR teacher_id = ?
         `, [userId, teacherId]);
-        
-        // Get total students
+
+        // Get total students who completed lessons
         const [studentsResult] = await promisePool.execute(`
             SELECT COUNT(DISTINCT ucp.user_id) as total_students
             FROM user_content_progress ucp
@@ -13073,34 +13054,44 @@ app.get('/api/teacher/dashboard/stats', authenticateToken, async (req, res) => {
             WHERE (tci.created_by = ? OR tci.teacher_id = ?)
             AND ucp.completion_status = 'completed'
         `, [userId, teacherId]);
-        
-        // Get average completion
-        const [completionResult] = await promisePool.execute(`
-            SELECT COALESCE(AVG(ucp.score), 0) as avg_completion
+
+        // Get average grade from completed lessons
+        const [avgGradeResult] = await promisePool.execute(`
+            SELECT COALESCE(AVG(ucp.score), 0) as avg_grade
             FROM user_content_progress ucp
             JOIN topic_content_items tci ON ucp.content_id = tci.content_id
             WHERE (tci.created_by = ? OR tci.teacher_id = ?)
             AND ucp.completion_status = 'completed'
         `, [userId, teacherId]);
-        
-        const lessons = lessonsResult[0] || { total_lessons: 0, published: 0, draft: 0, total_resources: 0 };
-        const avgCompletion = Math.round(completionResult[0]?.avg_completion || 0);
-        
+
+        // Get pending reviews (feedback with status 'new')
+        const [pendingResult] = await promisePool.execute(`
+            SELECT COUNT(*) as pending_reviews
+            FROM feedback f
+            JOIN teachers t ON f.teacher_id = t.teacher_id
+            WHERE t.user_id = ? AND f.status = 'new'
+        `, [userId]);
+
+        const lessons = lessonsResult[0] || { total_lessons: 0, published: 0, draft: 0, avg_completion: 0 };
+        const avgGrade = Math.round(avgGradeResult[0]?.avg_grade || 0);
+
+        const stats = {
+            total_lessons: lessons.total_lessons || 0,
+            total_students: studentsResult[0]?.total_students || 0,
+            avg_grade: avgGrade,
+            pending_reviews: pendingResult[0]?.pending_reviews || 0,
+            published: lessons.published || 0,
+            draft: lessons.draft || 0,
+            avg_completion: avgGrade
+        };
+
+        console.log('✅ Dashboard stats:', stats);
+
         res.json({
             success: true,
-            stats: {
-                total_lessons: lessons.total_lessons || 0,
-                published: lessons.published || 0,
-                draft: lessons.draft || 0,
-                needs_review: 0,
-                avg_completion: avgCompletion,
-                total_students: studentsResult[0]?.total_students || 0,
-                avg_grade: avgCompletion,
-                pending_reviews: 0,
-                total_resources: lessons.total_resources || 0
-            }
+            stats: stats
         });
-        
+
     } catch (error) {
         console.error('❌ Teacher dashboard stats error:', error);
         res.status(500).json({ 
@@ -13110,120 +13101,74 @@ app.get('/api/teacher/dashboard/stats', authenticateToken, async (req, res) => {
     }
 });
 
-// ===== FIXED: GET ALL STUDENTS FROM USERS TABLE =====
+// ===== FIX: GET TEACHER STUDENTS =====
 app.get('/api/teacher/students', authenticateTeacher, async (req, res) => {
     try {
-        console.log('📥 Fetching all students from users table...');
+        const userId = req.user.id;
         
-        // Get ALL users with role 'student' from users table
+        console.log(`📥 Fetching students for teacher ${userId}`);
+
+        // Get students who have completed lessons created by this teacher
         const [students] = await promisePool.execute(`
-            SELECT 
+            SELECT DISTINCT 
                 u.user_id as id,
                 u.full_name as name,
                 u.username,
                 u.email,
                 u.last_login as last_active,
                 u.created_at as joined_date,
-                u.is_active,
-                -- Get lesson completion stats (can be 0 for new students)
                 (
                     SELECT COUNT(*) 
-                    FROM user_content_progress ucp 
-                    WHERE ucp.user_id = u.user_id 
-                    AND ucp.completion_status = 'completed'
+                    FROM user_content_progress ucp2
+                    JOIN topic_content_items tci2 ON ucp2.content_id = tci2.content_id
+                    WHERE ucp2.user_id = u.user_id 
+                    AND ucp2.completion_status = 'completed'
+                    AND (tci2.created_by = ? OR tci2.teacher_id = ?)
                 ) as lessons_completed,
                 (
-                    SELECT COALESCE(AVG(score), 0)
-                    FROM user_quiz_attempts uqa
-                    WHERE uqa.user_id = u.user_id 
-                    AND uqa.completion_status = 'completed'
-                ) as avg_score,
-                (
-                    SELECT COUNT(*)
-                    FROM user_quiz_attempts uqa
-                    WHERE uqa.user_id = u.user_id
-                ) as quizzes_taken
+                    SELECT COALESCE(AVG(ucp2.score), 0)
+                    FROM user_content_progress ucp2
+                    JOIN topic_content_items tci2 ON ucp2.content_id = tci2.content_id
+                    WHERE ucp2.user_id = u.user_id 
+                    AND (tci2.created_by = ? OR tci2.teacher_id = ?)
+                    AND ucp2.completion_status = 'completed'
+                ) as avg_score
             FROM users u
-            WHERE u.role = 'student'  -- Only get users with student role
-            AND u.is_active = 1        -- Only active users
-            ORDER BY u.full_name, u.username
-        `);
-        
-        console.log(`✅ Found ${students.length} students in users table`);
-        
-        // Log all student IDs for debugging
-        if (students.length > 0) {
-            console.log('Student IDs:', students.map(s => s.id).join(', '));
-        } else {
-            console.log('⚠️ No students found with role = "student"');
-            
-            // Debug: Check what roles exist
-            const [allUsers] = await promisePool.execute(`
-                SELECT role, COUNT(*) as count 
-                FROM users 
-                GROUP BY role
-            `);
-            console.log('User roles in database:', allUsers);
-        }
-        
-        // Format the response for frontend
+            WHERE EXISTS (
+                SELECT 1
+                FROM user_content_progress ucp
+                JOIN topic_content_items tci ON ucp.content_id = tci.content_id
+                WHERE ucp.user_id = u.user_id
+                AND (tci.created_by = ? OR tci.teacher_id = ?)
+                AND ucp.completion_status = 'completed'
+            )
+            ORDER BY u.full_name
+        `, [userId, userId, userId, userId, userId, userId]);
+
+        console.log(`✅ Found ${students.length} students`);
+
+        // Format students for frontend
         const formattedStudents = students.map(s => ({
             id: s.id,
-            name: s.name || s.username || 'Unknown Student',
-            username: s.username,
+            name: s.name || s.username || 'Student',
             email: s.email || 'No email',
-            avatar: getInitials(s.name || s.username || 'S'),
-            lessons_completed: parseInt(s.lessons_completed) || 0,
-            avg_score: Math.round(parseFloat(s.avg_score) || 0),
-            quizzes_taken: parseInt(s.quizzes_taken) || 0,
-            last_active: s.last_active ? getTimeAgo(s.last_active) : 'Never',
-            joined_date: s.joined_date,
-            is_active: s.is_active === 1
+            avatar: (s.name || s.username || 'S').charAt(0).toUpperCase(),
+            lessons_completed: s.lessons_completed || 0,
+            avg_score: Math.round(s.avg_score || 0),
+            last_active: s.last_active ? new Date(s.last_active).toLocaleDateString() : 'Recently'
         }));
-        
-        // Get subject counts (optional)
-        const [subjectCounts] = await promisePool.execute(`
-            SELECT 
-                l.lesson_name,
-                COUNT(DISTINCT ucp.user_id) as student_count
-            FROM lessons l
-            LEFT JOIN course_modules cm ON l.lesson_id = cm.lesson_id
-            LEFT JOIN module_topics mt ON cm.module_id = mt.module_id
-            LEFT JOIN topic_content_items tci ON mt.topic_id = tci.topic_id
-            LEFT JOIN user_content_progress ucp ON tci.content_id = ucp.content_id 
-                AND ucp.completion_status = 'completed'
-            WHERE l.is_active = 1
-            GROUP BY l.lesson_id
-        `);
-        
-        const subjectData = {
-            polynomial: 0,
-            factorial: 0,
-            mdas: 0
-        };
-        
-        subjectCounts.forEach(row => {
-            const name = row.lesson_name?.toLowerCase() || '';
-            if (name.includes('poly')) subjectData.polynomial = row.student_count || 0;
-            else if (name.includes('fact')) subjectData.factorial = row.student_count || 0;
-            else if (name.includes('math')) subjectData.mdas = row.student_count || 0;
-        });
-        
+
         res.json({
             success: true,
-            students: formattedStudents,
-            total: formattedStudents.length,
-            subject_counts: subjectData
+            students: formattedStudents
         });
-        
+
     } catch (error) {
-        console.error('❌ Error fetching students:', error);
+        console.error('❌ Error fetching teacher students:', error);
         res.status(500).json({ 
             success: false, 
             message: error.message,
-            students: [],
-            total: 0,
-            subject_counts: { polynomial: 0, factorial: 0, mdas: 0 }
+            students: [] 
         });
     }
 });
