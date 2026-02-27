@@ -15944,13 +15944,46 @@ async function testVideoAccessibility(url) {
 // RAILWAY FIX: Load video from database with better error handling
 // ============================================
 async function loadVideoFromDatabase(contentId = null) {
-    const videoContainer = document.getElementById('videoContainer');
+    console.log('🎬 loadVideoFromDatabase called with contentId:', contentId);
+    
+    // Try multiple selectors for video container
+    const videoContainer = document.getElementById('videoContainer') || 
+                           document.querySelector('.video-container') ||
+                           document.querySelector('#module-dashboard-page .video-section');
+    
     const videoInfo = document.getElementById('videoInfo');
     const refreshVideoBtn = document.getElementById('refreshVideoBtn');
     
     if (!videoContainer) {
-        console.error('Video container not found!');
-        return null;
+        console.error('❌ Video container not found! DOM structure:', {
+            videoContainer: document.getElementById('videoContainer'),
+            moduleDashboard: document.getElementById('module-dashboard-page'),
+            videoSection: document.querySelector('.video-section')
+        });
+        
+        // Create video container if it doesn't exist
+        const moduleDashboard = document.getElementById('module-dashboard-page');
+        if (moduleDashboard) {
+            const videoSection = moduleDashboard.querySelector('.video-section');
+            if (videoSection) {
+                console.log('🔄 Creating video container dynamically...');
+                videoSection.innerHTML = `
+                    <div id="videoContainer" style="background: #000; min-height: 300px; width: 100%;">
+                        <div style="background: #f0f0f0; height: 400px; display: flex; align-items: center; justify-content: center; flex-direction: column;">
+                            <i class="fas fa-spinner fa-spin" style="font-size: 40px; color: #7a0000; margin-bottom: 20px;"></i>
+                            <p style="color: #666;">Loading video...</p>
+                        </div>
+                    </div>
+                `;
+            }
+        }
+        
+        // Try to get container again
+        videoContainer = document.getElementById('videoContainer');
+        if (!videoContainer) {
+            console.error('❌ Still cannot find video container');
+            return null;
+        }
     }
     
     try {
@@ -16009,9 +16042,14 @@ async function loadVideoFromDatabase(contentId = null) {
         let videoUrl = null;
         let videoType = 'none';
         
+        // Check for YouTube URL first
+        if (lesson.content_url && (lesson.content_url.includes('youtube') || lesson.content_url.includes('youtu.be'))) {
+            videoUrl = lesson.content_url;
+            videoType = 'youtube';
+            console.log('🔗 Using YouTube video:', videoUrl);
+        }
         // Check for video_filename (uploaded video)
-        if (lesson.video_filename) {
-            // Handle full URL or relative path
+        else if (lesson.video_filename) {
             if (lesson.video_filename.startsWith('http')) {
                 videoUrl = lesson.video_filename;
             } else {
@@ -16020,12 +16058,6 @@ async function loadVideoFromDatabase(contentId = null) {
             }
             videoType = 'uploaded';
             console.log('🎬 Using uploaded video:', videoUrl);
-        }
-        // Check for YouTube URL
-        else if (lesson.content_url && (lesson.content_url.includes('youtube') || lesson.content_url.includes('youtu.be'))) {
-            videoUrl = lesson.content_url;
-            videoType = 'youtube';
-            console.log('🔗 Using YouTube video:', videoUrl);
         }
         // Check for video_path
         else if (lesson.video_path) {
