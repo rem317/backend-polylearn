@@ -466,7 +466,7 @@ class Calculator {
             const token = localStorage.getItem('authToken') || authToken;
             if (!token) return;
 
-            const response = await fetch(`/calculator/history`, {
+            const response = await fetch(`/api/calculator/history`, {
                 headers: { 'Authorization': `Bearer ${token}` }
             });
             
@@ -1003,7 +1003,7 @@ class GraphTool {
                 return;
             }
             
-            const response = await fetch(`/graph/save`, {
+            const response = await fetch(`/api/graph/save`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -5588,10 +5588,10 @@ async function checkAndAwardBadges() {
         
         // Get user stats
         const [progress, quizStats] = await Promise.all([
-            fetch(`/progress/cumulative`, {
+            fetch(`/api/progress/cumulative`, {
                 headers: { 'Authorization': `Bearer ${token}` }
             }).then(res => res.json()),
-            fetch(`/quiz/user/stats`, {
+            fetch(`/api/quiz/user/stats`, {
                 headers: { 'Authorization': `Bearer ${token}` }
             }).then(res => res.json())
         ]);
@@ -12921,10 +12921,10 @@ function getWeeklyFeedbackData() {
 }
 
 // ============================================
-// ✅ ULTIMATE FIX: Feedback form - NO PAGE RELOAD
+// ✅ DEBUG VERSION: Feedback form with error logging
 // ============================================
 function setupFeedbackForm() {
-    console.log('📝 Setting up feedback form - ULTIMATE FIX');
+    console.log('📝 Setting up feedback form - DEBUG VERSION');
     
     const feedbackForm = document.getElementById('feedbackForm');
     const feedbackSuccess = document.getElementById('feedbackSuccess');
@@ -12934,11 +12934,11 @@ function setupFeedbackForm() {
         return;
     }
     
-    // 🚨 IMPORTANT: Replace the form to remove all existing listeners
+    // Replace form to remove all existing listeners
     const newForm = feedbackForm.cloneNode(true);
     feedbackForm.parentNode.replaceChild(newForm, feedbackForm);
     
-    // Disable actual form submission completely
+    // Disable actual form submission
     newForm.onsubmit = function(e) {
         e.preventDefault();
         e.stopPropagation();
@@ -12946,10 +12946,8 @@ function setupFeedbackForm() {
         return false;
     };
     
-    // Add click handler to submit button instead
     const submitBtn = newForm.querySelector('button[type="submit"]');
     if (submitBtn) {
-        // Remove any existing listeners
         const newBtn = submitBtn.cloneNode(true);
         submitBtn.parentNode.replaceChild(newBtn, submitBtn);
         
@@ -12968,12 +12966,12 @@ function setupFeedbackForm() {
             
             // Validation
             if (!feedbackMessage) {
-                showNotification('error', 'Error', 'Please enter your feedback message');
+                alert('Please enter your feedback message');
                 return;
             }
             
             if (feedbackMessage.length < 10) {
-                showNotification('error', 'Error', 'Please provide more detailed feedback (at least 10 characters)');
+                alert('Please provide more detailed feedback (at least 10 characters)');
                 return;
             }
             
@@ -12983,8 +12981,10 @@ function setupFeedbackForm() {
             newBtn.disabled = true;
             
             try {
-                // Submit feedback
                 const token = localStorage.getItem('authToken');
+                
+                console.log('📡 Sending to:', '/api/feedback/submit');
+                console.log('🔑 Token exists:', !!token);
                 
                 const response = await fetch('/api/feedback/submit', {
                     method: 'POST',
@@ -12999,31 +12999,35 @@ function setupFeedbackForm() {
                     })
                 });
                 
-                let success = false;
+                console.log('📥 Response status:', response.status);
                 
-                if (response.ok) {
-                    const data = await response.json();
-                    success = data.success;
-                    console.log('✅ Feedback submitted:', data);
-                } else {
-                    console.log('⚠️ Server error, saving locally');
-                    success = true; // Consider it success even if server fails
+                // Try to get response text
+                const responseText = await response.text();
+                console.log('📄 Response text:', responseText);
+                
+                let data;
+                try {
+                    data = JSON.parse(responseText);
+                } catch (e) {
+                    console.error('❌ Failed to parse JSON:', responseText);
+                    data = { success: false, message: 'Invalid server response' };
                 }
                 
-                // Save locally as backup
-                saveFeedbackLocally({
-                    feedback_type: feedbackType,
-                    feedback_message: feedbackMessage,
-                    rating: rating
-                });
-                
-                if (success) {
+                if (response.ok && data.success) {
+                    console.log('✅ Feedback submitted successfully:', data);
+                    
                     // Show success message
                     if (feedbackSuccess) {
                         feedbackSuccess.style.display = 'block';
+                        feedbackSuccess.innerHTML = `
+                            <i class="fas fa-check-circle"></i> 
+                            Thank you! Your feedback has been submitted successfully!
+                        `;
                         setTimeout(() => {
                             feedbackSuccess.style.display = 'none';
                         }, 3000);
+                    } else {
+                        alert('✅ Feedback submitted successfully!');
                     }
                     
                     // Reset form
@@ -13037,18 +13041,29 @@ function setupFeedbackForm() {
                     });
                     document.getElementById('ratingValue').value = 0;
                     
-                    showNotification('success', 'Thank You!', 'Your feedback has been submitted successfully!');
-                    
-                    // Refresh feedback history WITHOUT reloading page
+                    // Refresh feedback history
                     if (typeof loadFeedbackHistory === 'function') {
                         setTimeout(() => {
                             loadFeedbackHistory(10);
                         }, 500);
                     }
+                } else {
+                    // Server returned error
+                    console.error('❌ Server error:', data);
+                    alert(`Error: ${data.message || 'Failed to submit feedback'}`);
+                    
+                    // Save locally as backup
+                    saveFeedbackLocally({
+                        feedback_type: feedbackType,
+                        feedback_message: feedbackMessage,
+                        rating: rating
+                    });
+                    
+                    alert('✅ Feedback saved locally!');
                 }
                 
             } catch (error) {
-                console.error('Error:', error);
+                console.error('❌ Network/JavaScript error:', error);
                 
                 // Save locally on error
                 saveFeedbackLocally({
@@ -13057,16 +13072,7 @@ function setupFeedbackForm() {
                     rating: rating
                 });
                 
-                showNotification('success', 'Feedback Saved!', 'Your feedback has been saved locally.');
-                
-                // Reset form
-                newForm.reset();
-                document.getElementById('ratingValue').value = 0;
-                const stars = document.querySelectorAll('.star');
-                stars.forEach(star => {
-                    star.classList.remove('active');
-                    star.innerHTML = '☆';
-                });
+                alert('✅ Feedback saved locally! (Network error)');
                 
             } finally {
                 // Restore button
@@ -13078,7 +13084,6 @@ function setupFeedbackForm() {
         console.log('✅ Feedback button handler attached');
     }
 }
-
 // ============================================
 // 🚨 GLOBAL FORM PREVENTION
 // ============================================
@@ -14192,7 +14197,7 @@ async function showFeedbackDetailsModal(feedbackId) {
         
         console.log(`🔍 Fetching feedback details for ID: ${feedbackId}`);
         
-        const response = await fetch(`/feedback/${feedbackId}`, {
+        const response = await fetch(`/api/feedback/${feedbackId}`, {
             headers: {
                 'Authorization': `Bearer ${token}`,
                 'Content-Type': 'application/json'
@@ -17312,7 +17317,7 @@ async function createDefaultPracticeProgress(topicId) {
         
         console.log('🔄 Creating default practice progress for new user...');
         
-        const response = await fetch(`/practice/init-progress`, {
+        const response = await fetch(`/api/practice/init-progress`, {
             method: 'POST',
             headers: {
                 'Authorization': `Bearer ${token}`,
@@ -23023,7 +23028,7 @@ class TimeTrackingManager {
                 
                 // DO NOT save the time - this is the reset
                 // Instead, we'll mark that the session ended
-                await fetch(`/progress/session-end`, {
+                await fetch(`/api/progress/session-end`, {
                     method: 'POST',
                     headers: {
                         'Authorization': `Bearer ${token}`,
@@ -23087,7 +23092,7 @@ class TimeTrackingManager {
             const token = localStorage.getItem('authToken') || authToken;
             
             // Call server to reset weekly average
-            const response = await fetch(`/progress/reset-weekly-avg`, {
+            const response = await fetch(`/api/progress/reset-weekly-avg`, {
                 method: 'POST',
                 headers: {
                     'Authorization': `Bearer ${token}`,
@@ -24526,7 +24531,7 @@ async function fetchQuizStatsFromServer() {
             rank: document.getElementById('quizRank')
         };
         
-        const response = await fetch(`/quiz/user/stats`, {
+        const response = await fetch(`/api/quiz/user/stats`, {
             headers: { 'Authorization': `Bearer ${token}` }
         });
         
@@ -25155,7 +25160,7 @@ async function recordActivity(activityType, itemId = null, itemName = null, time
         
         console.log(`📝 Recording activity: ${activityType}`);
         
-        const response = await fetch(`/progress/record-activity`, {
+        const response = await fetch(`/api/progress/record-activity`, {
             method: 'POST',
             headers: {
                 'Authorization': `Bearer ${token}`,
@@ -26122,7 +26127,7 @@ async function loadFeedbackHistory(limit = 10) {
         // Ensure limit is a number
         const limitValue = parseInt(limit) || 10;
         
-        const response = await fetch(`/feedback/history?limit=${limitValue}`, {
+        const response = await fetch(`/api/feedback/history?limit=${limitValue}`, {
             headers: {
                 'Authorization': `Bearer ${token}`,
                 'Content-Type': 'application/json'
@@ -26132,7 +26137,7 @@ async function loadFeedbackHistory(limit = 10) {
         if (!response.ok) {
             // Try without limit parameter if fails
             console.log('Trying without limit parameter...');
-            const fallbackResponse = await fetch(`/feedback/history`, {
+            const fallbackResponse = await fetch(`/api/feedback/history`, {
                 headers: {
                     'Authorization': `Bearer ${token}`,
                     'Content-Type': 'application/json'
@@ -26843,7 +26848,7 @@ async function connectAccount(provider) {
     const token = localStorage.getItem('authToken') || authToken;
     
     try {
-        const response = await fetch(`/user/connect/${provider}`, {
+        const response = await fetch(`/api/user/connect/${provider}`, {
             method: 'POST',
             headers: {
                 'Authorization': `Bearer ${token}`,
@@ -27241,7 +27246,7 @@ async function resetSettings() {
     try {
         // Call database to reset
         if (token) {
-            await fetch(`/user/reset-settings`, {
+            await fetch(`/api/user/reset-settings`, {
                 method: 'POST',
                 headers: {
                     'Authorization': `Bearer ${token}`,
@@ -28076,7 +28081,7 @@ async function deleteAccount() {
         
         console.log('🗑️ Deleting account...');
         
-        const response = await fetch(`/user/delete-account`, {
+        const response = await fetch(`/api/user/delete-account`, {
             method: 'DELETE',
             headers: {
                 'Authorization': `Bearer ${token}`,
@@ -28433,7 +28438,7 @@ async function fetchUserRank() {
     try {
         const token = localStorage.getItem('authToken') || authToken;
         
-        const response = await fetch(`/leaderboard/user/position`, {
+        const response = await fetch(`/api/leaderboard/user/position`, {
             headers: {
                 'Authorization': `Bearer ${token}`,
                 'Content-Type': 'application/json'
@@ -28809,7 +28814,7 @@ function updateDailyGoals(exercisesToday, accuracyRate) {
 async function fetchQuizAccuracy() {
     try {
         const token = localStorage.getItem('authToken') || authToken;
-        const response = await fetch(`/quiz/user/stats`, {
+        const response = await fetch(`/api/quiz/user/stats`, {
             headers: {
                 'Authorization': `Bearer ${token}`,
                 'Content-Type': 'application/json'
@@ -28824,7 +28829,7 @@ async function fetchQuizAccuracy() {
         }
         
         // Fallback to cumulative progress
-        const cumulativeResponse = await fetch(`/progress/cumulative`, {
+        const cumulativeResponse = await fetch(`/api/progress/cumulative`, {
             headers: {
                 'Authorization': `Bearer ${token}`,
                 'Content-Type': 'application/json'
@@ -30513,7 +30518,7 @@ async function uploadProfilePicture(file) {
         const formData = new FormData();
         formData.append('profile_picture', file);
         
-        const response = await fetch(`/user/upload-photo`, {
+        const response = await fetch(`/api/user/upload-photo`, {
             method: 'POST',
             headers: {
                 'Authorization': `Bearer ${token}`
@@ -30642,7 +30647,7 @@ async function deactivateAccount() {
     try {
         const token = localStorage.getItem('authToken') || authToken;
         
-        const response = await fetch(`/user/deactivate`, {
+        const response = await fetch(`/api/user/deactivate`, {
             method: 'POST',
             headers: {
                 'Authorization': `Bearer ${token}`,
@@ -30742,7 +30747,7 @@ async function deleteAccount() {
     try {
         const token = localStorage.getItem('authToken') || authToken;
         
-        const response = await fetch(`/user/delete`, {
+        const response = await fetch(`/api/user/delete`, {
             method: 'DELETE',
             headers: {
                 'Authorization': `Bearer ${token}`,
@@ -30770,7 +30775,7 @@ async function exportData() {
     try {
         const token = localStorage.getItem('authToken') || authToken;
         
-        const response = await fetch(`/user/export-data`, {
+        const response = await fetch(`/api/user/export-data`, {
             headers: {
                 'Authorization': `Bearer ${token}`
             }
@@ -30808,7 +30813,7 @@ async function clearHistory() {
     try {
         const token = localStorage.getItem('authToken') || authToken;
         
-        const response = await fetch(`/user/clear-history`, {
+        const response = await fetch(`/api/user/clear-history`, {
             method: 'POST',
             headers: {
                 'Authorization': `Bearer ${token}`,
