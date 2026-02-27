@@ -9945,7 +9945,7 @@ app.get('/api/lessons-db/complete', verifyToken, async (req, res) => {
 });
 
 // ============================================
-// ✅ FIXED: Get SINGLE lesson by ID (singular - matches frontend call)
+// ✅ FIXED: Get SINGLE lesson by ID with ADJACENT LESSONS
 // ============================================
 app.get('/api/lessons-db/:contentId', verifyToken, async (req, res) => {
     try {
@@ -9989,6 +9989,32 @@ app.get('/api/lessons-db/:contentId', verifyToken, async (req, res) => {
         
         const lesson = lessons[0];
         
+        // ===== GET ADJACENT LESSONS =====
+        const [allLessons] = await promisePool.execute(`
+            SELECT 
+                content_id,
+                content_title,
+                content_order
+            FROM topic_content_items
+            WHERE topic_id = ? AND is_active = 1
+            ORDER BY content_order
+        `, [lesson.topic_id]);
+        
+        const currentIndex = allLessons.findIndex(l => l.content_id == contentId);
+        
+        const adjacent = {
+            previous: currentIndex > 0 ? {
+                id: allLessons[currentIndex - 1].content_id,
+                title: allLessons[currentIndex - 1].content_title
+            } : null,
+            next: currentIndex < allLessons.length - 1 ? {
+                id: allLessons[currentIndex + 1].content_id,
+                title: allLessons[currentIndex + 1].content_title
+            } : null
+        };
+        
+        console.log('📋 Adjacent lessons:', adjacent);
+        
         // Get user progress if logged in
         let progress = null;
         if (userId) {
@@ -10003,10 +10029,13 @@ app.get('/api/lessons-db/:contentId', verifyToken, async (req, res) => {
             }
         }
         
-        // Add progress to lesson
+        // Add progress and adjacent to lesson
         lesson.progress = progress;
+        lesson.adjacent = adjacent;
         
         console.log(`✅ Lesson found: ${lesson.content_title}`);
+        console.log(`📋 Previous: ${adjacent.previous?.title || 'None'}`);
+        console.log(`📋 Next: ${adjacent.next?.title || 'None'}`);
         
         res.json({
             success: true,
