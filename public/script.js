@@ -17164,7 +17164,7 @@ window.checkPracticeRecords = async function() {
         const token = localStorage.getItem('authToken');
         
         // Tingnan ang practice attempts
-        const attemptsResponse = await fetch(`/progress/practice-attempts`, {
+        const attemptsResponse = await fetch(`/api/progress/practice-attempts`, {
             headers: { 'Authorization': `Bearer ${token}` }
         });
         
@@ -17209,7 +17209,7 @@ async function loadTopicsProgress() {
             return;
         }
         
-        const response = await fetch(`/topics/progress`, {
+        const response = await fetch(`/api/topics/progress`, {
             headers: { 'Authorization': `Bearer ${token}` }
         });
         
@@ -17407,121 +17407,78 @@ async function loadPracticeExercisesForTopic(topicId) {
             return;
         }
         
-        // TRY MULTIPLE ENDPOINTS
-        let data = null;
-        let response = null;
-        
-        // Try the main endpoint first
+        // ✅ FIXED: Use correct endpoint with /api/ prefix
         try {
-            response = await fetch(`/practice/topic/${topicId}`, {
+            const response = await fetch(`/api/practice/topic/${topicId}`, {
                 headers: {
                     'Authorization': `Bearer ${token}`,
                     'Accept': 'application/json'
                 }
             });
             
-            // Check if response is JSON
             const contentType = response.headers.get('content-type');
-            if (contentType && contentType.includes('application/json')) {
-                data = await response.json();
-            } else {
-                console.warn(`⚠️ Non-JSON response from /practice/topic/${topicId}`);
-                throw new Error('Not JSON');
-            }
-        } catch (error) {
-            console.log(`⚠️ Main endpoint failed, trying alternative...`);
             
-            // Try alternative endpoint
-            try {
-                const altResponse = await fetch(`/api/practice/topic/${topicId}`, {
-                    headers: {
-                        'Authorization': `Bearer ${token}`,
-                        'Accept': 'application/json'
+            if (response.ok && contentType && contentType.includes('application/json')) {
+                const data = await response.json();
+                if (data.success) {
+                    if (!data.unlocked) {
+                        exerciseArea.innerHTML = createPracticeLockScreen(data);
+                        return;
                     }
-                });
-                
-                const altContentType = altResponse.headers.get('content-type');
-                if (altContentType && altContentType.includes('application/json')) {
-                    data = await altResponse.json();
-                } else {
-                    throw new Error('Not JSON');
+                    
+                    if (data.exercises && data.exercises.length > 0) {
+                        PracticeState.exercises = data.exercises;
+                        exerciseArea.innerHTML = createPracticeExercisesUI(data);
+                        setupPracticeExerciseInteractions();
+                        return;
+                    }
                 }
-            } catch (altError) {
-                console.log(`⚠️ Alternative endpoint also failed, using demo data`);
-                
-                // Use demo data
-                data = {
-                    unlocked: true,
-                    exercises: getDemoPracticeExercises(topicId),
-                    progress: {
-                        completed: 0,
-                        total: 3,
-                        percentage: 0
-                    }
-                };
             }
-        }
-        
-        // Check if practice is unlocked
-        if (!data.unlocked) {
-            exerciseArea.innerHTML = createPracticeLockScreen(data);
-            return;
-        }
-        
-        if (data.exercises && data.exercises.length > 0) {
-            PracticeState.exercises = data.exercises;
-            exerciseArea.innerHTML = createPracticeExercisesUI(data);
-            setupPracticeExerciseInteractions();
-        } else {
-            // Use demo exercises if no real ones
+            
+            console.warn('⚠️ No valid practice data received, using demo data');
+            // Use demo data as fallback
             const demoExercises = getDemoPracticeExercises(topicId);
             if (demoExercises && demoExercises.length > 0) {
                 PracticeState.exercises = demoExercises;
                 exerciseArea.innerHTML = createPracticeExercisesUI({
                     exercises: demoExercises,
-                    progress: data.progress || { completed: 0, total: demoExercises.length, percentage: 0 }
+                    progress: { completed: 0, total: demoExercises.length, percentage: 0 },
+                    unlocked: true
                 });
                 setupPracticeExerciseInteractions();
+            }
+            
+        } catch (error) {
+            console.error('❌ Error loading practice exercises:', error);
+            
+            // Use demo data as fallback
+            const demoExercises = getDemoPracticeExercises(topicId);
+            if (demoExercises && demoExercises.length > 0) {
+                PracticeState.exercises = demoExercises;
+                exerciseArea.innerHTML = createPracticeExercisesUI({
+                    exercises: demoExercises,
+                    progress: { completed: 0, total: demoExercises.length, percentage: 0 },
+                    unlocked: true
+                });
+                setupPracticeExerciseInteractions();
+                
+                showNotification('Using demo exercises while connecting to database...', 'info');
             } else {
                 exerciseArea.innerHTML = `
-                    <div class="no-exercises">
-                        <i class="fas fa-pencil-alt"></i>
-                        <h3>No practice exercises available for this topic</h3>
-                        <p>Check back later for new exercises!</p>
+                    <div class="error-message">
+                        <i class="fas fa-exclamation-triangle"></i>
+                        <h3>Failed to load practice exercises</h3>
+                        <p>Error: ${error.message}</p>
+                        <button class="btn-primary" onclick="loadPracticeExercisesForTopic('${PracticeState.currentTopic}')">
+                            <i class="fas fa-redo"></i> Try Again
+                        </button>
                     </div>
                 `;
             }
         }
         
     } catch (error) {
-        console.error('❌ Error loading practice exercises:', error);
-        
-        // Show demo exercises as fallback
-        const demoExercises = getDemoPracticeExercises(topicId);
-        const exerciseArea = document.getElementById('exerciseArea');
-        
-        if (exerciseArea && demoExercises && demoExercises.length > 0) {
-            PracticeState.exercises = demoExercises;
-            exerciseArea.innerHTML = createPracticeExercisesUI({
-                exercises: demoExercises,
-                progress: { completed: 0, total: demoExercises.length, percentage: 0 },
-                unlocked: true
-            });
-            setupPracticeExerciseInteractions();
-            
-            showNotification('Using demo exercises while connecting to database...', 'info');
-        } else {
-            exerciseArea.innerHTML = `
-                <div class="error-message">
-                    <i class="fas fa-exclamation-triangle"></i>
-                    <h3>Failed to load practice exercises</h3>
-                    <p>Error: ${error.message}</p>
-                    <button class="btn-primary" onclick="loadPracticeExercisesForTopic('${PracticeState.currentTopic}')">
-                        <i class="fas fa-redo"></i> Try Again
-                    </button>
-                </div>
-            `;
-        }
+        console.error('❌ Fatal error:', error);
     }
 }
 
@@ -23195,7 +23152,7 @@ async function markLessonComplete() {
         
         // Try using the update-daily endpoint
         try {
-            const dailyResponse = await fetch(`/progress/update-daily`, {
+            const dailyResponse = await fetch(`/api/progress/update-daily`, {
                 method: 'POST',
                 headers: {
                     'Authorization': `Bearer ${token}`,
@@ -23800,7 +23757,7 @@ async function fetchActivityLog(limit = 10) {
         
         console.log('📋 Fetching activity log...');
         
-        const response = await fetch(`/dashboard/activity-feed?limit=${limit}`, {
+        const response = await fetch(`/api/dashboard/activity-feed?limit=${limit}`, {
             headers: { 'Authorization': `Bearer ${token}` }
         });
         
@@ -23874,7 +23831,7 @@ async function initProgressCharts() {
         console.log('📊 Initializing progress charts...');
         
         // Fetch chart data
-        const response = await fetch(`/progress/chart-data`, {
+        const response = await fetch(`/api/progress/chart-data`, {
             headers: { 'Authorization': `Bearer ${token}` }
         });
         
@@ -23888,7 +23845,7 @@ async function initProgressCharts() {
         }
         
         // ✅ Fetch accuracy data separately
-        const accuracyResponse = await fetch(`/progress/accuracy-rate`, {
+        const accuracyResponse = await fetch(`/api/progress/accuracy-rate`, {
             headers: { 'Authorization': `Bearer ${token}` }
         });
         
@@ -24283,7 +24240,7 @@ async function fetchProgressChartData(days = 14) {
         
         console.log(`📥 Fetching chart data for last ${days} days...`);
         
-        const response = await fetch(`/progress/chart-data?days=${days}`, {
+        const response = await fetch(`/api/progress/chart-data?days=${days}`, {
             headers: {
                 'Authorization': `Bearer ${token}`,
                 'Content-Type': 'application/json'
@@ -28191,7 +28148,7 @@ async function fetchTodaysLearningStats() {
         
         console.log('📊 Fetching today\'s learning stats from server...');
         
-        const response = await fetch(`/progress/today-stats`, {
+        const response = await fetch(`/api/progress/today-stats`, {
             headers: {
                 'Authorization': `Bearer ${token}`,
                 'Content-Type': 'application/json'
@@ -28273,7 +28230,7 @@ async function updateTodaysLearningStats() {
         const token = localStorage.getItem('authToken') || authToken;
         if (!token) return;
         
-        const response = await fetch(`/progress/today-stats`, {
+        const response = await fetch(`/api/progress/today-stats`, {
             headers: { 'Authorization': `Bearer ${token}` }
         });
         
@@ -29924,7 +29881,7 @@ async function fetchPerformanceAnalytics() {
         
         console.log('📈 Fetching performance analytics...');
         
-        const response = await fetch(`/progress/performance-analytics`, {
+        const response = await fetch(`/api/progress/performance-analytics`, {
             headers: { 'Authorization': `Bearer ${token}` }
         });
         
