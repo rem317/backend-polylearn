@@ -15050,14 +15050,27 @@ async function openLesson(lessonId) {
         // Show loading
         showNotification('Loading lesson...', 'info');
         
-        // ✅ FIX: Add /api/ prefix
-        const data = await apiRequest(`/api/lessons-db/${lessonId}`);
+        // Fetch lesson details
+        const response = await fetch(`/api/lessons-db/${lessonId}`, {
+            headers: {
+                'Authorization': `Bearer ${localStorage.getItem('authToken')}`
+            }
+        });
+        
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        
+        const data = await response.json();
         
         if (!data.success || !data.lesson) {
             throw new Error('Lesson not found');
         }
         
         const lesson = data.lesson;
+        console.log('✅ Lesson loaded:', lesson.content_title);
+        console.log('📋 Adjacent lessons from server:', lesson.adjacent);
+        
         LessonState.currentLesson = lesson;
         LessonState.currentTopic = lesson.topic_id || 1;
         
@@ -15076,17 +15089,14 @@ async function openLesson(lessonId) {
         
         // Wait for page to load then update everything
         setTimeout(async () => {
-            // ✅ FIXED: Use setupNavigationButtons() instead of setupLessonNavigation()
-            setupNavigationButtons();  // ← ITO ANG TAMA
+            // Setup navigation buttons
+            setupNavigationButtons();
             
             // Load video
             await loadVideoFromDatabase(lessonId);
             
             // Update complete button
             await checkLessonCompletionStatus();
-            
-            // Update navigation buttons display
-            updateNavigationButtons(lesson.adjacent);
             
             console.log('✅ Lesson fully loaded on Railway');
         }, 500);
@@ -15096,7 +15106,6 @@ async function openLesson(lessonId) {
         showNotification('Error loading lesson: ' + error.message, 'error');
     }
 }
-
 // Update navigation buttons function - FIXED VERSION
 function updateNavigationButtons(adjacent) {
     console.log('🔄 Updating navigation buttons with adjacent:', adjacent);
@@ -16693,7 +16702,7 @@ function setupBackButton() {
 }
 
 // ============================================
-// HELPER: Setup navigation buttons (PREV/NEXT) - FIXED VERSION
+// HELPER: Setup navigation buttons (PREV/NEXT) - UPDATED
 // ============================================
 function setupNavigationButtons() {
     console.log('🔘 Setting up navigation buttons...');
@@ -16703,6 +16712,9 @@ function setupNavigationButtons() {
         console.error('❌ No current lesson found');
         return;
     }
+    
+    console.log('📖 Current lesson:', currentLesson.content_title, 'ID:', currentLesson.content_id);
+    console.log('📋 Adjacent lessons:', currentLesson.adjacent);
     
     // ===== PREVIOUS BUTTON =====
     const prevBtn = document.getElementById('prevLessonBtn');
@@ -16722,34 +16734,8 @@ function setupNavigationButtons() {
                 const prevId = currentLesson.adjacent.previous.id;
                 console.log('⬅️ Loading previous lesson:', prevId);
                 
-                // Disable button to prevent double-click
-                this.disabled = true;
-                
-                try {
-                    // Fetch lesson data using apiRequest
-                    const data = await apiRequest(`/api/lessons-db/${prevId}`);
-                    
-                    if (data.success && data.lesson) {
-                        LessonState.currentLesson = data.lesson;
-                        
-                        // Update URL
-                        const url = new URL(window.location);
-                        url.searchParams.set('lessonId', prevId);
-                        window.history.pushState({}, '', url);
-                        
-                        // Refresh the module dashboard
-                        navigateTo('moduleDashboard');
-                        
-                        // Show success notification
-                        showNotification('Previous lesson loaded', 'success');
-                    } else {
-                        throw new Error('Lesson not found');
-                    }
-                } catch (error) {
-                    console.error('Error loading previous lesson:', error);
-                    showNotification('Failed to load previous lesson', 'error');
-                    this.disabled = false;
-                }
+                // Open the previous lesson
+                await openLesson(prevId);
             });
             
             console.log('✅ Previous button enabled');
@@ -16758,8 +16744,6 @@ function setupNavigationButtons() {
             newPrevBtn.innerHTML = `<i class="fas fa-arrow-left"></i> No Previous Lesson`;
             console.log('ℹ️ No previous lesson available');
         }
-    } else {
-        console.warn('⚠️ Previous button not found in DOM');
     }
     
     // ===== NEXT BUTTON =====
@@ -16780,34 +16764,8 @@ function setupNavigationButtons() {
                 const nextId = currentLesson.adjacent.next.id;
                 console.log('➡️ Loading next lesson:', nextId);
                 
-                // Disable button to prevent double-click
-                this.disabled = true;
-                
-                try {
-                    // Fetch lesson data using apiRequest
-                    const data = await apiRequest(`/api/lessons-db/${nextId}`);
-                    
-                    if (data.success && data.lesson) {
-                        LessonState.currentLesson = data.lesson;
-                        
-                        // Update URL
-                        const url = new URL(window.location);
-                        url.searchParams.set('lessonId', nextId);
-                        window.history.pushState({}, '', url);
-                        
-                        // Refresh the module dashboard
-                        navigateTo('moduleDashboard');
-                        
-                        // Show success notification
-                        showNotification('Next lesson loaded', 'success');
-                    } else {
-                        throw new Error('Lesson not found');
-                    }
-                } catch (error) {
-                    console.error('Error loading next lesson:', error);
-                    showNotification('Failed to load next lesson', 'error');
-                    this.disabled = false;
-                }
+                // Open the next lesson
+                await openLesson(nextId);
             });
             
             console.log('✅ Next button enabled');
@@ -16816,12 +16774,11 @@ function setupNavigationButtons() {
             newNextBtn.innerHTML = `No Next Lesson <i class="fas fa-arrow-right"></i>`;
             console.log('ℹ️ No next lesson available');
         }
-    } else {
-        console.warn('⚠️ Next button not found in DOM');
     }
     
     console.log('✅ Navigation buttons setup complete');
 }
+
 // ============================================
 // HELPER: Setup practice buttons
 // ============================================
@@ -25334,9 +25291,6 @@ function setupFeedbackForm() {
 }
 
 
-// ============================================
-// ✅ FIXED: Submit feedback to database
-// ============================================
 async function submitFeedback(feedbackType, feedbackMessage, rating = 0) {
     try {
         const token = localStorage.getItem('authToken') || authToken;
@@ -25344,33 +25298,27 @@ async function submitFeedback(feedbackType, feedbackMessage, rating = 0) {
         // Get current user
         const userJson = localStorage.getItem('mathhub_user');
         let userId = null;
-        let userEmail = '';
-        let userName = '';
         
         if (userJson) {
             try {
                 const user = JSON.parse(userJson);
                 userId = user.id || user.user_id;
-                userEmail = user.email || '';
-                userName = user.full_name || user.username || '';
             } catch (e) {
                 console.error('Error parsing user:', e);
             }
         }
         
-        // Prepare feedback data with ALL fields
+        // Prepare feedback data - REMOVE email at name
         const feedbackData = {
             feedback_type: feedbackType || 'general',
             feedback_message: feedbackMessage,
             rating: rating,
             user_id: userId,
-            email: userEmail,
-            name: userName,
             page_url: window.location.href,
             user_agent: navigator.userAgent
         };
         
-        console.log('📤 Submitting feedback to database:', feedbackData);
+        console.log('📤 Submitting feedback:', feedbackData);
         
         const response = await fetch('/api/feedback/submit', {
             method: 'POST',
@@ -25381,7 +25329,6 @@ async function submitFeedback(feedbackType, feedbackMessage, rating = 0) {
             body: JSON.stringify(feedbackData)
         });
         
-        // Check response
         const responseText = await response.text();
         console.log('📥 Raw response:', responseText);
         
@@ -25394,30 +25341,8 @@ async function submitFeedback(feedbackType, feedbackMessage, rating = 0) {
         }
         
         if (response.ok && data.success) {
-            console.log('✅ Feedback submitted successfully. ID:', data.feedback_id);
-            
-            // Show success message
-            const feedbackSuccess = document.getElementById('feedbackSuccess');
-            if (feedbackSuccess) {
-                feedbackSuccess.style.display = 'block';
-                feedbackSuccess.innerHTML = `
-                    <i class="fas fa-check-circle"></i> 
-                    Thank you! Your feedback has been submitted successfully (ID: ${data.feedback_id})
-                `;
-                setTimeout(() => {
-                    feedbackSuccess.style.display = 'none';
-                }, 3000);
-            } else {
-                alert(`✅ Feedback submitted! (ID: ${data.feedback_id})`);
-            }
-            
-            // Refresh feedback history
-            if (typeof loadFeedbackHistory === 'function') {
-                setTimeout(() => {
-                    loadFeedbackHistory(10);
-                }, 500);
-            }
-            
+            console.log('✅ Feedback submitted. ID:', data.feedback_id);
+            alert(`✅ Feedback submitted! ID: ${data.feedback_id}`);
             return true;
         } else {
             console.error('❌ Server error:', data);
@@ -25426,7 +25351,7 @@ async function submitFeedback(feedbackType, feedbackMessage, rating = 0) {
         }
         
     } catch (error) {
-        console.error('❌ Error submitting feedback:', error);
+        console.error('❌ Error:', error);
         alert('Error: ' + error.message);
         return false;
     }
