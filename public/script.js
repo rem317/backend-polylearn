@@ -6203,46 +6203,6 @@ async function requestPasswordReset() {
 }
 
 
-// ============================================
-// FORCE MODAL STYLES - FIXED
-// ============================================
-
-// I-DECLARE MUNA ang function bago gamitin
-function forceModalStyles() {
-    const style = document.createElement('style');
-    style.textContent = `
-        .modal-overlay {
-            display: none !important;
-            position: fixed !important;
-            top: 0 !important;
-            left: 0 !important;
-            width: 100% !important;
-            height: 100% !important;
-            background: rgba(0, 0, 0, 0.7) !important;
-            z-index: 10000 !important;
-            justify-content: center !important;
-            align-items: center !important;
-        }
-        
-        .modal-overlay.active,
-        .modal-overlay[style*="display: flex"] {
-            display: flex !important;
-        }
-        
-        .modal-container {
-            background: white !important;
-            border-radius: 10px !important;
-            max-width: 800px !important;
-            width: 90% !important;
-            max-height: 90vh !important;
-            overflow-y: auto !important;
-        }
-    `;
-    document.head.appendChild(style);
-}
-
-// Ngayon safe nang tawagin
-forceModalStyles();
 
 
 
