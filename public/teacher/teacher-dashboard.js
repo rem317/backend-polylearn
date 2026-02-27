@@ -2512,8 +2512,7 @@ async function saveNewTopic() {
         }
     }
 }
-// ===== FIXED: CREATE NEW LESSON WITH PROPER NULL CHECKS =====
-// ===== UPDATED: CREATE NEW LESSON =====
+// ===== FIXED: CREATE NEW LESSON WITH MODULE/TOPIC CREATION =====
 async function createNewLesson() {
     console.log("💾 Creating new lesson...");
     
@@ -2525,15 +2524,9 @@ async function createNewLesson() {
     const topicSelect = document.getElementById('createLessonTopic');
     
     // Check if elements exist
-    if (!titleInput) {
-        console.error('❌ createLessonTitle element not found');
-        showNotification('error', 'Error', 'Form element not found');
-        return;
-    }
-    
-    if (!lessonSelect) {
-        console.error('❌ createLessonLesson element not found');
-        showNotification('error', 'Error', 'Lesson selector not found');
+    if (!titleInput || !lessonSelect || !moduleSelect || !topicSelect) {
+        console.error('❌ Required form elements not found');
+        showNotification('error', 'Error', 'Form elements not found');
         return;
     }
     
@@ -2544,13 +2537,13 @@ async function createNewLesson() {
     const lessonId = lessonSelect.value;
     const lessonName = lessonSelect.options[lessonSelect.selectedIndex]?.text || 'Unknown Lesson';
     
-    // Check module and topic - they might be in the process of auto-creation
-    let moduleId = moduleSelect?.value;
-    let moduleName = moduleSelect?.options[moduleSelect.selectedIndex]?.text || 'Unknown Module';
-    let topicId = topicSelect?.value;
-    let topicName = topicSelect?.options[topicSelect.selectedIndex]?.text || 'Unknown Topic';
+    // Check if module or topic is being created
+    let moduleId = moduleSelect.value;
+    let moduleName = moduleSelect.options[moduleSelect.selectedIndex]?.text || 'Unknown Module';
+    let topicId = topicSelect.value;
+    let topicName = topicSelect.options[topicSelect.selectedIndex]?.text || 'Unknown Topic';
     
-    // Clean module name (remove badges like "(My Module)")
+    // Clean names (remove badges)
     moduleName = moduleName.replace(/\s*\([^)]*\)/g, '').trim();
     topicName = topicName.replace(/\s*\([^)]*\)/g, '').trim();
     
@@ -2577,15 +2570,26 @@ async function createNewLesson() {
         return;
     }
     
-    // If module is still being created, wait a bit
-    if (!moduleId || moduleId === 'general' || moduleId === 'create_new') {
-        showNotification('error', 'Error', 'Please wait for module to be created or select a module');
-        return;
+    // Handle module creation
+    if (!moduleId || moduleId === '' || moduleId === 'create_new' || moduleId === 'undefined') {
+        showNotification('info', 'Creating Module', 'Creating general module automatically...');
+        moduleId = await autoCreateGeneralModule();
+        if (!moduleId) {
+            showNotification('error', 'Error', 'Failed to create module');
+            return;
+        }
+        moduleName = `${lessonName} - General Module`;
     }
     
-    if (!topicId || topicId === 'general' || topicId === 'create_new') {
-        showNotification('error', 'Error', 'Please wait for topic to be created or select a topic');
-        return;
+    // Handle topic creation
+    if (!topicId || topicId === '' || topicId === 'create_new' || topicId === 'undefined') {
+        showNotification('info', 'Creating Topic', 'Creating general topic automatically...');
+        topicId = await autoCreateGeneralTopic(moduleId, moduleName);
+        if (!topicId) {
+            showNotification('error', 'Error', 'Failed to create topic');
+            return;
+        }
+        topicName = `${moduleName} - General Topic`;
     }
     
     // Determine content type
@@ -2658,7 +2662,14 @@ async function createNewLesson() {
         if (!response.ok) {
             const errorText = await response.text();
             console.error('❌ Error response:', errorText);
-            throw new Error(`HTTP error! status: ${response.status}`);
+            
+            // Try to parse error message
+            try {
+                const errorJson = JSON.parse(errorText);
+                throw new Error(errorJson.message || `HTTP error! status: ${response.status}`);
+            } catch (e) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
         }
         
         const result = await response.json();
@@ -2686,6 +2697,7 @@ async function createNewLesson() {
         saveBtn.innerHTML = originalText;
     }
 }
+
 // ===== UPDATED: LOAD TEACHER MODULES =====
 async function loadTeacherModules(forceRefresh = false) {
     console.log('📦 Loading teacher modules from database...');
@@ -2829,38 +2841,23 @@ async function loadTopicsFromStructure() {
         return [];
     }
 }
-// ===== NEW: AUTO-CREATE GENERAL MODULE =====
 // ===== UPDATED: AUTO-CREATE GENERAL MODULE =====
 async function autoCreateGeneralModule() {
     console.log('🤖 Auto-creating general module...');
     
-    // ===== ADD THIS SAFETY CHECK =====
-    if (typeof teacherModules === 'undefined') {
-        console.warn('⚠️ teacherModules is undefined, initializing...');
-        teacherModules = [];
-    }
-    
     const lessonSelect = document.getElementById('createLessonLesson');
-    const moduleSelect = document.getElementById('createLessonModule');
-    
-    if (!lessonSelect || !moduleSelect) return;
+    if (!lessonSelect) return null;
     
     const lessonId = lessonSelect.value;
     const lessonName = lessonSelect.options[lessonSelect.selectedIndex]?.text || '';
     
     if (!lessonId) {
         showNotification('error', 'Error', 'Please select a lesson first');
-        moduleSelect.value = '';
-        return;
+        return null;
     }
     
     // Generate module name
     const moduleName = `${lessonName} - General Module`;
-    
-    // Show loading indicator sa module select
-    const originalOptions = moduleSelect.innerHTML;
-    moduleSelect.innerHTML = `<option value="">Creating general module...</option>`;
-    moduleSelect.disabled = true;
     
     try {
         const token = localStorage.getItem('authToken');
@@ -2877,7 +2874,6 @@ async function autoCreateGeneralModule() {
         
         console.log('📦 Auto-creating general module:', moduleData);
         
-        // Try to save to database
         const response = await fetch(`/api/teacher/modules/create`, {
             method: 'POST',
             headers: {
@@ -2887,119 +2883,54 @@ async function autoCreateGeneralModule() {
             body: JSON.stringify(moduleData)
         });
         
-        let newModule;
-        
         if (response.ok) {
             const result = await response.json();
-            newModule = result.module || {
-                id: result.module_id || Date.now(),
-                ...moduleData
-            };
-            showNotification('success', 'Module Created', `General module created for ${lessonName}`);
-        } else {
-            // If server fails, create local module
-            newModule = {
-                id: Date.now(),
-                ...moduleData
-            };
-            showNotification('warning', 'Offline Mode', 'General module saved locally');
+            const newModuleId = result.module_id || result.module?.id;
+            
+            if (newModuleId) {
+                showNotification('success', 'Module Created', `General module created for ${lessonName}`);
+                
+                // Refresh module dropdown
+                await loadModulesForLesson();
+                
+                return newModuleId;
+            }
         }
         
-        // Add to teacherModules array
-        teacherModules.push(newModule);
-        
-        // Refresh module dropdown and select the new module
-        await loadModulesForLesson();
-        
-        // Find and select the newly created module
-        setTimeout(() => {
-            const updatedModuleSelect = document.getElementById('createLessonModule');
-            if (updatedModuleSelect) {
-                // Find the option with the new module name
-                for (let i = 0; i < updatedModuleSelect.options.length; i++) {
-                    if (updatedModuleSelect.options[i].text.includes(moduleName)) {
-                        updatedModuleSelect.selectedIndex = i;
-                        // Trigger topics load
-                        loadTopicsForModule();
-                        break;
-                    }
-                }
-            }
-        }, 500);
+        // If server fails, create local module ID
+        const localModuleId = Date.now();
+        showNotification('warning', 'Offline Mode', 'Module saved locally');
+        return localModuleId;
         
     } catch (error) {
         console.error('❌ Error auto-creating module:', error);
         
-        // Fallback: Create local module
-        const newModule = {
-            id: Date.now(),
-            name: moduleName,
-            description: `General module for ${lessonName}`,
-            lesson_id: parseInt(lessonId),
-            lesson_name: lessonName,
-            module_order: 999,
-            created_by: 'teacher',
-            is_general: true
-        };
-        
-        teacherModules.push(newModule);
-        
+        // Fallback: Return temporary ID
+        const tempId = Date.now();
         showNotification('warning', 'Module Created', 'General module saved locally');
-        
-        // Refresh dropdown
-        moduleSelect.disabled = false;
-        await loadModulesForLesson();
-        
-        // Select the new module
-        setTimeout(() => {
-            const updatedModuleSelect = document.getElementById('createLessonModule');
-            if (updatedModuleSelect) {
-                for (let i = 0; i < updatedModuleSelect.options.length; i++) {
-                    if (updatedModuleSelect.options[i].text.includes(moduleName)) {
-                        updatedModuleSelect.selectedIndex = i;
-                        loadTopicsForModule();
-                        break;
-                    }
-                }
-            }
-        }, 300);
+        return tempId;
     }
 }
-// ===== NEW: AUTO-CREATE GENERAL TOPIC =====
+
 // ===== UPDATED: AUTO-CREATE GENERAL TOPIC =====
-async function autoCreateGeneralTopic() {
+async function autoCreateGeneralTopic(moduleId, moduleName) {
     console.log('🤖 Auto-creating general topic...');
     
-    // ===== ADD THIS SAFETY CHECK =====
-    if (typeof teacherTopics === 'undefined') {
-        console.warn('⚠️ teacherTopics is undefined, initializing...');
-        teacherTopics = [];
+    if (!moduleId) {
+        const moduleSelect = document.getElementById('createLessonModule');
+        if (!moduleSelect || !moduleSelect.value) {
+            showNotification('error', 'Error', 'Please select a module first');
+            return null;
+        }
+        moduleId = moduleSelect.value;
+        moduleName = moduleSelect.options[moduleSelect.selectedIndex]?.text || '';
     }
     
-    const moduleSelect = document.getElementById('createLessonModule');
-    const topicSelect = document.getElementById('createLessonTopic');
-    
-    if (!moduleSelect || !topicSelect) return;
-    
-    const moduleValue = moduleSelect.value;
-    const moduleText = moduleSelect.options[moduleSelect.selectedIndex]?.text || '';
-    
-    if (!moduleValue || moduleValue === 'general' || moduleValue === 'create_new') {
-        showNotification('error', 'Error', 'Please select a valid module');
-        topicSelect.value = '';
-        return;
-    }
-    
-    // Get module ID (remove any text in parentheses)
-    const moduleId = parseInt(moduleValue);
-    const cleanModuleText = moduleText.replace(/\s*\([^)]*\)/g, '').trim();
+    // Clean module name
+    const cleanModuleText = moduleName.replace(/\s*\([^)]*\)/g, '').trim();
     
     // Generate topic name
     const topicName = `${cleanModuleText} - General Topic`;
-    
-    // Show loading indicator
-    topicSelect.innerHTML = `<option value="">Creating general topic...</option>`;
-    topicSelect.disabled = true;
     
     try {
         const token = localStorage.getItem('authToken');
@@ -3007,7 +2938,7 @@ async function autoCreateGeneralTopic() {
         const topicData = {
             name: topicName,
             description: `General topic for ${cleanModuleText}`,
-            module_id: moduleId,
+            module_id: parseInt(moduleId),
             module_name: cleanModuleText,
             topic_order: 999,
             created_by: 'teacher',
@@ -3016,7 +2947,6 @@ async function autoCreateGeneralTopic() {
         
         console.log('📚 Auto-creating general topic:', topicData);
         
-        // Try to save to database
         const response = await fetch(`/api/teacher/topics/create`, {
             method: 'POST',
             headers: {
@@ -3026,78 +2956,218 @@ async function autoCreateGeneralTopic() {
             body: JSON.stringify(topicData)
         });
         
-        let newTopic;
-        
         if (response.ok) {
             const result = await response.json();
-            newTopic = result.topic || {
-                id: result.topic_id || Date.now(),
-                ...topicData
-            };
-            showNotification('success', 'Topic Created', `General topic created for ${cleanModuleText}`);
-        } else {
-            // If server fails, create local topic
-            newTopic = {
-                id: Date.now(),
-                ...topicData
-            };
-            showNotification('warning', 'Offline Mode', 'General topic saved locally');
+            const newTopicId = result.topic_id || result.topic?.id;
+            
+            if (newTopicId) {
+                showNotification('success', 'Topic Created', `General topic created for ${cleanModuleText}`);
+                
+                // Refresh topic dropdown
+                await loadTopicsForModule();
+                
+                return newTopicId;
+            }
         }
         
-        // Add to teacherTopics array
-        teacherTopics.push(newTopic);
-        
-        // Refresh topic dropdown
-        await loadTopicsForModule();
-        
-        // Find and select the newly created topic
-        setTimeout(() => {
-            const updatedTopicSelect = document.getElementById('createLessonTopic');
-            if (updatedTopicSelect) {
-                for (let i = 0; i < updatedTopicSelect.options.length; i++) {
-                    if (updatedTopicSelect.options[i].text.includes(topicName)) {
-                        updatedTopicSelect.selectedIndex = i;
-                        break;
-                    }
-                }
-            }
-        }, 500);
+        // If server fails, create local topic ID
+        const localTopicId = Date.now() + 1000;
+        showNotification('warning', 'Offline Mode', 'Topic saved locally');
+        return localTopicId;
         
     } catch (error) {
         console.error('❌ Error auto-creating topic:', error);
         
-        // Fallback: Create local topic
-        const newTopic = {
-            id: Date.now(),
-            name: topicName,
-            description: `General topic for ${cleanModuleText}`,
-            module_id: moduleId,
-            module_name: cleanModuleText,
-            topic_order: 999,
-            created_by: 'teacher',
-            is_general: true
+        // Fallback: Return temporary ID
+        const tempId = Date.now() + 1000;
+        showNotification('warning', 'Topic Created', 'General topic saved locally');
+        return tempId;
+    }
+}
+// ===== OPEN CREATE MODULE MODAL =====
+function openCreateModuleModal() {
+    console.log('📦 Opening create module modal...');
+    
+    const lessonSelect = document.getElementById('createLessonLesson');
+    const selectedLessonId = lessonSelect?.value;
+    const selectedLessonName = lessonSelect?.options[lessonSelect.selectedIndex]?.text || '';
+    
+    if (!selectedLessonId) {
+        showNotification('error', 'Error', 'Please select a lesson first');
+        return;
+    }
+    
+    // Remove existing modal if any
+    const existingModal = document.getElementById('createModuleModal');
+    if (existingModal) existingModal.remove();
+    
+    // Clean lesson name
+    const cleanLessonName = selectedLessonName.replace(/\s*\([^)]*\)/g, '').trim();
+    
+    // Create modal HTML
+    const modalHtml = `
+        <div class="modal" id="createModuleModal" style="display: flex; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 10030; align-items: center; justify-content: center;">
+            <div class="modal-content" style="background: white; border-radius: 12px; width: 90%; max-width: 500px; max-height: 80vh; overflow-y: auto;">
+                <div class="modal-header" style="padding: 20px; border-bottom: 1px solid #eee; display: flex; justify-content: space-between; align-items: center; background: #7a0000; color: white; border-radius: 12px 12px 0 0;">
+                    <h3 style="margin: 0;"><i class="fas fa-folder"></i> Create New Module</h3>
+                    <button class="btn-icon" onclick="closeCreateModuleModal()" style="color: white; background: none; border: none; font-size: 1.5rem; cursor: pointer;">&times;</button>
+                </div>
+                
+                <div class="modal-body" style="padding: 20px;">
+                    <div class="form-group" style="margin-bottom: 15px;">
+                        <label class="form-label" style="display: block; margin-bottom: 5px; font-weight: 600;">Lesson</label>
+                        <input type="text" class="form-control" value="${cleanLessonName}" readonly disabled style="background: #f5f5f5; width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+                        <input type="hidden" id="newModuleLessonId" value="${selectedLessonId}">
+                        <input type="hidden" id="newModuleLessonName" value="${cleanLessonName}">
+                    </div>
+                    
+                    <div class="form-group" style="margin-bottom: 15px;">
+                        <label class="form-label" style="display: block; margin-bottom: 5px; font-weight: 600;">Module Name <span style="color: red;">*</span></label>
+                        <input type="text" class="form-control" id="newModuleName" placeholder="e.g., Introduction to Polynomials" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;" required>
+                    </div>
+                    
+                    <div class="form-group" style="margin-bottom: 15px;">
+                        <label class="form-label" style="display: block; margin-bottom: 5px; font-weight: 600;">Description (Optional)</label>
+                        <textarea class="form-control" id="newModuleDescription" rows="3" placeholder="Brief description of this module" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;"></textarea>
+                    </div>
+                </div>
+                
+                <div class="modal-footer" style="padding: 20px; border-top: 1px solid #eee; display: flex; justify-content: flex-end; gap: 10px;">
+                    <button class="btn btn-secondary" onclick="closeCreateModuleModal()" style="padding: 8px 16px; background: #6c757d; color: white; border: none; border-radius: 4px; cursor: pointer;">Cancel</button>
+                    <button class="btn btn-primary" onclick="saveNewModule()" style="padding: 8px 16px; background: #7a0000; color: white; border: none; border-radius: 4px; cursor: pointer;">
+                        <i class="fas fa-save"></i> Create Module
+                    </button>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    document.body.insertAdjacentHTML('beforeend', modalHtml);
+    document.body.classList.add('modal-open');
+    
+    setTimeout(() => {
+        document.getElementById('newModuleName')?.focus();
+    }, 300);
+}
+// ===== CLOSE CREATE MODULE MODAL =====
+function closeCreateModuleModal() {
+    const modal = document.getElementById('createModuleModal');
+    if (modal) {
+        modal.remove();
+        
+        const anyModalOpen = document.querySelectorAll('.modal').length > 0;
+        if (!anyModalOpen) {
+            document.body.classList.remove('modal-open');
+        }
+    }
+}
+
+// ===== SAVE NEW MODULE =====
+async function saveNewModule() {
+    console.log('💾 Saving new module...');
+    
+    const moduleName = document.getElementById('newModuleName')?.value.trim();
+    const lessonId = document.getElementById('newModuleLessonId')?.value;
+    const lessonName = document.getElementById('newModuleLessonName')?.value;
+    const description = document.getElementById('newModuleDescription')?.value.trim() || '';
+    
+    if (!moduleName) {
+        showNotification('error', 'Error', 'Module name is required');
+        return;
+    }
+    
+    if (!lessonId) {
+        showNotification('error', 'Error', 'Lesson ID not found');
+        return;
+    }
+    
+    const saveBtn = document.querySelector('#createModuleModal .btn-primary');
+    const originalText = saveBtn?.innerHTML;
+    if (saveBtn) {
+        saveBtn.disabled = true;
+        saveBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Saving...';
+    }
+    
+    try {
+        const token = localStorage.getItem('authToken');
+        
+        if (!token) {
+            throw new Error('No authentication token found');
+        }
+        
+        const moduleData = {
+            name: moduleName,
+            description: description,
+            lesson_id: parseInt(lessonId),
+            lesson_name: lessonName,
+            module_order: 999,
+            created_by: 'teacher'
         };
         
-        teacherTopics.push(newTopic);
+        console.log('📤 Sending module data:', moduleData);
         
-        showNotification('warning', 'Topic Created', 'General topic saved locally');
+        const response = await fetch(`/api/teacher/modules/create`, {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(moduleData)
+        });
         
-        // Refresh dropdown
-        topicSelect.disabled = false;
-        await loadTopicsForModule();
+        const result = await response.json();
+        console.log('📥 Server response:', result);
         
-        // Select the new topic
-        setTimeout(() => {
-            const updatedTopicSelect = document.getElementById('createLessonTopic');
-            if (updatedTopicSelect) {
-                for (let i = 0; i < updatedTopicSelect.options.length; i++) {
-                    if (updatedTopicSelect.options[i].text.includes(topicName)) {
-                        updatedTopicSelect.selectedIndex = i;
-                        break;
+        if (result.success) {
+            showNotification('success', 'Success!', `Module "${moduleName}" created!`);
+            
+            // Add to local cache
+            if (!teacherModules) teacherModules = [];
+            const newModule = result.module || {
+                id: result.module_id || Date.now(),
+                name: moduleName,
+                description: description,
+                lesson_id: parseInt(lessonId),
+                lesson_name: lessonName,
+                created_by: 'teacher'
+            };
+            
+            teacherModules.push(newModule);
+            
+            closeCreateModuleModal();
+            
+            // Refresh module dropdown and select the new module
+            setTimeout(() => {
+                loadModulesForLesson();
+                
+                // Try to select the new module
+                setTimeout(() => {
+                    const moduleSelect = document.getElementById('createLessonModule');
+                    if (moduleSelect) {
+                        for (let i = 0; i < moduleSelect.options.length; i++) {
+                            if (moduleSelect.options[i].text.includes(moduleName)) {
+                                moduleSelect.selectedIndex = i;
+                                loadTopicsForModule();
+                                break;
+                            }
+                        }
                     }
-                }
-            }
-        }, 300);
+                }, 300);
+            }, 300);
+            
+        } else {
+            throw new Error(result.message || 'Failed to create module');
+        }
+        
+    } catch (error) {
+        console.error('❌ Error creating module:', error);
+        showNotification('error', 'Failed', error.message);
+        
+    } finally {
+        if (saveBtn) {
+            saveBtn.disabled = false;
+            saveBtn.innerHTML = originalText;
+        }
     }
 }
 // ===== UPDATED: HANDLE TOPIC SELECTION =====
