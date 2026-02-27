@@ -7736,6 +7736,83 @@ app.post('/api/admin/modules', verifyToken, async (req, res) => {
 });
 
 // UPDATE module
+
+// ============================================
+// ✅ GET PRACTICE STATUS BY TOPIC ID - FIX 404 ERROR
+// ============================================
+app.get('/api/practice/:topicId/status', authenticateToken, async (req, res) => {
+    try {
+        const { topicId } = req.params;
+        const userId = req.user.id;
+        
+        console.log(`🔍 Checking practice status for topic ${topicId}, user ${userId}`);
+        
+        // Check if user has completed any lessons in this topic
+        const [completedLessons] = await promisePool.execute(`
+            SELECT COUNT(*) as completed_count
+            FROM user_content_progress ucp
+            JOIN topic_content_items tci ON ucp.content_id = tci.content_id
+            WHERE ucp.user_id = ? 
+            AND tci.topic_id = ?
+            AND ucp.completion_status = 'completed'
+        `, [userId, topicId]);
+        
+        const completedCount = completedLessons[0]?.completed_count || 0;
+        
+        // Check if there are practice exercises for this topic
+        const [practiceExists] = await promisePool.execute(`
+            SELECT COUNT(*) as practice_count
+            FROM practice_exercises
+            WHERE topic_id = ? AND is_active = 1
+        `, [topicId]);
+        
+        const hasPractice = (practiceExists[0]?.practice_count || 0) > 0;
+        
+        // Check if user has started any practice in this topic
+        const [userProgress] = await promisePool.execute(`
+            SELECT COUNT(*) as started_count
+            FROM user_practice_progress upp
+            JOIN practice_exercises pe ON upp.exercise_id = pe.exercise_id
+            WHERE upp.user_id = ? AND pe.topic_id = ?
+        `, [userId, topicId]);
+        
+        const hasStarted = (userProgress[0]?.started_count || 0) > 0;
+        
+        // Practice is unlocked if user has completed at least 1 lesson OR has already started practice
+        const isUnlocked = completedCount > 0 || hasStarted;
+        
+        // Get total lessons in this topic
+        const [totalLessons] = await promisePool.execute(`
+            SELECT COUNT(*) as total
+            FROM topic_content_items
+            WHERE topic_id = ? AND is_active = 1
+        `, [topicId]);
+        
+        const totalLessonsCount = totalLessons[0]?.total || 1;
+        
+        res.json({
+            success: true,
+            unlocked: isUnlocked,
+            has_practice: hasPractice,
+            completed_lessons: completedCount,
+            total_lessons: totalLessonsCount,
+            progress_percentage: Math.round((completedCount / totalLessonsCount) * 100),
+            message: isUnlocked ? 
+                'Practice unlocked! You can now practice this topic.' : 
+                `Complete at least 1 lesson to unlock practice (${completedCount}/${totalLessonsCount} completed)`
+        });
+        
+    } catch (error) {
+        console.error('❌ Error checking practice status:', error);
+        res.status(500).json({
+            success: false,
+            message: error.message,
+            unlocked: false,
+            has_practice: false
+        });
+    }
+});
+
 app.put('/api/admin/modules/:moduleId', verifyToken, async (req, res) => {
     try {
         if (req.user.role !== 'admin' && req.user.role !== 'teacher') {
