@@ -31602,3 +31602,282 @@ document.addEventListener('click', function(e) {
         }
     }
 }, true);
+
+
+
+// ============================================
+// 🚨 ULTIMATE TOOL MANAGEMENT FIX
+// ============================================
+
+// 1. Force remove all existing styles that might hide modals
+(function forceToolStyles() {
+    const style = document.createElement('style');
+    style.textContent = `
+        /* Force all tool modals to be visible */
+        #calculatorModal,
+        #graphModal,
+        #whiteboardModal,
+        #notepadModal,
+        #formulaModal,
+        #timerModal {
+            display: none !important;
+        }
+        
+        #calculatorModal.modal-overlay[style*="display: flex"],
+        #graphModal.modal-overlay[style*="display: flex"],
+        #whiteboardModal.modal-overlay[style*="display: flex"],
+        #notepadModal.modal-overlay[style*="display: flex"],
+        #formulaModal.modal-overlay[style*="display: flex"],
+        #timerModal.modal-overlay[style*="display: flex"],
+        #calculatorModal.modal-overlay.active,
+        #graphModal.modal-overlay.active,
+        #whiteboardModal.modal-overlay.active,
+        #notepadModal.modal-overlay.active,
+        #formulaModal.modal-overlay.active,
+        #timerModal.modal-overlay.active {
+            display: flex !important;
+            position: fixed !important;
+            top: 0 !important;
+            left: 0 !important;
+            width: 100% !important;
+            height: 100% !important;
+            background: rgba(0, 0, 0, 0.7) !important;
+            z-index: 10000 !important;
+            align-items: center !important;
+            justify-content: center !important;
+        }
+        
+        /* Ensure modal container is visible */
+        .modal-overlay.active .modal-container,
+        .modal-overlay[style*="display: flex"] .modal-container {
+            opacity: 1 !important;
+            visibility: visible !important;
+            transform: scale(1) !important;
+        }
+        
+        /* Tool items cursor */
+        .tool-item,
+        .tool-item-compact {
+            cursor: pointer !important;
+        }
+    `;
+    document.head.appendChild(style);
+})();
+
+// 2. Create a global tool manager instance
+if (!window.toolManager) {
+    console.log('🔧 Creating ToolManager...');
+    window.toolManager = new ToolManager();
+}
+
+// 3. Direct click handlers para sa LAHAT ng tool buttons
+function fixAllToolButtons() {
+    console.log('🔧 Fixing ALL tool buttons...');
+    
+    // List all tool buttons with their corresponding modal IDs
+    const toolButtons = [
+        // From learning-tools-box (compact version)
+        { element: document.getElementById('openCalculator'), modalId: 'calculatorModal', toolName: 'calculator' },
+        { element: document.getElementById('openGraphTools'), modalId: 'graphModal', toolName: 'graph' },
+        { element: document.getElementById('openNotepad'), modalId: 'notepadModal', toolName: 'notepad' },
+        { element: document.getElementById('openFormulaSheet'), modalId: 'formulaModal', toolName: 'formula' },
+        { element: document.getElementById('openWhiteboard'), modalId: 'whiteboardModal', toolName: 'whiteboard' },
+        { element: document.getElementById('openTimer'), modalId: 'timerModal', toolName: 'timer' },
+        
+        // Also find buttons in tools-grid (sidebar version)
+        ...Array.from(document.querySelectorAll('.tool-item[id^="open"]')).map(btn => ({
+            element: btn,
+            modalId: btn.id.replace('open', '').toLowerCase() + 'Modal',
+            toolName: btn.id.replace('open', '').toLowerCase()
+        }))
+    ];
+    
+    toolButtons.forEach(item => {
+        const btn = item.element;
+        if (!btn) return;
+        
+        console.log(`🔧 Fixing button: ${btn.id} -> ${item.modalId}`);
+        
+        // Remove ALL existing event listeners by cloning
+        const newBtn = btn.cloneNode(true);
+        btn.parentNode.replaceChild(newBtn, btn);
+        
+        // Add DIRECT click handler
+        newBtn.onclick = function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            
+            console.log(`🎯 Clicked: ${item.toolName}`);
+            
+            // Find the modal
+            const modal = document.getElementById(item.modalId);
+            
+            if (modal) {
+                // Hide all modals first
+                document.querySelectorAll('.modal-overlay').forEach(m => {
+                    m.style.display = 'none';
+                    m.classList.remove('active');
+                });
+                
+                // FORCE show this modal
+                modal.style.display = 'flex';
+                modal.style.position = 'fixed';
+                modal.style.top = '0';
+                modal.style.left = '0';
+                modal.style.width = '100%';
+                modal.style.height = '100%';
+                modal.style.backgroundColor = 'rgba(0, 0, 0, 0.7)';
+                modal.style.zIndex = '10000';
+                modal.style.alignItems = 'center';
+                modal.style.justifyContent = 'center';
+                modal.classList.add('active');
+                
+                // Initialize the tool
+                setTimeout(() => {
+                    if (window.toolManager && window.toolManager.tools && window.toolManager.tools[item.toolName]) {
+                        try {
+                            window.toolManager.tools[item.toolName].onOpen();
+                            console.log(`✅ ${item.toolName} initialized`);
+                        } catch (e) {
+                            console.error(`Error initializing ${item.toolName}:`, e);
+                        }
+                    }
+                }, 100);
+                
+                // Special fix para sa timer display
+                if (item.toolName === 'timer') {
+                    setTimeout(fixTimerDisplay, 200);
+                    setTimeout(fixTimerDisplay, 500);
+                }
+            } else {
+                console.error(`❌ Modal not found: ${item.modalId}`);
+            }
+            
+            return false;
+        };
+        
+        // Add visual feedback
+        newBtn.style.cursor = 'pointer';
+        newBtn.addEventListener('mouseenter', () => {
+            newBtn.style.opacity = '0.8';
+        });
+        newBtn.addEventListener('mouseleave', () => {
+            newBtn.style.opacity = '1';
+        });
+    });
+    
+    console.log('✅ All tool buttons fixed!');
+}
+
+// 4. Special function para i-fix ang timer display
+function fixTimerDisplay() {
+    console.log('⏱️ Fixing timer display...');
+    
+    const timerModal = document.getElementById('timerModal');
+    if (!timerModal) return;
+    
+    const timerDisplay = document.getElementById('timerDisplay');
+    if (!timerDisplay) return;
+    
+    if (window.toolManager && window.toolManager.tools && window.toolManager.tools.timer) {
+        const timer = window.toolManager.tools.timer;
+        timer.timerElement = timerDisplay;
+        
+        // Force display update
+        const minutes = Math.floor(timer.timeLeft / 60);
+        const seconds = timer.timeLeft % 60;
+        timerDisplay.textContent = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+        timerDisplay.innerHTML = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+        
+        console.log('✅ Timer display fixed:', timerDisplay.textContent);
+    }
+}
+
+// 5. Emergency function to manually open any tool
+window.emergencyOpenTool = function(toolName) {
+    console.log(`🚨 Emergency opening ${toolName}`);
+    
+    const modal = document.getElementById(`${toolName}Modal`);
+    if (modal) {
+        modal.style.display = 'flex';
+        modal.style.position = 'fixed';
+        modal.style.top = '0';
+        modal.style.left = '0';
+        modal.style.width = '100%';
+        modal.style.height = '100%';
+        modal.style.backgroundColor = 'rgba(0,0,0,0.7)';
+        modal.style.zIndex = '10000';
+        modal.style.alignItems = 'center';
+        modal.style.justifyContent = 'center';
+        modal.classList.add('active');
+        
+        if (window.toolManager && window.toolManager.tools && window.toolManager.tools[toolName]) {
+            setTimeout(() => {
+                try {
+                    window.toolManager.tools[toolName].onOpen();
+                } catch (e) {
+                    console.error(e);
+                }
+            }, 100);
+        }
+        
+        return true;
+    }
+    return false;
+};
+
+// 6. Debug function
+window.debugTools = function() {
+    console.log('🔍 TOOL DEBUG INFO:');
+    console.log('- ToolManager exists:', !!window.toolManager);
+    console.log('- ToolManager tools:', window.toolManager ? Object.keys(window.toolManager.tools) : 'N/A');
+    
+    const tools = ['calculator', 'graph', 'notepad', 'formula', 'whiteboard', 'timer'];
+    tools.forEach(tool => {
+        const modal = document.getElementById(`${tool}Modal`);
+        const button = document.getElementById(`open${tool.charAt(0).toUpperCase() + tool.slice(1)}`);
+        console.log(`- ${tool}: modal=${!!modal}, button=${!!button}`);
+        
+        if (modal) {
+            console.log(`  Modal display: ${modal.style.display}`);
+            console.log(`  Modal classes: ${modal.className}`);
+        }
+    });
+};
+
+// 7. Run fixes at different times
+document.addEventListener('DOMContentLoaded', function() {
+    // Fix immediately
+    setTimeout(fixAllToolButtons, 100);
+    
+    // Fix again after a delay
+    setTimeout(fixAllToolButtons, 500);
+    setTimeout(fixAllToolButtons, 1000);
+    
+    // Observe for timer modal
+    const timerModal = document.getElementById('timerModal');
+    if (timerModal) {
+        const observer = new MutationObserver(function(mutations) {
+            mutations.forEach(function(mutation) {
+                if (mutation.type === 'attributes' && mutation.attributeName === 'class') {
+                    if (timerModal.classList.contains('active') || timerModal.style.display === 'flex') {
+                        setTimeout(fixTimerDisplay, 200);
+                        setTimeout(fixTimerDisplay, 500);
+                    }
+                }
+            });
+        });
+        observer.observe(timerModal, { attributes: true });
+    }
+});
+
+// Also fix when page becomes fully loaded
+window.addEventListener('load', function() {
+    setTimeout(fixAllToolButtons, 500);
+});
+
+console.log('🚀 ULTIMATE TOOL FIX LOADED!');
+console.log('💡 Commands:');
+console.log('   - emergencyOpenTool("calculator") - Manually open calculator');
+console.log('   - debugTools() - Check tool status');
+console.log('   - fixAllToolButtons() - Re-attach all tool buttons');
