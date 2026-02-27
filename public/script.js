@@ -12920,170 +12920,7 @@ function getWeeklyFeedbackData() {
     };
 }
 
-// ============================================
-// ✅ DEBUG VERSION: Feedback form with error logging
-// ============================================
-function setupFeedbackForm() {
-    console.log('📝 Setting up feedback form - DEBUG VERSION');
-    
-    const feedbackForm = document.getElementById('feedbackForm');
-    const feedbackSuccess = document.getElementById('feedbackSuccess');
-    
-    if (!feedbackForm) {
-        console.log('Feedback form not found');
-        return;
-    }
-    
-    // Replace form to remove all existing listeners
-    const newForm = feedbackForm.cloneNode(true);
-    feedbackForm.parentNode.replaceChild(newForm, feedbackForm);
-    
-    // Disable actual form submission
-    newForm.onsubmit = function(e) {
-        e.preventDefault();
-        e.stopPropagation();
-        console.log('🚫 Form submission prevented');
-        return false;
-    };
-    
-    const submitBtn = newForm.querySelector('button[type="submit"]');
-    if (submitBtn) {
-        const newBtn = submitBtn.cloneNode(true);
-        submitBtn.parentNode.replaceChild(newBtn, submitBtn);
-        
-        newBtn.addEventListener('click', async function(e) {
-            e.preventDefault();
-            e.stopPropagation();
-            
-            console.log('📝 Feedback submit button clicked');
-            
-            // Get form data
-            const feedbackType = document.getElementById('feedbackType')?.value;
-            const feedbackMessage = document.getElementById('feedbackMessage')?.value.trim();
-            const rating = parseInt(document.getElementById('ratingValue')?.value) || 0;
-            
-            console.log('📋 Feedback data:', { feedbackType, feedbackMessage, rating });
-            
-            // Validation
-            if (!feedbackMessage) {
-                alert('Please enter your feedback message');
-                return;
-            }
-            
-            if (feedbackMessage.length < 10) {
-                alert('Please provide more detailed feedback (at least 10 characters)');
-                return;
-            }
-            
-            // Show loading state
-            const originalText = newBtn.innerHTML;
-            newBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Submitting...';
-            newBtn.disabled = true;
-            
-            try {
-                const token = localStorage.getItem('authToken');
-                
-                console.log('📡 Sending to:', '/api/feedback/submit');
-                console.log('🔑 Token exists:', !!token);
-                
-                const response = await fetch('/api/feedback/submit', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        ...(token && { 'Authorization': `Bearer ${token}` })
-                    },
-                    body: JSON.stringify({
-                        feedback_type: feedbackType,
-                        feedback_message: feedbackMessage,
-                        rating: rating
-                    })
-                });
-                
-                console.log('📥 Response status:', response.status);
-                
-                // Try to get response text
-                const responseText = await response.text();
-                console.log('📄 Response text:', responseText);
-                
-                let data;
-                try {
-                    data = JSON.parse(responseText);
-                } catch (e) {
-                    console.error('❌ Failed to parse JSON:', responseText);
-                    data = { success: false, message: 'Invalid server response' };
-                }
-                
-                if (response.ok && data.success) {
-                    console.log('✅ Feedback submitted successfully:', data);
-                    
-                    // Show success message
-                    if (feedbackSuccess) {
-                        feedbackSuccess.style.display = 'block';
-                        feedbackSuccess.innerHTML = `
-                            <i class="fas fa-check-circle"></i> 
-                            Thank you! Your feedback has been submitted successfully!
-                        `;
-                        setTimeout(() => {
-                            feedbackSuccess.style.display = 'none';
-                        }, 3000);
-                    } else {
-                        alert('✅ Feedback submitted successfully!');
-                    }
-                    
-                    // Reset form
-                    newForm.reset();
-                    
-                    // Reset rating stars
-                    const stars = document.querySelectorAll('.star');
-                    stars.forEach(star => {
-                        star.classList.remove('active');
-                        star.innerHTML = '☆';
-                    });
-                    document.getElementById('ratingValue').value = 0;
-                    
-                    // Refresh feedback history
-                    if (typeof loadFeedbackHistory === 'function') {
-                        setTimeout(() => {
-                            loadFeedbackHistory(10);
-                        }, 500);
-                    }
-                } else {
-                    // Server returned error
-                    console.error('❌ Server error:', data);
-                    alert(`Error: ${data.message || 'Failed to submit feedback'}`);
-                    
-                    // Save locally as backup
-                    saveFeedbackLocally({
-                        feedback_type: feedbackType,
-                        feedback_message: feedbackMessage,
-                        rating: rating
-                    });
-                    
-                    alert('✅ Feedback saved locally!');
-                }
-                
-            } catch (error) {
-                console.error('❌ Network/JavaScript error:', error);
-                
-                // Save locally on error
-                saveFeedbackLocally({
-                    feedback_type: feedbackType,
-                    feedback_message: feedbackMessage,
-                    rating: rating
-                });
-                
-                alert('✅ Feedback saved locally! (Network error)');
-                
-            } finally {
-                // Restore button
-                newBtn.innerHTML = originalText;
-                newBtn.disabled = false;
-            }
-        });
-        
-        console.log('✅ Feedback button handler attached');
-    }
-}
+
 // ============================================
 // 🚨 GLOBAL FORM PREVENTION
 // ============================================
@@ -25133,10 +24970,10 @@ function setupRatingStars() {
 }
 
 // ============================================
-// ✅ ULTIMATE FIX: Feedback form - NO PAGE RELOAD
+// ✅ WORKING VERSION: Feedback form - SAVES TO DATABASE
 // ============================================
 function setupFeedbackForm() {
-    console.log('📝 Setting up feedback form - ULTIMATE FIX');
+    console.log('📝 Setting up feedback form - WORKING VERSION');
     
     const feedbackForm = document.getElementById('feedbackForm');
     const feedbackSuccess = document.getElementById('feedbackSuccess');
@@ -25146,21 +24983,19 @@ function setupFeedbackForm() {
         return;
     }
     
-    // 🚨 IMPORTANT: Replace the form to remove all existing listeners
+    // Replace form to remove all existing listeners
     const newForm = feedbackForm.cloneNode(true);
     feedbackForm.parentNode.replaceChild(newForm, feedbackForm);
     
-    // Disable actual form submission completely
+    // Disable actual form submission
     newForm.onsubmit = function(e) {
         e.preventDefault();
         e.stopPropagation();
         return false;
     };
     
-    // Add click handler to submit button instead
     const submitBtn = newForm.querySelector('button[type="submit"]');
     if (submitBtn) {
-        // Remove any existing listeners
         const newBtn = submitBtn.cloneNode(true);
         submitBtn.parentNode.replaceChild(newBtn, submitBtn);
         
@@ -25175,7 +25010,19 @@ function setupFeedbackForm() {
             const feedbackMessage = document.getElementById('feedbackMessage')?.value.trim();
             const rating = parseInt(document.getElementById('ratingValue')?.value) || 0;
             
-            console.log('📋 Feedback data:', { feedbackType, feedbackMessage, rating });
+            // Get user ID
+            let userId = null;
+            const userJson = localStorage.getItem('mathhub_user');
+            if (userJson) {
+                try {
+                    const user = JSON.parse(userJson);
+                    userId = user.id || user.user_id;
+                } catch (e) {
+                    console.error('Error parsing user:', e);
+                }
+            }
+            
+            console.log('📋 Feedback data:', { feedbackType, feedbackMessage, rating, userId });
             
             // Validation
             if (!feedbackMessage) {
@@ -25194,7 +25041,6 @@ function setupFeedbackForm() {
             newBtn.disabled = true;
             
             try {
-                // Submit feedback
                 const token = localStorage.getItem('authToken');
                 
                 const response = await fetch('/api/feedback/submit', {
@@ -25206,32 +25052,32 @@ function setupFeedbackForm() {
                     body: JSON.stringify({
                         feedback_type: feedbackType,
                         feedback_message: feedbackMessage,
-                        rating: rating
+                        rating: rating,
+                        user_id: userId
                     })
                 });
                 
-                let success = false;
+                const responseText = await response.text();
+                console.log('📥 Server response:', responseText);
                 
-                if (response.ok) {
-                    const data = await response.json();
-                    success = data.success;
-                    console.log('✅ Feedback submitted:', data);
-                } else {
-                    console.log('⚠️ Server error, saving locally');
-                    success = true; // Consider it success even if server fails
+                let data;
+                try {
+                    data = JSON.parse(responseText);
+                } catch (e) {
+                    console.error('Failed to parse JSON:', responseText);
+                    data = { success: false, message: 'Invalid server response' };
                 }
                 
-                // Save locally as backup
-                saveFeedbackLocally({
-                    feedback_type: feedbackType,
-                    feedback_message: feedbackMessage,
-                    rating: rating
-                });
-                
-                if (success) {
+                if (response.ok && data.success) {
+                    console.log('✅ Feedback saved to database! ID:', data.feedback_id);
+                    
                     // Show success message
                     if (feedbackSuccess) {
                         feedbackSuccess.style.display = 'block';
+                        feedbackSuccess.innerHTML = `
+                            <i class="fas fa-check-circle"></i> 
+                            Thank you! Your feedback has been saved to the database.
+                        `;
                         setTimeout(() => {
                             feedbackSuccess.style.display = 'none';
                         }, 3000);
@@ -25256,28 +25102,16 @@ function setupFeedbackForm() {
                             loadFeedbackHistory(10);
                         }, 500);
                     }
+                    
+                } else {
+                    // Server returned error
+                    console.error('❌ Server error:', data);
+                    showNotification('error', 'Error', data.message || 'Failed to submit feedback');
                 }
                 
             } catch (error) {
-                console.error('Error:', error);
-                
-                // Save locally on error
-                saveFeedbackLocally({
-                    feedback_type: feedbackType,
-                    feedback_message: feedbackMessage,
-                    rating: rating
-                });
-                
-                showNotification('success', 'Feedback Saved!', 'Your feedback has been saved locally.');
-                
-                // Reset form
-                newForm.reset();
-                document.getElementById('ratingValue').value = 0;
-                const stars = document.querySelectorAll('.star');
-                stars.forEach(star => {
-                    star.classList.remove('active');
-                    star.innerHTML = '☆';
-                });
+                console.error('❌ Error:', error);
+                showNotification('error', 'Error', 'Failed to submit feedback. Please try again.');
                 
             } finally {
                 // Restore button
