@@ -5289,58 +5289,48 @@ document.addEventListener('click', function(e) {
 }, true); // Use capture phase to ensure it runs first
 
 // ============================================
-// FIXED: Function to connect tool buttons
+// ✅ FIXED: Connect tool buttons with direct handlers
 // ============================================
 function connectToolButtons() {
-    console.log('🔧 Connecting tool buttons to ToolManager...');
-    
-    const toolIds = [
-        'openCalculator',
-        'openGraphTools',
-        'openNotepad',
-        'openFormulaSheet',
-        'openWhiteboard',
-        'openTimer'
+    console.log('🔧 Connecting tool buttons...');
+
+    // Define tool buttons and their corresponding modals
+    const tools = [
+        { id: 'openCalculator', name: 'calculator' },
+        { id: 'openGraphTools', name: 'graph' },
+        { id: 'openNotepad', name: 'notepad' },
+        { id: 'openFormulaSheet', name: 'formula' },
+        { id: 'openWhiteboard', name: 'whiteboard' },
+        { id: 'openTimer', name: 'timer' }
     ];
-    
-    const toolMap = {
-        'openCalculator': 'calculator',
-        'openGraphTools': 'graph',
-        'openNotepad': 'notepad',
-        'openFormulaSheet': 'formula',
-        'openWhiteboard': 'whiteboard',
-        'openTimer': 'timer'
-    };
-    
-    toolIds.forEach(id => {
-        const btn = document.getElementById(id);
+
+    // Initialize ToolManager if not exists
+    if (!window.toolManager) {
+        window.toolManager = new ToolManager();
+    }
+
+    // Connect each button
+    tools.forEach(tool => {
+        const btn = document.getElementById(tool.id);
         if (btn) {
             // Remove old listeners
             const newBtn = btn.cloneNode(true);
             btn.parentNode.replaceChild(newBtn, btn);
             
-            newBtn.addEventListener('click', function(e) {
+            // Add new listener
+            newBtn.addEventListener('click', (e) => {
                 e.preventDefault();
                 e.stopPropagation();
-                console.log(`🎯 Tool button clicked: ${id}`);
-                
-                if (!window.toolManager) {
-                    window.toolManager = new ToolManager();
-                }
-                
-                const toolName = toolMap[id];
-                if (toolName) {
-                    window.toolManager.openTool(toolName);
-                }
+                console.log(`🎯 Opening ${tool.name}`);
+                window.toolManager.openTool(tool.name);
             });
             
-            console.log(`✅ Attached handler to ${id}`);
+            console.log(`✅ Connected ${tool.id}`);
         } else {
-            console.warn(`⚠️ Tool button not found: ${id}`);
+            console.warn(`⚠️ Button not found: ${tool.id}`);
         }
     });
 }
-
 
 
 // ============================================
@@ -18820,9 +18810,22 @@ async function loadInitialData() {
 /// Initialize when page loads
 document.addEventListener('DOMContentLoaded', function() {
     console.log('📄 DOM fully loaded');
-    initApp();
+   
     addQuizStyles(); // Add quiz styles
     addProgressStyles(); // Add progress styles
+    addModalStyles();
+     initApp();
+
+
+    // Connect tool buttons after a short delay
+    setTimeout(() => {
+        connectToolButtons();
+    }, 500);
+    
+    // Also try again after a longer delay (for dynamically loaded content)
+    setTimeout(() => {
+        connectToolButtons();
+    }, 2000);
     
     // Add review modal styles
     setTimeout(() => {
@@ -26867,186 +26870,167 @@ async function fetchQuizAccuracy() {
 // ============================================
 
 
-// ========================================
-// TOOL MANAGER - Main controller for all tools
-// ========================================
+// ============================================
+// ✅ FIXED: ToolManager with better error handling
+// ============================================
 class ToolManager {
     constructor() {
         this.tools = {};
         this.currentTool = null;
         this.modalsContainer = document.getElementById('toolModalsContainer');
+        
+        // Create modals container if it doesn't exist
+        if (!this.modalsContainer) {
+            this.modalsContainer = document.createElement('div');
+            this.modalsContainer.id = 'toolModalsContainer';
+            document.body.appendChild(this.modalsContainer);
+        }
+        
         this.init();
     }
 
     init() {
+        console.log('🔧 Initializing ToolManager...');
         this.createModals();
         this.initializeTools();
         this.setupEventListeners();
     }
 
     createModals() {
-    this.modalsContainer.innerHTML = `
-        <!-- Calculator Modal -->
-        <div id="calculatorModal" class="modal-overlay">
-            <div class="modal-container">
-                <div class="modal-header">
-                    <h2><i class="fas fa-calculator"></i> Scientific Calculator</h2>
-                    <button class="modal-close" onclick="window.toolManager.closeTool()">&times;</button>
-                </div>
-                <div class="modal-body">
-                    <div class="calculator-container">
-                        <div id="calcDisplay" class="calculator-display">0</div>
-                        <div class="calculator-buttons" id="calcButtons"></div>
-                        <div class="calculator-history">
-                            <h3>History</h3>
-                            <div id="calcHistory" class="history-list"></div>
+        console.log('📦 Creating tool modals...');
+        
+        this.modalsContainer.innerHTML = `
+            <!-- Calculator Modal -->
+            <div id="calculatorModal" class="modal-overlay" style="display: none;">
+                <div class="modal-container" style="background: white; border-radius: 10px; max-width: 500px; width: 90%;">
+                    <div class="modal-header" style="background: #7a0000; color: white; padding: 15px 20px; border-radius: 10px 10px 0 0; display: flex; justify-content: space-between; align-items: center;">
+                        <h3 style="margin: 0;"><i class="fas fa-calculator"></i> Calculator</h3>
+                        <button onclick="window.toolManager.closeTool()" style="background: none; border: none; color: white; font-size: 24px; cursor: pointer;">&times;</button>
+                    </div>
+                    <div class="modal-body" style="padding: 20px;">
+                        <div class="calculator-container">
+                            <div id="calcDisplay" class="calculator-display" style="background: #f8f9fa; padding: 15px; text-align: right; font-size: 24px; margin-bottom: 15px; border-radius: 5px;">0</div>
+                            <div class="calculator-buttons" id="calcButtons" style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 5px;"></div>
                         </div>
                     </div>
                 </div>
             </div>
-        </div>
 
-        <!-- Graph Modal -->
-        <div id="graphModal" class="modal-overlay">
-            <div class="modal-container">
-                <div class="modal-header">
-                    <h2><i class="fas fa-chart-line"></i> Graph Tool</h2>
-                    <button class="modal-close" onclick="window.toolManager.closeTool()">&times;</button>
-                </div>
-                <div class="modal-body">
-                    <div class="graph-container">
-                        <div class="graph-controls">
-                            <input type="text" id="graphExpression" class="graph-input" placeholder="e.g., x^2, 2x+1, x^3-2x" value="x^2">
-                            <button id="plotGraphBtn" class="graph-btn primary">Plot</button>
-                            <button id="clearGraphBtn" class="graph-btn">Clear</button>
-                            <button id="saveGraphBtn" class="graph-btn success">Save</button>
-                            <button id="graphDarkMode" class="graph-btn">🌙 Dark</button>
+            <!-- Graph Modal -->
+            <div id="graphModal" class="modal-overlay" style="display: none;">
+                <div class="modal-container" style="background: white; border-radius: 10px; max-width: 800px; width: 90%;">
+                    <div class="modal-header" style="background: #7a0000; color: white; padding: 15px 20px; border-radius: 10px 10px 0 0; display: flex; justify-content: space-between; align-items: center;">
+                        <h3 style="margin: 0;"><i class="fas fa-chart-line"></i> Graph Tool</h3>
+                        <button onclick="window.toolManager.closeTool()" style="background: none; border: none; color: white; font-size: 24px; cursor: pointer;">&times;</button>
+                    </div>
+                    <div class="modal-body" style="padding: 20px;">
+                        <div class="graph-controls" style="margin-bottom: 15px;">
+                            <input type="text" id="graphExpression" placeholder="e.g., x^2, 2x+1" style="width: 70%; padding: 8px;">
+                            <button onclick="window.toolManager.tools.graph.plot()" style="padding: 8px 15px; background: #7a0000; color: white; border: none; border-radius: 5px;">Plot</button>
                         </div>
-                        <div class="graph-range-controls">
-                            <label>X Min: <input type="number" id="graphMinRange" value="-10" step="1"></label>
-                            <label>X Max: <input type="number" id="graphMaxRange" value="10" step="1"></label>
-                        </div>
-                        <canvas id="graphCanvas" class="graph-canvas" width="600" height="400"></canvas>
-                        <div id="graphRoots" class="graph-roots"></div>
+                        <canvas id="graphCanvas" width="600" height="400" style="border: 1px solid #ddd; width: 100%; height: auto;"></canvas>
                     </div>
                 </div>
             </div>
-        </div>
 
-        <!-- Whiteboard Modal -->
-        <div id="whiteboardModal" class="modal-overlay">
-            <div class="modal-container">
-                <div class="modal-header">
-                    <h2><i class="fas fa-paint-brush"></i> Whiteboard</h2>
-                    <button class="modal-close" onclick="window.toolManager.closeTool()">&times;</button>
-                </div>
-                <div class="modal-body">
-                    <div class="whiteboard-container">
-                        <div class="whiteboard-toolbar">
-                            <button class="whiteboard-btn" onclick="window.toolManager.tools.whiteboard.setTool('pen')">✏️ Pen</button>
-                            <button class="whiteboard-btn" onclick="window.toolManager.tools.whiteboard.setTool('eraser')">🧽 Eraser</button>
-                            <input type="color" id="colorPicker" class="color-picker" value="#667eea">
-                            <button class="whiteboard-btn" onclick="window.toolManager.tools.whiteboard.clear()">🗑️ Clear</button>
+            <!-- Whiteboard Modal -->
+            <div id="whiteboardModal" class="modal-overlay" style="display: none;">
+                <div class="modal-container" style="background: white; border-radius: 10px; max-width: 800px; width: 90%;">
+                    <div class="modal-header" style="background: #7a0000; color: white; padding: 15px 20px; border-radius: 10px 10px 0 0; display: flex; justify-content: space-between; align-items: center;">
+                        <h3 style="margin: 0;"><i class="fas fa-paint-brush"></i> Whiteboard</h3>
+                        <button onclick="window.toolManager.closeTool()" style="background: none; border: none; color: white; font-size: 24px; cursor: pointer;">&times;</button>
+                    </div>
+                    <div class="modal-body" style="padding: 20px;">
+                        <div class="whiteboard-toolbar" style="margin-bottom: 10px;">
+                            <button onclick="window.toolManager.tools.whiteboard.setTool('pen')">✏️ Pen</button>
+                            <button onclick="window.toolManager.tools.whiteboard.setTool('eraser')">🧽 Eraser</button>
+                            <input type="color" id="colorPicker" value="#000000">
+                            <button onclick="window.toolManager.tools.whiteboard.clear()">🗑️ Clear</button>
                         </div>
-                        <canvas id="whiteboardCanvas" class="whiteboard-canvas"></canvas>
+                        <canvas id="whiteboardCanvas" width="600" height="400" style="border: 1px solid #ddd; width: 100%; height: auto;"></canvas>
                     </div>
                 </div>
             </div>
-        </div>
 
-        <!-- Notepad Modal -->
-        <div id="notepadModal" class="modal-overlay">
-            <div class="modal-container">
-                <div class="modal-header">
-                    <h2><i class="fas fa-sticky-note"></i> Notepad</h2>
-                    <button class="modal-close" onclick="window.toolManager.closeTool()">&times;</button>
-                </div>
-                <div class="modal-body">
-                    <div class="notepad-container">
-                        <div class="notepad-header">
-                            <input type="text" id="noteTitle" class="notepad-title" placeholder="Note title...">
-                            <button class="notepad-btn" onclick="window.toolManager.tools.notepad.save()">💾 Save</button>
-                            <button class="notepad-btn" onclick="window.toolManager.tools.notepad.clear()">📝 New</button>
-                        </div>
-                        <textarea id="noteContent" class="notepad-textarea" placeholder="Write your notes here..."></textarea>
+            <!-- Notepad Modal -->
+            <div id="notepadModal" class="modal-overlay" style="display: none;">
+                <div class="modal-container" style="background: white; border-radius: 10px; max-width: 500px; width: 90%;">
+                    <div class="modal-header" style="background: #7a0000; color: white; padding: 15px 20px; border-radius: 10px 10px 0 0; display: flex; justify-content: space-between; align-items: center;">
+                        <h3 style="margin: 0;"><i class="fas fa-sticky-note"></i> Notepad</h3>
+                        <button onclick="window.toolManager.closeTool()" style="background: none; border: none; color: white; font-size: 24px; cursor: pointer;">&times;</button>
+                    </div>
+                    <div class="modal-body" style="padding: 20px;">
+                        <input type="text" id="noteTitle" placeholder="Note title" style="width: 100%; padding: 8px; margin-bottom: 10px;">
+                        <textarea id="noteContent" placeholder="Write your notes here..." rows="10" style="width: 100%; padding: 8px;"></textarea>
+                        <button onclick="window.toolManager.tools.notepad.save()" style="margin-top: 10px; padding: 8px 15px; background: #7a0000; color: white; border: none; border-radius: 5px;">Save Note</button>
                     </div>
                 </div>
             </div>
-        </div>
 
-        <!-- Formula Sheet Modal -->
-        <div id="formulaModal" class="modal-overlay">
-            <div class="modal-container">
-                <div class="modal-header">
-                    <h2><i class="fas fa-book"></i> Formula Sheet</h2>
-                    <button class="modal-close" onclick="window.toolManager.closeTool()">&times;</button>
-                </div>
-                <div class="modal-body">
-                    <div class="formula-container">
-                        <div class="formula-categories">
-                            <button class="formula-category-btn active" onclick="window.toolManager.tools.formula.showCategory('polynomial')">Polynomials</button>
-                            <button class="formula-category-btn" onclick="window.toolManager.tools.formula.showCategory('algebra')">Algebra</button>
-                            <button class="formula-category-btn" onclick="window.toolManager.tools.formula.showCategory('calculus')">Calculus</button>
+            <!-- Formula Sheet Modal -->
+            <div id="formulaModal" class="modal-overlay" style="display: none;">
+                <div class="modal-container" style="background: white; border-radius: 10px; max-width: 600px; width: 90%;">
+                    <div class="modal-header" style="background: #7a0000; color: white; padding: 15px 20px; border-radius: 10px 10px 0 0; display: flex; justify-content: space-between; align-items: center;">
+                        <h3 style="margin: 0;"><i class="fas fa-book"></i> Formula Sheet</h3>
+                        <button onclick="window.toolManager.closeTool()" style="background: none; border: none; color: white; font-size: 24px; cursor: pointer;">&times;</button>
+                    </div>
+                    <div class="modal-body" style="padding: 20px;">
+                        <div class="formula-categories" style="margin-bottom: 15px;">
+                            <button onclick="window.toolManager.tools.formula.showCategory('polynomial')">Polynomials</button>
+                            <button onclick="window.toolManager.tools.formula.showCategory('algebra')">Algebra</button>
+                            <button onclick="window.toolManager.tools.formula.showCategory('calculus')">Calculus</button>
                         </div>
                         <div id="formulaList" class="formula-list"></div>
                     </div>
                 </div>
             </div>
-        </div>
 
-        <!-- Timer Modal - FIXED VERSION -->
-        <div id="timerModal" class="modal-overlay">
-            <div class="modal-container">
-                <div class="modal-header">
-                    <h2><i class="fas fa-stopwatch"></i> Study Timer</h2>
-                    <button class="modal-close" onclick="window.toolManager.closeTool()">&times;</button>
-                </div>
-                <div class="modal-body">
-                    <div class="timer-container">
-                        <div id="timerDisplay" class="timer-display">25:00</div>
-                        <div class="timer-controls">
-    <button class="timer-btn start" onclick="window.toolManager.startTimer()">
-        <i class="fas fa-play"></i> Start
-    </button>
-    <button class="timer-btn pause" onclick="window.toolManager.pauseTimer()">
-        <i class="fas fa-pause"></i> Pause
-    </button>
-    <button class="timer-btn reset" onclick="window.toolManager.resetTimer()">
-        <i class="fas fa-redo"></i> Reset
-    </button>
-</div>
-                        <div class="timer-presets">
-                            <button class="timer-preset" id="timer15min">15 min</button>
-                            <button class="timer-preset" id="timer25min">25 min</button>
-                            <button class="timer-preset" id="timer50min">50 min</button>
+            <!-- Timer Modal -->
+            <div id="timerModal" class="modal-overlay" style="display: none;">
+                <div class="modal-container" style="background: white; border-radius: 10px; max-width: 400px; width: 90%;">
+                    <div class="modal-header" style="background: #7a0000; color: white; padding: 15px 20px; border-radius: 10px 10px 0 0; display: flex; justify-content: space-between; align-items: center;">
+                        <h3 style="margin: 0;"><i class="fas fa-stopwatch"></i> Study Timer</h3>
+                        <button onclick="window.toolManager.closeTool()" style="background: none; border: none; color: white; font-size: 24px; cursor: pointer;">&times;</button>
+                    </div>
+                    <div class="modal-body" style="padding: 20px;">
+                        <div id="timerDisplay" class="timer-display" style="font-size: 48px; text-align: center; margin: 20px 0;">25:00</div>
+                        <div class="timer-controls" style="display: flex; gap: 10px; justify-content: center;">
+                            <button onclick="window.toolManager.startTimer()" style="padding: 10px 20px; background: #27ae60; color: white; border: none; border-radius: 5px;">Start</button>
+                            <button onclick="window.toolManager.pauseTimer()" style="padding: 10px 20px; background: #f39c12; color: white; border: none; border-radius: 5px;">Pause</button>
+                            <button onclick="window.toolManager.resetTimer()" style="padding: 10px 20px; background: #e74c3c; color: white; border: none; border-radius: 5px;">Reset</button>
+                        </div>
+                        <div class="timer-presets" style="display: flex; gap: 10px; justify-content: center; margin-top: 15px;">
+                            <button onclick="window.toolManager.tools.timer.setTime(15)" style="padding: 5px 10px;">15 min</button>
+                            <button onclick="window.toolManager.tools.timer.setTime(25)" style="padding: 5px 10px;">25 min</button>
+                            <button onclick="window.toolManager.tools.timer.setTime(50)" style="padding: 5px 10px;">50 min</button>
                         </div>
                     </div>
                 </div>
             </div>
-        </div>
-    `;
-}
+        `;
+        
+        console.log('✅ Tool modals created');
+    }
 
     initializeTools() {
-    this.tools = {
-        calculator: new Calculator(),
-        whiteboard: new Whiteboard(),
-        notepad: new Notepad(),
-        formula: new FormulaSheet(),
-        timer: new StudyTimer(),
-        graph: new GraphTool()  // ← ADD THIS LINE
-    };
-}
+        console.log('🔧 Initializing tool instances...');
+        this.tools = {
+            calculator: new Calculator(),
+            whiteboard: new Whiteboard(),
+            notepad: new Notepad(),
+            formula: new FormulaSheet(),
+            timer: new StudyTimer(),
+            graph: new GraphTool()
+        };
+    }
 
     setupEventListeners() {
-        // Close modals when clicking outside
         window.addEventListener('click', (e) => {
             if (e.target.classList.contains('modal-overlay')) {
                 this.closeTool();
             }
         });
 
-        // Keyboard shortcut: ESC to close
         document.addEventListener('keydown', (e) => {
             if (e.key === 'Escape') {
                 this.closeTool();
@@ -27055,98 +27039,74 @@ class ToolManager {
     }
 
     openTool(toolName) {
-    console.log(`🔧 Opening tool: ${toolName}`);
-    this.closeTool(); // Close any open tool first
-    
-    const modal = document.getElementById(`${toolName}Modal`);
-    if (modal) {
-        console.log(`✅ Found modal: ${toolName}Modal`);
+        console.log(`🔧 Opening tool: ${toolName}`);
         
-        // Force display style
-        modal.style.display = 'flex';
-        modal.classList.add('active');
+        // Close any open tool first
+        this.closeTool();
         
-        this.currentTool = toolName;
-        
-        // Initialize tool when opened
-        if (this.tools[toolName] && typeof this.tools[toolName].onOpen === 'function') {
-            console.log(`🎯 Calling onOpen for ${toolName}`);
-            setTimeout(() => {
-                this.tools[toolName].onOpen();
-            }, 100);
+        const modal = document.getElementById(`${toolName}Modal`);
+        if (modal) {
+            // Force show modal
+            modal.style.display = 'flex';
+            modal.style.position = 'fixed';
+            modal.style.top = '0';
+            modal.style.left = '0';
+            modal.style.width = '100%';
+            modal.style.height = '100%';
+            modal.style.backgroundColor = 'rgba(0, 0, 0, 0.7)';
+            modal.style.zIndex = '10000';
+            modal.style.alignItems = 'center';
+            modal.style.justifyContent = 'center';
+            
+            modal.classList.add('active');
+            this.currentTool = toolName;
+            
+            // Initialize tool when opened
+            if (this.tools[toolName] && typeof this.tools[toolName].onOpen === 'function') {
+                setTimeout(() => {
+                    try {
+                        this.tools[toolName].onOpen();
+                    } catch (e) {
+                        console.error(`Error opening ${toolName}:`, e);
+                    }
+                }, 100);
+            }
+            
+            console.log(`✅ ${toolName} opened successfully`);
+        } else {
+            console.error(`❌ Modal not found: ${toolName}Modal`);
         }
-        
-        // Log tool usage
-        this.logToolUsage(toolName);
-        console.log(`✅ ${toolName} opened successfully`);
-    } else {
-        console.error(`❌ Modal not found: ${toolName}Modal`);
     }
-}
 
     closeTool() {
-    console.log('🔧 Closing current tool');
-    document.querySelectorAll('.modal-overlay').forEach(modal => {
-        modal.style.display = 'none';
-        modal.classList.remove('active');
-    });
-    this.currentTool = null;
-}
-
-// Bridge methods for timer
-startTimer() {
-    console.log('▶️ Timer start called via bridge');
-    if (this.tools && this.tools.timer) {
-        this.tools.timer.start();
-    } else {
-        console.error('Timer tool not initialized');
-        // Initialize timer if not exists
-        if (!this.tools) this.tools = {};
-        this.tools.timer = new StudyTimer();
-        setTimeout(() => this.tools.timer.start(), 100);
+        console.log('🔧 Closing current tool');
+        document.querySelectorAll('.modal-overlay').forEach(modal => {
+            modal.style.display = 'none';
+            modal.classList.remove('active');
+        });
+        this.currentTool = null;
     }
-}
 
-pauseTimer() {
-    console.log('⏸️ Timer pause called via bridge');
-    if (this.tools && this.tools.timer) {
-        this.tools.timer.pause();
-    } else {
-        console.error('Timer tool not initialized');
+    // Timer bridge methods
+    startTimer() {
+        if (this.tools && this.tools.timer) {
+            this.tools.timer.start();
+        }
     }
-}
 
-resetTimer() {
-    console.log('🔄 Timer reset called via bridge');
-    if (this.tools && this.tools.timer) {
-        this.tools.timer.reset();
-    } else {
-        console.error('Timer tool not initialized');
+    pauseTimer() {
+        if (this.tools && this.tools.timer) {
+            this.tools.timer.pause();
+        }
     }
-}
 
-    async logToolUsage(toolName) {
-        try {
-            const token = localStorage.getItem('token');
-            if (!token) return;
-
-            await fetch('/api/progress/log-activity', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${token}`
-                },
-                body: JSON.stringify({
-                    activity_type: 'tool_used',
-                    related_id: null,
-                    details: { tool: toolName }
-                })
-            });
-        } catch (error) {
-            console.log('Failed to log tool usage:', error);
+    resetTimer() {
+        if (this.tools && this.tools.timer) {
+            this.tools.timer.reset();
         }
     }
 }
+   
 
 // ========================================
 // CALCULATOR TOOL - FIXED VERSION
