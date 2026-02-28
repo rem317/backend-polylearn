@@ -25066,13 +25066,4 @@ async function debugSubjectData() {
     }
 }
 
-error
-adminscript.js:7563 Uncaught ReferenceError: loadSubjectAnalytics is not defined
-    at adminscript.js:7563:9
 
-adminscript.js:16400 Uncaught (in promise) TypeError: window.lessonPopularityChart.destroy is not a function
-    at loadLessonPopularityData (adminscript.js:16400:38)
-    at adminscript.js:16587:9
-adminscript.js:16400 Uncaught (in promise) TypeError: window.lessonPopularityChart.destroy is not a function
-    at loadLessonPopularityData (adminscript.js:16400:38)
-    at adminscript.js:7562:9
