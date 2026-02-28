@@ -1034,7 +1034,7 @@ class GraphTool {
 }
 
 // ========================================
-// WHITEBOARD TOOL - FIXED VERSION
+// WHITEBOARD TOOL - ULTIMATE FIXED VERSION
 // ========================================
 class Whiteboard {
     constructor() {
@@ -1042,88 +1042,260 @@ class Whiteboard {
         this.ctx = null;
         this.drawing = false;
         this.currentTool = 'pen';
-        this.color = '#667eea';
+        this.color = '#7a0000'; // Default maroon color
+        this.lineWidth = 2;
+        this.lastX = 0;
+        this.lastY = 0;
     }
 
     onOpen() {
-        setTimeout(() => {
-            this.canvas = document.getElementById('whiteboardCanvas');
-            if (this.canvas) {
-                this.ctx = this.canvas.getContext('2d');
-                this.setupCanvas();
-                this.setupEventListeners();
-            }
-        }, 100);
+        console.log('🎨 Whiteboard opened - initializing...');
+        
+        // Try multiple times to find and setup canvas
+        setTimeout(() => this.setupCanvas(), 100);
+        setTimeout(() => this.setupCanvas(), 300);
+        setTimeout(() => this.setupCanvas(), 500);
     }
 
     setupCanvas() {
-        // Set canvas size
-        this.canvas.width = this.canvas.offsetWidth;
-        this.canvas.height = this.canvas.offsetHeight;
+        this.canvas = document.getElementById('whiteboardCanvas');
         
-        // Set styles
-        this.ctx.strokeStyle = this.color;
-        this.ctx.lineWidth = 2;
-        this.ctx.lineCap = 'round';
-        this.ctx.lineJoin = 'round';
+        if (!this.canvas) {
+            console.error('❌ Whiteboard canvas not found!');
+            
+            // Try to find canvas inside active modal
+            const activeModal = document.querySelector('.modal-overlay.active, .modal-overlay[style*="display: flex"]');
+            if (activeModal) {
+                this.canvas = activeModal.querySelector('#whiteboardCanvas');
+            }
+        }
+        
+        if (this.canvas) {
+            console.log('✅ Whiteboard canvas found');
+            
+            // Set canvas size to match container
+            const container = this.canvas.parentElement;
+            if (container) {
+                this.canvas.width = container.clientWidth - 40; // Subtract padding
+                this.canvas.height = container.clientHeight - 100; // Leave space for controls
+            } else {
+                this.canvas.width = 600;
+                this.canvas.height = 400;
+            }
+            
+            this.ctx = this.canvas.getContext('2d');
+            
+            // Set styles
+            this.ctx.strokeStyle = this.color;
+            this.ctx.lineWidth = this.lineWidth;
+            this.ctx.lineCap = 'round';
+            this.ctx.lineJoin = 'round';
+            
+            // Clear canvas (set white background)
+            this.ctx.fillStyle = '#ffffff';
+            this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+            
+            this.setupEventListeners();
+            
+            console.log('✅ Whiteboard initialized with size:', this.canvas.width, 'x', this.canvas.height);
+        } else {
+            console.error('❌ Still cannot find whiteboard canvas');
+        }
     }
 
     setupEventListeners() {
+        if (!this.canvas || !this.ctx) return;
+        
+        // Remove old listeners first
+        this.canvas.removeEventListener('mousedown', this.startDrawing.bind(this));
+        this.canvas.removeEventListener('mousemove', this.draw.bind(this));
+        this.canvas.removeEventListener('mouseup', this.stopDrawing.bind(this));
+        this.canvas.removeEventListener('mouseout', this.stopDrawing.bind(this));
+        
+        // Add new listeners
         this.canvas.addEventListener('mousedown', this.startDrawing.bind(this));
         this.canvas.addEventListener('mousemove', this.draw.bind(this));
         this.canvas.addEventListener('mouseup', this.stopDrawing.bind(this));
         this.canvas.addEventListener('mouseout', this.stopDrawing.bind(this));
-
-        // FIXED: Safely add color picker event listener
+        
+        // Setup color picker
         const colorPicker = document.getElementById('colorPicker');
         if (colorPicker) {
-            colorPicker.addEventListener('input', (e) => {
-                this.color = e.target.value;
-                if (this.ctx) {
-                    this.ctx.strokeStyle = this.color;
-                }
-            });
+            colorPicker.removeEventListener('input', this.handleColorChange.bind(this));
+            colorPicker.addEventListener('input', this.handleColorChange.bind(this));
         } else {
-            console.warn('Color picker element not found');
+            console.warn('⚠️ Color picker not found');
+        }
+        
+        // Setup clear button
+        const clearBtn = document.querySelector('button[onclick*="clear"]');
+        if (clearBtn) {
+            clearBtn.removeEventListener('click', this.clear.bind(this));
+            clearBtn.addEventListener('click', this.clear.bind(this));
+        }
+        
+        // Setup pen/eraser buttons
+        const penBtn = document.querySelector('button[onclick*="setTool"][onclick*="pen"]');
+        if (penBtn) {
+            penBtn.removeEventListener('click', () => this.setTool('pen'));
+            penBtn.addEventListener('click', () => this.setTool('pen'));
+        }
+        
+        const eraserBtn = document.querySelector('button[onclick*="setTool"][onclick*="eraser"]');
+        if (eraserBtn) {
+            eraserBtn.removeEventListener('click', () => this.setTool('eraser'));
+            eraserBtn.addEventListener('click', () => this.setTool('eraser'));
+        }
+        
+        console.log('✅ Whiteboard event listeners set up');
+    }
+
+    handleColorChange(e) {
+        this.color = e.target.value;
+        if (this.currentTool === 'pen' && this.ctx) {
+            this.ctx.strokeStyle = this.color;
         }
     }
 
     startDrawing(e) {
+        if (!this.ctx || !this.canvas) return;
+        
         this.drawing = true;
+        
+        // Get mouse position relative to canvas
+        const rect = this.canvas.getBoundingClientRect();
+        const scaleX = this.canvas.width / rect.width;
+        const scaleY = this.canvas.height / rect.height;
+        
+        this.lastX = (e.clientX - rect.left) * scaleX;
+        this.lastY = (e.clientY - rect.top) * scaleY;
+        
         this.ctx.beginPath();
-        this.ctx.moveTo(e.offsetX, e.offsetY);
+        this.ctx.moveTo(this.lastX, this.lastY);
     }
 
     draw(e) {
-        if (!this.drawing) return;
+        if (!this.drawing || !this.ctx || !this.canvas) return;
+        
+        e.preventDefault();
+        
+        // Get mouse position relative to canvas
+        const rect = this.canvas.getBoundingClientRect();
+        const scaleX = this.canvas.width / rect.width;
+        const scaleY = this.canvas.height / rect.height;
+        
+        const currentX = (e.clientX - rect.left) * scaleX;
+        const currentY = (e.clientY - rect.top) * scaleY;
         
         if (this.currentTool === 'pen') {
-            this.ctx.lineTo(e.offsetX, e.offsetY);
+            this.ctx.lineTo(currentX, currentY);
             this.ctx.stroke();
         } else if (this.currentTool === 'eraser') {
-            this.ctx.clearRect(e.offsetX - 10, e.offsetY - 10, 20, 20);
+            // Eraser - draw white lines
+            this.ctx.save();
+            this.ctx.strokeStyle = '#ffffff';
+            this.ctx.lineWidth = 20;
+            this.ctx.lineTo(currentX, currentY);
+            this.ctx.stroke();
+            this.ctx.restore();
+            
+            // Reset pen color for next pen stroke
+            if (this.ctx) {
+                this.ctx.strokeStyle = this.color;
+                this.ctx.lineWidth = this.lineWidth;
+            }
         }
+        
+        this.lastX = currentX;
+        this.lastY = currentY;
     }
 
     stopDrawing() {
         this.drawing = false;
+        if (this.ctx) {
+            this.ctx.closePath();
+        }
     }
 
     setTool(tool) {
         this.currentTool = tool;
+        console.log(`🖌️ Tool changed to: ${tool}`);
+        
         if (tool === 'pen') {
-            this.ctx.strokeStyle = this.color;
-            this.ctx.lineWidth = 2;
-        } else {
-            this.ctx.strokeStyle = '#ffffff';
-            this.ctx.lineWidth = 20;
+            this.lineWidth = 2;
+            if (this.ctx) {
+                this.ctx.strokeStyle = this.color;
+                this.ctx.lineWidth = this.lineWidth;
+            }
+        } else if (tool === 'eraser') {
+            this.lineWidth = 20;
+            if (this.ctx) {
+                this.ctx.strokeStyle = '#ffffff';
+                this.ctx.lineWidth = this.lineWidth;
+            }
         }
     }
 
     clear() {
-        this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+        if (!this.ctx || !this.canvas) return;
+        
+        console.log('🧹 Clearing whiteboard');
+        
+        // Clear entire canvas
+        this.ctx.fillStyle = '#ffffff';
+        this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+        
+        // Reset pen settings
+        this.ctx.strokeStyle = this.color;
+        this.ctx.lineWidth = this.lineWidth;
+        this.ctx.lineCap = 'round';
+        this.ctx.lineJoin = 'round';
+        
+        this.drawing = false;
     }
 }
+
+// ============================================
+// EMERGENCY FIX: Direct whiteboard button handler
+// ============================================
+document.addEventListener('DOMContentLoaded', function() {
+    const whiteboardBtn = document.getElementById('openWhiteboard');
+    
+    if (whiteboardBtn) {
+        whiteboardBtn.addEventListener('click', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            
+            console.log('🎨 Opening whiteboard');
+            
+            const modal = document.getElementById('whiteboardModal');
+            
+            if (modal) {
+                // Hide all modals first
+                document.querySelectorAll('.modal-overlay').forEach(m => {
+                    m.style.display = 'none';
+                    m.classList.remove('active');
+                });
+                
+                // Show whiteboard modal
+                modal.style.display = 'flex';
+                modal.classList.add('active');
+                
+                // Initialize whiteboard
+                setTimeout(() => {
+                    if (window.toolManager && window.toolManager.tools && window.toolManager.tools.whiteboard) {
+                        window.toolManager.tools.whiteboard.onOpen();
+                    } else {
+                        // Emergency direct initialization
+                        const whiteboard = new Whiteboard();
+                        window.tempWhiteboard = whiteboard;
+                        whiteboard.onOpen();
+                    }
+                }, 200);
+            }
+        });
+    }
+});
 
 // ========================================
 // NOTEPAD TOOL
