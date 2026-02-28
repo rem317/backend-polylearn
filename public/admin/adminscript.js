@@ -23688,7 +23688,7 @@ function refreshPracticeData() {
     loadAdminPracticeExercises();
 }
 
-// ===== UPDATED: Open Create Practice Modal with Lessons Loaded into Topic Dropdown =====
+// ===== UPDATED: Open Create Practice Modal with teacher dropdown =====
 function openCreatePracticeModal() {
     console.log("📝 Opening create practice modal...");
     
@@ -23698,7 +23698,7 @@ function openCreatePracticeModal() {
     // Reset form
     document.getElementById('practiceTitle').value = '';
     document.getElementById('practiceDescription').value = '';
-    document.getElementById('practiceTopic').value = ''; // Topic dropdown, pero lessons ang laman
+    document.getElementById('practiceTopic').value = '';
     document.getElementById('practiceDifficulty').value = 'medium';
     document.getElementById('practiceType').value = 'multiple-choice';
     document.getElementById('practicePoints').value = '10';
@@ -23729,9 +23729,10 @@ function openCreatePracticeModal() {
         loadTeachersForAssignment();
     }, 300);
     
-    // ===== IMPORTANT: Load LESSONS into the TOPIC dropdown =====
+    // Load topics
     loadPracticeTopics();
 }
+
 
 // ===== REPLACE THIS ENTIRE FUNCTION =====
 // ===== LOAD PRACTICE TOPICS FROM DATABASE - NOW FETCHES ALL LESSONS =====
@@ -23990,24 +23991,23 @@ function deletePracticeExercise(exerciseId) {
 
 
 // ===== SAVE PRACTICE EXERCISE TO DATABASE WITH TEACHER ASSIGNMENT - FIXED URL =====
-// ===== UPDATE: Save practice exercise with lesson_id =====
 async function savePracticeExercise() {
     console.log("💾 ===== SAVING PRACTICE EXERCISE TO DATABASE =====");
     
     // Get form values
     const title = document.getElementById('practiceTitle')?.value.trim();
     const description = document.getElementById('practiceDescription')?.value.trim();
-    const lessonId = document.getElementById('practiceTopic')?.value; // Ito ay lesson ID na
+    const topicId = document.getElementById('practiceTopic')?.value;
     const difficulty = document.getElementById('practiceDifficulty')?.value;
-    let contentType = document.getElementById('practiceType')?.value;
+    let contentType = document.getElementById('practiceType')?.value; // 'multiple-choice', 'true-false', 'fill-blank'
     const points = parseInt(document.getElementById('practicePoints')?.value) || 10;
-    const status = document.getElementById('practiceStatus')?.value;
+    const status = document.getElementById('practiceStatus')?.value; // 'active', 'draft', 'inactive'
     const practiceId = document.getElementById('practiceId')?.value;
     
-    // ===== GET ASSIGNED TEACHER =====
+    // ===== GET ASSIGNED TEACHER (NEW) =====
     const assignedTeacherId = document.getElementById('practiceAssignedTeacherId')?.value;
     
-    // ===== FIX: Convert hyphenated values =====
+    // ===== FIX: Convert hyphenated values to underscore format for database ENUM =====
     const contentTypeMap = {
         'multiple-choice': 'multiple_choice',
         'true-false': 'fill_blank',
@@ -24021,7 +24021,7 @@ async function savePracticeExercise() {
     
     console.log('📝 Practice data:', { 
         title, 
-        lessonId,  // lessonId na ito
+        topicId, 
         difficulty, 
         originalType: contentType,
         mappedType: dbContentType,
@@ -24037,14 +24037,17 @@ async function savePracticeExercise() {
         return;
     }
     
-    if (!lessonId) {
-        showNotification('error', 'Error', 'Please select a topic (lesson)');
+    if (!topicId) {
+        showNotification('error', 'Error', 'Please select a topic');
         return;
     }
     
-    // ===== COLLECT QUESTIONS (same as before) =====
+    // ===== COLLECT QUESTIONS =====
+    console.log("📝 Collecting questions...");
     const questions = [];
     const questionItems = document.querySelectorAll('.practice-question-item');
+    
+    console.log(`📝 Found ${questionItems.length} questions`);
     
     if (questionItems.length === 0) {
         showNotification('error', 'Error', 'Please add at least one question');
@@ -24055,12 +24058,14 @@ async function savePracticeExercise() {
         const q = questionItems[i];
         const qId = i + 1;
         
+        // Get question text
         const questionText = document.getElementById(`practice_q_${qId}_text`)?.value.trim();
         if (!questionText) {
             showNotification('error', 'Error', `Please enter question ${qId} text`);
             return;
         }
         
+        // Get correct answer
         const correctRadio = document.querySelector(`input[name="practice_q_${qId}_correct"]:checked`);
         if (!correctRadio) {
             showNotification('error', 'Error', `Please select correct answer for question ${qId}`);
@@ -24068,6 +24073,7 @@ async function savePracticeExercise() {
         }
         const correctLetter = correctRadio.value;
         
+        // Collect options
         const options = [];
         const optionLetters = ['a', 'b', 'c', 'd', 'e', 'f'];
         
@@ -24105,7 +24111,7 @@ async function savePracticeExercise() {
     const practiceData = {
         title: title,
         description: description || '',
-        lesson_id: parseInt(lessonId),  // lesson_id ang ipapadala
+        topic_id: parseInt(topicId),
         difficulty: difficulty || 'medium',
         content_type: dbContentType,
         points: points,
@@ -24113,13 +24119,17 @@ async function savePracticeExercise() {
         is_active: isActive
     };
     
+    // ===== ADD TEACHER ASSIGNMENT IF SELECTED =====
     if (assignedTeacherId) {
         practiceData.assigned_teacher_id = parseInt(assignedTeacherId);
+        console.log(`👨‍🏫 Practice will be assigned to teacher ID: ${assignedTeacherId}`);
     }
     
     if (practiceId) {
         practiceData.exercise_id = parseInt(practiceId);
     }
+    
+    console.log("📤 Sending practice data:", practiceData);
     
     try {
         const token = localStorage.getItem('admin_token') || localStorage.getItem('authToken');
@@ -24129,6 +24139,7 @@ async function savePracticeExercise() {
             return;
         }
         
+        // Show loading
         const saveBtn = document.querySelector('#createPracticeModal .btn-primary');
         const originalText = saveBtn?.innerHTML;
         if (saveBtn) {
@@ -24136,9 +24147,13 @@ async function savePracticeExercise() {
             saveBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Saving...';
         }
         
+        // ✅ FIXED: Use proper URL construction
+        const baseUrl = `/api/admin/users`; // API_BASE_URL is usually empty string for relative URLs
         const url = practiceId 
             ? `/api/admin/practice/${practiceId}`
-            : `/api/admin/practice`;
+            : `/api/admin/practice`;  // Use relative URL directly for new entries
+        
+        console.log(`📡 Sending ${practiceId ? 'PUT' : 'POST'} request to:`, url);
         
         const response = await fetch(url, {
             method: practiceId ? 'PUT' : 'POST',
@@ -24150,6 +24165,7 @@ async function savePracticeExercise() {
         });
         
         const result = await response.json();
+        console.log('📥 Server response:', result);
         
         if (!response.ok) {
             throw new Error(result.message || `Server error: ${response.status}`);
@@ -24182,6 +24198,7 @@ async function savePracticeExercise() {
         }
     }
 }
+
 
 // ===== VIEW PRACTICE EXERCISE - WITH DISPLAY FUNCTION =====
 async function viewPracticeExercise(exerciseId) {
@@ -24267,7 +24284,7 @@ function handleTokenExpired() {
     }, 1500);
 }
 
-// ===== UPDATE: Edit practice exercise to work with lessons =====
+// ===== EDIT PRACTICE EXERCISE - WITH TOKEN =====
 async function editPracticeExercise(exerciseId) {
     console.log("✏️ Editing practice exercise:", exerciseId);
     
@@ -24304,7 +24321,7 @@ async function editPracticeExercise(exerciseId) {
         if (result.success && result.exercise) {
             const exercise = result.exercise;
             
-            // Open create modal
+            // Open create modal (reuse the same modal)
             openCreatePracticeModal();
             
             // Change title to Edit mode
@@ -24316,30 +24333,15 @@ async function editPracticeExercise(exerciseId) {
             document.getElementById('practiceTitle').value = exercise.title || '';
             document.getElementById('practiceDescription').value = exercise.description || '';
             
-            // Set topic (lesson) if available
-            if (exercise.topic_id || exercise.lesson_id) {
-                // Wait for lessons to load (mas matagal na delay para sigurado)
+            // Set topic if available
+            if (exercise.topic_id) {
+                // Wait for topics to load
                 setTimeout(() => {
                     const topicSelect = document.getElementById('practiceTopic');
                     if (topicSelect) {
-                        // Try to set by lesson_id or topic_id
-                        const valueToSet = exercise.lesson_id || exercise.topic_id;
-                        topicSelect.value = valueToSet;
-                        
-                        // If value not found, try to find by title
-                        if (!topicSelect.value) {
-                            for (let i = 0; i < topicSelect.options.length; i++) {
-                                const option = topicSelect.options[i];
-                                if (option.text.includes(exercise.title?.substring(0, 20))) {
-                                    option.selected = true;
-                                    break;
-                                }
-                            }
-                        }
-                        
-                        console.log(`📌 Selected lesson value: ${topicSelect.value}`);
+                        topicSelect.value = exercise.topic_id;
                     }
-                }, 1000);
+                }, 500);
             }
             
             document.getElementById('practiceDifficulty').value = exercise.difficulty || 'medium';
@@ -24356,7 +24358,7 @@ async function editPracticeExercise(exerciseId) {
                     // Add question field
                     addPracticeQuestion();
                     
-                    // Fill question data
+                    // Fill question data (with delay for DOM to update)
                     setTimeout(() => {
                         const qNum = index + 1;
                         
@@ -24399,6 +24401,7 @@ async function editPracticeExercise(exerciseId) {
         showNotification('error', 'Error', error.message);
     }
 }
+
 
 // ===== DELETE PRACTICE EXERCISE - FIXED =====
 async function deletePracticeExercise(exerciseId) {
