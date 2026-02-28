@@ -23730,7 +23730,7 @@ function openCreatePracticeModal() {
     }, 300);
     
     // ===== IMPORTANT: Load LESSONS into the TOPIC dropdown =====
-    loadPracticeLessons();
+    loadPracticeTopics();
 }
 
 // ===== REPLACE THIS ENTIRE FUNCTION =====
