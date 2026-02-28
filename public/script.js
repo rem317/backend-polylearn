@@ -25338,19 +25338,21 @@ function setupFeedbackForm() {
             try {
                 const token = localStorage.getItem('authToken');
                 
-                const response = await fetch('/api/feedback/submit', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        ...(token && { 'Authorization': `Bearer ${token}` })
-                    },
-                    body: JSON.stringify({
-                        feedback_type: feedbackType,
-                        feedback_message: feedbackMessage,
-                        rating: rating,
-                        user_id: userId
-                    })
-                });
+               const response = await fetch('/api/feedback/submit', {
+                   method: 'POST',
+                   headers: {
+                       'Content-Type': 'application/json',
+                       ...(token && { 'Authorization': `Bearer ${token}` })
+                   },
+                   body: JSON.stringify({
+                       feedback_type: feedbackType,
+                       feedback_message: feedbackMessage,
+                       rating: rating,
+                       user_id: userId,
+                       page_url: window.location.href,
+                       user_agent: navigator.userAgent
+                   })
+               });
                 
                 const responseText = await response.text();
                 console.log('📥 Server response:', responseText);
