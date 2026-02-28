@@ -1034,7 +1034,7 @@ class GraphTool {
 }
 
 // ========================================
-// WHITEBOARD TOOL - ULTIMATE FIXED VERSION
+// WHITEBOARD TOOL - MOBILE FIXED VERSION
 // ========================================
 class Whiteboard {
     constructor() {
@@ -1042,28 +1042,23 @@ class Whiteboard {
         this.ctx = null;
         this.drawing = false;
         this.currentTool = 'pen';
-        this.color = '#7a0000'; // Default maroon color
+        this.color = '#7a0000';
         this.lineWidth = 2;
         this.lastX = 0;
         this.lastY = 0;
     }
 
     onOpen() {
-        console.log('🎨 Whiteboard opened - initializing...');
+        console.log('🎨 Whiteboard opened - initializing with mobile support...');
         
-        // Try multiple times to find and setup canvas
         setTimeout(() => this.setupCanvas(), 100);
         setTimeout(() => this.setupCanvas(), 300);
-        setTimeout(() => this.setupCanvas(), 500);
     }
 
     setupCanvas() {
         this.canvas = document.getElementById('whiteboardCanvas');
         
         if (!this.canvas) {
-            console.error('❌ Whiteboard canvas not found!');
-            
-            // Try to find canvas inside active modal
             const activeModal = document.querySelector('.modal-overlay.active, .modal-overlay[style*="display: flex"]');
             if (activeModal) {
                 this.canvas = activeModal.querySelector('#whiteboardCanvas');
@@ -1073,11 +1068,11 @@ class Whiteboard {
         if (this.canvas) {
             console.log('✅ Whiteboard canvas found');
             
-            // Set canvas size to match container
+            // Set canvas size
             const container = this.canvas.parentElement;
             if (container) {
-                this.canvas.width = container.clientWidth - 40; // Subtract padding
-                this.canvas.height = container.clientHeight - 100; // Leave space for controls
+                this.canvas.width = container.clientWidth - 40;
+                this.canvas.height = container.clientHeight - 100;
             } else {
                 this.canvas.width = 600;
                 this.canvas.height = 400;
@@ -1091,63 +1086,130 @@ class Whiteboard {
             this.ctx.lineCap = 'round';
             this.ctx.lineJoin = 'round';
             
-            // Clear canvas (set white background)
+            // Clear canvas
             this.ctx.fillStyle = '#ffffff';
             this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
             
             this.setupEventListeners();
             
-            console.log('✅ Whiteboard initialized with size:', this.canvas.width, 'x', this.canvas.height);
-        } else {
-            console.error('❌ Still cannot find whiteboard canvas');
+            console.log('✅ Whiteboard ready for mobile');
         }
     }
 
     setupEventListeners() {
         if (!this.canvas || !this.ctx) return;
         
-        // Remove old listeners first
+        // Remove old listeners
         this.canvas.removeEventListener('mousedown', this.startDrawing.bind(this));
         this.canvas.removeEventListener('mousemove', this.draw.bind(this));
         this.canvas.removeEventListener('mouseup', this.stopDrawing.bind(this));
         this.canvas.removeEventListener('mouseout', this.stopDrawing.bind(this));
         
-        // Add new listeners
+        // Remove old touch listeners
+        this.canvas.removeEventListener('touchstart', this.handleTouchStart.bind(this));
+        this.canvas.removeEventListener('touchmove', this.handleTouchMove.bind(this));
+        this.canvas.removeEventListener('touchend', this.handleTouchEnd.bind(this));
+        this.canvas.removeEventListener('touchcancel', this.handleTouchEnd.bind(this));
+        
+        // Mouse events (for desktop)
         this.canvas.addEventListener('mousedown', this.startDrawing.bind(this));
         this.canvas.addEventListener('mousemove', this.draw.bind(this));
         this.canvas.addEventListener('mouseup', this.stopDrawing.bind(this));
         this.canvas.addEventListener('mouseout', this.stopDrawing.bind(this));
         
-        // Setup color picker
+        // TOUCH EVENTS (for mobile) - ITO ANG SOLUTION!
+        this.canvas.addEventListener('touchstart', this.handleTouchStart.bind(this), { passive: false });
+        this.canvas.addEventListener('touchmove', this.handleTouchMove.bind(this), { passive: false });
+        this.canvas.addEventListener('touchend', this.handleTouchEnd.bind(this), { passive: false });
+        this.canvas.addEventListener('touchcancel', this.handleTouchEnd.bind(this), { passive: false });
+        
+        // Prevent default touch behaviors sa buong modal
+        const modal = this.canvas.closest('.modal-overlay');
+        if (modal) {
+            modal.addEventListener('touchmove', (e) => {
+                if (this.drawing) {
+                    e.preventDefault();
+                }
+            }, { passive: false });
+        }
+        
+        // Color picker
         const colorPicker = document.getElementById('colorPicker');
         if (colorPicker) {
             colorPicker.removeEventListener('input', this.handleColorChange.bind(this));
             colorPicker.addEventListener('input', this.handleColorChange.bind(this));
-        } else {
-            console.warn('⚠️ Color picker not found');
         }
         
-        // Setup clear button
-        const clearBtn = document.querySelector('button[onclick*="clear"]');
-        if (clearBtn) {
-            clearBtn.removeEventListener('click', this.clear.bind(this));
-            clearBtn.addEventListener('click', this.clear.bind(this));
+        console.log('✅ Mobile touch listeners added');
+    }
+
+    handleTouchStart(e) {
+        e.preventDefault(); // ITO ANG SUSI - pigilan ang page scroll/drag
+        e.stopPropagation();
+        
+        if (!this.ctx || !this.canvas) return;
+        
+        const touch = e.touches[0];
+        if (!touch) return;
+        
+        this.drawing = true;
+        
+        const rect = this.canvas.getBoundingClientRect();
+        const scaleX = this.canvas.width / rect.width;
+        const scaleY = this.canvas.height / rect.height;
+        
+        this.lastX = (touch.clientX - rect.left) * scaleX;
+        this.lastY = (touch.clientY - rect.top) * scaleY;
+        
+        this.ctx.beginPath();
+        this.ctx.moveTo(this.lastX, this.lastY);
+    }
+
+    handleTouchMove(e) {
+        e.preventDefault(); // ITO ANG PINAKAIMPORTANTE - pigilan ang page drag
+        e.stopPropagation();
+        
+        if (!this.drawing || !this.ctx || !this.canvas) return;
+        
+        const touch = e.touches[0];
+        if (!touch) return;
+        
+        const rect = this.canvas.getBoundingClientRect();
+        const scaleX = this.canvas.width / rect.width;
+        const scaleY = this.canvas.height / rect.height;
+        
+        const currentX = (touch.clientX - rect.left) * scaleX;
+        const currentY = (touch.clientY - rect.top) * scaleY;
+        
+        if (this.currentTool === 'pen') {
+            this.ctx.lineTo(currentX, currentY);
+            this.ctx.stroke();
+        } else if (this.currentTool === 'eraser') {
+            this.ctx.save();
+            this.ctx.strokeStyle = '#ffffff';
+            this.ctx.lineWidth = 20;
+            this.ctx.lineTo(currentX, currentY);
+            this.ctx.stroke();
+            this.ctx.restore();
+            
+            if (this.ctx) {
+                this.ctx.strokeStyle = this.color;
+                this.ctx.lineWidth = this.lineWidth;
+            }
         }
         
-        // Setup pen/eraser buttons
-        const penBtn = document.querySelector('button[onclick*="setTool"][onclick*="pen"]');
-        if (penBtn) {
-            penBtn.removeEventListener('click', () => this.setTool('pen'));
-            penBtn.addEventListener('click', () => this.setTool('pen'));
-        }
+        this.lastX = currentX;
+        this.lastY = currentY;
+    }
+
+    handleTouchEnd(e) {
+        e.preventDefault();
+        e.stopPropagation();
         
-        const eraserBtn = document.querySelector('button[onclick*="setTool"][onclick*="eraser"]');
-        if (eraserBtn) {
-            eraserBtn.removeEventListener('click', () => this.setTool('eraser'));
-            eraserBtn.addEventListener('click', () => this.setTool('eraser'));
+        this.drawing = false;
+        if (this.ctx) {
+            this.ctx.closePath();
         }
-        
-        console.log('✅ Whiteboard event listeners set up');
     }
 
     handleColorChange(e) {
@@ -1162,7 +1224,6 @@ class Whiteboard {
         
         this.drawing = true;
         
-        // Get mouse position relative to canvas
         const rect = this.canvas.getBoundingClientRect();
         const scaleX = this.canvas.width / rect.width;
         const scaleY = this.canvas.height / rect.height;
@@ -1179,7 +1240,6 @@ class Whiteboard {
         
         e.preventDefault();
         
-        // Get mouse position relative to canvas
         const rect = this.canvas.getBoundingClientRect();
         const scaleX = this.canvas.width / rect.width;
         const scaleY = this.canvas.height / rect.height;
@@ -1191,7 +1251,6 @@ class Whiteboard {
             this.ctx.lineTo(currentX, currentY);
             this.ctx.stroke();
         } else if (this.currentTool === 'eraser') {
-            // Eraser - draw white lines
             this.ctx.save();
             this.ctx.strokeStyle = '#ffffff';
             this.ctx.lineWidth = 20;
@@ -1199,7 +1258,6 @@ class Whiteboard {
             this.ctx.stroke();
             this.ctx.restore();
             
-            // Reset pen color for next pen stroke
             if (this.ctx) {
                 this.ctx.strokeStyle = this.color;
                 this.ctx.lineWidth = this.lineWidth;
@@ -1241,11 +1299,9 @@ class Whiteboard {
         
         console.log('🧹 Clearing whiteboard');
         
-        // Clear entire canvas
         this.ctx.fillStyle = '#ffffff';
         this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
         
-        // Reset pen settings
         this.ctx.strokeStyle = this.color;
         this.ctx.lineWidth = this.lineWidth;
         this.ctx.lineCap = 'round';
@@ -1254,6 +1310,86 @@ class Whiteboard {
         this.drawing = false;
     }
 }
+
+
+// ============================================
+// 🚨 EMERGENCY MOBILE WHITEBOARD FIX
+// ============================================
+(function fixWhiteboardForMobile() {
+    console.log('📱 Applying emergency mobile whiteboard fix...');
+    
+    // Listen for when whiteboard modal opens
+    const observer = new MutationObserver(function(mutations) {
+        mutations.forEach(function(mutation) {
+            if (mutation.type === 'attributes' && mutation.attributeName === 'class') {
+                const modal = mutation.target;
+                if (modal.id === 'whiteboardModal' && modal.classList.contains('active')) {
+                    console.log('📱 Whiteboard modal opened - applying mobile fixes');
+                    
+                    setTimeout(() => {
+                        const canvas = document.getElementById('whiteboardCanvas');
+                        if (canvas) {
+                            // Force disable all default touch behaviors
+                            canvas.style.touchAction = 'none';
+                            canvas.style.webkitTouchCallout = 'none';
+                            canvas.style.webkitUserSelect = 'none';
+                            canvas.style.userSelect = 'none';
+                            
+                            // Ensure canvas can capture touch events
+                            canvas.addEventListener('touchstart', (e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                            }, { passive: false });
+                            
+                            canvas.addEventListener('touchmove', (e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                            }, { passive: false });
+                            
+                            canvas.addEventListener('touchend', (e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                            }, { passive: false });
+                            
+                            console.log('📱 Mobile touch events blocked on canvas');
+                        }
+                    }, 200);
+                }
+            }
+        });
+    });
+    
+    const whiteboardModal = document.getElementById('whiteboardModal');
+    if (whiteboardModal) {
+        observer.observe(whiteboardModal, { attributes: true });
+    }
+})();
+
+// Add CSS to prevent page scrolling when drawing
+const style = document.createElement('style');
+style.textContent = `
+    /* Prevent page scroll/drag when drawing on whiteboard */
+    #whiteboardCanvas {
+        touch-action: none !important;
+        -webkit-touch-callout: none !important;
+        -webkit-user-select: none !important;
+        user-select: none !important;
+        cursor: crosshair !important;
+    }
+    
+    /* Ensure modal doesn't scroll */
+    #whiteboardModal.modal-overlay.active {
+        overflow: hidden !important;
+    }
+    
+    #whiteboardModal .modal-body {
+        overflow: hidden !important;
+    }
+`;
+document.head.appendChild(style);
+
+console.log('✅ Mobile whiteboard fix applied');
+
 
 // ============================================
 // EMERGENCY FIX: Direct whiteboard button handler
