@@ -2326,44 +2326,71 @@ async function createFeedbackTable() {
 createFeedbackTable();
 
 // ============================================
-// ✅ FIXED: SUBMIT FEEDBACK ENDPOINT - More flexible
+// ✅ FIXED: SUBMIT FEEDBACK ENDPOINT - MATCHES SCHEMA
 // ============================================
-// I-check ang route na ito sa server:
-app.post('/api/feedback/submit', async (req, res) => {
+app.post('/api/feedback/submit', authenticateOptional, async (req, res) => {
     try {
-        const { feedback_type, feedback_message, rating, user_id, page_url, user_agent } = req.body;
+        console.log('📥 Feedback received:', req.body);
         
-        // ✅ FIX: I-check kung ang fields ay valid bago gamitin
-        // Ang error ay maaaring dito sa pag-validate
+        const { 
+            feedback_type, 
+            feedback_message, 
+            rating, 
+            user_id,
+            page_url,
+            user_agent 
+        } = req.body;
         
-        // Example ng maling code (ito ang nagca-cause ng error):
-        // const tags = [...feedback_type]  // ❌ ERROR kung ang feedback_type ay hindi array
+        // Validate required fields
+        if (!feedback_message) {
+            return res.status(400).json({
+                success: false,
+                message: 'Feedback message is required'
+            });
+        }
         
-        // ✅ TAMANG CODE:
-        const feedbackData = {
-            feedback_type: feedback_type || 'general',
-            feedback_message: feedback_message || '',
-            rating: rating || 0,
-            user_id: user_id || null,
-            page_url: page_url || null,
-            user_agent: user_agent || null,
-            created_at: new Date()
-        };
+        // Validate feedback_type (must match ENUM)
+        const validTypes = ['suggestion', 'bug', 'praise', 'rating', 'complaint', 'question', 'other'];
+        const finalType = validTypes.includes(feedback_type) ? feedback_type : 'other';
         
-        // I-save sa database
-        const [result] = await db.query(
-            'INSERT INTO feedback SET ?',
-            feedbackData
-        );
+        // Get IP address
+        const ip_address = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
+        
+        // Insert into database - MATCHING YOUR SCHEMA
+        const [result] = await pool.execute(`
+            INSERT INTO feedback (
+                user_id,
+                teacher_id,
+                related_id,
+                feedback_type,
+                feedback_message,
+                rating,
+                user_agent,
+                page_url,
+                ip_address,
+                status,
+                created_at
+            ) VALUES (?, NULL, NULL, ?, ?, ?, ?, ?, ?, 'new', NOW())
+        `, [
+            user_id || null,
+            finalType,
+            feedback_message,
+            rating || null,
+            user_agent || req.headers['user-agent'] || null,
+            page_url || req.headers.referer || null,
+            ip_address
+        ]);
+        
+        console.log(`✅ Feedback saved with ID: ${result.insertId}`);
         
         res.json({
             success: true,
-            feedback_id: result.insertId,
-            message: 'Feedback submitted successfully'
+            message: 'Feedback submitted successfully',
+            feedback_id: result.insertId
         });
         
     } catch (error) {
-        console.error('Feedback submission error:', error);
+        console.error('❌ Error saving feedback:', error);
         res.status(500).json({
             success: false,
             message: 'Failed to submit feedback',
