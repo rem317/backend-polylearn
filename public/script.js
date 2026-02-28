@@ -21755,22 +21755,21 @@ function showFooterNavigation() {
     }
 }
 
-// Adjust container padding for footer
 function adjustContainerBottomPadding() {
     const containers = document.querySelectorAll(
-        '#dashboard-page .container, ' +
-        '#practice-exercises-page .container, ' +
-        '#quiz-dashboard-page .container, ' +
-        '#progress-page .container, ' +
-        '#feedback-page .container, ' +
-        '#settings-page .container, ' +
-        '#module-dashboard-page .container'
+        '#dashboard-page, ' +
+        '#practice-exercises-page, ' +
+        '#quiz-dashboard-page, ' +
+        '#progress-page, ' +
+        '#feedback-page, ' +
+        '#settings-page, ' +
+        '#module-dashboard-page'
     );
     
     const footerHeight = 70;
     
     containers.forEach(container => {
-        container.style.paddingBottom = `${footerHeight + 20}px`;
+        container.style.paddingBottom = ${footerHeight + 20}px;
     });
 }
 
