@@ -283,8 +283,7 @@ body {
     color: var(--text);
     line-height: 1.6;
     padding-bottom: 40px;
-    font-size: 16px; /* Fixed to 16px /
-    transition: all var(--transition-normal);
+    font-size: 16px; 
 }
 
 /* Dark Theme Body */
@@ -393,7 +392,7 @@ h1, h2, h3, h4, h5, h6 {
 }
 
 .welcome-title {
-    font-size: 1.8rem; / 29px /
+    font-size: 1.8rem; 
     color: var(--primary);
     font-weight: 700;
     letter-spacing: -0.5px;
@@ -406,7 +405,7 @@ h1, h2, h3, h4, h5, h6 {
 }
 
 .card-title {
-    font-size: 1.4rem; / 22px */
+    font-size: 1.4rem; 
     color: var(--primary);
     display: flex;
     align-items: center;
@@ -696,7 +695,7 @@ h1, h2, h3, h4, h5, h6 {
 }
 
 .mobile-menu-item span {
-    font-size: 0.9rem; / 14px */
+    font-size: 0.9rem; 
     text-align: center;
     font-weight: 500;
 }
@@ -1085,7 +1084,7 @@ h1, h2, h3, h4, h5, h6 {
 }
 
 .stat-value {
-    font-size: 1.8rem; / 29px */
+    font-size: 1.8rem; 
     font-weight: 800;
     color: var(--primary);
     line-height: 1;
@@ -1133,7 +1132,7 @@ h1, h2, h3, h4, h5, h6 {
     flex: 1;
     font-weight: 500;
     color: var(--text);
-    font-size: 1rem; / 16px /
+    font-size: 1rem; 
     margin-bottom: 8px;
 }
 
@@ -1142,7 +1141,7 @@ h1, h2, h3, h4, h5, h6 {
     padding: 15px 15px 15px 45px;
     border: 1.5px solid var(--neutral);
     border-radius: 10px;
-    font-size: 1rem; / 16px /
+    font-size: 1rem; 
     transition: all 0.3s;
     font-family: 'Poppins', sans-serif;
 }
