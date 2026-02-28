@@ -16133,58 +16133,7 @@ function renderSubjectBreakdown(subjects) {
         grid.appendChild(card);
     });
 }
-// ===== LOAD SUBJECT ANALYTICS FROM DATABASE =====
-async function loadSubjectAnalytics() {
-    console.log("📊 Loading subject analytics from database...");
-    
-    try {
-        const token = localStorage.getItem('admin_token') || localStorage.getItem('authToken');
-        
-        if (!token) {
-            console.log('No token found for subject analytics');
-            return;
-        }
-        
-        const response = await fetch(`/api/admin/performance/subject-breakdown`, {
-            headers: {
-                'Authorization': `Bearer ${token}`
-            }
-        });
-        
-        if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
-        }
-        
-        const result = await response.json();
-        
-        if (result.success) {
-            const subjects = result.subjects || [];
-            
-            // Update subject lesson counts in analytics dashboard
-            subjects.forEach(subject => {
-                if (subject.name.toLowerCase().includes('polylearn') || subject.name.toLowerCase().includes('polynomial')) {
-                    const polyEl = document.getElementById('polyLessonCount');
-                    if (polyEl) polyEl.textContent = subject.lesson_count || 0;
-                } else if (subject.name.toLowerCase().includes('mathease') || subject.name.toLowerCase().includes('mdas')) {
-                    const mathEl = document.getElementById('mathLessonCount');
-                    if (mathEl) mathEl.textContent = subject.lesson_count || 0;
-                } else if (subject.name.toLowerCase().includes('factolearn') || subject.name.toLowerCase().includes('factorial')) {
-                    const factEl = document.getElementById('factLessonCount');
-                    if (factEl) factEl.textContent = subject.lesson_count || 0;
-                }
-            });
-            
-            // Update total lesson count
-            const totalLessons = subjects.reduce((sum, s) => sum + (s.lesson_count || 0), 0);
-            const totalEl = document.getElementById('totalLessonCount');
-            if (totalEl) totalEl.textContent = totalLessons;
-            
-            console.log('✅ Subject analytics loaded');
-        }
-    } catch (error) {
-        console.error('❌ Error loading subject analytics:', error);
-    }
-}
+
 // ===== REAL ANALYTICS DASHBOARD FUNCTIONS =====
 async function initializeAnalyticsDashboard() {
     console.log("📊 Initializing Analytics Dashboard with real data...");
@@ -16440,25 +16389,21 @@ async function loadUserGrowthData() {
     }
 }
 
-// ===== LOAD LESSON POPULARITY DATA FROM DATABASE =====
 async function loadLessonPopularityData() {
     console.log("📊 Loading lesson popularity data...");
     
     const canvas = document.getElementById('lessonPopularityChart');
     if (!canvas) return;
     
-    const container = canvas.parentElement;
-    
-    // SAFETY CHECK: Check if window.lessonPopularityChart exists and has destroy method
-    if (window.lessonPopularityChart && typeof window.lessonPopularityChart.destroy === 'function') {
+    // SAFETY CHECK: Destroy existing chart
+    if (window.lessonPopularityChart) {
         window.lessonPopularityChart.destroy();
-        window.lessonPopularityChart = null;
-    } else if (window.lessonPopularityChart) {
-        // If it exists but doesn't have destroy method, just set to null
         window.lessonPopularityChart = null;
     }
     
-    // Show loading indicator
+    const container = canvas.parentElement;
+    
+    // Simple loading indicator
     container.innerHTML = '<div style="text-align:center;padding:40px;"><i class="fas fa-spinner fa-pulse fa-3x"></i><p>Loading...</p></div>';
     
     try {
@@ -16469,10 +16414,6 @@ async function loadLessonPopularityData() {
             headers: { 'Authorization': `Bearer ${token}` }
         });
         
-        if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
-        }
-        
         const result = await response.json();
         
         // Clear container and recreate canvas
@@ -16480,16 +16421,7 @@ async function loadLessonPopularityData() {
         const newCanvas = document.getElementById('lessonPopularityChart');
         
         if (result.success && result.lessons && result.lessons.length > 0) {
-            const chartData = result.chart || {
-                labels: result.lessons.map(l => l.title || 'Lesson'),
-                datasets: [{
-                    label: filter === 'views' ? 'Views' : filter === 'completions' ? 'Completions' : 'Avg Score',
-                    data: result.lessons.map(l => filter === 'views' ? l.views : filter === 'completions' ? l.completions : l.avg_score),
-                    backgroundColor: 'rgba(122, 0, 0, 0.8)',
-                    borderColor: 'rgba(122, 0, 0, 1)',
-                    borderWidth: 1
-                }]
-            };
+            const chartData = result.chart;
             
             // Create new chart and store reference
             window.lessonPopularityChart = new Chart(newCanvas, {
@@ -16498,24 +16430,9 @@ async function loadLessonPopularityData() {
                 options: {
                     responsive: true,
                     maintainAspectRatio: false,
-                    plugins: { 
-                        legend: { display: false },
-                        title: {
-                            display: true,
-                            text: `Lesson Popularity by ${filter}`,
-                            color: '#333',
-                            font: { size: 14 }
-                        }
-                    },
+                    plugins: { legend: { display: false } },
                     scales: {
-                        y: { 
-                            beginAtZero: true, 
-                            title: { 
-                                display: true, 
-                                text: filter === 'views' ? 'Number of Views' : 
-                                      filter === 'completions' ? 'Number of Completions' : 'Average Score (%)' 
-                            }
-                        }
+                        y: { beginAtZero: true }
                     }
                 }
             });
@@ -16526,7 +16443,7 @@ async function loadLessonPopularityData() {
         }
         
     } catch (error) {
-        console.error('❌ Error loading lesson popularity:', error);
+        console.error('❌ Error:', error);
         container.innerHTML = '<div style="text-align:center;padding:40px;color:#f44336;">Failed to load data</div>';
     }
 }
@@ -23733,153 +23650,40 @@ function openCreatePracticeModal() {
     loadPracticeTopics();
 }
 
-
-// ===== REPLACE THIS ENTIRE FUNCTION =====
-// ===== LOAD PRACTICE TOPICS FROM DATABASE - NOW FETCHES ALL LESSONS =====
+// ===== LOAD PRACTICE TOPICS FROM DATABASE - FIXED =====
 async function loadPracticeTopics() {
-    console.log("📚 Loading ALL lessons from database into topic dropdown...");
+    console.log("📚 Loading topics for practice...");
     
     const topicSelect = document.getElementById('practiceTopic');
     if (!topicSelect) return;
     
-    // Show loading state
-    topicSelect.innerHTML = '<option value="">Loading lessons...</option>';
-    
     try {
         const token = localStorage.getItem('admin_token') || localStorage.getItem('authToken');
         
-        if (!token) {
-            topicSelect.innerHTML = '<option value="">-- Please login --</option>';
-            return;
-        }
+        if (!token) return;
         
-        console.log('📡 Fetching all lessons from database...');
-        
-        // Fetch ALL lessons from database (hindi topics)
-        const response = await fetch(`/api/admin/lessons`, {
+        const response = await fetch(`/api/admin/structure`, {
             headers: { 'Authorization': `Bearer ${token}` }
         });
         
-        if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
-        }
-        
         const result = await response.json();
-        console.log('📥 Server response:', result);
         
-        if (result.success && result.lessons) {
-            const lessons = result.lessons || [];
+        if (result.success && result.structure) {
+            const topics = result.structure.topics || [];
             
-            console.log(`✅ Loaded ${lessons.length} total lessons from database`);
-            
-            if (lessons.length === 0) {
-                topicSelect.innerHTML = '<option value="">-- No lessons available --</option>';
-                return;
-            }
-            
-            // Group lessons by subject para organized
-            const groupedLessons = {};
-            
-            lessons.forEach(lesson => {
-                // Determine subject based on lesson_name or content
-                let subject = 'General';
-                const lessonName = lesson.lesson_name || '';
-                const contentTitle = lesson.content_title || '';
-                
-                if (lessonName.toLowerCase().includes('polylearn') || 
-                    contentTitle.toLowerCase().includes('polylearn') ||
-                    lessonName.toLowerCase().includes('polynomial')) {
-                    subject = 'PolyLearn';
-                } else if (lessonName.toLowerCase().includes('factolearn') || 
-                          contentTitle.toLowerCase().includes('factolearn') ||
-                          lessonName.toLowerCase().includes('factorial')) {
-                    subject = 'FactoLearn';
-                } else if (lessonName.toLowerCase().includes('mathease') || 
-                          contentTitle.toLowerCase().includes('mathease') ||
-                          lessonName.toLowerCase().includes('mdas')) {
-                    subject = 'MathEase';
-                } else {
-                    subject = 'Other Lessons';
-                }
-                
-                if (!groupedLessons[subject]) {
-                    groupedLessons[subject] = [];
-                }
-                
-                groupedLessons[subject].push(lesson);
+            topicSelect.innerHTML = '<option value="">-- Select Topic --</option>';
+            topics.forEach(topic => {
+                const option = document.createElement('option');
+                option.value = topic.id;
+                option.textContent = topic.name;
+                topicSelect.appendChild(option);
             });
             
-            console.log('📊 Lessons grouped by subject:', Object.keys(groupedLessons));
-            
-            // Build dropdown with optgroups
-            let optionsHtml = '<option value="">-- Select Topic (Lesson) --</option>';
-            
-            // Define subject order
-            const subjectOrder = ['PolyLearn', 'MathEase', 'FactoLearn', 'Other Lessons'];
-            
-            subjectOrder.forEach(subject => {
-                if (groupedLessons[subject] && groupedLessons[subject].length > 0) {
-                    optionsHtml += `<optgroup label="${subject} (${groupedLessons[subject].length} lessons)">`;
-                    
-                    groupedLessons[subject].forEach(lesson => {
-                        const lessonId = lesson.content_id || lesson.id;
-                        const lessonTitle = lesson.content_title || lesson.title || 'Untitled Lesson';
-                        const moduleName = lesson.module_name ? ` [${lesson.module_name}]` : '';
-                        const topicName = lesson.topic_title ? ` - ${lesson.topic_title}` : '';
-                        
-                        // Ang value ay lessonId, pero ang ipapakita ay lesson details
-                        optionsHtml += `<option value="${lessonId}">${lessonTitle}${moduleName}${topicName}</option>`;
-                    });
-                    
-                    optionsHtml += `</optgroup>`;
-                }
-            });
-            
-            // Add any remaining subjects not in the order
-            Object.keys(groupedLessons).forEach(subject => {
-                if (!subjectOrder.includes(subject) && groupedLessons[subject].length > 0) {
-                    optionsHtml += `<optgroup label="${subject} (${groupedLessons[subject].length} lessons)">`;
-                    
-                    groupedLessons[subject].forEach(lesson => {
-                        const lessonId = lesson.content_id || lesson.id;
-                        const lessonTitle = lesson.content_title || lesson.title || 'Untitled Lesson';
-                        
-                        optionsHtml += `<option value="${lessonId}">${lessonTitle}</option>`;
-                    });
-                    
-                    optionsHtml += `</optgroup>`;
-                }
-            });
-            
-            topicSelect.innerHTML = optionsHtml;
-            console.log("✅ Topic dropdown populated with lessons successfully");
-            
-        } else {
-            throw new Error(result.message || 'Failed to load lessons');
+            console.log(`✅ Loaded ${topics.length} topics`);
         }
         
     } catch (error) {
-        console.error('❌ Error loading lessons for practice:', error);
-        
-        // Fallback to mock data if server fails
-        topicSelect.innerHTML = `
-            <option value="">-- Select Topic --</option>
-            <optgroup label="PolyLearn (3 lessons)">
-                <option value="1">Introduction to Polynomials</option>
-                <option value="2">Polynomial Functions</option>
-                <option value="3">Operations with Polynomials</option>
-            </optgroup>
-            <optgroup label="MathEase (2 lessons)">
-                <option value="4">MDAS Operations</option>
-                <option value="5">Order of Operations</option>
-            </optgroup>
-            <optgroup label="FactoLearn (2 lessons)">
-                <option value="6">Factorial Notation</option>
-                <option value="7">Advanced Factorials</option>
-            </optgroup>
-        `;
-        
-        showNotification('warning', 'Offline Mode', 'Using fallback lesson data');
+        console.error('❌ Error loading topics:', error);
     }
 }
 // ===== ADD PRACTICE QUESTION =====
@@ -24199,7 +24003,6 @@ async function savePracticeExercise() {
     }
 }
 
-
 // ===== VIEW PRACTICE EXERCISE - WITH DISPLAY FUNCTION =====
 async function viewPracticeExercise(exerciseId) {
     console.log("👁️ Viewing practice exercise:", exerciseId);
@@ -24401,7 +24204,6 @@ async function editPracticeExercise(exerciseId) {
         showNotification('error', 'Error', error.message);
     }
 }
-
 
 // ===== DELETE PRACTICE EXERCISE - FIXED =====
 async function deletePracticeExercise(exerciseId) {
@@ -25263,3 +25065,14 @@ async function debugSubjectData() {
         console.error("❌ Debug error:", error);
     }
 }
+
+error
+adminscript.js:7563 Uncaught ReferenceError: loadSubjectAnalytics is not defined
+    at adminscript.js:7563:9
+
+adminscript.js:16400 Uncaught (in promise) TypeError: window.lessonPopularityChart.destroy is not a function
+    at loadLessonPopularityData (adminscript.js:16400:38)
+    at adminscript.js:16587:9
+adminscript.js:16400 Uncaught (in promise) TypeError: window.lessonPopularityChart.destroy is not a function
+    at loadLessonPopularityData (adminscript.js:16400:38)
+    at adminscript.js:7562:9
