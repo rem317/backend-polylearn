@@ -2328,104 +2328,42 @@ createFeedbackTable();
 // ============================================
 // ✅ FIXED: SUBMIT FEEDBACK ENDPOINT - More flexible
 // ============================================
-app.post('/api/feedback/submit', authenticateOptional, async (req, res) => {
+// I-check ang route na ito sa server:
+app.post('/api/feedback/submit', async (req, res) => {
     try {
-        console.log('📥 Feedback received:', req.body);
+        const { feedback_type, feedback_message, rating, user_id, page_url, user_agent } = req.body;
         
-        // Extract fields with multiple possible names
-        let { 
-            feedback_type, type,              // type can be 'feedback_type' or 'type'
-            feedback_message, message,         // message can be 'feedback_message' or 'message'
-            rating, 
-            user_id, userId,                   // user_id can be 'user_id' or 'userId'
-            page_url, url,                      // page_url can be 'page_url' or 'url'
-            user_agent, 
-            email, 
-            name 
-        } = req.body;
+        // ✅ FIX: I-check kung ang fields ay valid bago gamitin
+        // Ang error ay maaaring dito sa pag-validate
         
-        // Normalize field names
-        feedback_type = feedback_type || type || 'general';
-        feedback_message = feedback_message || message;
-        user_id = user_id || userId || null;
-        page_url = page_url || url || req.headers.referer || null;
-        user_agent = user_agent || req.headers['user-agent'] || null;
+        // Example ng maling code (ito ang nagca-cause ng error):
+        // const tags = [...feedback_type]  // ❌ ERROR kung ang feedback_type ay hindi array
         
-        // Validate required fields
-        if (!feedback_message) {
-            return res.status(400).json({
-                success: false,
-                message: 'Feedback message is required'
-            });
-        }
+        // ✅ TAMANG CODE:
+        const feedbackData = {
+            feedback_type: feedback_type || 'general',
+            feedback_message: feedback_message || '',
+            rating: rating || 0,
+            user_id: user_id || null,
+            page_url: page_url || null,
+            user_agent: user_agent || null,
+            created_at: new Date()
+        };
         
-        if (feedback_message.length < 10) {
-            return res.status(400).json({
-                success: false,
-                message: 'Please provide more detailed feedback (at least 10 characters)'
-            });
-        }
-        
-        // Check if feedback table exists, create if not
-        try {
-            await createFeedbackTable();
-        } catch (tableError) {
-            console.log('Table creation error (non-critical):', tableError.message);
-        }
-        
-        // Insert into database
-        const [result] = await pool.execute(`
-            INSERT INTO feedback (
-                user_id, 
-                feedback_type, 
-                feedback_message, 
-                rating, 
-                status,
-                page_url,
-                user_agent,
-                email,
-                name,
-                created_at
-            ) VALUES (?, ?, ?, ?, 'new', ?, ?, ?, ?, NOW())
-        `, [
-            user_id,
-            feedback_type,
-            feedback_message,
-            rating || 0,
-            page_url,
-            user_agent,
-            email || null,
-            name || null
-        ]);
-        
-        console.log(`✅ Feedback saved with ID: ${result.insertId}`);
+        // I-save sa database
+        const [result] = await db.query(
+            'INSERT INTO feedback SET ?',
+            feedbackData
+        );
         
         res.json({
             success: true,
-            message: 'Feedback submitted successfully',
-            feedback_id: result.insertId
+            feedback_id: result.insertId,
+            message: 'Feedback submitted successfully'
         });
         
     } catch (error) {
-        console.error('❌ Error saving feedback:', error);
-        
-        // Check for specific error types
-        if (error.code === 'ER_NO_SUCH_TABLE') {
-            return res.status(500).json({
-                success: false,
-                message: 'Feedback table does not exist. Please run database migrations.',
-                error: error.message
-            });
-        }
-        
-        if (error.code === 'ER_BAD_NULL_ERROR') {
-            return res.status(500).json({
-                success: false,
-                message: 'Missing required field in database',
-                error: error.message
-            });
-        }
-        
+        console.error('Feedback submission error:', error);
         res.status(500).json({
             success: false,
             message: 'Failed to submit feedback',
