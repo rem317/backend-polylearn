@@ -16134,7 +16134,7 @@ function renderSubjectBreakdown(subjects) {
     });
 }
 
-// ===== REAL ANALYTICS DASHBOARD FUNCTIONS =====
+// ===== UPDATED: initializeAnalyticsDashboard with loadSubjectAnalytics =====
 async function initializeAnalyticsDashboard() {
     console.log("📊 Initializing Analytics Dashboard with real data...");
     
@@ -16147,7 +16147,7 @@ async function initializeAnalyticsDashboard() {
             loadAnalyticsStats(),           // Load stats cards
             loadUserGrowthData(),           // Load user growth chart data
             loadLessonPopularityData(),      // Load lesson popularity chart data
-            loadSubjectAnalytics()           // Load subject-specific analytics
+            loadSubjectAnalytics()           // Load subject-specific analytics (now defined)
         ]);
         
         console.log('✅ Analytics dashboard initialized successfully');
@@ -16157,6 +16157,60 @@ async function initializeAnalyticsDashboard() {
         showNotification('error', 'Load Failed', 'Could not load analytics data');
     }
 }
+
+// ===== LOAD SUBJECT ANALYTICS FROM DATABASE =====
+async function loadSubjectAnalytics() {
+    console.log("📊 Loading subject analytics from database...");
+    
+    try {
+        const token = localStorage.getItem('admin_token') || localStorage.getItem('authToken');
+        
+        if (!token) {
+            console.log('No token found for subject analytics');
+            return;
+        }
+        
+        const response = await fetch(`/api/admin/performance/subject-breakdown`, {
+            headers: {
+                'Authorization': `Bearer ${token}`
+            }
+        });
+        
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            const subjects = result.subjects || [];
+            
+            // Update subject lesson counts in analytics dashboard
+            subjects.forEach(subject => {
+                if (subject.name.toLowerCase().includes('polylearn') || subject.name.toLowerCase().includes('polynomial')) {
+                    const polyEl = document.getElementById('polyLessonCount');
+                    if (polyEl) polyEl.textContent = subject.lesson_count || 0;
+                } else if (subject.name.toLowerCase().includes('mathease') || subject.name.toLowerCase().includes('mdas')) {
+                    const mathEl = document.getElementById('mathLessonCount');
+                    if (mathEl) mathEl.textContent = subject.lesson_count || 0;
+                } else if (subject.name.toLowerCase().includes('factolearn') || subject.name.toLowerCase().includes('factorial')) {
+                    const factEl = document.getElementById('factLessonCount');
+                    if (factEl) factEl.textContent = subject.lesson_count || 0;
+                }
+            });
+            
+            // Update total lesson count
+            const totalLessons = subjects.reduce((sum, s) => sum + (s.lesson_count || 0), 0);
+            const totalEl = document.getElementById('totalLessonCount');
+            if (totalEl) totalEl.textContent = totalLessons;
+            
+            console.log('✅ Subject analytics loaded');
+        }
+    } catch (error) {
+        console.error('❌ Error loading subject analytics:', error);
+    }
+}
+
 
 // ===== Show loading states for analytics =====
 function showAnalyticsLoadingStates() {
@@ -16389,21 +16443,25 @@ async function loadUserGrowthData() {
     }
 }
 
+// ===== LOAD LESSON POPULARITY DATA FROM DATABASE =====
 async function loadLessonPopularityData() {
     console.log("📊 Loading lesson popularity data...");
     
     const canvas = document.getElementById('lessonPopularityChart');
     if (!canvas) return;
     
-    // SAFETY CHECK: Destroy existing chart
-    if (window.lessonPopularityChart) {
+    const container = canvas.parentElement;
+    
+    // SAFETY CHECK: Check if window.lessonPopularityChart exists and has destroy method
+    if (window.lessonPopularityChart && typeof window.lessonPopularityChart.destroy === 'function') {
         window.lessonPopularityChart.destroy();
+        window.lessonPopularityChart = null;
+    } else if (window.lessonPopularityChart) {
+        // If it exists but doesn't have destroy method, just set to null
         window.lessonPopularityChart = null;
     }
     
-    const container = canvas.parentElement;
-    
-    // Simple loading indicator
+    // Show loading indicator
     container.innerHTML = '<div style="text-align:center;padding:40px;"><i class="fas fa-spinner fa-pulse fa-3x"></i><p>Loading...</p></div>';
     
     try {
@@ -16414,6 +16472,10 @@ async function loadLessonPopularityData() {
             headers: { 'Authorization': `Bearer ${token}` }
         });
         
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        
         const result = await response.json();
         
         // Clear container and recreate canvas
@@ -16421,7 +16483,16 @@ async function loadLessonPopularityData() {
         const newCanvas = document.getElementById('lessonPopularityChart');
         
         if (result.success && result.lessons && result.lessons.length > 0) {
-            const chartData = result.chart;
+            const chartData = result.chart || {
+                labels: result.lessons.map(l => l.title || 'Lesson'),
+                datasets: [{
+                    label: filter === 'views' ? 'Views' : filter === 'completions' ? 'Completions' : 'Avg Score',
+                    data: result.lessons.map(l => filter === 'views' ? l.views : filter === 'completions' ? l.completions : l.avg_score),
+                    backgroundColor: 'rgba(122, 0, 0, 0.8)',
+                    borderColor: 'rgba(122, 0, 0, 1)',
+                    borderWidth: 1
+                }]
+            };
             
             // Create new chart and store reference
             window.lessonPopularityChart = new Chart(newCanvas, {
@@ -16430,9 +16501,24 @@ async function loadLessonPopularityData() {
                 options: {
                     responsive: true,
                     maintainAspectRatio: false,
-                    plugins: { legend: { display: false } },
+                    plugins: { 
+                        legend: { display: false },
+                        title: {
+                            display: true,
+                            text: `Lesson Popularity by ${filter}`,
+                            color: '#333',
+                            font: { size: 14 }
+                        }
+                    },
                     scales: {
-                        y: { beginAtZero: true }
+                        y: { 
+                            beginAtZero: true, 
+                            title: { 
+                                display: true, 
+                                text: filter === 'views' ? 'Number of Views' : 
+                                      filter === 'completions' ? 'Number of Completions' : 'Average Score (%)' 
+                            }
+                        }
                     }
                 }
             });
@@ -16443,10 +16529,11 @@ async function loadLessonPopularityData() {
         }
         
     } catch (error) {
-        console.error('❌ Error:', error);
+        console.error('❌ Error loading lesson popularity:', error);
         container.innerHTML = '<div style="text-align:center;padding:40px;color:#f44336;">Failed to load data</div>';
     }
 }
+
 // ===== UPDATE LESSON POPULARITY LIST =====
 function updateLessonPopularityList(lessons) {
     // Check if there's a list container (optional)
