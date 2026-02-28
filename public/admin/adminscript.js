@@ -23688,7 +23688,7 @@ function refreshPracticeData() {
     loadAdminPracticeExercises();
 }
 
-// ===== UPDATED: Open Create Practice Modal with teacher dropdown =====
+// ===== UPDATED: Open Create Practice Modal with Lessons Loaded into Topic Dropdown =====
 function openCreatePracticeModal() {
     console.log("📝 Opening create practice modal...");
     
@@ -23698,7 +23698,7 @@ function openCreatePracticeModal() {
     // Reset form
     document.getElementById('practiceTitle').value = '';
     document.getElementById('practiceDescription').value = '';
-    document.getElementById('practiceTopic').value = '';
+    document.getElementById('practiceTopic').value = ''; // Topic dropdown, pero lessons ang laman
     document.getElementById('practiceDifficulty').value = 'medium';
     document.getElementById('practiceType').value = 'multiple-choice';
     document.getElementById('practicePoints').value = '10';
@@ -23729,44 +23729,156 @@ function openCreatePracticeModal() {
         loadTeachersForAssignment();
     }, 300);
     
-    // Load topics
-    loadPracticeTopics();
+    // ===== IMPORTANT: Load LESSONS into the TOPIC dropdown =====
+    loadPracticeLessons();
 }
 
-// ===== LOAD PRACTICE TOPICS FROM DATABASE - FIXED =====
+// ===== REPLACE THIS ENTIRE FUNCTION =====
+// ===== LOAD PRACTICE TOPICS FROM DATABASE - NOW FETCHES ALL LESSONS =====
 async function loadPracticeTopics() {
-    console.log("📚 Loading topics for practice...");
+    console.log("📚 Loading ALL lessons from database into topic dropdown...");
     
     const topicSelect = document.getElementById('practiceTopic');
     if (!topicSelect) return;
     
+    // Show loading state
+    topicSelect.innerHTML = '<option value="">Loading lessons...</option>';
+    
     try {
         const token = localStorage.getItem('admin_token') || localStorage.getItem('authToken');
         
-        if (!token) return;
+        if (!token) {
+            topicSelect.innerHTML = '<option value="">-- Please login --</option>';
+            return;
+        }
         
-        const response = await fetch(`/api/admin/structure`, {
+        console.log('📡 Fetching all lessons from database...');
+        
+        // Fetch ALL lessons from database (hindi topics)
+        const response = await fetch(`/api/admin/lessons`, {
             headers: { 'Authorization': `Bearer ${token}` }
         });
         
-        const result = await response.json();
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
         
-        if (result.success && result.structure) {
-            const topics = result.structure.topics || [];
+        const result = await response.json();
+        console.log('📥 Server response:', result);
+        
+        if (result.success && result.lessons) {
+            const lessons = result.lessons || [];
             
-            topicSelect.innerHTML = '<option value="">-- Select Topic --</option>';
-            topics.forEach(topic => {
-                const option = document.createElement('option');
-                option.value = topic.id;
-                option.textContent = topic.name;
-                topicSelect.appendChild(option);
+            console.log(`✅ Loaded ${lessons.length} total lessons from database`);
+            
+            if (lessons.length === 0) {
+                topicSelect.innerHTML = '<option value="">-- No lessons available --</option>';
+                return;
+            }
+            
+            // Group lessons by subject para organized
+            const groupedLessons = {};
+            
+            lessons.forEach(lesson => {
+                // Determine subject based on lesson_name or content
+                let subject = 'General';
+                const lessonName = lesson.lesson_name || '';
+                const contentTitle = lesson.content_title || '';
+                
+                if (lessonName.toLowerCase().includes('polylearn') || 
+                    contentTitle.toLowerCase().includes('polylearn') ||
+                    lessonName.toLowerCase().includes('polynomial')) {
+                    subject = 'PolyLearn';
+                } else if (lessonName.toLowerCase().includes('factolearn') || 
+                          contentTitle.toLowerCase().includes('factolearn') ||
+                          lessonName.toLowerCase().includes('factorial')) {
+                    subject = 'FactoLearn';
+                } else if (lessonName.toLowerCase().includes('mathease') || 
+                          contentTitle.toLowerCase().includes('mathease') ||
+                          lessonName.toLowerCase().includes('mdas')) {
+                    subject = 'MathEase';
+                } else {
+                    subject = 'Other Lessons';
+                }
+                
+                if (!groupedLessons[subject]) {
+                    groupedLessons[subject] = [];
+                }
+                
+                groupedLessons[subject].push(lesson);
             });
             
-            console.log(`✅ Loaded ${topics.length} topics`);
+            console.log('📊 Lessons grouped by subject:', Object.keys(groupedLessons));
+            
+            // Build dropdown with optgroups
+            let optionsHtml = '<option value="">-- Select Topic (Lesson) --</option>';
+            
+            // Define subject order
+            const subjectOrder = ['PolyLearn', 'MathEase', 'FactoLearn', 'Other Lessons'];
+            
+            subjectOrder.forEach(subject => {
+                if (groupedLessons[subject] && groupedLessons[subject].length > 0) {
+                    optionsHtml += `<optgroup label="${subject} (${groupedLessons[subject].length} lessons)">`;
+                    
+                    groupedLessons[subject].forEach(lesson => {
+                        const lessonId = lesson.content_id || lesson.id;
+                        const lessonTitle = lesson.content_title || lesson.title || 'Untitled Lesson';
+                        const moduleName = lesson.module_name ? ` [${lesson.module_name}]` : '';
+                        const topicName = lesson.topic_title ? ` - ${lesson.topic_title}` : '';
+                        
+                        // Ang value ay lessonId, pero ang ipapakita ay lesson details
+                        optionsHtml += `<option value="${lessonId}">${lessonTitle}${moduleName}${topicName}</option>`;
+                    });
+                    
+                    optionsHtml += `</optgroup>`;
+                }
+            });
+            
+            // Add any remaining subjects not in the order
+            Object.keys(groupedLessons).forEach(subject => {
+                if (!subjectOrder.includes(subject) && groupedLessons[subject].length > 0) {
+                    optionsHtml += `<optgroup label="${subject} (${groupedLessons[subject].length} lessons)">`;
+                    
+                    groupedLessons[subject].forEach(lesson => {
+                        const lessonId = lesson.content_id || lesson.id;
+                        const lessonTitle = lesson.content_title || lesson.title || 'Untitled Lesson';
+                        
+                        optionsHtml += `<option value="${lessonId}">${lessonTitle}</option>`;
+                    });
+                    
+                    optionsHtml += `</optgroup>`;
+                }
+            });
+            
+            topicSelect.innerHTML = optionsHtml;
+            console.log("✅ Topic dropdown populated with lessons successfully");
+            
+        } else {
+            throw new Error(result.message || 'Failed to load lessons');
         }
         
     } catch (error) {
-        console.error('❌ Error loading topics:', error);
+        console.error('❌ Error loading lessons for practice:', error);
+        
+        // Fallback to mock data if server fails
+        topicSelect.innerHTML = `
+            <option value="">-- Select Topic --</option>
+            <optgroup label="PolyLearn (3 lessons)">
+                <option value="1">Introduction to Polynomials</option>
+                <option value="2">Polynomial Functions</option>
+                <option value="3">Operations with Polynomials</option>
+            </optgroup>
+            <optgroup label="MathEase (2 lessons)">
+                <option value="4">MDAS Operations</option>
+                <option value="5">Order of Operations</option>
+            </optgroup>
+            <optgroup label="FactoLearn (2 lessons)">
+                <option value="6">Factorial Notation</option>
+                <option value="7">Advanced Factorials</option>
+            </optgroup>
+        `;
+        
+        showNotification('warning', 'Offline Mode', 'Using fallback lesson data');
     }
 }
 // ===== ADD PRACTICE QUESTION =====
@@ -23878,23 +23990,24 @@ function deletePracticeExercise(exerciseId) {
 
 
 // ===== SAVE PRACTICE EXERCISE TO DATABASE WITH TEACHER ASSIGNMENT - FIXED URL =====
+// ===== UPDATE: Save practice exercise with lesson_id =====
 async function savePracticeExercise() {
     console.log("💾 ===== SAVING PRACTICE EXERCISE TO DATABASE =====");
     
     // Get form values
     const title = document.getElementById('practiceTitle')?.value.trim();
     const description = document.getElementById('practiceDescription')?.value.trim();
-    const topicId = document.getElementById('practiceTopic')?.value;
+    const lessonId = document.getElementById('practiceTopic')?.value; // Ito ay lesson ID na
     const difficulty = document.getElementById('practiceDifficulty')?.value;
-    let contentType = document.getElementById('practiceType')?.value; // 'multiple-choice', 'true-false', 'fill-blank'
+    let contentType = document.getElementById('practiceType')?.value;
     const points = parseInt(document.getElementById('practicePoints')?.value) || 10;
-    const status = document.getElementById('practiceStatus')?.value; // 'active', 'draft', 'inactive'
+    const status = document.getElementById('practiceStatus')?.value;
     const practiceId = document.getElementById('practiceId')?.value;
     
-    // ===== GET ASSIGNED TEACHER (NEW) =====
+    // ===== GET ASSIGNED TEACHER =====
     const assignedTeacherId = document.getElementById('practiceAssignedTeacherId')?.value;
     
-    // ===== FIX: Convert hyphenated values to underscore format for database ENUM =====
+    // ===== FIX: Convert hyphenated values =====
     const contentTypeMap = {
         'multiple-choice': 'multiple_choice',
         'true-false': 'fill_blank',
@@ -23908,7 +24021,7 @@ async function savePracticeExercise() {
     
     console.log('📝 Practice data:', { 
         title, 
-        topicId, 
+        lessonId,  // lessonId na ito
         difficulty, 
         originalType: contentType,
         mappedType: dbContentType,
@@ -23924,17 +24037,14 @@ async function savePracticeExercise() {
         return;
     }
     
-    if (!topicId) {
-        showNotification('error', 'Error', 'Please select a topic');
+    if (!lessonId) {
+        showNotification('error', 'Error', 'Please select a topic (lesson)');
         return;
     }
     
-    // ===== COLLECT QUESTIONS =====
-    console.log("📝 Collecting questions...");
+    // ===== COLLECT QUESTIONS (same as before) =====
     const questions = [];
     const questionItems = document.querySelectorAll('.practice-question-item');
-    
-    console.log(`📝 Found ${questionItems.length} questions`);
     
     if (questionItems.length === 0) {
         showNotification('error', 'Error', 'Please add at least one question');
@@ -23945,14 +24055,12 @@ async function savePracticeExercise() {
         const q = questionItems[i];
         const qId = i + 1;
         
-        // Get question text
         const questionText = document.getElementById(`practice_q_${qId}_text`)?.value.trim();
         if (!questionText) {
             showNotification('error', 'Error', `Please enter question ${qId} text`);
             return;
         }
         
-        // Get correct answer
         const correctRadio = document.querySelector(`input[name="practice_q_${qId}_correct"]:checked`);
         if (!correctRadio) {
             showNotification('error', 'Error', `Please select correct answer for question ${qId}`);
@@ -23960,7 +24068,6 @@ async function savePracticeExercise() {
         }
         const correctLetter = correctRadio.value;
         
-        // Collect options
         const options = [];
         const optionLetters = ['a', 'b', 'c', 'd', 'e', 'f'];
         
@@ -23998,7 +24105,7 @@ async function savePracticeExercise() {
     const practiceData = {
         title: title,
         description: description || '',
-        topic_id: parseInt(topicId),
+        lesson_id: parseInt(lessonId),  // lesson_id ang ipapadala
         difficulty: difficulty || 'medium',
         content_type: dbContentType,
         points: points,
@@ -24006,17 +24113,13 @@ async function savePracticeExercise() {
         is_active: isActive
     };
     
-    // ===== ADD TEACHER ASSIGNMENT IF SELECTED =====
     if (assignedTeacherId) {
         practiceData.assigned_teacher_id = parseInt(assignedTeacherId);
-        console.log(`👨‍🏫 Practice will be assigned to teacher ID: ${assignedTeacherId}`);
     }
     
     if (practiceId) {
         practiceData.exercise_id = parseInt(practiceId);
     }
-    
-    console.log("📤 Sending practice data:", practiceData);
     
     try {
         const token = localStorage.getItem('admin_token') || localStorage.getItem('authToken');
@@ -24026,7 +24129,6 @@ async function savePracticeExercise() {
             return;
         }
         
-        // Show loading
         const saveBtn = document.querySelector('#createPracticeModal .btn-primary');
         const originalText = saveBtn?.innerHTML;
         if (saveBtn) {
@@ -24034,13 +24136,9 @@ async function savePracticeExercise() {
             saveBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Saving...';
         }
         
-        // ✅ FIXED: Use proper URL construction
-        const baseUrl = `/api/admin/users`; // API_BASE_URL is usually empty string for relative URLs
         const url = practiceId 
             ? `/api/admin/practice/${practiceId}`
-            : `/api/admin/practice`;  // Use relative URL directly for new entries
-        
-        console.log(`📡 Sending ${practiceId ? 'PUT' : 'POST'} request to:`, url);
+            : `/api/admin/practice`;
         
         const response = await fetch(url, {
             method: practiceId ? 'PUT' : 'POST',
@@ -24052,7 +24150,6 @@ async function savePracticeExercise() {
         });
         
         const result = await response.json();
-        console.log('📥 Server response:', result);
         
         if (!response.ok) {
             throw new Error(result.message || `Server error: ${response.status}`);
@@ -24170,7 +24267,7 @@ function handleTokenExpired() {
     }, 1500);
 }
 
-// ===== EDIT PRACTICE EXERCISE - WITH TOKEN =====
+// ===== UPDATE: Edit practice exercise to work with lessons =====
 async function editPracticeExercise(exerciseId) {
     console.log("✏️ Editing practice exercise:", exerciseId);
     
@@ -24207,7 +24304,7 @@ async function editPracticeExercise(exerciseId) {
         if (result.success && result.exercise) {
             const exercise = result.exercise;
             
-            // Open create modal (reuse the same modal)
+            // Open create modal
             openCreatePracticeModal();
             
             // Change title to Edit mode
@@ -24219,15 +24316,30 @@ async function editPracticeExercise(exerciseId) {
             document.getElementById('practiceTitle').value = exercise.title || '';
             document.getElementById('practiceDescription').value = exercise.description || '';
             
-            // Set topic if available
-            if (exercise.topic_id) {
-                // Wait for topics to load
+            // Set topic (lesson) if available
+            if (exercise.topic_id || exercise.lesson_id) {
+                // Wait for lessons to load (mas matagal na delay para sigurado)
                 setTimeout(() => {
                     const topicSelect = document.getElementById('practiceTopic');
                     if (topicSelect) {
-                        topicSelect.value = exercise.topic_id;
+                        // Try to set by lesson_id or topic_id
+                        const valueToSet = exercise.lesson_id || exercise.topic_id;
+                        topicSelect.value = valueToSet;
+                        
+                        // If value not found, try to find by title
+                        if (!topicSelect.value) {
+                            for (let i = 0; i < topicSelect.options.length; i++) {
+                                const option = topicSelect.options[i];
+                                if (option.text.includes(exercise.title?.substring(0, 20))) {
+                                    option.selected = true;
+                                    break;
+                                }
+                            }
+                        }
+                        
+                        console.log(`📌 Selected lesson value: ${topicSelect.value}`);
                     }
-                }, 500);
+                }, 1000);
             }
             
             document.getElementById('practiceDifficulty').value = exercise.difficulty || 'medium';
@@ -24244,7 +24356,7 @@ async function editPracticeExercise(exerciseId) {
                     // Add question field
                     addPracticeQuestion();
                     
-                    // Fill question data (with delay for DOM to update)
+                    // Fill question data
                     setTimeout(() => {
                         const qNum = index + 1;
                         
