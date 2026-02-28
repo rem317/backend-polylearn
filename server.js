@@ -2326,19 +2326,51 @@ async function createFeedbackTable() {
 createFeedbackTable();
 
 // ============================================
-// SUBMIT FEEDBACK ENDPOINT - FIXED VERSION
+// ✅ FIXED: SUBMIT FEEDBACK ENDPOINT - More flexible
 // ============================================
 app.post('/api/feedback/submit', authenticateOptional, async (req, res) => {
     try {
         console.log('📥 Feedback received:', req.body);
         
-        const { feedback_type, feedback_message, rating, user_id } = req.body;
+        // Extract fields with multiple possible names
+        let { 
+            feedback_type, type,              // type can be 'feedback_type' or 'type'
+            feedback_message, message,         // message can be 'feedback_message' or 'message'
+            rating, 
+            user_id, userId,                   // user_id can be 'user_id' or 'userId'
+            page_url, url,                      // page_url can be 'page_url' or 'url'
+            user_agent, 
+            email, 
+            name 
+        } = req.body;
         
+        // Normalize field names
+        feedback_type = feedback_type || type || 'general';
+        feedback_message = feedback_message || message;
+        user_id = user_id || userId || null;
+        page_url = page_url || url || req.headers.referer || null;
+        user_agent = user_agent || req.headers['user-agent'] || null;
+        
+        // Validate required fields
         if (!feedback_message) {
             return res.status(400).json({
                 success: false,
                 message: 'Feedback message is required'
             });
+        }
+        
+        if (feedback_message.length < 10) {
+            return res.status(400).json({
+                success: false,
+                message: 'Please provide more detailed feedback (at least 10 characters)'
+            });
+        }
+        
+        // Check if feedback table exists, create if not
+        try {
+            await createFeedbackTable();
+        } catch (tableError) {
+            console.log('Table creation error (non-critical):', tableError.message);
         }
         
         // Insert into database
@@ -2349,13 +2381,21 @@ app.post('/api/feedback/submit', authenticateOptional, async (req, res) => {
                 feedback_message, 
                 rating, 
                 status,
+                page_url,
+                user_agent,
+                email,
+                name,
                 created_at
-            ) VALUES (?, ?, ?, ?, 'new', NOW())
+            ) VALUES (?, ?, ?, ?, 'new', ?, ?, ?, ?, NOW())
         `, [
-            user_id || null,
-            feedback_type || 'general',
+            user_id,
+            feedback_type,
             feedback_message,
-            rating || 0
+            rating || 0,
+            page_url,
+            user_agent,
+            email || null,
+            name || null
         ]);
         
         console.log(`✅ Feedback saved with ID: ${result.insertId}`);
@@ -2368,6 +2408,24 @@ app.post('/api/feedback/submit', authenticateOptional, async (req, res) => {
         
     } catch (error) {
         console.error('❌ Error saving feedback:', error);
+        
+        // Check for specific error types
+        if (error.code === 'ER_NO_SUCH_TABLE') {
+            return res.status(500).json({
+                success: false,
+                message: 'Feedback table does not exist. Please run database migrations.',
+                error: error.message
+            });
+        }
+        
+        if (error.code === 'ER_BAD_NULL_ERROR') {
+            return res.status(500).json({
+                success: false,
+                message: 'Missing required field in database',
+                error: error.message
+            });
+        }
+        
         res.status(500).json({
             success: false,
             message: 'Failed to submit feedback',
@@ -2375,6 +2433,51 @@ app.post('/api/feedback/submit', authenticateOptional, async (req, res) => {
         });
     }
 });
+
+// ============================================
+// 🔍 DEBUG: Check feedback table
+// ============================================
+app.get('/api/debug/feedback-table', async (req, res) => {
+    try {
+        // Check if table exists
+        const [tables] = await pool.execute("SHOW TABLES LIKE 'feedback'");
+        
+        if (tables.length === 0) {
+            return res.json({
+                success: false,
+                message: 'Feedback table does not exist',
+                tables: []
+            });
+        }
+        
+        // Get table structure
+        const [columns] = await pool.execute("DESCRIBE feedback");
+        
+        // Get row count
+        const [count] = await pool.execute("SELECT COUNT(*) as count FROM feedback");
+        
+        // Get sample data
+        const [sample] = await pool.execute("SELECT * FROM feedback ORDER BY created_at DESC LIMIT 5");
+        
+        res.json({
+            success: true,
+            table_exists: true,
+            column_count: columns.length,
+            columns: columns,
+            row_count: count[0].count,
+            sample_data: sample
+        });
+        
+    } catch (error) {
+        console.error('❌ Debug error:', error);
+        res.status(500).json({
+            success: false,
+            message: error.message
+        });
+    }
+});
+
+
 // ============================================
 // GET FEEDBACK STATS (admin only)
 // ============================================
