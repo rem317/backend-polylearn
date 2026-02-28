@@ -21769,9 +21769,10 @@ function adjustContainerBottomPadding() {
     const footerHeight = 70;
     
     containers.forEach(container => {
-        container.style.paddingBottom = (footerHeight + 20) + 'px';
+        container.style.paddingBottom = `${footerHeight + 20}px`;
     });
 }
+
 
 // Reset container padding
 function resetContainerBottomPadding() {
