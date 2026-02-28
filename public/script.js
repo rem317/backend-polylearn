@@ -12221,43 +12221,30 @@ async function debugLastQuizAttempt() {
 }
 
 
-// Add sa iyong CSS
-const style = document.createElement('style');
-style.textContent = `
-    .modal-overlay {
-        position: fixed;
-        top: 0;
-        left: 0;
-        right: 0;
-        bottom: 0;
-        background: rgba(0, 0, 0, 0.7);
-        display: none;
-        align-items: center;
-        justify-content: center;
-        z-index: 10000;
+// TO THIS:
+const whiteboardStyle = document.createElement('style');  // ← RENAMED HERE
+whiteboardStyle.textContent = `
+    /* Prevent page scroll/drag when drawing on whiteboard */
+    #whiteboardCanvas {
+        touch-action: none !important;
+        -webkit-touch-callout: none !important;
+        -webkit-user-select: none !important;
+        user-select: none !important;
+        cursor: crosshair !important;
     }
     
-    .modal-container {
-        background: white;
-        border-radius: 10px;
-        width: 90%;
-        max-width: 700px;
-        max-height: 90vh;
-        overflow-y: auto;
-        box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+    /* Ensure modal doesn't scroll */
+    #whiteboardModal.modal-overlay.active {
+        overflow: hidden !important;
     }
     
-    .quiz-option-modal.selected {
-        background: #e8f5e9 !important;
-        border-color: #7a0000 !important;
-    }
-    
-    .quiz-option-modal.selected div:first-child {
-        background: #7a0000 !important;
-        color: white !important;
+    #whiteboardModal .modal-body {
+        overflow: hidden !important;
     }
 `;
-document.head.appendChild(style);
+document.head.appendChild(whiteboardStyle);  // ← UPDATED HERE TOO
+
+console.log('✅ Mobile whiteboard fix applied');
 
 // Show actual quiz interface (question-by-question) - NEW FUNCTION
 function showActualQuizInterface(questions) {
@@ -25433,6 +25420,7 @@ function setupFeedbackForm() {
 }
 
 
+// In your script.js, around line 9400
 async function submitFeedback(feedbackType, feedbackMessage, rating = 0) {
     try {
         const token = localStorage.getItem('authToken') || authToken;
@@ -25450,10 +25438,10 @@ async function submitFeedback(feedbackType, feedbackMessage, rating = 0) {
             }
         }
         
-        // Prepare feedback data - REMOVE email at name
+        // Prepare feedback data
         const feedbackData = {
-            feedback_type: feedbackType || 'general',
-            feedback_message: feedbackMessage,
+            feedback_type: feedbackType || 'general',  // ← Must match server expected field
+            feedback_message: feedbackMessage,         // ← Must match server expected field
             rating: rating,
             user_id: userId,
             page_url: window.location.href,
@@ -25483,22 +25471,18 @@ async function submitFeedback(feedbackType, feedbackMessage, rating = 0) {
         }
         
         if (response.ok && data.success) {
-            console.log('✅ Feedback submitted. ID:', data.feedback_id);
-            alert(`✅ Feedback submitted! ID: ${data.feedback_id}`);
+            console.log('✅ Feedback saved to database! ID:', data.feedback_id);
             return true;
         } else {
             console.error('❌ Server error:', data);
-            alert(`Error: ${data.message || 'Failed to submit feedback'}`);
             return false;
         }
         
     } catch (error) {
         console.error('❌ Error:', error);
-        alert('Error: ' + error.message);
         return false;
     }
 }
-
 
 // Load feedback history - UPDATED TO ONLY UPDATE FEEDBACK SECTION
 async function loadFeedbackHistory(limit = 10) {
