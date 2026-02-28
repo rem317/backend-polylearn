@@ -2398,7 +2398,63 @@ app.post('/api/feedback/submit', authenticateOptional, async (req, res) => {
         });
     }
 });
-
+// ============================================
+// 🔍 DEBUG: Submit feedback with details
+// ============================================
+app.post('/api/feedback/debug-submit', async (req, res) => {
+    try {
+        console.log('📥 DEBUG Feedback received:', req.body);
+        
+        const { feedback_type, feedback_message, rating, user_id, page_url, user_agent } = req.body;
+        
+        // Validate
+        if (!feedback_message) {
+            return res.status(400).json({ success: false, message: 'Message required' });
+        }
+        
+        // Get IP
+        const ip_address = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
+        
+        // Validate type
+        const validTypes = ['suggestion', 'bug', 'praise', 'rating', 'complaint', 'question', 'other'];
+        const finalType = validTypes.includes(feedback_type) ? feedback_type : 'other';
+        
+        // Insert with ALL columns
+        const [result] = await pool.execute(`
+            INSERT INTO feedback (
+                user_id, teacher_id, related_id, feedback_type, feedback_message,
+                rating, user_agent, page_url, ip_address, status, created_at
+            ) VALUES (?, NULL, NULL, ?, ?, ?, ?, ?, ?, 'new', NOW())
+        `, [
+            user_id || null,
+            finalType,
+            feedback_message,
+            rating || null,
+            user_agent || req.headers['user-agent'] || null,
+            page_url || req.headers.referer || null,
+            ip_address
+        ]);
+        
+        res.json({
+            success: true,
+            message: 'Debug feedback saved',
+            feedback_id: result.insertId,
+            debug: {
+                type: finalType,
+                ip: ip_address
+            }
+        });
+        
+    } catch (error) {
+        console.error('❌ DEBUG Error:', error);
+        res.status(500).json({
+            success: false,
+            message: error.message,
+            sqlMessage: error.sqlMessage,
+            stack: error.stack
+        });
+    }
+});
 // ============================================
 // 🔍 DEBUG: Check feedback table
 // ============================================
