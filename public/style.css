@@ -271,10 +271,10 @@ body.modal-open {
    2. GLOBAL STYLES & RESET
    ============================================ */
 * {
-    margin: 0;
-    padding: 0;
-    box-sizing: border-box;
-    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+  font-family: 'Poppins', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
 }
 
 body {
@@ -283,7 +283,7 @@ body {
     color: var(--text);
     line-height: 1.6;
     padding-bottom: 40px;
-    font-size: var(--font-base);
+    font-size: 16px; /* Fixed to 16px /
     transition: all var(--transition-normal);
 }
 
@@ -306,12 +306,12 @@ body.dark-theme {
 }
 
 /* Main Dashboard Containers */
-#dashboard-page .container,
-#practice-exercises-page .container,
-#quiz-dashboard-page .container,
-#progress-page .container,
-#settings-page .container,
-#feedback-page .container {
+#dashboard-page,
+#practice-exercises-page,
+#quiz-dashboard-page,
+#progress-page,
+#settings-page,
+#feedback-page {
     display: flex;
     max-width: 1200px;
     width: 100%;
@@ -388,12 +388,15 @@ body.dark-theme #feedback-page .container {
 h1, h2, h3, h4, h5, h6 {
     color: var(--primary);
     margin-bottom: 0.5rem;
+    font-weight: 600;
+    line-height: 1.2;
 }
 
 .welcome-title {
-    font-size: 1.8rem;
+    font-size: 1.8rem; / 29px /
     color: var(--primary);
     font-weight: 700;
+    letter-spacing: -0.5px;
 }
 
 .progress-welcome-title {
@@ -403,12 +406,13 @@ h1, h2, h3, h4, h5, h6 {
 }
 
 .card-title {
-    font-size: 1.4rem;
+    font-size: 1.4rem; / 22px */
     color: var(--primary);
     display: flex;
     align-items: center;
     gap: 8px;
     margin-bottom: 5px;
+    font-weight: 600;
 }
 
 .card-subtitle {
@@ -483,12 +487,13 @@ h1, h2, h3, h4, h5, h6 {
     gap: 5px;
     color: var(--medium-gray);
     text-decoration: none;
-    font-size: 12px;
+    font-size: 0.85rem; /* 14px /
     padding: 10px;
     border-radius: 8px;
     transition: all 0.3s ease;
     flex: 1;
     max-width: 80px;
+    font-weight: 500;
 }
 
 .footer-nav-item:hover {
@@ -691,7 +696,7 @@ h1, h2, h3, h4, h5, h6 {
 }
 
 .mobile-menu-item span {
-    font-size: 14px;
+    font-size: 0.9rem; / 14px */
     text-align: center;
     font-weight: 500;
 }
@@ -1080,7 +1085,7 @@ h1, h2, h3, h4, h5, h6 {
 }
 
 .stat-value {
-    font-size: 1.6rem;
+    font-size: 1.8rem; / 29px */
     font-weight: 800;
     color: var(--primary);
     line-height: 1;
@@ -1128,7 +1133,8 @@ h1, h2, h3, h4, h5, h6 {
     flex: 1;
     font-weight: 500;
     color: var(--text);
-    font-size: 0.95rem;
+    font-size: 1rem; / 16px /
+    margin-bottom: 8px;
 }
 
 .form-control {
@@ -1136,10 +1142,10 @@ h1, h2, h3, h4, h5, h6 {
     padding: 15px 15px 15px 45px;
     border: 1.5px solid var(--neutral);
     border-radius: 10px;
-    font-size: 1rem;
+    font-size: 1rem; / 16px /
     transition: all 0.3s;
+    font-family: 'Poppins', sans-serif;
 }
-
 .form-control:focus {
     outline: none;
     border-color: var(--primary);
@@ -1328,13 +1334,14 @@ input:checked + .toggle-slider:before {
     padding: 12px 25px;
     border-radius: 8px;
     border: none;
-    font-size: 1rem;
+    font-size: 1rem; /* 16px /
     font-weight: 600;
     cursor: pointer;
     transition: all 0.3s ease;
     display: inline-flex;
     align-items: center;
     gap: 8px;
+    font-family: 'Poppins', sans-serif;
 }
 
 .btn-primary {
