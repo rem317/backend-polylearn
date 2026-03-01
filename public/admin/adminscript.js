@@ -16771,6 +16771,7 @@ async function loadUserGrowthData() {
 }
 
 // ===== LOAD LESSON POPULARITY DATA FROM DATABASE =====
+// ===== FIXED: Load Lesson Popularity Data with proper chart destruction =====
 async function loadLessonPopularityData() {
     console.log("📊 Loading lesson popularity data...");
     
@@ -16779,14 +16780,28 @@ async function loadLessonPopularityData() {
     
     const container = canvas.parentElement;
     
-    // SAFETY CHECK: Check if window.lessonPopularityChart exists and has destroy method
-    if (window.lessonPopularityChart && typeof window.lessonPopularityChart.destroy === 'function') {
-        window.lessonPopularityChart.destroy();
-        window.lessonPopularityChart = null;
-    } else if (window.lessonPopularityChart) {
-        // If it exists but doesn't have destroy method, just set to null
-        window.lessonPopularityChart = null;
+    // ===== IMPORTANT: Properly destroy existing chart =====
+    // Get all chart instances and find the one using this canvas
+    if (window.lessonPopularityChart) {
+        try {
+            window.lessonPopularityChart.destroy();
+            window.lessonPopularityChart = null;
+            console.log("✅ Destroyed existing chart");
+        } catch (e) {
+            console.log("⚠️ Error destroying chart:", e);
+        }
     }
+    
+    // Also check Chart.js registry for any chart with this canvas ID
+    const charts = Chart.instances ? Object.values(Chart.instances) : [];
+    charts.forEach(chart => {
+        if (chart.canvas && chart.canvas.id === 'lessonPopularityChart') {
+            try {
+                chart.destroy();
+                console.log("✅ Destroyed chart from registry");
+            } catch (e) {}
+        }
+    });
     
     // Show loading indicator
     container.innerHTML = '<div style="text-align:center;padding:40px;"><i class="fas fa-spinner fa-pulse fa-3x"></i><p>Loading...</p></div>';
