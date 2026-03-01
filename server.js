@@ -16,10 +16,6 @@ const app = express();
 // ============================================
 // MIDDLEWARE
 // ============================================
-// ============================================
-// MIDDLEWARE - FIXED CORS (COMPLETE FIX)
-// ============================================
-
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
