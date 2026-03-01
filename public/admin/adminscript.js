@@ -23924,13 +23924,24 @@ async function initializeAdminPracticeDashboard() {
 let adminPracticeExercises = [];
 let filteredPracticeExercises = [];
 
-// ===== FILTER PRACTICE EXERCISES =====
+// ===== FIXED filterPracticeExercises function =====
 function filterPracticeExercises() {
     console.log("🔍 Filtering practice exercises...");
     
+    // Get filter values
     const subjectFilter = document.getElementById('adminPracticeSubjectFilter');
     const statusFilter = document.getElementById('adminPracticeStatusFilter');
     const searchInput = document.getElementById('searchAdminPracticeInput');
+    
+    const subjectValue = subjectFilter ? subjectFilter.value : 'all';
+    const statusValue = statusFilter ? statusFilter.value : 'all';
+    const searchTerm = searchInput ? searchInput.value.toLowerCase().trim() : '';
+    
+    console.log('Filter values:', { 
+        subject: subjectValue, 
+        status: statusValue, 
+        search: searchTerm 
+    });
     
     let exercises = window.adminPracticeExercises || [];
     if (exercises.length === 0) {
@@ -23938,50 +23949,47 @@ function filterPracticeExercises() {
         return;
     }
     
+    console.log('Exercises before filter:', exercises.map(ex => ({
+        id: ex.id,
+        title: ex.title,
+        subject: ex.filter_subject,
+        status: ex.filter_status
+    })));
+    
     let filtered = [...exercises];
     
-    // Apply subject filter
-    if (subjectFilter && subjectFilter.value !== 'all') {
-        const subjectValue = subjectFilter.value;
+    // ===== APPLY SUBJECT FILTER =====
+    if (subjectValue !== 'all') {
         filtered = filtered.filter(ex => {
-            return ex.subject?.toLowerCase().includes(subjectValue.toLowerCase()) ||
-                   ex.topic_name?.toLowerCase().includes(subjectValue.toLowerCase());
+            // Direct comparison using the standardized filter_subject
+            return ex.filter_subject === subjectValue;
         });
-        console.log(`After subject filter (${subjectFilter.value}): ${filtered.length} exercises`);
+        console.log(`After subject filter (${subjectValue}): ${filtered.length} exercises`);
     }
     
-    // Apply status filter
-    if (statusFilter && statusFilter.value !== 'all') {
-        const statusValue = statusFilter.value;
+    // ===== APPLY STATUS FILTER =====
+    if (statusValue !== 'all') {
         filtered = filtered.filter(ex => {
-            if (statusValue === 'active') {
-                return ex.status === 'active' || ex.is_active === 1;
-            } else if (statusValue === 'inactive') {
-                return ex.status === 'inactive' || ex.is_active === 0;
-            }
-            return true;
+            return ex.filter_status === statusValue;
         });
-        console.log(`After status filter (${statusFilter.value}): ${filtered.length} exercises`);
+        console.log(`After status filter (${statusValue}): ${filtered.length} exercises`);
     }
     
-    // Apply search
-    if (searchInput && searchInput.value.trim() !== '') {
-        const searchTerm = searchInput.value.toLowerCase().trim();
+    // ===== APPLY SEARCH =====
+    if (searchTerm !== '') {
         filtered = filtered.filter(ex => {
             return (ex.title?.toLowerCase().includes(searchTerm)) ||
                    (ex.description?.toLowerCase().includes(searchTerm));
         });
-        console.log(`After search (${searchInput.value}): ${filtered.length} exercises`);
+        console.log(`After search: ${filtered.length} exercises`);
     }
     
-    console.log(`Total filtered: ${filtered.length} exercises`);
+    console.log(`✅ Final filtered: ${filtered.length} out of ${exercises.length} exercises`);
+    
     window.filteredPracticeExercises = filtered;
-    
-    // Reset to first page
     window.adminPracticePage = 1;
-    
-    // Update table
     displayFilteredPracticeExercises(filtered);
+    updateFilteredStats(filtered);
 }
 
 // ===== SEARCH PRACTICE EXERCISES =====
@@ -24145,7 +24153,7 @@ function changePracticePage(direction) {
     displayFilteredPracticeExercises(exercises);
 }
 
-// ===== UPDATED loadAdminPracticeExercises with proper subject mapping =====
+// ===== UPDATED loadAdminPracticeExercises with correct topic_id mapping =====
 async function loadAdminPracticeExercises() {
     console.log("📥 Loading practice exercises from database...");
     
@@ -24174,70 +24182,31 @@ async function loadAdminPracticeExercises() {
             const exercises = result.exercises || [];
             console.log(`✅ Loaded ${exercises.length} practice exercises`);
             
-            // Get topic-subject mapping from database
-            let topicSubjectMap = {};
-            try {
-                // Fetch topics with their subjects
-                const topicsResponse = await fetch(`/api/admin/structure`, {
-                    headers: { 'Authorization': `Bearer ${token}` }
-                });
-                
-                if (topicsResponse.ok) {
-                    const topicsData = await topicsResponse.json();
-                    if (topicsData.success && topicsData.structure) {
-                        // Create map of topic_id to subject
-                        topicsData.structure.topics?.forEach(topic => {
-                            const module = topicsData.structure.modules?.find(m => m.id === topic.module_id);
-                            const lesson = topicsData.structure.lessons?.find(l => l.id === module?.lesson_id);
-                            
-                            if (lesson) {
-                                topicSubjectMap[topic.id] = {
-                                    subject: lesson.name === 'polylearn' ? 'PolyLearn' :
-                                            lesson.name === 'factolearn' ? 'FactoLearn' :
-                                            lesson.name === 'mathease' ? 'MathEase' : 'General',
-                                    lesson_name: lesson.name
-                                };
-                            }
-                        });
-                    }
-                }
-            } catch (e) {
-                console.log('Could not fetch topic mapping, using fallback');
-            }
-            
-            console.log('Topic-Subject Map:', topicSubjectMap);
-            
             // Process exercises to ensure consistent data for filtering
             const processedExercises = exercises.map(ex => {
-                // ===== GET SUBJECT FROM TOPIC ID =====
+                // ===== CORRECT SUBJECT MAPPING BASED ON topic_id =====
                 let subject = 'General';
                 let subjectId = 0;
                 
-                // Try to get subject from topic_id
-                if (ex.topic_id && topicSubjectMap[ex.topic_id]) {
-                    subject = topicSubjectMap[ex.topic_id].subject;
-                    if (subject === 'PolyLearn') subjectId = 2;
-                    else if (subject === 'FactoLearn') subjectId = 3;
-                    else if (subject === 'MathEase') subjectId = 1;
+                // CORRECT MAPPING:
+                // MathEase = topic_id = 1
+                // PolyLearn = topic_id = 2  
+                // FactoLearn = topic_id = 3
+                
+                if (ex.topic_id === 2) {
+                    subject = 'PolyLearn';
+                    subjectId = 2;
+                    console.log(`✅ Exercise ${ex.id}: topic_id=2 -> PolyLearn`);
+                } else if (ex.topic_id === 1) {
+                    subject = 'MathEase';
+                    subjectId = 1;
+                    console.log(`✅ Exercise ${ex.id}: topic_id=1 -> MathEase`);
+                } else if (ex.topic_id === 3) {
+                    subject = 'FactoLearn';
+                    subjectId = 3;
+                    console.log(`✅ Exercise ${ex.id}: topic_id=3 -> FactoLearn`);
                 } else {
-                    // Fallback: try to determine from title/description
-                    const titleLower = (ex.title || '').toLowerCase();
-                    const descLower = (ex.description || '').toLowerCase();
-                    
-                    if (titleLower.includes('poly') || descLower.includes('poly') ||
-                        titleLower.includes('polynomial') || descLower.includes('polynomial')) {
-                        subject = 'PolyLearn';
-                        subjectId = 2;
-                    } else if (titleLower.includes('fact') || descLower.includes('fact') ||
-                               titleLower.includes('factorial') || descLower.includes('factorial')) {
-                        subject = 'FactoLearn';
-                        subjectId = 3;
-                    } else if (titleLower.includes('math') || descLower.includes('math') ||
-                               titleLower.includes('ease') || descLower.includes('ease') ||
-                               titleLower.includes('mdas') || descLower.includes('mdas')) {
-                        subject = 'MathEase';
-                        subjectId = 1;
-                    }
+                    console.log(`⚠️ Exercise ${ex.id}: topic_id=${ex.topic_id} -> Unknown`);
                 }
                 
                 // ===== DETERMINE STATUS =====
@@ -24258,8 +24227,7 @@ async function loadAdminPracticeExercises() {
                     filter_status: status,
                     display_subject: subject,
                     display_status: status === 'published' ? 'Published' : 
-                                   status === 'draft' ? 'Draft' : 'Inactive',
-                    topic_id: ex.topic_id
+                                   status === 'draft' ? 'Draft' : 'Inactive'
                 };
             });
             
