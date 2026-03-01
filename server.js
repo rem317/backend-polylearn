@@ -1996,8 +1996,13 @@ app.get('/api/admin/users', authenticateAdmin, async (req, res) => {
         if (columnNames.includes('created_at')) selectFields.push('created_at as registrationDate');
         else if (columnNames.includes('registrationDate')) selectFields.push('registrationDate');
         
-        if (columnNames.includes('last_login')) selectFields.push('last_login as lastLogin');
-        else if (columnNames.includes('lastLogin')) selectFields.push('lastLogin');
+        // ===== CRITICAL FIX: Add last_login field =====
+        if (columnNames.includes('last_login')) {
+            selectFields.push('last_login as lastLogin');
+            console.log('✅ last_login column found, including in query');
+        } else {
+            console.log('⚠️ last_login column NOT found');
+        }
         
         // Use created_at as lastActive kung walang updated_at
         if (columnNames.includes('updated_at')) {
@@ -2025,7 +2030,7 @@ app.get('/api/admin/users', authenticateAdmin, async (req, res) => {
             role: user.role || 'student',
             status: user.status === 1 ? 'active' : (user.status === 0 ? 'inactive' : 'active'),
             registrationDate: user.registrationDate || new Date().toISOString().split('T')[0],
-            lastLogin: user.lastLogin || 'Never',
+            lastLogin: user.lastLogin || 'Never',  // ← ITO ANG GAGAMITIN
             lastActive: user.lastActive ? formatDateForUser(user.lastActive) : 'Never',
             avatar: getInitialsFromName(user.name || user.username || 'User')
         }));
