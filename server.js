@@ -1953,16 +1953,12 @@ function showSection(sectionId) {
 // ✅ ADMIN ROUTES - USERS (FIXED VERSION)
 // ============================================
 
-// ===== FIXED: Get all users with error handling =====
+// ===== FIXED: Get all users - remove updated_at =====
 app.get('/api/admin/users', authenticateAdmin, async (req, res) => {
     try {
         console.log('📥 Fetching users from database...');
         
-        // Check if connection is working
-        const [test] = await promisePool.query('SELECT 1 as test');
-        console.log('✅ Database connection OK');
-        
-        // Simple query - wag muna gumamit ng dynamic building
+        // SIMPLIFIED QUERY - remove updated_at
         const [users] = await promisePool.query(`
             SELECT 
                 user_id,
@@ -1972,7 +1968,6 @@ app.get('/api/admin/users', authenticateAdmin, async (req, res) => {
                 role,
                 created_at,
                 last_login,
-                updated_at,
                 is_active
             FROM users
             ORDER BY created_at DESC
@@ -1989,8 +1984,9 @@ app.get('/api/admin/users', authenticateAdmin, async (req, res) => {
             role: user.role || 'student',
             status: user.is_active === 1 ? 'active' : 'inactive',
             registrationDate: user.created_at ? user.created_at.toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
-            lastLogin: user.last_login || null,  // Keep as is, frontend magfo-format
-            lastActive: user.updated_at || user.created_at || null,
+            lastLogin: user.last_login || null,
+            // Use created_at as lastActive since walang updated_at
+            lastActive: user.created_at || null,
             avatar: (user.full_name || user.username || 'U').charAt(0).toUpperCase()
         }));
         
@@ -2003,11 +1999,10 @@ app.get('/api/admin/users', authenticateAdmin, async (req, res) => {
         console.error('❌ Error in /api/admin/users:', error);
         console.error('❌ Error stack:', error.stack);
         
-        // Return empty array with error message
         res.status(500).json({ 
             success: false, 
             message: 'Database error: ' + error.message,
-            users: []  // Para hindi mag-break ang frontend
+            users: []
         });
     }
 });
