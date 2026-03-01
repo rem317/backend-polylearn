@@ -23918,7 +23918,234 @@ async function initializeAdminPracticeDashboard() {
     await loadAdminPracticeExercises();
 }
 
-// ===== LOAD ADMIN PRACTICE EXERCISES - FIXED =====
+// ===== PRACTICE EXERCISES FILTER FUNCTIONS - GAMIT ANG EXISTING IDS =====
+
+// Global variables
+let adminPracticeExercises = [];
+let filteredPracticeExercises = [];
+
+// ===== FILTER PRACTICE EXERCISES =====
+function filterPracticeExercises() {
+    console.log("🔍 Filtering practice exercises...");
+    
+    const subjectFilter = document.getElementById('adminPracticeSubjectFilter');
+    const statusFilter = document.getElementById('adminPracticeStatusFilter');
+    const searchInput = document.getElementById('searchAdminPracticeInput');
+    
+    let exercises = window.adminPracticeExercises || [];
+    if (exercises.length === 0) {
+        console.log("No exercises to filter");
+        return;
+    }
+    
+    let filtered = [...exercises];
+    
+    // Apply subject filter
+    if (subjectFilter && subjectFilter.value !== 'all') {
+        const subjectValue = subjectFilter.value;
+        filtered = filtered.filter(ex => {
+            return ex.subject?.toLowerCase().includes(subjectValue.toLowerCase()) ||
+                   ex.topic_name?.toLowerCase().includes(subjectValue.toLowerCase());
+        });
+        console.log(`After subject filter (${subjectFilter.value}): ${filtered.length} exercises`);
+    }
+    
+    // Apply status filter
+    if (statusFilter && statusFilter.value !== 'all') {
+        const statusValue = statusFilter.value;
+        filtered = filtered.filter(ex => {
+            if (statusValue === 'active') {
+                return ex.status === 'active' || ex.is_active === 1;
+            } else if (statusValue === 'inactive') {
+                return ex.status === 'inactive' || ex.is_active === 0;
+            }
+            return true;
+        });
+        console.log(`After status filter (${statusFilter.value}): ${filtered.length} exercises`);
+    }
+    
+    // Apply search
+    if (searchInput && searchInput.value.trim() !== '') {
+        const searchTerm = searchInput.value.toLowerCase().trim();
+        filtered = filtered.filter(ex => {
+            return (ex.title?.toLowerCase().includes(searchTerm)) ||
+                   (ex.description?.toLowerCase().includes(searchTerm));
+        });
+        console.log(`After search (${searchInput.value}): ${filtered.length} exercises`);
+    }
+    
+    console.log(`Total filtered: ${filtered.length} exercises`);
+    window.filteredPracticeExercises = filtered;
+    
+    // Reset to first page
+    window.adminPracticePage = 1;
+    
+    // Update table
+    displayFilteredPracticeExercises(filtered);
+}
+
+// ===== SEARCH PRACTICE EXERCISES =====
+function searchPracticeExercises() {
+    console.log("🔍 Searching practice exercises...");
+    filterPracticeExercises(); // Reuse filter function
+}
+
+// ===== DISPLAY FILTERED PRACTICE EXERCISES =====
+function displayFilteredPracticeExercises(exercises) {
+    console.log(`📋 Displaying ${exercises.length} filtered exercises`);
+    
+    const tableBody = document.getElementById('adminPracticeTableBody');
+    if (!tableBody) {
+        console.error("❌ adminPracticeTableBody not found!");
+        return;
+    }
+    
+    if (!exercises || exercises.length === 0) {
+        tableBody.innerHTML = `
+            <tr>
+                <td colspan="9" class="text-center py-5">
+                    <div style="text-align: center; padding: 40px;">
+                        <i class="fas fa-dumbbell" style="font-size: 3rem; color: #ccc; margin-bottom: 15px;"></i>
+                        <h4 style="color: #666; margin-bottom: 5px;">No Matching Exercises</h4>
+                        <p style="color: #999; margin-bottom: 20px;">Try adjusting your filters or search term.</p>
+                        <button class="btn btn-primary" onclick="resetPracticeFilters()">
+                            <i class="fas fa-undo"></i> Reset Filters
+                        </button>
+                    </div>
+                </td>
+            </tr>
+        `;
+        return;
+    }
+    
+    // Pagination
+    const page = window.adminPracticePage || 1;
+    const perPage = 10;
+    const start = (page - 1) * perPage;
+    const end = start + perPage;
+    const paginatedExercises = exercises.slice(start, end);
+    
+    tableBody.innerHTML = paginatedExercises.map(exercise => {
+        const difficultyClass = `difficulty-${exercise.difficulty || 'medium'}`;
+        const statusClass = `status-${exercise.status || 'active'}`;
+        
+        let scoreClass = '';
+        const avgScore = exercise.avg_score || 0;
+        if (avgScore >= 80) scoreClass = 'score-high';
+        else if (avgScore >= 60) scoreClass = 'score-medium';
+        else scoreClass = 'score-low';
+        
+        // Get subject display
+        const subjectDisplay = exercise.subject || exercise.topic_name || 'General';
+        
+        return `
+            <tr>
+                <td>#${exercise.id}</td>
+                <td>
+                    <strong>${exercise.title || 'Untitled'}</strong>
+                    <br>
+                    <small class="text-muted">${subjectDisplay}</small>
+                    ${exercise.description ? `<br><small class="text-muted">${exercise.description.substring(0, 50)}${exercise.description.length > 50 ? '...' : ''}</small>` : ''}
+                </td>
+                <td><span class="difficulty-badge ${difficultyClass}">${exercise.difficulty || 'medium'}</span></td>
+                <td>${exercise.question_count || 0}</td>
+                <td>${exercise.time_limit || 5} min</td>
+                <td>${exercise.attempts || 0}</td>
+                <td><span class="${scoreClass}">${exercise.avg_score || 0}%</span></td>
+                <td><span class="status-badge ${statusClass}">${exercise.status || 'active'}</span></td>
+                <td>
+                    <div class="action-buttons">
+                        <button class="action-btn view" onclick="viewPracticeExercise(${exercise.id})" title="View">
+                            <i class="fas fa-eye"></i>
+                        </button>
+                        <button class="action-btn edit" onclick="editPracticeExercise(${exercise.id})" title="Edit">
+                            <i class="fas fa-edit"></i>
+                        </button>
+                        <button class="action-btn delete" onclick="deletePracticeExercise(${exercise.id})" title="Delete">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                        <button class="action-btn stats" onclick="viewPracticeStats(${exercise.id})" title="Statistics">
+                            <i class="fas fa-chart-bar"></i>
+                        </button>
+                    </div>
+                </td>
+            </tr>
+        `;
+    }).join('');
+    
+    updatePracticePagination(exercises.length);
+}
+
+// ===== RESET PRACTICE FILTERS =====
+function resetPracticeFilters() {
+    console.log("🔄 Resetting practice filters...");
+    
+    const subjectFilter = document.getElementById('adminPracticeSubjectFilter');
+    const statusFilter = document.getElementById('adminPracticeStatusFilter');
+    const searchInput = document.getElementById('searchAdminPracticeInput');
+    
+    if (subjectFilter) subjectFilter.value = 'all';
+    if (statusFilter) statusFilter.value = 'all';
+    if (searchInput) searchInput.value = '';
+    
+    window.filteredPracticeExercises = [...(window.adminPracticeExercises || [])];
+    window.adminPracticePage = 1;
+    
+    displayFilteredPracticeExercises(window.filteredPracticeExercises);
+}
+
+// ===== UPDATE PRACTICE PAGINATION =====
+function updatePracticePagination(total) {
+    const perPage = 10;
+    const totalPages = Math.ceil(total / perPage);
+    const currentPage = window.adminPracticePage || 1;
+    
+    const startEl = document.getElementById('adminPracticeStart');
+    const endEl = document.getElementById('adminPracticeEnd');
+    const totalEl = document.getElementById('adminPracticeTotal');
+    const pagesContainer = document.getElementById('adminPracticePages');
+    const prevBtn = document.getElementById('prevAdminPracticePage');
+    const nextBtn = document.getElementById('nextAdminPracticePage');
+    
+    if (startEl) startEl.textContent = total > 0 ? ((currentPage - 1) * perPage) + 1 : 0;
+    if (endEl) endEl.textContent = Math.min(currentPage * perPage, total);
+    if (totalEl) totalEl.textContent = total;
+    
+    if (pagesContainer) {
+        let pagesHtml = '';
+        for (let i = 1; i <= totalPages; i++) {
+            pagesHtml += `<button class="pagination-page ${i === currentPage ? 'active' : ''}" onclick="goToPracticePage(${i})">${i}</button>`;
+        }
+        pagesContainer.innerHTML = pagesHtml;
+    }
+    
+    if (prevBtn) prevBtn.disabled = currentPage === 1;
+    if (nextBtn) nextBtn.disabled = currentPage === totalPages || totalPages === 0;
+}
+
+// ===== GO TO PRACTICE PAGE =====
+function goToPracticePage(page) {
+    window.adminPracticePage = page;
+    const exercises = window.filteredPracticeExercises || window.adminPracticeExercises || [];
+    displayFilteredPracticeExercises(exercises);
+}
+
+// ===== CHANGE PRACTICE PAGE =====
+function changePracticePage(direction) {
+    const currentPage = window.adminPracticePage || 1;
+    const exercises = window.filteredPracticeExercises || window.adminPracticeExercises || [];
+    const totalPages = Math.ceil(exercises.length / 10);
+    
+    if (direction === 'prev' && currentPage > 1) {
+        window.adminPracticePage = currentPage - 1;
+    } else if (direction === 'next' && currentPage < totalPages) {
+        window.adminPracticePage = currentPage + 1;
+    }
+    
+    displayFilteredPracticeExercises(exercises);
+}
+
+// ===== MODIFIED loadAdminPracticeExercises =====
 async function loadAdminPracticeExercises() {
     console.log("📥 Loading practice exercises from database...");
     
@@ -23929,17 +24156,7 @@ async function loadAdminPracticeExercises() {
         const token = localStorage.getItem('admin_token') || localStorage.getItem('authToken');
         
         if (!token) {
-            tableBody.innerHTML = `
-                <tr>
-                    <td colspan="9" class="text-center py-4">
-                        <div style="text-align: center; padding: 40px;">
-                            <i class="fas fa-lock" style="font-size: 3rem; color: #f57c00; margin-bottom: 15px;"></i>
-                            <h4 style="color: #f57c00; margin-bottom: 10px;">Authentication Required</h4>
-                            <p style="color: #666;">Please login as admin to view practice exercises.</p>
-                        </div>
-                    </td>
-                </tr>
-            `;
+            tableBody.innerHTML = getNoAuthHTML();
             return;
         }
         
@@ -23955,29 +24172,19 @@ async function loadAdminPracticeExercises() {
         
         if (result.success) {
             const exercises = result.exercises || [];
-            console.log(`✅ Loaded ${exercises.length} practice exercises from database`);
+            console.log(`✅ Loaded ${exercises.length} practice exercises`);
+            
+            // Store globally
+            window.adminPracticeExercises = exercises;
+            window.filteredPracticeExercises = exercises;
             
             if (exercises.length === 0) {
-                tableBody.innerHTML = `
-                    <tr>
-                        <td colspan="9" class="text-center py-5">
-                            <div style="text-align: center; padding: 40px;">
-                                <i class="fas fa-dumbbell" style="font-size: 3rem; color: #ccc; margin-bottom: 15px;"></i>
-                                <h4 style="color: #666; margin-bottom: 5px;">No Practice Exercises Found</h4>
-                                <p style="color: #999; margin-bottom: 20px;">Create your first practice exercise.</p>
-                                <button class="btn btn-primary" onclick="openCreatePracticeModal()">
-                                    <i class="fas fa-plus-circle"></i> Create Exercise
-                                </button>
-                            </div>
-                        </td>
-                    </tr>
-                `;
-                // Update stats to zero
-                updateAdminPracticeStats(exercises);
+                tableBody.innerHTML = getNoExercisesHTML();
+                updateAdminPracticeStats([]);
                 return;
             }
             
-            displayAdminPracticeExercises(exercises);
+            displayFilteredPracticeExercises(exercises);
             updateAdminPracticeStats(exercises);
             
         } else {
@@ -23986,26 +24193,36 @@ async function loadAdminPracticeExercises() {
         
     } catch (error) {
         console.error('❌ Error loading practice exercises:', error);
-        tableBody.innerHTML = `
-            <tr>
-                <td colspan="9" class="text-center py-4">
-                    <div style="text-align: center; padding: 40px;">
-                        <i class="fas fa-exclamation-circle" style="font-size: 3rem; color: #f44336; margin-bottom: 15px;"></i>
-                        <h4 style="color: #f44336; margin-bottom: 10px;">Failed to Load Exercises</h4>
-                        <p style="color: #666; margin-bottom: 20px;">${error.message}</p>
-                        <button class="btn btn-primary" onclick="loadAdminPracticeExercises()">
-                            <i class="fas fa-sync-alt"></i> Retry
-                        </button>
-                    </div>
-                </td>
-            </tr>
-        `;
-        
-        // Update stats to zero on error
+        tableBody.innerHTML = getErrorHTML(error.message);
         updateAdminPracticeStats([]);
     }
 }
 
+// Initialize event listeners
+document.addEventListener('DOMContentLoaded', function() {
+    setTimeout(() => {
+        const subjectFilter = document.getElementById('adminPracticeSubjectFilter');
+        const statusFilter = document.getElementById('adminPracticeStatusFilter');
+        const searchInput = document.getElementById('searchAdminPracticeInput');
+        
+        if (subjectFilter) {
+            subjectFilter.addEventListener('change', filterPracticeExercises);
+            console.log('✅ Subject filter listener added');
+        }
+        
+        if (statusFilter) {
+            statusFilter.addEventListener('change', filterPracticeExercises);
+            console.log('✅ Status filter listener added');
+        }
+        
+        if (searchInput) {
+            searchInput.addEventListener('input', searchPracticeExercises);
+            console.log('✅ Search input listener added');
+        }
+        
+        console.log('✅ Practice filter listeners initialized');
+    }, 1000);
+});
 // ===== DISPLAY ADMIN PRACTICE EXERCISES =====
 function displayAdminPracticeExercises(exercises) {
     const tableBody = document.getElementById('adminPracticeTableBody');
