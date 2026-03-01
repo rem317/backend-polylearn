@@ -8130,12 +8130,10 @@ app.post('/api/admin/practice/exercises', authenticateToken, async (req, res) =>
         });
     }
 });
-// ============================================
-// ADD MISSING GET /api/admin/practice ROUTE
-// ============================================
+// ===== FIXED: Get practice exercises with REAL attempt data =====
 app.get('/api/admin/practice', authenticateAdmin, async (req, res) => {
     try {
-        console.log('📥 Fetching practice exercises for admin...');
+        console.log('📥 Fetching practice exercises with attempt data...');
 
         // Check if practice_exercises table exists
         const [tables] = await promisePool.query("SHOW TABLES LIKE 'practice_exercises'");
@@ -8143,7 +8141,7 @@ app.get('/api/admin/practice', authenticateAdmin, async (req, res) => {
             return res.json({ success: true, exercises: [] });
         }
 
-        // Get exercises from database
+        // Get exercises with attempt statistics
         const [exercises] = await promisePool.query(`
             SELECT 
                 pe.exercise_id as id,
@@ -8156,26 +8154,75 @@ app.get('/api/admin/practice', authenticateAdmin, async (req, res) => {
                 pe.content_json,
                 pe.is_active,
                 pe.created_at,
+                pe.updated_at,
                 CASE 
                     WHEN pe.is_active = 1 THEN 'active'
                     ELSE 'inactive'
-                END as status
+                END as status,
+                
+                -- Count total attempts from practice_attempts
+                (
+                    SELECT COUNT(*) 
+                    FROM practice_attempts pa 
+                    WHERE pa.exercise_id = pe.exercise_id
+                ) as attempts,
+                
+                -- Count unique students who attempted
+                (
+                    SELECT COUNT(DISTINCT pa.user_id) 
+                    FROM practice_attempts pa 
+                    WHERE pa.exercise_id = pe.exercise_id
+                ) as unique_students,
+                
+                -- Calculate average score
+                (
+                    SELECT COALESCE(ROUND(AVG(pa.percentage), 0), 0)
+                    FROM practice_attempts pa 
+                    WHERE pa.exercise_id = pe.exercise_id 
+                    AND pa.completion_status = 'completed'
+                ) as avg_score,
+                
+                -- Count completions
+                (
+                    SELECT COUNT(*) 
+                    FROM practice_attempts pa 
+                    WHERE pa.exercise_id = pe.exercise_id 
+                    AND pa.completion_status = 'completed'
+                ) as completions,
+                
+                -- Get highest score
+                (
+                    SELECT MAX(pa.percentage)
+                    FROM practice_attempts pa 
+                    WHERE pa.exercise_id = pe.exercise_id 
+                    AND pa.completion_status = 'completed'
+                ) as highest_score,
+                
+                -- Get latest attempt date
+                (
+                    SELECT MAX(pa.created_at)
+                    FROM practice_attempts pa 
+                    WHERE pa.exercise_id = pe.exercise_id
+                ) as last_attempted
+                
             FROM practice_exercises pe
             ORDER BY pe.created_at DESC
         `);
 
         // Count questions in content_json for each exercise
-        const exercisesWithCount = exercises.map(ex => {
+        const exercisesWithDetails = exercises.map(ex => {
             let questionCount = 0;
+            let parsedContent = { questions: [] };
+            
             try {
                 if (ex.content_json) {
-                    const content = typeof ex.content_json === 'string'
+                    parsedContent = typeof ex.content_json === 'string'
                         ? JSON.parse(ex.content_json)
                         : ex.content_json;
-                    questionCount = content.questions ? content.questions.length : 0;
+                    questionCount = parsedContent.questions ? parsedContent.questions.length : 0;
                 }
             } catch (e) {
-                console.log(`⚠️ Error parsing JSON for exercise ${ex.id}`);
+                console.log(`⚠️ Error parsing JSON for exercise ${ex.id}:`, e.message);
             }
 
             return {
@@ -8187,100 +8234,90 @@ app.get('/api/admin/practice', authenticateAdmin, async (req, res) => {
                 difficulty: ex.difficulty,
                 points: ex.points,
                 question_count: questionCount,
+                questions: parsedContent.questions || [],
                 status: ex.status,
                 is_active: ex.is_active,
                 created_at: ex.created_at,
-                attempts: 0,          // You can join with practice_attempts if needed
-                avg_score: 0           // Placeholder; implement later
+                updated_at: ex.updated_at,
+                attempts: parseInt(ex.attempts) || 0,
+                unique_students: parseInt(ex.unique_students) || 0,
+                avg_score: parseInt(ex.avg_score) || 0,
+                completions: parseInt(ex.completions) || 0,
+                highest_score: parseInt(ex.highest_score) || 0,
+                last_attempted: ex.last_attempted
             };
         });
 
-        console.log(`✅ Found ${exercisesWithCount.length} practice exercises`);
-        res.json({ success: true, exercises: exercisesWithCount });
+        console.log(`✅ Found ${exercisesWithDetails.length} practice exercises with stats`);
+        
+        // Log sample data para ma-verify
+        if (exercisesWithDetails.length > 0) {
+            console.log('📊 Sample exercise stats:', {
+                id: exercisesWithDetails[0].id,
+                title: exercisesWithDetails[0].title,
+                attempts: exercisesWithDetails[0].attempts,
+                avg_score: exercisesWithDetails[0].avg_score,
+                completions: exercisesWithDetails[0].completions
+            });
+        }
+
+        res.json({ 
+            success: true, 
+            exercises: exercisesWithDetails 
+        });
 
     } catch (error) {
         console.error('❌ Error fetching practice exercises:', error);
-        res.status(500).json({ success: false, message: error.message });
+        res.status(500).json({ 
+            success: false, 
+            message: error.message 
+        });
     }
 });
-// ===== GET PRACTICE STATS =====
-app.get('/api/admin/practice/stats', authenticateToken, async (req, res) => {
+
+// ===== DEBUG: Check practice_attempts table =====
+app.get('/api/debug/practice-attempts', authenticateAdmin, async (req, res) => {
     try {
-        if (req.user.role !== 'admin') {
-            return res.status(403).json({ 
-                success: false, 
-                message: 'Access denied. Admin only.' 
-            });
-        }
-
-        console.log('📊 Fetching practice stats...');
-
-        // Check if tables exist
-        const [tables] = await promisePool.query("SHOW TABLES LIKE 'practice_exercises'");
+        // Check if table exists
+        const [tables] = await promisePool.query("SHOW TABLES LIKE 'practice_attempts'");
+        
         if (tables.length === 0) {
             return res.json({
                 success: true,
-                stats: {
-                    totalExercises: 0,
-                    totalQuestions: 0,
-                    activeExercises: 0,
-                    totalAttempts: 0,
-                    averageScore: 0
-                }
+                table_exists: false,
+                message: 'practice_attempts table does not exist'
             });
         }
-
-        // Get total exercises
-        const [totalExercises] = await promisePool.query(`
-            SELECT COUNT(*) as count FROM practice_exercises
+        
+        // Get all attempts
+        const [attempts] = await promisePool.query(`
+            SELECT 
+                pa.*,
+                pe.title as exercise_title,
+                u.username,
+                u.full_name
+            FROM practice_attempts pa
+            LEFT JOIN practice_exercises pe ON pa.exercise_id = pe.exercise_id
+            LEFT JOIN users u ON pa.user_id = u.user_id
+            ORDER BY pa.created_at DESC
+            LIMIT 20
         `);
-
-        // Get total questions
-        const [totalQuestions] = await promisePool.query(`
-            SELECT COUNT(*) as count FROM practice_questions
-        `);
-
-        // Get active exercises (is_active = 1)
-        const [activeExercises] = await promisePool.query(`
-            SELECT COUNT(*) as count FROM practice_exercises 
-            WHERE is_active = 1
-        `);
-
-        // Get total attempts
-        const [totalAttempts] = await promisePool.query(`
-            SELECT COUNT(*) as count FROM practice_attempts
-        `);
-
-        // Get average score
-        const [avgScore] = await promisePool.query(`
-            SELECT COALESCE(AVG(score), 0) as avg_score 
-            FROM practice_attempts
-        `);
-
-        const stats = {
-            totalExercises: totalExercises[0].count,
-            totalQuestions: totalQuestions[0].count,
-            activeExercises: activeExercises[0].count,
-            totalAttempts: totalAttempts[0].count,
-            averageScore: Math.round(avgScore[0].avg_score)
-        };
-
-        console.log('✅ Practice stats:', stats);
-
+        
         res.json({
             success: true,
-            stats: stats
+            table_exists: true,
+            total_attempts: attempts.length,
+            attempts: attempts
         });
-
+        
     } catch (error) {
-        console.error('❌ Error fetching practice stats:', error);
+        console.error('❌ Debug error:', error);
         res.status(500).json({ 
             success: false, 
-            message: 'Failed to fetch practice stats: ' + error.message 
+            message: error.message 
         });
     }
 });
-
 
 
 // ===== UPDATE PRACTICE EXERCISE =====
@@ -10433,11 +10470,7 @@ app.post('/api/practice/:exerciseId/start', authenticateUser, async (req, res) =
         });
     }
 });
-// SUBMIT practice exercise answers
-// ============================================
-// ✅ UPDATE YOUR PRACTICE SUBMIT ENDPOINT
-// ============================================
-// Hanapin ito sa server.js
+// ===== FIXED: Submit practice exercise - ENSURE attempts are saved =====
 app.post('/api/practice/:exerciseId/submit', authenticateUser, async (req, res) => {
     try {
         const { exerciseId } = req.params;
@@ -10445,9 +10478,8 @@ app.post('/api/practice/:exerciseId/submit', authenticateUser, async (req, res) 
         const { answers, time_spent_seconds } = req.body;
         
         console.log(`📤 Submitting practice exercise ${exerciseId} for user ${userId}`);
-        console.log('📦 Full request body:', req.body);
         
-        // Get exercise from database
+        // Get exercise details
         const [exercises] = await promisePool.query(`
             SELECT exercise_id, title, content_json, points, topic_id
             FROM practice_exercises 
@@ -10463,7 +10495,6 @@ app.post('/api/practice/:exerciseId/submit', authenticateUser, async (req, res) 
         
         const exercise = exercises[0];
         const topicId = exercise.topic_id;
-        console.log('✅ Exercise found:', exercise.title, 'Topic ID:', topicId);
         
         // Parse content_json
         let content;
@@ -10471,9 +10502,7 @@ app.post('/api/practice/:exerciseId/submit', authenticateUser, async (req, res) 
             content = typeof exercise.content_json === 'string' 
                 ? JSON.parse(exercise.content_json) 
                 : exercise.content_json;
-            console.log('✅ Content parsed, questions:', content.questions?.length || 0);
         } catch (e) {
-            console.error('❌ Error parsing content_json:', e);
             content = { questions: [] };
         }
         
@@ -10483,23 +10512,17 @@ app.post('/api/practice/:exerciseId/submit', authenticateUser, async (req, res) 
         
         content.questions?.forEach((question, index) => {
             const userAnswer = answers[`q${index}`];
-            
             if (!userAnswer) return;
             
             // Find correct option index
             let correctOptionIndex = -1;
-            
             if (question.options && Array.isArray(question.options)) {
                 question.options.forEach((opt, optIndex) => {
-                    if (opt.correct === true) {
-                        correctOptionIndex = optIndex;
-                    }
+                    if (opt.correct === true) correctOptionIndex = optIndex;
                 });
             }
             
-            if (userAnswer == correctOptionIndex) {
-                correctCount++;
-            }
+            if (userAnswer == correctOptionIndex) correctCount++;
         });
         
         const percentage = totalQuestions > 0 
@@ -10512,118 +10535,90 @@ app.post('/api/practice/:exerciseId/submit', authenticateUser, async (req, res) 
         
         console.log(`📊 Results: ${correctCount}/${totalQuestions} correct = ${percentage}%`);
         
-        // ===== TRY TO SAVE TO practice_attempts TABLE =====
-        try {
-            // Check if practice_attempts table exists
-            const [tables] = await promisePool.query("SHOW TABLES LIKE 'practice_attempts'");
-            
-            if (tables.length === 0) {
-                console.log('⚠️ practice_attempts table does NOT exist! Creating...');
-                
-                await promisePool.query(`
-                    CREATE TABLE IF NOT EXISTS practice_attempts (
-                        attempt_id INT AUTO_INCREMENT PRIMARY KEY,
-                        user_id INT NOT NULL,
-                        exercise_id INT NOT NULL,
-                        topic_id INT NOT NULL,
-                        answers JSON,
-                        score INT DEFAULT 0,
-                        max_score INT DEFAULT 0,
-                        percentage INT DEFAULT 0,
-                        time_spent_seconds INT DEFAULT 0,
-                        completion_status ENUM('in_progress', 'completed', 'failed') DEFAULT 'in_progress',
-                        attempt_number INT DEFAULT 1,
-                        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                        completed_at TIMESTAMP NULL,
-                        FOREIGN KEY (user_id) REFERENCES users(user_id) ON DELETE CASCADE,
-                        FOREIGN KEY (exercise_id) REFERENCES practice_exercises(exercise_id) ON DELETE CASCADE
-                    )
-                `);
-                console.log('✅ practice_attempts table created');
-            }
-            
-            // Get attempt number
-            const [attemptCount] = await promisePool.query(`
-                SELECT COUNT(*) as count FROM practice_attempts 
-                WHERE user_id = ? AND exercise_id = ?
-            `, [userId, exerciseId]);
-            
-            const attemptNumber = (attemptCount[0]?.count || 0) + 1;
-            console.log(`📝 Attempt number: ${attemptNumber}`);
-            
-            // Insert attempt
-            const insertQuery = `
-                INSERT INTO practice_attempts 
-                (user_id, exercise_id, topic_id, answers, score, max_score, 
-                 percentage, time_spent_seconds, completion_status, attempt_number, completed_at)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())
-            `;
-            
-            const insertParams = [
-                userId,
-                exerciseId,
-                topicId,
-                JSON.stringify(answers),
-                pointsEarned,
-                maxPoints,
-                percentage,
-                time_spent_seconds || 0,
-                passed ? 'completed' : 'failed',
-                attemptNumber
-            ];
-            
-            console.log('📝 Inserting with params:', insertParams);
-            
-            const [result] = await promisePool.query(insertQuery, insertParams);
-            
-            console.log(`✅ Practice attempt saved to database! Attempt ID: ${result.insertId}`);
-            
-        } catch (dbError) {
-            console.error('❌❌❌ DATABASE ERROR:', dbError);
-            console.error('❌ Error code:', dbError.code);
-            console.error('❌ Error message:', dbError.message);
-            console.error('❌ SQL:', dbError.sql);
-            
-            // Try fallback
-            try {
-                console.log('⚠️ Trying fallback to user_practice_progress...');
-                await promisePool.query(`
-                    INSERT INTO user_practice_progress 
-                    (user_id, exercise_id, completion_status, score, attempts, time_spent_seconds, completed_at)
-                    VALUES (?, ?, ?, 1, ?, ?, NOW())
-                    ON DUPLICATE KEY UPDATE
-                        completion_status = VALUES(completion_status),
-                        score = VALUES(score),
-                        attempts = attempts + 1,
-                        time_spent_seconds = time_spent_seconds + VALUES(time_spent_seconds),
-                        completed_at = NOW()
-                `, [
-                    userId,
-                    exerciseId,
-                    passed ? 'completed' : 'in_progress',
-                    percentage,
-                    time_spent_seconds || 0
-                ]);
-                console.log('✅ Fallback successful');
-            } catch (fallbackError) {
-                console.error('❌ Fallback also failed:', fallbackError);
-            }
+        // ===== ENSURE practice_attempts table exists =====
+        const [tables] = await promisePool.query("SHOW TABLES LIKE 'practice_attempts'");
+        
+        if (tables.length === 0) {
+            await promisePool.query(`
+                CREATE TABLE IF NOT EXISTS practice_attempts (
+                    attempt_id INT AUTO_INCREMENT PRIMARY KEY,
+                    user_id INT NOT NULL,
+                    exercise_id INT NOT NULL,
+                    topic_id INT,
+                    answers JSON,
+                    score INT DEFAULT 0,
+                    max_score INT DEFAULT 0,
+                    percentage INT DEFAULT 0,
+                    time_spent_seconds INT DEFAULT 0,
+                    completion_status ENUM('in_progress', 'completed', 'failed') DEFAULT 'in_progress',
+                    attempt_number INT DEFAULT 1,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    completed_at TIMESTAMP NULL,
+                    FOREIGN KEY (user_id) REFERENCES users(user_id) ON DELETE CASCADE,
+                    FOREIGN KEY (exercise_id) REFERENCES practice_exercises(exercise_id) ON DELETE CASCADE,
+                    INDEX idx_user_exercise (user_id, exercise_id)
+                )
+            `);
+            console.log('✅ Created practice_attempts table');
         }
         
+        // Get attempt number
+        const [attemptCount] = await promisePool.query(`
+            SELECT COUNT(*) as count FROM practice_attempts 
+            WHERE user_id = ? AND exercise_id = ?
+        `, [userId, exerciseId]);
+        
+        const attemptNumber = (attemptCount[0]?.count || 0) + 1;
+        
+        // ===== INSERT ATTEMPT =====
+        const [result] = await promisePool.query(`
+            INSERT INTO practice_attempts 
+            (user_id, exercise_id, topic_id, answers, score, max_score, 
+             percentage, time_spent_seconds, completion_status, attempt_number, completed_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())
+        `, [
+            userId,
+            exerciseId,
+            topicId,
+            JSON.stringify(answers),
+            pointsEarned,
+            maxPoints,
+            percentage,
+            time_spent_seconds || 0,
+            passed ? 'completed' : 'failed',
+            attemptNumber
+        ]);
+        
+        console.log(`✅ Practice attempt saved! ID: ${result.insertId}`);
+        
+        // Update user_practice_progress (optional)
+        await promisePool.query(`
+            INSERT INTO user_practice_progress 
+            (user_id, exercise_id, completion_status, score, attempts, time_spent_seconds, completed_at)
+            VALUES (?, ?, ?, ?, 1, ?, NOW())
+            ON DUPLICATE KEY UPDATE
+                completion_status = VALUES(completion_status),
+                score = VALUES(score),
+                attempts = attempts + 1,
+                time_spent_seconds = time_spent_seconds + VALUES(time_spent_seconds),
+                completed_at = NOW()
+        `, [
+            userId,
+            exerciseId,
+            passed ? 'completed' : 'in_progress',
+            percentage,
+            time_spent_seconds || 0
+        ]);
+        
         // Update daily progress
-        try {
-            const today = new Date().toISOString().split('T')[0];
-            
-            await promisePool.query(`
-                INSERT INTO daily_progress (user_id, progress_date, exercises_completed, points_earned)
-                VALUES (?, ?, 1, ?)
-                ON DUPLICATE KEY UPDATE
-                    exercises_completed = exercises_completed + 1,
-                    points_earned = points_earned + ?
-            `, [userId, today, pointsEarned, pointsEarned]);
-        } catch (dailyError) {
-            console.log('Daily progress update error:', dailyError.message);
-        }
+        const today = new Date().toISOString().split('T')[0];
+        await promisePool.query(`
+            INSERT INTO daily_progress (user_id, progress_date, exercises_completed, points_earned)
+            VALUES (?, ?, 1, ?)
+            ON DUPLICATE KEY UPDATE
+                exercises_completed = exercises_completed + 1,
+                points_earned = points_earned + ?
+        `, [userId, today, pointsEarned, pointsEarned]);
         
         res.json({
             success: true,
@@ -10634,15 +10629,16 @@ app.post('/api/practice/:exerciseId/submit', authenticateUser, async (req, res) 
             correct: correctCount,
             total: totalQuestions,
             points_earned: pointsEarned,
+            attempt_id: result.insertId,
             message: passed ? '🎉 Great job!' : '💪 Keep practicing!'
         });
         
     } catch (error) {
-        console.error('❌❌❌ FATAL ERROR:', error);
+        console.error('❌ Error submitting practice:', error);
         res.status(500).json({ 
             success: false, 
             message: 'Failed to submit practice',
-            error: error.message
+            error: error.message 
         });
     }
 });
