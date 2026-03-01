@@ -11501,63 +11501,21 @@ async function loadUsersData() {
         `;
     }
     
-    // Show loading in stats
-    document.getElementById('totalUsersCount').textContent = '...';
-    document.getElementById('activeUsersCount').textContent = '...';
-    document.getElementById('adminsCount').textContent = '...';
-    document.getElementById('pendingUsersCount').textContent = '...';
-    
     try {
         // Get auth token
         const adminToken = localStorage.getItem('admin_token');
         const authToken = localStorage.getItem('authToken');
         const token = adminToken || authToken;
         
-        console.log('🔑 Token check:', {
-            admin_token: adminToken ? 'YES' : 'NO',
-            authToken: authToken ? 'YES' : 'NO',
-            final_token: token ? 'YES' : 'NO'
-        });
-        
         if (!token) {
             console.error('❌ No authentication token found');
             showNoUsersMessage('Please login as admin first');
-            
-            // Update stats to zero
-            document.getElementById('totalUsersCount').textContent = '0';
-            document.getElementById('activeUsersCount').textContent = '0';
-            document.getElementById('adminsCount').textContent = '0';
-            document.getElementById('pendingUsersCount').textContent = '0';
-            
-            // Show login button in table
-            if (tableBody) {
-                tableBody.innerHTML = `
-                    <tr>
-                        <td colspan="7" class="text-center py-5">
-                            <div style="text-align: center; padding: 40px;">
-                                <i class="fas fa-lock" style="font-size: 4rem; color: #f57c00; margin-bottom: 20px;"></i>
-                                <h4 style="color: #666; margin-bottom: 10px;">Authentication Required</h4>
-                                <p style="color: #999; margin-bottom: 20px;">Please login as admin to view users.</p>
-                                <button class="btn btn-primary" onclick="showLogoutConfirmation()" style="background: #7a0000;">
-                                    <i class="fas fa-sign-in-alt"></i> Login
-                                </button>
-                            </div>
-                        </td>
-                    </tr>
-                `;
-            }
             return;
         }
         
-        console.log('🔑 Using token (first 20 chars):', token.substring(0, 20) + '...');
+        console.log('📡 Fetching from:', '/api/admin/users');
         
-        // ✅ FIXED: Use proper URL construction
-        const baseUrl = API_BASE_URL || '';  // API_BASE_URL is usually empty string
-        const url = `/api/admin/users`;  // Use relative URL directly
-        
-        console.log('📡 Fetching from:', url);
-        
-        const response = await fetch(url, {
+        const response = await fetch('/api/admin/users', {
             method: 'GET',
             headers: {
                 'Authorization': `Bearer ${token}`,
@@ -11567,27 +11525,13 @@ async function loadUsersData() {
         });
         
         console.log('📥 Response status:', response.status);
-        console.log('📥 Response ok?', response.ok);
         
-        // Check content type
-        const contentType = response.headers.get('content-type');
-        if (!contentType || !contentType.includes('application/json')) {
-            const text = await response.text();
-            console.error('❌ Received non-JSON response:', text.substring(0, 200));
-            
-            if (text.includes('<!DOCTYPE html>')) {
-                throw new Error('Server returned HTML error page. Check if server is running properly.');
-            } else {
-                throw new Error('Invalid JSON response from server');
-            }
+        if (!response.ok) {
+            throw new Error(`Server error: ${response.status}`);
         }
         
         const result = await response.json();
-        console.log('📦 Parsed result:', result);
-        
-        if (!response.ok) {
-            throw new Error(result.message || `Server error: ${response.status}`);
-        }
+        console.log('📦 RAW SERVER RESPONSE:', result);
         
         if (result.success && result.users) {
             // GAMITIN ANG MGA USER NA GALING SA DATABASE
@@ -11597,19 +11541,19 @@ async function loadUsersData() {
             
             if (usersData.length === 0) {
                 showNoUsersMessage('No users found in database');
-                
-                // Set stats to zero
-                document.getElementById('totalUsersCount').textContent = '0';
-                document.getElementById('activeUsersCount').textContent = '0';
-                document.getElementById('adminsCount').textContent = '0';
-                document.getElementById('pendingUsersCount').textContent = '0';
                 return;
             }
             
-            // I-process ang users para consistent ang format at makuha ang UPDATED last login
-            usersData = usersData.map(user => {
-                // Kunin ang initials para sa avatar
+            // I-process ang users para consistent ang format
+            const processedUsers = [];
+            
+            usersData.forEach(user => {
+                console.log(`🔍 Processing user ${user.id}:`, user);
+                
+                // Kunin ang pangalan
                 const nameToUse = user.name || user.full_name || user.username || 'User';
+                
+                // Kunin ang initials
                 const initials = nameToUse
                     .split(' ')
                     .map(word => word.charAt(0))
@@ -11617,41 +11561,77 @@ async function loadUsersData() {
                     .toUpperCase()
                     .substring(0, 2);
                 
-                // ===== FIXED: Get the latest last login from the database =====
-                // Try different possible field names for last login
+                // ===== FIXED: KUHAIN ANG LAST LOGIN PROPERLY =====
                 let lastLogin = 'Never';
-                let lastActive = 'Never';
+                let lastLoginTimestamp = null;
                 
-                // Check all possible timestamp fields
-                if (user.last_login && user.last_login !== '0000-00-00 00:00:00') {
+                // Check LAHAT ng possible fields para sa last login
+                if (user.last_login) {
+                    console.log(`📅 User ${user.id} has last_login:`, user.last_login);
                     lastLogin = formatLastLogin(user.last_login);
-                    lastActive = formatLastLogin(user.last_login);
-                } else if (user.last_active && user.last_active !== '0000-00-00 00:00:00') {
-                    lastActive = formatLastLogin(user.last_active);
-                    if (lastLogin === 'Never') lastLogin = lastActive;
-                } else if (user.last_activity && user.last_activity !== '0000-00-00 00:00:00') {
-                    lastActive = formatLastLogin(user.last_activity);
-                    if (lastLogin === 'Never') lastLogin = lastActive;
-                } else if (user.updated_at && user.updated_at !== '0000-00-00 00:00:00') {
-                    lastActive = formatLastLogin(user.updated_at);
+                    lastLoginTimestamp = user.last_login;
+                } 
+                else if (user.last_active) {
+                    console.log(`📅 User ${user.id} has last_active:`, user.last_active);
+                    lastLogin = formatLastLogin(user.last_active);
+                    lastLoginTimestamp = user.last_active;
+                }
+                else if (user.last_activity) {
+                    console.log(`📅 User ${user.id} has last_activity:`, user.last_activity);
+                    lastLogin = formatLastLogin(user.last_activity);
+                    lastLoginTimestamp = user.last_activity;
+                }
+                else if (user.updated_at) {
+                    console.log(`📅 User ${user.id} has updated_at:`, user.updated_at);
+                    lastLogin = formatLastLogin(user.updated_at);
+                    lastLoginTimestamp = user.updated_at;
+                }
+                else {
+                    console.log(`⚠️ User ${user.id} has NO timestamp fields`);
                 }
                 
-                return {
+                // Kunin ang registration date
+                let registrationDate = 'N/A';
+                if (user.registrationDate) {
+                    registrationDate = formatDateSimple(user.registrationDate);
+                } else if (user.created_at) {
+                    registrationDate = formatDateSimple(user.created_at);
+                } else if (user.registered_at) {
+                    registrationDate = formatDateSimple(user.registered_at);
+                }
+                
+                // I-construct ang processed user object
+                const processedUser = {
                     id: user.id,
                     name: nameToUse,
                     username: user.username || '',
                     email: user.email || 'no-email@example.com',
                     role: user.role || 'student',
                     status: user.status || 'active',
-                    registrationDate: formatDateSimple(user.registrationDate || user.created_at || user.registered_at || new Date().toISOString()),
-                    lastLogin: lastLogin,  // ← FIXED: This will now show the actual last login
-                    lastActive: lastActive,
+                    registrationDate: registrationDate,
+                    lastLogin: lastLogin,  // ← FIXED: Ito na ang gagamitin
+                    lastLoginTimestamp: lastLoginTimestamp, // Keep raw timestamp for sorting
+                    lastActive: lastLogin, // Same as lastLogin for now
                     avatar: initials || 'U',
-                    createdAt: user.registrationDate || user.created_at || new Date().toISOString()
+                    createdAt: user.created_at || new Date().toISOString()
                 };
+                
+                console.log(`✅ Processed user ${user.id}:`, {
+                    name: processedUser.name,
+                    lastLogin: processedUser.lastLogin
+                });
+                
+                processedUsers.push(processedUser);
             });
             
-            console.log('✅ Processed users with last login data:', usersData.slice(0, 2));
+            // Palitan ang usersData ng processed data
+            usersData = processedUsers;
+            
+            console.log('✅ FINAL PROCESSED USERS WITH LAST LOGIN:', usersData.map(u => ({
+                id: u.id,
+                name: u.name,
+                lastLogin: u.lastLogin
+            })));
             
             // I-save sa localStorage bilang backup
             try {
@@ -11665,7 +11645,6 @@ async function loadUsersData() {
             updateUsersTable();
             updateUserStats();
             
-            // Ipakita ang success message
             showNotification('success', 'Users Loaded', `${usersData.length} users loaded from database`);
             
         } else {
@@ -11674,52 +11653,14 @@ async function loadUsersData() {
         
     } catch (error) {
         console.error('❌ ERROR in loadUsersData:', error);
-        console.error('❌ Error stack:', error.stack);
         
         // Show error in table
         if (tableBody) {
-            tableBody.innerHTML = `
-                <tr>
-                    <td colspan="7" class="text-center py-5">
-                        <div style="text-align: center; padding: 40px;">
-                            <i class="fas fa-exclamation-circle" style="font-size: 4rem; color: #f44336; margin-bottom: 20px;"></i>
-                            <h4 style="color: #666; margin-bottom: 10px;">Failed to Load Users</h4>
-                            <p style="color: #999; margin-bottom: 5px;">${error.message}</p>
-                            <p style="color: #999; margin-bottom: 20px;">Check console for details (F12)</p>
-                            <button class="btn btn-primary" onclick="loadUsersData()" style="background: #7a0000;">
-                                <i class="fas fa-sync-alt"></i> Retry
-                            </button>
-                        </div>
-                    </td>
-                </tr>
-            `;
+            tableBody.innerHTML = getErrorHTML(error.message);
         }
         
         // Try to load from backup
-        try {
-            const backup = localStorage.getItem('mathhub_users_backup');
-            if (backup) {
-                usersData = JSON.parse(backup);
-                console.log(`⚠️ Using backup data: ${usersData.length} users`);
-                updateUsersTable();
-                updateUserStats();
-                showNotification('warning', 'Offline Mode', 'Using cached user data');
-            } else {
-                // Set stats to zero
-                document.getElementById('totalUsersCount').textContent = '0';
-                document.getElementById('activeUsersCount').textContent = '0';
-                document.getElementById('adminsCount').textContent = '0';
-                document.getElementById('pendingUsersCount').textContent = '0';
-            }
-        } catch (backupError) {
-            console.error('❌ Backup error:', backupError);
-            
-            // Set stats to zero
-            document.getElementById('totalUsersCount').textContent = '0';
-            document.getElementById('activeUsersCount').textContent = '0';
-            document.getElementById('adminsCount').textContent = '0';
-            document.getElementById('pendingUsersCount').textContent = '0';
-        }
+        tryLoadFromBackup();
     }
 }
 
@@ -11770,21 +11711,46 @@ function showSettings(e) {
 
 // ===== HELPER FUNCTION: Format last login date =====
 function formatLastLogin(dateString) {
-    if (!dateString || dateString === '0000-00-00 00:00:00' || dateString === 'Never') {
+    console.log("🔍 formatLastLogin received:", dateString);
+    
+    if (!dateString) {
+        console.log("❌ dateString is null/undefined");
+        return 'Never';
+    }
+    
+    if (dateString === '0000-00-00 00:00:00' || dateString === 'Never') {
+        console.log("❌ dateString is zero date");
         return 'Never';
     }
     
     try {
+        // Convert to Date object
         const date = new Date(dateString);
+        
+        // Check if valid date
+        if (isNaN(date.getTime())) {
+            console.log("❌ Invalid date:", dateString);
+            return 'Never';
+        }
+        
         const now = new Date();
         const diffMs = now - date;
         const diffMins = Math.floor(diffMs / 60000);
         const diffHours = Math.floor(diffMs / 3600000);
         const diffDays = Math.floor(diffMs / 86400000);
         
+        console.log(`📊 Date diff: ${diffMins} minutes, ${diffHours} hours, ${diffDays} days`);
+        
+        // Format time part
+        const timeStr = date.toLocaleTimeString('en-US', { 
+            hour: '2-digit', 
+            minute: '2-digit',
+            hour12: true 
+        });
+        
         // If within last minute
         if (diffMins < 1) {
-            return 'Just now';
+            return `Just now`;
         }
         
         // If within last hour
@@ -11794,12 +11760,12 @@ function formatLastLogin(dateString) {
         
         // If today
         if (diffHours < 24 && date.getDate() === now.getDate()) {
-            return `Today, ${date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}`;
+            return `Today, ${timeStr}`;
         }
         
         // If yesterday
         if (diffDays === 1) {
-            return `Yesterday, ${date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}`;
+            return `Yesterday, ${timeStr}`;
         }
         
         // If within last week
@@ -11807,7 +11773,7 @@ function formatLastLogin(dateString) {
             return `${diffDays} days ago`;
         }
         
-        // Older
+        // Older - show full date
         return date.toLocaleDateString('en-US', {
             year: 'numeric',
             month: 'short',
@@ -11815,8 +11781,10 @@ function formatLastLogin(dateString) {
             hour: '2-digit',
             minute: '2-digit'
         });
+        
     } catch (e) {
-        return dateString;
+        console.error("❌ Error formatting date:", e);
+        return dateString; // Return original if error
     }
 }
 
@@ -11976,25 +11944,192 @@ function sortUsers() {
     updateUsersTableWithData(sortedData);
 }
 
-function updateUsersTableWithData(data) {
+// ===== ADD STYLES FOR LAST LOGIN =====
+function addLastLoginStyles() {
+    const style = document.createElement('style');
+    style.id = 'last-login-styles';
+    style.textContent = `
+        .last-login-cell {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 0.9rem;
+        }
+        
+        .last-login-cell.recent-activity {
+            font-weight: 600;
+            color: #4CAF50;
+        }
+        
+        .online-indicator {
+            background: #4CAF50;
+            color: white;
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-size: 0.7rem;
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            font-weight: 500;
+        }
+        
+        .online-indicator i {
+            font-size: 8px;
+        }
+        
+        .user-status.active {
+            background: #4CAF50;
+            color: white;
+            padding: 3px 8px;
+            border-radius: 12px;
+            font-size: 0.8rem;
+        }
+        
+        .user-status.inactive {
+            background: #9e9e9e;
+            color: white;
+            padding: 3px 8px;
+            border-radius: 12px;
+            font-size: 0.8rem;
+        }
+        
+        .user-status.pending {
+            background: #ff9800;
+            color: white;
+            padding: 3px 8px;
+            border-radius: 12px;
+            font-size: 0.8rem;
+        }
+        
+        .user-role.admin {
+            background: #7a0000;
+            color: white;
+            padding: 3px 8px;
+            border-radius: 12px;
+            font-size: 0.8rem;
+        }
+        
+        .user-role.teacher {
+            background: #2196F3;
+            color: white;
+            padding: 3px 8px;
+            border-radius: 12px;
+            font-size: 0.8rem;
+        }
+        
+        .user-role.student {
+            background: #4CAF50;
+            color: white;
+            padding: 3px 8px;
+            border-radius: 12px;
+            font-size: 0.8rem;
+        }
+    `;
+    document.head.appendChild(style);
+}
+
+// ===== DEBUG FUNCTION: Check what's in the database =====
+async function debugLastLogin() {
+    console.log("🔍 DEBUG: Checking last_login data in database...");
+    
+    try {
+        const token = localStorage.getItem('admin_token') || localStorage.getItem('authToken');
+        
+        const response = await fetch('/api/admin/users', {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        
+        const result = await response.json();
+        
+        if (result.success && result.users) {
+            console.log("📊 RAW USER DATA FROM DATABASE:");
+            result.users.forEach(user => {
+                console.log(`User ${user.id} (${user.name || user.username}):`, {
+                    last_login: user.last_login,
+                    last_active: user.last_active,
+                    last_activity: user.last_activity,
+                    updated_at: user.updated_at,
+                    created_at: user.created_at
+                });
+            });
+        }
+    } catch (error) {
+        console.error("❌ Debug error:", error);
+    }
+}
+
+// Call this when page loads
+document.addEventListener('DOMContentLoaded', function() {
+    // Add styles
+    setTimeout(() => {
+        addLastLoginStyles();
+    }, 500);
+    
+    // Debug - tawagin para makita ang raw data
+    setTimeout(() => {
+        debugLastLogin();
+    }, 1000);
+});
+
+// ===== UPDATE USERS TABLE WITH PROPER LAST LOGIN =====
+function updateUsersTable() {
+    console.log("🔄 Updating users table...");
+    
     const tableBody = document.getElementById('usersTableBody');
     if (!tableBody) return;
     
+    if (!usersData || usersData.length === 0) {
+        tableBody.innerHTML = `
+            <tr>
+                <td colspan="7" style="text-align: center; padding: 40px;">
+                    <i class="fas fa-users" style="font-size: 2rem; color: #ccc;"></i>
+                    <p>No users found.</p>
+                </td>
+            </tr>
+        `;
+        return;
+    }
+    
+    console.log("📊 Users data for table:", usersData.map(u => ({
+        id: u.id,
+        name: u.name,
+        lastLogin: u.lastLogin
+    })));
+    
     tableBody.innerHTML = '';
     
-    data.forEach(user => {
+    usersData.forEach(user => {
         const row = document.createElement('tr');
         
         const roleClass = `user-role ${user.role}`;
         const statusClass = `user-status ${user.status}`;
+        const isChecked = selectedUsers.has(user.id) ? 'checked' : '';
+        
+        // ===== FIXED: Determine last login display with styling =====
+        let lastLoginDisplay = user.lastLogin || 'Never';
+        let lastLoginClass = '';
+        
+        // Add visual indicator for recent activity
+        if (lastLoginDisplay.includes('Just now') || 
+            lastLoginDisplay.includes('minute') || 
+            lastLoginDisplay.includes('Today')) {
+            lastLoginClass = 'recent-activity';
+        }
+        
+        // Add online indicator for very recent activity
+        let onlineIndicator = '';
+        if (lastLoginDisplay === 'Just now' || lastLoginDisplay.includes('1 minute')) {
+            onlineIndicator = '<span class="online-indicator"><i class="fas fa-circle"></i> Online</span>';
+        }
         
         row.innerHTML = `
             <td>
-                <input type="checkbox" class="user-checkbox" value="${user.id}" onchange="toggleUserSelection(${user.id})">
+                <input type="checkbox" class="user-checkbox" value="${user.id}" ${isChecked} 
+                    onchange="toggleUserSelection(${user.id})">
             </td>
             <td>
                 <div class="user-cell">
-                    <div class="user-avatar">${user.avatar}</div>
+                    <div class="user-avatar" style="background: ${getAvatarColor(user.avatar)}">${user.avatar}</div>
                     <div class="user-info">
                         <span class="user-name">${user.name}</span>
                         <span class="user-email">${user.email}</span>
@@ -12002,16 +12137,20 @@ function updateUsersTableWithData(data) {
                 </div>
             </td>
             <td>
-                <span class="${roleClass}">${user.role.toUpperCase()}</span>
+                <span class="${roleClass}">${getRoleDisplayName(user.role)}</span>
             </td>
             <td>
-                <span class="${statusClass}">${user.status.toUpperCase()}</span>
+                <span class="${statusClass}">${getStatusDisplayName(user.status)}</span>
             </td>
-            <td>${formatDate(user.registrationDate)}</td>
-            <td>${user.lastActive || (user.lastLogin ? formatDate(user.lastLogin) : 'Never')}</td>
+            <td>${user.registrationDate || 'N/A'}</td>
+            <td>
+                <div class="last-login-cell ${lastLoginClass}">
+                    ${lastLoginDisplay}
+                    ${onlineIndicator}
+                </div>
+            </td>
             <td>
                 <div class="user-actions">
-                   
                     <button class="action-btn edit" onclick="editUser(${user.id})" title="Edit User">
                         <i class="fas fa-edit"></i>
                     </button>
@@ -12024,7 +12163,11 @@ function updateUsersTableWithData(data) {
         
         tableBody.appendChild(row);
     });
+    
+    updatePaginationInfo();
+    updateBulkActionsPanel();
 }
+
 
 function filterUsersBySearch(searchTerm) {
     if (!searchTerm.trim()) {
