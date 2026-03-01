@@ -11906,61 +11906,182 @@ function updatePaginationInfo() {
     document.getElementById('totalPages').textContent = totalPages;
 }
 
+// ===== FILTER USERS (DAPAT NASA IBABA NG updateUsersTableWithData) =====
 function filterUsers() {
-    const filterValue = document.getElementById('userFilterSelect').value;
-    let filteredData = [...usersData];
+    console.log("🔍 Filtering users...");
     
-    if (filterValue === 'active') {
-        filteredData = filteredData.filter(u => u.status === 'active');
-    } else if (filterValue === 'inactive') {
-        filteredData = filteredData.filter(u => u.status === 'inactive');
-    } else if (filterValue === 'admins') {
-        filteredData = filteredData.filter(u => u.role === 'admin');
-    } else if (filterValue === 'students') {
-        filteredData = filteredData.filter(u => u.role === 'student');
-    } else if (filterValue === 'teachers') {
-        filteredData = filteredData.filter(u => u.role === 'teacher');
-    } else if (filterValue === 'pending') {
-        filteredData = filteredData.filter(u => u.status === 'pending');
+    const filterValue = document.getElementById('userFilterSelect').value;
+    
+    if (!usersData || usersData.length === 0) {
+        console.log("No users data to filter");
+        return;
     }
     
-    // For demo, just update the displayed data
+    let filteredData = [...usersData];
+    
+    switch(filterValue) {
+        case 'active':
+            filteredData = usersData.filter(u => u.status === 'active');
+            break;
+        case 'inactive':
+            filteredData = usersData.filter(u => u.status === 'inactive');
+            break;
+        case 'admins':
+            filteredData = usersData.filter(u => u.role === 'admin');
+            break;
+        case 'teachers':
+            filteredData = usersData.filter(u => u.role === 'teacher');
+            break;
+        case 'students':
+            filteredData = usersData.filter(u => u.role === 'student');
+            break;
+        case 'pending':
+            filteredData = usersData.filter(u => u.status === 'pending');
+            break;
+        default:
+            filteredData = usersData;
+    }
+    
+    console.log(`Filtered to ${filteredData.length} users`);
     updateUsersTableWithData(filteredData);
 }
 
+
+// ===== SORT USERS (DAPAT NASA IBABA NG updateUsersTableWithData) =====
 function sortUsers() {
+    console.log("🔍 Sorting users...");
+    
     const sortValue = document.getElementById('userSortSelect').value;
+    
+    if (!usersData || usersData.length === 0) {
+        console.log("No users data to sort");
+        return;
+    }
+    
     let sortedData = [...usersData];
     
-    sortedData.sort((a, b) => {
-        if (sortValue === 'name') {
-            return a.name.localeCompare(b.name);
-        } else if (sortValue === 'date') {
-            return new Date(b.registrationDate) - new Date(a.registrationDate);
-        } else if (sortValue === 'lastLogin') {
-            if (!a.lastLogin && !b.lastLogin) return 0;
-            if (!a.lastLogin) return 1;
-            if (!b.lastLogin) return -1;
-            return new Date(b.lastLogin) - new Date(a.lastLogin);
-        } else if (sortValue === 'activity') {
-            const activityScore = (user) => {
-                let score = 0;
-                if (user.status === 'active') score += 10;
-                if (user.role === 'admin') score += 5;
-                if (user.lastLogin) {
-                    const daysSinceLogin = Math.floor((new Date() - new Date(user.lastLogin)) / (1000 * 60 * 60 * 24));
-                    if (daysSinceLogin <= 7) score += 8;
-                    else if (daysSinceLogin <= 30) score += 4;
-                }
-                return score;
-            };
-            return activityScore(b) - activityScore(a);
-        }
-        return 0;
-    });
+    switch(sortValue) {
+        case 'name':
+            sortedData.sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+            break;
+        case 'date':
+            sortedData.sort((a, b) => {
+                const dateA = a.registrationDate ? new Date(a.registrationDate) : new Date(0);
+                const dateB = b.registrationDate ? new Date(b.registrationDate) : new Date(0);
+                return dateB - dateA;
+            });
+            break;
+        case 'lastLogin':
+            sortedData.sort((a, b) => {
+                if (!a.lastLoginRaw && !b.lastLoginRaw) return 0;
+                if (!a.lastLoginRaw) return 1;
+                if (!b.lastLoginRaw) return -1;
+                return new Date(b.lastLoginRaw) - new Date(a.lastLoginRaw);
+            });
+            break;
+        case 'activity':
+            // Sort by activity level (active status first, then last login)
+            sortedData.sort((a, b) => {
+                if (a.status === 'active' && b.status !== 'active') return -1;
+                if (a.status !== 'active' && b.status === 'active') return 1;
+                
+                if (!a.lastLoginRaw && !b.lastLoginRaw) return 0;
+                if (!a.lastLoginRaw) return 1;
+                if (!b.lastLoginRaw) return -1;
+                return new Date(b.lastLoginRaw) - new Date(a.lastLoginRaw);
+            });
+            break;
+    }
     
+    console.log(`Sorted users by ${sortValue}`);
     updateUsersTableWithData(sortedData);
 }
+
+// ===== UPDATE TABLE WITH DATA (ILAGAY ITO SA ITAAS) =====
+function updateUsersTableWithData(data) {
+    console.log(`🔄 Updating table with ${data.length} users`);
+    
+    const tableBody = document.getElementById('usersTableBody');
+    if (!tableBody) return;
+    
+    if (!data || data.length === 0) {
+        tableBody.innerHTML = `
+            <tr>
+                <td colspan="7" class="text-center py-5">
+                    <div style="text-align: center; padding: 40px;">
+                        <i class="fas fa-users-slash" style="font-size: 3rem; color: #ccc;"></i>
+                        <h4 style="color: #666; margin-top: 15px;">No users found</h4>
+                    </div>
+                </td>
+            </tr>
+        `;
+        return;
+    }
+    
+    tableBody.innerHTML = '';
+    
+    data.forEach(user => {
+        const row = document.createElement('tr');
+        
+        const roleClass = `user-role ${user.role}`;
+        const statusClass = `user-status ${user.status}`;
+        const isChecked = selectedUsers && selectedUsers.has(user.id) ? 'checked' : '';
+        
+        let lastLoginDisplay = user.lastLogin || 'Never';
+        let onlineIndicator = '';
+        
+        if (lastLoginDisplay.includes('Just now') || lastLoginDisplay.includes('minute')) {
+            onlineIndicator = '<span class="online-indicator"><i class="fas fa-circle"></i> Online</span>';
+        }
+        
+        row.innerHTML = `
+            <td>
+                <input type="checkbox" class="user-checkbox" value="${user.id}" ${isChecked} 
+                    onchange="toggleUserSelection(${user.id})">
+            </td>
+            <td>
+                <div class="user-cell">
+                    <div class="user-avatar" style="background: ${getAvatarColor(user.avatar)}">${user.avatar}</div>
+                    <div class="user-info">
+                        <span class="user-name">${user.name}</span>
+                        <span class="user-email">${user.email}</span>
+                    </div>
+                </div>
+            </td>
+            <td>
+                <span class="${roleClass}">${getRoleDisplayName(user.role)}</span>
+            </td>
+            <td>
+                <span class="${statusClass}">${getStatusDisplayName(user.status)}</span>
+            </td>
+            <td>${user.registrationDate || 'N/A'}</td>
+            <td>
+                <div class="last-login-cell">
+                    ${lastLoginDisplay}
+                    ${onlineIndicator}
+                </div>
+            </td>
+            <td>
+                <div class="user-actions">
+                    <button class="action-btn edit" onclick="editUser(${user.id})" title="Edit User">
+                        <i class="fas fa-edit"></i>
+                    </button>
+                    <button class="action-btn delete" onclick="showUserDeletionModal(${user.id})" title="Delete User">
+                        <i class="fas fa-trash"></i>
+                    </button>
+                </div>
+            </td>
+        `;
+        
+        tableBody.appendChild(row);
+    });
+    
+    // Update pagination info
+    const totalPages = Math.ceil(data.length / (usersPerPage || 10));
+    document.getElementById('currentPage').textContent = currentPage || 1;
+    document.getElementById('totalPages').textContent = totalPages || 1;
+}
+
 
 // ===== ADD STYLES FOR LAST LOGIN =====
 function addLastLoginStyles() {
