@@ -5887,6 +5887,109 @@ app.get('/api/progress/weekly-improvement', authenticateUser, async (req, res) =
 // ✅ COMPLETE FIXED: FORGOT PASSWORD ROUTES
 // ============================================
 
+// ============================================
+// NODEMAILER CONFIGURATION - GMAIL SMTP (RAILWAY VERSION)
+// ============================================
+const nodemailer = require('nodemailer');
+
+// Email configuration - Diretso sa process.env (galing sa Railway)
+const EMAIL_USER = process.env.EMAIL_USER;
+const EMAIL_PASS = process.env.EMAIL_PASS;
+const EMAIL_FROM = process.env.EMAIL_FROM || 'MathHub <noreply@mathhub.com>';
+
+// Create transporter (may fallback kung walang email config)
+let transporter = null;
+let emailConfigured = false;
+
+if (EMAIL_USER && EMAIL_PASS) {
+  try {
+    transporter = nodemailer.createTransport({
+      service: 'gmail',
+      auth: {
+        user: EMAIL_USER,
+        pass: EMAIL_PASS
+      }
+    });
+    
+    // Test connection
+    transporter.verify((error, success) => {
+      if (error) {
+        console.log('❌ Gmail connection error:', error.message);
+        console.log('⚠️ Using fallback mode (emails will be logged only)');
+        emailConfigured = false;
+      } else {
+        console.log('✅ Gmail SMTP is ready to send emails');
+        emailConfigured = true;
+      }
+    });
+  } catch (error) {
+    console.log('❌ Failed to initialize email:', error.message);
+    emailConfigured = false;
+  }
+} else {
+  console.log('⚠️ No email credentials found. Using demo mode (emails will be logged)');
+  emailConfigured = false;
+}
+
+// Helper function to send email (with Railway fallback)
+async function sendEmail(to, subject, html) {
+  // Log for debugging
+  console.log(`📧 Attempting to send email to: ${to}`);
+  console.log(`Subject: ${subject}`);
+  
+  // If email not configured, just log (Railway fallback)
+  if (!emailConfigured || !transporter) {
+    console.log('\n📧 ===== DEMO MODE =====');
+    console.log(`To: ${to}`);
+    console.log(`Subject: ${subject}`);
+    console.log('Content preview:', html.substring(0, 200) + '...');
+    console.log('=======================\n');
+    
+    return { 
+      success: true, 
+      demoMode: true,
+      message: 'Email logged (email not configured)'
+    };
+  }
+
+  try {
+    const mailOptions = {
+      from: EMAIL_FROM,
+      to: to,
+      subject: subject,
+      html: html
+    };
+
+    const info = await transporter.sendMail(mailOptions);
+    console.log('✅ Email sent successfully to:', to);
+    console.log('📨 Message ID:', info.messageId);
+    
+    return { 
+      success: true, 
+      messageId: info.messageId,
+      demoMode: false 
+    };
+    
+  } catch (error) {
+    console.error('❌ Email sending error:', error);
+    
+    // Fallback to demo mode on error
+    console.log('⚠️ Email failed, falling back to demo mode');
+    console.log(`To: ${to}`);
+    console.log(`Reset link would be sent to: ${to}`);
+    
+    return { 
+      success: true, 
+      demoMode: true,
+      error: error.message 
+    };
+  }
+}
+
+// ============================================
+// ✅ GMAIL-ENABLED FORGOT PASSWORD ROUTES
+// ============================================
+
 // Forgot password - request reset
 app.post('/api/auth/forgot-password', async (req, res) => {
     try {
@@ -5912,7 +6015,7 @@ app.post('/api/auth/forgot-password', async (req, res) => {
             return res.json({
                 success: true,
                 message: 'If your email exists in our system, you will receive a reset link.',
-                demo_mode: true
+                demo_mode: !emailConfigured
             });
         }
         
@@ -5956,20 +6059,150 @@ app.post('/api/auth/forgot-password', async (req, res) => {
             [user.user_id, resetToken, tokenExpiry]
         );
         
-        console.log(`✅ Reset token generated for user ${user.user_id}: ${resetToken}`);
+        console.log(`✅ Reset token generated for user ${user.user_id}`);
         
-        // For demo, return the token in the response
+        // Create reset link
+        const resetLink = `${req.protocol}://${req.get('host')}/reset-password?token=${resetToken}`;
+        
+        // Create HTML email
+        const htmlContent = `
+            <!DOCTYPE html>
+            <html>
+            <head>
+                <meta charset="UTF-8">
+                <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                <style>
+                    body {
+                        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+                        line-height: 1.6;
+                        color: #333333;
+                        margin: 0;
+                        padding: 0;
+                    }
+                    .container {
+                        max-width: 600px;
+                        margin: 0 auto;
+                        background-color: #f8f9fa;
+                    }
+                    .header {
+                        background-color: #7a0000;
+                        color: white;
+                        padding: 20px;
+                        text-align: center;
+                    }
+                    .header h1 {
+                        margin: 0;
+                        font-size: 24px;
+                    }
+                    .content {
+                        padding: 30px 20px;
+                        background-color: white;
+                    }
+                    .button {
+                        display: inline-block;
+                        padding: 12px 30px;
+                        background-color: #7a0000;
+                        color: white;
+                        text-decoration: none;
+                        border-radius: 5px;
+                        font-weight: 600;
+                        margin: 20px 0;
+                    }
+                    .button:hover {
+                        background-color: #5a0000;
+                    }
+                    .footer {
+                        background-color: #f8f9fa;
+                        padding: 20px;
+                        text-align: center;
+                        font-size: 12px;
+                        color: #6c757d;
+                        border-top: 1px solid #e9ecef;
+                    }
+                    .expiry-note {
+                        background-color: #fff3cd;
+                        border: 1px solid #ffeeba;
+                        color: #856404;
+                        padding: 10px;
+                        border-radius: 5px;
+                        margin: 20px 0;
+                        font-size: 14px;
+                    }
+                </style>
+            </head>
+            <body>
+                <div class="container">
+                    <div class="header">
+                        <h1>🔐 MathHub Password Reset</h1>
+                    </div>
+                    
+                    <div class="content">
+                        <h2>Hello ${user.full_name || user.username}!</h2>
+                        
+                        <p>We received a request to reset the password for your MathHub account. 
+                           Click the button below to create a new password:</p>
+                        
+                        <div style="text-align: center;">
+                            <a href="${resetLink}" class="button" style="color: white;">
+                                🔑 Reset My Password
+                            </a>
+                        </div>
+                        
+                        <div class="expiry-note">
+                            <strong>⚠️ Important:</strong> This password reset link will expire in 1 hour.
+                        </div>
+                        
+                        <p>If the button doesn't work, copy and paste this link into your browser:</p>
+                        <p style="word-break: break-all; background: #f1f3f5; padding: 10px; border-radius: 5px;">
+                            ${resetLink}
+                        </p>
+                        
+                        <p>If you didn't request a password reset, please ignore this email. 
+                           Your password will remain unchanged.</p>
+                        
+                        <p>For security reasons, never share this link with anyone.</p>
+                        
+                        <hr style="border: none; border-top: 1px solid #e9ecef; margin: 20px 0;">
+                        
+                        <p style="font-size: 14px; color: #6c757d;">
+                            <strong>Didn't request this?</strong> Contact our support team immediately at 
+                            <a href="mailto:support@mathhub.com">support@mathhub.com</a>
+                        </p>
+                    </div>
+                    
+                    <div class="footer">
+                        <p>© ${new Date().getFullYear()} MathHub Learning Platform. All rights reserved.</p>
+                        <p>This is an automated message, please do not reply to this email.</p>
+                    </div>
+                </div>
+            </body>
+            </html>
+        `;
+        
+        // Send email
+        const emailResult = await sendEmail(
+            user.email,
+            '🔐 MathHub Password Reset Request',
+            htmlContent
+        );
+        
+        // Log for demo mode
+        if (emailResult.demoMode) {
+            console.log('\n📧 ===== DEMO MODE =====');
+            console.log(`To: ${user.email}`);
+            console.log(`Reset Link: ${resetLink}`);
+            console.log('=======================\n');
+        }
+        
         res.json({
             success: true,
-            message: 'Password reset link generated',
-            demo_mode: true,
-            reset_token: resetToken,
-            reset_link: `${req.protocol}://${req.get('host')}/reset-password?token=${resetToken}`,
-            user: {
-                id: user.user_id,
-                name: user.full_name || user.username,
-                email: user.email
-            }
+            message: emailConfigured 
+                ? 'Password reset link has been sent to your email.'
+                : 'Reset link generated (email not configured - see server logs)',
+            email_sent: !emailResult.demoMode,
+            demo_mode: emailResult.demoMode,
+            // Only include reset link in demo mode
+            ...(emailResult.demoMode && { reset_token: resetToken, reset_link: resetLink })
         });
         
     } catch (error) {
@@ -6007,7 +6240,7 @@ app.post('/api/auth/verify-reset-token', async (req, res) => {
         if (resets.length === 0) {
             return res.status(400).json({
                 success: false,
-                message: 'Invalid or expired reset token'
+                message: 'Invalid or expired reset link. Please request a new one.'
             });
         }
         
@@ -6058,7 +6291,7 @@ app.post('/api/auth/reset-password', async (req, res) => {
         
         // Verify token
         const [resets] = await promisePool.execute(`
-            SELECT pr.*, u.user_id
+            SELECT pr.*, u.user_id, u.email, u.full_name, u.username
             FROM password_resets pr
             JOIN users u ON pr.user_id = u.user_id
             WHERE pr.reset_token = ? 
@@ -6069,7 +6302,7 @@ app.post('/api/auth/reset-password', async (req, res) => {
         if (resets.length === 0) {
             return res.status(400).json({
                 success: false,
-                message: 'Invalid or expired reset token'
+                message: 'Invalid or expired reset link. Please request a new one.'
             });
         }
         
@@ -6101,6 +6334,44 @@ app.post('/api/auth/reset-password', async (req, res) => {
             
             console.log(`✅ Password reset successful for user ${reset.user_id}`);
             
+            // Send confirmation email
+            const htmlContent = `
+                <!DOCTYPE html>
+                <html>
+                <head>
+                    <meta charset="UTF-8">
+                    <style>
+                        body { font-family: 'Segoe UI', sans-serif; }
+                        .container { max-width: 600px; margin: 0 auto; }
+                        .header { background: #27ae60; color: white; padding: 20px; text-align: center; }
+                        .content { padding: 30px 20px; background: white; }
+                    </style>
+                </head>
+                <body>
+                    <div class="container">
+                        <div class="header">
+                            <h2>✅ Password Reset Successful</h2>
+                        </div>
+                        <div class="content">
+                            <p>Hello ${reset.full_name || reset.username}!</p>
+                            <p>Your MathHub password has been successfully changed.</p>
+                            <p>If you did not make this change, please contact our support team immediately.</p>
+                            <hr>
+                            <p style="font-size: 12px; color: #666;">
+                                This is an automated message, please do not reply.
+                            </p>
+                        </div>
+                    </div>
+                </body>
+                </html>
+            `;
+            
+            await sendEmail(
+                reset.email,
+                '✅ MathHub Password Changed Successfully',
+                htmlContent
+            );
+            
             res.json({
                 success: true,
                 message: 'Password reset successful! You can now login with your new password.'
@@ -6121,7 +6392,7 @@ app.post('/api/auth/reset-password', async (req, res) => {
     }
 });
 
-// Check if email exists
+// Check if email exists (for validation)
 app.post('/api/auth/check-email', async (req, res) => {
     try {
         const { email } = req.body;
@@ -6145,6 +6416,14 @@ app.post('/api/auth/check-email', async (req, res) => {
     }
 });
 
+// Check email configuration status
+app.get('/api/auth/email-status', (req, res) => {
+    res.json({
+        success: true,
+        email_configured: emailConfigured,
+        email_user: EMAIL_USER ? EMAIL_USER.replace(/(.{3}).*(@.*)/, '$1***$2') : null
+    });
+});
 
 // Submit quiz
 // Sa quiz submission endpoint
