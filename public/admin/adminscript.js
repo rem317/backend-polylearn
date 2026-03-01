@@ -11480,10 +11480,10 @@ function openSettingsTab(tabId) {
     event.target.classList.add('active');
 }
 
-// ===== LOAD USERS FROM DATABASE - FIXED URL =====
+// ===== LOAD USERS FROM DATABASE - FIXED WITH PROPER LAST LOGIN =====
 async function loadUsersData() {
     console.log("📥 ===== LOAD USERS DATA FUNCTION CALLED =====");
-    console.log("📥 Loading REAL users from MySQL database...");
+    console.log("📥 Loading REAL users from MySQL database with last login data...");
     
     // Show loading state in table
     const tableBody = document.getElementById('usersTableBody');
@@ -11606,7 +11606,7 @@ async function loadUsersData() {
                 return;
             }
             
-            // I-process ang users para consistent ang format
+            // I-process ang users para consistent ang format at makuha ang UPDATED last login
             usersData = usersData.map(user => {
                 // Kunin ang initials para sa avatar
                 const nameToUse = user.name || user.full_name || user.username || 'User';
@@ -11617,6 +11617,25 @@ async function loadUsersData() {
                     .toUpperCase()
                     .substring(0, 2);
                 
+                // ===== FIXED: Get the latest last login from the database =====
+                // Try different possible field names for last login
+                let lastLogin = 'Never';
+                let lastActive = 'Never';
+                
+                // Check all possible timestamp fields
+                if (user.last_login && user.last_login !== '0000-00-00 00:00:00') {
+                    lastLogin = formatLastLogin(user.last_login);
+                    lastActive = formatLastLogin(user.last_login);
+                } else if (user.last_active && user.last_active !== '0000-00-00 00:00:00') {
+                    lastActive = formatLastLogin(user.last_active);
+                    if (lastLogin === 'Never') lastLogin = lastActive;
+                } else if (user.last_activity && user.last_activity !== '0000-00-00 00:00:00') {
+                    lastActive = formatLastLogin(user.last_activity);
+                    if (lastLogin === 'Never') lastLogin = lastActive;
+                } else if (user.updated_at && user.updated_at !== '0000-00-00 00:00:00') {
+                    lastActive = formatLastLogin(user.updated_at);
+                }
+                
                 return {
                     id: user.id,
                     name: nameToUse,
@@ -11624,15 +11643,15 @@ async function loadUsersData() {
                     email: user.email || 'no-email@example.com',
                     role: user.role || 'student',
                     status: user.status || 'active',
-                    registrationDate: user.registrationDate || new Date().toISOString().split('T')[0],
-                    lastLogin: user.lastLogin || 'Never',
-                    lastActive: user.lastActive || 'Never',
+                    registrationDate: formatDateSimple(user.registrationDate || user.created_at || user.registered_at || new Date().toISOString()),
+                    lastLogin: lastLogin,  // ← FIXED: This will now show the actual last login
+                    lastActive: lastActive,
                     avatar: initials || 'U',
-                    createdAt: user.registrationDate || new Date().toISOString()
+                    createdAt: user.registrationDate || user.created_at || new Date().toISOString()
                 };
             });
             
-            console.log('✅ Processed users sample:', usersData.slice(0, 2));
+            console.log('✅ Processed users with last login data:', usersData.slice(0, 2));
             
             // I-save sa localStorage bilang backup
             try {
@@ -11703,6 +11722,7 @@ async function loadUsersData() {
         }
     }
 }
+
 // ===== SHOW NO USERS MESSAGE =====
 function showNoUsersMessage(message) {
     console.log("📭 No users found:", message);
@@ -11748,6 +11768,74 @@ function showSettings(e) {
     initializeSettingsDashboard();
 }
 
+// ===== HELPER FUNCTION: Format last login date =====
+function formatLastLogin(dateString) {
+    if (!dateString || dateString === '0000-00-00 00:00:00' || dateString === 'Never') {
+        return 'Never';
+    }
+    
+    try {
+        const date = new Date(dateString);
+        const now = new Date();
+        const diffMs = now - date;
+        const diffMins = Math.floor(diffMs / 60000);
+        const diffHours = Math.floor(diffMs / 3600000);
+        const diffDays = Math.floor(diffMs / 86400000);
+        
+        // If within last minute
+        if (diffMins < 1) {
+            return 'Just now';
+        }
+        
+        // If within last hour
+        if (diffMins < 60) {
+            return `${diffMins} minute${diffMins > 1 ? 's' : ''} ago`;
+        }
+        
+        // If today
+        if (diffHours < 24 && date.getDate() === now.getDate()) {
+            return `Today, ${date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}`;
+        }
+        
+        // If yesterday
+        if (diffDays === 1) {
+            return `Yesterday, ${date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}`;
+        }
+        
+        // If within last week
+        if (diffDays < 7) {
+            return `${diffDays} days ago`;
+        }
+        
+        // Older
+        return date.toLocaleDateString('en-US', {
+            year: 'numeric',
+            month: 'short',
+            day: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit'
+        });
+    } catch (e) {
+        return dateString;
+    }
+}
+
+
+// ===== HELPER FUNCTION: Simple date formatting =====
+function formatDateSimple(dateString) {
+    if (!dateString) return 'N/A';
+    try {
+        const date = new Date(dateString);
+        return date.toLocaleDateString('en-US', {
+            year: 'numeric',
+            month: 'short',
+            day: 'numeric'
+        });
+    } catch (e) {
+        return dateString;
+    }
+}
+
 // ===== UPDATE USER STATS WITH REAL DATA =====
 function updateUserStats() {
     console.log("📊 Updating user stats with real data...");
@@ -11787,8 +11875,15 @@ function updateUserStats() {
     const activeNow = usersData.filter(u => {
         if (!u.lastActive || u.lastActive === 'Never') return false;
         try {
-            const lastActive = new Date(u.lastActive);
-            return lastActive > oneHourAgo;
+            // Extract date from formatted string
+            const lastActiveStr = u.lastActive;
+            if (lastActiveStr.includes('Just now')) return true;
+            if (lastActiveStr.includes('minute')) {
+                const minutes = parseInt(lastActiveStr);
+                return minutes < 60;
+            }
+            if (lastActiveStr.includes('Today')) return true;
+            return false;
         } catch (e) {
             return false;
         }
@@ -11818,94 +11913,6 @@ function updateUserStats() {
     document.getElementById('activeNow').textContent = activeNow;
 }
 
-// KEEP ONLY ONE updateUsersTable() FUNCTION - THIS IS THE CLEANED VERSION
-function updateUsersTable() {
-    console.log("🔄 Updating users table...");
-    
-    const tableBody = document.getElementById('usersTableBody');
-    if (!tableBody) {
-        console.error("❌ usersTableBody not found!");
-        return;
-    }
-    
-    // Ensure usersData is loaded
-    if (!usersData || usersData.length === 0) {
-        loadUsersData();
-    }
-    
-    console.log(`Displaying ${usersData.length} users`);
-    
-    // Clear table
-    tableBody.innerHTML = '';
-    
-    if (usersData.length === 0) {
-        tableBody.innerHTML = `
-            <tr>
-                <td colspan="7" style="text-align: center; padding: 40px; color: var(--medium-gray);">
-                    <i class="fas fa-users" style="font-size: 2rem; margin-bottom: 15px; display: block;"></i>
-                    <p>No users found. Click "Add New User" to create one.</p>
-                </td>
-            </tr>
-        `;
-        return;
-    }
-    
-    // Add each user to the table
-    usersData.forEach(user => {
-        const row = document.createElement('tr');
-        
-        const roleClass = `user-role ${user.role}`;
-        const statusClass = `user-status ${user.status}`;
-        
-        // Check if user is selected
-        const isChecked = selectedUsers.has(user.id) ? 'checked' : '';
-        
-        row.innerHTML = `
-            <td>
-                <input type="checkbox" class="user-checkbox" value="${user.id}" ${isChecked} 
-                    onchange="toggleUserSelection(${user.id})">
-            </td>
-            <td>
-                <div class="user-cell">
-                    <div class="user-avatar" style="background: ${getAvatarColor(user.avatar)}">${user.avatar}</div>
-                    <div class="user-info">
-                        <span class="user-name">${user.name}</span>
-                        <span class="user-email">${user.email}</span>
-                    </div>
-                </div>
-            </td>
-            <td>
-                <span class="${roleClass}">${getRoleDisplayName(user.role)}</span>
-            </td>
-            <td>
-                <span class="${statusClass}">${getStatusDisplayName(user.status)}</span>
-            </td>
-            <td>${formatDate(user.registrationDate)}</td>
-            <td>${user.lastActive || (user.lastLogin ? formatDate(user.lastLogin) : 'Never')}</td>
-            <td>
-                <div class="user-actions">
-                  
-                    <button class="action-btn edit" onclick="editUser(${user.id})" title="Edit User">
-                        <i class="fas fa-edit"></i>
-                    </button>
-                    <button class="action-btn delete" onclick="showUserDeletionModal(${user.id})" title="Delete User">
-                        <i class="fas fa-trash"></i>
-                    </button>
-                </div>
-            </td>
-        `;
-        
-        tableBody.appendChild(row);
-    });
-    
-    console.log(`✅ Table updated with ${usersData.length} rows`);
-    
-    // Update pagination
-    updatePaginationInfo();
-    
-    // Update bulk actions
-    updateBulkActionsPanel();
-}
 
 function updatePaginationInfo() {
     const totalPages = Math.ceil(usersData.length / usersPerPage);
@@ -18984,6 +18991,181 @@ async function loadModuleStructure() {
         setupFallbackDropdowns();
     }
 }
+
+// ===== UPDATE USERS TABLE WITH PROPER LAST LOGIN DISPLAY =====
+function updateUsersTable() {
+    console.log("🔄 Updating users table...");
+    
+    const tableBody = document.getElementById('usersTableBody');
+    if (!tableBody) {
+        console.error("❌ usersTableBody not found!");
+        return;
+    }
+    
+    // Ensure usersData is loaded
+    if (!usersData || usersData.length === 0) {
+        loadUsersData();
+    }
+    
+    console.log(`Displaying ${usersData.length} users`);
+    
+    // Clear table
+    tableBody.innerHTML = '';
+    
+    if (usersData.length === 0) {
+        tableBody.innerHTML = `
+            <tr>
+                <td colspan="7" style="text-align: center; padding: 40px; color: var(--medium-gray);">
+                    <i class="fas fa-users" style="font-size: 2rem; margin-bottom: 15px; display: block;"></i>
+                    <p>No users found. Click "Add New User" to create one.</p>
+                </td>
+            </tr>
+        `;
+        return;
+    }
+    
+    // Add each user to the table
+    usersData.forEach(user => {
+        const row = document.createElement('tr');
+        
+        const roleClass = `user-role ${user.role}`;
+        const statusClass = `user-status ${user.status}`;
+        
+        // Check if user is selected
+        const isChecked = selectedUsers.has(user.id) ? 'checked' : '';
+        
+        // ===== FIXED: Display last login properly =====
+        let lastActiveDisplay = user.lastActive || user.lastLogin || 'Never';
+        
+        // Add visual indicator for recent activity
+        let lastActiveClass = '';
+        if (lastActiveDisplay.includes('Just now') || lastActiveDisplay.includes('Today')) {
+            lastActiveClass = 'recent-activity';
+        }
+        
+        row.innerHTML = `
+            <td>
+                <input type="checkbox" class="user-checkbox" value="${user.id}" ${isChecked} 
+                    onchange="toggleUserSelection(${user.id})">
+            </td>
+            <td>
+                <div class="user-cell">
+                    <div class="user-avatar" style="background: ${getAvatarColor(user.avatar)}">${user.avatar}</div>
+                    <div class="user-info">
+                        <span class="user-name">${user.name}</span>
+                        <span class="user-email">${user.email}</span>
+                    </div>
+                </div>
+            </td>
+            <td>
+                <span class="${roleClass}">${getRoleDisplayName(user.role)}</span>
+            </td>
+            <td>
+                <span class="${statusClass}">${getStatusDisplayName(user.status)}</span>
+            </td>
+            <td>${formatDateSimple(user.registrationDate)}</td>
+            <td>
+                <span class="${lastActiveClass}" style="display: flex; align-items: center; gap: 5px;">
+                    ${lastActiveDisplay}
+                    ${lastActiveDisplay.includes('Just now') ? 
+                        '<span style="color: #4CAF50;"><i class="fas fa-circle" style="font-size: 8px;"></i> Online</span>' : ''}
+                </span>
+            </td>
+            <td>
+                <div class="user-actions">
+                    <button class="action-btn edit" onclick="editUser(${user.id})" title="Edit User">
+                        <i class="fas fa-edit"></i>
+                    </button>
+                    <button class="action-btn delete" onclick="showUserDeletionModal(${user.id})" title="Delete User">
+                        <i class="fas fa-trash"></i>
+                    </button>
+                </div>
+            </td>
+        `;
+        
+        tableBody.appendChild(row);
+    });
+    
+    console.log(`✅ Table updated with ${usersData.length} rows`);
+    
+    // Update pagination
+    updatePaginationInfo();
+    
+    // Update bulk actions
+    updateBulkActionsPanel();
+}
+
+// ===== ADD CSS FOR RECENT ACTIVITY INDICATOR =====
+function addUserManagementStyles() {
+    const style = document.createElement('style');
+    style.textContent = `
+        .recent-activity {
+            font-weight: 600;
+            color: #4CAF50;
+        }
+        
+        .recent-activity i {
+            font-size: 10px;
+            margin-right: 5px;
+        }
+        
+        .user-status.active {
+            background: #4CAF50;
+            color: white;
+            padding: 3px 8px;
+            border-radius: 12px;
+            font-size: 0.8rem;
+        }
+        
+        .user-status.inactive {
+            background: #9e9e9e;
+            color: white;
+            padding: 3px 8px;
+            border-radius: 12px;
+            font-size: 0.8rem;
+        }
+        
+        .user-status.pending {
+            background: #ff9800;
+            color: white;
+            padding: 3px 8px;
+            border-radius: 12px;
+            font-size: 0.8rem;
+        }
+        
+        .user-role.admin {
+            background: #7a0000;
+            color: white;
+            padding: 3px 8px;
+            border-radius: 12px;
+            font-size: 0.8rem;
+        }
+        
+        .user-role.teacher {
+            background: #2196F3;
+            color: white;
+            padding: 3px 8px;
+            border-radius: 12px;
+            font-size: 0.8rem;
+        }
+        
+        .user-role.student {
+            background: #4CAF50;
+            color: white;
+            padding: 3px 8px;
+            border-radius: 12px;
+            font-size: 0.8rem;
+        }
+    `;
+    document.head.appendChild(style);
+}
+
+// Call this when page loads
+document.addEventListener('DOMContentLoaded', function() {
+    setTimeout(() => {
+        addUserManagementStyles();
+    }, 500);
+});
 
 // ===== FILTER MODULES BY LESSON - FIXED =====
 function filterModulesByLesson() {
