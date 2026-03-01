@@ -20,7 +20,6 @@ const domCache = {
     lessonDashboardSection: null
 };
 
-
 // ============================================
 // PERFORMANCE CHARTS - FIXED WITH DATABASE CONNECTION
 // ============================================
