@@ -24145,7 +24145,7 @@ function changePracticePage(direction) {
     displayFilteredPracticeExercises(exercises);
 }
 
-// ===== MODIFIED loadAdminPracticeExercises =====
+// ===== UPDATED loadAdminPracticeExercises with proper subject mapping =====
 async function loadAdminPracticeExercises() {
     console.log("📥 Loading practice exercises from database...");
     
@@ -24174,18 +24174,115 @@ async function loadAdminPracticeExercises() {
             const exercises = result.exercises || [];
             console.log(`✅ Loaded ${exercises.length} practice exercises`);
             
-            // Store globally
-            window.adminPracticeExercises = exercises;
-            window.filteredPracticeExercises = exercises;
+            // Get topic-subject mapping from database
+            let topicSubjectMap = {};
+            try {
+                // Fetch topics with their subjects
+                const topicsResponse = await fetch(`/api/admin/structure`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                
+                if (topicsResponse.ok) {
+                    const topicsData = await topicsResponse.json();
+                    if (topicsData.success && topicsData.structure) {
+                        // Create map of topic_id to subject
+                        topicsData.structure.topics?.forEach(topic => {
+                            const module = topicsData.structure.modules?.find(m => m.id === topic.module_id);
+                            const lesson = topicsData.structure.lessons?.find(l => l.id === module?.lesson_id);
+                            
+                            if (lesson) {
+                                topicSubjectMap[topic.id] = {
+                                    subject: lesson.name === 'polylearn' ? 'PolyLearn' :
+                                            lesson.name === 'factolearn' ? 'FactoLearn' :
+                                            lesson.name === 'mathease' ? 'MathEase' : 'General',
+                                    lesson_name: lesson.name
+                                };
+                            }
+                        });
+                    }
+                }
+            } catch (e) {
+                console.log('Could not fetch topic mapping, using fallback');
+            }
             
-            if (exercises.length === 0) {
+            console.log('Topic-Subject Map:', topicSubjectMap);
+            
+            // Process exercises to ensure consistent data for filtering
+            const processedExercises = exercises.map(ex => {
+                // ===== GET SUBJECT FROM TOPIC ID =====
+                let subject = 'General';
+                let subjectId = 0;
+                
+                // Try to get subject from topic_id
+                if (ex.topic_id && topicSubjectMap[ex.topic_id]) {
+                    subject = topicSubjectMap[ex.topic_id].subject;
+                    if (subject === 'PolyLearn') subjectId = 2;
+                    else if (subject === 'FactoLearn') subjectId = 3;
+                    else if (subject === 'MathEase') subjectId = 1;
+                } else {
+                    // Fallback: try to determine from title/description
+                    const titleLower = (ex.title || '').toLowerCase();
+                    const descLower = (ex.description || '').toLowerCase();
+                    
+                    if (titleLower.includes('poly') || descLower.includes('poly') ||
+                        titleLower.includes('polynomial') || descLower.includes('polynomial')) {
+                        subject = 'PolyLearn';
+                        subjectId = 2;
+                    } else if (titleLower.includes('fact') || descLower.includes('fact') ||
+                               titleLower.includes('factorial') || descLower.includes('factorial')) {
+                        subject = 'FactoLearn';
+                        subjectId = 3;
+                    } else if (titleLower.includes('math') || descLower.includes('math') ||
+                               titleLower.includes('ease') || descLower.includes('ease') ||
+                               titleLower.includes('mdas') || descLower.includes('mdas')) {
+                        subject = 'MathEase';
+                        subjectId = 1;
+                    }
+                }
+                
+                // ===== DETERMINE STATUS =====
+                let status = 'draft';
+                
+                if (ex.status === 'active' || ex.status === 'published' ||
+                    ex.is_active === 1 || ex.is_active === true) {
+                    status = 'published';
+                } else if (ex.status === 'inactive' || ex.is_active === 0 || ex.is_active === false) {
+                    status = 'inactive';
+                }
+                
+                return {
+                    ...ex,
+                    // Standardized fields for filtering
+                    filter_subject: subject,
+                    filter_subject_id: subjectId,
+                    filter_status: status,
+                    display_subject: subject,
+                    display_status: status === 'published' ? 'Published' : 
+                                   status === 'draft' ? 'Draft' : 'Inactive',
+                    topic_id: ex.topic_id
+                };
+            });
+            
+            console.log('✅ Processed exercises:', processedExercises.map(ex => ({
+                id: ex.id,
+                title: ex.title,
+                subject: ex.filter_subject,
+                status: ex.filter_status,
+                topic_id: ex.topic_id
+            })));
+            
+            // Store globally
+            window.adminPracticeExercises = processedExercises;
+            window.filteredPracticeExercises = processedExercises;
+            
+            if (processedExercises.length === 0) {
                 tableBody.innerHTML = getNoExercisesHTML();
                 updateAdminPracticeStats([]);
                 return;
             }
             
-            displayFilteredPracticeExercises(exercises);
-            updateAdminPracticeStats(exercises);
+            displayFilteredPracticeExercises(processedExercises);
+            updateAdminPracticeStats(processedExercises);
             
         } else {
             throw new Error(result.message || 'Failed to load practice exercises');
