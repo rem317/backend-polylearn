@@ -1953,85 +1953,35 @@ function showSection(sectionId) {
 // ✅ ADMIN ROUTES - USERS (FIXED VERSION)
 // ============================================
 
-// Get all real users from database - FIXED
+// ===== FIXED: Get all users with last_login =====
 app.get('/api/admin/users', authenticateAdmin, async (req, res) => {
     try {
-        console.log('📥 Fetching users from database...');
+        console.log('📥 Fetching users with last_login from database...');
         
-        // Check if users table exists
-        const [tables] = await promisePool.query("SHOW TABLES LIKE 'users'");
-        if (tables.length === 0) {
-            return res.status(404).json({
-                success: false,
-                message: 'Users table does not exist'
-            });
-        }
+        // SIMPLIFIED QUERY - Diretso na, iwas sa dynamic building
+        const [users] = await promisePool.query(`
+            SELECT 
+                user_id as id,
+                username,
+                email,
+                full_name as name,
+                role,
+                created_at as registrationDate,
+                last_login as lastLogin,  // ← ITO ANG IMPORTANTE
+                updated_at as lastActive,
+                is_active as status
+            FROM users
+            ORDER BY created_at DESC
+        `);
         
-        // FIRST: Get column information para malaman kung anong columns ang available
-        const [columns] = await promisePool.query("SHOW COLUMNS FROM users");
-        console.log('📋 Available columns:', columns.map(c => c.Field).join(', '));
+        console.log(`✅ Found ${users.length} users`);
+        console.log('📋 Sample user data:', users[0]); // Tingnan kung may lastLogin
         
-        // Create a map ng available columns
-        const columnNames = columns.map(c => c.Field);
-        
-        // Build query based on available columns
-        let selectFields = [];
-        
-        // Required fields
-        if (columnNames.includes('user_id')) selectFields.push('user_id as id');
-        else if (columnNames.includes('id')) selectFields.push('id');
-        
-        if (columnNames.includes('username')) selectFields.push('username');
-        if (columnNames.includes('email')) selectFields.push('email');
-        if (columnNames.includes('full_name')) selectFields.push('full_name as name');
-        else if (columnNames.includes('name')) selectFields.push('name');
-        
-        if (columnNames.includes('role')) selectFields.push('role');
-        
-        // Status - check kung may is_active o status column
-        if (columnNames.includes('is_active')) selectFields.push('is_active as status');
-        else if (columnNames.includes('status')) selectFields.push('status');
-        
-        // Dates
-        if (columnNames.includes('created_at')) selectFields.push('created_at as registrationDate');
-        else if (columnNames.includes('registrationDate')) selectFields.push('registrationDate');
-        
-        // ===== CRITICAL FIX: Add last_login field =====
-        if (columnNames.includes('last_login')) {
-            selectFields.push('last_login as lastLogin');
-            console.log('✅ last_login column found, including in query');
-        } else {
-            console.log('⚠️ last_login column NOT found');
-        }
-        
-        // Use created_at as lastActive kung walang updated_at
-        if (columnNames.includes('updated_at')) {
-            selectFields.push('updated_at as lastActive');
-        } else if (columnNames.includes('created_at')) {
-            selectFields.push('created_at as lastActive');
-        } else {
-            selectFields.push('NULL as lastActive');
-        }
-        
-        // Build the query
-        const query = `SELECT ${selectFields.join(', ')} FROM users ORDER BY created_at DESC`;
-        console.log('📝 Query:', query);
-        
-        const [users] = await promisePool.query(query);
-        
-        console.log(`✅ Found ${users.length} users in database`);
-        
-        // Process users para i-ensure na may laman ang lahat ng fields
+        // Format status from 1/0 to active/inactive
         const processedUsers = users.map(user => ({
-            id: user.id || 0,
-            username: user.username || '',
-            email: user.email || '',
-            name: user.name || user.username || 'Unknown',
-            role: user.role || 'student',
-            status: user.status === 1 ? 'active' : (user.status === 0 ? 'inactive' : 'active'),
-            registrationDate: user.registrationDate || new Date().toISOString().split('T')[0],
-            lastLogin: user.lastLogin || 'Never',  // ← ITO ANG GAGAMITIN
-            lastActive: user.lastActive ? formatDateForUser(user.lastActive) : 'Never',
+            ...user,
+            status: user.status === 1 ? 'active' : 'inactive',
+            lastLogin: user.lastLogin || 'Never',  // Default if null
             avatar: getInitialsFromName(user.name || user.username || 'User')
         }));
         
@@ -2044,12 +1994,12 @@ app.get('/api/admin/users', authenticateAdmin, async (req, res) => {
         console.error('❌ Error fetching users:', error);
         res.status(500).json({ 
             success: false, 
-            message: 'Database error: ' + error.message 
+            message: error.message 
         });
     }
 });
 
-// Helper function para sa initials
+// Helper function for initials
 function getInitialsFromName(name) {
     if (!name) return 'U';
     return name
@@ -2059,6 +2009,8 @@ function getInitialsFromName(name) {
         .toUpperCase()
         .substring(0, 2);
 }
+
+
 
 // Helper function para sa date formatting
 function formatDateForUser(date) {
