@@ -4138,7 +4138,7 @@ function handleActivityResponse(data) {
 }
 
 // ============================================
-// ✅ FIXED: fetchCumulativeProgress - WITH PROPER AVERAGE TIME
+// ✅ FIXED: fetchCumulativeProgress - FASTER RESPONSE
 // ============================================
 async function fetchCumulativeProgress() {
     try {
@@ -4172,7 +4172,7 @@ async function fetchCumulativeProgress() {
                 
                 const avgPerActivity = totalActivities > 0 
                     ? Math.round(totalMinutes / totalActivities) 
-                    : 0;
+                    : 5;
                 
                 // Calculate weekly improvement
                 const weeklyImprovement = calculateWeeklyImprovement(data.overall);
@@ -4186,19 +4186,19 @@ async function fetchCumulativeProgress() {
                     total_points_earned: data.overall.total_points || 0,
                     total_time_spent_minutes: totalMinutes,
                     weekly_time_spent: data.overall.weekly?.minutes || 0,
-                    avg_time_per_activity: avgPerActivity, // ✅ AVERAGE TIME PER ACTIVITY
-                    weekly_improvement: weeklyImprovement, // ✅ WEEKLY IMPROVEMENT
+                    avg_time_per_activity: avgPerActivity,
+                    weekly_improvement: weeklyImprovement,
                     total_time_display: formatTime(totalMinutes),
                     streak_days: data.overall.streak_days || 1,
                     weekly: data.overall.weekly || { lessons: 0, exercises: 0, quizzes: 0, points: 0, minutes: 0 }
                 };
                 
-                console.log(`📊 Average time per activity: ${progress.avg_time_per_activity} minutes`);
-                console.log(`📊 Weekly improvement: ${progress.weekly_improvement}%`);
+                console.log(`📊 Progress loaded - Lessons: ${progress.total_lessons_completed}/${progress.total_lessons}`);
                 
                 ProgressState.cumulativeProgress = progress;
+                
+                // IMMEDIATELY update display
                 updateOverallProgressDisplay(progress);
-                updatePerformanceAnalytics(progress);
                 
                 return progress;
             }
@@ -4211,7 +4211,6 @@ async function fetchCumulativeProgress() {
         return getDefaultProgress();
     }
 }
-
 // Helper function to calculate weekly improvement
 function calculateWeeklyImprovement(data) {
     // Get this week's activities
@@ -4268,6 +4267,9 @@ function getDefaultProgress() {
     };
 }
 
+// ============================================
+// ✅ FIXED: updateOverallProgressDisplay - WITH REAL-TIME DATA
+// ============================================
 function updateOverallProgressDisplay(progress) {
     console.log('📊 Updating overall progress display with:', progress);
     
@@ -4282,6 +4284,14 @@ function updateOverallProgressDisplay(progress) {
     const overallProgress = document.getElementById('overallProgress');
     if (overallProgress) {
         overallProgress.textContent = `${percentage}%`;
+        // Add animation to show it's updated
+        overallProgress.style.transition = 'all 0.3s';
+        overallProgress.style.transform = 'scale(1.1)';
+        overallProgress.style.color = '#7a0000';
+        setTimeout(() => {
+            overallProgress.style.transform = 'scale(1)';
+            overallProgress.style.color = '';
+        }, 300);
     }
     
     // Update progress bar
@@ -4311,7 +4321,7 @@ function updateOverallProgressDisplay(progress) {
         pointsChange.textContent = `+${weeklyPoints} this week`;
     }
     
-    // ✅ FIX: Show TOTAL TIME INVESTED
+    // Update TOTAL TIME INVESTED
     const totalTime = document.getElementById('totalTime');
     if (totalTime) {
         // Use the formatted total time
@@ -6060,25 +6070,31 @@ async function getDetailedPracticeStats() {
 
 
 // ============================================
-// ✅ FIXED: loadProgressDashboardData - WITH IMMEDIATE UPDATE
+// ✅ FIXED: loadProgressDashboardData - IMMEDIATE LOADING
 // ============================================
 async function loadProgressDashboardData() {
-    console.log('📊 Loading progress dashboard data...');
+    console.log('📊 Loading progress dashboard data IMMEDIATELY...');
     
     try {
-        // Load cumulative progress FIRST with await
+        // Show loading state
+        showProgressDashboardLoading();
+        
+        // Load cumulative progress FIRST with await - this is the critical data
         console.log('📊 Step 1: Loading cumulative progress...');
         const cumulativeProgress = await fetchCumulativeProgress();
         
         console.log('✅ Cumulative progress loaded:', cumulativeProgress);
         
-        // Force update ng overall progress display AGAD
+        // Force update ng overall progress display AGAD - without waiting for other data
         if (cumulativeProgress) {
             updateOverallProgressDisplay(cumulativeProgress);
         }
         
-        // Load other data in background (para hindi ma-block)
-        Promise.all([
+        // Update progress summary cards immediately with what we have
+        updateProgressSummaryCards();
+        
+        // Load other data in background (para hindi ma-block ang display)
+        Promise.allSettled([
             fetchDailyProgress().then(data => {
                 ProgressState.dailyProgress = data || {};
                 console.log('✅ Daily progress loaded');
@@ -6123,10 +6139,16 @@ async function loadProgressDashboardData() {
         ]).then(() => {
             console.log('✅ All background data loaded');
             hideProgressDashboardLoading();
+            
+            // Update again with all data
+            updateProgressSummaryCards();
+            updateOverallProgressDisplay(cumulativeProgress);
         });
         
-        // Update progress summary cards
-        updateProgressSummaryCards();
+        // Hide loading after main data is shown (not waiting for background)
+        setTimeout(() => {
+            hideProgressDashboardLoading();
+        }, 500);
         
         // Initialize charts
         initProgressCharts();
@@ -6162,7 +6184,7 @@ function hideProgressDashboardLoading() {
 }
 
 // ============================================
-// 🚀 DIRECT LOADING ON PAGE OPEN
+// 🚀 DIRECT LOADING ON PAGE OPEN - FIXED VERSION
 // ============================================
 document.addEventListener('DOMContentLoaded', function() {
     console.log('📄 DOM loaded - setting up progress page observer');
@@ -6173,10 +6195,21 @@ document.addEventListener('DOMContentLoaded', function() {
         // Check agad kung visible ang progress page
         if (!progressPage.classList.contains('hidden')) {
             console.log('📊 Progress page is already visible - loading data NOW');
+            
+            // Show loading state
+            showProgressDashboardLoading();
+            
+            // IMMEDIATELY try to load from cache first
+            if (ProgressState.cumulativeProgress) {
+                console.log('📦 Using cached progress data for instant display');
+                updateOverallProgressDisplay(ProgressState.cumulativeProgress);
+                updateProgressSummaryCards();
+            }
+            
+            // Then fetch fresh data - but don't wait for it to finish
             setTimeout(() => {
-                showProgressDashboardLoading();
                 loadProgressDashboardData();
-            }, 50);
+            }, 10);
         }
         
         // Observe for when it becomes visible
@@ -6186,6 +6219,14 @@ document.addEventListener('DOMContentLoaded', function() {
                     if (!progressPage.classList.contains('hidden')) {
                         console.log('📊 Progress page became visible - loading data NOW');
                         showProgressDashboardLoading();
+                        
+                        // Show cached data immediately if available
+                        if (ProgressState.cumulativeProgress) {
+                            updateOverallProgressDisplay(ProgressState.cumulativeProgress);
+                            updateProgressSummaryCards();
+                        }
+                        
+                        // Then fetch fresh data
                         loadProgressDashboardData();
                     }
                 }
