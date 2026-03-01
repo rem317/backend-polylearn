@@ -6184,7 +6184,7 @@ function hideProgressDashboardLoading() {
 }
 
 // ============================================
-// 🚀 DIRECT LOADING ON PAGE OPEN - FIXED VERSION
+// 🚀 DIRECT LOADING ON PAGE OPEN
 // ============================================
 document.addEventListener('DOMContentLoaded', function() {
     console.log('📄 DOM loaded - setting up progress page observer');
@@ -6195,21 +6195,10 @@ document.addEventListener('DOMContentLoaded', function() {
         // Check agad kung visible ang progress page
         if (!progressPage.classList.contains('hidden')) {
             console.log('📊 Progress page is already visible - loading data NOW');
-            
-            // Show loading state
-            showProgressDashboardLoading();
-            
-            // IMMEDIATELY try to load from cache first
-            if (ProgressState.cumulativeProgress) {
-                console.log('📦 Using cached progress data for instant display');
-                updateOverallProgressDisplay(ProgressState.cumulativeProgress);
-                updateProgressSummaryCards();
-            }
-            
-            // Then fetch fresh data - but don't wait for it to finish
             setTimeout(() => {
+                showProgressDashboardLoading();
                 loadProgressDashboardData();
-            }, 10);
+            }, 50);
         }
         
         // Observe for when it becomes visible
@@ -6219,14 +6208,6 @@ document.addEventListener('DOMContentLoaded', function() {
                     if (!progressPage.classList.contains('hidden')) {
                         console.log('📊 Progress page became visible - loading data NOW');
                         showProgressDashboardLoading();
-                        
-                        // Show cached data immediately if available
-                        if (ProgressState.cumulativeProgress) {
-                            updateOverallProgressDisplay(ProgressState.cumulativeProgress);
-                            updateProgressSummaryCards();
-                        }
-                        
-                        // Then fetch fresh data
                         loadProgressDashboardData();
                     }
                 }
