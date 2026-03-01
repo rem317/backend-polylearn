@@ -11742,20 +11742,23 @@ function showSettings(e) {
     initializeSettingsDashboard();
 }
 
-// ===== FIXED: Format last login =====
+// ===== FIXED: formatLastLogin with null check =====
 function formatLastLogin(dateString) {
     console.log("🔍 formatLastLogin received:", dateString);
     
-    if (!dateString || dateString === 'Never' || dateString === '0000-00-00 00:00:00') {
+    if (!dateString) {
+        console.log("❌ dateString is null/undefined");
+        return 'Never';
+    }
+    
+    if (dateString === '0000-00-00 00:00:00' || dateString === 'Never') {
         return 'Never';
     }
     
     try {
         const date = new Date(dateString);
         
-        // Check if valid date
         if (isNaN(date.getTime())) {
-            console.log("❌ Invalid date");
             return 'Never';
         }
         
@@ -11765,50 +11768,36 @@ function formatLastLogin(dateString) {
         const diffHours = Math.floor(diffMs / 3600000);
         const diffDays = Math.floor(diffMs / 86400000);
         
-        // Format time
         const timeStr = date.toLocaleTimeString('en-US', { 
             hour: '2-digit', 
             minute: '2-digit',
             hour12: true 
         });
         
-        // Within last minute
         if (diffMins < 1) {
             return 'Just now';
         }
         
-        // Within last hour
         if (diffMins < 60) {
             return `${diffMins} minute${diffMins > 1 ? 's' : ''} ago`;
         }
         
-        // Within last 24 hours
         if (diffHours < 24) {
-            return `${diffHours} hour${diffHours > 1 ? 's' : ''} ago (${timeStr})`;
+            return `${diffHours} hour${diffHours > 1 ? 's' : ''} ago`;
         }
         
-        // Yesterday
         if (diffDays === 1) {
             return `Yesterday, ${timeStr}`;
         }
         
-        // Within last week
         if (diffDays < 7) {
             return `${diffDays} days ago`;
         }
         
-        // Within last month
-        if (diffDays < 30) {
-            return `${Math.floor(diffDays / 7)} weeks ago`;
-        }
-        
-        // Show full date for older
         return date.toLocaleDateString('en-US', {
             year: 'numeric',
             month: 'short',
-            day: 'numeric',
-            hour: '2-digit',
-            minute: '2-digit'
+            day: 'numeric'
         });
         
     } catch (e) {
