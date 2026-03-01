@@ -5227,226 +5227,130 @@ app.get('/api/progress/weekly-accuracy', authenticateUser, async (req, res) => {
 // ============================================
 // ✅ FIXED: GET OVERALL PROGRESS WITH PERFORMANCE METRICS
 // ============================================
+// ============================================
+// 🚀 OPTIMIZED: Get overall progress - FASTER QUERIES
+// ============================================
 app.get('/api/progress/overall', authenticateUser, async (req, res) => {
     try {
         const userId = req.user.id;
         
-        console.log(`📊 Fetching overall progress for user ${userId}...`);
+        console.log(`📊 Fetching overall progress for user ${userId}`);
         
-        // Get lessons completed count
-        const [lessonsCompleted] = await promisePool.query(`
-            SELECT COUNT(*) as count
-            FROM user_content_progress
-            WHERE user_id = ? AND completion_status = 'completed'
-        `, [userId]);
-        
-        // Get total lessons available
-        const [totalLessons] = await promisePool.query(`
-            SELECT COUNT(*) as count
-            FROM topic_content_items
-            WHERE is_active = 1
-        `);
-        
-        // Get practice completed count
-        let practiceCompleted = 0;
-        try {
-            const [practice] = await promisePool.query(`
+        // Run all queries in parallel para mas mabilis
+        const [
+            lessonsCompleted,
+            totalLessons,
+            totalPoints,
+            practiceCompleted,
+            quizzesCompleted,
+            totalTime,
+            weeklyProgress,
+            userProgress
+        ] = await Promise.all([
+            // Lessons completed
+            promisePool.query(`
+                SELECT COUNT(*) as count 
+                FROM user_content_progress 
+                WHERE user_id = ? AND completion_status = 'completed'
+            `, [userId]),
+            
+            // Total lessons available
+            promisePool.query(`
+                SELECT COUNT(*) as count 
+                FROM topic_content_items 
+                WHERE is_active = 1
+            `, []),
+            
+            // Total points
+            promisePool.query(`
+                SELECT COALESCE(SUM(points_amount), 0) as total
+                FROM user_points 
+                WHERE user_id = ?
+            `, [userId]),
+            
+            // Practice completed
+            promisePool.query(`
                 SELECT COUNT(*) as count
                 FROM practice_attempts
                 WHERE user_id = ? AND completion_status = 'completed'
-            `, [userId]);
-            practiceCompleted = practice[0]?.count || 0;
-        } catch (e) {
-            console.log('No practice_attempts table');
-        }
-        
-        // Get quizzes completed count
-        let quizzesCompleted = 0;
-        try {
-            const [quizzes] = await promisePool.query(`
+            `, [userId]),
+            
+            // Quizzes completed
+            promisePool.query(`
                 SELECT COUNT(*) as count
                 FROM user_quiz_attempts
                 WHERE user_id = ? AND completion_status = 'completed'
-            `, [userId]);
-            quizzesCompleted = quizzes[0]?.count || 0;
-        } catch (e) {
-            console.log('No user_quiz_attempts table');
-        }
-        
-        // Get total points earned
-        let totalPoints = 0;
-        try {
-            const [points] = await promisePool.query(`
-                SELECT COALESCE(SUM(points_amount), 0) as total
-                FROM user_points
-                WHERE user_id = ?
-            `, [userId]);
-            totalPoints = points[0]?.total || 0;
-        } catch (e) {
-            console.log('No user_points table');
-        }
-        
-        // Get total time spent (in seconds)
-        let totalSeconds = 0;
-        try {
-            const [time] = await promisePool.query(`
-                SELECT COALESCE(SUM(time_spent_seconds), 0) as total
+            `, [userId]),
+            
+            // Total time
+            promisePool.query(`
+                SELECT COALESCE(SUM(time_spent_seconds), 0) / 60 as total_minutes
                 FROM user_content_progress
                 WHERE user_id = ?
-            `, [userId]);
-            totalSeconds = time[0]?.total || 0;
-        } catch (e) {
-            console.log('No time data');
-        }
-        
-        // ===== PERFORMANCE METRICS =====
-        
-        // 1. AVERAGE SCORE (from quizzes and practice)
-        let avgScore = 0;
-        let scoreCount = 0;
-        
-        // Get average quiz score
-        try {
-            const [quizAvg] = await promisePool.query(`
-                SELECT COALESCE(AVG(score), 0) as avg_score
-                FROM user_quiz_attempts
-                WHERE user_id = ? AND completion_status = 'completed'
-            `, [userId]);
+            `, [userId]),
             
-            if (quizAvg[0]?.avg_score > 0) {
-                avgScore += quizAvg[0].avg_score;
-                scoreCount++;
-            }
-        } catch (e) {}
-        
-        // Get average practice score
-        try {
-            const [practiceAvg] = await promisePool.query(`
-                SELECT COALESCE(AVG(percentage), 0) as avg_score
-                FROM practice_attempts
-                WHERE user_id = ? AND completion_status = 'completed'
-            `, [userId]);
-            
-            if (practiceAvg[0]?.avg_score > 0) {
-                avgScore += practiceAvg[0].avg_score;
-                scoreCount++;
-            }
-        } catch (e) {}
-        
-        const averageScore = scoreCount > 0 ? Math.round(avgScore / scoreCount) : 0;
-        
-        // 2. COMPLETION RATE
-        const lessonsCount = lessonsCompleted[0]?.count || 0;
-        const totalLessonsCount = totalLessons[0]?.count || 1;
-        const completionRate = Math.round((lessonsCount / totalLessonsCount) * 100);
-        
-        // 3. AVERAGE TIME PER ACTIVITY
-        const totalActivities = lessonsCount + practiceCompleted + quizzesCompleted;
-        const avgTimePerActivity = totalActivities > 0 
-            ? Math.round(totalSeconds / totalActivities / 60) // convert to minutes
-            : 0;
-        
-        // 4. WEEKLY IMPROVEMENT
-        const oneWeekAgo = new Date();
-        oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
-        
-        let thisWeekActivities = 0;
-        let lastWeekActivities = 0;
-        
-        // Count this week's activities
-        try {
-            const [thisWeek] = await promisePool.query(`
-                SELECT COUNT(*) as count
-                FROM user_activity_log
-                WHERE user_id = ? AND activity_timestamp >= ?
-            `, [userId, oneWeekAgo]);
-            thisWeekActivities = thisWeek[0]?.count || 0;
-        } catch (e) {}
-        
-        // Count last week's activities (previous 7 days)
-        const twoWeeksAgo = new Date();
-        twoWeeksAgo.setDate(twoWeeksAgo.getDate() - 14);
-        
-        try {
-            const [lastWeek] = await promisePool.query(`
-                SELECT COUNT(*) as count
-                FROM user_activity_log
+            // Weekly progress
+            promisePool.query(`
+                SELECT 
+                    COALESCE(SUM(lessons_completed), 0) as weekly_lessons,
+                    COALESCE(SUM(exercises_completed), 0) as weekly_exercises,
+                    COALESCE(SUM(quizzes_completed), 0) as weekly_quizzes,
+                    COALESCE(SUM(points_earned), 0) as weekly_points,
+                    COALESCE(SUM(time_spent_minutes), 0) as weekly_minutes
+                FROM daily_progress
                 WHERE user_id = ? 
-                AND activity_timestamp >= ? 
-                AND activity_timestamp < ?
-            `, [userId, twoWeeksAgo, oneWeekAgo]);
-            lastWeekActivities = lastWeek[0]?.count || 0;
-        } catch (e) {}
-        
-        const weeklyImprovement = lastWeekActivities > 0 
-            ? Math.round(((thisWeekActivities - lastWeekActivities) / lastWeekActivities) * 100)
-            : thisWeekActivities > 0 ? 10 : 0;
-        
-        // 5. PRACTICE ACCURACY
-        let practiceAccuracy = 0;
-        try {
-            const [accuracy] = await promisePool.query(`
-                SELECT COALESCE(AVG(percentage), 0) as accuracy
-                FROM practice_attempts
-                WHERE user_id = ? AND completion_status = 'completed'
-            `, [userId]);
-            practiceAccuracy = Math.round(accuracy[0]?.accuracy || 0);
-        } catch (e) {}
-        
-        // 6. CURRENT STREAK
-        let streakDays = 1;
-        try {
-            const [streak] = await promisePool.query(`
-                SELECT COUNT(DISTINCT DATE(activity_timestamp)) as days
-                FROM user_activity_log
-                WHERE user_id = ? 
-                AND activity_timestamp >= DATE_SUB(NOW(), INTERVAL 7 DAY)
-            `, [userId]);
-            streakDays = streak[0]?.days || 1;
-        } catch (e) {}
-        
-        // 7. ACTIVE STUDENTS (if admin view)
-        let activeStudents = 0;
-        if (req.user.role === 'admin') {
-            try {
-                const [active] = await promisePool.query(`
-                    SELECT COUNT(DISTINCT user_id) as count
-                    FROM user_activity_log
-                    WHERE activity_timestamp >= DATE_SUB(NOW(), INTERVAL 7 DAY)
-                `);
-                activeStudents = active[0]?.count || 0;
-            } catch (e) {}
-        }
-        
-        const overallProgress = {
-            lessons_completed: lessonsCount,
-            total_lessons: totalLessonsCount,
-            practice_completed: practiceCompleted,
-            quizzes_completed: quizzesCompleted,
-            total_points_earned: totalPoints,
-            total_time_spent_seconds: totalSeconds,
-            total_time_spent_minutes: Math.round(totalSeconds / 60),
+                    AND progress_date >= DATE_SUB(CURDATE(), INTERVAL 7 DAY)
+            `, [userId]),
             
-            // PERFORMANCE METRICS
-            avg_score: averageScore,
-            completion_rate: completionRate,
-            avg_time_per_activity: avgTimePerActivity,
-            weekly_improvement: weeklyImprovement,
-            practice_accuracy: practiceAccuracy,
-            current_streak: streakDays,
-            active_students: activeStudents,
-            
-            // Raw data for charts
-            this_week_activities: thisWeekActivities,
-            last_week_activities: lastWeekActivities
+            // User progress for average time
+            promisePool.query(`
+                SELECT average_time 
+                FROM user_progress 
+                WHERE user_id = ?
+            `, [userId]).catch(() => [[{}]]) // Ignore error if table doesn't exist
+        ]);
+        
+        // Calculate values
+        const completed = lessonsCompleted[0]?.[0]?.count || 0;
+        const total = totalLessons[0]?.[0]?.count || 1;
+        const percentage = Math.min(100, Math.round((completed / total) * 100));
+        
+        const weekly = weeklyProgress[0]?.[0] || {
+            weekly_lessons: 0,
+            weekly_exercises: 0,
+            weekly_quizzes: 0,
+            weekly_points: 0,
+            weekly_minutes: 0
         };
         
-        console.log('✅ Overall progress with performance metrics:', overallProgress);
+        const totalMinutes = Math.round(totalTime[0]?.[0]?.total_minutes || 0);
+        const averageTime = userProgress[0]?.[0]?.average_time || 0;
         
-        res.json({
+        const response = {
             success: true,
-            overall: overallProgress
-        });
+            overall: {
+                lessons_completed: completed,
+                total_lessons: total,
+                percentage: percentage,
+                bar_width: `${percentage}%`,
+                bar_class: percentage >= 70 ? 'progress-good' : (percentage >= 40 ? 'progress-medium' : 'progress-low'),
+                total_points: parseInt(totalPoints[0]?.[0]?.total || 0),
+                practice_completed: parseInt(practiceCompleted[0]?.[0]?.count || 0),
+                quizzes_completed: parseInt(quizzesCompleted[0]?.[0]?.count || 0),
+                total_time_spent_minutes: totalMinutes,
+                average_time: averageTime,
+                weekly: {
+                    lessons: parseInt(weekly.weekly_lessons || 0),
+                    exercises: parseInt(weekly.weekly_exercises || 0),
+                    quizzes: parseInt(weekly.weekly_quizzes || 0),
+                    points: parseInt(weekly.weekly_points || 0),
+                    minutes: parseInt(weekly.weekly_minutes || 0)
+                }
+            }
+        };
+        
+        console.log('✅ Overall progress fetched in', Date.now() - req.startTime, 'ms');
+        res.json(response);
         
     } catch (error) {
         console.error('❌ Error fetching overall progress:', error);
@@ -5455,6 +5359,12 @@ app.get('/api/progress/overall', authenticateUser, async (req, res) => {
             message: error.message
         });
     }
+});
+
+// Add request timer middleware
+app.use((req, res, next) => {
+    req.startTime = Date.now();
+    next();
 });
 
 
