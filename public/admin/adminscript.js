@@ -23924,7 +23924,7 @@ async function initializeAdminPracticeDashboard() {
 let adminPracticeExercises = [];
 let filteredPracticeExercises = [];
 
-// ===== FIXED filterPracticeExercises function =====
+// ===== COMPLETE filterPracticeExercises function =====
 function filterPracticeExercises() {
     console.log("🔍 Filtering practice exercises...");
     
@@ -23961,7 +23961,6 @@ function filterPracticeExercises() {
     // ===== APPLY SUBJECT FILTER =====
     if (subjectValue !== 'all') {
         filtered = filtered.filter(ex => {
-            // Direct comparison using the standardized filter_subject
             return ex.filter_subject === subjectValue;
         });
         console.log(`After subject filter (${subjectValue}): ${filtered.length} exercises`);
@@ -23988,8 +23987,74 @@ function filterPracticeExercises() {
     
     window.filteredPracticeExercises = filtered;
     window.adminPracticePage = 1;
+    
+    // Update the table with filtered data
     displayFilteredPracticeExercises(filtered);
+    
+    // Update stats based on filtered data
     updateFilteredStats(filtered);
+}
+// ===== UPDATE STATS BASED ON FILTERED DATA =====
+function updateFilteredStats(filteredExercises) {
+    console.log("📊 Updating filtered stats...");
+    
+    if (!filteredExercises) return;
+    
+    // Update total count display
+    const totalDisplay = document.getElementById('adminPracticeTotal');
+    if (totalDisplay) {
+        totalDisplay.textContent = filteredExercises.length;
+    }
+    
+    // Update start and end display
+    const startDisplay = document.getElementById('adminPracticeStart');
+    const endDisplay = document.getElementById('adminPracticeEnd');
+    const currentPage = window.adminPracticePage || 1;
+    const perPage = 10;
+    
+    if (startDisplay) {
+        startDisplay.textContent = filteredExercises.length > 0 ? ((currentPage - 1) * perPage) + 1 : 0;
+    }
+    if (endDisplay) {
+        endDisplay.textContent = Math.min(currentPage * perPage, filteredExercises.length);
+    }
+    
+    // Calculate stats from filtered exercises
+    const totalExercises = filteredExercises.length;
+    const totalQuestions = filteredExercises.reduce((sum, ex) => sum + (ex.question_count || 0), 0);
+    const activeExercises = filteredExercises.filter(ex => ex.filter_status === 'published').length;
+    const totalAttempts = filteredExercises.reduce((sum, ex) => sum + (ex.attempts || 0), 0);
+    
+    let avgScore = 0;
+    const exercisesWithScores = filteredExercises.filter(ex => ex.avg_score > 0);
+    if (exercisesWithScores.length > 0) {
+        const totalScore = exercisesWithScores.reduce((sum, ex) => sum + (ex.avg_score || 0), 0);
+        avgScore = Math.round(totalScore / exercisesWithScores.length);
+    }
+    
+    console.log('📊 Filtered stats:', {
+        totalExercises,
+        totalQuestions,
+        activeExercises,
+        totalAttempts,
+        avgScore
+    });
+    
+    // Update stats display
+    const totalExercisesEl = document.getElementById('adminTotalExercises');
+    if (totalExercisesEl) totalExercisesEl.textContent = totalExercises;
+    
+    const totalQuestionsEl = document.getElementById('adminTotalQuestions');
+    if (totalQuestionsEl) totalQuestionsEl.textContent = totalQuestions;
+    
+    const activeExercisesEl = document.getElementById('adminActiveExercises');
+    if (activeExercisesEl) activeExercisesEl.textContent = activeExercises;
+    
+    const totalAttemptsEl = document.getElementById('adminTotalAttempts');
+    if (totalAttemptsEl) totalAttemptsEl.textContent = totalAttempts;
+    
+    const avgScoreEl = document.getElementById('adminAvgScore');
+    if (avgScoreEl) avgScoreEl.textContent = avgScore + '%';
 }
 
 // ===== SEARCH PRACTICE EXERCISES =====
