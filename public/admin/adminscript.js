@@ -11480,7 +11480,7 @@ function openSettingsTab(tabId) {
     event.target.classList.add('active');
 }
 
-// ===== LOAD USERS FROM DATABASE - FIXED WITH PROPER LAST LOGIN =====
+// ===== LOAD USERS FROM DATABASE - FIXED VERSION =====
 async function loadUsersData() {
     console.log("📥 ===== LOAD USERS DATA FUNCTION CALLED =====");
     console.log("📥 Loading REAL users from MySQL database with last login data...");
@@ -11531,7 +11531,7 @@ async function loadUsersData() {
         }
         
         const result = await response.json();
-        console.log('📦 RAW SERVER RESPONSE:', result);
+        console.log('📦 RAW SERVER RESPONSE:', JSON.stringify(result, null, 2));
         
         if (result.success && result.users) {
             // GAMITIN ANG MGA USER NA GALING SA DATABASE
@@ -11548,7 +11548,12 @@ async function loadUsersData() {
             const processedUsers = [];
             
             usersData.forEach(user => {
-                console.log(`🔍 Processing user ${user.id}:`, user);
+                console.log(`🔍 Processing user ${user.id}:`, {
+                    last_login: user.last_login,
+                    last_active: user.last_active,
+                    last_activity: user.last_activity,
+                    updated_at: user.updated_at
+                });
                 
                 // Kunin ang pangalan
                 const nameToUse = user.name || user.full_name || user.username || 'User';
@@ -11561,34 +11566,65 @@ async function loadUsersData() {
                     .toUpperCase()
                     .substring(0, 2);
                 
-                // ===== FIXED: KUHAIN ANG LAST LOGIN PROPERLY =====
-                let lastLogin = 'Never';
+                // ===== FIXED: Kunin ang latest timestamp =====
                 let lastLoginTimestamp = null;
+                let lastLoginSource = 'none';
                 
-                // Check LAHAT ng possible fields para sa last login
-                if (user.last_login) {
-                    console.log(`📅 User ${user.id} has last_login:`, user.last_login);
-                    lastLogin = formatLastLogin(user.last_login);
-                    lastLoginTimestamp = user.last_login;
-                } 
-                else if (user.last_active) {
-                    console.log(`📅 User ${user.id} has last_active:`, user.last_active);
-                    lastLogin = formatLastLogin(user.last_active);
-                    lastLoginTimestamp = user.last_active;
+                // Check all possible timestamp fields and get the latest one
+                const timestamps = [];
+                
+                if (user.last_login && user.last_login !== '0000-00-00 00:00:00') {
+                    timestamps.push({
+                        value: user.last_login,
+                        source: 'last_login'
+                    });
                 }
-                else if (user.last_activity) {
-                    console.log(`📅 User ${user.id} has last_activity:`, user.last_activity);
-                    lastLogin = formatLastLogin(user.last_activity);
-                    lastLoginTimestamp = user.last_activity;
+                
+                if (user.last_active && user.last_active !== '0000-00-00 00:00:00') {
+                    timestamps.push({
+                        value: user.last_active,
+                        source: 'last_active'
+                    });
                 }
-                else if (user.updated_at) {
-                    console.log(`📅 User ${user.id} has updated_at:`, user.updated_at);
-                    lastLogin = formatLastLogin(user.updated_at);
-                    lastLoginTimestamp = user.updated_at;
+                
+                if (user.last_activity && user.last_activity !== '0000-00-00 00:00:00') {
+                    timestamps.push({
+                        value: user.last_activity,
+                        source: 'last_activity'
+                    });
                 }
-                else {
-                    console.log(`⚠️ User ${user.id} has NO timestamp fields`);
+                
+                if (user.updated_at && user.updated_at !== '0000-00-00 00:00:00') {
+                    timestamps.push({
+                        value: user.updated_at,
+                        source: 'updated_at'
+                    });
                 }
+                
+                if (user.created_at && user.created_at !== '0000-00-00 00:00:00') {
+                    timestamps.push({
+                        value: user.created_at,
+                        source: 'created_at'
+                    });
+                }
+                
+                if (timestamps.length > 0) {
+                    // Sort by date (newest first)
+                    timestamps.sort((a, b) => new Date(b.value) - new Date(a.value));
+                    
+                    // Get the latest timestamp
+                    lastLoginTimestamp = timestamps[0].value;
+                    lastLoginSource = timestamps[0].source;
+                    
+                    console.log(`✅ User ${user.id} latest timestamp from ${lastLoginSource}:`, lastLoginTimestamp);
+                } else {
+                    console.log(`⚠️ User ${user.id} has NO timestamps`);
+                }
+                
+                // Format the last login
+                const lastLogin = lastLoginTimestamp ? formatLastLogin(lastLoginTimestamp) : 'Never';
+                
+                console.log(`📅 User ${user.id} final lastLogin:`, lastLogin);
                 
                 // Kunin ang registration date
                 let registrationDate = 'N/A';
@@ -11609,17 +11645,12 @@ async function loadUsersData() {
                     role: user.role || 'student',
                     status: user.status || 'active',
                     registrationDate: registrationDate,
-                    lastLogin: lastLogin,  // ← FIXED: Ito na ang gagamitin
-                    lastLoginTimestamp: lastLoginTimestamp, // Keep raw timestamp for sorting
-                    lastActive: lastLogin, // Same as lastLogin for now
+                    lastLogin: lastLogin,  // ← FIXED: Ito na ang formatted date
+                    lastLoginRaw: lastLoginTimestamp, // Keep raw for sorting
+                    lastLoginSource: lastLoginSource, // For debugging
                     avatar: initials || 'U',
                     createdAt: user.created_at || new Date().toISOString()
                 };
-                
-                console.log(`✅ Processed user ${user.id}:`, {
-                    name: processedUser.name,
-                    lastLogin: processedUser.lastLogin
-                });
                 
                 processedUsers.push(processedUser);
             });
@@ -11630,7 +11661,8 @@ async function loadUsersData() {
             console.log('✅ FINAL PROCESSED USERS WITH LAST LOGIN:', usersData.map(u => ({
                 id: u.id,
                 name: u.name,
-                lastLogin: u.lastLogin
+                lastLogin: u.lastLogin,
+                source: u.lastLoginSource
             })));
             
             // I-save sa localStorage bilang backup
@@ -11663,7 +11695,6 @@ async function loadUsersData() {
         tryLoadFromBackup();
     }
 }
-
 // ===== SHOW NO USERS MESSAGE =====
 function showNoUsersMessage(message) {
     console.log("📭 No users found:", message);
@@ -11709,7 +11740,7 @@ function showSettings(e) {
     initializeSettingsDashboard();
 }
 
-// ===== HELPER FUNCTION: Format last login date =====
+// ===== FIXED: Format last login with hours/minutes or days =====
 function formatLastLogin(dateString) {
     console.log("🔍 formatLastLogin received:", dateString);
     
@@ -11741,7 +11772,7 @@ function formatLastLogin(dateString) {
         
         console.log(`📊 Date diff: ${diffMins} minutes, ${diffHours} hours, ${diffDays} days`);
         
-        // Format time part
+        // Format time part (for display when less than 24 hours)
         const timeStr = date.toLocaleTimeString('en-US', { 
             hour: '2-digit', 
             minute: '2-digit',
@@ -11753,34 +11784,41 @@ function formatLastLogin(dateString) {
             return `Just now`;
         }
         
-        // If within last hour
+        // If within last hour - display minutes
         if (diffMins < 60) {
             return `${diffMins} minute${diffMins > 1 ? 's' : ''} ago`;
         }
         
-        // If today
-        if (diffHours < 24 && date.getDate() === now.getDate()) {
-            return `Today, ${timeStr}`;
+        // If less than 24 hours - display hours
+        if (diffHours < 24) {
+            return `${diffHours} hour${diffHours > 1 ? 's' : ''} ago (${timeStr})`;
         }
         
-        // If yesterday
+        // If exactly 1 day
         if (diffDays === 1) {
             return `Yesterday, ${timeStr}`;
         }
         
-        // If within last week
+        // If less than 7 days - display days
         if (diffDays < 7) {
             return `${diffDays} days ago`;
         }
         
+        // If less than 30 days - display weeks
+        if (diffDays < 30) {
+            const weeks = Math.floor(diffDays / 7);
+            return `${weeks} week${weeks > 1 ? 's' : ''} ago`;
+        }
+        
+        // If less than 365 days - display months
+        if (diffDays < 365) {
+            const months = Math.floor(diffDays / 30);
+            return `${months} month${months > 1 ? 's' : ''} ago`;
+        }
+        
         // Older - show full date
-        return date.toLocaleDateString('en-US', {
-            year: 'numeric',
-            month: 'short',
-            day: 'numeric',
-            hour: '2-digit',
-            minute: '2-digit'
-        });
+        const years = Math.floor(diffDays / 365);
+        return `${years} year${years > 1 ? 's' : ''} ago`;
         
     } catch (e) {
         console.error("❌ Error formatting date:", e);
@@ -11946,6 +11984,9 @@ function sortUsers() {
 
 // ===== ADD STYLES FOR LAST LOGIN =====
 function addLastLoginStyles() {
+    // Check if styles already exist
+    if (document.getElementById('last-login-styles')) return;
+    
     const style = document.createElement('style');
     style.id = 'last-login-styles';
     style.textContent = `
@@ -11971,6 +12012,13 @@ function addLastLoginStyles() {
             align-items: center;
             gap: 4px;
             font-weight: 500;
+            animation: pulse 2s infinite;
+        }
+        
+        @keyframes pulse {
+            0% { opacity: 1; }
+            50% { opacity: 0.8; }
+            100% { opacity: 1; }
         }
         
         .online-indicator i {
@@ -12028,6 +12076,36 @@ function addLastLoginStyles() {
     document.head.appendChild(style);
 }
 
+// ===== FORCE REFRESH USERS DATA =====
+function forceRefreshUsers() {
+    console.log("🔄 Force refreshing users data...");
+    loadUsersData();
+}
+
+// Call these when page loads
+document.addEventListener('DOMContentLoaded', function() {
+    // Add styles
+    setTimeout(() => {
+        addLastLoginStyles();
+    }, 500);
+    
+    // Load users data when settings tab is opened
+    const settingsLink = document.querySelector('[onclick="showSettings(event)"]');
+    if (settingsLink) {
+        settingsLink.addEventListener('click', function() {
+            setTimeout(() => {
+                loadUsersData();
+            }, 500);
+        });
+    }
+    
+    // Debug - check raw data
+    setTimeout(() => {
+        debugLastLogin();
+    }, 1000);
+});
+
+
 // ===== DEBUG FUNCTION: Check what's in the database =====
 async function debugLastLogin() {
     console.log("🔍 DEBUG: Checking last_login data in database...");
@@ -12058,18 +12136,6 @@ async function debugLastLogin() {
     }
 }
 
-// Call this when page loads
-document.addEventListener('DOMContentLoaded', function() {
-    // Add styles
-    setTimeout(() => {
-        addLastLoginStyles();
-    }, 500);
-    
-    // Debug - tawagin para makita ang raw data
-    setTimeout(() => {
-        debugLastLogin();
-    }, 1000);
-});
 
 // ===== UPDATE USERS TABLE WITH PROPER LAST LOGIN =====
 function updateUsersTable() {
@@ -12105,21 +12171,31 @@ function updateUsersTable() {
         const statusClass = `user-status ${user.status}`;
         const isChecked = selectedUsers.has(user.id) ? 'checked' : '';
         
-        // ===== FIXED: Determine last login display with styling =====
+        // ===== FIXED: Determine last login display with proper formatting =====
         let lastLoginDisplay = user.lastLogin || 'Never';
         let lastLoginClass = '';
+        let onlineIndicator = '';
         
-        // Add visual indicator for recent activity
+        // Check if it's a recent login (within last hour)
         if (lastLoginDisplay.includes('Just now') || 
             lastLoginDisplay.includes('minute') || 
-            lastLoginDisplay.includes('Today')) {
+            lastLoginDisplay.includes('hour')) {
             lastLoginClass = 'recent-activity';
+            
+            // Add online indicator for very recent (within 5 minutes)
+            if (lastLoginDisplay.includes('Just now') || 
+                lastLoginDisplay.includes('1 minute') || 
+                lastLoginDisplay.includes('2 minutes') ||
+                lastLoginDisplay.includes('3 minutes') ||
+                lastLoginDisplay.includes('4 minutes') ||
+                lastLoginDisplay.includes('5 minutes')) {
+                onlineIndicator = '<span class="online-indicator"><i class="fas fa-circle"></i> Online</span>';
+            }
         }
         
-        // Add online indicator for very recent activity
-        let onlineIndicator = '';
-        if (lastLoginDisplay === 'Just now' || lastLoginDisplay.includes('1 minute')) {
-            onlineIndicator = '<span class="online-indicator"><i class="fas fa-circle"></i> Online</span>';
+        // Check if it's today's login
+        if (lastLoginDisplay.includes('Today')) {
+            lastLoginClass = 'recent-activity';
         }
         
         row.innerHTML = `
