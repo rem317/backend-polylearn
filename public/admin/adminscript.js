@@ -11740,27 +11740,20 @@ function showSettings(e) {
     initializeSettingsDashboard();
 }
 
-// ===== FIXED: Format last login with hours/minutes or days =====
+// ===== FIXED: Format last login =====
 function formatLastLogin(dateString) {
     console.log("🔍 formatLastLogin received:", dateString);
     
-    if (!dateString) {
-        console.log("❌ dateString is null/undefined");
-        return 'Never';
-    }
-    
-    if (dateString === '0000-00-00 00:00:00' || dateString === 'Never') {
-        console.log("❌ dateString is zero date");
+    if (!dateString || dateString === 'Never' || dateString === '0000-00-00 00:00:00') {
         return 'Never';
     }
     
     try {
-        // Convert to Date object
         const date = new Date(dateString);
         
         // Check if valid date
         if (isNaN(date.getTime())) {
-            console.log("❌ Invalid date:", dateString);
+            console.log("❌ Invalid date");
             return 'Never';
         }
         
@@ -11770,59 +11763,55 @@ function formatLastLogin(dateString) {
         const diffHours = Math.floor(diffMs / 3600000);
         const diffDays = Math.floor(diffMs / 86400000);
         
-        console.log(`📊 Date diff: ${diffMins} minutes, ${diffHours} hours, ${diffDays} days`);
-        
-        // Format time part (for display when less than 24 hours)
+        // Format time
         const timeStr = date.toLocaleTimeString('en-US', { 
             hour: '2-digit', 
             minute: '2-digit',
             hour12: true 
         });
         
-        // If within last minute
+        // Within last minute
         if (diffMins < 1) {
-            return `Just now`;
+            return 'Just now';
         }
         
-        // If within last hour - display minutes
+        // Within last hour
         if (diffMins < 60) {
             return `${diffMins} minute${diffMins > 1 ? 's' : ''} ago`;
         }
         
-        // If less than 24 hours - display hours
+        // Within last 24 hours
         if (diffHours < 24) {
             return `${diffHours} hour${diffHours > 1 ? 's' : ''} ago (${timeStr})`;
         }
         
-        // If exactly 1 day
+        // Yesterday
         if (diffDays === 1) {
             return `Yesterday, ${timeStr}`;
         }
         
-        // If less than 7 days - display days
+        // Within last week
         if (diffDays < 7) {
             return `${diffDays} days ago`;
         }
         
-        // If less than 30 days - display weeks
+        // Within last month
         if (diffDays < 30) {
-            const weeks = Math.floor(diffDays / 7);
-            return `${weeks} week${weeks > 1 ? 's' : ''} ago`;
+            return `${Math.floor(diffDays / 7)} weeks ago`;
         }
         
-        // If less than 365 days - display months
-        if (diffDays < 365) {
-            const months = Math.floor(diffDays / 30);
-            return `${months} month${months > 1 ? 's' : ''} ago`;
-        }
-        
-        // Older - show full date
-        const years = Math.floor(diffDays / 365);
-        return `${years} year${years > 1 ? 's' : ''} ago`;
+        // Show full date for older
+        return date.toLocaleDateString('en-US', {
+            year: 'numeric',
+            month: 'short',
+            day: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit'
+        });
         
     } catch (e) {
         console.error("❌ Error formatting date:", e);
-        return dateString; // Return original if error
+        return 'Never';
     }
 }
 
