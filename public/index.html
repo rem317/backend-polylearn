@@ -2105,188 +2105,186 @@
 
         <!-- Dashboard Page -->
         <div id="dashboard-page" class="hidden">
-            <div class="container">
-                <!-- Dashboard Content -->
-                <div class="dashboard-container">
-                    <!-- Welcome Card -->
-                    <section class="card welcome-card">
-                        <div class="welcome-header">
-                            <h1 class="welcome-title" id="dashboardWelcomeTitle">Welcome!</h1>
-                            <div class="date-display" id="currentDate">Loading date...</div>
-                        </div>
-                        
-                        <div class="student-info">
-                            <div class="student-avatar-large" id="userInitial">U</div>
-                            <div class="student-details">
-                                <h2 class="student-name" id="dashboardUserName">Welcome to <span>PolyLearn!</span></h2>
-                                <p style="color: var(--text-light); margin-bottom: 15px;" id="dashboardUserMessage">
-                                    You're making excellent progress in your polynomial journey. Keep up the great work!
-                                </p>
-                                <div class="achievement-badge" id="userAchievementBadge">
-                                    <i class="fas fa-medal"></i> Loading...
-                                </div>
+            <!-- Dashboard Content -->
+            <div class="dashboard-container">
+                <!-- Welcome Card -->
+                <section class="card welcome-card">
+                    <div class="welcome-header">
+                        <h1 class="welcome-title" id="dashboardWelcomeTitle">Welcome!</h1>
+                        <div class="date-display" id="currentDate">Loading date...</div>
+                    </div>
+                    
+                    <div class="student-info">
+                        <div class="student-avatar-large" id="userInitial">U</div>
+                        <div class="student-details">
+                            <h2 class="student-name" id="dashboardUserName">Welcome to <span>PolyLearn!</span></h2>
+                            <p style="color: var(--text-light); margin-bottom: 15px;" id="dashboardUserMessage">
+                                You're making excellent progress in your polynomial journey. Keep up the great work!
+                            </p>
+                            <div class="achievement-badge" id="userAchievementBadge">
+                                <i class="fas fa-medal"></i> Loading...
                             </div>
                         </div>
-                    </section>
+                    </div>
+                </section>
 
-                    <!-- Progress Summary Card -->
-                    <section class="card">
-                        <div class="card-header">
-                            <h2 class="card-title">
-                                <i class="fas fa-chart-bar"></i> Progress Summary
-                            </h2>
-                            <p class="card-subtitle">Your learning progress this week</p>
+                <!-- Progress Summary Card -->
+                <section class="card">
+                    <div class="card-header">
+                        <h2 class="card-title">
+                            <i class="fas fa-chart-bar"></i> Progress Summary
+                        </h2>
+                        <p class="card-subtitle">Your learning progress this week</p>
+                    </div>
+                    
+                    <div class="progress-items">
+                        <!-- Lessons Completed -->
+                        <div class="progress-item">
+                            <div class="item-left">
+                                <div class="item-icon">
+                                    <i class="fas fa-book-open"></i>
+                                </div>
+                                <div>
+                                    <h3>Lessons Completed</h3>
+                                    <p>Total polynomial lessons finished</p>
+                                </div>
+                            </div>
+                            <div class="item-value" id="lessonsCount">0<span class="item-unit">/0</span></div>
                         </div>
                         
-                        <div class="progress-items">
-                            <!-- Lessons Completed -->
-                            <div class="progress-item">
-                                <div class="item-left">
-                                    <div class="item-icon">
-                                        <i class="fas fa-book-open"></i>
-                                    </div>
-                                    <div>
-                                        <h3>Lessons Completed</h3>
-                                        <p>Total polynomial lessons finished</p>
-                                    </div>
+                        <!-- Practice Exercises -->
+                        <div class="progress-item">
+                            <div class="item-left">
+                                <div class="item-icon">
+                                    <i class="fas fa-pen-fancy"></i>
                                 </div>
-                                <div class="item-value" id="lessonsCount">0<span class="item-unit">/0</span></div>
+                                <div>
+                                    <h3>Practice Exercises</h3>
+                                    <p>Exercises solved correctly</p>
+                                </div>
+                            </div>
+                            <div class="item-value" id="exercisesCount">0<span class="item-unit">/0</span></div>
+                        </div>
+                        
+                        <!-- Quiz Game Score -->
+                        <div class="progress-item">
+                            <div class="item-left">
+                                <div class="item-icon">
+                                    <i class="fas fa-trophy"></i>
+                                </div>
+                                <div>
+                                    <h3>Quiz Game Score</h3>
+                                    <p>Your high score in polynomial games</p>
+                                </div>
+                            </div>
+                            <div class="item-value" id="quizScore">0<span class="item-unit">points</span></div>
+                        </div>
+                        
+                        <!-- Average Time Spent -->
+                        <div class="progress-item">
+                            <div class="item-left">
+                                <div class="item-icon">
+                                    <i class="fas fa-clock"></i>
+                                </div>
+                                <div>
+                                    <h3>Average Time Spent</h3>
+                                    <p>Daily average learning time</p>
+                                </div>
+                            </div>
+                            <div class="item-value" id="avgTime">0<span class="item-unit">minutes/day</span></div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Continue Learning Card - DATABASE DRIVEN -->
+                <section class="card full-width-card">
+                    <div class="card-header">
+                        <h2 class="card-title">
+                            <i class="fas fa-play-circle"></i> Continue Learning
+                        </h2>
+                        <p class="card-subtitle">Pick up where you left off</p>
+                    </div>
+                    
+                    <!-- Continue Learning Module - Loaded dynamically from database -->
+                    <div id="continueLearningContainer" class="continue-learning-module">
+                        <div class="loading-container">
+                            <div class="loading-text">
+                                <i class="fas fa-spinner fa-spin"></i> Loading lessons from database...
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- NEW: Lesson Dashboard Container with Learning Tools and Quick Tools -->
+                <section class="card full-width-card">
+                    <div class="card-header">
+                        <h2 class="card-title">
+                            <i class="fas fa-tools"></i> Lesson Dashboard
+                        </h2>
+                        <p class="card-subtitle">Access learning tools and quick utilities for your lessons</p>
+                    </div>
+                    
+                    <div class="lesson-dashboard-container">
+                        <!-- Learning Tools Section -->
+                        <div class="learning-tools-box">
+                            <div class="tools-header">
+                                <i class="fas fa-graduation-cap"></i>
+                                <h3>Learning Tools</h3>
                             </div>
                             
-                            <!-- Practice Exercises -->
-                            <div class="progress-item">
-                                <div class="item-left">
-                                    <div class="item-icon">
-                                        <i class="fas fa-pen-fancy"></i>
+                            <div class="tools-grid-compact">
+                                <div class="tool-item-compact" data-tool="calculator" id="openCalculator">
+                                    <div class="tool-icon">
+                                        <i class="fas fa-calculator"></i>
                                     </div>
-                                    <div>
-                                        <h3>Practice Exercises</h3>
-                                        <p>Exercises solved correctly</p>
-                                    </div>
-                                </div>
-                                <div class="item-value" id="exercisesCount">0<span class="item-unit">/0</span></div>
-                            </div>
-                            
-                            <!-- Quiz Game Score -->
-                            <div class="progress-item">
-                                <div class="item-left">
-                                    <div class="item-icon">
-                                        <i class="fas fa-trophy"></i>
-                                    </div>
-                                    <div>
-                                        <h3>Quiz Game Score</h3>
-                                        <p>Your high score in polynomial games</p>
-                                    </div>
-                                </div>
-                                <div class="item-value" id="quizScore">0<span class="item-unit">points</span></div>
-                            </div>
-                            
-                            <!-- Average Time Spent -->
-                            <div class="progress-item">
-                                <div class="item-left">
-                                    <div class="item-icon">
-                                        <i class="fas fa-clock"></i>
-                                    </div>
-                                    <div>
-                                        <h3>Average Time Spent</h3>
-                                        <p>Daily average learning time</p>
-                                    </div>
-                                </div>
-                                <div class="item-value" id="avgTime">0<span class="item-unit">minutes/day</span></div>
-                            </div>
-                        </div>
-                    </section>
-
-                    <!-- Continue Learning Card - DATABASE DRIVEN -->
-                    <section class="card full-width-card">
-                        <div class="card-header">
-                            <h2 class="card-title">
-                                <i class="fas fa-play-circle"></i> Continue Learning
-                            </h2>
-                            <p class="card-subtitle">Pick up where you left off</p>
-                        </div>
-                        
-                        <!-- Continue Learning Module - Loaded dynamically from database -->
-                        <div id="continueLearningContainer" class="continue-learning-module">
-                            <div class="loading-container">
-                                <div class="loading-text">
-                                    <i class="fas fa-spinner fa-spin"></i> Loading lessons from database...
-                                </div>
-                            </div>
-                        </div>
-                    </section>
-
-                    <!-- NEW: Lesson Dashboard Container with Learning Tools and Quick Tools -->
-                    <section class="card full-width-card">
-                        <div class="card-header">
-                            <h2 class="card-title">
-                                <i class="fas fa-tools"></i> Lesson Dashboard
-                            </h2>
-                            <p class="card-subtitle">Access learning tools and quick utilities for your lessons</p>
-                        </div>
-                        
-                        <div class="lesson-dashboard-container">
-                            <!-- Learning Tools Section -->
-                            <div class="learning-tools-box">
-                                <div class="tools-header">
-                                    <i class="fas fa-graduation-cap"></i>
-                                    <h3>Learning Tools</h3>
+                                    <div class="tool-name">Calculator</div>
+                                    <div class="tool-desc">Advanced math calculator</div>
                                 </div>
                                 
-                                <div class="tools-grid-compact">
-                                    <div class="tool-item-compact" data-tool="calculator" id="openCalculator">
-                                        <div class="tool-icon">
-                                            <i class="fas fa-calculator"></i>
-                                        </div>
-                                        <div class="tool-name">Calculator</div>
-                                        <div class="tool-desc">Advanced math calculator</div>
+                                <div class="tool-item-compact" data-tool="graph" id="openGraphTools">
+                                    <div class="tool-icon">
+                                        <i class="fas fa-chart-line"></i>
                                     </div>
-                                    
-                                    <div class="tool-item-compact" data-tool="graph" id="openGraphTools">
-                                        <div class="tool-icon">
-                                            <i class="fas fa-chart-line"></i>
-                                        </div>
-                                        <div class="tool-name">Graph Tools</div>
-                                        <div class="tool-desc">Visualize functions</div>
-                                    </div>
-                                    
-                                    <div class="tool-item-compact" data-tool="formula" id="openFormulaSheet">
-                                        <div class="tool-icon">
-                                            <i class="fas fa-book"></i>
-                                        </div>
-                                        <div class="tool-name">Formula Sheet</div>
-                                        <div class="tool-desc">Quick references</div>
-                                    </div>
-                                    
-                                    <div class="tool-item-compact" data-tool="whiteboard" id="openWhiteboard">
-                                        <div class="tool-icon">
-                                            <i class="fas fa-paint-brush"></i>
-                                        </div>
-                                        <div class="tool-name">Whiteboard</div>
-                                        <div class="tool-desc">Draw and solve</div>
-                                    </div>
-                                    
-                                    <div class="tool-item-compact" data-tool="notepad" id="openNotepad">
-                                        <div class="tool-icon">
-                                            <i class="fas fa-sticky-note"></i>
-                                        </div>
-                                        <div class="tool-name">Notepad</div>
-                                        <div class="tool-desc">Take notes</div>
-                                    </div>
-                                    
-            
+                                    <div class="tool-name">Graph Tools</div>
+                                    <div class="tool-desc">Visualize functions</div>
                                 </div>
                                 
-                                <div class="tools-description">
-                                    <p><i class="fas fa-info-circle"></i> Learning tools help you understand concepts better with interactive features.</p>
+                                <div class="tool-item-compact" data-tool="formula" id="openFormulaSheet">
+                                    <div class="tool-icon">
+                                        <i class="fas fa-book"></i>
+                                    </div>
+                                    <div class="tool-name">Formula Sheet</div>
+                                    <div class="tool-desc">Quick references</div>
                                 </div>
+                                
+                                <div class="tool-item-compact" data-tool="whiteboard" id="openWhiteboard">
+                                    <div class="tool-icon">
+                                        <i class="fas fa-paint-brush"></i>
+                                    </div>
+                                    <div class="tool-name">Whiteboard</div>
+                                    <div class="tool-desc">Draw and solve</div>
+                                </div>
+                                
+                                <div class="tool-item-compact" data-tool="notepad" id="openNotepad">
+                                    <div class="tool-icon">
+                                        <i class="fas fa-sticky-note"></i>
+                                    </div>
+                                    <div class="tool-name">Notepad</div>
+                                    <div class="tool-desc">Take notes</div>
+                                </div>
+                                
+                
                             </div>
                             
-                            
+                            <div class="tools-description">
+                                <p><i class="fas fa-info-circle"></i> Learning tools help you understand concepts better with interactive features.</p>
+                            </div>
                         </div>
-                    </section>
+                        
+                        
+                    </div>
+                </section>
 
-                </div>
             </div>
         </div>
 
@@ -2513,364 +2511,356 @@
 
         <!-- Practice Exercises Page -->
         <div id="practice-exercises-page" class="hidden">
-            <div class="container">
-                <!-- Practice Content -->
-                <div class="practice-container">
-                    <!-- Welcome Section -->
-                    <section class="card welcome-card">
-                        <div class="welcome-header">
-                            <h1 class="welcome-title">Topic-Based Practice</h1>
-                            <div class="date-display" id="practiceDate">Today</div>
+            <!-- Practice Content -->
+            <div class="practice-container">
+                <!-- Welcome Section -->
+                <section class="card welcome-card">
+                    <div class="welcome-header">
+                        <h1 class="welcome-title">Topic-Based Practice</h1>
+                        <div class="date-display" id="practiceDate">Today</div>
+                    </div>
+                    
+                    <div class="practice-intro">
+                        <div class="practice-icon-large">
+                            <i class="fas fa-graduation-cap"></i>
                         </div>
-                        
-                        <div class="practice-intro">
-                            <div class="practice-icon-large">
-                                <i class="fas fa-graduation-cap"></i>
-                            </div>
-                            <div class="practice-intro-text">
-                                <p>Practice exercises unlock as you complete topics. Master each concept before moving to more challenging problems!</p>
-                                <div class="current-streak">
-                                    <i class="fas fa-unlock"></i> Unlocked: <span id="unlockedCount">0</span>/5 topics
-                                </div>
+                        <div class="practice-intro-text">
+                            <p>Practice exercises unlock as you complete topics. Master each concept before moving to more challenging problems!</p>
+                            <div class="current-streak">
+                                <i class="fas fa-unlock"></i> Unlocked: <span id="unlockedCount">0</span>/5 topics
                             </div>
                         </div>
-                    </section>
+                    </div>
+                </section>
 
-                    <!-- Topics Progress -->
-                    <section class="card full-width-card">
-                        <div class="card-header">
-                            <h2 class="card-title">
-                                <i class="fas fa-book-open"></i> Topics Progress
-                            </h2>
-                            <p class="card-subtitle">Complete topics to unlock practice exercises</p>
+                <!-- Topics Progress -->
+                <section class="card full-width-card">
+                    <div class="card-header">
+                        <h2 class="card-title">
+                            <i class="fas fa-book-open"></i> Topics Progress
+                        </h2>
+                        <p class="card-subtitle">Complete topics to unlock practice exercises</p>
+                    </div>
+                    
+                    <div class="topics-container" id="topicsContainer">
+                        <!-- Topics will be loaded dynamically from database -->
+                        <div class="loading-container">
+                            <i class="fas fa-spinner fa-spin"></i>
+                            <p>Loading topics and progress...</p>
                         </div>
-                        
-                        <div class="topics-container" id="topicsContainer">
-                            <!-- Topics will be loaded dynamically from database -->
-                            <div class="loading-container">
-                                <i class="fas fa-spinner fa-spin"></i>
-                                <p>Loading topics and progress...</p>
-                            </div>
-                        </div>
-                    </section>
+                    </div>
+                </section>
 
-                    <!-- Current Practice Area -->
-                    <section class="card full-width-card" id="currentPracticeSection">
-                        <div class="card-header">
-                            <h2 class="card-title">
-                                <i class="fas fa-brain"></i> Practice Exercises
-                            </h2>
-                            <p class="card-subtitle" id="practiceTopicTitle">Select a topic to practice</p>
+                <!-- Current Practice Area -->
+                <section class="card full-width-card" id="currentPracticeSection">
+                    <div class="card-header">
+                        <h2 class="card-title">
+                            <i class="fas fa-brain"></i> Practice Exercises
+                        </h2>
+                        <p class="card-subtitle" id="practiceTopicTitle">Select a topic to practice</p>
+                    </div>
+                    
+                    <div class="exercise-area" id="exerciseArea">
+                        <div class="no-topic-selected">
+                            <i class="fas fa-mouse-pointer"></i>
+                            <h3>Select a Topic</h3>
+                            <p>Choose a topic from the list above to start practicing</p>
                         </div>
-                        
-                        <div class="exercise-area" id="exerciseArea">
-                            <div class="no-topic-selected">
-                                <i class="fas fa-mouse-pointer"></i>
-                                <h3>Select a Topic</h3>
-                                <p>Choose a topic from the list above to start practicing</p>
-                            </div>
-                        </div>
-                    </section>
+                    </div>
+                </section>
 
-                    <!-- Practice Statistics -->
-                    <section class="card">
-                        <div class="card-header">
-                            <h2 class="card-title">
-                                <i class="fas fa-chart-line"></i> Practice Statistics
-                            </h2>
-                            <p class="card-subtitle">Your performance across topics</p>
-                        </div>
-                        
-                        <div class="stats-grid" id="practiceStats">
-                            <!-- Stats will be loaded dynamically -->
-                        </div>
-                    </section>
-                </div>
+                <!-- Practice Statistics -->
+                <section class="card">
+                    <div class="card-header">
+                        <h2 class="card-title">
+                            <i class="fas fa-chart-line"></i> Practice Statistics
+                        </h2>
+                        <p class="card-subtitle">Your performance across topics</p>
+                    </div>
+                    
+                    <div class="stats-grid" id="practiceStats">
+                        <!-- Stats will be loaded dynamically -->
+                    </div>
+                </section>
             </div>
         </div>
 
         <!-- Quiz Dashboard Page - DATABASE DRIVEN -->
         <div id="quiz-dashboard-page" class="hidden">
-            <div class="container">
-                <!-- Quiz Content -->
-                <div class="quiz-container">
-                    <!-- Quiz Header Section -->
-                    <div class="quiz-header-section" style=" padding: 30px; border-radius: 10px; margin-bottom: 20px;">
-    <h1 class="quiz-welcome-title" style="color: white; margin: 0 0 10px 0; font-size: 28px;">Welcome to Quiz Dashboard!</h1>
-    <p class="quiz-subtitle" style="color: white; margin: 0; opacity: 0.9; font-size: 16px;">Test your knowledge and track your progress with interactive quizzes</p>
-                        
-                        <div class="quiz-stats-row">
-                            <div class="quiz-stat-card">
-                                <i class="fas fa-trophy"></i>
-                                <h3>Current Score</h3>
-                                <div class="quiz-stat-value" id="quizCurrentScore">Loading...</div>
-                            </div>
-                            <div class="quiz-stat-card">
-                                <i class="fas fa-chart-line"></i>
-                                <h3>Accuracy</h3>
-                                <div class="quiz-stat-value" id="quizAccuracy">Loading...</div>
-                            </div>
-                            <div class="quiz-stat-card">
-                                <i class="fas fa-clock"></i>
-                                <h3>Time Spent</h3>
-                                <div class="quiz-stat-value" id="quizTimeSpent">Loading...</div>
-                            </div>
-                            <div class="quiz-stat-card">
-                                <i class="fas fa-medal"></i>
-                                <h3>Rank</h3>
-                                <div class="quiz-stat-value" id="quizRank">Loading...</div>
-                            </div>
+            <!-- Quiz Content -->
+            <div class="quiz-container">
+                <!-- Quiz Header Section -->
+                <div class="quiz-header-section" style=" padding: 30px; border-radius: 10px; margin-bottom: 20px;">
+                    <h1 class="quiz-welcome-title" style="color: white; margin: 0 0 10px 0; font-size: 28px;">Welcome to Quiz Dashboard!</h1>
+                    <p class="quiz-subtitle" style="color: white; margin: 0; opacity: 0.9; font-size: 16px;">Test your knowledge and track your progress with interactive quizzes</p>
+                </div>
+                
+                <div class="quiz-stats-row">
+                    <div class="quiz-stat-card">
+                        <i class="fas fa-trophy"></i>
+                        <h3>Current Score</h3>
+                        <div class="quiz-stat-value" id="quizCurrentScore">Loading...</div>
+                    </div>
+                    <div class="quiz-stat-card">
+                        <i class="fas fa-chart-line"></i>
+                        <h3>Accuracy</h3>
+                        <div class="quiz-stat-value" id="quizAccuracy">Loading...</div>
+                    </div>
+                    <div class="quiz-stat-card">
+                        <i class="fas fa-clock"></i>
+                        <h3>Time Spent</h3>
+                        <div class="quiz-stat-value" id="quizTimeSpent">Loading...</div>
+                    </div>
+                    <div class="quiz-stat-card">
+                        <i class="fas fa-medal"></i>
+                        <h3>Rank</h3>
+                        <div class="quiz-stat-value" id="quizRank">Loading...</div>
+                    </div>
+                </div>
+
+                <!-- QUIZ CARDS - Where user sees available quizzes -->
+                <div class="quiz-cards-container" id="quizCardsContainer">
+                    <h2 class="section-title"><i class="fas fa-puzzle-piece"></i> Available Quizzes</h2>
+                    <div class="quizzes-grid" id="userQuizzesContainer">
+                        <div class="loading-container">
+                            <i class="fas fa-spinner fa-spin"></i>
+                            <p>Loading quizzes from database...</p>
                         </div>
                     </div>
+                </div>
 
-                    <!-- QUIZ CARDS - Where user sees available quizzes -->
-                    <div class="quiz-cards-container" id="quizCardsContainer">
-                        <h2 class="section-title"><i class="fas fa-puzzle-piece"></i> Available Quizzes</h2>
-                        <div class="quizzes-grid" id="userQuizzesContainer">
-                            <div class="loading-container">
-                                <i class="fas fa-spinner fa-spin"></i>
-                                <p>Loading quizzes from database...</p>
-                            </div>
+                <!-- QUIZ INTERFACE - Shows when user starts a quiz -->
+                <div class="quiz-interface-container" id="quizInterfaceContainer" style="display: none;">
+                    <div class="quiz-header">
+                        <button onclick="exitQuiz()" class="btn-secondary">
+                            <i class="fas fa-times"></i> Exit Quiz
+                        </button>
+                        <h2 id="activeQuizTitle">Quiz Title</h2>
+                        <div class="quiz-timer">
+                            <i class="fas fa-clock"></i> <span id="timerDisplay">00:00</span>
                         </div>
                     </div>
-
-                    <!-- QUIZ INTERFACE - Shows when user starts a quiz -->
-                    <div class="quiz-interface-container" id="quizInterfaceContainer" style="display: none;">
-                        <div class="quiz-header">
-                            <button onclick="exitQuiz()" class="btn-secondary">
-                                <i class="fas fa-times"></i> Exit Quiz
-                            </button>
-                            <h2 id="activeQuizTitle">Quiz Title</h2>
-                            <div class="quiz-timer">
-                                <i class="fas fa-clock"></i> <span id="timerDisplay">00:00</span>
-                            </div>
+                    
+                    <div class="quiz-progress-bar">
+                        <div class="progress-fill" id="quizProgressFill" style="width: 0%"></div>
+                    </div>
+                    
+                    <div class="quiz-question-area">
+                        <div class="question-header">
+                            <span class="question-number" id="currentQuestionNum">1</span>/<span id="totalQuestions">10</span>
+                            <span class="question-points" id="questionPoints">10 points</span>
                         </div>
                         
-                        <div class="quiz-progress-bar">
-                            <div class="progress-fill" id="quizProgressFill" style="width: 0%"></div>
-                        </div>
+                        <h3 class="question-text" id="quizQuestionText">Loading question...</h3>
                         
-                        <div class="quiz-question-area">
-                            <div class="question-header">
-                                <span class="question-number" id="currentQuestionNum">1</span>/<span id="totalQuestions">10</span>
-                                <span class="question-points" id="questionPoints">10 points</span>
-                            </div>
-                            
-                            <h3 class="question-text" id="quizQuestionText">Loading question...</h3>
-                            
-                            <div class="options-grid" id="quizOptionsContainer">
-                                <!-- Options will be loaded here -->
-                            </div>
-                        </div>
-                        
-                        <div class="quiz-navigation">
-                           
-                            <button class="nav-btn submit" onclick="submitQuiz()" id="submitQuizBtn" style="display: none;">
-                                Submit Quiz
-                            </button>
+                        <div class="options-grid" id="quizOptionsContainer">
+                            <!-- Options will be loaded here -->
                         </div>
                     </div>
+                    
+                    <div class="quiz-navigation">
+                        <button class="nav-btn submit" onclick="submitQuiz()" id="submitQuizBtn" style="display: none;">
+                            Submit Quiz
+                        </button>
+                    </div>
+                </div>
 
-
-                    <!-- Leaderboard Section -->
-                    <div class="leaderboard-container" id="leaderboardContainer">
-                        <h2 class="card-title">
-                            <i class="fas fa-chart-bar"></i> Quiz Leaderboard
-                        </h2>
-                        <p class="card-subtitle">Top performers this week</p>
-                        
-                        <div class="leaderboard-list" id="leaderboardList">
-                            <div class="loading-container">
-                                <i class="fas fa-spinner fa-spin"></i> Loading leaderboard...
-                            </div>
+                <!-- Leaderboard Section -->
+                <div class="leaderboard-container" id="leaderboardContainer">
+                    <h2 class="card-title">
+                        <i class="fas fa-chart-bar"></i> Quiz Leaderboard
+                    </h2>
+                    <p class="card-subtitle">Top performers this week</p>
+                    
+                    <div class="leaderboard-list" id="leaderboardList">
+                        <div class="loading-container">
+                            <i class="fas fa-spinner fa-spin"></i> Loading leaderboard...
                         </div>
                     </div>
                 </div>
             </div>
         </div>
 
+
         <!-- Progress Tracking Dashboard Page - DATABASE DRIVEN -->
         <div id="progress-page" class="hidden">
-            <!-- Progress content remains the same -->
-            <div class="container">
-                <!-- Header -->
-                <header class="header">
-                    <div class="logo" id="progressLogo">
-                        <i class="fas fa-chart-line logo-icon"></i>
-                        <div class="logo-text">Progress<span class="logo-accent">Tracker</span></div>
+            <!-- Header -->
+            <header class="header">
+                <div class="logo" id="progressLogo">
+                    <i class="fas fa-chart-line logo-icon"></i>
+                    <div class="logo-text">Progress<span class="logo-accent">Tracker</span></div>
+                </div>
+                
+                <!-- Back Button -->
+                <button class="back-button" id="backToDashboardFromProgress">
+                </button>
+            </header>
+
+            <!-- Progress Dashboard Content -->
+            <div class="progress-container">
+                <!-- Summary Stats Card -->
+                <section class="card welcome-card animate-fade-in">
+                    <div class="welcome-header">
+                        <h1 class="welcome-title" id="progressWelcomeTitle">Your Learning Progress</h1>
+                        <div class="date-display" id="progressDate">Last updated: Today</div>
                     </div>
                     
-                    <!-- Back Button -->
-                    <button class="back-button" id="backToDashboardFromProgress">
-                    </button>
-                </header>
-
-                <!-- Progress Dashboard Content -->
-                <div class="progress-container">
-                    <!-- Summary Stats Card -->
-                    <section class="card welcome-card animate-fade-in">
-                        <div class="welcome-header">
-                            <h1 class="welcome-title" id="progressWelcomeTitle">Your Learning Progress</h1>
-                            <div class="date-display" id="progressDate">Last updated: Today</div>
-                        </div>
-                        
-                        <div class="progress-summary-stats">
-                            <div class="summary-stat">
-                                <div class="stat-icon">
-                                    <i class="fas fa-trophy"></i>
-                                </div>
-                                <div class="stat-content">
-                                    <h3>Overall Progress</h3>
-                                    <div class="stat-value" id="overallProgress">0%</div>
-                                    <div class="progress-bar-container mini">
-                                        <div class="progress-fill progress-good" id="overallProgressBar" style="width: 0%"></div>
-                                    </div>
-                                </div>
+                    <div class="progress-summary-stats">
+                        <div class="summary-stat">
+                            <div class="stat-icon">
+                                <i class="fas fa-trophy"></i>
                             </div>
-                            
-                            <div class="summary-stat">
-                                <div class="stat-icon">
-                                    <i class="fas fa-coins"></i>
+                            <div class="stat-content">
+                                <h3>Overall Progress</h3>
+                                <div class="stat-value" id="overallProgress">0%</div>
+                                <div class="progress-bar-container mini">
+                                    <div class="progress-fill progress-good" id="overallProgressBar" style="width: 0%"></div>
                                 </div>
-                                <div class="stat-content">
-                                    <h3>Total Points</h3>
-                                    <div class="stat-value" id="totalPointsProgress">0</div>
-                                    <p class="stat-change" id="pointsChange">+0 this week</p>
-                                </div>
-                            </div>
-                            
-                            <div class="summary-stat">
-                                <div class="stat-icon">
-                                    <i class="fas fa-clock"></i>
-                                </div>
-                                <div class="stat-content">
-                                    <h3>Time Invested</h3>
-                                    <div class="stat-value" id="totalTime">0h</div>
-                                    <p class="stat-change" id="timeChange">0h this week</p>
-                                </div>
-                            </div>
-                            
-                            <div class="summary-stat">
-                                <div class="stat-icon">
-                                    <i class="fas fa-award"></i>
-                                </div>
-                                <div class="stat-content">
-                                    <h3>Badges Earned</h3>
-                                    <div class="stat-value" id="totalBadges">0/0</div>
-                                    <p class="stat-change" id="badgesChange">0 new this month</p>
-                                </div>
-                            </div>
-                        </div>
-                    </section>
-
-                    <!-- Progress Charts -->
-                    <section class="card full-width-card animate-fade-in" style="animation-delay: 0.1s">
-                        <div class="card-header">
-                            <h2 class="card-title">
-                                <i class="fas fa-chart-bar"></i> Weekly Progress Trends
-                            </h2>
-                            <div class="time-period-selector">
-                                <select id="timePeriodSelect" class="form-control">
-                                    <option value="week">Last 7 Days</option>
-                                    <option value="month">Last 30 Days</option>
-                                    <option value="quarter">Last 3 Months</option>
-                                    <option value="year">Last Year</option>
-                                </select>
                             </div>
                         </div>
                         
-                        <div class="charts-grid">
-                            <div class="chart-container">
-                                <h3>Daily Practice Time</h3>
-                                <div class="chart" id="practiceTimeChart">
-                                    <div class="simple-bar-chart">
-                                        <div class="chart-bars" id="practiceTimeBars">
-                                            <!-- Bars will be loaded dynamically -->
-                                        </div>
-                                        <div class="chart-labels" id="practiceTimeLabels">
-                                            <!-- Labels will be loaded dynamically -->
-                                        </div>
-                                    </div>
-                                </div>
+                        <div class="summary-stat">
+                            <div class="stat-icon">
+                                <i class="fas fa-coins"></i>
                             </div>
-                            
-                            <div class="chart-container">
-                                <h3>Accuracy Rate</h3>
-                                <div class="chart" id="accuracyChart">
-                                    <div class="simple-line-chart">
-                                        <div class="chart-line" id="accuracyLine">
-                                            <!-- Line points will be loaded dynamically -->
-                                        </div>
-                                        <div class="chart-labels" id="accuracyLabels">
-                                            <!-- Labels will be loaded dynamically -->
-                                        </div>
+                            <div class="stat-content">
+                                <h3>Total Points</h3>
+                                <div class="stat-value" id="totalPointsProgress">0</div>
+                                <p class="stat-change" id="pointsChange">+0 this week</p>
+                            </div>
+                        </div>
+                        
+                        <div class="summary-stat">
+                            <div class="stat-icon">
+                                <i class="fas fa-clock"></i>
+                            </div>
+                            <div class="stat-content">
+                                <h3>Time Invested</h3>
+                                <div class="stat-value" id="totalTime">0h</div>
+                                <p class="stat-change" id="timeChange">0h this week</p>
+                            </div>
+                        </div>
+                        
+                        <div class="summary-stat">
+                            <div class="stat-icon">
+                                <i class="fas fa-award"></i>
+                            </div>
+                            <div class="stat-content">
+                                <h3>Badges Earned</h3>
+                                <div class="stat-value" id="totalBadges">0/0</div>
+                                <p class="stat-change" id="badgesChange">0 new this month</p>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Progress Charts -->
+                <section class="card full-width-card animate-fade-in" style="animation-delay: 0.1s">
+                    <div class="card-header">
+                        <h2 class="card-title">
+                            <i class="fas fa-chart-bar"></i> Weekly Progress Trends
+                        </h2>
+                        <div class="time-period-selector">
+                            <select id="timePeriodSelect" class="form-control">
+                                <option value="week">Last 7 Days</option>
+                                <option value="month">Last 30 Days</option>
+                                <option value="quarter">Last 3 Months</option>
+                                <option value="year">Last Year</option>
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <div class="charts-grid">
+                        <div class="chart-container">
+                            <h3>Daily Practice Time</h3>
+                            <div class="chart" id="practiceTimeChart">
+                                <div class="simple-bar-chart">
+                                    <div class="chart-bars" id="practiceTimeBars">
+                                        <!-- Bars will be loaded dynamically -->
+                                    </div>
+                                    <div class="chart-labels" id="practiceTimeLabels">
+                                        <!-- Labels will be loaded dynamically -->
                                     </div>
                                 </div>
                             </div>
                         </div>
-                    </section>
-
-                    <!-- Topic Progress Breakdown -->
-                    <section class="card animate-fade-in" style="animation-delay: 0.2s">
-                        <div class="card-header">
-                            <h2 class="card-title">
-                                <i class="fas fa-book-open"></i> Topic Progress Breakdown
-                            </h2>
-                            <p class="card-subtitle">Detailed progress for each learning topic</p>
-                        </div>
                         
-                        <div class="topics-progress-detailed" id="topicsProgressDetailed">
-                            <!-- Topic progress items will be loaded dynamically -->
-                            <div class="loading-container">
-                                <i class="fas fa-spinner fa-spin"></i>
-                                <p>Loading topic progress...</p>
+                        <div class="chart-container">
+                            <h3>Accuracy Rate</h3>
+                            <div class="chart" id="accuracyChart">
+                                <div class="simple-line-chart">
+                                    <div class="chart-line" id="accuracyLine">
+                                        <!-- Line points will be loaded dynamically -->
+                                    </div>
+                                    <div class="chart-labels" id="accuracyLabels">
+                                        <!-- Labels will be loaded dynamically -->
+                                    </div>
+                                </div>
                             </div>
                         </div>
-                    </section>
+                    </div>
+                </section>
 
-                    <!-- Performance Analytics -->
-                    <section class="card animate-fade-in" style="animation-delay: 0.3s">
-                        <div class="card-header">
-                            <h2 class="card-title">
-                                <i class="fas fa-chart-line"></i> Performance Analytics
-                            </h2>
-                            <p class="card-subtitle">Your learning efficiency and improvement trends</p>
+                <!-- Topic Progress Breakdown -->
+                <section class="card animate-fade-in" style="animation-delay: 0.2s">
+                    <div class="card-header">
+                        <h2 class="card-title">
+                            <i class="fas fa-book-open"></i> Topic Progress Breakdown
+                        </h2>
+                        <p class="card-subtitle">Detailed progress for each learning topic</p>
+                    </div>
+                    
+                    <div class="topics-progress-detailed" id="topicsProgressDetailed">
+                        <!-- Topic progress items will be loaded dynamically -->
+                        <div class="loading-container">
+                            <i class="fas fa-spinner fa-spin"></i>
+                            <p>Loading topic progress...</p>
                         </div>
-                        
-                        <div class="performance-grid" id="performanceGrid">
-                            <!-- Performance cards will be loaded dynamically -->
-                            <div class="loading-container">
-                                <i class="fas fa-spinner fa-spin"></i>
-                                <p>Loading performance analytics...</p>
-                            </div>
-                        </div>
-                        
-                        <div class="learning-insights">
-                            <h4><i class="fas fa-lightbulb"></i> Learning Insights</h4>
-                            <ul class="insights-list" id="insightsList">
-                                <!-- Insights will be loaded dynamically -->
-                            </ul>
-                        </div>
-                    </section>
+                    </div>
+                </section>
 
-                    <!-- Achievement Timeline -->
-                    <section class="card full-width-card animate-fade-in" style="animation-delay: 0.4s">
-                        <div class="card-header">
-                            <h2 class="card-title">
-                                <i class="fas fa-trophy"></i> Achievement Timeline
-                            </h2>
-                            <p class="card-subtitle">Your journey and milestones</p>
+                <!-- Performance Analytics -->
+                <section class="card animate-fade-in" style="animation-delay: 0.3s">
+                    <div class="card-header">
+                        <h2 class="card-title">
+                            <i class="fas fa-chart-line"></i> Performance Analytics
+                        </h2>
+                        <p class="card-subtitle">Your learning efficiency and improvement trends</p>
+                    </div>
+                    
+                    <div class="performance-grid" id="performanceGrid">
+                        <!-- Performance cards will be loaded dynamically -->
+                        <div class="loading-container">
+                            <i class="fas fa-spinner fa-spin"></i>
+                            <p>Loading performance analytics...</p>
                         </div>
-                        
-                        <div class="timeline" id="achievementTimeline">
-                            <!-- Timeline items will be loaded dynamically -->
-                            <div class="loading-container">
-                                <i class="fas fa-spinner fa-spin"></i>cd 
-                                <p>Loading achievement timeline...</p>
-                            </div>
+                    </div>
+                    
+                    <div class="learning-insights">
+                        <h4><i class="fas fa-lightbulb"></i> Learning Insights</h4>
+                        <ul class="insights-list" id="insightsList">
+                            <!-- Insights will be loaded dynamically -->
+                        </ul>
+                    </div>
+                </section>
+
+                <!-- Achievement Timeline -->
+                <section class="card full-width-card animate-fade-in" style="animation-delay: 0.4s">
+                    <div class="card-header">
+                        <h2 class="card-title">
+                            <i class="fas fa-trophy"></i> Achievement Timeline
+                        </h2>
+                        <p class="card-subtitle">Your journey and milestones</p>
+                    </div>
+                    
+                    <div class="timeline" id="achievementTimeline">
+                        <!-- Timeline items will be loaded dynamically -->
+                        <div class="loading-container">
+                            <i class="fas fa-spinner fa-spin"></i>cd 
+                            <p>Loading achievement timeline...</p>
                         </div>
-                    </section>
-                </div>
+                    </div>
+                </section>
             </div>
         </div>
 
