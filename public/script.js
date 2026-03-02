@@ -48,6 +48,11 @@ const APP_LESSON_MAP = {
     }
 };
 
+// ============================================
+// POLYLEARN CONSTANTS - FORCE LESSON_ID = 2
+// ============================================
+const POLYLEARN_LESSON_ID = 2; // Fixed for PolyLearn only
+
 // Get the current selected app
 function getCurrentApp() {
     return localStorage.getItem('selectedApp') || 'polylearn';
@@ -10256,7 +10261,7 @@ async function loadQuizStatsFromServer() {
 
 
 // ============================================
-// ✅ FIXED: Load quiz categories - FILTER BY LESSON_ID
+// ✅ FIXED: Load quiz categories - FORCED LESSON_ID = 2
 // ============================================
 async function loadQuizCategories() {
     try {
@@ -10268,13 +10273,13 @@ async function loadQuizCategories() {
             return [];
         }
         
-        const selectedApp = localStorage.getItem('selectedApp') || 'polylearn';
-        const currentLessonId = getCurrentLessonId(); // Kunin ang lesson_id (2 for PolyLearn)
+        const currentLessonId = POLYLEARN_LESSON_ID; // Force to 2
         
-        console.log(`🎯 Loading categories for app: ${selectedApp}, lesson_id: ${currentLessonId}`);
+        console.log(`🎯 Loading categories for PolyLearn, forced lesson_id: ${currentLessonId}`);
         
-        // Build endpoint with lesson_id filter
+        // Force lesson_id=2 in API call
         let endpoint = `/api/quiz/categories?lesson_id=${currentLessonId}`;
+        console.log(`📡 Fetching from: ${endpoint}`);
         
         const response = await fetch(endpoint, {
             headers: {
@@ -10283,60 +10288,32 @@ async function loadQuizCategories() {
             }
         });
         
-        // Check if response is OK
-        if (!response.ok) {
-            console.error(`❌ Failed to fetch categories: ${response.status}`);
-            throw new Error(`Failed to fetch categories: ${response.status}`);
-        }
-        
-        // Check content type
-        const contentType = response.headers.get('content-type');
-        if (!contentType || !contentType.includes('application/json')) {
-            const text = await response.text();
-            console.error('❌ Non-JSON response:', text.substring(0, 200));
-            throw new Error('Server returned non-JSON response');
-        }
-        
-        const data = await response.json();
-        console.log('📥 Quiz categories response:', data);
-        
-        // Create categories container if it doesn't exist
-        let categoriesContainer = document.getElementById('quizCategoriesGrid');
-        if (!categoriesContainer) {
-            console.log('⚠️ Creating categories container...');
-            categoriesContainer = document.createElement('div');
-            categoriesContainer.id = 'quizCategoriesGrid';
-            categoriesContainer.className = 'categories-grid';
+        // If 500 error, try without lesson_id and filter on client side
+        if (response.status === 500) {
+            console.log('⚠️ Server error with lesson_id, trying without...');
+            const fallbackResponse = await fetch('/api/quiz/categories', {
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Accept': 'application/json'
+                }
+            });
             
-            // Find where to insert it
-            const quizDashboard = document.getElementById('quiz-dashboard-page');
-            if (quizDashboard) {
-                const container = quizDashboard.querySelector('.container') || quizDashboard;
-                container.appendChild(categoriesContainer);
+            if (fallbackResponse.ok) {
+                const fallbackData = await fallbackResponse.json();
+                return handleCategoriesResponse(fallbackData, true); // true = filter on client
             }
         }
         
-        if (data.success && data.categories) {
-            console.log(`✅ Fetched ${data.categories.length} quiz categories for ${selectedApp} (lesson ${currentLessonId})`);
-            
-            // Store in QuizState
-            if (!window.QuizState) window.QuizState = {};
-            window.QuizState.quizCategories = data.categories;
-            
-            // Display the categories
-            displayQuizCategories(data.categories);
-            
-            return data.categories;
-        } else {
-            console.log('ℹ️ No categories returned or invalid format');
-            displayQuizCategories([]);
-            return [];
+        if (!response.ok) {
+            throw new Error(`Failed to fetch categories: ${response.status}`);
         }
+        
+        const data = await response.json();
+        return handleCategoriesResponse(data, false);
         
     } catch (error) {
         console.error('❌ Error loading quiz categories:', error);
         
-        // Show error state
         const categoriesContainer = document.getElementById('quizCategoriesGrid');
         if (categoriesContainer) {
             categoriesContainer.innerHTML = `
@@ -10355,6 +10332,41 @@ async function loadQuizCategories() {
     }
 }
 
+// Helper function to handle categories response
+function handleCategoriesResponse(data, filterOnClient = false) {
+    console.log('📥 Quiz categories response:', data);
+    
+    const categoriesContainer = document.getElementById('quizCategoriesGrid');
+    if (!categoriesContainer) return [];
+    
+    if (data.success && data.categories) {
+        let categories = data.categories;
+        
+        // Filter on client side if needed
+        if (filterOnClient) {
+            categories = categories.filter(cat => {
+                const catLessonId = cat.lesson_id || cat.lessonId;
+                return catLessonId == POLYLEARN_LESSON_ID;
+            });
+            console.log(`🎯 Filtered to ${categories.length} categories for PolyLearn`);
+        }
+        
+        console.log(`✅ Found ${categories.length} quiz categories for PolyLearn`);
+        
+        // Store in QuizState
+        if (!window.QuizState) window.QuizState = {};
+        window.QuizState.quizCategories = categories;
+        
+        // Display the categories
+        displayQuizCategories(categories);
+        
+        return categories;
+    } else {
+        console.log('ℹ️ No categories returned');
+        displayQuizCategories([]);
+        return [];
+    }
+}
 // ============================================
 // FIXED: Display quiz categories - WITH APP FILTERING
 // ============================================
@@ -10544,7 +10556,7 @@ function getCategoryColor(categoryId) {
 }
 
 // ============================================
-// ✅ FIXED: Load quizzes for category - FILTER BY LESSON_ID
+// ✅ FIXED: Load quizzes for category - FORCED LESSON_ID = 2
 // ============================================
 async function loadQuizzesForCategory(categoryId) {
     try {
@@ -10557,11 +10569,9 @@ async function loadQuizzesForCategory(categoryId) {
             return;
         }
         
-        const selectedApp = localStorage.getItem('selectedApp') || 'polylearn';
-        const currentLessonId = getCurrentLessonId(); // Kunin ang lesson_id (2 for PolyLearn)
+        const currentLessonId = POLYLEARN_LESSON_ID; // Force to 2
         
-        console.log(`🎯 Loading quizzes for app: ${selectedApp}, lesson_id: ${currentLessonId}`);
-        console.log(`🎯 Will ONLY show quizzes with lesson_id = ${currentLessonId}`);
+        console.log(`🎯 Loading quizzes for PolyLearn, forced lesson_id: ${currentLessonId}`);
         
         // Get current user ID
         const userJson = localStorage.getItem('mathhub_user');
@@ -10576,7 +10586,7 @@ async function loadQuizzesForCategory(categoryId) {
             }
         }
         
-        // ✅ Pass lesson_id as query parameter
+        // ✅ Force lesson_id=2 in API call
         let endpoint = `/api/quiz/category/${categoryId}/quizzes?lesson_id=${currentLessonId}`;
         console.log(`📡 Fetching from: ${endpoint}`);
         
@@ -10595,15 +10605,13 @@ async function loadQuizzesForCategory(categoryId) {
         console.log('📥 Quiz data:', data);
         
         if (data.success && data.quizzes) {
-            // ✅ STRICT FILTERING - lesson_id lang ang titingnan
+            // ✅ STRICT FILTERING - lesson_id=2 lang
             let filteredQuizzes = data.quizzes.filter(quiz => {
                 const quizLessonId = quiz.lesson_id || quiz.lessonId;
-                
-                // Para sigurado, i-check kung ang lesson_id ay 2 (PolyLearn)
                 return quizLessonId == currentLessonId;
             });
             
-            console.log(`✅ Found ${filteredQuizzes.length} quizzes for ${selectedApp} (lesson ${currentLessonId})`);
+            console.log(`✅ Found ${filteredQuizzes.length} quizzes for PolyLearn (lesson ${currentLessonId})`);
             
             // Filter attempts for current user
             filteredQuizzes = filteredQuizzes.map(quiz => {
@@ -10636,7 +10644,7 @@ async function loadQuizzesForCategory(categoryId) {
                 cat => cat.category_id == categoryId || cat.id == categoryId
             ) || {
                 category_id: categoryId,
-                category_name: data.category?.name || `${selectedApp} Quizzes`
+                category_name: data.category?.name || 'PolyLearn Quizzes'
             };
             
             showQuizInterfaceForCategory(selectedCategory, filteredQuizzes);
@@ -15173,7 +15181,7 @@ function addFeedbackStyles() {
 }
 
 // ============================================
-// ✅ FIXED: Fetch all lessons - FILTER BY LESSON_ID
+// ✅ FIXED: Fetch all lessons - FORCED LESSON_ID = 2
 // ============================================
 async function fetchAllLessons() {
     try {
@@ -15183,11 +15191,9 @@ async function fetchAllLessons() {
             return [];
         }
         
-        // Get the selected app from localStorage
-        const selectedApp = localStorage.getItem('selectedApp') || 'polylearn';
-        const currentLessonId = getCurrentLessonId(); // Kunin ang lesson_id (2 for PolyLearn)
+        const currentLessonId = POLYLEARN_LESSON_ID; // Force to 2
         
-        console.log(`📚 Fetching lessons for app: ${selectedApp}, lesson ID: ${currentLessonId}`);
+        console.log(`📚 Fetching lessons for PolyLearn, lesson ID: ${currentLessonId}`);
         
         let endpoint = `/api/lessons-db/complete?lesson_id=${currentLessonId}`;
         
@@ -15205,7 +15211,7 @@ async function fetchAllLessons() {
         const data = await response.json();
         
         if (data.success && data.lessons) {
-            console.log(`✅ Fetched ${data.lessons.length} lessons for ${selectedApp} (lesson ${currentLessonId})`);
+            console.log(`✅ Fetched ${data.lessons.length} lessons for PolyLearn`);
             return data.lessons;
         } else {
             throw new Error(data.message || 'No lessons returned');
@@ -17907,7 +17913,7 @@ window.checkPracticeRecords = async function() {
 };
 
 // ============================================
-// ✅ FIXED: loadTopicsProgress - WITH LESSON_ID FILTERING
+// ✅ FIXED: loadTopicsProgress - FORCED LESSON_ID = 2
 // ============================================
 async function loadTopicsProgress() {
     try {
@@ -17930,13 +17936,10 @@ async function loadTopicsProgress() {
         
         console.log('📊 Fetching topics progress...');
         
-        // ✅ Kunin ang current lesson_id
-        const selectedApp = localStorage.getItem('selectedApp') || 'polylearn';
-        const currentLessonId = getCurrentLessonId(); // Dapat 2 para sa PolyLearn
+        const currentLessonId = POLYLEARN_LESSON_ID; // Force to 2
         
-        console.log(`🎯 Loading topics for app: ${selectedApp}, lesson_id: ${currentLessonId}`);
+        console.log(`🎯 Loading topics for PolyLearn, forced lesson_id: ${currentLessonId}`);
         
-        // ✅ I-FETCH ang topics progress from server
         const response = await fetch(`/api/topics/progress`, {
             headers: { 'Authorization': `Bearer ${token}` }
         });
@@ -17959,18 +17962,13 @@ async function loadTopicsProgress() {
         if (data.success && data.topics) {
             console.log(`✅ Received ${data.topics.length} topics from server`);
             
-            // ✅ STRICT FILTERING - lesson_id lang ang titingnan
+            // ✅ FORCE FILTER - lesson_id=2 lang
             const filteredTopics = data.topics.filter(topic => {
-                // Check different possible property names
                 const topicLessonId = topic.lesson_id || topic.lessonId;
-                
-                // Log for debugging
-                console.log(`Topic ${topic.topic_id}: ${topic.topic_title}, lesson_id=${topicLessonId}, current=${currentLessonId}`);
-                
                 return topicLessonId == currentLessonId;
             });
             
-            console.log(`🎯 Showing ${filteredTopics.length} topics for lesson ${currentLessonId}`);
+            console.log(`🎯 Filtered to ${filteredTopics.length} topics for PolyLearn (lesson ${currentLessonId})`);
             
             if (filteredTopics.length > 0) {
                 displayTopics(filteredTopics);
@@ -17982,16 +17980,15 @@ async function loadTopicsProgress() {
                 }
             } else {
                 topicsContainer.innerHTML = `
-                    <div class="no-topics">
+                    <div class="no-topics" style="text-align: center; padding: 40px;">
                         <i class="fas fa-folder-open" style="font-size: 48px; color: #ccc; margin-bottom: 15px;"></i>
-                        <h3 style="color: #666;">No topics available for ${selectedApp}</h3>
+                        <h3 style="color: #666;">No topics available for PolyLearn</h3>
                         <p style="color: #999;">Topics with lesson_id = ${currentLessonId} will appear here.</p>
-                        <p style="color: #999; font-size: 12px; margin-top: 10px;">Debug: Received ${data.topics.length} total topics</p>
+                        <p style="color: #999; font-size: 12px;">Debug: Received ${data.topics.length} total topics</p>
                     </div>
                 `;
             }
         } else {
-            console.log('ℹ️ No topics returned from server');
             topicsContainer.innerHTML = `
                 <div class="error-message">
                     <i class="fas fa-info-circle"></i>
@@ -18255,17 +18252,15 @@ async function selectTopicForPractice(topicId) {
 
 
 // ============================================
-// ✅ FIXED: Load practice exercises - FILTER BY LESSON_ID
+// ✅ FIXED: Load practice exercises - FORCED LESSON_ID = 2
 // ============================================
 async function loadPracticeExercisesForTopic(topicId) {
     try {
         console.log(`📝 Getting practice exercises for topic ${topicId}`);
         
-        const selectedApp = localStorage.getItem('selectedApp') || 'polylearn';
-        const currentLessonId = getCurrentLessonId(); // Kunin ang lesson_id (2 for PolyLearn)
+        const currentLessonId = POLYLEARN_LESSON_ID; // Force to 2
         
-        console.log(`🎯 Current app: ${selectedApp}, lesson_id: ${currentLessonId}`);
-        console.log(`🎯 Will ONLY show exercises with lesson_id = ${currentLessonId}`);
+        console.log(`🎯 Forced lesson_id: ${currentLessonId} (PolyLearn only)`);
         
         // Get the exercise area
         const exerciseArea = document.getElementById('exerciseArea');
@@ -18274,11 +18269,11 @@ async function loadPracticeExercisesForTopic(topicId) {
         exerciseArea.innerHTML = `
             <div class="loading-container" style="text-align: center; padding: 30px;">
                 <i class="fas fa-spinner fa-spin" style="font-size: 30px; color: #7a0000;"></i>
-                <p style="margin-top: 10px;">Loading exercises for ${selectedApp}...</p>
+                <p style="margin-top: 10px;">Loading PolyLearn exercises...</p>
             </div>
         `;
         
-        // ✅ Pass the lesson_id as a query parameter
+        // ✅ Force lesson_id=2 in API call
         let endpoint = `/api/practice/topic/${topicId}?lesson_id=${currentLessonId}`;
         console.log(`📡 Fetching from: ${endpoint}`);
         
@@ -18296,20 +18291,13 @@ async function loadPracticeExercisesForTopic(topicId) {
         console.log('📥 Practice data received:', data);
         
         if (data.success && data.exercises) {
-            // ✅ STRICT FILTERING - lesson_id lang ang titingnan
+            // ✅ STRICT FILTERING - lesson_id=2 lang
             const filteredExercises = data.exercises.filter(ex => {
                 const exerciseLessonId = ex.lesson_id || ex.lessonId;
-                
-                // Para sigurado, i-check kung ang lesson_id ay 2 (PolyLearn)
                 return exerciseLessonId == currentLessonId;
             });
             
-            console.log(`✅ Found ${filteredExercises.length} exercises for ${selectedApp} (lesson ${currentLessonId})`);
-            console.log('📋 Filtered exercises:', filteredExercises.map(ex => ({
-                id: ex.exercise_id,
-                title: ex.title,
-                lesson_id: ex.lesson_id || ex.lessonId
-            })));
+            console.log(`✅ Found ${filteredExercises.length} exercises for PolyLearn (lesson ${currentLessonId})`);
             
             if (filteredExercises.length > 0) {
                 displayPracticeExercises(filteredExercises);
@@ -18317,9 +18305,8 @@ async function loadPracticeExercisesForTopic(topicId) {
                 exerciseArea.innerHTML = `
                     <div class="no-exercises" style="text-align: center; padding: 40px;">
                         <i class="fas fa-pencil-alt" style="font-size: 48px; color: #ccc; margin-bottom: 15px;"></i>
-                        <h3 style="color: #666;">No Practice Exercises for ${selectedApp}</h3>
-                        <p style="color: #999;">There are no practice exercises available for this app yet.</p>
-                        <p style="color: #999; font-size: 12px;">(Looking for lesson_id = ${currentLessonId})</p>
+                        <h3 style="color: #666;">No Practice Exercises for PolyLearn</h3>
+                        <p style="color: #999;">There are no practice exercises available for PolyLearn yet.</p>
                     </div>
                 `;
             }
@@ -23969,12 +23956,12 @@ class TimeTrackingManager {
     }
 }
 
-   // ============================================
-// ✅ HELPER: Get current app's lesson ID
+// ============================================
+// ✅ HELPER: Get current lesson ID - FORCED TO 2 FOR POLYLEARN
 // ============================================
 function getCurrentLessonId() {
-    const selectedApp = localStorage.getItem('selectedApp') || 'polylearn';
-    return APP_LESSON_MAP[selectedApp]?.lessonId || 2; // Default to PolyLearn
+    // Forced to return 2 for PolyLearn regardless of selected app
+    return POLYLEARN_LESSON_ID; // Always 2
 }
 
 // ============================================
