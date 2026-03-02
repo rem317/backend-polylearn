@@ -10208,10 +10208,18 @@ async function loadQuizStatsFromServer() {
 
 
 // ============================================
-// FIXED: Load quizzes - WITH FILTER
+// FIXED: Load quiz categories - WITH FILTER
 // ============================================
 async function loadQuizCategories() {
     try {
+        console.log('📚 Loading quiz categories...');
+        
+        const token = localStorage.getItem('authToken') || authToken;
+        if (!token) {
+            console.warn('No auth token available');
+            return [];
+        }
+        
         const selectedApp = localStorage.getItem('selectedApp') || 'polylearn';
         const lessonFilter = localStorage.getItem('currentLessonFilter');
         
@@ -10220,16 +10228,209 @@ async function loadQuizCategories() {
             endpoint += `?lesson_id=${lessonFilter}`;
         }
         
-        const response = await fetch(endpoint);
+        const response = await fetch(endpoint, {
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Accept': 'application/json'
+            }
+        });
+        
+        const contentType = response.headers.get('content-type');
+        if (!contentType || !contentType.includes('application/json')) {
+            console.warn('⚠️ Non-JSON response from categories endpoint');
+            return [];
+        }
+        
+        if (!response.ok) {
+            throw new Error(`Failed to fetch categories: ${response.status}`);
+        }
+        
         const data = await response.json();
         
         if (data.success && data.categories) {
-            // Categories are already filtered by the server
+            console.log(`✅ Fetched ${data.categories.length} quiz categories`);
+            
+            // Display the categories
             displayQuizCategories(data.categories);
+            
+            // Store in QuizState
+            if (!window.QuizState) window.QuizState = {};
+            window.QuizState.quizCategories = data.categories;
+            
+            return data.categories;
+        } else {
+            console.log('ℹ️ No categories returned, showing empty state');
+            displayQuizCategories([]);
+            return [];
         }
+        
     } catch (error) {
-        console.error('Error loading quiz categories:', error);
+        console.error('❌ Error loading quiz categories:', error);
+        
+        // Show error state
+        const categoriesContainer = document.getElementById('quizCategoriesGrid');
+        if (categoriesContainer) {
+            categoriesContainer.innerHTML = `
+                <div class="error-message" style="grid-column: 1/-1; text-align: center; padding: 40px;">
+                    <i class="fas fa-exclamation-triangle" style="font-size: 48px; color: #e74c3c; margin-bottom: 15px;"></i>
+                    <h3 style="color: #666;">Failed to load categories</h3>
+                    <p style="color: #999;">${error.message}</p>
+                    <button class="btn-primary" onclick="loadQuizCategories()" style="margin-top: 15px;">
+                        <i class="fas fa-redo"></i> Try Again
+                    </button>
+                </div>
+            `;
+        }
+        
+        return [];
     }
+}
+// ============================================
+// ✅ FIXED: Display quiz categories
+// ============================================
+function displayQuizCategories(categories) {
+    console.log('📋 Displaying quiz categories:', categories);
+    
+    const categoriesContainer = document.getElementById('quizCategoriesGrid');
+    if (!categoriesContainer) {
+        console.error('❌ Quiz categories container not found');
+        return;
+    }
+    
+    if (!categories || categories.length === 0) {
+        categoriesContainer.innerHTML = `
+            <div class="no-categories" style="grid-column: 1/-1; text-align: center; padding: 40px;">
+                <i class="fas fa-folder-open" style="font-size: 48px; color: #ccc; margin-bottom: 15px;"></i>
+                <h3 style="color: #666;">No Quiz Categories Available</h3>
+                <p style="color: #999;">Check back later for new quiz categories!</p>
+            </div>
+        `;
+        return;
+    }
+    
+    let html = '';
+    
+    categories.forEach(category => {
+        // Get category stats
+        const totalQuizzes = category.quiz_count || 0;
+        const completedQuizzes = category.completed_count || 0;
+        const categoryId = category.category_id || category.id;
+        const categoryName = category.category_name || category.name || 'Quiz Category';
+        const categoryDesc = category.description || 'Test your knowledge with quizzes in this category.';
+        const categoryColor = category.color || getCategoryColor(categoryId);
+        
+        html += `
+            <div class="quiz-category-card" data-category-id="${categoryId}" 
+                 style="cursor: pointer; background: white; border-radius: 10px; padding: 20px; 
+                        margin-bottom: 15px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); 
+                        transition: all 0.3s; display: flex; align-items: center; gap: 15px;">
+                
+                <div class="quiz-category-icon" style="width: 60px; height: 60px; 
+                     background: ${categoryColor}; border-radius: 10px; display: flex; 
+                     align-items: center; justify-content: center; font-size: 24px; color: white;">
+                    <i class="fas ${getCategoryIcon(categoryName)}"></i>
+                </div>
+                
+                <div class="quiz-category-info" style="flex: 1;">
+                    <h3 class="quiz-category-title" style="margin: 0 0 5px 0; color: #2c3e50;">
+                        ${categoryName}
+                    </h3>
+                    <p class="quiz-category-desc" style="margin: 0 0 10px 0; color: #6c757d; font-size: 14px;">
+                        ${categoryDesc}
+                    </p>
+                    
+                    <div class="quiz-category-stats" style="display: flex; gap: 15px; font-size: 12px; color: #7f8c8d;">
+                        <span class="quiz-category-stat">
+                            <i class="fas fa-question-circle"></i> ${totalQuizzes} Quizzes
+                        </span>
+                        <span class="quiz-category-stat">
+                            <i class="fas fa-check-circle"></i> ${completedQuizzes} Completed
+                        </span>
+                    </div>
+                </div>
+                
+                <button class="quiz-category-btn" data-category-id="${categoryId}" 
+                        style="background: ${categoryColor}; color: white; border: none; 
+                               width: 40px; height: 40px; border-radius: 50%; cursor: pointer; 
+                               display: flex; align-items: center; justify-content: center; 
+                               font-size: 16px; transition: all 0.3s;">
+                    <i class="fas fa-arrow-right"></i>
+                </button>
+            </div>
+        `;
+    });
+    
+    categoriesContainer.innerHTML = html;
+    
+    // Add click event listeners to category cards and buttons
+    document.querySelectorAll('.quiz-category-card').forEach(card => {
+        card.addEventListener('click', function(e) {
+            // Don't trigger if the button was clicked (it has its own handler)
+            if (e.target.closest('.quiz-category-btn')) return;
+            
+            const categoryId = this.getAttribute('data-category-id');
+            if (categoryId) {
+                console.log('🎯 Category card clicked:', categoryId);
+                loadQuizzesForCategory(categoryId);
+            }
+        });
+    });
+    
+    document.querySelectorAll('.quiz-category-btn').forEach(btn => {
+        btn.addEventListener('click', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            
+            const categoryId = this.getAttribute('data-category-id');
+            if (categoryId) {
+                console.log('🎯 Category button clicked:', categoryId);
+                loadQuizzesForCategory(categoryId);
+            }
+        });
+    });
+    
+    // Store categories in QuizState
+    if (!window.QuizState) window.QuizState = {};
+    window.QuizState.quizCategories = categories;
+    
+    console.log('✅ Quiz categories displayed successfully');
+}
+
+// ============================================
+// Helper: Get category icon based on name
+// ============================================
+function getCategoryIcon(categoryName) {
+    const name = categoryName.toLowerCase();
+    
+    if (name.includes('polynomial') || name.includes('math')) return 'fa-square-root-alt';
+    if (name.includes('algebra')) return 'fa-superscript';
+    if (name.includes('geometry')) return 'fa-draw-polygon';
+    if (name.includes('calculus')) return 'fa-chart-line';
+    if (name.includes('trigonometry')) return 'fa-ruler-combined';
+    if (name.includes('statistics')) return 'fa-chart-bar';
+    if (name.includes('fraction')) return 'fa-divide';
+    
+    return 'fa-question-circle';
+}
+
+// ============================================
+// Helper: Get category color based on ID
+// ============================================
+function getCategoryColor(categoryId) {
+    const colors = [
+        '#7a0000', // Dark red
+        '#3498db', // Blue
+        '#27ae60', // Green
+        '#f39c12', // Orange
+        '#9b59b6', // Purple
+        '#e74c3c', // Red
+        '#1abc9c', // Turquoise
+        '#34495e'  // Dark blue
+    ];
+    
+    // Use modulo to assign a color based on ID
+    const index = (parseInt(categoryId) - 1) % colors.length;
+    return colors[index] || colors[0];
 }
 
 // ============================================
@@ -17678,9 +17879,6 @@ async function selectTopicForPractice(topicId) {
 }
 
 
-// ============================================
-// FIXED: Load practice exercises - WITH FILTER
-// ============================================
 async function loadPracticeExercisesForTopic(topicId) {
     try {
         console.log(`📝 Getting practice exercises for topic ${topicId}`);
@@ -17709,7 +17907,7 @@ async function loadPracticeExercisesForTopic(topicId) {
         const data = await response.json();
         
         if (data.success && data.exercises) {
-            // Exercises are already filtered by the server based on lesson_id
+            // ✅ FIX: Use displayPracticeExercises instead of createPracticeExercisesUI
             displayPracticeExercises(data.exercises);
         } else {
             exerciseArea.innerHTML = `<div class="error">No exercises found</div>`;
@@ -17718,6 +17916,101 @@ async function loadPracticeExercisesForTopic(topicId) {
     } catch (error) {
         console.error('Error loading exercises:', error);
     }
+}
+
+// ============================================
+// ✅ FIXED: Display practice exercises
+// ============================================
+function displayPracticeExercises(exercises) {
+    const exerciseArea = document.getElementById('exerciseArea');
+    if (!exerciseArea) return;
+    
+    if (!exercises || exercises.length === 0) {
+        exerciseArea.innerHTML = `
+            <div class="no-exercises" style="text-align: center; padding: 40px;">
+                <i class="fas fa-pencil-alt" style="font-size: 48px; color: #ccc; margin-bottom: 15px;"></i>
+                <h3 style="color: #666;">No Practice Exercises</h3>
+                <p style="color: #999;">There are no practice exercises available for this topic yet.</p>
+            </div>
+        `;
+        return;
+    }
+    
+    let html = '<div class="exercises-list">';
+    
+    exercises.forEach((exercise, index) => {
+        // Parse content_json if it exists and is a string
+        let questions = [];
+        if (exercise.content_json) {
+            try {
+                const content = typeof exercise.content_json === 'string' 
+                    ? JSON.parse(exercise.content_json) 
+                    : exercise.content_json;
+                questions = content.questions || [];
+            } catch (e) {
+                console.error('Error parsing content_json:', e);
+            }
+        }
+        
+        const userProgress = exercise.user_progress || {};
+        const isCompleted = userProgress.completion_status === 'completed';
+        const difficultyClass = exercise.difficulty || 'medium';
+        
+        html += `
+            <div class="exercise-card ${isCompleted ? 'completed' : ''}" data-exercise-id="${exercise.exercise_id}">
+                <div class="exercise-header">
+                    <h3>Exercise ${index + 1}: ${exercise.title || 'Practice Exercise'}</h3>
+                    <span class="difficulty-badge difficulty-${difficultyClass}">
+                        ${exercise.difficulty || 'medium'}
+                    </span>
+                </div>
+                
+                <div class="exercise-body">
+                    <p>${exercise.description || 'Test your knowledge with this practice exercise.'}</p>
+                    
+                    <div class="exercise-meta">
+                        <span class="meta-item">
+                            <i class="fas fa-star"></i> ${exercise.points || 10} points
+                        </span>
+                        <span class="meta-item">
+                            <i class="fas fa-question-circle"></i> ${questions.length} questions
+                        </span>
+                        <span class="meta-item">
+                            <i class="fas fa-check-circle"></i> ${userProgress.attempts || 0} attempts
+                        </span>
+                    </div>
+                    
+                    ${userProgress.score > 0 ? `
+                        <div class="score-display">
+                            <strong>Best Score:</strong> ${userProgress.score}/${exercise.points || 10}
+                            (${Math.round((userProgress.score / (exercise.points || 10)) * 100)}%)
+                        </div>
+                    ` : ''}
+                </div>
+                
+                <div class="exercise-actions">
+                    ${isCompleted ? `
+                        <button class="btn-secondary review-exercise" data-exercise-id="${exercise.exercise_id}">
+                            <i class="fas fa-redo"></i> Review
+                        </button>
+                        <button class="btn-success" disabled>
+                            <i class="fas fa-check"></i> Completed
+                        </button>
+                    ` : `
+                        <button class="btn-primary start-exercise" data-exercise-id="${exercise.exercise_id}">
+                            <i class="fas fa-play"></i> ${userProgress.status === 'in_progress' ? 'Continue' : 'Start'}
+                        </button>
+                    `}
+                </div>
+            </div>
+        `;
+    });
+    
+    html += '</div>';
+    exerciseArea.innerHTML = html;
+    
+    // Setup event listeners for the exercise buttons
+    setupPracticeExerciseInteractions();
 }
 
 // ============================================
