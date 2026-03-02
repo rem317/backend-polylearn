@@ -5945,14 +5945,15 @@ app.get('/api/user/quiz-stats', authenticateUser, async (req, res) => {
 
 
 // ============================================
-// ✅ GET /api/quiz/category/:categoryId/quizzes - Get quizzes by category
+// ✅ FIXED: Get quizzes by category - FILTER BY LESSON_ID
 // ============================================
 app.get('/api/quiz/category/:categoryId/quizzes', authenticateUser, async (req, res) => {
     try {
         const { categoryId } = req.params;
+        const { lesson_id } = req.query; // Kunin ang lesson_id mula sa query
         const userId = req.user.id;
         
-        console.log(`📥 Fetching quizzes for category ID: ${categoryId}`);
+        console.log(`📥 Fetching quizzes for category ID: ${categoryId}, lesson_id: ${lesson_id || 'none'}`);
         
         // Get category info
         const [categories] = await promisePool.query(
@@ -5969,8 +5970,8 @@ app.get('/api/quiz/category/:categoryId/quizzes', authenticateUser, async (req, 
         
         const category = categories[0];
         
-        // Get quizzes for this category
-        const [quizzes] = await promisePool.query(`
+        // ✅ Add lesson_id filter to quizzes query
+        let quizQuery = `
             SELECT 
                 q.quiz_id,
                 q.quiz_title,
@@ -5981,14 +5982,26 @@ app.get('/api/quiz/category/:categoryId/quizzes', authenticateUser, async (req, 
                 q.passing_score,
                 q.max_attempts,
                 q.is_active,
+                q.lesson_id,
                 q.created_at
             FROM quizzes q
             WHERE q.category_id = ? AND (q.is_active = 1 OR q.is_active IS NULL)
-            ORDER BY q.created_at DESC
-        `, [categoryId]);
+        `;
         
-        console.log(`✅ Found ${quizzes.length} quizzes for ${category.category_name}`);
+        const quizParams = [categoryId];
         
+        if (lesson_id) {
+            quizQuery += ` AND q.lesson_id = ?`;
+            quizParams.push(lesson_id);
+        }
+        
+        quizQuery += ` ORDER BY q.created_at DESC`;
+        
+        const [quizzes] = await promisePool.query(quizQuery, quizParams);
+        
+        console.log(`✅ Found ${quizzes.length} quizzes for ${category.category_name} (lesson_id ${lesson_id || 'all'})`);
+        
+        // Rest of the code remains the same...
         // Get user progress for each quiz
         const quizzesWithProgress = [];
         
@@ -6026,6 +6039,7 @@ app.get('/api/quiz/category/:categoryId/quizzes', authenticateUser, async (req, 
                 total_questions: quiz.total_questions || 0,
                 passing_score: parseFloat(quiz.passing_score) || 70,
                 max_attempts: quiz.max_attempts || 3,
+                lesson_id: quiz.lesson_id,
                 category_id: parseInt(categoryId),
                 category_name: category.category_name,
                 user_progress: {
@@ -6995,64 +7009,15 @@ app.get('/api/stats/quick', async (req, res) => {
         });
     }
 });
-// GET all quiz categories
 // ============================================
-// ============================================
-// ✅ GET /api/quiz/categories - PUBLIC VERSION (walang auth)
+// ✅ FIXED: Get quiz categories - FILTER BY LESSON_ID
 // ============================================
 app.get('/api/quiz/categories', async (req, res) => {
     try {
-        console.log('📥 Fetching quiz categories...');
+        const { lesson_id } = req.query; // Kunin ang lesson_id mula sa query
+        console.log(`📥 Fetching quiz categories with lesson_id: ${lesson_id || 'all'}`);
         
-        // Check if table exists
-        const [tables] = await promisePool.query("SHOW TABLES LIKE 'quiz_categories'");
-        
-        if (tables.length === 0) {
-            // Return default categories if table doesn't exist
-            return res.json({
-                success: true,
-                categories: [
-                    { 
-                        category_id: 1, 
-                        category_name: 'Mathematics', 
-                        icon: 'fas fa-calculator', 
-                        description: 'Math quizzes covering algebra, geometry, and more',
-                        color: '#3498db'
-                    },
-                    { 
-                        category_id: 2, 
-                        category_name: 'Science', 
-                        icon: 'fas fa-flask', 
-                        description: 'Physics, chemistry, and biology quizzes',
-                        color: '#27ae60'
-                    },
-                    { 
-                        category_id: 3, 
-                        category_name: 'English', 
-                        icon: 'fas fa-book', 
-                        description: 'Grammar, vocabulary, and literature',
-                        color: '#e74c3c'
-                    },
-                    { 
-                        category_id: 4, 
-                        category_name: 'History', 
-                        icon: 'fas fa-landmark', 
-                        description: 'World history and civilizations',
-                        color: '#f39c12'
-                    },
-                    { 
-                        category_id: 5, 
-                        category_name: 'Programming', 
-                        icon: 'fas fa-code', 
-                        description: 'Coding and computer science',
-                        color: '#9b59b6'
-                    }
-                ]
-            });
-        }
-        
-        // Get categories from database
-        const [categories] = await promisePool.query(`
+        let query = `
             SELECT 
                 category_id,
                 category_name,
@@ -7060,21 +7025,37 @@ app.get('/api/quiz/categories', async (req, res) => {
                 description,
                 color,
                 is_active,
+                lesson_id,
                 created_at
             FROM quiz_categories 
             WHERE is_active = 1 OR is_active IS NULL
-            ORDER BY category_name
-        `);
+        `;
         
-        console.log(`✅ Found ${categories.length} quiz categories`);
+        const params = [];
+        
+        // ✅ Add lesson_id filter if provided
+        if (lesson_id) {
+            query += ` AND lesson_id = ?`;
+            params.push(lesson_id);
+        }
+        
+        query += ` ORDER BY category_name`;
+        
+        const [categories] = await promisePool.query(query, params);
+        
+        console.log(`✅ Found ${categories.length} quiz categories for lesson_id ${lesson_id || 'all'}`);
         
         // Get quiz count for each category
         for (let category of categories) {
-            const [count] = await promisePool.query(`
-                SELECT COUNT(*) as count FROM quizzes 
-                WHERE category_id = ? AND (is_active = 1 OR is_active IS NULL)
-            `, [category.category_id]);
+            let quizQuery = `SELECT COUNT(*) as count FROM quizzes WHERE category_id = ?`;
+            const quizParams = [category.category_id];
             
+            if (lesson_id) {
+                quizQuery += ` AND lesson_id = ?`;
+                quizParams.push(lesson_id);
+            }
+            
+            const [count] = await promisePool.query(quizQuery, quizParams);
             category.quiz_count = count[0]?.count || 0;
         }
         
@@ -10162,21 +10143,17 @@ app.get('/api/user/progress', verifyToken, async (req, res) => {
 
 
 // ============================================
-// USER PRACTICE ROUTES - FOR STUDENTS
-// ============================================
-
-// ============================================
-// FIXED: Get practice exercises for topic - WITH LESSON FILTER
+// ✅ FIXED: Get practice exercises by topic WITH lesson_id FILTER
 // ============================================
 app.get('/api/practice/topic/:topicId', authenticateToken, async (req, res) => {
     try {
         const { topicId } = req.params;
-        const { lesson_id } = req.query; // Get lesson filter
+        const { lesson_id } = req.query; // Kunin ang lesson_id mula sa query parameter
         const userId = req.user.id;
         
-        console.log(`📝 Fetching practice exercises for topic ${topicId}, lesson filter: ${lesson_id || 'none'}`);
+        console.log(`📝 Fetching practice exercises for topic ${topicId}, lesson_id: ${lesson_id || 'none'}`);
         
-        // Modified query to filter by lesson
+        // ✅ Modified query to filter by lesson_id
         let query = `
             SELECT 
                 pe.exercise_id,
@@ -10187,8 +10164,10 @@ app.get('/api/practice/topic/:topicId', authenticateToken, async (req, res) => {
                 pe.points,
                 pe.content_json,
                 pe.is_active,
+                pe.topic_id,
+                pe.lesson_id,
                 mt.module_id,
-                cm.lesson_id
+                cm.lesson_id as lesson_id
             FROM practice_exercises pe
             JOIN module_topics mt ON pe.topic_id = mt.topic_id
             JOIN course_modules cm ON mt.module_id = cm.module_id
@@ -10197,17 +10176,36 @@ app.get('/api/practice/topic/:topicId', authenticateToken, async (req, res) => {
         
         const params = [topicId];
         
-        // Add lesson filter if provided
+        // ✅ Add lesson_id filter if provided
         if (lesson_id) {
-            query += ` AND cm.lesson_id = ?`;
+            query += ` AND pe.lesson_id = ?`;
             params.push(lesson_id);
         }
         
         const [exercises] = await promisePool.query(query, params);
         
-        console.log(`✅ Found ${exercises.length} exercises`);
+        console.log(`✅ Found ${exercises.length} exercises for lesson_id ${lesson_id || 'any'}`);
         
-        // Process and return exercises...
+        // Get user progress for each exercise
+        for (let exercise of exercises) {
+            const [progress] = await promisePool.query(
+                `SELECT completion_status, score, attempts 
+                 FROM user_practice_progress 
+                 WHERE user_id = ? AND exercise_id = ?`,
+                [userId, exercise.exercise_id]
+            );
+            
+            if (progress.length > 0) {
+                exercise.user_progress = progress[0];
+            } else {
+                exercise.user_progress = {
+                    completion_status: 'not_started',
+                    score: 0,
+                    attempts: 0
+                };
+            }
+        }
+        
         res.json({
             success: true,
             exercises: exercises
