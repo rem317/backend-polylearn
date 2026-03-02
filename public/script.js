@@ -10208,7 +10208,7 @@ async function loadQuizStatsFromServer() {
 
 
 // ============================================
-// FIXED: Load quiz categories - WITH FILTER
+// FIXED: Load quiz categories - WITH BETTER ERROR HANDLING
 // ============================================
 async function loadQuizCategories() {
     try {
@@ -10235,31 +10235,36 @@ async function loadQuizCategories() {
             }
         });
         
-        const contentType = response.headers.get('content-type');
-        if (!contentType || !contentType.includes('application/json')) {
-            console.warn('⚠️ Non-JSON response from categories endpoint');
-            return [];
-        }
-        
+        // Check if response is OK
         if (!response.ok) {
+            console.error(`❌ Failed to fetch categories: ${response.status} ${response.statusText}`);
             throw new Error(`Failed to fetch categories: ${response.status}`);
         }
         
+        // Check content type
+        const contentType = response.headers.get('content-type');
+        if (!contentType || !contentType.includes('application/json')) {
+            const text = await response.text();
+            console.error('❌ Non-JSON response:', text.substring(0, 200));
+            throw new Error('Server returned non-JSON response');
+        }
+        
         const data = await response.json();
+        console.log('📥 Quiz categories response:', data);
         
         if (data.success && data.categories) {
             console.log(`✅ Fetched ${data.categories.length} quiz categories`);
-            
-            // Display the categories
-            displayQuizCategories(data.categories);
             
             // Store in QuizState
             if (!window.QuizState) window.QuizState = {};
             window.QuizState.quizCategories = data.categories;
             
+            // Display the categories
+            displayQuizCategories(data.categories);
+            
             return data.categories;
         } else {
-            console.log('ℹ️ No categories returned, showing empty state');
+            console.log('ℹ️ No categories returned or invalid format');
             displayQuizCategories([]);
             return [];
         }
@@ -10285,60 +10290,56 @@ async function loadQuizCategories() {
         return [];
     }
 }
+
 // ============================================
-// ✅ FIXED: Display quiz categories with element creation
+// FIXED: Display quiz categories - WITH BETTER DOM HANDLING
 // ============================================
 function displayQuizCategories(categories) {
     console.log('📋 Displaying quiz categories:', categories);
     
-    // Try to find the container in multiple ways
+    // Find the container - try multiple possible IDs
     let categoriesContainer = document.getElementById('quizCategoriesGrid');
     
-    // If not found, try alternative IDs
     if (!categoriesContainer) {
         categoriesContainer = document.getElementById('categoriesGrid') || 
                              document.getElementById('quiz-categories') ||
                              document.querySelector('.categories-grid');
     }
     
-    // If still not found, create the container
+    // If still not found, create it
     if (!categoriesContainer) {
         console.log('⚠️ Categories container not found, creating one...');
         
         // Find the quiz dashboard page
         const quizDashboard = document.getElementById('quiz-dashboard-page');
         if (quizDashboard) {
-            // Find or create the userQuizzesContainer
-            let userQuizzesContainer = document.getElementById('userQuizzesContainer');
-            if (!userQuizzesContainer) {
-                userQuizzesContainer = document.createElement('div');
-                userQuizzesContainer.id = 'userQuizzesContainer';
-                userQuizzesContainer.className = 'quizzes-container';
-                quizDashboard.querySelector('.container')?.appendChild(userQuizzesContainer);
+            const container = quizDashboard.querySelector('.container');
+            if (container) {
+                categoriesContainer = document.createElement('div');
+                categoriesContainer.id = 'quizCategoriesGrid';
+                categoriesContainer.className = 'categories-grid';
+                categoriesContainer.style.cssText = `
+                    display: grid;
+                    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+                    gap: 20px;
+                    padding: 20px 0;
+                `;
+                container.appendChild(categoriesContainer);
+                console.log('✅ Created quizCategoriesGrid element');
             }
-            
-            // Create the categories grid
-            categoriesContainer = document.createElement('div');
-            categoriesContainer.id = 'quizCategoriesGrid';
-            categoriesContainer.className = 'categories-grid';
-            categoriesContainer.style.cssText = `
-                display: grid;
-                grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-                gap: 20px;
-                padding: 20px 0;
-            `;
-            
-            userQuizzesContainer.appendChild(categoriesContainer);
-            console.log('✅ Created quizCategoriesGrid element');
-        } else {
-            console.error('❌ Quiz dashboard page not found');
-            return;
         }
+    }
+    
+    // If still no container, exit
+    if (!categoriesContainer) {
+        console.error('❌ Could not find or create categories container');
+        return;
     }
     
     // Clear the container
     categoriesContainer.innerHTML = '';
     
+    // Handle empty categories
     if (!categories || categories.length === 0) {
         categoriesContainer.innerHTML = `
             <div class="no-categories" style="grid-column: 1/-1; text-align: center; padding: 60px 20px; background: white; border-radius: 10px;">
@@ -10356,13 +10357,12 @@ function displayQuizCategories(categories) {
     let html = '';
     
     categories.forEach(category => {
-        // Get category stats
-        const totalQuizzes = category.quiz_count || 0;
-        const completedQuizzes = category.completed_count || 0;
         const categoryId = category.category_id || category.id;
         const categoryName = category.category_name || category.name || 'Quiz Category';
         const categoryDesc = category.description || 'Test your knowledge with quizzes in this category.';
-        const categoryColor = category.color || getCategoryColor(categoryId);
+        const totalQuizzes = category.quiz_count || category.total_quizzes || 0;
+        const completedQuizzes = category.completed_count || 0;
+        const categoryColor = getCategoryColor(categoryId);
         
         html += `
             <div class="quiz-category-card" data-category-id="${categoryId}" 
@@ -10405,7 +10405,6 @@ function displayQuizCategories(categories) {
                     <i class="fas fa-arrow-right"></i>
                 </button>
                 
-                <!-- Progress indicator (optional) -->
                 ${completedQuizzes > 0 ? `
                     <div style="position: absolute; top: 0; left: 0; height: 4px; width: ${(completedQuizzes/totalQuizzes)*100}%; 
                          background: ${categoryColor};"></div>
@@ -10416,45 +10415,15 @@ function displayQuizCategories(categories) {
     
     categoriesContainer.innerHTML = html;
     
-    // Add hover effects
-    const style = document.createElement('style');
-    style.textContent = `
-        .quiz-category-card:hover {
-            transform: translateY(-5px);
-            box-shadow: 0 8px 25px rgba(0,0,0,0.15) !important;
-            border-color: ${categories[0]?.color || '#7a0000'}20;
-        }
-        
-        .quiz-category-btn:hover {
-            transform: scale(1.1) rotate(90deg);
-            box-shadow: 0 6px 15px ${categories[0]?.color || '#7a0000'}60 !important;
-        }
-    `;
-    document.head.appendChild(style);
-    
-    // Add click event listeners to category cards
+    // Add click event listeners
     document.querySelectorAll('.quiz-category-card').forEach(card => {
         card.addEventListener('click', function(e) {
-            // Don't trigger if the button was clicked (it has its own handler)
             if (e.target.closest('.quiz-category-btn')) return;
             
             const categoryId = this.getAttribute('data-category-id');
             if (categoryId) {
                 console.log('🎯 Category card clicked:', categoryId);
                 loadQuizzesForCategory(categoryId);
-            }
-        });
-        
-        // Add keyboard accessibility
-        card.setAttribute('tabindex', '0');
-        card.addEventListener('keypress', function(e) {
-            if (e.key === 'Enter' || e.key === ' ') {
-                e.preventDefault();
-                const categoryId = this.getAttribute('data-category-id');
-                if (categoryId) {
-                    console.log('🎯 Category card activated via keyboard:', categoryId);
-                    loadQuizzesForCategory(categoryId);
-                }
             }
         });
     });
@@ -10471,10 +10440,6 @@ function displayQuizCategories(categories) {
             }
         });
     });
-    
-    // Store categories in QuizState
-    if (!window.QuizState) window.QuizState = {};
-    window.QuizState.quizCategories = categories;
     
     console.log('✅ Quiz categories displayed successfully');
 }
@@ -10518,7 +10483,7 @@ function getCategoryColor(categoryId) {
 }
 
 // ============================================
-// LOAD QUIZZES FOR CATEGORY - UPDATED
+// FIXED: Load quizzes for category - WITH BETTER ERROR HANDLING
 // ============================================
 async function loadQuizzesForCategory(categoryId) {
     try {
@@ -10529,6 +10494,19 @@ async function loadQuizzesForCategory(categoryId) {
             console.warn('No auth token available');
             showNotification('Please login to view quizzes', 'error');
             return;
+        }
+        
+        // Get current user ID
+        const userJson = localStorage.getItem('mathhub_user');
+        let currentUserId = null;
+        if (userJson) {
+            try {
+                const user = JSON.parse(userJson);
+                currentUserId = user.id;
+                console.log(`👤 Current user ID: ${currentUserId}`);
+            } catch (e) {
+                console.error('Error parsing user:', e);
+            }
         }
         
         // Show loading
@@ -10556,16 +10534,44 @@ async function loadQuizzesForCategory(categoryId) {
         const data = await response.json();
         console.log('📥 Quiz data:', data);
         
-        if (data.success) {
+        if (data.success && data.quizzes) {
+            console.log(`✅ Fetched ${data.quizzes.length} quizzes for category ${categoryId}`);
+            
+            // Filter attempts for current user
+            const filteredQuizzes = data.quizzes.map(quiz => {
+                if (quiz.user_attempts && Array.isArray(quiz.user_attempts)) {
+                    quiz.user_attempts = quiz.user_attempts.filter(
+                        attempt => attempt.user_id === currentUserId
+                    );
+                }
+                
+                if (quiz.user_attempts && quiz.user_attempts.length > 0) {
+                    const bestScore = Math.max(...quiz.user_attempts.map(a => a.score || 0));
+                    quiz.user_progress = {
+                        attempts: quiz.user_attempts.length,
+                        best_score: bestScore,
+                        passed: quiz.user_attempts.some(a => a.passed === 1)
+                    };
+                } else {
+                    quiz.user_progress = {
+                        attempts: 0,
+                        best_score: 0,
+                        passed: false
+                    };
+                }
+                
+                return quiz;
+            });
+            
             // Find the selected category
-            const selectedCategory = QuizState.quizCategories.find(
+            const selectedCategory = QuizState?.quizCategories?.find(
                 cat => cat.category_id == categoryId || cat.id == categoryId
             ) || {
                 category_id: categoryId,
                 category_name: data.category?.name || 'Quizzes'
             };
             
-            showQuizInterfaceForCategory(selectedCategory, data.quizzes);
+            showQuizInterfaceForCategory(selectedCategory, filteredQuizzes);
         } else {
             throw new Error(data.message || 'No quizzes returned');
         }
@@ -10581,8 +10587,8 @@ async function loadQuizzesForCategory(categoryId) {
                     <i class="fas fa-exclamation-triangle" style="font-size: 48px; color: #e74c3c; margin-bottom: 15px;"></i>
                     <h3>Failed to load quizzes</h3>
                     <p>${error.message}</p>
-                    <button class="btn-primary" onclick="location.reload()">
-                        <i class="fas fa-redo"></i> Refresh
+                    <button class="btn-primary" onclick="loadQuizzesForCategory(${categoryId})" style="margin-top: 15px;">
+                        <i class="fas fa-redo"></i> Try Again
                     </button>
                 </div>
             `;
@@ -10590,6 +10596,58 @@ async function loadQuizzesForCategory(categoryId) {
     }
 }
 
+// ============================================
+// DEBUG: Check quiz data in database
+// ============================================
+window.debugQuizData = async function() {
+    console.log('🔍 DEBUGGING QUIZ DATA...');
+    
+    try {
+        const token = localStorage.getItem('authToken') || authToken;
+        
+        // Check categories
+        console.log('📡 Fetching categories...');
+        const catResponse = await fetch('/api/quiz/categories', {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        
+        if (catResponse.ok) {
+            const catData = await catResponse.json();
+            console.log('📊 Categories in database:', catData);
+        } else {
+            console.error('❌ Failed to fetch categories:', catResponse.status);
+        }
+        
+        // Check if there are any quizzes
+        console.log('📡 Fetching all quizzes...');
+        const quizResponse = await fetch('/api/quizzes/available', {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        
+        if (quizResponse.ok) {
+            const quizData = await quizResponse.json();
+            console.log('📊 Quizzes in database:', quizData);
+        } else {
+            console.error('❌ Failed to fetch quizzes:', quizResponse.status);
+        }
+        
+        // Check specific category (1)
+        console.log('📡 Fetching quizzes for category 1...');
+        const cat1Response = await fetch('/api/quiz/category/1/quizzes', {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        
+        if (cat1Response.ok) {
+            const cat1Data = await cat1Response.json();
+            console.log('📊 Quizzes for category 1:', cat1Data);
+        } else {
+            console.error('❌ Failed to fetch category 1 quizzes:', cat1Response.status);
+        }
+        
+    } catch (error) {
+        console.error('❌ Debug error:', error);
+    }
+};
 
 // Add this function:
 async function fetchAllQuizzes() {
@@ -12356,7 +12414,9 @@ async function startQuiz(quizId) {
     alert('Quiz feature coming soon!');
 }
 
-// Make sure QuizState is defined (kung wala pa)
+// ============================================
+// QUIZ STATE - Make sure this is defined
+// ============================================
 if (typeof QuizState === 'undefined') {
     window.QuizState = {
         currentQuiz: null,
@@ -12367,9 +12427,13 @@ if (typeof QuizState === 'undefined') {
         startTime: null,
         timerInterval: null,
         timeLeft: 0,
-        totalTime: 0
+        totalTime: 0,
+        stats: { correct: 0, wrong: 0, score: 0 },
+        quizCategories: [],
+        selectedCategory: null
     };
 }
+
 function setupQuizButtons() {
     // Find all "Start Quiz" buttons
     document.querySelectorAll('.quiz-start-btn').forEach(button => {
