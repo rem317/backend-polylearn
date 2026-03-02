@@ -5694,9 +5694,9 @@ async function openQuickTopicModal() {
     document.body.classList.add('modal-open');
 }
 
-// ===== OPEN QUICK MODULE MODAL =====
+// ===== OPEN QUICK MODULE MODAL WITH SAVE BUTTON =====
 function openQuickModuleModal() {
-    console.log("📦 Opening quick module modal...");
+    console.log("📦 Opening quick module modal with Save button...");
     
     // Close topic modal first
     closeQuickTopicModal();
@@ -5751,10 +5751,77 @@ function openQuickModuleModal() {
         if (nameInput) nameInput.focus();
     }, 300);
     
-    console.log("✅ Quick module modal opened successfully");
+    // **✅ ADD SAVE BUTTON HERE** 
+    addSaveButtonToModuleModal();
+    
+    console.log("✅ Quick module modal opened successfully with Save button");
 }
 
-// ===== CREATE QUICK MODULE MODAL =====
+// ===== ADD SAVE BUTTON TO MODULE MODAL =====
+function addSaveButtonToModuleModal() {
+    console.log("➕ Adding Save button to module modal...");
+    
+    const modal = document.getElementById('quickModuleModal');
+    if (!modal) return;
+    
+    // Check if Save button already exists
+    if (modal.querySelector('.save-module-btn')) {
+        console.log("✅ Save button already exists");
+        return;
+    }
+    
+    // Get the modal footer
+    const modalFooter = modal.querySelector('.modal-footer');
+    if (!modalFooter) {
+        console.error("❌ Modal footer not found!");
+        return;
+    }
+    
+    // Create Save button
+    const saveBtn = document.createElement('button');
+    saveBtn.className = 'btn btn-primary save-module-btn';
+    saveBtn.innerHTML = '<i class="fas fa-save"></i> Save Module';
+    saveBtn.style.cssText = `
+        background: #7a0000;
+        color: white;
+        border: none;
+        padding: 12px 24px;
+        border-radius: 6px;
+        font-weight: 600;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin-left: auto;
+    `;
+    
+    // Add click event
+    saveBtn.onclick = function(e) {
+        e.preventDefault();
+        e.stopPropagation();
+        saveQuickModule();
+    };
+    
+    // Add hover effect
+    saveBtn.onmouseover = function() {
+        this.style.background = '#5a0000';
+        this.style.transform = 'translateY(-2px)';
+        this.style.boxShadow = '0 5px 15px rgba(122,0,0,0.3)';
+    };
+    
+    saveBtn.onmouseout = function() {
+        this.style.background = '#7a0000';
+        this.style.transform = 'translateY(0)';
+        this.style.boxShadow = 'none';
+    };
+    
+    // Add to footer
+    modalFooter.appendChild(saveBtn);
+    
+    console.log("✅ Save button added to module modal");
+}
+
+// ===== ENSURE CREATEQUICKMODULEMODAL HAS PROPER FOOTER =====
 function createQuickModuleModal() {
     // Remove existing modal if any
     const existingModal = document.getElementById('quickModuleModal');
@@ -5777,9 +5844,8 @@ function createQuickModuleModal() {
                             Modules help organize your lessons into manageable sections
                         </p>
                     </div>
-                    <!-- CLOSE BUTTON (X) -->
                     <button class="modal-close" onclick="closeQuickModuleModal()" 
-                            style="background: none; border: none; color: white; font-size: 28px; cursor: pointer; width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; border-radius: 50%; hover:background: rgba(255,255,255,0.1);">
+                            style="background: none; border: none; color: white; font-size: 28px; cursor: pointer; width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; border-radius: 50%;">
                         &times;
                     </button>
                 </div>
@@ -5820,7 +5886,7 @@ function createQuickModuleModal() {
                             <i class="fas fa-align-left"></i> Description (Optional)
                         </label>
                         <textarea id="quickModuleDescription" class="form-control" 
-                                  placeholder="What will students learn in this module? E.g., In this module, students will learn the basic concepts of..."
+                                  placeholder="What will students learn in this module?"
                                   rows="3"
                                   style="width: 100%; padding: 12px; border: 2px solid #e0e0e0; border-radius: 8px; font-size: 0.9rem; resize: vertical;"></textarea>
                     </div>
@@ -5834,7 +5900,7 @@ function createQuickModuleModal() {
                     </div>
                 </div>
                 
-                <!-- MODAL FOOTER - WITH CLOSE AND SAVE BUTTONS -->
+                <!-- MODAL FOOTER - WITH SAVE BUTTON -->
                 <div class="modal-footer" style="padding: 20px 30px; background: #f8f9fa; border-top: 1px solid #e0e0e0; display: flex; justify-content: flex-end; gap: 12px;">
                     
                     <!-- CLOSE BUTTON -->
@@ -5844,7 +5910,7 @@ function createQuickModuleModal() {
                     </button>
                     
                     <!-- SAVE MODULE BUTTON -->
-                    <button class="btn btn-primary" onclick="saveQuickModule()" 
+                    <button class="btn btn-primary save-module-btn" onclick="saveQuickModule()" 
                             style="padding: 12px 24px; background: #7a0000; color: white; border: none; border-radius: 6px; font-weight: 600; display: flex; align-items: center; gap: 8px; cursor: pointer;">
                         <i class="fas fa-save"></i> Create Module
                     </button>
@@ -5915,7 +5981,7 @@ function createQuickModuleModal() {
         if (descInput) descInput.addEventListener('input', updatePreview);
     }
     
-    console.log("✅ Quick module modal created with CLOSE and SAVE buttons");
+    console.log("✅ Quick module modal created with Save button");
 }
 // ===== SAVE QUICK MODULE =====
 async function saveQuickModule() {
