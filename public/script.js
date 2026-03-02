@@ -10563,7 +10563,7 @@ function getCategoryColor(categoryId) {
 }
 
 // ============================================
-// FIXED: Load quizzes for category - FILTERED BY APP
+// ✅ FIXED: Load quizzes for category - WITH PROPER FILTERING
 // ============================================
 async function loadQuizzesForCategory(categoryId) {
     try {
@@ -10578,6 +10578,7 @@ async function loadQuizzesForCategory(categoryId) {
         
         const selectedApp = localStorage.getItem('selectedApp') || 'polylearn';
         const lessonFilter = localStorage.getItem('currentLessonFilter');
+        const expectedTopicId = APP_LESSON_MAP[selectedApp]?.lessonId || 2;
         
         console.log(`🎯 Loading quizzes for app: ${selectedApp}, category: ${categoryId}`);
         
@@ -10615,10 +10616,18 @@ async function loadQuizzesForCategory(categoryId) {
         console.log('📥 Quiz data:', data);
         
         if (data.success && data.quizzes) {
-            console.log(`✅ Fetched ${data.quizzes.length} quizzes for category ${categoryId}`);
+            // ✅ Filter quizzes to ensure they belong to current app
+            let filteredQuizzes = data.quizzes;
+            
+            // Filter by topic_id if available
+            filteredQuizzes = filteredQuizzes.filter(quiz => 
+                quiz.topic_id == expectedTopicId || !quiz.topic_id // Include quizzes without topic_id
+            );
+            
+            console.log(`✅ Found ${filteredQuizzes.length} quizzes for ${selectedApp} (topic ${expectedTopicId})`);
             
             // Filter attempts for current user
-            const filteredQuizzes = data.quizzes.map(quiz => {
+            filteredQuizzes = filteredQuizzes.map(quiz => {
                 if (quiz.user_attempts && Array.isArray(quiz.user_attempts)) {
                     quiz.user_attempts = quiz.user_attempts.filter(
                         attempt => attempt.user_id === currentUserId
@@ -17835,7 +17844,9 @@ async function loadPracticeExercises() {
 // ✅ FIXED: submitPracticeAnswer - WITH TIME RECORDING
 // ============================================
 
-// Initialize practice page - FIXED VERSION
+// ============================================
+// ✅ FIXED: Initialize practice page - WITH PROPER TOPIC FILTERING
+// ============================================
 async function initPracticePage() {
     console.log('💪 Initializing practice page with database-driven content...');
     
@@ -17850,9 +17861,24 @@ async function initPracticePage() {
         });
     }
     
-    // Reset current topic if needed
+    // ✅ FIX: Get the current selected app and set default topic
+    const selectedApp = localStorage.getItem('selectedApp') || 'polylearn';
+    const defaultTopicId = APP_LESSON_MAP[selectedApp]?.lessonId || 2; // Default to PolyLearn (ID 2)
+    
+    console.log(`🎯 Selected app: ${selectedApp}, default topic ID: ${defaultTopicId}`);
+    
+    // ✅ Set PracticeState.currentTopic if not set
     if (!PracticeState.currentTopic) {
-        PracticeState.currentTopic = '1'; // Default to topic 1
+        PracticeState.currentTopic = defaultTopicId.toString();
+        console.log(`🎯 Setting default topic to ${defaultTopicId} for ${selectedApp}`);
+    } else {
+        // Check if current topic matches the selected app
+        const currentTopicNum = parseInt(PracticeState.currentTopic);
+        if (currentTopicNum !== defaultTopicId) {
+            console.log(`⚠️ Current topic (${currentTopicNum}) doesn't match selected app (${selectedApp} - topic ${defaultTopicId})`);
+            console.log(`🔄 Forcing topic to ${defaultTopicId}`);
+            PracticeState.currentTopic = defaultTopicId.toString();
+        }
     }
     
     // ✅ I-LOAD AGAD ANG PRACTICE STATISTICS MULA DATABASE
@@ -17862,12 +17888,13 @@ async function initPracticePage() {
     await loadTopicsProgress();
     
     // Load practice exercises for current topic
+    console.log(`🎯 Loading exercises for topic: ${PracticeState.currentTopic}`);
     await loadPracticeExercisesForTopic(PracticeState.currentTopic);
     
     // Add practice styles
     addPracticeStyles();
     
-    console.log('✅ Practice page initialized');
+    console.log('✅ Practice page initialized for app: ${selectedApp}');
 }
 
 // ============================================
@@ -17907,7 +17934,7 @@ window.checkPracticeRecords = async function() {
 };
 
 // ============================================
-// ✅ FIXED: loadTopicsProgress
+// ✅ FIXED: loadTopicsProgress - WITH APP FILTERING
 // ============================================
 async function loadTopicsProgress() {
     try {
@@ -17942,9 +17969,19 @@ async function loadTopicsProgress() {
         const data = await response.json();
         
         if (data.success && data.topics) {
-            displayTopics(data.topics);
+            // ✅ Filter topics by current app
+            const selectedApp = localStorage.getItem('selectedApp') || 'polylearn';
+            const expectedTopicId = APP_LESSON_MAP[selectedApp]?.lessonId || 2;
             
-            const unlockedCount = data.topics.filter(t => t.practice_unlocked).length;
+            // Show only the topic that matches the current app
+            const filteredTopics = data.topics.filter(topic => 
+                topic.topic_id == expectedTopicId
+            );
+            
+            console.log(`🎯 Showing ${filteredTopics.length} topic for ${selectedApp}`);
+            displayTopics(filteredTopics);
+            
+            const unlockedCount = filteredTopics.filter(t => t.practice_unlocked).length;
             const unlockedCountElement = document.getElementById('unlockedCount');
             if (unlockedCountElement) {
                 unlockedCountElement.textContent = unlockedCount;
@@ -17971,6 +18008,21 @@ async function loadTopicsProgress() {
     }
 }
 
+// ============================================
+// ✅ HELPER: Get current platform topic ID
+// ============================================
+function getCurrentPlatformTopicId() {
+    const selectedApp = localStorage.getItem('selectedApp') || 'polylearn';
+    return APP_LESSON_MAP[selectedApp]?.lessonId || 2;
+}
+
+// ============================================
+// ✅ HELPER: Validate topic belongs to current app
+// ============================================
+function validateTopicForCurrentApp(topicId) {
+    const expectedTopicId = getCurrentPlatformTopicId();
+    return parseInt(topicId) === expectedTopicId;
+}
 
 
 // Display topics
@@ -18061,9 +18113,21 @@ function displayTopics(topics) {
     });
 }
 
-// Select topic for practice
+// ============================================
+// ✅ FIXED: Select topic for practice - WITH APP VALIDATION
+// ============================================
 async function selectTopicForPractice(topicId) {
     try {
+        // Check if this topic belongs to the current app
+        const selectedApp = localStorage.getItem('selectedApp') || 'polylearn';
+        const expectedTopicId = APP_LESSON_MAP[selectedApp]?.lessonId || 2;
+        
+        if (parseInt(topicId) !== expectedTopicId) {
+            console.log(`⚠️ Topic ${topicId} doesn't match app ${selectedApp} (expected topic ${expectedTopicId})`);
+            showNotification(`This topic belongs to a different app. Please switch apps first.`, 'warning');
+            return;
+        }
+        
         PracticeState.currentTopic = topicId;
         
         // Update UI
@@ -18093,6 +18157,9 @@ async function selectTopicForPractice(topicId) {
 }
 
 
+// ============================================
+// ✅ FIXED: Load practice exercises for topic - WITH STRICT FILTERING
+// ============================================
 async function loadPracticeExercisesForTopic(topicId) {
     try {
         console.log(`📝 Getting practice exercises for topic ${topicId}`);
@@ -18101,6 +18168,16 @@ async function loadPracticeExercisesForTopic(topicId) {
         const lessonFilter = localStorage.getItem('currentLessonFilter');
         
         console.log(`🎯 Loading for app: ${selectedApp}, filter: ${lessonFilter}`);
+        
+        // ✅ VALIDATE: Check if this topic belongs to the current app
+        const expectedTopicId = APP_LESSON_MAP[selectedApp]?.lessonId || 2;
+        if (parseInt(topicId) !== expectedTopicId) {
+            console.log(`⚠️ Topic ID mismatch! Got ${topicId}, expected ${expectedTopicId} for ${selectedApp}`);
+            
+            // Force correct topic ID
+            topicId = expectedTopicId.toString();
+            console.log(`🔄 Forcing topic ID to ${topicId}`);
+        }
         
         // Get the exercise area
         const exerciseArea = document.getElementById('exerciseArea');
@@ -18113,7 +18190,7 @@ async function loadPracticeExercisesForTopic(topicId) {
             </div>
         `;
         
-        // ✅ FIX: Add lesson filter to API call
+        // ✅ Build endpoint with topic ID and lesson filter
         let endpoint = `/api/practice/topic/${topicId}`;
         if (lessonFilter) {
             endpoint += `?lesson_id=${lessonFilter}`;
@@ -18134,14 +18211,35 @@ async function loadPracticeExercisesForTopic(topicId) {
         console.log('📥 Practice data received:', data);
         
         if (data.success && data.exercises) {
-            // ✅ Filter na ulit sa client side para sigurado
-            const filteredExercises = data.exercises.filter(ex => 
-                ex.lesson_id == lessonFilter || 
-                ex.lesson_id == APP_LESSON_MAP[selectedApp]?.lessonId
+            // ✅ Filter exercises to ensure they belong to the current app
+            let filteredExercises = data.exercises;
+            
+            // First filter by lesson_id if available
+            if (lessonFilter) {
+                filteredExercises = data.exercises.filter(ex => 
+                    ex.lesson_id == lessonFilter || 
+                    ex.lesson_id == expectedTopicId
+                );
+            }
+            
+            // Additional filter by topic_id to be absolutely sure
+            filteredExercises = filteredExercises.filter(ex => 
+                ex.topic_id == topicId
             );
             
-            console.log(`✅ Found ${filteredExercises.length} exercises for ${selectedApp}`);
-            displayPracticeExercises(filteredExercises);
+            console.log(`✅ Found ${filteredExercises.length} exercises for ${selectedApp} (topic ${topicId})`);
+            
+            if (filteredExercises.length > 0) {
+                displayPracticeExercises(filteredExercises);
+            } else {
+                exerciseArea.innerHTML = `
+                    <div class="no-exercises" style="text-align: center; padding: 40px;">
+                        <i class="fas fa-pencil-alt" style="font-size: 48px; color: #ccc; margin-bottom: 15px;"></i>
+                        <h3 style="color: #666;">No Practice Exercises for ${selectedApp}</h3>
+                        <p style="color: #999;">There are no practice exercises available for this app yet.</p>
+                    </div>
+                `;
+            }
         } else {
             exerciseArea.innerHTML = `
                 <div class="no-exercises" style="text-align: center; padding: 40px;">
