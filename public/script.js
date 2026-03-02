@@ -28,25 +28,23 @@ function getDefaultPracticeStats() {
 // APP FILTERING SYSTEM - Add this near the top of your script.js
 // ============================================
 
-// Map app names to their corresponding lesson IDs and filters
+// ============================================
+// APP FILTERING SYSTEM - USING LESSON_ID
+// ============================================
+
+// Map app names to their corresponding LESSON IDs
 const APP_LESSON_MAP = {
     'mathease': {
         lessonId: 1,
-        name: 'MathEase',
-        endpoint: '/api/mathease/',
-        filter: 'mathease'
+        name: 'MathEase'
     },
     'polylearn': {
         lessonId: 2,
-        name: 'PolyLearn',
-        endpoint: '/api/polylearn/',
-        filter: 'polylearn'
+        name: 'PolyLearn'
     },
-    'factolearn': {
+    'factorial': {
         lessonId: 3,
-        name: 'FactoLearn',
-        endpoint: '/api/factolearn/',
-        filter: 'factolearn'
+        name: 'Factorial'
     }
 };
 
@@ -10563,7 +10561,7 @@ function getCategoryColor(categoryId) {
 }
 
 // ============================================
-// ✅ FIXED: Load quizzes for category - FILTER BY LESSON_ID
+// ✅ FIXED: Load quizzes for category - FILTER BY LESSON_ID ONLY
 // ============================================
 async function loadQuizzesForCategory(categoryId) {
     try {
@@ -10577,7 +10575,7 @@ async function loadQuizzesForCategory(categoryId) {
         }
         
         const selectedApp = localStorage.getItem('selectedApp') || 'polylearn';
-        const currentLessonId = APP_LESSON_MAP[selectedApp]?.lessonId || 2;
+        const currentLessonId = getCurrentLessonId(); // Kunin ang lesson_id (2 for PolyLearn)
         
         console.log(`🎯 Loading quizzes for app: ${selectedApp}, lesson_id: ${currentLessonId}`);
         
@@ -10613,10 +10611,13 @@ async function loadQuizzesForCategory(categoryId) {
         console.log('📥 Quiz data:', data);
         
         if (data.success && data.quizzes) {
-            // ✅ Filter quizzes by lesson_id
-            let filteredQuizzes = data.quizzes.filter(quiz => 
-                quiz.lesson_id == currentLessonId || !quiz.lesson_id // Include quizzes without lesson_id
-            );
+            // ✅ STRICT FILTERING - lesson_id lang ang titingnan
+            let filteredQuizzes = data.quizzes.filter(quiz => {
+                const quizLessonId = quiz.lesson_id || quiz.lessonId;
+                
+                // Para sigurado, i-check kung ang lesson_id ay 2 (PolyLearn)
+                return quizLessonId == currentLessonId;
+            });
             
             console.log(`✅ Found ${filteredQuizzes.length} quizzes for ${selectedApp} (lesson ${currentLessonId})`);
             
@@ -17823,18 +17824,10 @@ async function loadPracticeExercises() {
     }
 }
 // ============================================
-// FIXED: submitPracticeAnswer - WITHOUT userCheck
-// ============================================
-// ===== FIXED: Submit practice answers with correct endpoint =====
-// ============================================
-// ✅ FIXED: submitPracticeAnswer - WITH TIME RECORDING
-// ============================================
-
-// ============================================
-// ✅ FIXED: Initialize practice page - USING LESSON_ID
+// ✅ FIXED: Initialize practice page - STRICT LESSON_ID FILTERING
 // ============================================
 async function initPracticePage() {
-    console.log('💪 Initializing practice page with database-driven content...');
+    console.log('💪 Initializing practice page with strict lesson_id filtering...');
     
     // Update date
     const practiceDate = document.getElementById('practiceDate');
@@ -17849,9 +17842,10 @@ async function initPracticePage() {
     
     // ✅ Get current app's lesson ID
     const selectedApp = localStorage.getItem('selectedApp') || 'polylearn';
-    const currentLessonId = APP_LESSON_MAP[selectedApp]?.lessonId || 2;
+    const currentLessonId = getCurrentLessonId(); // Kunin ang lesson_id (2 for PolyLearn)
     
     console.log(`🎯 Selected app: ${selectedApp}, lesson ID: ${currentLessonId}`);
+    console.log(`🎯 Will ONLY show content with lesson_id = ${currentLessonId}`);
     
     // ✅ Store lesson ID in localStorage for other functions
     localStorage.setItem('currentLessonId', currentLessonId);
@@ -17874,8 +17868,27 @@ async function initPracticePage() {
     // Add practice styles
     addPracticeStyles();
     
-    console.log('✅ Practice page initialized for app: ${selectedApp}');
+    console.log('✅ Practice page initialized for app: ' + selectedApp + ' (lesson ' + currentLessonId + ')');
 }
+
+// ============================================
+// 🔍 DEBUG: Check what's being filtered
+// ============================================
+window.debugLessonFiltering = function() {
+    console.log('🔍 LESSON FILTERING DEBUG:');
+    console.log('- selectedApp:', localStorage.getItem('selectedApp'));
+    console.log('- currentLessonId:', getCurrentLessonId());
+    console.log('- PracticeState:', PracticeState);
+    
+    // Check all exercises in PracticeState
+    if (PracticeState.exercises) {
+        console.log('- Exercises in state:', PracticeState.exercises.map(ex => ({
+            id: ex.exercise_id,
+            title: ex.title,
+            lesson_id: ex.lesson_id || ex.lessonId
+        })));
+    }
+};
 
 // ============================================
 // DEBUG: Check Database Practice Records
@@ -17914,7 +17927,7 @@ window.checkPracticeRecords = async function() {
 };
 
 // ============================================
-// ✅ FIXED: loadTopicsProgress - FILTER BY LESSON_ID
+// ✅ FIXED: loadTopicsProgress - FILTER BY LESSON_ID ONLY
 // ============================================
 async function loadTopicsProgress() {
     try {
@@ -17950,21 +17963,32 @@ async function loadTopicsProgress() {
         
         if (data.success && data.topics) {
             // ✅ Get current app's lesson ID
-            const selectedApp = localStorage.getItem('selectedApp') || 'polylearn';
-            const currentLessonId = APP_LESSON_MAP[selectedApp]?.lessonId || 2;
+            const currentLessonId = getCurrentLessonId(); // Kunin ang lesson_id (2 for PolyLearn)
             
             // Filter topics by lesson_id
-            const filteredTopics = data.topics.filter(topic => 
-                topic.lesson_id == currentLessonId
-            );
+            const filteredTopics = data.topics.filter(topic => {
+                const topicLessonId = topic.lesson_id || topic.lessonId;
+                return topicLessonId == currentLessonId;
+            });
             
-            console.log(`🎯 Showing ${filteredTopics.length} topics for ${selectedApp} (lesson ${currentLessonId})`);
-            displayTopics(filteredTopics);
+            console.log(`🎯 Showing ${filteredTopics.length} topics for lesson ${currentLessonId}`);
             
-            const unlockedCount = filteredTopics.filter(t => t.practice_unlocked).length;
-            const unlockedCountElement = document.getElementById('unlockedCount');
-            if (unlockedCountElement) {
-                unlockedCountElement.textContent = unlockedCount;
+            if (filteredTopics.length > 0) {
+                displayTopics(filteredTopics);
+                
+                const unlockedCount = filteredTopics.filter(t => t.practice_unlocked).length;
+                const unlockedCountElement = document.getElementById('unlockedCount');
+                if (unlockedCountElement) {
+                    unlockedCountElement.textContent = unlockedCount;
+                }
+            } else {
+                topicsContainer.innerHTML = `
+                    <div class="no-topics">
+                        <i class="fas fa-folder-open"></i>
+                        <h3>No topics available for this app</h3>
+                        <p>Topics with lesson_id = ${currentLessonId} will appear here.</p>
+                    </div>
+                `;
             }
         } else {
             topicsContainer.innerHTML = `
@@ -17987,7 +18011,6 @@ async function loadTopicsProgress() {
         }
     }
 }
-
 // ============================================
 // ✅ HELPER: Get current platform topic ID
 // ============================================
@@ -18138,14 +18161,14 @@ async function selectTopicForPractice(topicId) {
 
 
 // ============================================
-// ✅ FIXED: Load practice exercises - FILTER BY LESSON_ID
+// ✅ FIXED: Load practice exercises - FILTER BY LESSON_ID ONLY
 // ============================================
 async function loadPracticeExercisesForTopic(topicId) {
     try {
         console.log(`📝 Getting practice exercises for topic ${topicId}`);
         
         const selectedApp = localStorage.getItem('selectedApp') || 'polylearn';
-        const currentLessonId = APP_LESSON_MAP[selectedApp]?.lessonId || 2; // Default to PolyLearn
+        const currentLessonId = getCurrentLessonId(); // Kunin ang lesson_id (2 for PolyLearn)
         
         console.log(`🎯 Current app: ${selectedApp}, lesson_id: ${currentLessonId}`);
         
@@ -18178,12 +18201,21 @@ async function loadPracticeExercisesForTopic(topicId) {
         console.log('📥 Practice data received:', data);
         
         if (data.success && data.exercises) {
-            // ✅ Filter exercises by lesson_id to be absolutely sure
-            const filteredExercises = data.exercises.filter(ex => 
-                ex.lesson_id == currentLessonId
-            );
+            // ✅ STRICT FILTERING - lesson_id lang ang titingnan
+            const filteredExercises = data.exercises.filter(ex => {
+                // Check kung ang exercise ay may lesson_id at ito ay tugma sa current app
+                const exerciseLessonId = ex.lesson_id || ex.lessonId;
+                
+                // Para sigurado, i-check kung ang lesson_id ay 2 (PolyLearn)
+                return exerciseLessonId == currentLessonId;
+            });
             
             console.log(`✅ Found ${filteredExercises.length} exercises for ${selectedApp} (lesson ${currentLessonId})`);
+            console.log('📋 Filtered exercises:', filteredExercises.map(ex => ({
+                id: ex.exercise_id,
+                title: ex.title,
+                lesson_id: ex.lesson_id || ex.lessonId
+            })));
             
             if (filteredExercises.length > 0) {
                 displayPracticeExercises(filteredExercises);
@@ -18193,6 +18225,7 @@ async function loadPracticeExercisesForTopic(topicId) {
                         <i class="fas fa-pencil-alt" style="font-size: 48px; color: #ccc; margin-bottom: 15px;"></i>
                         <h3 style="color: #666;">No Practice Exercises for ${selectedApp}</h3>
                         <p style="color: #999;">There are no practice exercises available for this app yet.</p>
+                        <p style="color: #999; font-size: 12px;">(Looking for lesson_id = ${currentLessonId})</p>
                     </div>
                 `;
             }
@@ -23796,14 +23829,13 @@ class TimeTrackingManager {
         });
     }
 
-    // ============================================
-    // 🆔 GET CURRENT LESSON ID
-    // ============================================
-    getCurrentLessonId() {
-        return LessonState.currentLesson?.content_id || 
-               document.querySelector('[data-lesson-id]')?.dataset.lessonId ||
-               new URLSearchParams(window.location.search).get('contentId');
-    }
+   // ============================================
+// ✅ HELPER: Get current app's lesson ID
+// ============================================
+function getCurrentLessonId() {
+    const selectedApp = localStorage.getItem('selectedApp') || 'polylearn';
+    return APP_LESSON_MAP[selectedApp]?.lessonId || 2; // Default to PolyLearn
+}
 
     // ============================================
     // 📊 UPDATE AVERAGE TIME DISPLAY
@@ -24129,37 +24161,6 @@ function getAppLessonId() {
     return APP_LESSON_MAP[selectedApp]?.lessonId || 2;
 }
 
-// ============================================
-// ✅ HELPER 2: Get current lesson ID from multiple sources
-// ============================================
-function getCurrentLessonId() {
-    // First check from URL parameters
-    const urlParams = new URLSearchParams(window.location.search);
-    let lessonId = urlParams.get('lessonId') || urlParams.get('id') || urlParams.get('contentId');
-    
-    // If not found, check from data attributes
-    if (!lessonId) {
-        const lessonElement = document.querySelector('[data-lesson-id]');
-        if (lessonElement) {
-            lessonId = lessonElement.dataset.lessonId;
-        }
-    }
-    
-    // If still not found, check from complete button
-    if (!lessonId) {
-        const completeBtn = document.getElementById('completeLessonBtn');
-        if (completeBtn && completeBtn.dataset.lessonId) {
-            lessonId = completeBtn.dataset.lessonId;
-        }
-    }
-    
-    // If still not found, use app-based lesson ID
-    if (!lessonId) {
-        lessonId = getAppLessonId();
-    }
-    
-    return lessonId;
-}
 
 
 // Show notification
