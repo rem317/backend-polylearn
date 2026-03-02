@@ -5849,441 +5849,14 @@ async function updateDashboardWidgets(widgetConfig) {
         return false;
     }
 }
-// ============================================
-// 📊 DAILY PRACTICE TIME BAR GRAPH - REAL DATABASE DATA
-// ============================================
 
-// Add bar graph styles
-function addBarGraphStyles() {
-    const style = document.createElement('style');
-    style.textContent = `
-        /* Bar Graph Container */
-        .bar-graph-container {
-            background: white;
-            border-radius: 12px;
-            padding: 20px;
-            margin: 20px 0;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.05);
-        }
-        
-        .graph-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 20px;
-        }
-        
-        .graph-title {
-            font-size: 18px;
-            font-weight: 600;
-            color: #2c3e50;
-            margin: 0;
-        }
-        
-        .graph-title i {
-            color: #7a0000;
-            margin-right: 8px;
-        }
-        
-        .graph-controls {
-            display: flex;
-            gap: 8px;
-        }
-        
-        .graph-period-btn {
-            padding: 6px 12px;
-            border: 1px solid #ddd;
-            background: white;
-            border-radius: 20px;
-            font-size: 12px;
-            cursor: pointer;
-            transition: all 0.2s;
-            color: #666;
-        }
-        
-        .graph-period-btn:hover {
-            background: #f0f0f0;
-            border-color: #999;
-        }
-        
-        .graph-period-btn.active {
-            background: #7a0000;
-            color: white;
-            border-color: #7a0000;
-        }
-        
-        /* Canvas wrapper */
-        .graph-canvas-wrapper {
-            position: relative;
-            height: 300px;
-            width: 100%;
-            margin-bottom: 20px;
-        }
-        
-        #practiceTimeCanvas {
-            width: 100%;
-            height: 100%;
-            display: block;
-        }
-        
-        /* Graph stats */
-        .graph-stats {
-            display: grid;
-            grid-template-columns: repeat(3, 1fr);
-            gap: 15px;
-            margin-top: 20px;
-        }
-        
-        .graph-stat-card {
-            background: #f8f9fa;
-            border-radius: 8px;
-            padding: 12px;
-            text-align: center;
-        }
-        
-        .graph-stat-label {
-            font-size: 11px;
-            color: #666;
-            text-transform: uppercase;
-            margin-bottom: 4px;
-        }
-        
-        .graph-stat-value {
-            font-size: 20px;
-            font-weight: bold;
-            color: #2c3e50;
-        }
-        
-        .graph-stat-unit {
-            font-size: 12px;
-            color: #999;
-            margin-left: 4px;
-            font-weight: normal;
-        }
-        
-        /* Loading state */
-        .graph-loading {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            height: 300px;
-            background: #f8f9fa;
-            border-radius: 8px;
-            color: #666;
-        }
-        
-        .graph-loading i {
-            font-size: 30px;
-            color: #7a0000;
-            margin-bottom: 10px;
-        }
-        
-        /* Tooltip */
-        .graph-tooltip {
-            position: absolute;
-            background: rgba(0, 0, 0, 0.85);
-            color: white;
-            padding: 8px 12px;
-            border-radius: 6px;
-            font-size: 12px;
-            pointer-events: none;
-            z-index: 1000;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.2);
-        }
-        
-        .graph-tooltip .tooltip-date {
-            font-weight: bold;
-            color: #ffd700;
-            margin-bottom: 4px;
-        }
-        
-        .graph-tooltip .tooltip-value {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-        }
-        
-        .graph-tooltip .tooltip-color {
-            width: 10px;
-            height: 10px;
-            border-radius: 2px;
-            background: #7a0000;
-        }
-    `;
-    document.head.appendChild(style);
-}
 
-// ============================================
-// 🎨 CREATE BAR GRAPH
-// ============================================
-async function createPracticeBarGraph() {
-    console.log('📊 Creating Practice Time BAR Graph...');
-    
-    const container = document.getElementById('practiceTimeChart');
-    if (!container) {
-        console.error('❌ practiceTimeChart container not found');
-        return;
-    }
-    
-    container.innerHTML = `
-        <div class="bar-graph-container">
-            <div class="graph-header">
-                <h3 class="graph-title">
-                    <i class="fas fa-chart-bar"></i> Daily Practice Time
-                </h3>
-                <div class="graph-controls">
-                    <button class="graph-period-btn active" data-days="7">7 Days</button>
-                    <button class="graph-period-btn" data-days="14">14 Days</button>
-                    <button class="graph-period-btn" data-days="30">30 Days</button>
-                </div>
-            </div>
-            <div class="graph-canvas-wrapper">
-                <canvas id="practiceTimeCanvas"></canvas>
-            </div>
-            <div class="graph-stats" id="graphStats">
-                <div class="graph-stat-card">
-                    <div class="graph-stat-label">Loading...</div>
-                    <div class="graph-stat-value">—</div>
-                </div>
-                <div class="graph-stat-card">
-                    <div class="graph-stat-label">Loading...</div>
-                    <div class="graph-stat-value">—</div>
-                </div>
-                <div class="graph-stat-card">
-                    <div class="graph-stat-label">Loading...</div>
-                    <div class="graph-stat-value">—</div>
-                </div>
-            </div>
-        </div>
-    `;
-    
-    document.querySelectorAll('.graph-period-btn').forEach(btn => {
-        btn.addEventListener('click', function() {
-            document.querySelectorAll('.graph-period-btn').forEach(b => b.classList.remove('active'));
-            this.classList.add('active');
-            const days = parseInt(this.getAttribute('data-days'));
-            loadAndRenderBarGraph(days);
-        });
-    });
-    
-    await loadAndRenderBarGraph(7);
-}
 
-// ============================================
-// 📥 LOAD DATA FROM DATABASE
-// ============================================
-async function loadAndRenderBarGraph(days = 7) {
-    const canvas = document.getElementById('practiceTimeCanvas');
-    if (!canvas) return;
-    
-    const wrapper = canvas.parentElement;
-    
-    wrapper.innerHTML = `
-        <div class="graph-loading">
-            <i class="fas fa-spinner fa-spin"></i>
-            <span>Loading data from database...</span>
-        </div>
-    `;
-    
-    try {
-        const data = await fetchPracticeDataFromDB(days);
-        
-        wrapper.innerHTML = '<canvas id="practiceTimeCanvas"></canvas>';
-        const newCanvas = document.getElementById('practiceTimeCanvas');
-        newCanvas.width = wrapper.clientWidth;
-        newCanvas.height = 280;
-        
-        drawBarGraph(newCanvas.getContext('2d'), newCanvas, data);
-        updateBarGraphStats(data.stats);
-        
-    } catch (error) {
-        console.error('Error:', error);
-        const sampleData = generateSampleBarData(days);
-        updateBarGraphStats(sampleData.stats);
-    }
-}
-
-// ============================================
-// 🔥 FETCH FROM DATABASE
-// ============================================
-async function fetchPracticeDataFromDB(days) {
-    const token = localStorage.getItem('authToken') || authToken;
-    
-    if (!token) return generateSampleBarData(days);
-    
-    try {
-        const response = await fetch(`/api/progress/practice-time?days=${days}`, {
-            headers: { 'Authorization': `Bearer ${token}` }
-        });
-        
-        if (!response.ok) throw new Error('Failed');
-        
-        const result = await response.json();
-        return result.success ? result.data : generateSampleBarData(days);
-        
-    } catch (error) {
-        return generateSampleBarData(days);
-    }
-}
-
-// ============================================
-// 📊 SAMPLE DATA
-// ============================================
-function generateSampleBarData(days) {
-    const labels = [];
-    const values = [];
-    const today = new Date();
-    
-    for (let i = days - 1; i >= 0; i--) {
-        const date = new Date(today);
-        date.setDate(date.getDate() - i);
-        
-        const dayName = date.toLocaleDateString('en-US', { weekday: 'short' });
-        const month = date.toLocaleDateString('en-US', { month: 'short' });
-        const day = date.getDate();
-        labels.push(`${dayName} ${month} ${day}`);
-        values.push(Math.floor(Math.random() * 40) + 5);
-    }
-    
-    const total = values.reduce((a, b) => a + b, 0);
-    return {
-        labels: labels,
-        values: values,
-        stats: {
-            total: total,
-            average: Math.round(total / days),
-            max: Math.max(...values),
-            totalHours: (total / 60).toFixed(1)
-        }
-    };
-}
-
-// ============================================
-// ✏️ DRAW BAR GRAPH
-// ============================================
-function drawBarGraph(ctx, canvas, data) {
-    const width = canvas.width;
-    const height = canvas.height;
-    const padding = { left: 50, right: 20, top: 20, bottom: 40 };
-    const graphWidth = width - padding.left - padding.right;
-    const graphHeight = height - padding.top - padding.bottom;
-    
-    const values = data.values;
-    const maxValue = Math.max(...values, 1);
-    const barWidth = (graphWidth / values.length) * 0.7;
-    const barSpacing = (graphWidth / values.length) * 0.3;
-    
-    ctx.clearRect(0, 0, width, height);
-    
-    // Background
-    ctx.fillStyle = '#ffffff';
-    ctx.fillRect(0, 0, width, height);
-    
-    // Grid lines
-    ctx.strokeStyle = '#e0e0e0';
-    ctx.lineWidth = 0.5;
-    
-    for (let i = 0; i <= 5; i++) {
-        const y = padding.top + (graphHeight * i / 5);
-        ctx.beginPath();
-        ctx.moveTo(padding.left, y);
-        ctx.lineTo(width - padding.right, y);
-        ctx.stroke();
-        
-        ctx.fillStyle = '#666';
-        ctx.font = '10px Arial';
-        ctx.textAlign = 'right';
-        ctx.textBaseline = 'middle';
-        const value = Math.round(maxValue - (maxValue * i / 5));
-        ctx.fillText(value + ' min', padding.left - 8, y);
-    }
-    
-    // Axes
-    ctx.strokeStyle = '#333';
-    ctx.lineWidth = 2;
-    ctx.beginPath();
-    ctx.moveTo(padding.left, padding.top);
-    ctx.lineTo(padding.left, height - padding.bottom);
-    ctx.lineTo(width - padding.right, height - padding.bottom);
-    ctx.stroke();
-    
-    // Draw bars
-    values.forEach((value, index) => {
-        const x = padding.left + (index * (barWidth + barSpacing)) + barSpacing/2;
-        const barHeight = (value / maxValue) * graphHeight;
-        const y = height - padding.bottom - barHeight;
-        
-        const gradient = ctx.createLinearGradient(x, y, x, height - padding.bottom);
-        gradient.addColorStop(0, '#7a0000');
-        gradient.addColorStop(1, '#c0392b');
-        
-        ctx.fillStyle = gradient;
-        ctx.fillRect(x, y, barWidth, barHeight);
-        
-        ctx.strokeStyle = '#5a0000';
-        ctx.lineWidth = 1;
-        ctx.strokeRect(x, y, barWidth, barHeight);
-        
-        ctx.fillStyle = '#333';
-        ctx.font = 'bold 10px Arial';
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'bottom';
-        ctx.fillText(value + 'm', x + barWidth/2, y - 5);
-    });
-    
-    // X-axis labels
-    ctx.fillStyle = '#666';
-    ctx.font = '9px Arial';
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'top';
-    
-    values.forEach((_, index) => {
-        if (index % 2 === 0 || index === values.length - 1) {
-            const x = padding.left + (index * (barWidth + barSpacing)) + barSpacing/2 + barWidth/2;
-            const label = data.labels[index].split(' ').slice(0, 2).join(' ');
-            ctx.fillText(label, x, height - padding.bottom + 8);
-        }
-    });
-}
-
-// ============================================
-// 📊 UPDATE STATS
-// ============================================
-function updateBarGraphStats(stats) {
-    const container = document.getElementById('graphStats');
-    if (!container) return;
-    
-    container.innerHTML = `
-        <div class="graph-stat-card">
-            <div class="graph-stat-label">Total Time</div>
-            <div class="graph-stat-value">${stats.totalHours}<span class="graph-stat-unit">hrs</span></div>
-        </div>
-        <div class="graph-stat-card">
-            <div class="graph-stat-label">Daily Average</div>
-            <div class="graph-stat-value">${stats.average}<span class="graph-stat-unit">min</span></div>
-        </div>
-        <div class="graph-stat-card">
-            <div class="graph-stat-label">Best Day</div>
-            <div class="graph-stat-value">${stats.max}<span class="graph-stat-unit">min</span></div>
-        </div>
-    `;
-}
-
-// ============================================
-// 🚀 INITIALIZE
-// ============================================
-function initPracticeBarGraph() {
-    addBarGraphStyles();
-    createPracticeBarGraph();
-}
-
-window.initPracticeBarGraph = initPracticeBarGraph;
 // ============================================
 // INITIALIZE PROGRESS DASHBOARD - UPDATED
 // ============================================
 // ============================================
-// INITIALIZE PROGRESS DASHBOARD - UPDATED
+// INITIALIZE PROGRESS DASHBOARD - UPDATED WITH BAR GRAPH
 // ============================================
 async function initProgressDashboard() {
     console.log('📈 Initializing progress dashboard with database integration...');
@@ -6304,8 +5877,16 @@ async function initProgressDashboard() {
         // Load activity log
         await fetchActivityLog(15);
         
-        // Initialize charts
-        await initPracticeBarGraph();
+        // ✅ CHANGE THIS LINE - Replace with bar graph
+        // Remove or comment out: await initPracticeBarGraph();
+        
+        // Add this instead:
+        if (typeof initPracticeBarGraph === 'function') {
+            initPracticeBarGraph();  // This will create the bar graph
+        } else {
+            console.warn('⚠️ initPracticeBarGraph function not found');
+            addFallbackPracticeTime();
+        }
         
         // ✅ SIGURADUHING may value ang progressRefreshInterval bago gamitin
         if (typeof progressRefreshInterval !== 'undefined') {
@@ -6323,7 +5904,6 @@ async function initProgressDashboard() {
         console.error('Error initializing progress dashboard:', error);
     }
 }
-
 
 // ============================================
 // CHECK AND AWARD BADGES AUTOMATICALLY
@@ -32054,7 +31634,490 @@ document.addEventListener('click', function(e) {
     }
 }, true);
 
+// ============================================
+// 📊 DAILY PRACTICE TIME BAR GRAPH - WITH REAL DATABASE DATA
+// ============================================
 
+// Add bar graph styles
+function addBarGraphStyles() {
+    if (document.getElementById('bar-graph-styles')) return;
+    
+    const style = document.createElement('style');
+    style.id = 'bar-graph-styles';
+    style.textContent = `
+        .bar-graph-container {
+            background: white;
+            border-radius: 12px;
+            padding: 20px;
+            margin: 20px 0;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+        }
+        
+        .graph-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+        
+        .graph-title {
+            font-size: 18px;
+            font-weight: 600;
+            color: #2c3e50;
+            margin: 0;
+        }
+        
+        .graph-title i {
+            color: #7a0000;
+            margin-right: 8px;
+        }
+        
+        .graph-controls {
+            display: flex;
+            gap: 8px;
+        }
+        
+        .graph-period-btn {
+            padding: 6px 12px;
+            border: 1px solid #ddd;
+            background: white;
+            border-radius: 20px;
+            font-size: 12px;
+            cursor: pointer;
+            transition: all 0.2s;
+            color: #666;
+        }
+        
+        .graph-period-btn:hover {
+            background: #f0f0f0;
+            border-color: #999;
+        }
+        
+        .graph-period-btn.active {
+            background: #7a0000;
+            color: white;
+            border-color: #7a0000;
+        }
+        
+        .graph-canvas-wrapper {
+            position: relative;
+            height: 300px;
+            width: 100%;
+            margin-bottom: 20px;
+        }
+        
+        #practiceTimeCanvas {
+            width: 100%;
+            height: 100%;
+            display: block;
+        }
+        
+        .graph-stats {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 15px;
+            margin-top: 20px;
+        }
+        
+        .graph-stat-card {
+            background: #f8f9fa;
+            border-radius: 8px;
+            padding: 12px;
+            text-align: center;
+        }
+        
+        .graph-stat-label {
+            font-size: 11px;
+            color: #666;
+            text-transform: uppercase;
+            margin-bottom: 4px;
+        }
+        
+        .graph-stat-value {
+            font-size: 20px;
+            font-weight: bold;
+            color: #2c3e50;
+        }
+        
+        .graph-stat-unit {
+            font-size: 12px;
+            color: #999;
+            margin-left: 4px;
+            font-weight: normal;
+        }
+        
+        .graph-loading {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 300px;
+            background: #f8f9fa;
+            border-radius: 8px;
+            color: #666;
+        }
+        
+        .graph-loading i {
+            font-size: 30px;
+            color: #7a0000;
+            margin-bottom: 10px;
+        }
+        
+        .graph-error {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 300px;
+            background: #fff5f5;
+            border-radius: 8px;
+            color: #e74c3c;
+            padding: 20px;
+            text-align: center;
+        }
+        
+        .graph-error i {
+            font-size: 40px;
+            margin-bottom: 15px;
+        }
+        
+        .graph-error button {
+            margin-top: 15px;
+            padding: 8px 20px;
+            background: #7a0000;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        
+        .graph-tooltip {
+            position: absolute;
+            background: rgba(0, 0, 0, 0.85);
+            color: white;
+            padding: 8px 12px;
+            border-radius: 6px;
+            font-size: 12px;
+            pointer-events: none;
+            z-index: 1000;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+        }
+        
+        .graph-tooltip .tooltip-date {
+            font-weight: bold;
+            color: #ffd700;
+            margin-bottom: 4px;
+        }
+    `;
+    document.head.appendChild(style);
+}
+
+// ============================================
+// 🎨 CREATE BAR GRAPH
+// ============================================
+async function createPracticeBarGraph() {
+    console.log('📊 Creating Practice Time BAR Graph...');
+    
+    const container = document.getElementById('practiceTimeChart');
+    if (!container) {
+        console.error('❌ practiceTimeChart container not found');
+        return;
+    }
+    
+    container.innerHTML = `
+        <div class="bar-graph-container">
+            <div class="graph-header">
+                <h3 class="graph-title">
+                    <i class="fas fa-chart-bar"></i> Daily Practice Time
+                </h3>
+                <div class="graph-controls">
+                    <button class="graph-period-btn active" data-days="7">7 Days</button>
+                    <button class="graph-period-btn" data-days="14">14 Days</button>
+                    <button class="graph-period-btn" data-days="30">30 Days</button>
+                </div>
+            </div>
+            <div class="graph-canvas-wrapper" id="graphCanvasWrapper">
+                <div class="graph-loading">
+                    <i class="fas fa-spinner fa-spin"></i>
+                    <span>Loading data from database...</span>
+                </div>
+            </div>
+            <div class="graph-stats" id="graphStats">
+                <div class="graph-stat-card">
+                    <div class="graph-stat-label">Total Time</div>
+                    <div class="graph-stat-value">0<span class="graph-stat-unit">hrs</span></div>
+                </div>
+                <div class="graph-stat-card">
+                    <div class="graph-stat-label">Daily Average</div>
+                    <div class="graph-stat-value">0<span class="graph-stat-unit">min</span></div>
+                </div>
+                <div class="graph-stat-card">
+                    <div class="graph-stat-label">Best Day</div>
+                    <div class="graph-stat-value">0<span class="graph-stat-unit">min</span></div>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    document.querySelectorAll('.graph-period-btn').forEach(btn => {
+        btn.addEventListener('click', function() {
+            document.querySelectorAll('.graph-period-btn').forEach(b => b.classList.remove('active'));
+            this.classList.add('active');
+            const days = parseInt(this.getAttribute('data-days'));
+            loadAndRenderBarGraph(days);
+        });
+    });
+    
+    await loadAndRenderBarGraph(7);
+}
+
+// ============================================
+// 📥 LOAD DATA FROM DATABASE
+// ============================================
+async function loadAndRenderBarGraph(days = 7) {
+    console.log(`📥 Loading practice data for last ${days} days...`);
+    
+    const wrapper = document.getElementById('graphCanvasWrapper');
+    if (!wrapper) return;
+    
+    wrapper.innerHTML = `
+        <div class="graph-loading">
+            <i class="fas fa-spinner fa-spin"></i>
+            <span>Loading data from database...</span>
+        </div>
+    `;
+    
+    try {
+        const data = await fetchPracticeDataFromDB(days);
+        
+        wrapper.innerHTML = '<canvas id="practiceTimeCanvas"></canvas>';
+        const canvas = document.getElementById('practiceTimeCanvas');
+        canvas.width = wrapper.clientWidth || 800;
+        canvas.height = 280;
+        
+        drawBarGraph(canvas.getContext('2d'), canvas, data);
+        updateBarGraphStats(data.stats);
+        
+    } catch (error) {
+        console.error('Error loading data:', error);
+        
+        wrapper.innerHTML = `
+            <div class="graph-error">
+                <i class="fas fa-exclamation-triangle"></i>
+                <h4>Could not load practice data</h4>
+                <p>Using sample data instead</p>
+                <button onclick="loadAndRenderBarGraph(${days})">
+                    <i class="fas fa-redo"></i> Retry
+                </button>
+            </div>
+        `;
+        
+        const sampleData = generateSampleBarData(days);
+        updateBarGraphStats(sampleData.stats);
+    }
+}
+
+// ============================================
+// 🔥 FETCH FROM DATABASE
+// ============================================
+async function fetchPracticeDataFromDB(days) {
+    const token = localStorage.getItem('authToken') || authToken;
+    
+    if (!token) {
+        console.log('No auth token, using sample data');
+        return generateSampleBarData(days);
+    }
+    
+    try {
+        const response = await fetch(`/api/progress/practice-time?days=${days}`, {
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Accept': 'application/json'
+            }
+        });
+        
+        if (!response.ok) {
+            throw new Error(`HTTP ${response.status}`);
+        }
+        
+        const result = await response.json();
+        
+        if (result.success && result.data) {
+            console.log('✅ Real data received:', result.data);
+            return result.data;
+        } else {
+            throw new Error('No data received');
+        }
+        
+    } catch (error) {
+        console.log('Using sample data as fallback');
+        return generateSampleBarData(days);
+    }
+}
+
+// ============================================
+// 📊 GENERATE SAMPLE DATA (FALLBACK)
+// ============================================
+function generateSampleBarData(days) {
+    const labels = [];
+    const values = [];
+    const today = new Date();
+    
+    for (let i = days - 1; i >= 0; i--) {
+        const date = new Date(today);
+        date.setDate(date.getDate() - i);
+        
+        const dayName = date.toLocaleDateString('en-US', { weekday: 'short' });
+        const month = date.toLocaleDateString('en-US', { month: 'short' });
+        const day = date.getDate();
+        labels.push(`${dayName} ${month} ${day}`);
+        
+        values.push(Math.floor(Math.random() * 40) + 5);
+    }
+    
+    const total = values.reduce((a, b) => a + b, 0);
+    return {
+        labels: labels,
+        values: values,
+        stats: {
+            total: total,
+            average: Math.round(total / days),
+            max: Math.max(...values),
+            totalHours: (total / 60).toFixed(1)
+        }
+    };
+}
+
+// ============================================
+// ✏️ DRAW BAR GRAPH
+// ============================================
+function drawBarGraph(ctx, canvas, data) {
+    if (!ctx || !canvas) {
+        console.error('Canvas or context is null');
+        return;
+    }
+    
+    const width = canvas.width;
+    const height = canvas.height;
+    const padding = { left: 50, right: 20, top: 20, bottom: 40 };
+    const graphWidth = width - padding.left - padding.right;
+    const graphHeight = height - padding.top - padding.bottom;
+    
+    const values = data.values;
+    const maxValue = Math.max(...values, 1);
+    const barWidth = (graphWidth / values.length) * 0.7;
+    const barSpacing = (graphWidth / values.length) * 0.3;
+    
+    ctx.clearRect(0, 0, width, height);
+    
+    // Background
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0, 0, width, height);
+    
+    // Grid lines
+    ctx.strokeStyle = '#e0e0e0';
+    ctx.lineWidth = 0.5;
+    
+    for (let i = 0; i <= 5; i++) {
+        const y = padding.top + (graphHeight * i / 5);
+        ctx.beginPath();
+        ctx.moveTo(padding.left, y);
+        ctx.lineTo(width - padding.right, y);
+        ctx.stroke();
+        
+        ctx.fillStyle = '#666';
+        ctx.font = '10px Arial';
+        ctx.textAlign = 'right';
+        ctx.textBaseline = 'middle';
+        const value = Math.round(maxValue - (maxValue * i / 5));
+        ctx.fillText(value + ' min', padding.left - 8, y);
+    }
+    
+    // Axes
+    ctx.strokeStyle = '#333';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(padding.left, padding.top);
+    ctx.lineTo(padding.left, height - padding.bottom);
+    ctx.lineTo(width - padding.right, height - padding.bottom);
+    ctx.stroke();
+    
+    // Draw bars
+    values.forEach((value, index) => {
+        const x = padding.left + (index * (barWidth + barSpacing)) + barSpacing/2;
+        const barHeight = (value / maxValue) * graphHeight;
+        const y = height - padding.bottom - barHeight;
+        
+        const gradient = ctx.createLinearGradient(x, y, x, height - padding.bottom);
+        gradient.addColorStop(0, '#7a0000');
+        gradient.addColorStop(1, '#c0392b');
+        
+        ctx.fillStyle = gradient;
+        ctx.fillRect(x, y, barWidth, barHeight);
+        
+        ctx.strokeStyle = '#5a0000';
+        ctx.lineWidth = 1;
+        ctx.strokeRect(x, y, barWidth, barHeight);
+        
+        ctx.fillStyle = '#333';
+        ctx.font = 'bold 10px Arial';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'bottom';
+        ctx.fillText(value + 'm', x + barWidth/2, y - 5);
+    });
+    
+    // X-axis labels
+    ctx.fillStyle = '#666';
+    ctx.font = '9px Arial';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'top';
+    
+    values.forEach((_, index) => {
+        if (index % 2 === 0 || index === values.length - 1) {
+            const x = padding.left + (index * (barWidth + barSpacing)) + barSpacing/2 + barWidth/2;
+            const label = data.labels[index].split(' ').slice(0, 2).join(' ');
+            ctx.fillText(label, x, height - padding.bottom + 8);
+        }
+    });
+}
+
+// ============================================
+// 📊 UPDATE STATS
+// ============================================
+function updateBarGraphStats(stats) {
+    const container = document.getElementById('graphStats');
+    if (!container) return;
+    
+    container.innerHTML = `
+        <div class="graph-stat-card">
+            <div class="graph-stat-label">Total Time</div>
+            <div class="graph-stat-value">${stats.totalHours}<span class="graph-stat-unit">hrs</span></div>
+        </div>
+        <div class="graph-stat-card">
+            <div class="graph-stat-label">Daily Average</div>
+            <div class="graph-stat-value">${stats.average}<span class="graph-stat-unit">min</span></div>
+        </div>
+        <div class="graph-stat-card">
+            <div class="graph-stat-label">Best Day</div>
+            <div class="graph-stat-value">${stats.max}<span class="graph-stat-unit">min</span></div>
+        </div>
+    `;
+}
+
+// ============================================
+// 🚀 INITIALIZE
+// ============================================
+function initPracticeBarGraph() {
+    console.log('📊 Initializing Practice Bar Graph...');
+    addBarGraphStyles();
+    
+    setTimeout(() => {
+        createPracticeBarGraph();
+    }, 300);
+}
+
+// Make it global
+window.initPracticeBarGraph = initPracticeBarGraph;
 
 // ============================================
 // 🚨 ULTIMATE TOOL MANAGEMENT FIX
