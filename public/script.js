@@ -25,6 +25,56 @@ function getDefaultPracticeStats() {
 }
 
 // ============================================
+// APP FILTERING SYSTEM - Add this near the top of your script.js
+// ============================================
+
+// Map app names to their corresponding lesson IDs and filters
+const APP_LESSON_MAP = {
+    'mathease': {
+        lessonId: 1,
+        name: 'MathEase',
+        endpoint: '/api/mathease/',
+        filter: 'mathease'
+    },
+    'polylearn': {
+        lessonId: 2,
+        name: 'PolyLearn',
+        endpoint: '/api/polylearn/',
+        filter: 'polylearn'
+    },
+    'factolearn': {
+        lessonId: 3,
+        name: 'FactoLearn',
+        endpoint: '/api/factolearn/',
+        filter: 'factolearn'
+    }
+};
+
+// Get the current selected app
+function getCurrentApp() {
+    return localStorage.getItem('selectedApp') || 'polylearn';
+}
+
+// Get the lesson ID for the current app
+function getCurrentAppLessonId() {
+    const app = getCurrentApp();
+    return APP_LESSON_MAP[app]?.lessonId || 2; // Default to PolyLearn (ID 2)
+}
+
+// Get the filter parameter for API calls
+function getAppFilterParam() {
+    const app = getCurrentApp();
+    return APP_LESSON_MAP[app]?.filter || 'polylearn';
+}
+
+// Add this to all your fetch calls that need filtering
+function addAppFilterToUrl(url) {
+    const separator = url.includes('?') ? '&' : '?';
+    const filterParam = `app_filter=${getAppFilterParam()}`;
+    return url + separator + filterParam;
+}
+
+// ============================================
 // ✅ FIXED: ToolManager with better error handling
 // ============================================
 class ToolManager {
@@ -10208,7 +10258,7 @@ async function loadQuizStatsFromServer() {
 
 
 // ============================================
-// FIXED: Load quiz categories - WITH BETTER ERROR HANDLING
+// FIXED: Load quiz categories - FILTERED BY SELECTED APP
 // ============================================
 async function loadQuizCategories() {
     try {
@@ -10223,7 +10273,12 @@ async function loadQuizCategories() {
         const selectedApp = localStorage.getItem('selectedApp') || 'polylearn';
         const lessonFilter = localStorage.getItem('currentLessonFilter');
         
+        console.log(`🎯 Loading categories for app: ${selectedApp}, filter: ${lessonFilter}`);
+        
+        // Build endpoint with proper filtering
         let endpoint = '/api/quiz/categories';
+        
+        // Add lesson filter if available
         if (lessonFilter) {
             endpoint += `?lesson_id=${lessonFilter}`;
         }
@@ -10252,17 +10307,45 @@ async function loadQuizCategories() {
         const data = await response.json();
         console.log('📥 Quiz categories response:', data);
         
+        // Create categories container if it doesn't exist
+        let categoriesContainer = document.getElementById('quizCategoriesGrid');
+        if (!categoriesContainer) {
+            console.log('⚠️ Creating categories container...');
+            categoriesContainer = document.createElement('div');
+            categoriesContainer.id = 'quizCategoriesGrid';
+            categoriesContainer.className = 'categories-grid';
+            
+            // Find where to insert it
+            const quizDashboard = document.getElementById('quiz-dashboard-page');
+            if (quizDashboard) {
+                const container = quizDashboard.querySelector('.container') || quizDashboard;
+                container.appendChild(categoriesContainer);
+            }
+        }
+        
         if (data.success && data.categories) {
-            console.log(`✅ Fetched ${data.categories.length} quiz categories`);
+            console.log(`✅ Fetched ${data.categories.length} quiz categories for ${selectedApp}`);
+            
+            // Filter categories based on the selected app if needed
+            let filteredCategories = data.categories;
+            
+            // If you have lesson_id in your categories, filter them
+            if (lessonFilter) {
+                filteredCategories = data.categories.filter(cat => 
+                    cat.lesson_id == lessonFilter || 
+                    cat.category_name.toLowerCase().includes(selectedApp.toLowerCase())
+                );
+                console.log(`🎯 Filtered to ${filteredCategories.length} categories for lesson ${lessonFilter}`);
+            }
             
             // Store in QuizState
             if (!window.QuizState) window.QuizState = {};
-            window.QuizState.quizCategories = data.categories;
+            window.QuizState.quizCategories = filteredCategories;
             
             // Display the categories
-            displayQuizCategories(data.categories);
+            displayQuizCategories(filteredCategories);
             
-            return data.categories;
+            return filteredCategories;
         } else {
             console.log('ℹ️ No categories returned or invalid format');
             displayQuizCategories([]);
@@ -10292,19 +10375,13 @@ async function loadQuizCategories() {
 }
 
 // ============================================
-// FIXED: Display quiz categories - WITH BETTER DOM HANDLING
+// FIXED: Display quiz categories - WITH APP FILTERING
 // ============================================
 function displayQuizCategories(categories) {
     console.log('📋 Displaying quiz categories:', categories);
     
-    // Find the container - try multiple possible IDs
+    // Find the container
     let categoriesContainer = document.getElementById('quizCategoriesGrid');
-    
-    if (!categoriesContainer) {
-        categoriesContainer = document.getElementById('categoriesGrid') || 
-                             document.getElementById('quiz-categories') ||
-                             document.querySelector('.categories-grid');
-    }
     
     // If still not found, create it
     if (!categoriesContainer) {
@@ -10339,12 +10416,16 @@ function displayQuizCategories(categories) {
     // Clear the container
     categoriesContainer.innerHTML = '';
     
+    // Get the selected app for display
+    const selectedApp = localStorage.getItem('selectedApp') || 'polylearn';
+    const appDisplayName = APP_LESSON_MAP[selectedApp]?.name || 'PolyLearn';
+    
     // Handle empty categories
     if (!categories || categories.length === 0) {
         categoriesContainer.innerHTML = `
             <div class="no-categories" style="grid-column: 1/-1; text-align: center; padding: 60px 20px; background: white; border-radius: 10px;">
                 <i class="fas fa-folder-open" style="font-size: 64px; color: #ccc; margin-bottom: 20px;"></i>
-                <h3 style="color: #666; margin-bottom: 10px;">No Quiz Categories Available</h3>
+                <h3 style="color: #666; margin-bottom: 10px;">No Quiz Categories Available for ${appDisplayName}</h3>
                 <p style="color: #999; margin-bottom: 20px;">Check back later for new quiz categories!</p>
                 <button class="btn-primary" onclick="loadQuizCategories()" style="background: #7a0000; color: white; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer;">
                     <i class="fas fa-redo"></i> Refresh
@@ -10359,7 +10440,7 @@ function displayQuizCategories(categories) {
     categories.forEach(category => {
         const categoryId = category.category_id || category.id;
         const categoryName = category.category_name || category.name || 'Quiz Category';
-        const categoryDesc = category.description || 'Test your knowledge with quizzes in this category.';
+        const categoryDesc = category.description || `Test your knowledge with ${appDisplayName} quizzes.`;
         const totalQuizzes = category.quiz_count || category.total_quizzes || 0;
         const completedQuizzes = category.completed_count || 0;
         const categoryColor = getCategoryColor(categoryId);
@@ -10422,7 +10503,7 @@ function displayQuizCategories(categories) {
             
             const categoryId = this.getAttribute('data-category-id');
             if (categoryId) {
-                console.log('🎯 Category card clicked:', categoryId);
+                console.log(`🎯 Category card clicked for ${appDisplayName}:`, categoryId);
                 loadQuizzesForCategory(categoryId);
             }
         });
@@ -10435,15 +10516,14 @@ function displayQuizCategories(categories) {
             
             const categoryId = this.getAttribute('data-category-id');
             if (categoryId) {
-                console.log('🎯 Category button clicked:', categoryId);
+                console.log(`🎯 Category button clicked for ${appDisplayName}:`, categoryId);
                 loadQuizzesForCategory(categoryId);
             }
         });
     });
     
-    console.log('✅ Quiz categories displayed successfully');
+    console.log(`✅ Quiz categories displayed for ${appDisplayName}`);
 }
-
 
 // ============================================
 // Helper: Get category icon based on name
@@ -10483,7 +10563,7 @@ function getCategoryColor(categoryId) {
 }
 
 // ============================================
-// FIXED: Load quizzes for category - WITH BETTER ERROR HANDLING
+// FIXED: Load quizzes for category - FILTERED BY APP
 // ============================================
 async function loadQuizzesForCategory(categoryId) {
     try {
@@ -10495,6 +10575,11 @@ async function loadQuizzesForCategory(categoryId) {
             showNotification('Please login to view quizzes', 'error');
             return;
         }
+        
+        const selectedApp = localStorage.getItem('selectedApp') || 'polylearn';
+        const lessonFilter = localStorage.getItem('currentLessonFilter');
+        
+        console.log(`🎯 Loading quizzes for app: ${selectedApp}, category: ${categoryId}`);
         
         // Get current user ID
         const userJson = localStorage.getItem('mathhub_user');
@@ -10509,18 +10594,13 @@ async function loadQuizzesForCategory(categoryId) {
             }
         }
         
-        // Show loading
-        const quizOptionsContainer = document.getElementById('quizOptionsContainer');
-        if (quizOptionsContainer) {
-            quizOptionsContainer.innerHTML = `
-                <div style="grid-column: 1/-1; text-align: center; padding: 40px;">
-                    <i class="fas fa-spinner fa-pulse fa-3x" style="color: #7a0000;"></i>
-                    <p style="margin-top: 20px;">Loading quizzes from database...</p>
-                </div>
-            `;
+        // Build endpoint with app filter
+        let endpoint = `/api/quiz/category/${categoryId}/quizzes`;
+        if (lessonFilter) {
+            endpoint += `?lesson_id=${lessonFilter}`;
         }
         
-        const response = await fetch(`/api/quiz/category/${categoryId}/quizzes`, {
+        const response = await fetch(endpoint, {
             headers: {
                 'Authorization': `Bearer ${token}`,
                 'Content-Type': 'application/json'
@@ -10568,7 +10648,7 @@ async function loadQuizzesForCategory(categoryId) {
                 cat => cat.category_id == categoryId || cat.id == categoryId
             ) || {
                 category_id: categoryId,
-                category_name: data.category?.name || 'Quizzes'
+                category_name: data.category?.name || `${selectedApp} Quizzes`
             };
             
             showQuizInterfaceForCategory(selectedCategory, filteredQuizzes);
@@ -15166,29 +15246,18 @@ async function fetchAllLessons() {
 function filterLessonsByApp(lessons, selectedApp, lessonFilter) {
     if (!lessons || lessons.length === 0) return [];
     
-    // Map app names to lesson IDs or lesson names
-    const appLessonMap = {
-        'mathease': { id: '1', name: 'mathease' },
-        'polylearn': { id: '2', name: 'polylearn' },
-        'factolearn': { id: '3', name: 'factolearn' }
-    };
+    // First, try to filter by lesson_id if we have a filter
+    if (lessonFilter) {
+        return lessons.filter(lesson => 
+            lesson.lesson_id == lessonFilter || 
+            lesson.lesson_name?.toLowerCase().includes(selectedApp.toLowerCase())
+        );
+    }
     
-    const appConfig = appLessonMap[selectedApp] || appLessonMap['polylearn'];
-    
-    // Filter by lesson_id if we have it in the data
+    // If no filter, filter by lesson_name containing the app name
     return lessons.filter(lesson => {
-        // Check by lesson_id
-        if (lessonFilter && lesson.lesson_id) {
-            return lesson.lesson_id.toString() === lessonFilter;
-        }
-        
-        // Check by lesson_name
-        if (appConfig.name && lesson.lesson_name) {
-            return lesson.lesson_name.toLowerCase() === appConfig.name.toLowerCase();
-        }
-        
-        // Default - include all (fallback)
-        return true;
+        if (!lesson.lesson_name) return false;
+        return lesson.lesson_name.toLowerCase().includes(selectedApp.toLowerCase());
     });
 }
 
@@ -21859,7 +21928,7 @@ function setupAppSelectionListeners() {
 }
 
 // ============================================
-// FIXED: Handle app selection with database filtering
+// FIXED: Handle app selection with proper filtering
 // ============================================
 function handleAppSelection(appName) {
     console.log(`📱 Handling app selection: ${appName}`);
@@ -21870,24 +21939,32 @@ function handleAppSelection(appName) {
     AppState.hasSelectedApp = true;
     localStorage.setItem('hasSelectedApp', 'true');
     
+    // Set the lesson filter based on the selected app
+    const lessonId = APP_LESSON_MAP[appName]?.lessonId;
+    if (lessonId) {
+        localStorage.setItem('currentLessonFilter', lessonId.toString());
+        console.log(`🔍 Setting lesson filter: ${lessonId} for ${appName}`);
+    }
+    
     switch(appName) {
         case 'mathease':
             console.log('Opening MathEase app...');
             showNotification('Opening MathEase...', 'info');
             
-            // Set lesson filter for MathEase (lesson_id = 1 for mathease)
-            localStorage.setItem('currentLessonFilter', '1'); // or 'mathease'
+            // Set lesson filter for MathEase (lesson_id = 1)
+            localStorage.setItem('currentLessonFilter', '1');
             
             setTimeout(() => {
-                window.location.href = 'mathease.html';
+                // For now, navigate to dashboard but with filter
+                navigateTo('dashboard');
             }, 500);
             break;
             
         case 'polylearn':
             console.log('Opening PolyLearn app...');
             
-            // Set lesson filter for PolyLearn (lesson_id = 2 for polylearn)
-            localStorage.setItem('currentLessonFilter', '2'); // or 'polylearn'
+            // Set lesson filter for PolyLearn (lesson_id = 2)
+            localStorage.setItem('currentLessonFilter', '2');
             
             showNotification('Opening PolyLearn Dashboard...', 'success');
             setTimeout(() => {
@@ -21898,12 +21975,12 @@ function handleAppSelection(appName) {
         case 'factolearn':
             console.log('Opening FactoLearn app...');
             
-            // Set lesson filter for FactoLearn (lesson_id = 3 for factolearn)
-            localStorage.setItem('currentLessonFilter', '3'); // or 'factolearn'
+            // Set lesson filter for FactoLearn (lesson_id = 3)
+            localStorage.setItem('currentLessonFilter', '3');
             
             showNotification('Opening FactoLearn...', 'info');
             setTimeout(() => {
-                window.location.href = 'factolearn.html';
+                navigateTo('dashboard');
             }, 500);
             break;
             
