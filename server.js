@@ -9589,14 +9589,18 @@ app.get('/api/admin/quizzes/top', authenticateAdmin, async (req, res) => {
 // LESSON ROUTES (STUDENT)
 // ============================================
 
-// Get ALL lessons with progress
+// ============================================
+// FIXED: Get ALL lessons with progress - WITH FILTER
+// ============================================
 app.get('/api/lessons-db/complete', verifyToken, async (req, res) => {
     try {
         const userId = req.user.id;
+        const { lesson_id } = req.query; // Get lesson_id from query parameter
         
-        console.log('📚 Fetching all lessons with progress for user ID:', userId);
+        console.log(`📚 Fetching all lessons with progress for user ID: ${userId}`);
+        console.log(`📋 Filter by lesson_id: ${lesson_id || 'none'}`);
         
-        const [lessons] = await promisePool.execute(`
+        let query = `
             SELECT 
                 tci.content_id,
                 tci.content_title,
@@ -9621,11 +9625,23 @@ app.get('/api/lessons-db/complete', verifyToken, async (req, res) => {
             JOIN course_modules cm ON mt.module_id = cm.module_id
             JOIN lessons l ON cm.lesson_id = l.lesson_id
             WHERE tci.is_active = TRUE
-            ORDER BY l.lesson_order, cm.module_order, mt.topic_order, tci.content_order
-        `);
+        `;
+        
+        const params = [];
+        
+        // Add lesson_id filter if provided
+        if (lesson_id) {
+            query += ` AND l.lesson_id = ?`;
+            params.push(lesson_id);
+        }
+        
+        query += ` ORDER BY l.lesson_order, cm.module_order, mt.topic_order, tci.content_order`;
+        
+        const [lessons] = await promisePool.execute(query, params);
         
         console.log(`✅ Found ${lessons.length} lessons in database`);
         
+        // Get user progress (same as before)
         let progressRows = [];
         if (lessons.length > 0) {
             const contentIds = lessons.map(l => l.content_id);
@@ -9664,7 +9680,8 @@ app.get('/api/lessons-db/complete', verifyToken, async (req, res) => {
         res.json({
             success: true,
             lessons: lessonsWithProgress,
-            count: lessons.length
+            count: lessons.length,
+            filter: lesson_id || 'all'
         });
         
     } catch (error) {
@@ -10130,109 +10147,51 @@ app.get('/api/user/progress', verifyToken, async (req, res) => {
 // ============================================
 
 // ============================================
-// ✅ FIXED: Get practice exercises for topic
+// FIXED: Get practice exercises for topic - WITH LESSON FILTER
 // ============================================
 app.get('/api/practice/topic/:topicId', authenticateToken, async (req, res) => {
     try {
         const { topicId } = req.params;
+        const { lesson_id } = req.query; // Get lesson filter
         const userId = req.user.id;
         
-        console.log(`📝 Fetching practice exercises for topic ${topicId}, user ${userId}`);
+        console.log(`📝 Fetching practice exercises for topic ${topicId}, lesson filter: ${lesson_id || 'none'}`);
         
-        // Check if practice_exercises table exists
-        const [tables] = await promisePool.query("SHOW TABLES LIKE 'practice_exercises'");
-        
-        if (tables.length === 0) {
-            return res.json({
-                success: true,
-                unlocked: true,
-                exercises: [],
-                message: 'Practice exercises table not created yet'
-            });
-        }
-        
-        // Get exercises for this topic
-        const [exercises] = await promisePool.query(`
+        // Modified query to filter by lesson
+        let query = `
             SELECT 
-                exercise_id,
-                title,
-                description,
-                content_type,
-                difficulty,
-                points,
-                content_json,
-                is_active
-            FROM practice_exercises
-            WHERE topic_id = ? AND is_active = 1
-            ORDER BY exercise_id
-        `, [topicId]);
+                pe.exercise_id,
+                pe.title,
+                pe.description,
+                pe.content_type,
+                pe.difficulty,
+                pe.points,
+                pe.content_json,
+                pe.is_active,
+                mt.module_id,
+                cm.lesson_id
+            FROM practice_exercises pe
+            JOIN module_topics mt ON pe.topic_id = mt.topic_id
+            JOIN course_modules cm ON mt.module_id = cm.module_id
+            WHERE pe.topic_id = ? AND pe.is_active = 1
+        `;
         
-        console.log(`✅ Found ${exercises.length} exercises for topic ${topicId}`);
+        const params = [topicId];
         
-        // Process exercises
-        const processedExercises = [];
-        
-        for (const ex of exercises) {
-            // Parse content_json
-            let content = { questions: [] };
-            try {
-                if (ex.content_json) {
-                    content = typeof ex.content_json === 'string' 
-                        ? JSON.parse(ex.content_json) 
-                        : ex.content_json;
-                }
-            } catch (e) {
-                console.log(`⚠️ Error parsing JSON for exercise ${ex.exercise_id}:`, e.message);
-            }
-            
-            // Get user progress
-            let userProgress = { status: 'not_started', score: 0, attempts: 0 };
-            try {
-                const [progress] = await promisePool.query(`
-                    SELECT completion_status, score, attempts
-                    FROM user_practice_progress
-                    WHERE user_id = ? AND exercise_id = ?
-                `, [userId, ex.exercise_id]);
-                
-                if (progress.length > 0) {
-                    userProgress = {
-                        status: progress[0].completion_status || 'not_started',
-                        score: progress[0].score || 0,
-                        attempts: progress[0].attempts || 0
-                    };
-                }
-            } catch (progressError) {
-                console.log('Progress table not found or error');
-            }
-            
-            processedExercises.push({
-                exercise_id: ex.exercise_id,
-                title: ex.title || 'Practice Exercise',
-                description: ex.description || '',
-                content_type: ex.content_type || 'multiple_choice',
-                difficulty: ex.difficulty || 'medium',
-                points: ex.points || 10,
-                questions: content.questions || [],
-                question_count: (content.questions || []).length,
-                user_progress: userProgress
-            });
+        // Add lesson filter if provided
+        if (lesson_id) {
+            query += ` AND cm.lesson_id = ?`;
+            params.push(lesson_id);
         }
         
-        // Check if practice is unlocked (simplified - always true for now)
-        const isUnlocked = true;
-        const completedLessons = 0;
-        const totalLessons = 1;
+        const [exercises] = await promisePool.query(query, params);
         
+        console.log(`✅ Found ${exercises.length} exercises`);
+        
+        // Process and return exercises...
         res.json({
             success: true,
-            unlocked: isUnlocked,
-            progress: {
-                completed: completedLessons,
-                total: totalLessons,
-                percentage: totalLessons > 0 ? Math.round((completedLessons / totalLessons) * 100) : 0,
-                message: isUnlocked ? 'Practice unlocked!' : 'Complete lessons first'
-            },
-            exercises: processedExercises
+            exercises: exercises
         });
         
     } catch (error) {
