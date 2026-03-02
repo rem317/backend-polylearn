@@ -17907,12 +17907,15 @@ window.checkPracticeRecords = async function() {
 };
 
 // ============================================
-// ✅ FIXED: loadTopicsProgress - FILTER BY LESSON_ID ONLY
+// ✅ FIXED: loadTopicsProgress - WITH LESSON_ID FILTERING
 // ============================================
 async function loadTopicsProgress() {
     try {
         const topicsContainer = document.getElementById('topicsContainer');
-        if (!topicsContainer) return;
+        if (!topicsContainer) {
+            console.log('❌ topicsContainer not found');
+            return;
+        }
         
         const token = localStorage.getItem('authToken') || authToken;
         if (!token) {
@@ -17925,29 +17928,45 @@ async function loadTopicsProgress() {
             return;
         }
         
+        console.log('📊 Fetching topics progress...');
+        
+        // ✅ Kunin ang current lesson_id
+        const selectedApp = localStorage.getItem('selectedApp') || 'polylearn';
+        const currentLessonId = getCurrentLessonId(); // Dapat 2 para sa PolyLearn
+        
+        console.log(`🎯 Loading topics for app: ${selectedApp}, lesson_id: ${currentLessonId}`);
+        
+        // ✅ I-FETCH ang topics progress from server
         const response = await fetch(`/api/topics/progress`, {
             headers: { 'Authorization': `Bearer ${token}` }
         });
         
         if (!response.ok) {
+            console.error(`❌ API returned ${response.status}`);
             topicsContainer.innerHTML = `
                 <div class="error-message">
                     <i class="fas fa-exclamation-triangle"></i>
                     <h3>Failed to load topics</h3>
+                    <p>API returned ${response.status}</p>
                 </div>
             `;
             return;
         }
         
         const data = await response.json();
+        console.log('📥 Topics progress data received:', data);
         
         if (data.success && data.topics) {
-            // ✅ Get current app's lesson ID
-            const currentLessonId = getCurrentLessonId(); // Kunin ang lesson_id (2 for PolyLearn)
+            console.log(`✅ Received ${data.topics.length} topics from server`);
             
-            // Filter topics by lesson_id
+            // ✅ STRICT FILTERING - lesson_id lang ang titingnan
             const filteredTopics = data.topics.filter(topic => {
+                // Check different possible property names
                 const topicLessonId = topic.lesson_id || topic.lessonId;
+                
+                // Log for debugging
+                console.log(`Topic ${topic.topic_id}: ${topic.topic_title}, lesson_id=${topicLessonId}, current=${currentLessonId}`);
+                
                 return topicLessonId == currentLessonId;
             });
             
@@ -17964,33 +17983,41 @@ async function loadTopicsProgress() {
             } else {
                 topicsContainer.innerHTML = `
                     <div class="no-topics">
-                        <i class="fas fa-folder-open"></i>
-                        <h3>No topics available for this app</h3>
-                        <p>Topics with lesson_id = ${currentLessonId} will appear here.</p>
+                        <i class="fas fa-folder-open" style="font-size: 48px; color: #ccc; margin-bottom: 15px;"></i>
+                        <h3 style="color: #666;">No topics available for ${selectedApp}</h3>
+                        <p style="color: #999;">Topics with lesson_id = ${currentLessonId} will appear here.</p>
+                        <p style="color: #999; font-size: 12px; margin-top: 10px;">Debug: Received ${data.topics.length} total topics</p>
                     </div>
                 `;
             }
         } else {
+            console.log('ℹ️ No topics returned from server');
             topicsContainer.innerHTML = `
                 <div class="error-message">
-                    <i class="fas fa-exclamation-triangle"></i>
+                    <i class="fas fa-info-circle"></i>
                     <h3>No topics found</h3>
+                    <p>${data.message || 'No topics available yet'}</p>
                 </div>
             `;
         }
     } catch (error) {
-        console.error('Error loading topics progress:', error);
+        console.error('❌ Error loading topics progress:', error);
         const topicsContainer = document.getElementById('topicsContainer');
         if (topicsContainer) {
             topicsContainer.innerHTML = `
                 <div class="error-message">
                     <i class="fas fa-exclamation-triangle"></i>
                     <h3>Failed to load topics</h3>
+                    <p>${error.message}</p>
+                    <button class="btn-primary" onclick="loadTopicsProgress()" style="margin-top: 15px;">
+                        <i class="fas fa-redo"></i> Try Again
+                    </button>
                 </div>
             `;
         }
     }
 }
+
 // ============================================
 // ✅ HELPER: Get current platform topic ID
 // ============================================
@@ -18008,11 +18035,26 @@ function validateTopicForCurrentApp(topicId) {
 }
 
 
-// Display topics
+// ============================================
+// ✅ FIXED: displayTopics - WITH BETTER DEBUGGING
+// ============================================
 function displayTopics(topics) {
     const topicsContainer = document.getElementById('topicsContainer');
-    if (!topicsContainer || !topics) {
-        topicsContainer.innerHTML = '<p class="no-topics">No topics available</p>';
+    if (!topicsContainer) {
+        console.error('❌ topicsContainer not found in displayTopics');
+        return;
+    }
+    
+    console.log(`📋 Displaying ${topics.length} topics:`, topics);
+    
+    if (!topics || topics.length === 0) {
+        topicsContainer.innerHTML = `
+            <div class="no-topics" style="text-align: center; padding: 40px;">
+                <i class="fas fa-folder-open" style="font-size: 48px; color: #ccc; margin-bottom: 15px;"></i>
+                <h3 style="color: #666;">No topics available</h3>
+                <p style="color: #999;">Complete lessons to unlock topics.</p>
+            </div>
+        `;
         return;
     }
     
@@ -18022,52 +18064,59 @@ function displayTopics(topics) {
         const progressPercentage = topic.lesson_progress_percentage || 0;
         const isPracticeUnlocked = topic.practice_unlocked || false;
         const isPracticeCompleted = topic.practice_completed || false;
+        const isSelected = PracticeState.currentTopic == topic.topic_id;
+        
+        console.log(`Topic card: ${topic.topic_title}, unlocked=${isPracticeUnlocked}, selected=${isSelected}`);
         
         html += `
-            <div class="topic-card ${isPracticeUnlocked ? 'unlocked' : 'locked'} ${isPracticeCompleted ? 'completed' : ''} ${PracticeState.currentTopic == topic.topic_id ? 'selected' : ''}" 
+            <div class="topic-card ${isPracticeUnlocked ? 'unlocked' : 'locked'} ${isPracticeCompleted ? 'completed' : ''} ${isSelected ? 'selected' : ''}" 
                  data-topic-id="${topic.topic_id}"
-                 data-practice-unlocked="${isPracticeUnlocked}">
-                <div class="topic-header">
-                    <h3 class="topic-title">${topic.topic_title}</h3>
+                 data-practice-unlocked="${isPracticeUnlocked}"
+                 style="cursor: pointer; background: white; border-radius: 8px; padding: 15px; margin-bottom: 10px; border: 2px solid ${isSelected ? '#7a0000' : 'transparent'};">
+                 
+                <div class="topic-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                    <h3 class="topic-title" style="margin: 0; font-size: 16px;">${topic.topic_title || 'Topic'}</h3>
                     <div class="topic-status">
                         ${isPracticeCompleted ? 
-                            '<span class="status-completed"><i class="fas fa-check-circle"></i> Completed</span>' :
+                            '<span style="color: #27ae60;"><i class="fas fa-check-circle"></i> Completed</span>' :
                             isPracticeUnlocked ?
-                            '<span class="status-unlocked"><i class="fas fa-unlock"></i> Unlocked</span>' :
-                            '<span class="status-locked"><i class="fas fa-lock"></i> Locked</span>'
+                            '<span style="color: #7a0000;"><i class="fas fa-unlock"></i> Unlocked</span>' :
+                            '<span style="color: #999;"><i class="fas fa-lock"></i> Locked</span>'
                         }
                     </div>
                 </div>
                 
                 <div class="topic-body">
-                    <p>${topic.module_name || 'Module'} - ${topic.topic_title}</p>
+                    <p style="margin: 0 0 10px 0; color: #666; font-size: 14px;">${topic.module_name || 'Module'} - ${topic.topic_title}</p>
                     
-                    <div class="topic-progress">
-                        <div class="progress-info">
+                    <div class="topic-progress" style="margin: 10px 0;">
+                        <div class="progress-info" style="display: flex; justify-content: space-between; font-size: 13px; color: #666; margin-bottom: 5px;">
                             <span>Lessons: ${topic.lessons_completed || 0}/${topic.total_lessons || 0}</span>
                             <span>${progressPercentage}%</span>
                         </div>
-                        <div class="progress-bar">
-                            <div class="progress-fill" style="width: ${progressPercentage}%"></div>
+                        <div class="progress-bar" style="height: 6px; background: #ecf0f1; border-radius: 3px; overflow: hidden;">
+                            <div class="progress-fill" style="height: 100%; width: ${progressPercentage}%; background: #7a0000;"></div>
                         </div>
                     </div>
                     
-                    <div class="topic-practice-info">
+                    <div class="topic-practice-info" style="font-size: 13px; margin-top: 5px;">
                         ${isPracticeCompleted ? 
-                            '<span class="practice-completed"><i class="fas fa-trophy"></i> Practice Completed</span>' :
+                            '<span style="color: #27ae60;"><i class="fas fa-trophy"></i> Practice Completed</span>' :
                             isPracticeUnlocked ?
-                            '<span class="practice-available"><i class="fas fa-pencil-alt"></i> Practice Available</span>' :
-                            `<span class="practice-locked">Complete ${(topic.total_lessons || 0) - (topic.lessons_completed || 0)} more lessons</span>`
+                            '<span style="color: #7a0000;"><i class="fas fa-pencil-alt"></i> Practice Available</span>' :
+                            `<span style="color: #999;">Complete ${(topic.total_lessons || 0) - (topic.lessons_completed || 0)} more lessons</span>`
                         }
                     </div>
                 </div>
                 
-                <div class="topic-actions">
+                <div class="topic-actions" style="margin-top: 15px;">
                     ${isPracticeUnlocked ? 
-                        `<button class="btn-primary practice-topic-btn" data-topic-id="${topic.topic_id}">
+                        `<button class="btn-primary practice-topic-btn" data-topic-id="${topic.topic_id}" 
+                                style="width: 100%; padding: 8px; background: #7a0000; color: white; border: none; border-radius: 5px; cursor: pointer;">
                             <i class="fas fa-play"></i> Start Practice
                         </button>` :
-                        `<button class="btn-secondary" disabled>
+                        `<button class="btn-secondary" disabled 
+                                style="width: 100%; padding: 8px; background: #95a5a6; color: white; border: none; border-radius: 5px;">
                             <i class="fas fa-lock"></i> Complete Lessons First
                         </button>`
                     }
@@ -18076,12 +18125,17 @@ function displayTopics(topics) {
         `;
     });
     
-    topicsContainer.innerHTML = html || '<p class="no-topics">No topics available</p>';
+    topicsContainer.innerHTML = html;
+    console.log('✅ Topics displayed, container HTML length:', html.length);
     
     // Add event listeners to topic cards
     document.querySelectorAll('.topic-card.unlocked').forEach(card => {
-        card.addEventListener('click', function() {
+        card.addEventListener('click', function(e) {
+            // Don't trigger if clicking the button
+            if (e.target.closest('button')) return;
+            
             const topicId = this.getAttribute('data-topic-id');
+            console.log('🎯 Topic card clicked:', topicId);
             selectTopicForPractice(topicId);
         });
     });
@@ -18091,10 +18145,70 @@ function displayTopics(topics) {
         button.addEventListener('click', function(e) {
             e.stopPropagation();
             const topicId = this.getAttribute('data-topic-id');
+            console.log('🎯 Practice button clicked:', topicId);
             selectTopicForPractice(topicId);
         });
     });
 }
+
+// ============================================
+// 🔍 DEBUG: Check Topics Progress
+// ============================================
+window.debugTopicsProgress = async function() {
+    console.log('🔍 DEBUGGING TOPICS PROGRESS...');
+    
+    try {
+        const token = localStorage.getItem('authToken') || authToken;
+        const selectedApp = localStorage.getItem('selectedApp') || 'polylearn';
+        const currentLessonId = getCurrentLessonId();
+        
+        console.log('Current app:', selectedApp);
+        console.log('Current lesson_id:', currentLessonId);
+        console.log('PracticeState:', PracticeState);
+        
+        // Fetch from server
+        const response = await fetch(`/api/topics/progress`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        
+        if (!response.ok) {
+            console.error('❌ API returned:', response.status);
+            return;
+        }
+        
+        const data = await response.json();
+        console.log('📥 Server response:', data);
+        
+        if (data.success && data.topics) {
+            console.log(`✅ Server returned ${data.topics.length} topics`);
+            
+            // Log each topic's lesson_id
+            data.topics.forEach((topic, index) => {
+                console.log(`Topic ${index + 1}:`, {
+                    id: topic.topic_id,
+                    title: topic.topic_title,
+                    lesson_id: topic.lesson_id || topic.lessonId,
+                    matches: (topic.lesson_id || topic.lessonId) == currentLessonId
+                });
+            });
+            
+            // Filter
+            const filtered = data.topics.filter(t => (t.lesson_id || t.lessonId) == currentLessonId);
+            console.log(`✅ Filtered to ${filtered.length} topics for lesson ${currentLessonId}`);
+        }
+        
+        // Check DOM
+        const container = document.getElementById('topicsContainer');
+        console.log('Topics container exists:', !!container);
+        if (container) {
+            console.log('Topics container HTML length:', container.innerHTML.length);
+            console.log('Topics container content:', container.innerHTML.substring(0, 200) + '...');
+        }
+        
+    } catch (error) {
+        console.error('❌ Debug error:', error);
+    }
+};
 
 // ============================================
 // ✅ FIXED: Select topic for practice - WITH APP VALIDATION
