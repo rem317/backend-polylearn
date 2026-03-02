@@ -2336,100 +2336,142 @@
         <div class="modal-backdrop" onclick="closeCreatePracticeModal()"></div>
         <div class="modal-content" style="max-width: 800px;">
             <div class="modal-header" style="background: #7a0000; color: white;">
-                <h3><i class="fas fa-plus-circle"></i> <span id="modalPracticeTitle">Create Practice Exercise</span></h3>
+                <h3><i class="fas fa-dumbbell"></i> Create Practice Exercise</h3>
                 <button class="modal-close" onclick="closeCreatePracticeModal()">&times;</button>
             </div>
             
-            <div class="modal-body" style="max-height: 70vh; overflow-y: auto; padding: 25px;">
-                <input type="hidden" id="practiceId">
-                
-                <!-- Basic Information -->
-                <div class="form-section">
-                    <h4>Basic Information</h4>
-                    <div class="form-grid">
-                        <div class="form-group full-width">
-                            <label>Title <span class="required">*</span></label>
-                            <input type="text" id="practiceTitle" class="form-control" placeholder="e.g., Polynomial Addition Practice">
-                        </div>
-
-                        <div class="form-group">
-    <label class="form-label">Assign to Teacher</label>
-    <select class="form-control" id="practiceAssignedTeacherId">
-        <option value="">-- Select Teacher (Optional) --</option>
-    </select>
-</div>
+            <div class="modal-body" style="max-height: 70vh; overflow-y: auto; padding: 20px;">
+                <form id="createPracticeForm">
+                    <!-- Hidden field for edit mode -->
+                    <input type="hidden" id="practiceId" value="">
+                    
+                    <!-- Basic Information -->
+                    <div style="margin-bottom: 20px;">
+                        <h4 style="color: #7a0000; margin-bottom: 15px;">Basic Information</h4>
                         
-                        <div class="form-group full-width">
-                            <label>Description</label>
-                            <textarea id="practiceDescription" class="form-control" rows="2"></textarea>
-                        </div>
-                        
-                        <!-- Topic Dropdown -->
-                        <div class="form-group full-width">
-                            <label>Select Topic <span class="required">*</span></label>
-                            <select id="practiceTopic" class="form-control" required>
-                                <option value="">-- Select Topic --</option>
+                        <!-- Subject Selection -->
+                        <div class="form-group" style="margin-bottom: 15px;">
+                            <label style="display: block; margin-bottom: 8px; font-weight: 600;">
+                                <i class="fas fa-book"></i> Subject <span style="color: red;">*</span>
+                            </label>
+                            <select id="practiceSubject" class="form-control" style="width: 100%; padding: 10px; border: 2px solid #e0e0e0; border-radius: 6px;" required>
+                                <option value="">-- Select Subject --</option>
+                                <option value="1">MathEase</option>
+                                <option value="2">PolyLearn</option>
+                                <option value="3">FactoLearn</option>
                             </select>
-                            <small style="color: #666;">The topic determines where this practice appears in the user's progress</small>
+                            <p style="font-size: 0.8rem; color: #666; margin-top: 5px;">
+                                <i class="fas fa-info-circle"></i> Select subject first to load available topics
+                            </p>
                         </div>
                         
-                        <div class="form-group">
-                            <label>Difficulty</label>
-                            <select id="practiceDifficulty" class="form-control">
-                                <option value="easy">Easy</option>
-                                <option value="medium" selected>Medium</option>
-                                <option value="hard">Hard</option>
+                        <!-- Topic Selection (dynamically loaded) -->
+                        <div class="form-group" style="margin-bottom: 15px;">
+                            <label style="display: block; margin-bottom: 8px; font-weight: 600;">
+                                <i class="fas fa-tag"></i> Topic <span style="color: red;">*</span>
+                            </label>
+                            <select id="practiceTopic" class="form-control" style="width: 100%; padding: 10px; border: 2px solid #e0e0e0; border-radius: 6px;" disabled required>
+                                <option value="">-- Select Subject First --</option>
                             </select>
+                            <p style="font-size: 0.8rem; color: #666; margin-top: 5px;">
+                                <i class="fas fa-info-circle"></i> Topics from the selected subject
+                            </p>
                         </div>
                         
-                        <div class="form-group">
-                            <label>Type</label>
-                            <select id="practiceType" class="form-control">
-                                <option value="multiple-choice">Multiple Choice</option>
-                                <option value="true-false">True or False</option>
-                                <option value="fill-blank">Fill in the Blank</option>
+                        <div class="form-group" style="margin-bottom: 15px;">
+                            <label style="display: block; margin-bottom: 8px; font-weight: 600;">
+                                <i class="fas fa-heading"></i> Title <span style="color: red;">*</span>
+                            </label>
+                            <input type="text" id="practiceTitle" class="form-control" placeholder="e.g., Polynomial Basics Practice" style="width: 100%; padding: 10px; border: 2px solid #e0e0e0; border-radius: 6px;" required>
+                        </div>
+                        
+                        <div class="form-group" style="margin-bottom: 15px;">
+                            <label style="display: block; margin-bottom: 8px; font-weight: 600;">
+                                <i class="fas fa-align-left"></i> Description
+                            </label>
+                            <textarea id="practiceDescription" class="form-control" rows="3" placeholder="Describe what this practice covers..." style="width: 100%; padding: 10px; border: 2px solid #e0e0e0; border-radius: 6px;"></textarea>
+                        </div>
+                        
+                        <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 15px;">
+                            <div class="form-group">
+                                <label style="display: block; margin-bottom: 8px; font-weight: 600;">
+                                    <i class="fas fa-chart-line"></i> Difficulty
+                                </label>
+                                <select id="practiceDifficulty" class="form-control" style="padding: 10px; border: 2px solid #e0e0e0; border-radius: 6px;">
+                                    <option value="easy">Easy</option>
+                                    <option value="medium" selected>Medium</option>
+                                    <option value="hard">Hard</option>
+                                </select>
+                            </div>
+                            
+                            <div class="form-group">
+                                <label style="display: block; margin-bottom: 8px; font-weight: 600;">
+                                    <i class="fas fa-list"></i> Type
+                                </label>
+                                <select id="practiceType" class="form-control" style="padding: 10px; border: 2px solid #e0e0e0; border-radius: 6px;">
+                                    <option value="multiple-choice">Multiple Choice</option>
+                                    <option value="true-false">True/False</option>
+                                    <option value="fill-blank">Fill in the Blank</option>
+                                </select>
+                            </div>
+                            
+                            <div class="form-group">
+                                <label style="display: block; margin-bottom: 8px; font-weight: 600;">
+                                    <i class="fas fa-star"></i> Points
+                                </label>
+                                <input type="number" id="practicePoints" class="form-control" value="10" min="1" style="padding: 10px; border: 2px solid #e0e0e0; border-radius: 6px;">
+                            </div>
+                        </div>
+                        
+                        <div class="form-group" style="margin-bottom: 15px;">
+                            <label style="display: block; margin-bottom: 8px; font-weight: 600;">
+                                <i class="fas fa-toggle-on"></i> Status
+                            </label>
+                            <select id="practiceStatus" class="form-control" style="padding: 10px; border: 2px solid #e0e0e0; border-radius: 6px;">
+                                <option value="active">Active (Visible to all students)</option>
+                                <option value="draft">Draft (Hidden from students)</option>
                             </select>
-                        </div>
-                        
-                        <div class="form-group">
-                            <label>Points</label>
-                            <input type="number" id="practicePoints" class="form-control" value="10" min="1" max="100">
-                        </div>
-                        
-                        <div class="form-group">
-                            <label>Status</label>
-                            <select id="practiceStatus" class="form-control">
-                                <option value="active">Active</option>
-                                <option value="draft">Draft</option>
-                                <option value="inactive">Inactive</option>
-                            </select>
-                        </div>
-                        
-                        <div class="form-group full-width">
-                            <label>Tags (comma separated)</label>
-                            <input type="text" id="practiceTags" class="form-control" placeholder="e.g., addition, polynomials, basics">
                         </div>
                     </div>
-                </div>
-                
-                <!-- Questions Section -->
-                <div class="form-section">
-                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
-                        <h4>Questions</h4>
-                        <button type="button" class="btn btn-primary" onclick="addPracticeQuestion()">
-                            <i class="fas fa-plus"></i> Add Question
-                        </button>
+                    
+                    <!-- Teacher Assignment -->
+                    <div style="margin-bottom: 20px; background: #f8f9fa; padding: 15px; border-radius: 8px;">
+                        <h4 style="color: #7a0000; margin-bottom: 10px;">
+                            <i class="fas fa-chalkboard-teacher"></i> Teacher Assignment
+                        </h4>
+                        <select id="practiceAssignedTeacherId" class="form-control" style="padding: 10px; border: 2px solid #e0e0e0; border-radius: 6px;">
+                            <option value="">-- Assign to myself (default) --</option>
+                            <!-- Teachers will be loaded here -->
+                        </select>
+                        <p style="font-size: 0.8rem; color: #666; margin-top: 5px;">
+                            <i class="fas fa-info-circle"></i> Assign to specific teacher (optional)
+                        </p>
                     </div>
-                    <div id="practiceQuestionsContainer">
-                        <!-- Questions will be added here dynamically -->
+                    
+                    <!-- Questions Section -->
+                    <div style="margin-bottom: 20px;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                            <h4 style="color: #7a0000; margin: 0;">
+                                <i class="fas fa-question-circle"></i> Questions
+                            </h4>
+                            <button type="button" class="btn btn-primary" onclick="addPracticeQuestion()" style="background: #7a0000; padding: 8px 15px;">
+                                <i class="fas fa-plus"></i> Add Question
+                            </button>
+                        </div>
+                        
+                        <div id="practiceQuestionsContainer">
+                            <!-- Questions will be added here dynamically -->
+                        </div>
                     </div>
-                </div>
+                </form>
             </div>
             
-            <div class="modal-footer">
-                <button class="btn btn-secondary" onclick="closeCreatePracticeModal()">Cancel</button>
-                <button class="btn btn-primary" onclick="savePracticeExercise()">
-                    <i class="fas fa-save"></i> Save Exercise
+            <div class="modal-footer" style="padding: 15px 20px; background: #f8f9fa; border-top: 1px solid #e0e0e0; display: flex; justify-content: flex-end; gap: 10px;">
+                <button type="button" class="btn btn-secondary" onclick="closeCreatePracticeModal()">
+                    <i class="fas fa-times"></i> Cancel
+                </button>
+                <button type="button" class="btn btn-primary" onclick="savePracticeExercise()" style="background: #7a0000;">
+                    <i class="fas fa-save"></i> Save Practice
                 </button>
             </div>
         </div>
