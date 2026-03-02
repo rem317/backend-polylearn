@@ -1,5 +1,3 @@
-
-
 // script.js - MathHub Application with Complete Database-Driven Progress Tracking
 // Includes lesson management, practice exercises, quiz system, and full progress integration
 
@@ -4137,88 +4135,71 @@ function handleActivityResponse(data) {
     }
 }
 
-// Store original functions
-const ORIGINAL = {
-    navigateTo: window.navigateTo,
-    loadProgressDashboardData: window.loadProgressDashboardData,
-    fetchCumulativeProgress: window.fetchCumulativeProgress
-};
-
 // ============================================
-// PART 1: FIXED PROGRESS DASHBOARD LOADING
-// ============================================
-
-// ============================================
-// ✅ ENHANCED fetchCumulativeProgress - FINAL VERSION
+// ✅ FIXED: fetchCumulativeProgress - FASTER RESPONSE
 // ============================================
 async function fetchCumulativeProgress() {
-    console.log('📊 [ENHANCED] Fetching cumulative progress...');
-    
     try {
-        const token = localStorage.getItem('authToken');
+        const token = localStorage.getItem('authToken') || authToken;
+        
         if (!token) {
-            console.warn('❌ No auth token');
+            console.warn('❌ No auth token available');
             return getDefaultProgress();
         }
         
-        const response = await fetch('/api/progress/overall', {
-            headers: { 
-                'Authorization': `Bearer ${token}`,
-                'Accept': 'application/json'
-            }
+        console.log('📊 Fetching cumulative progress...');
+        
+        const response = await fetch(`/api/progress/overall`, {
+            headers: { 'Authorization': `Bearer ${token}` }
         });
         
-        if (!response.ok) {
-            throw new Error(`HTTP ${response.status}`);
-        }
-        
-        const data = await response.json();
-        
-        if (data.success && data.overall) {
-            console.log('✅ Progress loaded:', data.overall);
+        if (response.ok) {
+            const data = await response.json();
             
-            // IMPORTANT: total_time_spent_minutes from database is in SECONDS
-            const totalSeconds = parseInt(data.overall.total_time_spent_minutes) || 0;
-            const totalMinutes = Math.floor(totalSeconds / 60);
-            
-            // Calculate average time per activity
-            const totalActivities = (data.overall.lessons_completed || 0) + 
-                                   (data.overall.practice_completed || 0) + 
-                                   (data.overall.quizzes_completed || 0);
-            
-            const avgPerActivity = totalActivities > 0 
-                ? Math.round(totalMinutes / totalActivities) 
-                : 5;
-            
-            // Calculate weekly improvement
-            const weeklyImprovement = calculateWeeklyImprovement(data.overall);
-            
-            const progress = {
-                total_lessons_completed: parseInt(data.overall.lessons_completed) || 0,
-                total_lessons: parseInt(data.overall.total_lessons) || 20,
-                overall_percentage: parseInt(data.overall.percentage) || 0,
-                exercises_completed: parseInt(data.overall.practice_completed) || 0,
-                total_quizzes_completed: parseInt(data.overall.quizzes_completed) || 0,
-                total_points_earned: parseInt(data.overall.total_points) || 0,
-                total_time_spent_minutes: totalMinutes, // Store as MINUTES
-                total_time_display: formatTime(totalMinutes),
-                weekly_time_spent: data.overall.weekly?.minutes || 0,
-                avg_time_per_activity: avgPerActivity,
-                weekly_improvement: weeklyImprovement,
-                streak_days: parseInt(data.overall.streak_days) || 1,
-                weekly: data.overall.weekly || { lessons: 0, exercises: 0, quizzes: 0, points: 0, minutes: 0 }
-            };
-            
-            console.log(`📊 Average time per activity: ${progress.avg_time_per_activity} minutes`);
-            console.log(`📊 Weekly improvement: ${progress.weekly_improvement}%`);
-            
-            // Store in state
-            ProgressState.cumulativeProgress = progress;
-            
-            // DIRECT UI UPDATE - use the existing function
-            updateOverallProgressDisplay(progress);
-            
-            return progress;
+            if (data.success) {
+                console.log('✅ Overall progress loaded:', data.overall);
+                
+                // Convert seconds to minutes
+                const totalSeconds = data.overall.total_time_spent_minutes || 0;
+                const totalMinutes = Math.floor(totalSeconds / 60);
+                
+                // Calculate average time per activity
+                const totalActivities = (data.overall.lessons_completed || 0) + 
+                                       (data.overall.practice_completed || 0) + 
+                                       (data.overall.quizzes_completed || 0);
+                
+                const avgPerActivity = totalActivities > 0 
+                    ? Math.round(totalMinutes / totalActivities) 
+                    : 5;
+                
+                // Calculate weekly improvement
+                const weeklyImprovement = calculateWeeklyImprovement(data.overall);
+                
+                const progress = {
+                    total_lessons_completed: data.overall.lessons_completed || 0,
+                    total_lessons: data.overall.total_lessons || 20,
+                    overall_percentage: data.overall.percentage || 0,
+                    exercises_completed: data.overall.practice_completed || 0,
+                    total_quizzes_completed: data.overall.quizzes_completed || 0,
+                    total_points_earned: data.overall.total_points || 0,
+                    total_time_spent_minutes: totalMinutes,
+                    weekly_time_spent: data.overall.weekly?.minutes || 0,
+                    avg_time_per_activity: avgPerActivity,
+                    weekly_improvement: weeklyImprovement,
+                    total_time_display: formatTime(totalMinutes),
+                    streak_days: data.overall.streak_days || 1,
+                    weekly: data.overall.weekly || { lessons: 0, exercises: 0, quizzes: 0, points: 0, minutes: 0 }
+                };
+                
+                console.log(`📊 Progress loaded - Lessons: ${progress.total_lessons_completed}/${progress.total_lessons}`);
+                
+                ProgressState.cumulativeProgress = progress;
+                
+                // IMMEDIATELY update display
+                updateLearningProgressSection(progress);
+                
+                return progress;
+            }
         }
         
         return getDefaultProgress();
@@ -4285,79 +4266,102 @@ function getDefaultProgress() {
 }
 
 // ============================================
-// ✅ FIXED: updateOverallProgressDisplay - WITH REAL-TIME DATA
+// ✅ REPLACEMENT: updateLearningProgressSection - YOUR LEARNING PROGRESS ONLY
 // ============================================
-function updateOverallProgressDisplay(progress) {
-    console.log('📊 Updating overall progress display with:', progress);
+function updateLearningProgressSection(progress) {
+    console.log('📊 Updating YOUR LEARNING PROGRESS section with:', progress);
     
     if (!progress) {
         progress = ProgressState.cumulativeProgress || getDefaultProgress();
     }
     
-    // Get percentage
-    const percentage = progress.percentage || progress.overall_percentage || 0;
-    
-    // Update overall progress text
-    const overallProgress = document.getElementById('overallProgress');
-    if (overallProgress) {
-        overallProgress.textContent = `${percentage}%`;
-        // Add animation to show it's updated
-        overallProgress.style.transition = 'all 0.3s';
-        overallProgress.style.transform = 'scale(1.1)';
-        overallProgress.style.color = '#7a0000';
+    // ===== 1. LESSONS COMPLETED =====
+    const lessonsCount = document.getElementById('lessonsCount');
+    if (lessonsCount) {
+        const completed = progress.total_lessons_completed || 0;
+        const total = progress.total_lessons || 20;
+        lessonsCount.innerHTML = `${completed}<span class="item-unit">/${total}</span>`;
+        
+        // Visual feedback na nag-update
+        lessonsCount.style.transition = 'all 0.3s';
+        lessonsCount.style.transform = 'scale(1.1)';
+        lessonsCount.style.color = '#7a0000';
         setTimeout(() => {
-            overallProgress.style.transform = 'scale(1)';
-            overallProgress.style.color = '';
+            lessonsCount.style.transform = 'scale(1)';
+            lessonsCount.style.color = '';
         }, 300);
     }
     
-    // Update progress bar
-    const overallProgressBar = document.getElementById('overallProgressBar');
-    if (overallProgressBar) {
-        overallProgressBar.style.width = `${percentage}%`;
-        overallProgressBar.className = 'progress-fill';
-        if (percentage >= 70) {
-            overallProgressBar.classList.add('progress-good');
-        } else if (percentage >= 40) {
-            overallProgressBar.classList.add('progress-medium');
-        } else {
-            overallProgressBar.classList.add('progress-low');
-        }
+    // ===== 2. EXERCISES COMPLETED =====
+    const exercisesCount = document.getElementById('exercisesCount');
+    if (exercisesCount) {
+        const exercisesCompleted = progress.exercises_completed || 0;
+        const totalExercises = 5; // Default, you can get from somewhere else
+        exercisesCount.innerHTML = `${exercisesCompleted}<span class="item-unit">/${totalExercises}</span>`;
+        
+        // Visual feedback
+        exercisesCount.style.transition = 'all 0.3s';
+        exercisesCount.style.transform = 'scale(1.1)';
+        exercisesCount.style.color = '#27ae60';
+        setTimeout(() => {
+            exercisesCount.style.transform = 'scale(1)';
+            exercisesCount.style.color = '';
+        }, 300);
     }
     
-    // Update total points
-    const totalPointsProgress = document.getElementById('totalPointsProgress');
-    if (totalPointsProgress) {
-        totalPointsProgress.textContent = progress.total_points || progress.total_points_earned || 0;
+    // ===== 3. QUIZ SCORE / POINTS =====
+    const quizScore = document.getElementById('quizScore');
+    if (quizScore) {
+        const totalPoints = progress.total_points_earned || 0;
+        quizScore.innerHTML = `${totalPoints}<span class="item-unit">points</span>`;
+        
+        // Visual feedback
+        quizScore.style.transition = 'all 0.3s';
+        quizScore.style.transform = 'scale(1.1)';
+        quizScore.style.color = '#f39c12';
+        setTimeout(() => {
+            quizScore.style.transform = 'scale(1)';
+            quizScore.style.color = '';
+        }, 300);
     }
     
-    // Update points change
-    const pointsChange = document.getElementById('pointsChange');
-    if (pointsChange) {
-        const weeklyPoints = progress.weekly?.points || 0;
-        pointsChange.textContent = `+${weeklyPoints} this week`;
+    // ===== 4. AVERAGE TIME =====
+    const avgTime = document.getElementById('avgTime');
+    if (avgTime) {
+        const avgPerActivity = progress.avg_time_per_activity || 5;
+        avgTime.innerHTML = `${avgPerActivity}<span class="item-unit">min/activity</span>`;
+        
+        // Visual feedback
+        avgTime.style.transition = 'all 0.3s';
+        avgTime.style.transform = 'scale(1.1)';
+        avgTime.style.color = '#3498db';
+        setTimeout(() => {
+            avgTime.style.transform = 'scale(1)';
+            avgTime.style.color = '';
+        }, 300);
     }
     
-    // Update TOTAL TIME INVESTED
+    // ===== 5. TOTAL TIME INVESTED =====
     const totalTime = document.getElementById('totalTime');
     if (totalTime) {
-        // Use the formatted total time
         if (progress.total_time_display) {
             totalTime.textContent = progress.total_time_display;
         } else {
-            // Fallback formatting
             const totalMinutes = progress.total_time_spent_minutes || 0;
             totalTime.textContent = formatTime(totalMinutes);
         }
-        console.log('✅ Total time updated:', totalTime.textContent);
+        
+        // Visual feedback
+        totalTime.style.transition = 'all 0.3s';
+        totalTime.style.transform = 'scale(1.1)';
+        totalTime.style.color = '#9b59b6';
+        setTimeout(() => {
+            totalTime.style.transform = 'scale(1)';
+            totalTime.style.color = '';
+        }, 300);
     }
     
-    // Update time change (weekly)
-    const timeChange = document.getElementById('timeChange');
-    if (timeChange) {
-        const weeklyMinutes = progress.weekly?.minutes || 0;
-        timeChange.textContent = `${formatTime(weeklyMinutes)} this week`;
-    }
+    console.log('✅ YOUR LEARNING PROGRESS section updated instantly');
 }
 
 // Fetch weekly progress
@@ -5890,13 +5894,12 @@ async function initProgressDashboard() {
         
         // Load achievements
         await fetchAchievementTimeline(10);
-        // Initialize charts - ADD THIS LINE
-        await createDailyPracticeChart();
+        
         // Load activity log
         await fetchActivityLog(15);
         
         // Initialize charts
-        await initProgressCharts();
+        await initPracticeBarGraph();
         
         // ✅ SIGURADUHING may value ang progressRefreshInterval bago gamitin
         if (typeof progressRefreshInterval !== 'undefined') {
@@ -5915,7 +5918,436 @@ async function initProgressDashboard() {
     }
 }
 
+// ============================================
+// 📊 DAILY PRACTICE TIME BAR GRAPH - REAL DATABASE DATA
+// ============================================
 
+// Add bar graph styles
+function addBarGraphStyles() {
+    const style = document.createElement('style');
+    style.textContent = `
+        /* Bar Graph Container */
+        .bar-graph-container {
+            background: white;
+            border-radius: 12px;
+            padding: 20px;
+            margin: 20px 0;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+        }
+        
+        .graph-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+        
+        .graph-title {
+            font-size: 18px;
+            font-weight: 600;
+            color: #2c3e50;
+            margin: 0;
+        }
+        
+        .graph-title i {
+            color: #7a0000;
+            margin-right: 8px;
+        }
+        
+        .graph-controls {
+            display: flex;
+            gap: 8px;
+        }
+        
+        .graph-period-btn {
+            padding: 6px 12px;
+            border: 1px solid #ddd;
+            background: white;
+            border-radius: 20px;
+            font-size: 12px;
+            cursor: pointer;
+            transition: all 0.2s;
+            color: #666;
+        }
+        
+        .graph-period-btn:hover {
+            background: #f0f0f0;
+            border-color: #999;
+        }
+        
+        .graph-period-btn.active {
+            background: #7a0000;
+            color: white;
+            border-color: #7a0000;
+        }
+        
+        /* Canvas wrapper */
+        .graph-canvas-wrapper {
+            position: relative;
+            height: 300px;
+            width: 100%;
+            margin-bottom: 20px;
+        }
+        
+        #practiceTimeCanvas {
+            width: 100%;
+            height: 100%;
+            display: block;
+        }
+        
+        /* Graph stats */
+        .graph-stats {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 15px;
+            margin-top: 20px;
+        }
+        
+        .graph-stat-card {
+            background: #f8f9fa;
+            border-radius: 8px;
+            padding: 12px;
+            text-align: center;
+        }
+        
+        .graph-stat-label {
+            font-size: 11px;
+            color: #666;
+            text-transform: uppercase;
+            margin-bottom: 4px;
+        }
+        
+        .graph-stat-value {
+            font-size: 20px;
+            font-weight: bold;
+            color: #2c3e50;
+        }
+        
+        .graph-stat-unit {
+            font-size: 12px;
+            color: #999;
+            margin-left: 4px;
+            font-weight: normal;
+        }
+        
+        /* Loading state */
+        .graph-loading {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 300px;
+            background: #f8f9fa;
+            border-radius: 8px;
+            color: #666;
+        }
+        
+        .graph-loading i {
+            font-size: 30px;
+            color: #7a0000;
+            margin-bottom: 10px;
+        }
+        
+        /* Tooltip */
+        .graph-tooltip {
+            position: absolute;
+            background: rgba(0, 0, 0, 0.85);
+            color: white;
+            padding: 8px 12px;
+            border-radius: 6px;
+            font-size: 12px;
+            pointer-events: none;
+            z-index: 1000;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+        }
+        
+        .graph-tooltip .tooltip-date {
+            font-weight: bold;
+            color: #ffd700;
+            margin-bottom: 4px;
+        }
+        
+        .graph-tooltip .tooltip-value {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .graph-tooltip .tooltip-color {
+            width: 10px;
+            height: 10px;
+            border-radius: 2px;
+            background: #7a0000;
+        }
+    `;
+    document.head.appendChild(style);
+}
+
+// ============================================
+// 🎨 CREATE BAR GRAPH
+// ============================================
+async function createPracticeBarGraph() {
+    console.log('📊 Creating Practice Time BAR Graph...');
+    
+    const container = document.getElementById('practiceTimeChart');
+    if (!container) {
+        console.error('❌ practiceTimeChart container not found');
+        return;
+    }
+    
+    container.innerHTML = `
+        <div class="bar-graph-container">
+            <div class="graph-header">
+                <h3 class="graph-title">
+                    <i class="fas fa-chart-bar"></i> Daily Practice Time
+                </h3>
+                <div class="graph-controls">
+                    <button class="graph-period-btn active" data-days="7">7 Days</button>
+                    <button class="graph-period-btn" data-days="14">14 Days</button>
+                    <button class="graph-period-btn" data-days="30">30 Days</button>
+                </div>
+            </div>
+            <div class="graph-canvas-wrapper">
+                <canvas id="practiceTimeCanvas"></canvas>
+            </div>
+            <div class="graph-stats" id="graphStats">
+                <div class="graph-stat-card">
+                    <div class="graph-stat-label">Loading...</div>
+                    <div class="graph-stat-value">—</div>
+                </div>
+                <div class="graph-stat-card">
+                    <div class="graph-stat-label">Loading...</div>
+                    <div class="graph-stat-value">—</div>
+                </div>
+                <div class="graph-stat-card">
+                    <div class="graph-stat-label">Loading...</div>
+                    <div class="graph-stat-value">—</div>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    document.querySelectorAll('.graph-period-btn').forEach(btn => {
+        btn.addEventListener('click', function() {
+            document.querySelectorAll('.graph-period-btn').forEach(b => b.classList.remove('active'));
+            this.classList.add('active');
+            const days = parseInt(this.getAttribute('data-days'));
+            loadAndRenderBarGraph(days);
+        });
+    });
+    
+    await loadAndRenderBarGraph(7);
+}
+
+// ============================================
+// 📥 LOAD DATA FROM DATABASE
+// ============================================
+async function loadAndRenderBarGraph(days = 7) {
+    const canvas = document.getElementById('practiceTimeCanvas');
+    if (!canvas) return;
+    
+    const wrapper = canvas.parentElement;
+    
+    wrapper.innerHTML = `
+        <div class="graph-loading">
+            <i class="fas fa-spinner fa-spin"></i>
+            <span>Loading data from database...</span>
+        </div>
+    `;
+    
+    try {
+        const data = await fetchPracticeDataFromDB(days);
+        
+        wrapper.innerHTML = '<canvas id="practiceTimeCanvas"></canvas>';
+        const newCanvas = document.getElementById('practiceTimeCanvas');
+        newCanvas.width = wrapper.clientWidth;
+        newCanvas.height = 280;
+        
+        drawBarGraph(newCanvas.getContext('2d'), newCanvas, data);
+        updateBarGraphStats(data.stats);
+        
+    } catch (error) {
+        console.error('Error:', error);
+        const sampleData = generateSampleBarData(days);
+        updateBarGraphStats(sampleData.stats);
+    }
+}
+
+// ============================================
+// 🔥 FETCH FROM DATABASE
+// ============================================
+async function fetchPracticeDataFromDB(days) {
+    const token = localStorage.getItem('authToken') || authToken;
+    
+    if (!token) return generateSampleBarData(days);
+    
+    try {
+        const response = await fetch(`/api/progress/practice-time?days=${days}`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        
+        if (!response.ok) throw new Error('Failed');
+        
+        const result = await response.json();
+        return result.success ? result.data : generateSampleBarData(days);
+        
+    } catch (error) {
+        return generateSampleBarData(days);
+    }
+}
+
+// ============================================
+// 📊 SAMPLE DATA
+// ============================================
+function generateSampleBarData(days) {
+    const labels = [];
+    const values = [];
+    const today = new Date();
+    
+    for (let i = days - 1; i >= 0; i--) {
+        const date = new Date(today);
+        date.setDate(date.getDate() - i);
+        
+        const dayName = date.toLocaleDateString('en-US', { weekday: 'short' });
+        const month = date.toLocaleDateString('en-US', { month: 'short' });
+        const day = date.getDate();
+        labels.push(`${dayName} ${month} ${day}`);
+        values.push(Math.floor(Math.random() * 40) + 5);
+    }
+    
+    const total = values.reduce((a, b) => a + b, 0);
+    return {
+        labels: labels,
+        values: values,
+        stats: {
+            total: total,
+            average: Math.round(total / days),
+            max: Math.max(...values),
+            totalHours: (total / 60).toFixed(1)
+        }
+    };
+}
+
+// ============================================
+// ✏️ DRAW BAR GRAPH
+// ============================================
+function drawBarGraph(ctx, canvas, data) {
+    const width = canvas.width;
+    const height = canvas.height;
+    const padding = { left: 50, right: 20, top: 20, bottom: 40 };
+    const graphWidth = width - padding.left - padding.right;
+    const graphHeight = height - padding.top - padding.bottom;
+    
+    const values = data.values;
+    const maxValue = Math.max(...values, 1);
+    const barWidth = (graphWidth / values.length) * 0.7;
+    const barSpacing = (graphWidth / values.length) * 0.3;
+    
+    ctx.clearRect(0, 0, width, height);
+    
+    // Background
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0, 0, width, height);
+    
+    // Grid lines
+    ctx.strokeStyle = '#e0e0e0';
+    ctx.lineWidth = 0.5;
+    
+    for (let i = 0; i <= 5; i++) {
+        const y = padding.top + (graphHeight * i / 5);
+        ctx.beginPath();
+        ctx.moveTo(padding.left, y);
+        ctx.lineTo(width - padding.right, y);
+        ctx.stroke();
+        
+        ctx.fillStyle = '#666';
+        ctx.font = '10px Arial';
+        ctx.textAlign = 'right';
+        ctx.textBaseline = 'middle';
+        const value = Math.round(maxValue - (maxValue * i / 5));
+        ctx.fillText(value + ' min', padding.left - 8, y);
+    }
+    
+    // Axes
+    ctx.strokeStyle = '#333';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(padding.left, padding.top);
+    ctx.lineTo(padding.left, height - padding.bottom);
+    ctx.lineTo(width - padding.right, height - padding.bottom);
+    ctx.stroke();
+    
+    // Draw bars
+    values.forEach((value, index) => {
+        const x = padding.left + (index * (barWidth + barSpacing)) + barSpacing/2;
+        const barHeight = (value / maxValue) * graphHeight;
+        const y = height - padding.bottom - barHeight;
+        
+        const gradient = ctx.createLinearGradient(x, y, x, height - padding.bottom);
+        gradient.addColorStop(0, '#7a0000');
+        gradient.addColorStop(1, '#c0392b');
+        
+        ctx.fillStyle = gradient;
+        ctx.fillRect(x, y, barWidth, barHeight);
+        
+        ctx.strokeStyle = '#5a0000';
+        ctx.lineWidth = 1;
+        ctx.strokeRect(x, y, barWidth, barHeight);
+        
+        ctx.fillStyle = '#333';
+        ctx.font = 'bold 10px Arial';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'bottom';
+        ctx.fillText(value + 'm', x + barWidth/2, y - 5);
+    });
+    
+    // X-axis labels
+    ctx.fillStyle = '#666';
+    ctx.font = '9px Arial';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'top';
+    
+    values.forEach((_, index) => {
+        if (index % 2 === 0 || index === values.length - 1) {
+            const x = padding.left + (index * (barWidth + barSpacing)) + barSpacing/2 + barWidth/2;
+            const label = data.labels[index].split(' ').slice(0, 2).join(' ');
+            ctx.fillText(label, x, height - padding.bottom + 8);
+        }
+    });
+}
+
+// ============================================
+// 📊 UPDATE STATS
+// ============================================
+function updateBarGraphStats(stats) {
+    const container = document.getElementById('graphStats');
+    if (!container) return;
+    
+    container.innerHTML = `
+        <div class="graph-stat-card">
+            <div class="graph-stat-label">Total Time</div>
+            <div class="graph-stat-value">${stats.totalHours}<span class="graph-stat-unit">hrs</span></div>
+        </div>
+        <div class="graph-stat-card">
+            <div class="graph-stat-label">Daily Average</div>
+            <div class="graph-stat-value">${stats.average}<span class="graph-stat-unit">min</span></div>
+        </div>
+        <div class="graph-stat-card">
+            <div class="graph-stat-label">Best Day</div>
+            <div class="graph-stat-value">${stats.max}<span class="graph-stat-unit">min</span></div>
+        </div>
+    `;
+}
+
+// ============================================
+// 🚀 INITIALIZE
+// ============================================
+function initPracticeBarGraph() {
+    addBarGraphStyles();
+    createPracticeBarGraph();
+}
+
+window.initPracticeBarGraph = initPracticeBarGraph;
 // ============================================
 // CHECK AND AWARD BADGES AUTOMATICALLY
 // ============================================
@@ -6100,12 +6532,14 @@ async function loadProgressDashboardData() {
         // Load cumulative progress FIRST with await - this is the critical data
         console.log('📊 Step 1: Loading cumulative progress...');
         const cumulativeProgress = await fetchCumulativeProgress();
-        
+
+       
         console.log('✅ Cumulative progress loaded:', cumulativeProgress);
         
         // Force update ng overall progress display AGAD - without waiting for other data
         if (cumulativeProgress) {
-            updateOverallProgressDisplay(cumulativeProgress);
+            updateLearningProgressSection(cumulativeProgress.value);
+
         }
         
         // Update progress summary cards immediately with what we have
@@ -6160,7 +6594,8 @@ async function loadProgressDashboardData() {
             
             // Update again with all data
             updateProgressSummaryCards();
-            updateOverallProgressDisplay(cumulativeProgress);
+            updateLearningProgressSection(cumulativeProgress.value);
+
         });
         
         // Hide loading after main data is shown (not waiting for background)
@@ -6363,567 +6798,7 @@ async function fetchWeeklyImprovement() {
     }
 }
 
-// ============================================
-// 📊 DAILY PRACTICE TIME CHART - COMPLETE GRAPH
-// ============================================
 
-// Add chart styles
-function addChartStyles() {
-    const style = document.createElement('style');
-    style.textContent = `
-        /* Chart Container */
-        .chart-container {
-            position: relative;
-            height: 250px;
-            width: 100%;
-            margin: 20px 0 30px;
-            background: white;
-            border-radius: 12px;
-            padding: 15px;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.05);
-        }
-        
-        /* Chart Tooltip */
-        .chart-tooltip {
-            position: absolute;
-            background: rgba(0, 0, 0, 0.8);
-            color: white;
-            padding: 8px 12px;
-            border-radius: 6px;
-            font-size: 12px;
-            pointer-events: none;
-            z-index: 1000;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.2);
-            transition: all 0.1s ease;
-        }
-        
-        .chart-tooltip .tooltip-date {
-            font-weight: bold;
-            color: #ffd700;
-            margin-bottom: 4px;
-        }
-        
-        .chart-tooltip .tooltip-value {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-        }
-        
-        .chart-tooltip .tooltip-color {
-            width: 10px;
-            height: 10px;
-            border-radius: 50%;
-        }
-        
-        /* Chart Legend */
-        .chart-legend {
-            display: flex;
-            justify-content: center;
-            gap: 30px;
-            margin-top: 15px;
-            padding: 10px;
-            background: #f8f9fa;
-            border-radius: 8px;
-        }
-        
-        .legend-item {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            font-size: 13px;
-            color: #2c3e50;
-        }
-        
-        .legend-color {
-            width: 16px;
-            height: 16px;
-            border-radius: 4px;
-        }
-        
-        .legend-color.lessons {
-            background: #7a0000;
-        }
-        
-        .legend-color.exercises {
-            background: #27ae60;
-        }
-        
-        .legend-color.points {
-            background: #f39c12;
-        }
-        
-        /* Chart Controls */
-        .chart-controls {
-            display: flex;
-            justify-content: flex-end;
-            gap: 10px;
-            margin-bottom: 15px;
-        }
-        
-        .chart-period-btn {
-            padding: 6px 12px;
-            border: 1px solid #ddd;
-            background: white;
-            border-radius: 20px;
-            font-size: 12px;
-            cursor: pointer;
-            transition: all 0.3s;
-            color: #666;
-        }
-        
-        .chart-period-btn:hover {
-            background: #f0f0f0;
-            border-color: #999;
-        }
-        
-        .chart-period-btn.active {
-            background: #7a0000;
-            color: white;
-            border-color: #7a0000;
-        }
-        
-        /* Chart Stats */
-        .chart-stats {
-            display: flex;
-            gap: 20px;
-            margin-top: 15px;
-            padding: 10px;
-            background: #f8f9fa;
-            border-radius: 8px;
-        }
-        
-        .stat-item {
-            flex: 1;
-            text-align: center;
-            padding: 10px;
-            background: white;
-            border-radius: 6px;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
-        }
-        
-        .stat-label {
-            font-size: 11px;
-            color: #666;
-            text-transform: uppercase;
-            margin-bottom: 4px;
-        }
-        
-        .stat-value {
-            font-size: 18px;
-            font-weight: bold;
-            color: #2c3e50;
-        }
-        
-        .stat-value small {
-            font-size: 12px;
-            color: #999;
-            font-weight: normal;
-            margin-left: 4px;
-        }
-        
-        /* Loading State */
-        .chart-loading {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            height: 250px;
-            color: #999;
-        }
-        
-        .chart-loading i {
-            font-size: 30px;
-            margin-bottom: 10px;
-            color: #7a0000;
-        }
-    `;
-    document.head.appendChild(style);
-}
-// ============================================
-// 🎨 CREATE DAILY PRACTICE TIME CHART
-// ============================================
-async function createDailyPracticeChart() {
-    console.log('📊 Creating Daily Practice Time Chart...');
-    
-    const chartContainer = document.getElementById('practiceTimeChart');
-    if (!chartContainer) {
-        console.error('❌ Chart container not found');
-        return;
-    }
-    
-    // Clear container
-    chartContainer.innerHTML = '';
-    
-    // Create chart structure
-    chartContainer.innerHTML = `
-        <div class="chart-controls">
-            <button class="chart-period-btn active" data-period="7">7 Days</button>
-            <button class="chart-period-btn" data-period="14">14 Days</button>
-            <button class="chart-period-btn" data-period="30">30 Days</button>
-        </div>
-        <div class="chart-container" id="dailyChartCanvas"></div>
-        <div class="chart-legend">
-            <div class="legend-item">
-                <span class="legend-color lessons"></span>
-                <span>Practice Time (minutes)</span>
-            </div>
-        </div>
-        <div class="chart-stats" id="chartStats"></div>
-    `;
-    
-    // Add period button listeners
-    document.querySelectorAll('.chart-period-btn').forEach(btn => {
-        btn.addEventListener('click', function() {
-            document.querySelectorAll('.chart-period-btn').forEach(b => b.classList.remove('active'));
-            this.classList.add('active');
-            const days = parseInt(this.getAttribute('data-period'));
-            renderDailyPracticeChart(days);
-        });
-    });
-    
-    // Initial render (7 days)
-    await renderDailyPracticeChart(7);
-}
-// ============================================
-// 📈 RENDER DAILY PRACTICE CHART
-// ============================================
-async function renderDailyPracticeChart(days = 7) {
-    console.log(`📊 Rendering practice chart for last ${days} days...`);
-    
-    const canvasContainer = document.getElementById('dailyChartCanvas');
-    if (!canvasContainer) return;
-    
-    // Show loading
-    canvasContainer.innerHTML = `
-        <div class="chart-loading">
-            <i class="fas fa-spinner fa-spin"></i>
-            <span>Loading chart data...</span>
-        </div>
-    `;
-    
-    try {
-        // Fetch real data from database
-        const chartData = await fetchPracticeTimeData(days);
-        
-        // Clear loading
-        canvasContainer.innerHTML = '';
-        
-        // Create canvas element
-        const canvas = document.createElement('canvas');
-        canvas.id = 'practiceChart';
-        canvas.width = canvasContainer.clientWidth;
-        canvas.height = 220;
-        canvasContainer.appendChild(canvas);
-        
-        const ctx = canvas.getContext('2d');
-        
-        // Draw the chart
-        drawPracticeChart(ctx, canvas, chartData);
-        
-        // Update stats
-        updateChartStats(chartData);
-        
-    } catch (error) {
-        console.error('❌ Error rendering chart:', error);
-        canvasContainer.innerHTML = `
-            <div class="chart-loading">
-                <i class="fas fa-exclamation-triangle" style="color: #e74c3c;"></i>
-                <span>Failed to load chart data</span>
-                <button onclick="renderDailyPracticeChart(${days})" style="margin-top: 10px; padding: 5px 15px; background: #7a0000; color: white; border: none; border-radius: 5px; cursor: pointer;">
-                    <i class="fas fa-redo"></i> Retry
-                </button>
-            </div>
-        `;
-    }
-}
-
-// ============================================
-// 📥 FETCH PRACTICE TIME DATA FROM DATABASE
-// ============================================
-async function fetchPracticeTimeData(days = 7) {
-    try {
-        const token = localStorage.getItem('authToken') || authToken;
-        
-        if (!token) {
-            console.log('No token, using demo data');
-            return generateDemoData(days);
-        }
-        
-        const response = await fetch(`/api/progress/practice-time?days=${days}`, {
-            headers: {
-                'Authorization': `Bearer ${token}`,
-                'Accept': 'application/json'
-            }
-        });
-        
-        if (!response.ok) {
-            console.log('Using demo data (API not available)');
-            return generateDemoData(days);
-        }
-        
-        const data = await response.json();
-        
-        if (data.success && data.data) {
-            console.log('✅ Practice data loaded:', data.data);
-            return data.data;
-        } else {
-            return generateDemoData(days);
-        }
-        
-    } catch (error) {
-        console.error('Error fetching practice data:', error);
-        return generateDemoData(days);
-    }
-}
-
-// ============================================
-// ✏️ DRAW PRACTICE CHART
-// ============================================
-function drawPracticeChart(ctx, canvas, data) {
-    const width = canvas.width;
-    const height = canvas.height;
-    const padding = { left: 45, right: 20, top: 20, bottom: 30 };
-    const chartWidth = width - padding.left - padding.right;
-    const chartHeight = height - padding.top - padding.bottom;
-    
-    const points = data.datasets[0].data;
-    const maxValue = Math.max(...points, 1) * 1.1; // Add 10% padding
-    const stepY = chartHeight / 5;
-    const stepX = chartWidth / (points.length - 1);
-    
-    // Clear canvas
-    ctx.clearRect(0, 0, width, height);
-    
-    // Draw background
-    ctx.fillStyle = '#ffffff';
-    ctx.fillRect(0, 0, width, height);
-    
-    // Draw grid lines
-    ctx.strokeStyle = '#e0e0e0';
-    ctx.lineWidth = 0.5;
-    
-    // Horizontal grid lines
-    for (let i = 0; i <= 5; i++) {
-        const y = padding.top + (stepY * i);
-        ctx.beginPath();
-        ctx.moveTo(padding.left, y);
-        ctx.lineTo(width - padding.right, y);
-        ctx.stroke();
-        
-        // Y-axis labels
-        ctx.fillStyle = '#666';
-        ctx.font = '10px Arial';
-        ctx.textAlign = 'right';
-        ctx.textBaseline = 'middle';
-        const value = Math.round(maxValue - (maxValue * i / 5));
-        ctx.fillText(value + ' min', padding.left - 8, y);
-    }
-    
-    // Draw axes
-    ctx.strokeStyle = '#333';
-    ctx.lineWidth = 2;
-    ctx.beginPath();
-    ctx.moveTo(padding.left, padding.top);
-    ctx.lineTo(padding.left, height - padding.bottom);
-    ctx.lineTo(width - padding.right, height - padding.bottom);
-    ctx.stroke();
-    
-    // Draw area under line (gradient)
-    const gradient = ctx.createLinearGradient(0, padding.top, 0, height - padding.bottom);
-    gradient.addColorStop(0, 'rgba(122, 0, 0, 0.3)');
-    gradient.addColorStop(1, 'rgba(122, 0, 0, 0.05)');
-    
-    ctx.beginPath();
-    ctx.moveTo(padding.left, height - padding.bottom);
-    
-    points.forEach((value, index) => {
-        const x = padding.left + (stepX * index);
-        const y = padding.top + ((maxValue - value) / maxValue) * chartHeight;
-        
-        if (index === 0) {
-            ctx.moveTo(x, y);
-        } else {
-            ctx.lineTo(x, y);
-        }
-    });
-    
-    ctx.lineTo(padding.left + (stepX * (points.length - 1)), height - padding.bottom);
-    ctx.closePath();
-    ctx.fillStyle = gradient;
-    ctx.fill();
-    
-    // Draw line
-    ctx.strokeStyle = '#7a0000';
-    ctx.lineWidth = 3;
-    ctx.beginPath();
-    
-    points.forEach((value, index) => {
-        const x = padding.left + (stepX * index);
-        const y = padding.top + ((maxValue - value) / maxValue) * chartHeight;
-        
-        if (index === 0) {
-            ctx.moveTo(x, y);
-        } else {
-            ctx.lineTo(x, y);
-        }
-    });
-    
-    ctx.stroke();
-    
-    // Draw points
-    points.forEach((value, index) => {
-        const x = padding.left + (stepX * index);
-        const y = padding.top + ((maxValue - value) / maxValue) * chartHeight;
-        
-        // Outer glow
-        ctx.beginPath();
-        ctx.arc(x, y, 6, 0, 2 * Math.PI);
-        ctx.fillStyle = 'rgba(122, 0, 0, 0.2)';
-        ctx.fill();
-        
-        // Main point
-        ctx.beginPath();
-        ctx.arc(x, y, 4, 0, 2 * Math.PI);
-        ctx.fillStyle = '#7a0000';
-        ctx.fill();
-        ctx.strokeStyle = '#ffffff';
-        ctx.lineWidth = 2;
-        ctx.stroke();
-        
-        // Add tooltip on hover
-        canvas.addEventListener('mousemove', function(e) {
-            const rect = canvas.getBoundingClientRect();
-            const mouseX = e.clientX - rect.left;
-            const mouseY = e.clientY - rect.top;
-            
-            const distance = Math.sqrt(Math.pow(mouseX - x, 2) + Math.pow(mouseY - y, 2));
-            
-            if (distance < 8) {
-                showChartTooltip(e.clientX, e.clientY, value, data.labels[index]);
-            }
-        });
-    });
-    
-    // Draw X-axis labels
-    ctx.fillStyle = '#666';
-    ctx.font = '9px Arial';
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'top';
-    
-    points.forEach((_, index) => {
-        if (index % 2 === 0 || index === points.length - 1) {
-            const x = padding.left + (stepX * index);
-            const label = data.labels[index].split(' ').slice(0, 2).join(' ');
-            ctx.fillText(label, x, height - padding.bottom + 8);
-        }
-    });
-    
-    // Draw zero line
-    ctx.strokeStyle = '#ccc';
-    ctx.lineWidth = 1;
-    ctx.setLineDash([5, 5]);
-    ctx.beginPath();
-    ctx.moveTo(padding.left, height - padding.bottom);
-    ctx.lineTo(width - padding.right, height - padding.bottom);
-    ctx.stroke();
-    ctx.setLineDash([]);
-}
-
-// ============================================
-// 🎯 SHOW CHART TOOLTIP
-// ============================================
-function showChartTooltip(x, y, value, label) {
-    // Remove existing tooltip
-    const existingTooltip = document.querySelector('.chart-tooltip');
-    if (existingTooltip) {
-        existingTooltip.remove();
-    }
-    
-    // Create tooltip
-    const tooltip = document.createElement('div');
-    tooltip.className = 'chart-tooltip';
-    tooltip.innerHTML = `
-        <div class="tooltip-date">${label}</div>
-        <div class="tooltip-value">
-            <span class="tooltip-color" style="background: #7a0000;"></span>
-            <span>${value} minutes</span>
-        </div>
-    `;
-    
-    tooltip.style.left = (x + 15) + 'px';
-    tooltip.style.top = (y - 50) + 'px';
-    
-    document.body.appendChild(tooltip);
-    
-    // Auto remove after 2 seconds
-    setTimeout(() => {
-        if (tooltip.parentNode) {
-            tooltip.remove();
-        }
-    }, 2000);
-}
-// ============================================
-// 📊 UPDATE CHART STATISTICS
-// ============================================
-function updateChartStats(data) {
-    const statsContainer = document.getElementById('chartStats');
-    if (!statsContainer || !data.stats) return;
-    
-    const stats = data.stats;
-    const avgPerDay = Math.round(stats.average);
-    const totalHours = (stats.total / 60).toFixed(1);
-    
-    statsContainer.innerHTML = `
-        <div class="stat-item">
-            <div class="stat-label">Total Practice Time</div>
-            <div class="stat-value">${totalHours}<small>hours</small></div>
-        </div>
-        <div class="stat-item">
-            <div class="stat-label">Daily Average</div>
-            <div class="stat-value">${avgPerDay}<small>min</small></div>
-        </div>
-        <div class="stat-item">
-            <div class="stat-label">Best Day</div>
-            <div class="stat-value">${stats.max}<small>min</small></div>
-        </div>
-    `;
-}
-
-// ============================================
-// 🚀 INITIALIZE CHART ON PAGE LOAD
-// ============================================
-document.addEventListener('DOMContentLoaded', function() {
-    addChartStyles();
-    
-    // Initialize chart when progress page becomes visible
-    const progressPage = document.getElementById('progress-page');
-    
-    if (progressPage) {
-        const observer = new MutationObserver(function(mutations) {
-            mutations.forEach(function(mutation) {
-                if (mutation.type === 'attributes' && mutation.attributeName === 'class') {
-                    if (!progressPage.classList.contains('hidden')) {
-                        console.log('📊 Progress page visible, creating chart...');
-                        setTimeout(() => {
-                            createDailyPracticeChart();
-                        }, 500);
-                    }
-                }
-            });
-        });
-        
-        observer.observe(progressPage, { attributes: true });
-    }
-    
-    // Also create chart when page is already visible
-    if (progressPage && !progressPage.classList.contains('hidden')) {
-        setTimeout(createDailyPracticeChart, 500);
-    }
-});
-
-// Make functions globally available
-window.createDailyPracticeChart = createDailyPracticeChart;
-window.renderDailyPracticeChart = renderDailyPracticeChart;
 // ============================================
 // FIXED: Create modal if missing
 // ============================================
@@ -21278,7 +21153,7 @@ async function loadInitialData() {
         // Process results
         if (cumulativeProgress.status === 'fulfilled' && cumulativeProgress.value) {
             console.log('✅ Cumulative progress loaded');
-            updateOverallProgressDisplay(cumulativeProgress.value);
+             updateLearningProgressSection(cumulativeProgress.value);
         }
         
         if (dailyProgress.status === 'fulfilled' && dailyProgress.value) {
@@ -22187,7 +22062,7 @@ function navigateTo(page) {
                     loadInitialData();
                 } else {
                     // Just update displays
-                    updateOverallProgressDisplay(ProgressState.cumulativeProgress);
+                    updateLearningProgressSection(ProgressState.cumulativeProgress);
                     updateProgressSummaryCards();
                     updateContinueLearningModule();
                 }
@@ -25245,155 +25120,6 @@ function showChartLoadingStates() {
     });
 }
 
-/**
- * Render Daily Activity Chart (Line Chart)
- */
-function renderDailyActivityChart(dailyData) {
-    const chartContainer = document.getElementById('practiceTimeChart');
-    if (!chartContainer || !dailyData) return;
-    
-    // Clear loading state
-    chartContainer.innerHTML = '';
-    
-    // Create canvas element
-    const canvas = document.createElement('canvas');
-    canvas.id = 'dailyActivityCanvas';
-    canvas.width = chartContainer.offsetWidth;
-    canvas.height = 300;
-    chartContainer.appendChild(canvas);
-    
-    const ctx = canvas.getContext('2d');
-    
-    // Draw chart manually (simplified version)
-    const width = canvas.width;
-    const height = canvas.height;
-    const padding = 40;
-    const chartWidth = width - (padding * 2);
-    const chartHeight = height - (padding * 2);
-    
-    // Clear canvas
-    ctx.clearRect(0, 0, width, height);
-    
-    // Draw background grid
-    ctx.strokeStyle = '#e0e0e0';
-    ctx.lineWidth = 0.5;
-    ctx.beginPath();
-    
-    // Horizontal grid lines (5 lines)
-    for (let i = 0; i <= 5; i++) {
-        const y = padding + (chartHeight * i / 5);
-        ctx.moveTo(padding, y);
-        ctx.lineTo(width - padding, y);
-    }
-    
-    // Vertical grid lines
-    const step = chartWidth / (dailyData.labels.length - 1);
-    for (let i = 0; i < dailyData.labels.length; i++) {
-        const x = padding + (step * i);
-        ctx.moveTo(x, padding);
-        ctx.lineTo(x, height - padding);
-    }
-    
-    ctx.strokeStyle = '#e0e0e0';
-    ctx.stroke();
-    
-    // Draw axes
-    ctx.strokeStyle = '#333';
-    ctx.lineWidth = 2;
-    ctx.beginPath();
-    ctx.moveTo(padding, padding);
-    ctx.lineTo(padding, height - padding);
-    ctx.lineTo(width - padding, height - padding);
-    ctx.stroke();
-    
-    // Find max value for scaling
-    const maxValue = Math.max(
-        ...dailyData.datasets[0].data,
-        ...dailyData.datasets[1].data,
-        ...dailyData.datasets[2].data,
-        5 // Minimum scale
-    );
-    
-    // Draw datasets
-    const colors = [
-        { border: '#7a0000', bg: 'rgba(122, 0, 0, 0.1)' },
-        { border: '#27ae60', bg: 'rgba(39, 174, 96, 0.1)' },
-        { border: '#f39c12', bg: 'rgba(243, 156, 18, 0.1)' }
-    ];
-    
-    dailyData.datasets.forEach((dataset, datasetIndex) => {
-        if (datasetIndex >= 3) return; // Only first 3 datasets
-        
-        ctx.strokeStyle = colors[datasetIndex].border;
-        ctx.lineWidth = 3;
-        ctx.beginPath();
-        
-        dataset.data.forEach((value, index) => {
-            const x = padding + (step * index);
-            const y = height - padding - ((value / maxValue) * chartHeight);
-            
-            if (index === 0) {
-                ctx.moveTo(x, y);
-            } else {
-                ctx.lineTo(x, y);
-            }
-        });
-        
-        ctx.stroke();
-        
-        // Draw points
-        dataset.data.forEach((value, index) => {
-            const x = padding + (step * index);
-            const y = height - padding - ((value / maxValue) * chartHeight);
-            
-            ctx.fillStyle = colors[datasetIndex].border;
-            ctx.beginPath();
-            ctx.arc(x, y, 4, 0, 2 * Math.PI);
-            ctx.fill();
-            
-            // White border
-            ctx.strokeStyle = '#fff';
-            ctx.lineWidth = 2;
-            ctx.stroke();
-        });
-    });
-    
-    // Draw labels
-    ctx.fillStyle = '#333';
-    ctx.font = '10px Arial';
-    ctx.textAlign = 'center';
-    
-    // X-axis labels
-    dailyData.labels.forEach((label, index) => {
-        if (index % 2 === 0 || index === dailyData.labels.length - 1) {
-            const x = padding + (step * index);
-            ctx.fillText(label, x, height - padding + 15);
-        }
-    });
-    
-    // Y-axis labels
-    for (let i = 0; i <= 5; i++) {
-        const value = Math.round(maxValue * (5 - i) / 5);
-        const y = padding + (chartHeight * i / 5);
-        ctx.fillText(value.toString(), padding - 25, y + 3);
-    }
-    
-    // Draw legend
-    const legendY = 20;
-    const legendX = width - 200;
-    
-    dailyData.datasets.slice(0, 3).forEach((dataset, index) => {
-        const x = legendX + (index * 70);
-        
-        ctx.fillStyle = colors[index].border;
-        ctx.fillRect(x, legendY, 12, 12);
-        
-        ctx.fillStyle = '#333';
-        ctx.font = '11px Arial';
-        ctx.textAlign = 'left';
-        ctx.fillText(dataset.label, x + 18, legendY + 10);
-    });
-}
 
 /**
  * Render Topic Mastery Chart (Bar Chart)
