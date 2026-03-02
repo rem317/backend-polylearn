@@ -10208,92 +10208,29 @@ async function loadQuizStatsFromServer() {
 
 
 // ============================================
-// LOAD QUIZ CATEGORIES - UPDATED
+// FIXED: Load quizzes - WITH FILTER
 // ============================================
 async function loadQuizCategories() {
     try {
-        const categories = await fetchQuizCategories();
-        QuizState.quizCategories = categories;
+        const selectedApp = localStorage.getItem('selectedApp') || 'polylearn';
+        const lessonFilter = localStorage.getItem('currentLessonFilter');
         
-        const quizzesContainer = document.getElementById('userQuizzesContainer');
-        if (!quizzesContainer) {
-            console.error('Quiz container not found');
-            return;
+        let endpoint = '/api/quiz/categories';
+        if (lessonFilter) {
+            endpoint += `?lesson_id=${lessonFilter}`;
         }
         
-        if (categories.length === 0) {
-            quizzesContainer.innerHTML = `
-                <div class="no-categories">
-                    <i class="fas fa-clipboard-list"></i>
-                    <h3>No quiz categories available</h3>
-                    <p>Check back later for new quizzes!</p>
-                </div>
-            `;
-            return;
+        const response = await fetch(endpoint);
+        const data = await response.json();
+        
+        if (data.success && data.categories) {
+            // Categories are already filtered by the server
+            displayQuizCategories(data.categories);
         }
-        
-        // Display categories as cards
-        let html = '';
-        categories.forEach(category => {
-            html += `
-                <div class="quiz-category-card" data-category-id="${category.category_id}">
-                    <div class="quiz-category-icon" style="background: ${category.color || '#7a0000'}">
-                        <i class="${category.icon || 'fas fa-question-circle'}"></i>
-                    </div>
-                    <div class="quiz-category-info">
-                        <h3 class="quiz-category-title">${category.category_name}</h3>
-                        <p class="quiz-category-desc">${category.description || 'Test your knowledge in this category'}</p>
-                        <div class="quiz-category-stats">
-                            <span class="quiz-category-stat">
-                                <i class="fas fa-question-circle"></i> ${category.quiz_count || 0} Quizzes
-                            </span>
-                        </div>
-                    </div>
-                    <button class="quiz-category-btn" data-category-id="${category.category_id}">
-                        <i class="fas fa-arrow-right"></i>
-                    </button>
-                </div>
-            `;
-        });
-        
-        quizzesContainer.innerHTML = html;
-        
-        // Add event listeners to category buttons
-        document.querySelectorAll('.quiz-category-btn').forEach(button => {
-            button.addEventListener('click', async function(e) {
-                e.stopPropagation();
-                const categoryId = this.getAttribute('data-category-id');
-                await loadQuizzesForCategory(categoryId);
-            });
-        });
-        
-        // Add event listeners to category cards
-        document.querySelectorAll('.quiz-category-card').forEach(card => {
-            card.addEventListener('click', function() {
-                const categoryId = this.getAttribute('data-category-id');
-                document.querySelectorAll('.quiz-category-card').forEach(c => {
-                    c.classList.remove('selected');
-                });
-                this.classList.add('selected');
-                QuizState.selectedCategory = categoryId;
-            });
-        });
-        
     } catch (error) {
         console.error('Error loading quiz categories:', error);
-        const quizzesContainer = document.getElementById('userQuizzesContainer');
-        if (quizzesContainer) {
-            quizzesContainer.innerHTML = `
-                <div class="error-message">
-                    <i class="fas fa-exclamation-triangle"></i>
-                    <h3>Failed to load quiz categories</h3>
-                    <p>Please try again later</p>
-                </div>
-            `;
-        }
     }
 }
-
 
 // ============================================
 // LOAD QUIZZES FOR CATEGORY - UPDATED
@@ -14825,7 +14762,9 @@ function addFeedbackStyles() {
 // LESSON MANAGEMENT FUNCTIONS - DATABASE DRIVEN
 // ============================================
 
-// Fetch all lessons from database
+// ============================================
+// FIXED: Fetch lessons based on selected app
+// ============================================
 async function fetchAllLessons() {
     try {
         const token = localStorage.getItem('authToken') || authToken;
@@ -14834,9 +14773,20 @@ async function fetchAllLessons() {
             return [];
         }
         
-        console.log('📚 Fetching all lessons from database...');
+        // Get the selected app from localStorage
+        const selectedApp = localStorage.getItem('selectedApp') || 'polylearn';
+        const lessonFilter = localStorage.getItem('currentLessonFilter');
         
-        const response = await fetch(`/api/lessons-db/complete`, {
+        console.log(`📚 Fetching lessons for app: ${selectedApp}, filter: ${lessonFilter}`);
+        
+        let endpoint = '/api/lessons-db/complete';
+        
+        // Add filter parameter if we have a lesson filter
+        if (lessonFilter) {
+            endpoint += `?lesson_id=${lessonFilter}`;
+        }
+        
+        const response = await fetch(endpoint, {
             headers: {
                 'Authorization': `Bearer ${token}`,
                 'Content-Type': 'application/json'
@@ -14850,8 +14800,11 @@ async function fetchAllLessons() {
         const data = await response.json();
         
         if (data.success && data.lessons) {
-            console.log(`✅ Fetched ${data.lessons.length} lessons from database`);
-            return data.lessons;
+            // Filter lessons based on the selected app
+            const filteredLessons = filterLessonsByApp(data.lessons, selectedApp, lessonFilter);
+            
+            console.log(`✅ Fetched ${filteredLessons.length} lessons for ${selectedApp}`);
+            return filteredLessons;
         } else {
             throw new Error(data.message || 'No lessons returned');
         }
@@ -14859,6 +14812,38 @@ async function fetchAllLessons() {
         console.error('Error fetching lessons:', error);
         return [];
     }
+}
+
+// ============================================
+// Helper: Filter lessons by selected app
+// ============================================
+function filterLessonsByApp(lessons, selectedApp, lessonFilter) {
+    if (!lessons || lessons.length === 0) return [];
+    
+    // Map app names to lesson IDs or lesson names
+    const appLessonMap = {
+        'mathease': { id: '1', name: 'mathease' },
+        'polylearn': { id: '2', name: 'polylearn' },
+        'factolearn': { id: '3', name: 'factolearn' }
+    };
+    
+    const appConfig = appLessonMap[selectedApp] || appLessonMap['polylearn'];
+    
+    // Filter by lesson_id if we have it in the data
+    return lessons.filter(lesson => {
+        // Check by lesson_id
+        if (lessonFilter && lesson.lesson_id) {
+            return lesson.lesson_id.toString() === lessonFilter;
+        }
+        
+        // Check by lesson_name
+        if (appConfig.name && lesson.lesson_name) {
+            return lesson.lesson_name.toLowerCase() === appConfig.name.toLowerCase();
+        }
+        
+        // Default - include all (fallback)
+        return true;
+    });
 }
 
 // Fetch user progress for lessons
@@ -17115,79 +17100,109 @@ async function loadVideoAndContent(lesson) {
 }
 
 // ============================================
-// ✅ FIXED: Initialize module dashboard with specific lesson
+// FIXED: Initialize module dashboard with filtered lesson
 // ============================================
 async function initializeModuleDashboard() {
+    console.log('📚 Initializing module dashboard with filtered lesson...');
+    
     const currentLesson = LessonState.currentLesson;
+    const selectedApp = localStorage.getItem('selectedApp') || 'polylearn';
+    const lessonFilter = localStorage.getItem('currentLessonFilter');
+    
+    console.log(`📱 Selected app: ${selectedApp}, filter: ${lessonFilter}`);
     
     if (!currentLesson) {
-        console.error('No current lesson found');
-        showNotification('No lesson data available', 'error');
-        navigateTo('dashboard');
+        console.log('⚠️ No current lesson found, fetching first lesson from filtered list...');
+        
+        // Show loading state
+        const container = document.querySelector('#module-dashboard-page .container');
+        if (container) {
+            container.innerHTML = `
+                <div style="text-align: center; padding: 50px;">
+                    <i class="fas fa-spinner fa-spin" style="font-size: 40px; color: #7a0000; margin-bottom: 20px;"></i>
+                    <h3>Loading your lesson...</h3>
+                    <p>Please wait while we prepare your ${selectedApp} lesson.</p>
+                </div>
+            `;
+        }
+        
+        // Try to get the first lesson from filtered list
+        const lessons = await fetchAllLessons();
+        
+        if (lessons.length > 0) {
+            console.log(`✅ Found ${lessons.length} lessons for ${selectedApp}`);
+            LessonState.currentLesson = lessons[0];
+            
+            // Update lesson info in state
+            LessonState.currentTopic = lessons[0].topic_id;
+            
+            // Save to localStorage for persistence
+            localStorage.setItem('currentLessonId', lessons[0].content_id);
+            localStorage.setItem('currentTopicId', lessons[0].topic_id);
+            
+            await openLesson(lessons[0].content_id);
+        } else {
+            console.error(`❌ No lessons available for ${selectedApp}`);
+            
+            // Show empty state
+            if (container) {
+                container.innerHTML = `
+                    <div style="text-align: center; padding: 50px; background: white; border-radius: 10px; margin-top: 20px;">
+                        <i class="fas fa-book-open" style="font-size: 60px; color: #ccc; margin-bottom: 20px;"></i>
+                        <h3 style="color: #2c3e50; margin-bottom: 10px;">No Lessons Available</h3>
+                        <p style="color: #7f8c8d; margin-bottom: 20px;">There are no lessons for ${selectedApp} yet.</p>
+                        <button class="btn-primary" onclick="navigateTo('dashboard')">
+                            <i class="fas fa-arrow-left"></i> Back to Dashboard
+                        </button>
+                    </div>
+                `;
+            }
+            
+            showNotification(`No lessons available for ${selectedApp}`, 'error');
+            navigateTo('dashboard');
+        }
         return;
     }
     
     console.log('📖 Initializing module dashboard for lesson:', currentLesson.content_title);
     console.log('📌 Lesson ID:', currentLesson.content_id);
+    console.log('📌 Topic ID:', currentLesson.topic_id);
     
-    // Update UI with lesson data
-    const moduleTitle = document.getElementById('moduleTitle');
-    const moduleLessonTitle = document.getElementById('moduleLessonTitle');
-    const moduleSubtitle = document.getElementById('moduleSubtitle');
-    
-    if (moduleTitle) {
-        moduleTitle.textContent = currentLesson.content_title || 'PolyLearn Lesson';
+    try {
+        // Update UI with lesson data
+        updateLessonUI(currentLesson);
+        
+        // Setup navigation buttons
+        setupModuleNavigationButtons();
+        
+        // Setup complete lesson button
+        setupCompleteLessonButton();
+        
+        // Load video content
+        await loadVideoFromDatabase(currentLesson.content_id);
+        
+        // Load lesson content (text, PDF, etc.)
+        await displayLessonContent();
+        
+        // Check if practice is unlocked for this topic
+        await checkPracticeUnlockedForLesson(currentLesson.topic_id);
+        
+        // Update progress display
+        await updateLessonProgressDisplay(currentLesson.content_id);
+        
+        // Log activity
+        await logUserActivity('lesson_started', currentLesson.content_id, {
+            lesson_title: currentLesson.content_title,
+            app: selectedApp
+        });
+        
+        console.log('✅ Module dashboard initialized successfully');
+        
+    } catch (error) {
+        console.error('❌ Error initializing module dashboard:', error);
+        showNotification('Failed to load lesson content', 'error');
     }
-    
-    if (moduleLessonTitle) {
-        const title = currentLesson.content_title || 'Lesson';
-        moduleLessonTitle.innerHTML = `<i class="fas fa-book"></i> ${title}`;
-    }
-    
-    if (moduleSubtitle) {
-        const subtitle = `${currentLesson.lesson_name || ''} - ${currentLesson.module_name || ''}`;
-        moduleSubtitle.textContent = subtitle;
-    }
-    
-    // Update progress
-    const lessonProgress = currentLesson.progress || {};
-    const percentage = lessonProgress.percentage || 0;
-    const status = lessonProgress.status || 'not_started';
-    
-    const lessonProgressFill = document.getElementById('lessonProgressFill');
-    if (lessonProgressFill) {
-        lessonProgressFill.style.width = `${percentage}%`;
-    }
-    
-    const progressPercentage = document.getElementById('progressPercentage');
-    if (progressPercentage) {
-        progressPercentage.textContent = `${percentage}% Complete`;
-    }
-    
-    // Update complete button based on status
-    const completeLessonBtn = document.getElementById('completeLessonBtn');
-    if (completeLessonBtn) {
-        if (status === 'completed') {
-            completeLessonBtn.disabled = true;
-            completeLessonBtn.innerHTML = '<i class="fas fa-check"></i> Lesson Completed';
-            completeLessonBtn.style.background = '#2ecc71';
-        } else {
-            completeLessonBtn.disabled = false;
-            completeLessonBtn.innerHTML = '<i class="fas fa-check-circle"></i> Mark Lesson Complete';
-            completeLessonBtn.style.background = '';
-        }
-    }
-    
-    // Load the specific video for this lesson
-    await loadVideoFromDatabase(currentLesson.content_id);
-    
-    // Display lesson content
-    addLessonContentStyles();
-    await displayLessonContent();
-    
-    console.log(`✅ Module dashboard initialized for lesson ${currentLesson.content_id}`);
 }
-
 // ============================================
 // FIXED: Initialize Video - ALWAYS uses database
 // ============================================
@@ -17662,109 +17677,46 @@ async function selectTopicForPractice(topicId) {
     }
 }
 
+
 // ============================================
-// FIXED: Load practice exercises for specific topic - With better error handling
+// FIXED: Load practice exercises - WITH FILTER
 // ============================================
 async function loadPracticeExercisesForTopic(topicId) {
     try {
         console.log(`📝 Getting practice exercises for topic ${topicId}`);
         
+        const selectedApp = localStorage.getItem('selectedApp') || 'polylearn';
+        const lessonFilter = localStorage.getItem('currentLessonFilter');
+        
+        // Get the exercise area
         const exerciseArea = document.getElementById('exerciseArea');
-        if (!exerciseArea) {
-            console.error('Exercise area not found');
-            return;
+        if (!exerciseArea) return;
+        
+        exerciseArea.innerHTML = `<div class="loading">Loading...</div>`;
+        
+        // Add lesson filter to API call
+        let endpoint = `/api/practice/topic/${topicId}`;
+        if (lessonFilter) {
+            endpoint += `?lesson_id=${lessonFilter}`;
         }
         
-        exerciseArea.innerHTML = `
-            <div class="loading-container">
-                <i class="fas fa-spinner fa-spin"></i>
-                <p>Loading practice exercises from database...</p>
-            </div>
-        `;
+        const response = await fetch(endpoint, {
+            headers: {
+                'Authorization': `Bearer ${localStorage.getItem('authToken')}`
+            }
+        });
         
-        const token = localStorage.getItem('authToken') || authToken;
-        if (!token) {
-            exerciseArea.innerHTML = `
-                <div class="error-message">
-                    <i class="fas fa-exclamation-triangle"></i>
-                    <h3>Please login to access practice exercises</h3>
-                </div>
-            `;
-            return;
-        }
+        const data = await response.json();
         
-        // ✅ FIXED: Use correct endpoint with /api/ prefix
-        try {
-            const response = await fetch(`/api/practice/topic/${topicId}`, {
-                headers: {
-                    'Authorization': `Bearer ${token}`,
-                    'Accept': 'application/json'
-                }
-            });
-            
-            const contentType = response.headers.get('content-type');
-            
-            if (response.ok && contentType && contentType.includes('application/json')) {
-                const data = await response.json();
-                if (data.success) {
-                    if (!data.unlocked) {
-                        exerciseArea.innerHTML = createPracticeLockScreen(data);
-                        return;
-                    }
-                    
-                    if (data.exercises && data.exercises.length > 0) {
-                        PracticeState.exercises = data.exercises;
-                        exerciseArea.innerHTML = createPracticeExercisesUI(data);
-                        setupPracticeExerciseInteractions();
-                        return;
-                    }
-                }
-            }
-            
-            console.warn('⚠️ No valid practice data received, using demo data');
-            // Use demo data as fallback
-            const demoExercises = getDemoPracticeExercises(topicId);
-            if (demoExercises && demoExercises.length > 0) {
-                PracticeState.exercises = demoExercises;
-                exerciseArea.innerHTML = createPracticeExercisesUI({
-                    exercises: demoExercises,
-                    progress: { completed: 0, total: demoExercises.length, percentage: 0 },
-                    unlocked: true
-                });
-                setupPracticeExerciseInteractions();
-            }
-            
-        } catch (error) {
-            console.error('❌ Error loading practice exercises:', error);
-            
-            // Use demo data as fallback
-            const demoExercises = getDemoPracticeExercises(topicId);
-            if (demoExercises && demoExercises.length > 0) {
-                PracticeState.exercises = demoExercises;
-                exerciseArea.innerHTML = createPracticeExercisesUI({
-                    exercises: demoExercises,
-                    progress: { completed: 0, total: demoExercises.length, percentage: 0 },
-                    unlocked: true
-                });
-                setupPracticeExerciseInteractions();
-                
-                showNotification('Using demo exercises while connecting to database...', 'info');
-            } else {
-                exerciseArea.innerHTML = `
-                    <div class="error-message">
-                        <i class="fas fa-exclamation-triangle"></i>
-                        <h3>Failed to load practice exercises</h3>
-                        <p>Error: ${error.message}</p>
-                        <button class="btn-primary" onclick="loadPracticeExercisesForTopic('${PracticeState.currentTopic}')">
-                            <i class="fas fa-redo"></i> Try Again
-                        </button>
-                    </div>
-                `;
-            }
+        if (data.success && data.exercises) {
+            // Exercises are already filtered by the server based on lesson_id
+            displayPracticeExercises(data.exercises);
+        } else {
+            exerciseArea.innerHTML = `<div class="error">No exercises found</div>`;
         }
         
     } catch (error) {
-        console.error('❌ Fatal error:', error);
+        console.error('Error loading exercises:', error);
     }
 }
 
@@ -21468,30 +21420,37 @@ function setupAppSelectionListeners() {
     });
 }
 
-// Handle app selection
+// ============================================
+// FIXED: Handle app selection with database filtering
+// ============================================
 function handleAppSelection(appName) {
     console.log(`📱 Handling app selection: ${appName}`);
     
+    // Save selected app to localStorage and state
+    AppState.selectedApp = appName;
+    localStorage.setItem('selectedApp', appName);
+    AppState.hasSelectedApp = true;
+    localStorage.setItem('hasSelectedApp', 'true');
+    
     switch(appName) {
         case 'mathease':
-            // Kapag pinindot ang MathEase, pupunta sa mathease.html
             console.log('Opening MathEase app...');
             showNotification('Opening MathEase...', 'info');
+            
+            // Set lesson filter for MathEase (lesson_id = 1 for mathease)
+            localStorage.setItem('currentLessonFilter', '1'); // or 'mathease'
+            
             setTimeout(() => {
                 window.location.href = 'mathease.html';
             }, 500);
             break;
             
         case 'polylearn':
-            // Kapag pinindot ang PolyLearn, mananatili sa index.html
             console.log('Opening PolyLearn app...');
             
-            // Mark that user has selected an app
-            AppState.hasSelectedApp = true;
-            localStorage.setItem('hasSelectedApp', 'true');
-            localStorage.setItem('selectedApp', 'polylearn');
+            // Set lesson filter for PolyLearn (lesson_id = 2 for polylearn)
+            localStorage.setItem('currentLessonFilter', '2'); // or 'polylearn'
             
-            // Navigate to dashboard (which is the PolyLearn app)
             showNotification('Opening PolyLearn Dashboard...', 'success');
             setTimeout(() => {
                 navigateTo('dashboard');
@@ -21499,8 +21458,11 @@ function handleAppSelection(appName) {
             break;
             
         case 'factolearn':
-            // Kapag pinindot ang FactoLearn, pupunta sa factolearn.html
             console.log('Opening FactoLearn app...');
+            
+            // Set lesson filter for FactoLearn (lesson_id = 3 for factolearn)
+            localStorage.setItem('currentLessonFilter', '3'); // or 'factolearn'
+            
             showNotification('Opening FactoLearn...', 'info');
             setTimeout(() => {
                 window.location.href = 'factolearn.html';
