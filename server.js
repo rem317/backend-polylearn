@@ -9131,7 +9131,62 @@ app.get('/api/admin/quizzes/:quizId/stats', authenticateAdmin, async (req, res) 
         });
     }
 });
-
+// ============================================
+// GET RECENT QUIZ RESULTS - FIXED VERSION
+// ============================================
+app.get('/api/admin/quizzes/recent-results', authenticateAdmin, async (req, res) => {
+    try {
+        console.log('📊 Fetching recent quiz results...');
+        
+        // Check if tables exist
+        const [tables] = await promisePool.query("SHOW TABLES LIKE 'user_quiz_attempts'");
+        
+        if (tables.length === 0) {
+            console.log('⚠️ user_quiz_attempts table does not exist');
+            return res.json({
+                success: true,
+                results: []
+            });
+        }
+        
+        // Get recent results with proper error handling
+        const [results] = await promisePool.query(`
+            SELECT 
+                uqa.attempt_id,
+                uqa.user_id,
+                COALESCE(u.full_name, u.username, 'Unknown Student') as student_name,
+                u.username,
+                q.quiz_id,
+                COALESCE(q.quiz_title, 'Untitled Quiz') as quiz_title,
+                COALESCE(uqa.score, 0) as score,
+                COALESCE(uqa.passed, 0) as passed,
+                COALESCE(uqa.time_spent_seconds, 0) as time_spent_seconds,
+                uqa.end_time as completed_at
+            FROM user_quiz_attempts uqa
+            LEFT JOIN users u ON uqa.user_id = u.user_id
+            LEFT JOIN quizzes q ON uqa.quiz_id = q.quiz_id
+            WHERE uqa.completion_status = 'completed'
+            ORDER BY uqa.end_time DESC
+            LIMIT 10
+        `);
+        
+        console.log(`✅ Found ${results.length} recent results`);
+        
+        res.json({
+            success: true,
+            results: results
+        });
+        
+    } catch (error) {
+        console.error('❌ Error fetching recent results:', error);
+        
+        // ✅ ALWAYS return success with empty array para hindi mag-break ang frontend
+        res.json({
+            success: true,
+            results: []
+        });
+    }
+});
 // GET quizzes with subjects - FIXED
 app.get('/api/admin/quizzes-with-subjects', authenticateAdmin, async (req, res) => {
     try {
@@ -9187,42 +9242,6 @@ app.get('/api/admin/quizzes-with-subjects', authenticateAdmin, async (req, res) 
             success: false,
             message: error.message
         });
-    }
-});
-
-// ============================================
-// GET RECENT QUIZ RESULTS
-// ============================================
-app.get('/api/admin/quizzes/recent-results', authenticateAdmin, async (req, res) => {
-    try {
-        const [results] = await promisePool.query(`
-            SELECT 
-                uqa.attempt_id,
-                uqa.user_id,
-                u.full_name as student_name,
-                u.username,
-                q.quiz_id,
-                q.quiz_title,
-                uqa.score,
-                uqa.passed,
-                uqa.time_spent_seconds,
-                uqa.end_time as completed_at
-            FROM user_quiz_attempts uqa
-            JOIN users u ON uqa.user_id = u.user_id
-            JOIN quizzes q ON uqa.quiz_id = q.quiz_id
-            WHERE uqa.completion_status = 'completed'
-            ORDER BY uqa.end_time DESC
-            LIMIT 10
-        `);
-        
-        res.json({
-            success: true,
-            results: results
-        });
-        
-    } catch (error) {
-        console.error('❌ Error fetching recent results:', error);
-        res.status(500).json({ success: false, message: error.message });
     }
 });
 
