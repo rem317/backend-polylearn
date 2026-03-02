@@ -5296,8 +5296,7 @@ if (typeof animateNumber !== 'function') {
 
 // KEEP ONLY ONE VERSION OF THESE FUNCTIONS:
 
-// ===== SAVE LESSON TO MYSQL DATABASE =====
-// ===== UPDATED: SAVE LESSON TO MYSQL WITH MODULE ID =====
+// ===== SAVE LESSON TO MYSQL - WITH SUBJECT FILTER =====
 async function saveLessonToMySQL() {
     console.log("=== SAVING TO MYSQL DATABASE ===");
     
@@ -5305,18 +5304,28 @@ async function saveLessonToMySQL() {
         // Get form values
         const title = document.getElementById('createLessonTitle')?.value.trim();
         const description = document.getElementById('createLessonDescription')?.value.trim();
-        const topicSelect = document.getElementById('topicSelect');
-        const topic_id = topicSelect?.value;
-        
-        // ===== FIXED: GET MODULE ID =====
-        const moduleSelect = document.getElementById('moduleSelect');
-        const module_id = moduleSelect?.value;
-        
+        const subjectId = document.getElementById('lessonSubjectSelect')?.value; // lesson_id
+        const topicId = document.getElementById('topicSelect')?.value;
         const editId = document.getElementById('editLessonId')?.value || '';
         const isUpdate = editId && editId !== '';
         
-        // Get assigned teacher (if any)
+        // Get assigned teacher
         const assignedTeacherId = document.getElementById('assignedTeacherId')?.value;
+        
+        // Get subject name for logging
+        let subjectName = '';
+        if (subjectId == 1) subjectName = 'MathEase';
+        else if (subjectId == 2) subjectName = 'PolyLearn';
+        else if (subjectId == 3) subjectName = 'FactoLearn';
+        
+        console.log('📋 Lesson data:', { 
+            title, 
+            subjectId, 
+            subjectName,
+            topicId, 
+            isUpdate, 
+            assignedTeacherId 
+        });
         
         // ===== VALIDATION =====
         if (!title) {
@@ -5329,7 +5338,12 @@ async function saveLessonToMySQL() {
             return;
         }
         
-        if (!topic_id) {
+        if (!subjectId) {
+            showNotification('error', 'Error', 'Please select a subject');
+            return;
+        }
+        
+        if (!topicId) {
             showNotification('error', 'Error', 'Please select a topic');
             return;
         }
@@ -5355,15 +5369,13 @@ async function saveLessonToMySQL() {
         const formData = new FormData();
         formData.append('title', title);
         formData.append('description', description);
-        formData.append('topic_id', parseInt(topic_id));
+        formData.append('topic_id', parseInt(topicId));
         
-        // ===== FIXED: ADD MODULE ID =====
-        if (module_id && module_id !== '') {
-            formData.append('module_id', parseInt(module_id));
-            console.log(`📦 Adding module_id: ${module_id}`);
+        // ✅ ADD SUBJECT ID (lesson_id)
+        if (subjectId) {
+            formData.append('lesson_id', parseInt(subjectId));
+            console.log(`📦 Adding lesson_id: ${subjectId} (${subjectName})`);
         }
-        
-        formData.append('content_type', contentType);
         
         // Add update flag if editing
         if (isUpdate) {
@@ -5400,14 +5412,12 @@ async function saveLessonToMySQL() {
             return;
         }
         
-        console.log("🔑 Token found, proceeding with save...");
-        
         // ===== SHOW LOADING STATE =====
         const saveBtn = document.querySelector('#createLessonModal .btn-primary');
         const originalText = saveBtn ? saveBtn.innerHTML : 'Save to MySQL';
         if (saveBtn) {
             saveBtn.disabled = true;
-            saveBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Saving to MySQL...';
+            saveBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Saving...';
         }
         
         // ===== SEND TO SERVER =====
@@ -5421,19 +5431,17 @@ async function saveLessonToMySQL() {
             body: formData
         });
         
-        console.log("📥 Response status:", response.status);
-        
         if (!response.ok) {
             const errorText = await response.text();
             console.error("❌ Server error response:", errorText);
-            throw new Error(`Server error (${response.status}): ${errorText.substring(0, 100)}`);
+            throw new Error(`Server error (${response.status})`);
         }
         
         const result = await response.json();
-        console.log("📥 Server response:", result);
         
         if (result.success) {
             let successMessage = isUpdate ? 'Lesson updated successfully!' : 'Lesson created successfully!';
+            successMessage += ` (${subjectName})`;
             
             if (assignedTeacherId) {
                 successMessage += ' (Assigned to teacher)';
@@ -5441,11 +5449,9 @@ async function saveLessonToMySQL() {
             
             showNotification('success', 'Success!', successMessage);
             
-            // Log what was recorded
-            console.log('📝 Lesson recorded with:');
-            console.log(`   - module_id: ${result.lesson?.module_id || 'NULL'}`);
-            console.log(`   - created_by: ${result.lesson?.created_by || 'NULL'}`);
-            console.log(`   - teacher_id: ${result.lesson?.teacher_id || 'NULL'}`);
+            console.log('📝 Lesson recorded for subject:', subjectName);
+            console.log(`   - lesson_id: ${subjectId}`);
+            console.log(`   - topic_id: ${topicId}`);
             
             // Close modal
             closeCreateLessonModal();
@@ -5487,19 +5493,7 @@ async function saveLessonToMySQL() {
         
     } catch (error) {
         console.error('❌ Save error:', error);
-        
-        let errorMessage = error.message;
-        if (error.message.includes('Failed to fetch')) {
-            errorMessage = 'Cannot connect to server. Make sure the backend is running.';
-        } else if (error.message.includes('401')) {
-            errorMessage = 'Session expired. Please login again.';
-        }
-        
-        showNotification('error', 'Save Failed', errorMessage);
-        
-        if (confirm('Server save failed. Save to local storage instead?')) {
-            saveLessonToLocalStorage();
-        }
+        showNotification('error', 'Save Failed', error.message);
         
     } finally {
         const saveBtn = document.querySelector('#createLessonModal .btn-primary');
@@ -5701,10 +5695,14 @@ function openQuickModuleModal() {
     // Close topic modal first
     closeQuickTopicModal();
     
-    // Create modal if not exists
-    if (!document.getElementById('quickModuleModal')) {
-        createQuickModuleModal();
+    // ✅ REMOVE existing modal para siguradong bago
+    const existingModal = document.getElementById('quickModuleModal');
+    if (existingModal) {
+        existingModal.remove();
     }
+    
+    // Create fresh modal (may Save button na ito)
+    createQuickModuleModal();
     
     // Get modal
     const modal = document.getElementById('quickModuleModal');
@@ -5751,8 +5749,8 @@ function openQuickModuleModal() {
         if (nameInput) nameInput.focus();
     }, 300);
     
-    // **✅ ADD SAVE BUTTON HERE** 
-    addSaveButtonToModuleModal();
+    // ❌ ALISIN ITO - Hindi na kailangan dahil may Save button na sa modal
+    // addSaveButtonToModuleModal();
     
     console.log("✅ Quick module modal opened successfully with Save button");
 }
@@ -19642,7 +19640,126 @@ function filterModulesByLesson() {
         moduleSelect.disabled = false;
     }
 }
-
+// ===== LOAD TOPICS BY SELECTED SUBJECT =====
+async function loadTopicsBySubject() {
+    console.log("📚 Loading topics for selected subject...");
+    
+    const subjectId = document.getElementById('lessonSubjectSelect').value;
+    const topicSelect = document.getElementById('topicSelect');
+    
+    if (!subjectId) {
+        topicSelect.innerHTML = '<option value="">-- Select Subject First --</option>';
+        topicSelect.disabled = true;
+        return;
+    }
+    
+    // Get subject name for better UX
+    let subjectName = '';
+    if (subjectId == 1) subjectName = 'MathEase';
+    else if (subjectId == 2) subjectName = 'PolyLearn';
+    else if (subjectId == 3) subjectName = 'FactoLearn';
+    
+    console.log(`🔍 Loading topics for ${subjectName} (ID: ${subjectId})`);
+    
+    // Show loading
+    topicSelect.innerHTML = '<option value="">Loading topics...</option>';
+    topicSelect.disabled = true;
+    
+    try {
+        const token = localStorage.getItem('admin_token') || localStorage.getItem('authToken');
+        
+        if (!token) {
+            throw new Error('No auth token');
+        }
+        
+        // Fetch topics for this subject
+        const response = await fetch(`/api/admin/topics/by-subject/${subjectId}`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        
+        const result = await response.json();
+        
+        if (result.success && result.topics) {
+            const topics = result.topics;
+            
+            console.log(`✅ Found ${topics.length} topics for ${subjectName}`);
+            
+            if (topics.length === 0) {
+                topicSelect.innerHTML = '<option value="">-- No topics available --</option>';
+                topicSelect.disabled = true;
+                showNotification('info', 'No Topics', `Create topics first for ${subjectName}`);
+            } else {
+                let options = '<option value="">-- Select Topic --</option>';
+                
+                // Group topics by module for better organization
+                const groupedByModule = {};
+                topics.forEach(topic => {
+                    if (!groupedByModule[topic.module_name]) {
+                        groupedByModule[topic.module_name] = [];
+                    }
+                    groupedByModule[topic.module_name].push(topic);
+                });
+                
+                // Add optgroups
+                for (const [moduleName, moduleTopics] of Object.entries(groupedByModule)) {
+                    const optgroup = document.createElement('optgroup');
+                    optgroup.label = moduleName;
+                    
+                    moduleTopics.forEach(topic => {
+                        const option = document.createElement('option');
+                        option.value = topic.id;
+                        option.textContent = topic.name;
+                        optgroup.appendChild(option);
+                    });
+                    
+                    topicSelect.appendChild(optgroup);
+                }
+                
+                topicSelect.disabled = false;
+                console.log(`✅ Topic dropdown populated for ${subjectName}`);
+            }
+        } else {
+            throw new Error('Failed to load topics');
+        }
+        
+    } catch (error) {
+        console.error('❌ Error loading topics:', error);
+        
+        // Fallback topics
+        topicSelect.innerHTML = '<option value="">-- Select Topic --</option>';
+        
+        // Add sample topics based on subject
+        if (subjectId == 1) { // MathEase
+            topicSelect.innerHTML += `
+                <option value="1">Basic Operations</option>
+                <option value="2">Addition and Subtraction</option>
+                <option value="3">Multiplication and Division</option>
+                <option value="4">Order of Operations (MDAS)</option>
+            `;
+        } else if (subjectId == 2) { // PolyLearn
+            topicSelect.innerHTML += `
+                <option value="5">Polynomial Basics</option>
+                <option value="6">Factoring Polynomials</option>
+                <option value="7">Quadratic Equations</option>
+                <option value="8">Polynomial Functions</option>
+            `;
+        } else if (subjectId == 3) { // FactoLearn
+            topicSelect.innerHTML += `
+                <option value="9">Factorial Notation</option>
+                <option value="10">Permutations</option>
+                <option value="11">Combinations</option>
+                <option value="12">Binomial Theorem</option>
+            `;
+        }
+        
+        topicSelect.disabled = false;
+        showNotification('warning', 'Offline Mode', 'Using sample topics');
+    }
+}
 // ===== HANDLE MODULE SELECT CHANGE =====
 document.addEventListener('change', function(e) {
     if (e.target.id === 'moduleSelect') {
