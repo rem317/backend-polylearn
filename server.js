@@ -10756,44 +10756,66 @@ app.get('/api/practice/user/stats', authenticateUser, async (req, res) => {
 });
 
 // ============================================
-// FIXED: PRACTICE TOPIC ENDPOINT - WITH PROPER ERROR CHECKING
+// ✅ FIXED: Get topics progress - WITH LESSON_ID
 // ============================================
-
-// Get topics progress
 app.get('/api/topics/progress', authenticateUser, async (req, res) => {
     try {
         const userId = req.user.id;
+        
+        console.log(`📊 Fetching topics progress for user ${userId}`);
         
         const [topics] = await promisePool.query(`
             SELECT 
                 mt.topic_id,
                 mt.topic_title,
                 mt.topic_description,
+                mt.lesson_id,                    -- ✅ SIGURADUHING MAY lesson_id
                 cm.module_id,
                 cm.module_name,
+                l.lesson_name,
+                l.lesson_id as lesson_id_alt,    -- ✅ Alternative source
                 COUNT(DISTINCT tci.content_id) as total_lessons,
-                COUNT(DISTINCT CASE WHEN ucp.completion_status = 'completed' THEN tci.content_id END) as lessons_completed
+                COUNT(DISTINCT CASE WHEN ucp.completion_status = 'completed' THEN tci.content_id END) as lessons_completed,
+                EXISTS (
+                    SELECT 1 FROM user_practice_progress upp 
+                    WHERE upp.user_id = ? AND upp.exercise_id IN (
+                        SELECT exercise_id FROM practice_exercises WHERE topic_id = mt.topic_id
+                    ) AND upp.completion_status = 'completed'
+                ) as practice_completed
             FROM module_topics mt
             JOIN course_modules cm ON mt.module_id = cm.module_id
+            JOIN lessons l ON cm.lesson_id = l.lesson_id
             LEFT JOIN topic_content_items tci ON mt.topic_id = tci.topic_id AND tci.is_active = 1
             LEFT JOIN user_content_progress ucp ON tci.content_id = ucp.content_id AND ucp.user_id = ?
+            WHERE mt.is_active = 1
             GROUP BY mt.topic_id
-            ORDER BY mt.topic_id
-        `, [userId]);
+            ORDER BY l.lesson_id, cm.module_order, mt.topic_order
+        `, [userId, userId]);
+        
+        console.log(`✅ Found ${topics.length} topics with progress`);
         
         const topicsWithProgress = topics.map(topic => ({
             topic_id: topic.topic_id || 0,
             topic_title: topic.topic_title || 'Unknown Topic',
             topic_description: topic.topic_description || '',
+            lesson_id: topic.lesson_id || topic.lesson_id_alt || null,  // ← CRITICAL: Isama ang lesson_id
             module_id: topic.module_id || 0,
             module_name: topic.module_name || 'Unknown Module',
+            lesson_name: topic.lesson_name || 'Unknown Lesson',
             total_lessons: topic.total_lessons || 1,
             lessons_completed: topic.lessons_completed || 0,
             lesson_progress_percentage: topic.total_lessons > 0 
                 ? Math.round((topic.lessons_completed / topic.total_lessons) * 100) 
                 : 0,
-            practice_unlocked: (topic.lessons_completed || 0) > 0
+            practice_unlocked: (topic.lessons_completed || 0) > 0,
+            practice_completed: topic.practice_completed === 1
         }));
+        
+        // Log para ma-verify
+        console.log('📤 Sending topics with lesson_id:');
+        topicsWithProgress.forEach(t => {
+            console.log(`  - ${t.topic_title}: lesson_id = ${t.lesson_id}`);
+        });
         
         res.json({
             success: true,
