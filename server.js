@@ -7405,7 +7405,87 @@ app.post('/api/admin/modules', verifyToken, async (req, res) => {
         });
     }
 });
-
+// ============================================
+// 📊 API: Get Practice Time Data for Graph
+// ============================================
+app.get('/api/progress/practice-time', authenticateUser, async (req, res) => {
+    try {
+        const userId = req.user.id;
+        const days = parseInt(req.query.days) || 7;
+        
+        console.log(`📊 Fetching practice time for user ${userId}, last ${days} days`);
+        
+        // Get data from practice_attempts table
+        const [rows] = await pool.execute(`
+            SELECT 
+                DATE(created_at) as date,
+                SUM(time_spent_seconds) as total_seconds,
+                COUNT(*) as attempt_count
+            FROM practice_attempts 
+            WHERE user_id = ? 
+                AND created_at >= DATE_SUB(CURDATE(), INTERVAL ? DAY)
+            GROUP BY DATE(created_at)
+            ORDER BY date ASC
+        `, [userId, days]);
+        
+        // Create arrays for all days
+        const labels = [];
+        const values = [];
+        let totalMinutes = 0;
+        let maxMinutes = 0;
+        
+        // Create a map of existing data
+        const dataMap = {};
+        rows.forEach(row => {
+            const dateStr = new Date(row.date).toISOString().split('T')[0];
+            const minutes = Math.round(row.total_seconds / 60);
+            dataMap[dateStr] = minutes;
+        });
+        
+        // Fill in all days
+        for (let i = days - 1; i >= 0; i--) {
+            const date = new Date();
+            date.setDate(date.getDate() - i);
+            
+            // Format: "Mon Jan 15"
+            const dayName = date.toLocaleDateString('en-US', { weekday: 'short' });
+            const month = date.toLocaleDateString('en-US', { month: 'short' });
+            const day = date.getDate();
+            labels.push(`${dayName} ${month} ${day}`);
+            
+            const dateStr = date.toISOString().split('T')[0];
+            const minutes = dataMap[dateStr] || 0;
+            values.push(minutes);
+            
+            totalMinutes += minutes;
+            if (minutes > maxMinutes) maxMinutes = minutes;
+        }
+        
+        const average = Math.round(totalMinutes / days);
+        const totalHours = (totalMinutes / 60).toFixed(1);
+        
+        res.json({
+            success: true,
+            data: {
+                labels: labels,
+                values: values,
+                stats: {
+                    total: totalMinutes,
+                    totalHours: totalHours,
+                    average: average,
+                    max: maxMinutes
+                }
+            }
+        });
+        
+    } catch (error) {
+        console.error('❌ Error fetching practice time:', error);
+        res.status(500).json({
+            success: false,
+            message: error.message
+        });
+    }
+});
 // UPDATE module
 
 // ============================================
