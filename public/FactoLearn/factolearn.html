@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>MathHub | Complete Application</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <link rel="stylesheet" href="factolearn.css">
+    <link rel="stylesheet" href="style.css">
     <style>
         /* Additional styles for the lesson dashboard container */
         .lesson-dashboard-container {
@@ -123,7 +123,7 @@
             background: linear-gradient(135deg, #f0f7ff, #e6f0ff);
         }
         
-        /* Modal for expanded tool view */
+        /* Tool modal styles */
         .tool-modal {
             position: fixed;
             top: 0;
@@ -1819,266 +1819,193 @@
         .rating .star:hover ~ .star {
             color: #ccc;
         }
+
     </style>
 </head>
 <body>
-
+    
         <!-- Dashboard Page -->
         <div id="dashboard-page" class="hidden">
-            <div class="container">
-                <!-- Dashboard Content -->
-                <div class="dashboard-container">
-                    <!-- Welcome Card -->
-                    <section class="card welcome-card">
-                        <div class="welcome-header">
-                            <h1 class="welcome-title" id="dashboardWelcomeTitle">Welcome!</h1>
-                            <div class="date-display" id="currentDate">Loading date...</div>
+            <!-- Dashboard Content -->
+            <div class="dashboard-container">
+                <!-- Welcome Card -->
+                <section class="card welcome-card">
+                    <div class="welcome-header">
+                        <h1 class="welcome-title" id="dashboardWelcomeTitle">Welcome!</h1>
+                        <div class="date-display" id="currentDate">Loading date... </div>
+                    </div>
+                    
+                    <div class="student-info">
+                        <div class="student-avatar-large" id="userInitial">U</div>
+                        <div class="student-details">
+                            <h2 class="student-name" id="dashboardUserName">Welcome to <span>PolyLearn!</span></h2>
+                            <p style="color: var(--text-light); margin-bottom: 15px;" id="dashboardUserMessage">
+                                You're making excellent progress in your polynomial journey. Keep up the great work!
+                            </p>
+                            <div class="achievement-badge" id="userAchievementBadge">
+                                <i class="fas fa-medal"></i> Loading...
+                            </div>
                         </div>
-                        
-                        <div class="student-info">
-                            <div class="student-avatar-large" id="userInitial">U</div>
-                            <div class="student-details">
-                                <h2 class="student-name" id="dashboardUserName">Welcome to <span>FactoLearn!</span></h2>
-                                <p style="color: var(--text-light); margin-bottom: 15px;" id="dashboardUserMessage">
-                                    You're making excellent progress in your factorial journey. Keep up the great work!
-                                </p>
-                                <div class="achievement-badge" id="userAchievementBadge">
-                                    <i class="fas fa-medal"></i> Loading...
+                    </div>
+                </section>
+
+                <!-- Progress Summary Card -->
+                <section class="card">
+                    <div class="card-header">
+                        <h2 class="card-title">
+                            <i class="fas fa-chart-bar"></i> Progress Summary
+                        </h2>
+                        <p class="card-subtitle">Your learning progress this week</p>
+                    </div>
+                    
+                    <div class="progress-items">
+                        <!-- Lessons Completed -->
+                        <div class="progress-item">
+                            <div class="item-left">
+                                <div class="item-icon">
+                                    <i class="fas fa-book-open"></i>
+                                </div>
+                                <div>
+                                    <h3>Lessons Completed</h3>
+                                    <p>Total polynomial lessons finished</p>
                                 </div>
                             </div>
-                        </div>
-                    </section>
-
-                    <!-- Progress Summary Card -->
-<section class="card">
-    <div class="card-header">
-        <h2 class="card-title">
-            <i class="fas fa-chart-bar"></i> Progress Summary
-        </h2>
-        <p class="card-subtitle">Your learning progress this week</p>
-    </div>
-    
-    <div class="progress-items">
-        <!-- Lessons Completed -->
-        <div class="progress-item">
-            <div class="item-left">
-                <div class="item-icon">
-                    <i class="fas fa-book-open"></i>
-                </div>
-                <div>
-                    <h3>Lessons Completed</h3>
-                    <p>Total polynomial lessons finished</p>
-                </div>
-            </div>
-            <div class="item-value" id="lessonsCount">0<span class="item-unit">/0</span></div>
-        </div>
-        
-        <!-- Practice Exercises -->
-        <div class="progress-item">
-            <div class="item-left">
-                <div class="item-icon">
-                    <i class="fas fa-pen-fancy"></i>
-                </div>
-                <div>
-                    <h3>Practice Exercises</h3>
-                    <p>Exercises solved correctly</p>
-                </div>
-            </div>
-            <div class="item-value" id="exercisesCount">0<span class="item-unit">/0</span></div>
-        </div>
-        
-        <!-- Quiz Game Score -->
-        <div class="progress-item">
-            <div class="item-left">
-                <div class="item-icon">
-                    <i class="fas fa-trophy"></i>
-                </div>
-                <div>
-                    <h3>Quiz Game Score</h3>
-                    <p>Your high score in polynomial games</p>
-                </div>
-            </div>
-            <div class="item-value" id="quizScore">0<span class="item-unit">points</span></div>
-        </div>
-        
-        <!-- Average Time Spent -->
-        <div class="progress-item">
-            <div class="item-left">
-                <div class="item-icon">
-                    <i class="fas fa-clock"></i>
-                </div>
-                <div>
-                    <h3>Average Time Spent</h3>
-                    <p>Daily average learning time</p>
-                </div>
-            </div>
-            <div class="item-value" id="avgTime">0<span class="item-unit">minutes/day</span></div>
-        </div>
-    </div>
-</section>
-
-                    <!-- Continue Learning Card - DATABASE DRIVEN -->
-                    <section class="card full-width-card">
-                        <div class="card-header">
-                            <h2 class="card-title">
-                                <i class="fas fa-play-circle"></i> Continue Learning
-                            </h2>
-                            <p class="card-subtitle">Pick up where you left off</p>
+                            <div class="item-value" id="lessonsCount">0<span class="item-unit">/0</span></div>
                         </div>
                         
-                        <!-- Continue Learning Module - Loaded dynamically from database -->
-                        <div id="continueLearningContainer" class="continue-learning-module">
-                            <div class="loading-container">
-                                <div class="loading-text">
-                                    <i class="fas fa-spinner fa-spin"></i> Loading lessons from database...
+                        <!-- Practice Exercises -->
+                        <div class="progress-item">
+                            <div class="item-left">
+                                <div class="item-icon">
+                                    <i class="fas fa-pen-fancy"></i>
+                                </div>
+                                <div>
+                                    <h3>Practice Exercises</h3>
+                                    <p>Exercises solved correctly</p>
                                 </div>
                             </div>
-                        </div>
-                    </section>
-
-                    <!-- NEW: Lesson Dashboard Container with Learning Tools and Quick Tools -->
-                    <!-- Lesson Dashboard Container with Learning Tools and Quick Tools -->
-<section class="card full-width-card">
-    <div class="card-header">
-        <h2 class="card-title">
-            <i class="fas fa-tools"></i> Lesson Dashboard
-        </h2>
-        <p class="card-subtitle">Access learning tools and quick utilities for your lessons</p>
-    </div>
-    
-    <div class="lesson-dashboard-container">
-        <!-- Learning Tools Section -->
-        <div class="learning-tools-box">
-            <div class="tools-header">
-                <i class="fas fa-graduation-cap"></i>
-                <h3>Learning Tools</h3>
-            </div>
-            
-            <div class="tools-grid-compact">
-                <!-- Calculator Tool -->
-                <div class="tool-item-compact" onclick="window.toolManager.openTool('calculator')">
-                    <div class="tool-icon">
-                        <i class="fas fa-calculator"></i>
-                    </div>
-                    <div class="tool-name">Calculator</div>
-                    <div class="tool-desc">Advanced math calculator</div>
-                </div>
-                
-                <!-- Graph Tools -->
-                <div class="tool-item-compact" onclick="window.toolManager.openTool('graph')">
-                    <div class="tool-icon">
-                        <i class="fas fa-chart-line"></i>
-                    </div>
-                    <div class="tool-name">Graph Tools</div>
-                    <div class="tool-desc">Visualize functions</div>
-                </div>
-                
-                <!-- Formula Sheet -->
-                <div class="tool-item-compact" onclick="window.toolManager.openTool('formula')">
-                    <div class="tool-icon">
-                        <i class="fas fa-book"></i>
-                    </div>
-                    <div class="tool-name">Formula Sheet</div>
-                    <div class="tool-desc">Quick references</div>
-                </div>
-                
-                <!-- Whiteboard -->
-                <div class="tool-item-compact" onclick="window.toolManager.openTool('whiteboard')">
-                    <div class="tool-icon">
-                        <i class="fas fa-paint-brush"></i>
-                    </div>
-                    <div class="tool-name">Whiteboard</div>
-                    <div class="tool-desc">Draw and solve</div>
-                </div>
-                
-                <!-- Notepad -->
-                <div class="tool-item-compact" onclick="window.toolManager.openTool('notepad')">
-                    <div class="tool-icon">
-                        <i class="fas fa-sticky-note"></i>
-                    </div>
-                    <div class="tool-name">Notepad</div>
-                    <div class="tool-desc">Take notes</div>
-                </div>
-                
-                <!-- Study Timer -->
-                <div class="tool-item-compact" onclick="window.toolManager.openTool('timer')">
-                    <div class="tool-icon">
-                        <i class="fas fa-stopwatch"></i>
-                    </div>
-                    <div class="tool-name">Study Timer</div>
-                    <div class="tool-desc">Track study time</div>
-                </div>
-            </div>
-            
-            <div class="tools-description">
-                <p><i class="fas fa-info-circle"></i> Learning tools help you understand concepts better with interactive features.</p>
-            </div>
-        </div>
-    </div>
-</section>
-
-
-
-                    <!-- Quick Actions -->
-                    <section class="card full-width-card">
-                        <div class="card-header">
-                            <h2 class="card-title">
-                                <i class="fas fa-bolt"></i> Quick Actions
-                            </h2>
-                            <p class="card-subtitle">Continue your learning journey</p>
+                            <div class="item-value" id="exercisesCount">0<span class="item-unit">/0</span></div>
                         </div>
                         
-                        <div class="actions-grid">
-                            <button class="btn-primary" id="continueLesson">
-                                <i class="fas fa-play-circle"></i> Continue Lesson
-                            </button>
-                            
-                            <button class="btn-primary" id="practiceExercises">
-                                <i class="fas fa-pencil-alt"></i> Practice Exercises
-                            </button>
-                            
-                            <!-- ADDED: Start Quiz Button that triggers popup -->
-                            <button class="btn-secondary" id="goToQuiz" onclick="showQuizPopup()">
-                                <i class="fas fa-question-circle"></i> Take a Quiz
-                            </button>
-                            
-                            <button class="btn-secondary" id="viewProgress">
-                                <i class="fas fa-chart-line"></i> View Progress
-                            </button>
-                            
-                            <!-- NEW: Feedback Dashboard Button -->
-                            <button class="btn-secondary" id="goToFeedback">
-                                <i class="fas fa-question-circle"></i> Help & Feedback
-                            </button>
+                        <!-- Quiz Game Score -->
+                        <div class="progress-item">
+                            <div class="item-left">
+                                <div class="item-icon">
+                                    <i class="fas fa-trophy"></i>
+                                </div>
+                                <div>
+                                    <h3>Quiz Game Score</h3>
+                                    <p>Your high score in polynomial games</p>
+                                </div>
+                            </div>
+                            <div class="item-value" id="quizScore">0<span class="item-unit">points</span></div>
                         </div>
-                    </section>
-                </div>
-            </div>
-            
-            <!-- Quick Help Modal -->
-            <div class="modal" id="helpModal">
-                <div class="modal-content">
-                    <h3><i class="fas fa-question-circle"></i> Quick Help</h3>
-                    <div class="help-options">
-                        <a href="#" class="help-item" id="goToFeedbackDashboard">
-                            <i class="fas fa-question-circle"></i>
-                            <div>
-                                <h4>Help & Feedback Center</h4>
-                                <p>Complete help dashboard with FAQ, contact, and feedback</p>
+                        
+                        <!-- Average Time Spent -->
+                        <div class="progress-item">
+                            <div class="item-left">
+                                <div class="item-icon">
+                                    <i class="fas fa-clock"></i>
+                                </div>
+                                <div>
+                                    <h3>Average Time Spent</h3>
+                                    <p>Daily average learning time</p>
+                                </div>
                             </div>
-                        </a>
-                        <a href="#" class="help-item" id="contactSupport">
-                            <i class="fas fa-headset"></i>
-                            <div>
-                                <h4>Contact Support</h4>
-                                <p>Get help from our support team</p>
+                            <div class="item-value" id="avgTime">0<span class="item-unit">minutes/day</span></div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Continue Learning Card - DATABASE DRIVEN -->
+                <section class="card full-width-card">
+                    <div class="card-header">
+                        <h2 class="card-title">
+                            <i class="fas fa-play-circle"></i> Continue Learning
+                        </h2>
+                        <p class="card-subtitle">Pick up where you left off</p>
+                    </div>
+                    
+                    <!-- Continue Learning Module - Loaded dynamically from database -->
+                    <div id="continueLearningContainer" class="continue-learning-module">
+                        <div class="loading-container">
+                            <div class="loading-text">
+                                <i class="fas fa-spinner fa-spin"></i> Loading lessons from database...
                             </div>
-                        </a>
+                        </div>
                     </div>
-                    <div class="modal-buttons">
-                        <button class="btn-primary" id="closeHelp">Close</button>
+                </section>
+
+                <!-- NEW: Lesson Dashboard Container with Learning Tools and Quick Tools -->
+                <section class="card full-width-card">
+                    <div class="card-header">
+                        <h2 class="card-title">
+                            <i class="fas fa-tools"></i> Lesson Dashboard
+                        </h2>
+                        <p class="card-subtitle">Access learning tools and quick utilities for your lessons</p>
                     </div>
-                </div>
+                    
+                    <div class="lesson-dashboard-container">
+                        <!-- Learning Tools Section -->
+                        <div class="learning-tools-box">
+                            <div class="tools-header">
+                                <i class="fas fa-graduation-cap"></i>
+                                <h3>Learning Tools</h3>
+                            </div>
+                            
+                            <div class="tools-grid-compact">
+                                <div class="tool-item-compact" data-tool="calculator" id="openCalculator">
+                                    <div class="tool-icon">
+                                        <i class="fas fa-calculator"></i>
+                                    </div>
+                                    <div class="tool-name">Calculator</div>
+                                    <div class="tool-desc">Advanced math calculator</div>
+                                </div>
+                                
+                                <div class="tool-item-compact" data-tool="graph" id="openGraphTools">
+                                    <div class="tool-icon">
+                                        <i class="fas fa-chart-line"></i>
+                                    </div>
+                                    <div class="tool-name">Graph Tools</div>
+                                    <div class="tool-desc">Visualize functions</div>
+                                </div>
+                                
+                                <div class="tool-item-compact" data-tool="formula" id="openFormulaSheet">
+                                    <div class="tool-icon">
+                                        <i class="fas fa-book"></i>
+                                    </div>
+                                    <div class="tool-name">Formula Sheet</div>
+                                    <div class="tool-desc">Quick references</div>
+                                </div>
+                                
+                                <div class="tool-item-compact" data-tool="whiteboard" id="openWhiteboard">
+                                    <div class="tool-icon">
+                                        <i class="fas fa-paint-brush"></i>
+                                    </div>
+                                    <div class="tool-name">Whiteboard</div>
+                                    <div class="tool-desc">Draw and solve</div>
+                                </div>
+                                
+                                <div class="tool-item-compact" data-tool="notepad" id="openNotepad">
+                                    <div class="tool-icon">
+                                        <i class="fas fa-sticky-note"></i>
+                                    </div>
+                                    <div class="tool-name">Notepad</div>
+                                    <div class="tool-desc">Take notes</div>
+                                </div>
+                                
+                
+                            </div>
+                            
+                            <div class="tools-description">
+                                <p><i class="fas fa-info-circle"></i> Learning tools help you understand concepts better with interactive features.</p>
+                            </div>
+                        </div>
+                        
+                        
+                    </div>
+                </section>
+
             </div>
         </div>
 
@@ -2087,22 +2014,6 @@
             <!-- Page Container -->
             <div id="module-page-container">
                 <!-- Header -->
-                <header class="module-header">
-                    <div class="logo">
-                        <i class="fas fa-calculator logo-icon"></i>
-                        <div class="logo-text">Math<span class="logo-accent">Hub</span></div>
-                    </div>
-                    
-                    <div class="lesson-title" id="moduleLessonTitle">
-                        <i class="fas fa-book"></i> Loading Lesson...
-                    </div>
-                    
-                    <div class="header-actions">
-                        <button class="btn-secondary" id="backToLessonDashboard">
-                            <i class="fas fa-arrow-left"></i> Back to Dashboard
-                        </button>
-                    </div>
-                </header>
 
                 <!-- Dashboard Content -->
                 <div class="dashboard-container">
@@ -2161,24 +2072,6 @@
                                 <!-- Divider Line -->
                                 <div style="height: 1px; background: var(--border-color); margin: 30px 0;"></div>
                                 
-                                <!-- Practice Problem Section -->
-                                <div class="practice-problem">
-                                    <h2><i class="fas fa-pencil-alt"></i> Practice Problem</h2>
-                                    <div class="problem-statement" id="practiceProblem">
-                                        Practice problem will appear here once loaded from database.
-                                    </div>
-                                    <div class="action-buttons">
-                                        <button class="btn-primary" id="showHintBtn">
-                                            <i class="fas fa-lightbulb"></i> Show Hint
-                                        </button>
-                                        <button class="btn-secondary" id="showSolutionBtn">
-                                            <i class="fas fa-eye"></i> Show Solution
-                                        </button>
-                                        <button class="btn-primary" id="checkAnswerBtn">
-                                            <i class="fas fa-check"></i> Check Your Answer
-                                        </button>
-                                    </div>
-                                </div>
                                 
                                 <!-- Lesson Navigation -->
                                 <div class="lesson-navigation">
@@ -2186,6 +2079,7 @@
                                         <i class="fas fa-arrow-left"></i> Previous Lesson
                                     </button>
                                     
+                                    <!-- CRITICAL: Admin Connection - data-lesson-id added for backend tracking -->
                                     <button class="btn-primary" id="completeLessonBtn" data-lesson-id="1">
                                         <i class="fas fa-check-circle"></i> Mark Lesson Complete
                                     </button>
@@ -2218,18 +2112,38 @@
                                 </div>
                             </div>
                             
-                            
-                            <!-- Module Progress -->
-                            <div class="module-progress-section">
-                                <h3><i class="fas fa-cubes"></i> Module Progress</h3>
-                                <div class="module-item" id="moduleProgressContainer">
-                                    <!-- Module items will be loaded dynamically -->
-                                    <div class="loading-text">
-                                        <i class="fas fa-spinner fa-spin"></i> Loading module progress...
+                            <!-- Learning Statistics -->
+                            <div class="learning-stats">
+                                <h3><i class="fas fa-chart-bar"></i> Today's Learning</h3>
+                                <div class="stat-item">
+                                    <div class="stat-icon">
+                                        <i class="fas fa-clock"></i>
+                                    </div>
+                                    <div class="stat-content">
+                                        <div class="stat-value" id="totalLearningTime">0 min</div>
+                                        <div class="stat-label">Total Learning Time</div>
                                     </div>
                                 </div>
-                            </div>
-                            
+                                <div class="stat-item">
+                                    <div class="stat-icon">
+                                        <i class="fas fa-check-circle"></i>
+                                    </div>
+                                    <div class="stat-content">
+                                        <div class="stat-value" id="accuracyRate">0%</div>
+                                        <div class="stat-label">Accuracy Rate</div>
+                                    </div>
+                                </div>
+                                <div class="stat-item">
+                                    <div class="stat-icon">
+                                        <i class="fas fa-bolt"></i>
+                                    </div>
+                                    <div class="stat-content">
+                                        <div class="stat-value" id="exercisesCompleted">0/0</div>
+                                        <div class="stat-label">Exercises Completed</div>
+                                    </div>
+                                </div>
+                            </div>                      
+                        </div>
                         
                         <!-- Learning Tools Container -->
                         <div class="learning-tools-container">
@@ -2296,489 +2210,360 @@
                     </aside>
                 </div>
             </div>
-
-            <!-- Hidden Audio Element -->
-            <audio id="exampleAudio" style="display: none;">
-                <source src="Audio/polynomial-addition-example.mp3" type="audio/mpeg">
-                Your browser does not support the audio element.
-            </audio>
-
-            <!-- Volume Button for Example Section -->
-            <button id="audioToggleBtn" style="position: fixed; bottom: 20px; right: 20px; z-index: 1000; background: var(--primary); color: white; border: none; border-radius: 50%; width: 50px; height: 50px; cursor: pointer; box-shadow: 0 4px 8px rgba(0,0,0,0.2);">
-                <i class="fas fa-volume-up"></i>
-            </button>
         </div>
-            
 
         <!-- Practice Exercises Page -->
         <div id="practice-exercises-page" class="hidden">
-            <div class="container">
-                <!-- Practice Content -->
-                <div class="practice-container">
-                    <!-- Welcome Section -->
-                    <section class="card welcome-card">
-                        <div class="welcome-header">
-                            <h1 class="welcome-title">Topic-Based Practice</h1>
-                            <div class="date-display" id="practiceDate">Today</div>
-                        </div>
-                        
-                        <div class="practice-intro">
-                            <div class="practice-icon-large">
-                                <i class="fas fa-graduation-cap"></i>
-                            </div>
-                            <div class="practice-intro-text">
-                                <p>Practice exercises unlock as you complete topics. Master each concept before moving to more challenging problems!</p>
-                                <div class="current-streak">
-                                    <i class="fas fa-unlock"></i> Unlocked: <span id="unlockedCount">0</span>/5 topics
-                                </div>
-                            </div>
-                        </div>
-                    </section>
-
-                    <!-- Topics Progress -->
-                    <section class="card full-width-card">
-                        <div class="card-header">
-                            <h2 class="card-title">
-                                <i class="fas fa-book-open"></i> Topics Progress
-                            </h2>
-                            <p class="card-subtitle">Complete topics to unlock practice exercises</p>
-                        </div>
-                        
-                        <div class="topics-container" id="topicsContainer">
-                            <!-- Topics will be loaded dynamically from database -->
-                            <div class="loading-container">
-                                <i class="fas fa-spinner fa-spin"></i>
-                                <p>Loading topics and progress...</p>
-                            </div>
-                        </div>
-                    </section>
-
-                    <!-- Current Practice Area -->
-                    <section class="card full-width-card" id="currentPracticeSection">
-                        <div class="card-header">
-                            <h2 class="card-title">
-                                <i class="fas fa-brain"></i> Practice Exercises
-                            </h2>
-                            <p class="card-subtitle" id="practiceTopicTitle">Select a topic to practice</p>
-                        </div>
-                        
-                        <div class="exercise-area" id="exerciseArea">
-                            <div class="no-topic-selected">
-                                <i class="fas fa-mouse-pointer"></i>
-                                <h3>Select a Topic</h3>
-                                <p>Choose a topic from the list above to start practicing</p>
-                            </div>
-                        </div>
-                    </section>
-
-                    <!-- Practice Statistics -->
-                    <section class="card">
-                        <div class="card-header">
-                            <h2 class="card-title">
-                                <i class="fas fa-chart-line"></i> Practice Statistics
-                            </h2>
-                            <p class="card-subtitle">Your performance across topics</p>
-                        </div>
-                        
-                        <div class="stats-grid" id="practiceStats">
-                            <!-- Stats will be loaded dynamically -->
-                        </div>
-                    </section>
-                </div>
-            </div>
-        </div>
-
-        <!-- Quiz Dashboard Page -->
-        <div id="quiz-dashboard-page" class="hidden">
-            <div class="container">
-                <!-- Quiz Content -->
-                <div class="quiz-container">
-                    <!-- Quiz Header Section -->
-                    <div class="quiz-header-section">
-                        <h1 class="quiz-welcome-title">Welcome to QuizHub!</h1>
-                        <p class="quiz-subtitle">Test your knowledge and track your progress with interactive quizzes</p>
-                        
-                        <div class="quiz-stats-row">
-                            <div class="quiz-stat-card">
-                                <i class="fas fa-trophy"></i>
-                                <h3>Current Score</h3>
-                                <div class="quiz-stat-value" id="quizCurrentScore">Loading...</div>
-                            </div>
-                            <div class="quiz-stat-card">
-                                <i class="fas fa-chart-line"></i>
-                                <h3>Accuracy</h3>
-                                <div class="quiz-stat-value" id="quizAccuracy">Loading...</div>
-                            </div>
-                            <div class="quiz-stat-card">
-                                <i class="fas fa-clock"></i>
-                                <h3>Time Spent</h3>
-                                <div class="quiz-stat-value" id="quizTimeSpent">Loading...</div>
-                            </div>
-                            <div class="quiz-stat-card">
-                                <i class="fas fa-medal"></i>
-                                <h3>Rank</h3>
-                                <div class="quiz-stat-value" id="quizRank">Loading...</div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Quiz Categories Grid - DATABASE DRIVEN -->
-                    <div class="quiz-categories-grid" id="quizCategoriesGrid">
-                        <div class="loading-container">
-                            <div class="loading-text">
-                                <i class="fas fa-spinner fa-spin"></i> Loading quizzes from database...
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Active Quiz Interface (Initially Hidden) -->
-                    <div class="quiz-interface hidden" id="quizInterface">
-                        <div class="quiz-interface-header">
-                            <h2 class="quiz-active-title" id="quizActiveTitle">Quiz Title</h2>
-                            <div class="quiz-timer-container">
-                                <div class="quiz-timer" id="quizTimer">
-                                    <i class="fas fa-clock"></i> <span id="timerDisplay">00:00</span>
-                                </div>
-                                <div class="quiz-question-number">
-                                    Question <span id="currentQuestionNum">1</span>/<span id="totalQuestions">0</span>
-                                </div>
-                            </div>
-                        </div>
-                        
-                        <div class="quiz-question-container">
-                            <div class="quiz-question-header">
-                                <h3 class="quiz-question-text" id="quizQuestionText">
-                                    Loading question...
-                                </h3>
-                            </div>
-                            
-                            <div class="quiz-options-grid" id="quizOptionsGrid">
-                                <!-- Options will be populated by JavaScript -->
-                            </div>
-                        </div>
-                        
-                        <div class="quiz-interface-footer">
-                            <div class="quiz-progress-indicator">
-                                <div class="quiz-progress-dots" id="quizProgressDots">
-                                    <!-- Progress dots will be populated by JavaScript -->
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Quiz Feedback Container (Initially Hidden) -->
-                    <div class="quiz-feedback-container hidden" id="quizFeedbackContainer">
-                        <div class="quiz-feedback-header">
-                            <div class="quiz-feedback-icon correct" id="quizFeedbackIcon">
-                                <i class="fas fa-check-circle"></i>
-                            </div>
-                            <h3 class="quiz-feedback-title correct" id="quizFeedbackTitle">Correct Answer!</h3>
-                        </div>
-                        
-                        <div class="quiz-feedback-content">
-                            <p class="quiz-correct-answer" id="quizCorrectAnswer">
-                                The correct answer is: <strong>Loading...</strong>
-                            </p>
-                            <p class="quiz-explanation" id="quizExplanation">
-                                Loading explanation...
-                            </p>
-                        </div>
-                        
-                        <div class="quiz-category-actions">
-                            <button class="quiz-review-btn" id="retryQuestionBtn">
-                                <i class="fas fa-redo"></i> Try Similar
-                            </button>
-                            <button class="quiz-start-btn" id="continueQuizBtn">
-                                Continue <i class="fas fa-arrow-right"></i>
-                            </button>
-                        </div>
-                    </div>
-
-                    <!-- Quiz Results Container (Initially Hidden) -->
-                    <div class="quiz-results-container hidden" id="quizResultsContainer">
-                        <div class="quiz-results-icon">
-                            <i class="fas fa-trophy"></i>
-                        </div>
-                        
-                        <h2 class="quiz-results-title">Quiz Completed!</h2>
-                        <p class="quiz-results-subtitle" id="quizResultsSubtitle">Loading quiz...</p>
-                        
-                        <div class="quiz-results-score" id="quizResultsScore">0%</div>
-                        
-                        <div class="quiz-results-details">
-                            <div class="quiz-result-detail">
-                                <div class="quiz-result-detail-value" id="correctAnswersCount">0</div>
-                                <div class="quiz-result-detail-label">Correct Answers</div>
-                            </div>
-                            <div class="quiz-result-detail">
-                                <div class="quiz-result-detail-value" id="timeTaken">00:00</div>
-                                <div class="quiz-result-detail-label">Time Taken</div>
-                            </div>
-                            <div class="quiz-result-detail">
-                                <div class="quiz-result-detail-value" id="scoreEarned">0</div>
-                                <div class="quiz-result-detail-label">Points Earned</div>
-                            </div>
-                            <div class="quiz-result-detail">
-                                <div class="quiz-result-detail-value" id="accuracyRate">0%</div>
-                                <div class="quiz-result-detail-label">Accuracy</div>
-                            </div>
-                        </div>
-                        
-                        <div class="quiz-results-actions">
-                            <button class="quiz-review-btn" id="reviewQuizBtn">
-                                <i class="fas fa-redo"></i> Review Answers
-                            </button>
-                            <button class="quiz-start-btn" id="newQuizBtn">
-                                <i class="fas fa-play"></i> Try Another Quiz
-                            </button>
-                            <button class="quiz-start-btn" id="backToQuizzesBtn">
-                                <i class="fas fa-home"></i> Back to Quizzes
-                            </button>
-                        </div>
-                    </div>
-
-                    <!-- Badges Section - DATABASE DRIVEN -->
-                    <div class="badges-container" id="badgesContainer">
-                        <h2 class="card-title">
-                            <i class="fas fa-medal"></i> Your Quiz Badges
-                        </h2>
-                        <p class="card-subtitle">Earn badges by completing quizzes and achieving high scores</p>
-                        
-                        <div class="badges-grid" id="badgesGrid">
-                            <div class="loading-container">
-                                <div class="loading-text">
-                                    <i class="fas fa-spinner fa-spin"></i> Loading badges from database...
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Leaderboard Section - DATABASE DRIVEN -->
-                    <div class="leaderboard-container" id="leaderboardContainer">
-                        <h2 class="card-title">
-                            <i class="fas fa-chart-bar"></i> Quiz Leaderboard
-                        </h2>
-                        <p class="card-subtitle">Top performers this week</p>
-                        
-                        <div class="leaderboard-list" id="leaderboardList">
-                            <div class="loading-container">
-                                <div class="loading-text">
-                                    <i class="fas fa-spinner fa-spin"></i> Loading leaderboard from database...
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- Progress Tracking Dashboard Page -->
-        <div id="progress-page" class="hidden">
-            <!-- Progress content remains the same -->
-            <div class="container">
-                <!-- Header -->
-                <header class="header">
-                    <div class="logo" id="progressLogo">
-                        <i class="fas fa-chart-line logo-icon"></i>
-                        <div class="logo-text">Progress<span class="logo-accent">Tracker</span></div>
+            <!-- Practice Content -->
+            <div class="practice-container">
+                <!-- Welcome Section -->
+                <section class="card welcome-card">
+                    <div class="welcome-header">
+                        <h1 class="welcome-title">Topic-Based Practice</h1>
+                        <div class="date-display" id="practiceDate">Today</div>
                     </div>
                     
-                    <!-- Back Button -->
-                    <button class="back-button" id="backToDashboardFromProgress">
-                    </button>
-                </header>
+                    <div class="practice-intro">
+                        <div class="practice-icon-large">
+                            <i class="fas fa-graduation-cap"></i>
+                        </div>
+                        <div class="practice-intro-text">
+                            <p>Practice exercises unlock as you complete topics. Master each concept before moving to more challenging problems!</p>
+                            <div class="current-streak">
+                                <i class="fas fa-unlock"></i> Unlocked: <span id="unlockedCount">0</span>/5 topics
+                            </div>
+                        </div>
+                    </div>
+                </section>
 
-                <!-- Progress Dashboard Content -->
-                <div class="progress-container">
-                    <!-- Summary Stats Card -->
-                    <section class="card welcome-card animate-fade-in">
-                        <div class="welcome-header">
-                            <h1 class="welcome-title" id="progressWelcomeTitle">Your Learning Progress</h1>
-                            <div class="date-display" id="progressDate">Last updated: Today</div>
+                <!-- Topics Progress -->
+                <section class="card full-width-card">
+                    <div class="card-header">
+                        <h2 class="card-title">
+                            <i class="fas fa-book-open"></i> Topics Progress
+                        </h2>
+                        <p class="card-subtitle">Complete topics to unlock practice exercises</p>
+                    </div>
+                    
+                    <div class="topics-container" id="topicsContainer">
+                        <!-- Topics will be loaded dynamically from database -->
+                        <div class="loading-container">
+                            <i class="fas fa-spinner fa-spin"></i>
+                            <p>Loading topics and progress...</p>
                         </div>
-                        
-                        <div class="progress-summary-stats">
-                            <div class="summary-stat">
-                                <div class="stat-icon">
-                                    <i class="fas fa-trophy"></i>
-                                </div>
-                                <div class="stat-content">
-                                    <h3>Overall Progress</h3>
-                                    <div class="stat-value" id="overallProgress">0%</div>
-                                    <div class="progress-bar-container mini">
-                                        <div class="progress-fill progress-good" id="overallProgressBar" style="width: 0%"></div>
-                                    </div>
-                                </div>
-                            </div>
-                            
-                            <div class="summary-stat">
-                                <div class="stat-icon">
-                                    <i class="fas fa-coins"></i>
-                                </div>
-                                <div class="stat-content">
-                                    <h3>Total Points</h3>
-                                    <div class="stat-value" id="totalPointsProgress">0</div>
-                                    <p class="stat-change" id="pointsChange">+0 this week</p>
-                                </div>
-                            </div>
-                            
-                            <div class="summary-stat">
-                                <div class="stat-icon">
-                                    <i class="fas fa-clock"></i>
-                                </div>
-                                <div class="stat-content">
-                                    <h3>Time Invested</h3>
-                                    <div class="stat-value" id="totalTime">0h</div>
-                                    <p class="stat-change" id="timeChange">0h this week</p>
-                                </div>
-                            </div>
-                            
-                            <div class="summary-stat">
-                                <div class="stat-icon">
-                                    <i class="fas fa-award"></i>
-                                </div>
-                                <div class="stat-content">
-                                    <h3>Badges Earned</h3>
-                                    <div class="stat-value" id="totalBadges">0/0</div>
-                                    <p class="stat-change" id="badgesChange">0 new this month</p>
-                                </div>
-                            </div>
-                        </div>
-                    </section>
+                    </div>
+                </section>
 
-                    <!-- Progress Charts -->
-                    <section class="card full-width-card animate-fade-in" style="animation-delay: 0.1s">
-                        <div class="card-header">
-                            <h2 class="card-title">
-                                <i class="fas fa-chart-bar"></i> Weekly Progress Trends
-                            </h2>
-                            <div class="time-period-selector">
-                                <select id="timePeriodSelect" class="form-control">
-                                    <option value="week">Last 7 Days</option>
-                                    <option value="month">Last 30 Days</option>
-                                    <option value="quarter">Last 3 Months</option>
-                                    <option value="year">Last Year</option>
-                                </select>
-                            </div>
+                <!-- Current Practice Area -->
+                <section class="card full-width-card" id="currentPracticeSection">
+                    <div class="card-header">
+                        <h2 class="card-title">
+                            <i class="fas fa-brain"></i> Practice Exercises
+                        </h2>
+                        <p class="card-subtitle" id="practiceTopicTitle">Select a topic to practice</p>
+                    </div>
+                    
+                    <div class="exercise-area" id="exerciseArea">
+                        <div class="no-topic-selected">
+                            <i class="fas fa-mouse-pointer"></i>
+                            <h3>Select a Topic</h3>
+                            <p>Choose a topic from the list above to start practicing</p>
                         </div>
-                        
-                        <div class="charts-grid">
-                            <div class="chart-container">
-                                <h3>Daily Practice Time</h3>
-                                <div class="chart" id="practiceTimeChart">
-                                    <div class="simple-bar-chart">
-                                        <div class="chart-bars" id="practiceTimeBars">
-                                            <!-- Bars will be loaded dynamically -->
-                                        </div>
-                                        <div class="chart-labels" id="practiceTimeLabels">
-                                            <!-- Labels will be loaded dynamically -->
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                            
-                            <div class="chart-container">
-                                <h3>Accuracy Rate</h3>
-                                <div class="chart" id="accuracyChart">
-                                    <div class="simple-line-chart">
-                                        <div class="chart-line" id="accuracyLine">
-                                            <!-- Line points will be loaded dynamically -->
-                                        </div>
-                                        <div class="chart-labels" id="accuracyLabels">
-                                            <!-- Labels will be loaded dynamically -->
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </section>
+                    </div>
+                </section>
 
-                    <!-- Topic Progress Breakdown -->
-                    <section class="card animate-fade-in" style="animation-delay: 0.2s">
-                        <div class="card-header">
-                            <h2 class="card-title">
-                                <i class="fas fa-book-open"></i> Topic Progress Breakdown
-                            </h2>
-                            <p class="card-subtitle">Detailed progress for each learning topic</p>
-                        </div>
-                        
-                        <div class="topics-progress-detailed" id="topicsProgressDetailed">
-                            <!-- Topic progress items will be loaded dynamically -->
-                            <div class="loading-container">
-                                <i class="fas fa-spinner fa-spin"></i>
-                                <p>Loading topic progress...</p>
-                            </div>
-                        </div>
-                    </section>
-
-                    <!-- Performance Analytics -->
-                    <section class="card animate-fade-in" style="animation-delay: 0.3s">
-                        <div class="card-header">
-                            <h2 class="card-title">
-                                <i class="fas fa-chart-line"></i> Performance Analytics
-                            </h2>
-                            <p class="card-subtitle">Your learning efficiency and improvement trends</p>
-                        </div>
-                        
-                        <div class="performance-grid" id="performanceGrid">
-                            <!-- Performance cards will be loaded dynamically -->
-                            <div class="loading-container">
-                                <i class="fas fa-spinner fa-spin"></i>
-                                <p>Loading performance analytics...</p>
-                            </div>
-                        </div>
-                        
-                        <div class="learning-insights">
-                            <h4><i class="fas fa-lightbulb"></i> Learning Insights</h4>
-                            <ul class="insights-list" id="insightsList">
-                                <!-- Insights will be loaded dynamically -->
-                            </ul>
-                        </div>
-                    </section>
-
-                    <!-- Achievement Timeline -->
-                    <section class="card full-width-card animate-fade-in" style="animation-delay: 0.4s">
-                        <div class="card-header">
-                            <h2 class="card-title">
-                                <i class="fas fa-trophy"></i> Achievement Timeline
-                            </h2>
-                            <p class="card-subtitle">Your journey and milestones</p>
-                        </div>
-                        
-                        <div class="timeline" id="achievementTimeline">
-                            <!-- Timeline items will be loaded dynamically -->
-                            <div class="loading-container">
-                                <i class="fas fa-spinner fa-spin"></i>
-                                <p>Loading achievement timeline...</p>
-                            </div>
-                        </div>
-                    </section>
-
-                    <!-- Goals and Recommendations -->
-<section class="card animate-fade-in" style="animation-delay: 0.5s">
-    <div class="card-header">
-        <h2 class="card-title">
-            <i class="fas fa-bullseye"></i> Learning Goals & Recommendations
-        </h2>
-        <p class="card-subtitle">Personalized suggestions for improvement</p>
-    </div>
-    
-    <!-- Add Goal Button -->
-    <div class="goals-actions" style="margin-bottom: 15px; text-align: right;">
-        <button class="btn-primary" id="addGoalBtn">
-            <i class="fas fa-plus"></i> Add New Goal
-        </button>
-    </div>
-    
-    <div class="goals-container" id="goalsContainer">
-        <!-- Goals will be loaded dynamically -->
-        <div class="loading-container">
-            <i class="fas fa-spinner fa-spin"></i>
-            <p>Loading goals and recommendations...</p>
+                <!-- Practice Statistics -->
+                <section class="card">
+                    <div class="card-header">
+                        <h2 class="card-title">
+                            <i class="fas fa-chart-line"></i> Practice Statistics
+                        </h2>
+                        <p class="card-subtitle">Your performance across topics</p>
+                    </div>
+                    
+                    <div class="stats-grid" id="practiceStats">
+                        <!-- Stats will be loaded dynamically -->
+                    </div>
+                </section>
+            </div>
         </div>
-    </div>
-</section>
+
+        <!-- Quiz Dashboard Page - DATABASE DRIVEN -->
+        <div id="quiz-dashboard-page" class="hidden">
+            <!-- Quiz Content -->
+            <div class="quiz-container">
+                <!-- Quiz Header Section -->
+                <div class="quiz-header-section" style=" padding: 30px; border-radius: 10px; margin-bottom: 20px;">
+                    <h1 class="quiz-welcome-title" style="color: white; margin: 0 0 10px 0; font-size: 28px;">Welcome to Quiz Dashboard!</h1>
+                    <p class="quiz-subtitle" style="color: white; margin: 0; opacity: 0.9; font-size: 16px;">Test your knowledge and track your progress with interactive quizzes</p>
                 </div>
+                
+                <div class="quiz-stats-row">
+                    <div class="quiz-stat-card">
+                        <i class="fas fa-trophy"></i>
+                        <h3>Current Score</h3>
+                        <div class="quiz-stat-value" id="quizCurrentScore">Loading...</div>
+                    </div>
+                    <div class="quiz-stat-card">
+                        <i class="fas fa-chart-line"></i>
+                        <h3>Accuracy</h3>
+                        <div class="quiz-stat-value" id="quizAccuracy">Loading...</div>
+                    </div>
+                    <div class="quiz-stat-card">
+                        <i class="fas fa-clock"></i>
+                        <h3>Time Spent</h3>
+                        <div class="quiz-stat-value" id="quizTimeSpent">Loading...</div>
+                    </div>
+                    <div class="quiz-stat-card">
+                        <i class="fas fa-medal"></i>
+                        <h3>Rank</h3>
+                        <div class="quiz-stat-value" id="quizRank">Loading...</div>
+                    </div>
+                </div>
+
+                <!-- QUIZ CARDS - Where user sees available quizzes -->
+                <div class="quiz-cards-container" id="quizCardsContainer">
+                    <h2 class="section-title"><i class="fas fa-puzzle-piece"></i> Available Quizzes</h2>
+                    <div class="quizzes-grid" id="userQuizzesContainer">
+                        <div class="loading-container">
+                            <i class="fas fa-spinner fa-spin"></i>
+                            <p>Loading quizzes from database...</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- QUIZ INTERFACE - Shows when user starts a quiz -->
+                <div class="quiz-interface-container" id="quizInterfaceContainer" style="display: none;">
+                    <div class="quiz-header">
+                        <button onclick="exitQuiz()" class="btn-secondary">
+                            <i class="fas fa-times"></i> Exit Quiz
+                        </button>
+                        <h2 id="activeQuizTitle">Quiz Title</h2>
+                        <div class="quiz-timer">
+                            <i class="fas fa-clock"></i> <span id="timerDisplay">00:00</span>
+                        </div>
+                    </div>
+                    
+                    <div class="quiz-progress-bar">
+                        <div class="progress-fill" id="quizProgressFill" style="width: 0%"></div>
+                    </div>
+                    
+                    <div class="quiz-question-area">
+                        <div class="question-header">
+                            <span class="question-number" id="currentQuestionNum">1</span>/<span id="totalQuestions">10</span>
+                            <span class="question-points" id="questionPoints">10 points</span>
+                        </div>
+                        
+                        <h3 class="question-text" id="quizQuestionText">Loading question...</h3>
+                        
+                        <div class="options-grid" id="quizOptionsContainer">
+                            <!-- Options will be loaded here -->
+                        </div>
+                    </div>
+                    
+                    <div class="quiz-navigation">
+                        <button class="nav-btn submit" onclick="submitQuiz()" id="submitQuizBtn" style="display: none;">
+                            Submit Quiz
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Leaderboard Section -->
+                <div class="leaderboard-container" id="leaderboardContainer">
+                    <h2 class="card-title">
+                        <i class="fas fa-chart-bar"></i> Quiz Leaderboard
+                    </h2>
+                    <p class="card-subtitle">Top performers this week</p>
+                    
+                    <div class="leaderboard-list" id="leaderboardList">
+                        <div class="loading-container">
+                            <i class="fas fa-spinner fa-spin"></i> Loading leaderboard...
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+
+        <!-- Progress Tracking Dashboard Page - DATABASE DRIVEN -->
+        <div id="progress-page" class="hidden">
+            <!-- Header -->
+            <header class="header">
+                <div class="logo" id="progressLogo">
+                    <i class="fas fa-chart-line logo-icon"></i>
+                    <div class="logo-text">Progress<span class="logo-accent">Tracker</span></div>
+                </div>
+                
+                <!-- Back Button -->
+                <button class="back-button" id="backToDashboardFromProgress">
+                </button>
+            </header>
+
+            <!-- Progress Dashboard Content -->
+            <div class="progress-container">
+                <!-- Summary Stats Card -->
+                <section class="card welcome-card animate-fade-in">
+                    <div class="welcome-header">
+                        <h1 class="welcome-title" id="progressWelcomeTitle">Your Learning Progress</h1>
+                        <div class="date-display" id="progressDate">Last updated: Today</div>
+                    </div>
+                    
+                    <div class="progress-summary-stats">
+                        <div class="summary-stat">
+                            <div class="stat-icon">
+                                <i class="fas fa-trophy"></i>
+                            </div>
+                            <div class="stat-content">
+                                <h3>Overall Progress</h3>
+                                <div class="stat-value" id="overallProgress">0%</div>
+                                <div class="progress-bar-container mini">
+                                    <div class="progress-fill progress-good" id="overallProgressBar" style="width: 0%"></div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="summary-stat">
+                            <div class="stat-icon">
+                                <i class="fas fa-coins"></i>
+                            </div>
+                            <div class="stat-content">
+                                <h3>Total Points</h3>
+                                <div class="stat-value" id="totalPointsProgress">0</div>
+                                <p class="stat-change" id="pointsChange">+0 this week</p>
+                            </div>
+                        </div>
+                        
+                        <div class="summary-stat">
+                            <div class="stat-icon">
+                                <i class="fas fa-clock"></i>
+                            </div>
+                            <div class="stat-content">
+                                <h3>Time Invested</h3>
+                                <div class="stat-value" id="totalTime">0h</div>
+                                <p class="stat-change" id="timeChange">0h this week</p>
+                            </div>
+                        </div>
+                        
+                        <div class="summary-stat">
+                            <div class="stat-icon">
+                                <i class="fas fa-award"></i>
+                            </div>
+                            <div class="stat-content">
+                                <h3>Badges Earned</h3>
+                                <div class="stat-value" id="totalBadges">0/0</div>
+                                <p class="stat-change" id="badgesChange">0 new this month</p>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Progress Charts -->
+                <section class="card full-width-card animate-fade-in" style="animation-delay: 0.1s">
+                    <div class="card-header">
+                        <h2 class="card-title">
+                            <i class="fas fa-chart-bar"></i> Weekly Progress Trends
+                        </h2>
+                        <div class="time-period-selector">
+                            <select id="timePeriodSelect" class="form-control">
+                                <option value="week">Last 7 Days</option>
+                                <option value="month">Last 30 Days</option>
+                                <option value="quarter">Last 3 Months</option>
+                                <option value="year">Last Year</option>
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <div class="charts-grid">
+                        <div class="chart-container">
+                            <h3>Daily Practice Time</h3>
+                            <div class="chart" id="practiceTimeChart">
+                                <div class="simple-bar-chart">
+                                    <div class="chart-bars" id="practiceTimeBars">
+                                        <!-- Bars will be loaded dynamically -->
+                                    </div>
+                                    <div class="chart-labels" id="practiceTimeLabels">
+                                        <!-- Labels will be loaded dynamically -->
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="chart-container">
+                            <h3>Accuracy Rate</h3>
+                            <div class="chart" id="accuracyChart">
+                                <div class="simple-line-chart">
+                                    <div class="chart-line" id="accuracyLine">
+                                        <!-- Line points will be loaded dynamically -->
+                                    </div>
+                                    <div class="chart-labels" id="accuracyLabels">
+                                        <!-- Labels will be loaded dynamically -->
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Topic Progress Breakdown -->
+                <section class="card animate-fade-in" style="animation-delay: 0.2s">
+                    <div class="card-header">
+                        <h2 class="card-title">
+                            <i class="fas fa-book-open"></i> Topic Progress Breakdown
+                        </h2>
+                        <p class="card-subtitle">Detailed progress for each learning topic</p>
+                    </div>
+                    
+                    <div class="topics-progress-detailed" id="topicsProgressDetailed">
+                        <!-- Topic progress items will be loaded dynamically -->
+                        <div class="loading-container">
+                            <i class="fas fa-spinner fa-spin"></i>
+                            <p>Loading topic progress...</p>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Performance Analytics -->
+                <section class="card animate-fade-in" style="animation-delay: 0.3s">
+                    <div class="card-header">
+                        <h2 class="card-title">
+                            <i class="fas fa-chart-line"></i> Performance Analytics
+                        </h2>
+                        <p class="card-subtitle">Your learning efficiency and improvement trends</p>
+                    </div>
+                    
+                    <div class="performance-grid" id="performanceGrid">
+                        <!-- Performance cards will be loaded dynamically -->
+                        <div class="loading-container">
+                            <i class="fas fa-spinner fa-spin"></i>
+                            <p>Loading performance analytics...</p>
+                        </div>
+                    </div>
+                    
+                    <div class="learning-insights">
+                        <h4><i class="fas fa-lightbulb"></i> Learning Insights</h4>
+                        <ul class="insights-list" id="insightsList">
+                            <!-- Insights will be loaded dynamically -->
+                        </ul>
+                    </div>
+                </section>
+
+                <!-- Achievement Timeline -->
+                <section class="card full-width-card animate-fade-in" style="animation-delay: 0.4s">
+                    <div class="card-header">
+                        <h2 class="card-title">
+                            <i class="fas fa-trophy"></i> Achievement Timeline
+                        </h2>
+                        <p class="card-subtitle">Your journey and milestones</p>
+                    </div>
+                    
+                    <div class="timeline" id="achievementTimeline">
+                        <!-- Timeline items will be loaded dynamically -->
+                        <div class="loading-container">
+                            <i class="fas fa-spinner fa-spin"></i>cd 
+                            <p>Loading achievement timeline...</p>
+                        </div>
+                    </div>
+                </section>
             </div>
         </div>
 
@@ -2787,6 +2572,10 @@
             <!-- Settings content remains the same -->
             <div class="page-container">
                 <!-- Header -->
+                <div class="main-header">
+                    <h1><i class="fas fa-square-root-alt"></i> MathHub</h1>
+                </div>
+
                 <div class="dashboard-container">
                     <!-- Main Content Area -->
                     <div class="main-settings">
@@ -2797,120 +2586,318 @@
                                 <p class="section-subtitle">Manage your profile and regional preferences</p>
                             </div>
 
-                            <!-- Settings Page - Profile Information Section -->
-<div class="settings-page">
-    <div class="settings-grid">
-        <!-- Profile Overview Card -->
-        <div class="settings-card profile-overview-card">
-            <div class="profile-overview">
-                <div class="profile-avatar-large" id="profileInitials">
-                    <span>JD</span> <!-- Initials will be dynamically updated -->
-                </div>
-                <div class="profile-info">
-                    <h3 id="profileDisplayName">John Doe</h3>
-                    <p id="profileEmail">john.doe@example.com</p>
-                    <p id="profileRole">Student</p>
-                </div>
-            </div>
-        </div>
-        
-        <!-- Profile Information Card -->
-        <div class="settings-card">
-            <h3><i class="fas fa-user-edit"></i> Profile Information</h3>
-            <form id="profileForm">
-                <div class="form-row">
-                    <label class="form-label">Full Name</label>
-                    <input type="text" class="form-control" id="displayName" placeholder="Enter your full name">
-                </div>
-                <div class="form-row">
-                    <label class="form-label">Username</label>
-                    <input type="text" class="form-control" id="username" placeholder="Enter your username">
-                </div>
-                <div class="form-row">
-                    <label class="form-label">Email Address</label>
-                    <input type="email" class="form-control" id="userEmail" placeholder="Enter your email">
-                </div>
-                <div class="form-row">
-                    <label class="form-label">Profile Picture</label>
-                    <div class="file-upload">
-                        <div class="profile-preview" id="profilePreview">
-                            <div class="profile-initials-preview" id="profileInitialsPreview">JD</div>
+                            <div class="settings-card">
+                                <h3><i class="fas fa-user-edit"></i> Profile Information</h3>
+                                <div class="form-row">
+                                    <label class="form-label">Display Name</label>
+                                    <input type="text" class="form-control" id="displayName" value="Loading..." placeholder="Enter your display name">
+                                </div>
+                                <div class="form-row">
+                                    <label class="form-label">Email Address</label>
+                                    <input type="email" class="form-control" id="userEmail" value="Loading..." placeholder="Enter your email">
+                                </div>
+                                <div class="form-row">
+                                    <label class="form-label">Profile Picture</label>
+                                    <div class="file-upload">
+                                        <div class="profile-preview" id="profilePreview">
+                                            <i class="fas fa-user-circle"></i>
+                                        </div>
+                                        <button class="btn btn-secondary"><i class="fas fa-upload"></i> Upload New Photo</button>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="settings-card">
+                                <h3><i class="fas fa-language"></i> Language & Region</h3>
+                                <div class="form-row">
+                                    <label class="form-label">Interface Language</label>
+                                    <select class="form-control" id="interfaceLanguage">
+                                        <option>English (US)</option>
+                                    </select>
+                                </div>
+                                <div class="form-row">
+                                    <label class="form-label">Province (Batangas)</label>
+                                    <select class="form-control" id="batangas-municipalities">
+                                        <option value="">Select Municipality/City</option>
+                                        <option value="batangas_city" selected>Batangas City</option>
+                                        <option value="lipa">Lipa City</option>
+                                        <option value="tanauan">Tanauan City</option>
+                                        <option value="sto_tomas">Sto. Tomas City</option>
+                                        <option value="balayan">Balayan</option>
+                                        <option value="calaca">Calaca</option>
+                                        <option value="lemery">Lemery</option>
+                                        <option value="nasugbu">Nasugbu</option>
+                                        <option value="taal">Taal</option>
+                                        <option value="san_juan">San Juan</option>
+                                        <option value="lobo">Lobo</option>
+                                        <option value="mabini">Mabini</option>
+                                        <option value="san_luis">San Luis</option>
+                                        <option value="tingloy">Tingloy</option>
+                                    </select>
+                                </div>
+                                <div class="form-row">
+                                    <label class="form-label">Time Zone</label>
+                                    <select class="form-control" id="timeZone">
+                                        <option value="PHST" selected>Philippine Standard Time (UTC+8)</option>
+                                    </select>
+                                </div>
+                                <div class="info-box">
+                                    <p><i class="fas fa-info-circle"></i> <strong>Location Settings:</strong> Your location helps us provide relevant content and features.</p>
+                                    <p><i class="fas fa-map-marker-alt"></i> <strong>Selected:</strong> Batangas Province, Philippines</p>
+                                    <p><i class="fas fa-clock"></i> <strong>Time Zone:</strong> Philippine Standard Time (UTC+8)</p>
+                                </div>
+                            </div>
                         </div>
-                    </div>
-                </div>
-                <div class="form-actions">
-                    <button type="submit" class="btn-primary" id="saveProfileBtn">
-                        <i class="fas fa-save"></i> Save Changes
-                    </button>
-                    <button type="button" class="btn-secondary" id="cancelProfileBtn">
-                        <i class="fas fa-times"></i> Cancel
-                    </button>
-                </div>
-            </form>
-        </div>
 
-        <!-- Account Statistics Card -->
-        <div class="settings-card">
-            <h3><i class="fas fa-chart-bar"></i> Account Statistics</h3>
-            <div class="stats-list">
-                <div class="stat-item">
-                    <span class="stat-label">Member Since:</span>
-                    <span class="stat-value" id="memberSince">Loading...</span>
-                </div>
-                <div class="stat-item">
-                    <span class="stat-label">Last Login:</span>
-                    <span class="stat-value" id="lastLogin">Loading...</span>
-                </div>
-                <div class="stat-item">
-                    <span class="stat-label">Account Type:</span>
-                    <span class="stat-value" id="accountRole">Loading...</span>
-                </div>
-                <div class="stat-item">
-                    <span class="stat-label">Account Status:</span>
-                    <span class="stat-value" id="accountStatus">
-                        <span class="badge-active">Active</span>
-                    </span>
-                </div>
-            </div>
-        </div>
+                        <!-- Learning Settings -->
+                        <div id="learning" class="settings-section">
+                            <div class="section-header">
+                                <h2><i class="fas fa-graduation-cap"></i> Learning Preferences</h2>
+                                <p class="section-subtitle">Customize how you learn and practice mathematics</p>
+                            </div>
 
-        <!-- Change Password Card -->
-        <div class="settings-card">
-            <h3><i class="fas fa-key"></i> Change Password</h3>
-            <form id="changePasswordForm">
-                <div class="form-row">
-                    <label class="form-label">Current Password</label>
-                    <input type="password" class="form-control" id="currentPassword" placeholder="Enter current password">
-                </div>
-                <div class="form-row">
-                    <label class="form-label">New Password</label>
-                    <input type="password" class="form-control" id="newPassword" placeholder="Enter new password">
-                </div>
-                <div class="form-row">
-                    <label class="form-label">Confirm New Password</label>
-                    <input type="password" class="form-control" id="confirmPassword" placeholder="Confirm new password">
-                </div>
-                <div class="form-actions">
-                    <button type="submit" class="btn-primary" id="changePasswordBtn">
-                        <i class="fas fa-key"></i> Update Password
-                    </button>
-                </div>
-            </form>
-        </div>
+                            <div class="settings-card">
+                                <h3><i class="fas fa-chart-line"></i> Difficulty Level</h3>
+                                <div class="form-row">
+                                    <label class="form-label">Adaptive Difficulty</label>
+                                    <label class="toggle-switch">
+                                        <input type="checkbox" id="adaptiveDifficulty" checked>
+                                        <span class="toggle-slider"></span>
+                                    </label>
+                                </div>
+                                <div class="form-row">
+                                    <label class="form-label">Preferred Difficulty</label>
+                                    <select class="form-control" id="preferredDifficulty">
+                                        <option>Beginner</option>
+                                        <option selected>Intermediate</option>
+                                        <option>Advanced</option>
+                                        <option>Expert</option>
+                                    </select>
+                                </div>
+                            </div>
 
-        <!-- Danger Zone Card -->
-        <div class="settings-card danger-zone">
-            <h3><i class="fas fa-exclamation-triangle"></i> Danger Zone</h3>
-            <p>Once you delete your account, there is no going back. Please be certain.</p>
-            <button class="btn-danger" id="deleteAccountBtn">
-                <i class="fas fa-trash-alt"></i> Delete Account
-            </button>
-        </div>
-    </div>
-</div>
-
+                            <div class="settings-card">
+                                <h3><i class="fas fa-book-open"></i> Learning Mode</h3>
+                                <div class="form-row">
+                                    <label class="form-label">Default Practice Problems</label>
+                                    <div class="radio-group">
+                                        <label class="radio-option">
+                                            <input type="radio" name="practice" id="practice10" checked> 10 per session
+                                        </label>
+                                        <label class="radio-option">
+                                            <input type="radio" name="practice" id="practice20"> 20 per session
+                                        </label>
+                                        <label class="radio-option">
+                                            <input type="radio" name="practice" id="practiceUnlimited"> Unlimited
+                                        </label>
+                                    </div>
+                                </div>
+                                <div class="form-row">
+                                    <label class="form-label">Show Step-by-Step Solutions</label>
+                                    <label class="toggle-switch">
+                                        <input type="checkbox" id="showSolutions" checked>
+                                        <span class="toggle-slider"></span>
+                                    </label>
+                                </div>
+                            </div>
                         </div>
+
+                        <!-- Privacy & Security -->
+                        <div id="privacy" class="settings-section">
+                            <div class="section-header">
+                                <h2><i class="fas fa-shield-alt"></i> Privacy & Security</h2>
+                                <p class="section-subtitle">Manage your account security and privacy settings</p>
+                            </div>
+
+                            <div class="settings-card">
+                                <h3><i class="fas fa-lock"></i> Account Security</h3>
+                                <div class="form-row">
+                                    <label class="form-label">Two-Factor Authentication</label>
+                                    <label class="toggle-switch">
+                                        <input type="checkbox" id="twoFactorAuth">
+                                        <span class="toggle-slider"></span>
+                                    </label>
+                                </div>
+                                <div class="form-row">
+                                    <label class="form-label">Change Password</label>
+                                    <button class="btn btn-secondary" id="changePasswordBtn"><i class="fas fa-key"></i> Update Password</button>
+                                </div>
+                            </div>
+
+                            <div class="settings-card">
+                                <h3><i class="fas fa-user-secret"></i> Privacy Settings</h3>
+                                <div class="form-row">
+                                    <label class="form-label">Profile Visibility</label>
+                                    <select class="form-control" id="profileVisibility">
+                                        <option>Public</option>
+                                        <option selected>Private</option>
+                                        <option>Friends Only</option>
+                                    </select>
+                                </div>
+                                <div class="form-row">
+                                    <label class="form-label">Data Sharing for Research</label>
+                                    <label class="toggle-switch">
+                                        <input type="checkbox" id="dataSharing">
+                                        <span class="toggle-slider"></span>
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Notifications -->
+                        <div id="notifications" class="settings-section">
+                            <div class="section-header">
+                                <h2><i class="fas fa-bell"></i> Notification Settings</h2>
+                                <p class="section-subtitle">Control how and when you receive notifications</p>
+                            </div>
+
+                            <div class="settings-card">
+                                <h3><i class="fas fa-envelope"></i> Email Notifications</h3>
+                                <div class="form-row">
+                                    <label class="form-label">Weekly Progress Report</label>
+                                    <label class="toggle-switch">
+                                        <input type="checkbox" id="weeklyReport" checked>
+                                        <span class="toggle-slider"></span>
+                                    </label>
+                                </div>
+                                <div class="form-row">
+                                    <label class="form-label">New Feature Announcements</label>
+                                    <label class="toggle-switch">
+                                        <input type="checkbox" id="featureAnnouncements" checked>
+                                        <span class="toggle-slider"></span>
+                                    </label>
+                                </div>
+                            </div>
+
+                            <div class="settings-card">
+                                <h3><i class="fas fa-mobile-alt"></i> Push Notifications</h3>
+                                <div class="form-row">
+                                    <label class="form-label">Practice Reminders</label>
+                                    <label class="toggle-switch">
+                                        <input type="checkbox" id="practiceReminders" checked>
+                                        <span class="toggle-slider"></span>
+                                    </label>
+                                </div>
+                                <div class="form-row">
+                                    <label class="form-label">Achievement Alerts</label>
+                                    <label class="toggle-switch">
+                                        <input type="checkbox" id="achievementAlerts" checked>
+                                        <span class="toggle-slider"></span>
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Display Settings -->
+                        <div id="display" class="settings-section">
+                            <div class="section-header">
+                                <h2><i class="fas fa-desktop"></i> Display Settings</h2>
+                                <p class="section-subtitle">Customize the look and feel of MathHub</p>
+                            </div>
+
+                            <div class="settings-card">
+                                <h3><i class="fas fa-palette"></i> Theme & Appearance</h3>
+                                <div class="form-row">
+                                    <label class="form-label">Theme</label>
+                                    <div class="radio-group">
+                                        <label class="radio-option">
+                                            <input type="radio" name="theme" id="themeLight" checked> Light
+                                        </label>
+                                        <label class="radio-option">
+                                            <input type="radio" name="theme" id="themeDark"> Dark
+                                        </label>
+                                        <label class="radio-option">
+                                            <input type="radio" name="theme" id="themeAuto"> Auto
+                                        </label>
+                                    </div>
+                                </div>
+                                <div class="form-row">
+                                    <label class="form-label">Math Symbol Style</label>
+                                    <select class="form-control" id="mathSymbolStyle">
+                                        <option>Traditional</option>
+                                        <option selected>Modern</option>
+                                        <option>Handwritten</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            <div class="settings-card">
+                                <h3><i class="fas fa-eye"></i> Accessibility</h3>
+                                <div class="form-row">
+                                    <label class="form-label">High Contrast Mode</label>
+                                    <label class="toggle-switch">
+                                        <input type="checkbox" id="highContrast">
+                                        <span class="toggle-slider"></span>
+                                    </label>
+                                </div>
+                                <div class="form-row">
+                                    <label class="form-label">Font Size</label>
+                                    <select class="form-control" id="fontSize">
+                                        <option>Small</option>
+                                        <option selected>Medium</option>
+                                        <option>Large</option>
+                                        <option>Extra Large</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Account Settings -->
+                        <div id="account" class="settings-section">
+                            <div class="section-header">
+                                <h2><i class="fas fa-user-cog"></i> Account Management</h2>
+                                <p class="section-subtitle">Manage your account and connected services</p>
+                            </div>
+
+                            <div class="settings-card">
+                                <h3><i class="fas fa-user-edit"></i> Profile Management</h3>
+                                <div class="info-box" style="margin-bottom: 20px;">
+                                    <p><i class="fas fa-info-circle"></i> <strong>Edit Your Profile:</strong> You can edit your personal information in the <strong>General Settings</strong> section.</p>
+                                    <p><i class="fas fa-arrow-right"></i> Go to General Settings to update your display name, email, and profile picture.</p>
+                                </div>
+                                <div class="form-row">
+                                    <label class="form-label">View Profile</label>
+                                    <button class="btn btn-secondary" onclick="viewProfile()"><i class="fas fa-eye"></i> View Public Profile</button>
+                                </div>
+                            </div>
+
+                            <div class="settings-card">
+                                <h3><i class="fas fa-link"></i> Connected Accounts</h3>
+                                <div class="form-row">
+                                    <label class="form-label">Google Account</label>
+                                    <button class="btn btn-secondary" id="googleAccountBtn"><i class="fab fa-google"></i> Connected</button>
+                                </div>
+                                <div class="form-row">
+                                    <label class="form-label">GitHub Account</label>
+                                    <button class="btn btn-secondary" id="githubAccountBtn"><i class="fab fa-github"></i> Connect</button>
+                                </div>
+                            </div>
+                        </div>
+
                     </div>
+
+                    <!-- Sidebar -->
+                    <div class="settings-sidebar">
+                        <!-- Navigation Menu -->
+                        <div class="sidebar-card">
+                            <h3><i class="fas fa-cogs"></i> MathHub Settings</h3>
+                            <p class="sidebar-subtitle">Customize your learning experience and account preferences</p>
+                            
+                            <ul class="sidebar-menu">
+                                <li><a href="#" class="active" onclick="showSection('general')"><i class="fas fa-user"></i> General</a></li>
+                                <li><a href="#" onclick="showSection('learning')"><i class="fas fa-graduation-cap"></i> Learning</a></li>
+                                <li><a href="#" onclick="showSection('privacy')"><i class="fas fa-shield-alt"></i> Privacy & Security</a></li>
+                                <li><a href="#" onclick="showSection('notifications')"><i class="fas fa-bell"></i> Notifications</a></li>
+                                <li><a href="#" onclick="showSection('display')"><i class="fas fa-desktop"></i> Display</a></li>
+                                <li><a href="#" onclick="showSection('account')"><i class="fas fa-user-cog"></i> Account</a></li>
+                            </ul>
+                        </div>
+
+                        <!-- Action Buttons -->
+                        <div class="action-buttons">
+                            <button class="btn btn-secondary" onclick="resetSettings()"><i class="fas fa-undo"></i> Reset to Defaults</button>
+                            <button class="btn btn-primary" onclick="saveSettings()"><i class="fas fa-save"></i> Save Changes</button>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -3036,79 +3023,66 @@
                         </div>
                     </div>
 
-                    <!-- Send Feedback Card -->
-<div class="card">
-    <div class="card-header">
-        <div class="card-icon icon-feedback">
-            <i class="fas fa-comment-alt"></i>
-        </div>
-        <h2>Send Feedback</h2>
-    </div>
-    <div class="card-body">
-        <form id="feedbackForm">
-            <div class="form-group">
-                <label for="feedbackType">Feedback Type</label>
-                <select id="feedbackType" class="form-control">
-                    <option value="suggestion">Suggestion</option>
-                    <option value="bug">Bug Report</option>
-                    <option value="praise">Praise</option>
-                    <option value="other">Other</option>
-                </select>
-            </div>
+                    <!-- Send Feedback -->
+                    <div class="card">
+                        <div class="card-header">
+                            <div class="card-icon icon-feedback">
+                                <i class="fas fa-comment-alt"></i>
+                            </div>
+                            <h2>Send Feedback</h2>
+                        </div>
+                        <div class="card-body">
+                            <form id="feedbackForm">
+                                <div class="form-group">
+                                    <label for="feedbackType">Feedback Type</label>
+                                    <select id="feedbackType" class="form-control">
+                                        <option value="suggestion">Suggestion</option>
+                                        <option value="bug">Bug Report</option>
+                                        <option value="praise">Praise</option>
+                                        <option value="other">Other</option>
+                                    </select>
+                                </div>
 
-            <div class="form-group">
-                <label for="feedbackMessage">Your Feedback</label>
-                <textarea id="feedbackMessage" class="form-control" rows="4" 
-                          placeholder="Tell us what you think..."></textarea>
-            </div>
+                                <div class="form-group">
+                                    <label for="feedbackMessage">Your Feedback</label>
+                                    <textarea id="feedbackMessage" class="form-control" placeholder="Tell us what you think..."></textarea>
+                                </div>
 
-            <div class="form-group">
-    <label>Overall Rating</label>
-    <div class="rating" id="ratingStars">
-        <span class="star" data-rating="1">☆</span>
-        <span class="star" data-rating="2">☆</span>
-        <span class="star" data-rating="3">☆</span>
-        <span class="star" data-rating="4">☆</span>
-        <span class="star" data-rating="5">☆</span>
-    </div>
-    <input type="hidden" id="ratingValue" name="rating" value="0">
-</div>
+                                <div class="form-group">
+                                    <label>Overall Rating</label>
+                                    <div class="rating">
+                                        <span class="star" onclick="rate(1)">★</span>
+                                        <span class="star" onclick="rate(2)">★</span>
+                                        <span class="star" onclick="rate(3)">★</span>
+                                        <span class="star" onclick="rate(4)">★</span>
+                                        <span class="star" onclick="rate(5)">★</span>
+                                    </div>
+                                    <input type="hidden" id="ratingValue" value="0">
+                                </div>
 
-            <button type="submit" class="btn btn-primary" style="width: 100%;">
-                <i class="fas fa-paper-plane"></i>
-                Submit Feedback
-            </button>
-        </form>
-        <div class="success-message" id="feedbackSuccess" style="display: none;">
-            <i class="fas fa-check-circle"></i>
-            Thank you for your feedback! We'll review it shortly.
-        </div>
-    </div>
-</div>
-
-<!-- Feedback History Section (Optional) -->
-<div class="card mt-4" id="feedbackHistoryContainer">
-    <div class="card-header">
-        <div class="card-icon">
-            <i class="fas fa-history"></i>
-        </div>
-        <h2>Your Feedback History</h2>
-    </div>
-    <div class="card-body" id="feedbackHistory">
-        <!-- Will be populated by JavaScript -->
-    </div>
-</div>
+                                <button type="submit" class="btn btn-primary" style="width: 100%;">
+                                    <i class="fas fa-paper-plane"></i>
+                                    Submit Feedback
+                                </button>
+                            </form>
+                            <div class="success-message" id="feedbackSuccess" style="display: none;">
+                                <i class="fas fa-check-circle"></i>
+                                Thank you for your feedback! We'll review it shortly.
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
 
+    </div> <!-- End of page-container -->
 
     <!-- ADDED: Quiz Popup Container -->
     <div class="quiz-popup-overlay hidden" id="quizPopup">
         <div class="quiz-popup-container">
             <div class="quiz-popup-header">
                 <h2><i class="fas fa-question-circle"></i> Quick Math Quiz</h2>
-                <button class="close-quiz-popup" onclick="closeQuizPopup()">&times;</button>
+                <button class="close-quiz-popup" onclick="closeQuizPopup()">&times; </button>
             </div>
             
             <div class="quiz-popup-body">
@@ -3140,7 +3114,7 @@
                 
                 <!-- Question Container - ONE QUESTION AT A TIME -->
                 <div class="quiz-question-container" id="currentQuestionContainer">
-                    <h3 class="quiz-question" id="currentQuestionText">Loading question...</h3>
+                    <h3 class="quiz-question" id="currentQuestionText">Loading question... </h3>
                     <div class="quiz-options" id="currentQuestionOptions">
                         <!-- Options will be loaded dynamically -->
                     </div>
@@ -3192,73 +3166,6 @@
         </div>
     </div>
 
-    <!-- Completion Modal -->
-    <div class="modal" id="completionModal">
-        <div class="modal-content">
-            <h3><i class="fas fa-trophy"></i> Topic Mastered!</h3>
-            <p>Congratulations! You've completed all practice exercises for <span id="completedTopicName">this topic</span>.</p>
-            <div class="progress-reward">
-                <i class="fas fa-unlock-alt"></i>
-                <div>
-                    <h4>New Topic Unlocked!</h4>
-                    <p>You can now access more challenging problems.</p>
-                </div>
-            </div>
-            <div class="modal-buttons">
-                <button class="btn-primary" id="continuePracticeBtn">Continue Practicing</button>
-                <button class="btn-secondary" id="returnToTopicsBtn">Return to Topics</button>
-            </div>
-        </div>
-    </div>
-
-    <!-- Progress Modal -->
-    <div class="modal" id="progressModal">
-        <div class="modal-content">
-            <h3><i class="fas fa-trophy"></i> Great Progress!</h3>
-            <p>You've completed <span id="completedCount">0</span> exercises today. Keep going!</p>
-            <div class="progress-reward">
-                <i class="fas fa-medal"></i>
-                <div>
-                    <h4>Daily Goal: 5 exercises</h4>
-                    <div class="progress-bar">
-                        <div class="progress-fill" id="dailyProgress" style="width: 60%"></div>
-                    </div>
-                </div>
-            </div>
-            <div class="modal-buttons">
-                <button class="btn-primary" id="closeProgressModal">Continue Practicing</button>
-            </div>
-        </div>
-    </div>
-
-    <!-- External Footer -->
-    <footer class="external-footer hidden" id="external-footer">
-        <p><span class="logo-text-small">MathHub</span> © 2026 - Interactive Math Learning Platform</p>
-    </footer>
-
-    <!-- Logout Modal -->
-    <div class="modal" id="logoutModal">
-        <div class="modal-content">
-            <h3>Confirm Logout</h3>
-            <p>Are you sure you want to logout from your MathHub account?</p>
-            <div class="modal-buttons">
-                <button class="btn-secondary" id="cancelLogout">Cancel</button>
-                <button class="btn-primary" id="confirmLogout">Logout</button>
-            </div>
-        </div>
-    </div>
-
-    <!-- Terms Modal -->
-    <div class="modal" id="termsModal">
-        <div class="modal-content">
-            <h3>Terms and Conditions</h3>
-            <p>By using MathHub, you agree to our terms of service. Your data is protected and will not be shared with third parties.</p>
-            <div class="modal-buttons">
-                <button class="btn-primary" id="closeTerms">I Agree</button>
-            </div>
-        </div>
-    </div>
-
     <!-- Tool Modal (for expanded tool view) -->
     <div class="tool-modal hidden" id="toolModal">
         <div class="tool-modal-content">
@@ -3277,6 +3184,130 @@
                 <div class="tool-actions">
                     <button class="btn-secondary" id="closeToolBtn">Close</button>
                     <button class="btn-primary" id="launchToolBtn">Launch Tool</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ============================================ -->
+    <!-- TOOL MODALS - MUST BE OUTSIDE PAGE CONTAINERS -->
+    <!-- ============================================ -->
+    <!-- Tool Modals Container -->
+    <div id="toolModalsContainer">
+        <!-- Calculator Modal -->
+        <div id="calculatorModal" class="modal-overlay" style="display: none;">
+            <div class="modal-container">
+                <div class="modal-header" style="background: #7a0000; color: white;">
+                    <h3 style="margin: 0;"><i class="fas fa-calculator"></i> Scientific Calculator</h3>
+                    <button class="modal-close" onclick="window.toolManager.closeTool()" style="color: white; background: none; border: none; font-size: 24px; cursor: pointer;">&times;</button>
+                </div>
+                <div class="modal-body">
+                    <div class="calculator-container">
+                        <div id="calcDisplay" class="calculator-display" style="background: #f5f5f5; padding: 15px; text-align: right; font-size: 24px; margin-bottom: 15px; border-radius: 5px;">0</div>
+                        <div id="calcButtons" class="calculator-buttons" style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 5px;"></div>
+                        <div class="calculator-history">
+                            <h4 style="margin: 15px 0 10px;">History</h4>
+                            <div id="calcHistory" style="max-height: 150px; overflow-y: auto;"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Graph Modal -->
+        <div id="graphModal" class="modal-overlay" style="display: none;">
+            <div class="modal-container">
+                <div class="modal-header" style="background: #7a0000; color: white;">
+                    <h3 style="margin: 0;"><i class="fas fa-chart-line"></i> Graph Tool</h3>
+                    <button class="modal-close" onclick="window.toolManager.closeTool()" style="color: white; background: none; border: none; font-size: 24px; cursor: pointer;">&times;</button>
+                </div>
+                <div class="modal-body">
+                    <div class="graph-container">
+                        <div style="margin-bottom: 15px;">
+                            <input type="text" id="graphExpression" placeholder="Enter function (e.g., x^2, 2x+1)" style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 5px;">
+                        </div>
+                        <div style="display: flex; gap: 10px; margin-bottom: 15px;">
+                            <button onclick="window.toolManager.tools.graph.plotFunction()" style="background: #7a0000; color: white; border: none; padding: 8px 15px; border-radius: 5px;">Plot</button>
+                            <button onclick="window.toolManager.tools.graph.clear()" style="background: #95a5a6; color: white; border: none; padding: 8px 15px; border-radius: 5px;">Clear</button>
+                        </div>
+                        <canvas id="graphCanvas" width="600" height="400" style="width: 100%; height: auto; border: 1px solid #ddd; border-radius: 5px;"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Whiteboard Modal -->
+        <div id="whiteboardModal" class="modal-overlay" style="display: none;">
+            <div class="modal-container">
+                <div class="modal-header" style="background: #7a0000; color: white;">
+                    <h3 style="margin: 0;"><i class="fas fa-paint-brush"></i> Whiteboard</h3>
+                    <button class="modal-close" onclick="window.toolManager.closeTool()" style="color: white; background: none; border: none; font-size: 24px; cursor: pointer;">&times;</button>
+                </div>
+                <div class="modal-body">
+                    <div class="whiteboard-toolbar" style="display: flex; gap: 10px; margin-bottom: 15px;">
+                        <button onclick="window.toolManager.tools.whiteboard.setTool('pen')" style="padding: 8px 15px;">Pen</button>
+                        <button onclick="window.toolManager.tools.whiteboard.setTool('eraser')" style="padding: 8px 15px;">Eraser</button>
+                        <input type="color" id="colorPicker" value="#7a0000">
+                        <button onclick="window.toolManager.tools.whiteboard.clear()" style="padding: 8px 15px;">Clear</button>
+                    </div>
+                    <canvas id="whiteboardCanvas" width="600" height="400" style="width: 100%; height: 300px; border: 1px solid #ddd; border-radius: 5px;"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <!-- Notepad Modal -->
+        <div id="notepadModal" class="modal-overlay" style="display: none;">
+            <div class="modal-container">
+                <div class="modal-header" style="background: #7a0000; color: white;">
+                    <h3 style="margin: 0;"><i class="fas fa-sticky-note"></i> Notepad</h3>
+                    <button class="modal-close" onclick="window.toolManager.closeTool()" style="color: white; background: none; border: none; font-size: 24px; cursor: pointer;">&times;</button>
+                </div>
+                <div class="modal-body">
+                    <div style="margin-bottom: 15px;">
+                        <input type="text" id="noteTitle" placeholder="Note title" style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 5px;">
+                    </div>
+                    <textarea id="noteContent" rows="10" placeholder="Write your notes here..." style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 5px;"></textarea>
+                    <div style="margin-top: 15px;">
+                        <button onclick="window.toolManager.tools.notepad.save()" style="background: #7a0000; color: white; border: none; padding: 10px 20px; border-radius: 5px;">Save Note</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Formula Sheet Modal -->
+        <div id="formulaModal" class="modal-overlay" style="display: none;">
+            <div class="modal-container">
+                <div class="modal-header" style="background: #7a0000; color: white;">
+                    <h3 style="margin: 0;"><i class="fas fa-book"></i> Formula Sheet</h3>
+                    <button class="modal-close" onclick="window.toolManager.closeTool()" style="color: white; background: none; border: none; font-size: 24px; cursor: pointer;">&times;</button>
+                </div>
+                <div class="modal-body">
+                    <div id="formulaList">
+                        <!-- Formulas will be loaded here -->
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Timer Modal -->
+        <div id="timerModal" class="modal-overlay" style="display: none;">
+            <div class="modal-container">
+                <div class="modal-header" style="background: #7a0000; color: white;">
+                    <h3 style="margin: 0;"><i class="fas fa-stopwatch"></i> Study Timer</h3>
+                    <button class="modal-close" onclick="window.toolManager.closeTool()" style="color: white; background: none; border: none; font-size: 24px; cursor: pointer;">&times;</button>
+                </div>
+                <div class="modal-body" style="text-align: center;">
+                    <div id="timerDisplay" style="font-size: 48px; font-weight: bold; margin: 20px 0; color: #7a0000;">25:00</div>
+                    <div style="display: flex; gap: 10px; justify-content: center; margin: 20px 0;">
+                        <button id="timerStartBtn" onclick="window.toolManager.startTimer()" style="background: #27ae60; color: white; border: none; padding: 10px 20px; border-radius: 5px;">Start</button>
+                        <button id="timerPauseBtn" onclick="window.toolManager.pauseTimer()" style="background: #f39c12; color: white; border: none; padding: 10px 20px; border-radius: 5px;">Pause</button>
+                        <button id="timerResetBtn" onclick="window.toolManager.resetTimer()" style="background: #e74c3c; color: white; border: none; padding: 10px 20px; border-radius: 5px;">Reset</button>
+                    </div>
+                    <div style="display: flex; gap: 10px; justify-content: center;">
+                        <button onclick="window.toolManager.tools.timer.setTime(15)" style="padding: 8px 15px; border: 1px solid #ddd; border-radius: 5px;">15 min</button>
+                        <button onclick="window.toolManager.tools.timer.setTime(25)" style="padding: 8px 15px; border: 1px solid #ddd; border-radius: 5px;">25 min</button>
+                        <button onclick="window.toolManager.tools.timer.setTime(50)" style="padding: 8px 15px; border: 1px solid #ddd; border-radius: 5px;">50 min</button>
+                    </div>
                 </div>
             </div>
         </div>
@@ -3311,10 +3342,6 @@
     <div class="mobile-menu-overlay" id="mobileMenuOverlay"></div>
     <div class="mobile-menu-panel" id="mobileMenuPanel">
         <div class="mobile-menu-header">
-            <h3><i class="fas fa-bars"></i> Navigation Menu</h3>
-            <button class="close-menu-btn" id="closeMenuBtn">
-                <i class="fas fa-times"></i>
-            </button>
         </div>
         <div class="mobile-menu-grid">
             <a href="#" class="mobile-menu-item active" onclick="showDashboard(event)">
@@ -3345,14 +3372,201 @@
                 <i class="fas fa-graduation-cap"></i>
                 <span>Lessons</span>
             </a>
-            <a href="#" class="mobile-menu-item" onclick="logoutUser(event)">
+            <a href="#" class="mobile-menu-item" onclick="showLogoutConfirmation()">
                 <i class="fas fa-sign-out-alt"></i>
                 <span>Logout</span>
             </a>
         </div>
     </div>
-    <script src="factolearn.js"></script>
-    <!-- Tool Modals Container - ILAGAY ITO SA BABA NG PAGE, BEFORE </body> -->
-<div id="toolModalsContainer"></div>
+
+    <!-- Quiz Modal -->
+    <div class="modal-overlay" id="quizModal">
+        <div class="modal-container" style="max-width: 800px;">
+            <div class="modal-header" style="background: #7a0000; color: white;">
+                <h2><i class="fas fa-question-circle"></i> <span id="quizModalTitle">Quiz</span></h2>
+                <button class="modal-close" onclick="closeQuizSystemModal()">&times;</button>
+            </div>
+            
+            <!-- QUIZ CONTAINER (questions) -->
+            <div id="quizContainer">
+                <div class="modal-body">
+                    <!-- Progress and Timer -->
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                        <div style="display: flex; gap: 10px;">
+                            <span class="quiz-progress" style="background: #f0f0f0; padding: 5px 15px; border-radius: 20px;">
+                                Question <span id="quizCurrentNum">1</span>/<span id="quizTotalNum">10</span>
+                            </span>
+                        </div>
+                        <div class="quiz-timer" style="background: #7a0000; color: white; padding: 5px 20px; border-radius: 30px; font-size: 18px; font-weight: bold;">
+                            <i class="fas fa-clock"></i> <span id="quizTimerDisplay">00:00</span>
+                        </div>
+                    </div>
+                    
+                    <!-- Progress Dots -->
+                    <div id="quizProgressDotsModal" style="display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 20px; padding: 10px 0;">
+                        <!-- Dots will be generated here -->
+                    </div>
+                    
+                    <!-- Question Text -->
+                    <div style="margin-bottom: 25px;">
+                        <h3 id="quizQuestionTextModal" style="color: #2c3e50; line-height: 1.5;">Loading question...</h3>
+                    </div>
+                    
+                    <!-- Options Grid -->
+                    <div id="quizOptionsGridModal" style="margin-bottom: 20px;">
+                        <!-- Options will be loaded here -->
+                    </div>
+                    
+                    <!-- Navigation Buttons -->
+                    <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px;">
+                        <button class="btn-secondary" onclick="closeQuizSystemModal()">
+                            <i class="fas fa-times"></i> Cancel
+                        </button>
+                        <button class="btn-primary" id="submitQuizBtn" onclick="submitQuizSystem()">
+                            <i class="fas fa-paper-plane"></i> Submit Quiz
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Forgot Password Modal -->
+<div id="forgotPasswordModal" class="modal-overlay">
+    <div class="modal-container" style="max-width: 450px;">
+        <div class="modal-header" style="background: #7a0000; color: white; padding: 15px 20px; border-radius: 10px 10px 0 0;">
+            <h3 style="margin: 0; font-size: 18px;"><i class="fas fa-key"></i> Reset Password</h3>
+            <button class="modal-close" onclick="closeForgotPasswordModal()" style="background: none; border: none; color: white; font-size: 24px; cursor: pointer;">&times;</button>
+        </div>
+        
+        <div class="modal-body" style="padding: 25px;">
+            <!-- Step 1: Email Form -->
+            <div id="forgotStep1" style="display: block;">
+                <p style="margin-bottom: 20px; color: #2c3e50;">Enter your email address and we'll send you a link to reset your password.</p>
+                
+                <div style="margin-bottom: 20px;">
+                    <label style="display: block; margin-bottom: 8px; font-weight: 600; color: #2c3e50;">
+                        <i class="fas fa-envelope"></i> Email Address
+                    </label>
+                    <input type="email" id="resetEmail" class="form-control" 
+                           placeholder="your@email.com" 
+                           style="width: 100%; padding: 12px 15px; border: 1px solid #ddd; border-radius: 6px;">
+                </div>
+                
+                <div id="forgotError" style="display: none; background: #fee9e7; color: #e74c3c; padding: 10px; border-radius: 6px; margin-bottom: 15px; font-size: 14px;"></div>
+                
+                <div style="display: flex; gap: 10px; justify-content: flex-end;">
+                    <button class="btn-secondary" onclick="closeForgotPasswordModal()" style="padding: 10px 20px; border: none; border-radius: 6px; cursor: pointer; background: #95a5a6; color: white;">
+                        <i class="fas fa-times"></i> Cancel
+                    </button>
+                    <button class="btn-primary" onclick="requestPasswordReset()" style="padding: 10px 20px; border: none; border-radius: 6px; cursor: pointer; background: #7a0000; color: white;">
+                        <i class="fas fa-paper-plane"></i> Send Reset Link
+                    </button>
+                </div>
+            </div>
+            
+            <!-- Step 2: Reset Link Generated (Demo Mode) -->
+            <div id="forgotStep2" style="display: none;">
+                <div style="text-align: center; margin-bottom: 20px;">
+                    <div style="width: 80px; height: 80px; background: #27ae60; border-radius: 50%; margin: 0 auto 15px; display: flex; align-items: center; justify-content: center;">
+                        <i class="fas fa-check" style="font-size: 40px; color: white;"></i>
+                    </div>
+                    <h4 style="color: #2c3e50; margin-bottom: 10px;">Reset Link Generated!</h4>
+                    <p style="color: #7f8c8d; margin-bottom: 5px;" id="resetEmailDisplay"></p>
+                </div>
+                
+                <div style="background: #f8f9fa; border-radius: 8px; padding: 15px; margin-bottom: 20px; border-left: 4px solid #7a0000;">
+                    <p style="margin: 0 0 5px 0; font-weight: bold; color: #2c3e50;">
+                        <i class="fas fa-info-circle"></i> DEMO MODE (No Email Configured)
+                    </p>
+                    <p style="margin: 5px 0; color: #34495e; font-size: 14px;">
+                        Since email is not connected, use this reset link:
+                    </p>
+                    <div style="background: white; padding: 10px; border-radius: 5px; border: 1px solid #ddd; margin: 10px 0;">
+                        <code id="resetLinkDisplay" style="word-break: break-all; font-size: 12px;"></code>
+                    </div>
+                    <button class="btn-secondary" onclick="copyResetLink()" style="width: 100%; padding: 8px; background: #3498db; color: white; border: none; border-radius: 5px; cursor: pointer;">
+                        <i class="fas fa-copy"></i> Copy Reset Link
+                    </button>
+                </div>
+                
+                <div style="display: flex; gap: 10px; justify-content: center;">
+                    <button class="btn-primary" onclick="closeForgotPasswordModal()" style="padding: 10px 20px; background: #7a0000; color: white; border: none; border-radius: 6px; cursor: pointer;">
+                        <i class="fas fa-check"></i> OK, Got It
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Reset Password Modal -->
+<div id="resetPasswordModal" class="modal-overlay">
+    <div class="modal-container" style="max-width: 450px;">
+        <div class="modal-header" style="background: #7a0000; color: white; padding: 15px 20px; border-radius: 10px 10px 0 0;">
+            <h3 style="margin: 0; font-size: 18px;"><i class="fas fa-lock"></i> Create New Password</h3>
+            <button class="modal-close" onclick="closeResetPasswordModal()" style="background: none; border: none; color: white; font-size: 24px; cursor: pointer;">&times;</button>
+        </div>
+        
+        <div class="modal-body" style="padding: 25px;">
+            <div id="resetPasswordStep1" style="display: block;">
+                <div style="margin-bottom: 20px; background: #f8f9fa; padding: 12px; border-radius: 6px;">
+                    <p style="margin: 0; font-size: 14px; color: #2c3e50;">
+                        <i class="fas fa-user"></i> <span id="resetUserName"></span>
+                    </p>
+                    <p style="margin: 5px 0 0 0; font-size: 13px; color: #7f8c8d;">
+                        <i class="fas fa-envelope"></i> <span id="resetUserEmail"></span>
+                    </p>
+                </div>
+                
+                <div style="margin-bottom: 20px;">
+                    <label style="display: block; margin-bottom: 8px; font-weight: 600; color: #2c3e50;">
+                        <i class="fas fa-lock"></i> New Password
+                    </label>
+                    <input type="password" id="newPassword" class="form-control" 
+                           placeholder="Enter new password (min. 6 characters)" 
+                           style="width: 100%; padding: 12px 15px; border: 1px solid #ddd; border-radius: 6px;">
+                    <div class="strength-meter" style="height: 4px; background: #ecf0f1; margin-top: 8px; border-radius: 2px; overflow: hidden;">
+                        <div id="passwordStrength" style="height: 100%; width: 0; background: #e74c3c; transition: all 0.3s;"></div>
+                    </div>
+                </div>
+                
+                <div style="margin-bottom: 20px;">
+                    <label style="display: block; margin-bottom: 8px; font-weight: 600; color: #2c3e50;">
+                        <i class="fas fa-check-circle"></i> Confirm Password
+                    </label>
+                    <input type="password" id="confirmNewPassword" class="form-control" 
+                           placeholder="Re-enter new password" 
+                           style="width: 100%; padding: 12px 15px; border: 1px solid #ddd; border-radius: 6px;">
+                </div>
+                
+                <div id="resetError" style="display: none; background: #fee9e7; color: #e74c3c; padding: 10px; border-radius: 6px; margin-bottom: 15px; font-size: 14px;"></div>
+                <div id="resetSuccess" style="display: none; background: #d4edda; color: #155724; padding: 10px; border-radius: 6px; margin-bottom: 15px; font-size: 14px;">
+                    <i class="fas fa-check-circle"></i> Password reset successful! Redirecting to login...
+                </div>
+                
+                <div style="display: flex; gap: 10px; justify-content: flex-end;">
+                    <button class="btn-secondary" onclick="closeResetPasswordModal()" style="padding: 10px 20px; background: #95a5a6; color: white; border: none; border-radius: 6px; cursor: pointer;">
+                        <i class="fas fa-times"></i> Cancel
+                    </button>
+                    <button class="btn-primary" onclick="submitPasswordReset()" style="padding: 10px 20px; background: #7a0000; color: white; border: none; border-radius: 6px; cursor: pointer;">
+                        <i class="fas fa-save"></i> Reset Password
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+            
+            <!-- ✅ RESULTS CONTAINER (hiwalay) -->
+            <div id="quizResultsContainer" style="display: none;">
+                <div class="modal-body" style="padding: 30px;">
+                    <div id="quizResultsContent">
+                        <!-- Results will be loaded here -->
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
 </body>
 </html>
