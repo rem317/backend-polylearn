@@ -10202,7 +10202,100 @@ app.get('/api/practice/topic/:topicId', authenticateToken, async (req, res) => {
         });
     }
 });
+// ===== BAGONG ENDPOINTS - IDAGDAG LANG =====
 
+// For students - get practice by SUBJECT (hindi lang topic)
+app.get('/api/practice/subject/:subjectId', authenticateToken, async (req, res) => {
+    try {
+        const { subjectId } = req.params;
+        const userId = req.user.id;
+        
+        console.log(`📝 Fetching practice exercises for subject ID: ${subjectId}, user: ${userId}`);
+
+        // Get all topics under this subject (lesson)
+        const [topics] = await promisePool.execute(`
+            SELECT mt.topic_id 
+            FROM module_topics mt
+            JOIN course_modules cm ON mt.module_id = cm.module_id
+            WHERE cm.lesson_id = ? AND mt.is_active = 1
+        `, [subjectId]);
+        
+        if (topics.length === 0) {
+            return res.json({
+                success: true,
+                exercises: [],
+                message: 'No topics found for this subject'
+            });
+        }
+        
+        const topicIds = topics.map(t => t.topic_id);
+        const placeholders = topicIds.map(() => '?').join(',');
+        
+        const [exercises] = await promisePool.execute(`
+            SELECT 
+                pe.exercise_id as id,
+                pe.title,
+                pe.description,
+                pe.difficulty,
+                pe.content_type as type,
+                pe.points,
+                pe.content_json,
+                pe.topic_id,
+                mt.topic_title as topic_name,
+                l.lesson_name as subject_name
+            FROM practice_exercises pe
+            JOIN module_topics mt ON pe.topic_id = mt.topic_id
+            JOIN course_modules cm ON mt.module_id = cm.module_id
+            JOIN lessons l ON cm.lesson_id = l.lesson_id
+            WHERE pe.topic_id IN (${placeholders})
+            AND pe.is_active = 1
+            ORDER BY pe.created_at DESC
+        `, topicIds);
+        
+        res.json({
+            success: true,
+            exercises: exercises,
+            count: exercises.length
+        });
+        
+    } catch (error) {
+        console.error('❌ Error fetching practice by subject:', error);
+        res.status(500).json({
+            success: false,
+            message: error.message
+        });
+    }
+});
+
+// For admin - get topics by subject (for dropdown sa practice creation)
+app.get('/api/admin/topics/by-subject/:subjectId', authenticateAdmin, async (req, res) => {
+    try {
+        const { subjectId } = req.params;
+        
+        const [topics] = await promisePool.execute(`
+            SELECT 
+                mt.topic_id as id,
+                mt.topic_title as name,
+                cm.module_name
+            FROM module_topics mt
+            JOIN course_modules cm ON mt.module_id = cm.module_id
+            WHERE cm.lesson_id = ?
+            ORDER BY cm.module_order, mt.topic_order
+        `, [subjectId]);
+        
+        res.json({
+            success: true,
+            topics: topics
+        });
+        
+    } catch (error) {
+        console.error('❌ Error:', error);
+        res.status(500).json({
+            success: false,
+            message: error.message
+        });
+    }
+});
 
 
 // ============================================
