@@ -4137,71 +4137,88 @@ function handleActivityResponse(data) {
     }
 }
 
+// Store original functions
+const ORIGINAL = {
+    navigateTo: window.navigateTo,
+    loadProgressDashboardData: window.loadProgressDashboardData,
+    fetchCumulativeProgress: window.fetchCumulativeProgress
+};
+
 // ============================================
-// ✅ FIXED: fetchCumulativeProgress - FASTER RESPONSE
+// PART 1: FIXED PROGRESS DASHBOARD LOADING
+// ============================================
+
+// ============================================
+// ✅ ENHANCED fetchCumulativeProgress - FINAL VERSION
 // ============================================
 async function fetchCumulativeProgress() {
+    console.log('📊 [ENHANCED] Fetching cumulative progress...');
+    
     try {
-        const token = localStorage.getItem('authToken') || authToken;
-        
+        const token = localStorage.getItem('authToken');
         if (!token) {
-            console.warn('❌ No auth token available');
+            console.warn('❌ No auth token');
             return getDefaultProgress();
         }
         
-        console.log('📊 Fetching cumulative progress...');
-        
-        const response = await fetch(`/api/progress/overall`, {
-            headers: { 'Authorization': `Bearer ${token}` }
+        const response = await fetch('/api/progress/overall', {
+            headers: { 
+                'Authorization': `Bearer ${token}`,
+                'Accept': 'application/json'
+            }
         });
         
-        if (response.ok) {
-            const data = await response.json();
+        if (!response.ok) {
+            throw new Error(`HTTP ${response.status}`);
+        }
+        
+        const data = await response.json();
+        
+        if (data.success && data.overall) {
+            console.log('✅ Progress loaded:', data.overall);
             
-            if (data.success) {
-                console.log('✅ Overall progress loaded:', data.overall);
-                
-                // Convert seconds to minutes
-                const totalSeconds = data.overall.total_time_spent_minutes || 0;
-                const totalMinutes = Math.floor(totalSeconds / 60);
-                
-                // Calculate average time per activity
-                const totalActivities = (data.overall.lessons_completed || 0) + 
-                                       (data.overall.practice_completed || 0) + 
-                                       (data.overall.quizzes_completed || 0);
-                
-                const avgPerActivity = totalActivities > 0 
-                    ? Math.round(totalMinutes / totalActivities) 
-                    : 5;
-                
-                // Calculate weekly improvement
-                const weeklyImprovement = calculateWeeklyImprovement(data.overall);
-                
-                const progress = {
-                    total_lessons_completed: data.overall.lessons_completed || 0,
-                    total_lessons: data.overall.total_lessons || 20,
-                    overall_percentage: data.overall.percentage || 0,
-                    exercises_completed: data.overall.practice_completed || 0,
-                    total_quizzes_completed: data.overall.quizzes_completed || 0,
-                    total_points_earned: data.overall.total_points || 0,
-                    total_time_spent_minutes: totalMinutes,
-                    weekly_time_spent: data.overall.weekly?.minutes || 0,
-                    avg_time_per_activity: avgPerActivity,
-                    weekly_improvement: weeklyImprovement,
-                    total_time_display: formatTime(totalMinutes),
-                    streak_days: data.overall.streak_days || 1,
-                    weekly: data.overall.weekly || { lessons: 0, exercises: 0, quizzes: 0, points: 0, minutes: 0 }
-                };
-                
-                console.log(`📊 Progress loaded - Lessons: ${progress.total_lessons_completed}/${progress.total_lessons}`);
-                
-                ProgressState.cumulativeProgress = progress;
-                
-                // IMMEDIATELY update display
-                updateOverallProgressDisplay(progress);
-                
-                return progress;
-            }
+            // IMPORTANT: total_time_spent_minutes from database is in SECONDS
+            const totalSeconds = parseInt(data.overall.total_time_spent_minutes) || 0;
+            const totalMinutes = Math.floor(totalSeconds / 60);
+            
+            // Calculate average time per activity
+            const totalActivities = (data.overall.lessons_completed || 0) + 
+                                   (data.overall.practice_completed || 0) + 
+                                   (data.overall.quizzes_completed || 0);
+            
+            const avgPerActivity = totalActivities > 0 
+                ? Math.round(totalMinutes / totalActivities) 
+                : 5;
+            
+            // Calculate weekly improvement
+            const weeklyImprovement = calculateWeeklyImprovement(data.overall);
+            
+            const progress = {
+                total_lessons_completed: parseInt(data.overall.lessons_completed) || 0,
+                total_lessons: parseInt(data.overall.total_lessons) || 20,
+                overall_percentage: parseInt(data.overall.percentage) || 0,
+                exercises_completed: parseInt(data.overall.practice_completed) || 0,
+                total_quizzes_completed: parseInt(data.overall.quizzes_completed) || 0,
+                total_points_earned: parseInt(data.overall.total_points) || 0,
+                total_time_spent_minutes: totalMinutes, // Store as MINUTES
+                total_time_display: formatTime(totalMinutes),
+                weekly_time_spent: data.overall.weekly?.minutes || 0,
+                avg_time_per_activity: avgPerActivity,
+                weekly_improvement: weeklyImprovement,
+                streak_days: parseInt(data.overall.streak_days) || 1,
+                weekly: data.overall.weekly || { lessons: 0, exercises: 0, quizzes: 0, points: 0, minutes: 0 }
+            };
+            
+            console.log(`📊 Average time per activity: ${progress.avg_time_per_activity} minutes`);
+            console.log(`📊 Weekly improvement: ${progress.weekly_improvement}%`);
+            
+            // Store in state
+            ProgressState.cumulativeProgress = progress;
+            
+            // DIRECT UI UPDATE - use the existing function
+            updateOverallProgressDisplay(progress);
+            
+            return progress;
         }
         
         return getDefaultProgress();
