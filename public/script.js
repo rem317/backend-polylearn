@@ -10256,7 +10256,7 @@ async function loadQuizStatsFromServer() {
 
 
 // ============================================
-// FIXED: Load quiz categories - FILTERED BY SELECTED APP
+// ✅ FIXED: Load quiz categories - FILTER BY LESSON_ID
 // ============================================
 async function loadQuizCategories() {
     try {
@@ -10269,17 +10269,12 @@ async function loadQuizCategories() {
         }
         
         const selectedApp = localStorage.getItem('selectedApp') || 'polylearn';
-        const lessonFilter = localStorage.getItem('currentLessonFilter');
+        const currentLessonId = getCurrentLessonId(); // Kunin ang lesson_id (2 for PolyLearn)
         
-        console.log(`🎯 Loading categories for app: ${selectedApp}, filter: ${lessonFilter}`);
+        console.log(`🎯 Loading categories for app: ${selectedApp}, lesson_id: ${currentLessonId}`);
         
-        // Build endpoint with proper filtering
-        let endpoint = '/api/quiz/categories';
-        
-        // Add lesson filter if available
-        if (lessonFilter) {
-            endpoint += `?lesson_id=${lessonFilter}`;
-        }
+        // Build endpoint with lesson_id filter
+        let endpoint = `/api/quiz/categories?lesson_id=${currentLessonId}`;
         
         const response = await fetch(endpoint, {
             headers: {
@@ -10290,7 +10285,7 @@ async function loadQuizCategories() {
         
         // Check if response is OK
         if (!response.ok) {
-            console.error(`❌ Failed to fetch categories: ${response.status} ${response.statusText}`);
+            console.error(`❌ Failed to fetch categories: ${response.status}`);
             throw new Error(`Failed to fetch categories: ${response.status}`);
         }
         
@@ -10322,28 +10317,16 @@ async function loadQuizCategories() {
         }
         
         if (data.success && data.categories) {
-            console.log(`✅ Fetched ${data.categories.length} quiz categories for ${selectedApp}`);
-            
-            // Filter categories based on the selected app if needed
-            let filteredCategories = data.categories;
-            
-            // If you have lesson_id in your categories, filter them
-            if (lessonFilter) {
-                filteredCategories = data.categories.filter(cat => 
-                    cat.lesson_id == lessonFilter || 
-                    cat.category_name.toLowerCase().includes(selectedApp.toLowerCase())
-                );
-                console.log(`🎯 Filtered to ${filteredCategories.length} categories for lesson ${lessonFilter}`);
-            }
+            console.log(`✅ Fetched ${data.categories.length} quiz categories for ${selectedApp} (lesson ${currentLessonId})`);
             
             // Store in QuizState
             if (!window.QuizState) window.QuizState = {};
-            window.QuizState.quizCategories = filteredCategories;
+            window.QuizState.quizCategories = data.categories;
             
             // Display the categories
-            displayQuizCategories(filteredCategories);
+            displayQuizCategories(data.categories);
             
-            return filteredCategories;
+            return data.categories;
         } else {
             console.log('ℹ️ No categories returned or invalid format');
             displayQuizCategories([]);
@@ -10561,7 +10544,7 @@ function getCategoryColor(categoryId) {
 }
 
 // ============================================
-// ✅ FIXED: Load quizzes for category - FILTER BY LESSON_ID ONLY
+// ✅ FIXED: Load quizzes for category - FILTER BY LESSON_ID
 // ============================================
 async function loadQuizzesForCategory(categoryId) {
     try {
@@ -10578,6 +10561,7 @@ async function loadQuizzesForCategory(categoryId) {
         const currentLessonId = getCurrentLessonId(); // Kunin ang lesson_id (2 for PolyLearn)
         
         console.log(`🎯 Loading quizzes for app: ${selectedApp}, lesson_id: ${currentLessonId}`);
+        console.log(`🎯 Will ONLY show quizzes with lesson_id = ${currentLessonId}`);
         
         // Get current user ID
         const userJson = localStorage.getItem('mathhub_user');
@@ -15189,10 +15173,6 @@ function addFeedbackStyles() {
 }
 
 // ============================================
-// LESSON MANAGEMENT FUNCTIONS - DATABASE DRIVEN
-// ============================================
-
-// ============================================
 // ✅ FIXED: Fetch all lessons - FILTER BY LESSON_ID
 // ============================================
 async function fetchAllLessons() {
@@ -15205,7 +15185,7 @@ async function fetchAllLessons() {
         
         // Get the selected app from localStorage
         const selectedApp = localStorage.getItem('selectedApp') || 'polylearn';
-        const currentLessonId = APP_LESSON_MAP[selectedApp]?.lessonId || 2;
+        const currentLessonId = getCurrentLessonId(); // Kunin ang lesson_id (2 for PolyLearn)
         
         console.log(`📚 Fetching lessons for app: ${selectedApp}, lesson ID: ${currentLessonId}`);
         
@@ -15225,7 +15205,7 @@ async function fetchAllLessons() {
         const data = await response.json();
         
         if (data.success && data.lessons) {
-            console.log(`✅ Fetched ${data.lessons.length} lessons for ${selectedApp}`);
+            console.log(`✅ Fetched ${data.lessons.length} lessons for ${selectedApp} (lesson ${currentLessonId})`);
             return data.lessons;
         } else {
             throw new Error(data.message || 'No lessons returned');
@@ -18161,7 +18141,7 @@ async function selectTopicForPractice(topicId) {
 
 
 // ============================================
-// ✅ FIXED: Load practice exercises - FILTER BY LESSON_ID ONLY
+// ✅ FIXED: Load practice exercises - FILTER BY LESSON_ID
 // ============================================
 async function loadPracticeExercisesForTopic(topicId) {
     try {
@@ -18171,6 +18151,7 @@ async function loadPracticeExercisesForTopic(topicId) {
         const currentLessonId = getCurrentLessonId(); // Kunin ang lesson_id (2 for PolyLearn)
         
         console.log(`🎯 Current app: ${selectedApp}, lesson_id: ${currentLessonId}`);
+        console.log(`🎯 Will ONLY show exercises with lesson_id = ${currentLessonId}`);
         
         // Get the exercise area
         const exerciseArea = document.getElementById('exerciseArea');
@@ -18203,7 +18184,6 @@ async function loadPracticeExercisesForTopic(topicId) {
         if (data.success && data.exercises) {
             // ✅ STRICT FILTERING - lesson_id lang ang titingnan
             const filteredExercises = data.exercises.filter(ex => {
-                // Check kung ang exercise ay may lesson_id at ito ay tugma sa current app
                 const exerciseLessonId = ex.lesson_id || ex.lessonId;
                 
                 // Para sigurado, i-check kung ang lesson_id ay 2 (PolyLearn)
