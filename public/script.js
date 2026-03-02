@@ -24122,18 +24122,22 @@ function updateCompleteButtonState(isCompleted) {
 // Helper: Get Current Lesson ID
 // ============================================
 // ============================================
-// ✅ HELPER: Get current app's lesson ID
+// ✅ HELPER 1: Get current app's lesson ID (from selected app)
 // ============================================
-function getCurrentLessonId() {
+function getAppLessonId() {
     const selectedApp = localStorage.getItem('selectedApp') || 'polylearn';
     return APP_LESSON_MAP[selectedApp]?.lessonId || 2;
 }
-    
-    // Check from URL parameters
+
+// ============================================
+// ✅ HELPER 2: Get current lesson ID from multiple sources
+// ============================================
+function getCurrentLessonId() {
+    // First check from URL parameters
     const urlParams = new URLSearchParams(window.location.search);
     let lessonId = urlParams.get('lessonId') || urlParams.get('id') || urlParams.get('contentId');
     
-    // Check from data attributes
+    // If not found, check from data attributes
     if (!lessonId) {
         const lessonElement = document.querySelector('[data-lesson-id]');
         if (lessonElement) {
@@ -24141,12 +24145,17 @@ function getCurrentLessonId() {
         }
     }
     
-    // Check from complete button
+    // If still not found, check from complete button
     if (!lessonId) {
         const completeBtn = document.getElementById('completeLessonBtn');
         if (completeBtn && completeBtn.dataset.lessonId) {
             lessonId = completeBtn.dataset.lessonId;
         }
+    }
+    
+    // If still not found, use app-based lesson ID
+    if (!lessonId) {
+        lessonId = getAppLessonId();
     }
     
     return lessonId;
