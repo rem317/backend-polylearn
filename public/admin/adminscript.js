@@ -24554,7 +24554,7 @@ function refreshPracticeData() {
     loadAdminPracticeExercises();
 }
 
-// ===== UPDATED: Open Create Practice Modal with teacher dropdown =====
+// ===== OPEN CREATE PRACTICE MODAL =====
 function openCreatePracticeModal() {
     console.log("📝 Opening create practice modal...");
     
@@ -24562,15 +24562,16 @@ function openCreatePracticeModal() {
     if (!modal) return;
     
     // Reset form
+    document.getElementById('practiceId').value = '';
     document.getElementById('practiceTitle').value = '';
     document.getElementById('practiceDescription').value = '';
-    document.getElementById('practiceTopic').value = '';
+    document.getElementById('practiceSubject').value = '';
+    document.getElementById('practiceTopic').innerHTML = '<option value="">-- Select Subject First --</option>';
+    document.getElementById('practiceTopic').disabled = true;
     document.getElementById('practiceDifficulty').value = 'medium';
     document.getElementById('practiceType').value = 'multiple-choice';
     document.getElementById('practicePoints').value = '10';
     document.getElementById('practiceStatus').value = 'active';
-    document.getElementById('practiceTags').value = '';
-    document.getElementById('practiceId').value = '';
     
     // Clear teacher dropdown (show loading)
     const teacherSelect = document.getElementById('practiceAssignedTeacherId');
@@ -24590,49 +24591,169 @@ function openCreatePracticeModal() {
     modal.style.zIndex = '10001';
     document.body.classList.add('modal-open');
     
-    // Load teachers for ALL dropdowns
+    // Load teachers
     setTimeout(() => {
         loadTeachersForAssignment();
     }, 300);
     
-    // Load topics
-    loadPracticeTopics();
+    // Add event listener for subject change
+    const subjectSelect = document.getElementById('practiceSubject');
+    subjectSelect.addEventListener('change', loadPracticeTopicsBySubject);
+    
+    showNotification('info', 'Create Practice', 'Select a subject to load available topics');
 }
 
-// ===== LOAD PRACTICE TOPICS FROM DATABASE - FIXED =====
-async function loadPracticeTopics() {
-    console.log("📚 Loading topics for practice...");
+// ===== LOAD TOPICS BY SUBJECT =====
+async function loadPracticeTopicsBySubject() {
+    console.log("📚 Loading topics for selected subject...");
     
+    const subjectId = document.getElementById('practiceSubject').value;
     const topicSelect = document.getElementById('practiceTopic');
-    if (!topicSelect) return;
+    
+    console.log(`🔍 Selected subject ID: ${subjectId}`);
+    
+    if (!subjectId) {
+        console.log("⚠️ No subject selected");
+        topicSelect.innerHTML = '<option value="">-- Select Subject First --</option>';
+        topicSelect.disabled = true;
+        return;
+    }
+    
+    // Get subject name for display
+    let subjectName = '';
+    if (subjectId == 1) subjectName = 'MathEase';
+    else if (subjectId == 2) subjectName = 'PolyLearn';
+    else if (subjectId == 3) subjectName = 'FactoLearn';
+    
+    // Show loading
+    topicSelect.innerHTML = '<option value="">Loading topics...</option>';
+    topicSelect.disabled = true;
     
     try {
         const token = localStorage.getItem('admin_token') || localStorage.getItem('authToken');
         
-        if (!token) return;
+        if (!token) {
+            throw new Error('No auth token');
+        }
         
+        console.log(`📡 Fetching topics for subject ID: ${subjectId}`);
+        
+        // Use the lesson_id directly (subjectId = lesson_id)
         const response = await fetch(`/api/admin/structure`, {
             headers: { 'Authorization': `Bearer ${token}` }
         });
         
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        
         const result = await response.json();
+        console.log('📥 Server response:', result);
         
         if (result.success && result.structure) {
-            const topics = result.structure.topics || [];
+            const allTopics = result.structure.topics || [];
+            const allModules = result.structure.modules || [];
             
-            topicSelect.innerHTML = '<option value="">-- Select Topic --</option>';
-            topics.forEach(topic => {
-                const option = document.createElement('option');
-                option.value = topic.id;
-                option.textContent = topic.name;
-                topicSelect.appendChild(option);
-            });
+            console.log(`📊 Data from server:`);
+            console.log(`   📦 Modules: ${allModules.length}`);
+            console.log(`   📋 Topics: ${allTopics.length}`);
             
-            console.log(`✅ Loaded ${topics.length} topics`);
+            // Get modules for this lesson
+            const modulesForLesson = allModules.filter(m => 
+                parseInt(m.lesson_id) === parseInt(subjectId)
+            );
+            
+            console.log(`📦 Found ${modulesForLesson.length} modules for lesson ${subjectId}`);
+            
+            if (modulesForLesson.length === 0) {
+                console.log(`⚠️ No modules found for lesson ID ${subjectId}`);
+                topicSelect.innerHTML = '<option value="">-- No modules for this subject --</option>';
+                topicSelect.disabled = true;
+                showNotification('info', 'No Modules', 'Create modules first in Lesson Management');
+                return;
+            }
+            
+            // Get module IDs
+            const moduleIds = modulesForLesson.map(m => parseInt(m.id));
+            
+            // Get topics that belong to these modules
+            const filteredTopics = allTopics.filter(topic => 
+                moduleIds.includes(parseInt(topic.module_id))
+            );
+            
+            console.log(`📚 Found ${filteredTopics.length} topics for ${subjectName}`);
+            
+            if (filteredTopics.length === 0) {
+                topicSelect.innerHTML = '<option value="">-- No topics available --</option>';
+                topicSelect.disabled = true;
+                showNotification('info', 'No Topics', 'Create topics first in Lesson Management');
+            } else {
+                let options = `<option value="">-- Select Topic --</option>`;
+                
+                // Group topics by module for better organization
+                const groupedByModule = {};
+                filteredTopics.forEach(topic => {
+                    const moduleName = modulesForLesson.find(m => m.id == topic.module_id)?.name || 'General';
+                    if (!groupedByModule[moduleName]) {
+                        groupedByModule[moduleName] = [];
+                    }
+                    groupedByModule[moduleName].push(topic);
+                });
+                
+                // Add options grouped by module
+                for (const [moduleName, topics] of Object.entries(groupedByModule)) {
+                    const optgroup = document.createElement('optgroup');
+                    optgroup.label = moduleName;
+                    
+                    topics.forEach(topic => {
+                        const option = document.createElement('option');
+                        option.value = topic.id;
+                        option.textContent = topic.name;
+                        optgroup.appendChild(option);
+                    });
+                    
+                    topicSelect.appendChild(optgroup);
+                }
+                
+                topicSelect.disabled = false;
+                console.log(`✅ Topic dropdown enabled with ${filteredTopics.length} options`);
+                showNotification('success', 'Topics Loaded', `${filteredTopics.length} topics available for ${subjectName}`);
+            }
+        } else {
+            throw new Error(result.message || 'Failed to load structure');
         }
         
     } catch (error) {
         console.error('❌ Error loading topics:', error);
+        
+        // Fallback to hardcoded topics for demonstration
+        topicSelect.innerHTML = '<option value="">-- Select Topic --</option>';
+        
+        if (subjectId == 1) { // MathEase
+            topicSelect.innerHTML += `
+                <option value="1">Basic Operations</option>
+                <option value="2">Addition and Subtraction</option>
+                <option value="3">Multiplication and Division</option>
+                <option value="4">Order of Operations (MDAS)</option>
+            `;
+        } else if (subjectId == 2) { // PolyLearn
+            topicSelect.innerHTML += `
+                <option value="5">Polynomial Basics</option>
+                <option value="6">Factoring Polynomials</option>
+                <option value="7">Quadratic Equations</option>
+                <option value="8">Polynomial Functions</option>
+            `;
+        } else if (subjectId == 3) { // FactoLearn
+            topicSelect.innerHTML += `
+                <option value="9">Factorial Notation</option>
+                <option value="10">Permutations</option>
+                <option value="11">Combinations</option>
+                <option value="12">Binomial Theorem</option>
+            `;
+        }
+        
+        topicSelect.disabled = false;
+        showNotification('warning', 'Offline Mode', 'Using sample topics');
     }
 }
 // ===== ADD PRACTICE QUESTION =====
@@ -24651,7 +24772,7 @@ function addPracticeQuestion() {
             
             <div class="form-group">
                 <label>Question Text</label>
-                <input type="text" class="form-control" id="practice_q_${questionCount}_text" placeholder="Enter question">
+                <input type="text" class="form-control" id="practice_q_${questionCount}_text" placeholder="Enter question" style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px;">
             </div>
             
             <div class="options-container" id="practice_q_${questionCount}_options">
@@ -24687,6 +24808,27 @@ function removePracticeQuestion(questionId) {
     const question = document.getElementById(questionId);
     if (question) {
         question.remove();
+        
+        // Renumber remaining questions
+        const container = document.getElementById('practiceQuestionsContainer');
+        const questions = container.children;
+        for (let i = 0; i < questions.length; i++) {
+            const q = questions[i];
+            q.id = `practice_question_${i + 1}`;
+            q.querySelector('.question-header h4').textContent = `Question ${i + 1}`;
+            
+            // Update all IDs inside
+            const inputs = q.querySelectorAll('input[type="text"]');
+            inputs.forEach(input => {
+                const newId = input.id.replace(/practice_q_\d+_/, `practice_q_${i + 1}_`);
+                input.id = newId;
+            });
+            
+            const radios = q.querySelectorAll('input[type="radio"]');
+            radios.forEach(radio => {
+                radio.name = `practice_q_${i + 1}_correct`;
+            });
+        }
     }
 }
 
@@ -24743,41 +24885,46 @@ function deletePracticeExercise(exerciseId) {
 }
 
 
-// ===== SAVE PRACTICE EXERCISE TO DATABASE WITH TEACHER ASSIGNMENT - FIXED URL =====
+// ===== SAVE PRACTICE EXERCISE TO DATABASE =====
 async function savePracticeExercise() {
     console.log("💾 ===== SAVING PRACTICE EXERCISE TO DATABASE =====");
     
     // Get form values
+    const subjectId = document.getElementById('practiceSubject')?.value; // lesson_id
+    const topicId = document.getElementById('practiceTopic')?.value;
     const title = document.getElementById('practiceTitle')?.value.trim();
     const description = document.getElementById('practiceDescription')?.value.trim();
-    const topicId = document.getElementById('practiceTopic')?.value;
     const difficulty = document.getElementById('practiceDifficulty')?.value;
-    let contentType = document.getElementById('practiceType')?.value; // 'multiple-choice', 'true-false', 'fill-blank'
+    let contentType = document.getElementById('practiceType')?.value;
     const points = parseInt(document.getElementById('practicePoints')?.value) || 10;
-    const status = document.getElementById('practiceStatus')?.value; // 'active', 'draft', 'inactive'
+    const status = document.getElementById('practiceStatus')?.value; // 'active', 'draft'
     const practiceId = document.getElementById('practiceId')?.value;
     
-    // ===== GET ASSIGNED TEACHER (NEW) =====
+    // Get assigned teacher
     const assignedTeacherId = document.getElementById('practiceAssignedTeacherId')?.value;
     
-    // ===== FIX: Convert hyphenated values to underscore format for database ENUM =====
+    // Get subject name for display
+    let subjectName = '';
+    if (subjectId == 1) subjectName = 'MathEase';
+    else if (subjectId == 2) subjectName = 'PolyLearn';
+    else if (subjectId == 3) subjectName = 'FactoLearn';
+    
+    // Map content type to database format
     const contentTypeMap = {
         'multiple-choice': 'multiple_choice',
-        'true-false': 'fill_blank',
-        'fill-blank': 'fill_blank',
-        'fill_blank': 'fill_blank',
-        'matching': 'matching',
-        'interactive': 'interactive'
+        'true-false': 'true_false',
+        'fill-blank': 'fill_blank'
     };
     
     const dbContentType = contentTypeMap[contentType] || 'multiple_choice';
     
     console.log('📝 Practice data:', { 
+        subjectId,
+        subjectName,
+        topicId,
         title, 
-        topicId, 
         difficulty, 
-        originalType: contentType,
-        mappedType: dbContentType,
+        dbContentType,
         points,
         status,
         isUpdate: !!practiceId,
@@ -24785,13 +24932,18 @@ async function savePracticeExercise() {
     });
     
     // ===== VALIDATION =====
-    if (!title) {
-        showNotification('error', 'Error', 'Please enter a title');
+    if (!subjectId) {
+        showNotification('error', 'Error', 'Please select a subject');
         return;
     }
     
     if (!topicId) {
         showNotification('error', 'Error', 'Please select a topic');
+        return;
+    }
+    
+    if (!title) {
+        showNotification('error', 'Error', 'Please enter a title');
         return;
     }
     
@@ -24859,12 +25011,13 @@ async function savePracticeExercise() {
         questions: questions
     };
     
-    const isActive = status === 'active' ? 1 : (status === 'inactive' ? 0 : 1);
+    const isActive = status === 'active' ? 1 : 0;
     
     const practiceData = {
+        subject_id: parseInt(subjectId),
+        topic_id: parseInt(topicId),
         title: title,
         description: description || '',
-        topic_id: parseInt(topicId),
         difficulty: difficulty || 'medium',
         content_type: dbContentType,
         points: points,
@@ -24900,11 +25053,9 @@ async function savePracticeExercise() {
             saveBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Saving...';
         }
         
-        // ✅ FIXED: Use proper URL construction
-        const baseUrl = `/api/admin/users`; // API_BASE_URL is usually empty string for relative URLs
         const url = practiceId 
             ? `/api/admin/practice/${practiceId}`
-            : `/api/admin/practice`;  // Use relative URL directly for new entries
+            : `/api/admin/practice`;
         
         console.log(`📡 Sending ${practiceId ? 'PUT' : 'POST'} request to:`, url);
         
@@ -24935,7 +25086,7 @@ async function savePracticeExercise() {
             
             showNotification('success', 'Success!', message);
             closeCreatePracticeModal();
-            await loadAdminPracticeExercises();
+            await loadAdminPracticeExercises(); // Refresh the list
         } else {
             throw new Error(result.message || 'Failed to save practice exercise');
         }
