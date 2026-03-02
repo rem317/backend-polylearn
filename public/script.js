@@ -5890,7 +5890,8 @@ async function initProgressDashboard() {
         
         // Load achievements
         await fetchAchievementTimeline(10);
-        
+        // Initialize charts - ADD THIS LINE
+        await createDailyPracticeChart();
         // Load activity log
         await fetchActivityLog(15);
         
@@ -6362,7 +6363,567 @@ async function fetchWeeklyImprovement() {
     }
 }
 
+// ============================================
+// 📊 DAILY PRACTICE TIME CHART - COMPLETE GRAPH
+// ============================================
 
+// Add chart styles
+function addChartStyles() {
+    const style = document.createElement('style');
+    style.textContent = `
+        /* Chart Container */
+        .chart-container {
+            position: relative;
+            height: 250px;
+            width: 100%;
+            margin: 20px 0 30px;
+            background: white;
+            border-radius: 12px;
+            padding: 15px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+        }
+        
+        /* Chart Tooltip */
+        .chart-tooltip {
+            position: absolute;
+            background: rgba(0, 0, 0, 0.8);
+            color: white;
+            padding: 8px 12px;
+            border-radius: 6px;
+            font-size: 12px;
+            pointer-events: none;
+            z-index: 1000;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+            transition: all 0.1s ease;
+        }
+        
+        .chart-tooltip .tooltip-date {
+            font-weight: bold;
+            color: #ffd700;
+            margin-bottom: 4px;
+        }
+        
+        .chart-tooltip .tooltip-value {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .chart-tooltip .tooltip-color {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+        }
+        
+        /* Chart Legend */
+        .chart-legend {
+            display: flex;
+            justify-content: center;
+            gap: 30px;
+            margin-top: 15px;
+            padding: 10px;
+            background: #f8f9fa;
+            border-radius: 8px;
+        }
+        
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 13px;
+            color: #2c3e50;
+        }
+        
+        .legend-color {
+            width: 16px;
+            height: 16px;
+            border-radius: 4px;
+        }
+        
+        .legend-color.lessons {
+            background: #7a0000;
+        }
+        
+        .legend-color.exercises {
+            background: #27ae60;
+        }
+        
+        .legend-color.points {
+            background: #f39c12;
+        }
+        
+        /* Chart Controls */
+        .chart-controls {
+            display: flex;
+            justify-content: flex-end;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+        
+        .chart-period-btn {
+            padding: 6px 12px;
+            border: 1px solid #ddd;
+            background: white;
+            border-radius: 20px;
+            font-size: 12px;
+            cursor: pointer;
+            transition: all 0.3s;
+            color: #666;
+        }
+        
+        .chart-period-btn:hover {
+            background: #f0f0f0;
+            border-color: #999;
+        }
+        
+        .chart-period-btn.active {
+            background: #7a0000;
+            color: white;
+            border-color: #7a0000;
+        }
+        
+        /* Chart Stats */
+        .chart-stats {
+            display: flex;
+            gap: 20px;
+            margin-top: 15px;
+            padding: 10px;
+            background: #f8f9fa;
+            border-radius: 8px;
+        }
+        
+        .stat-item {
+            flex: 1;
+            text-align: center;
+            padding: 10px;
+            background: white;
+            border-radius: 6px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+        }
+        
+        .stat-label {
+            font-size: 11px;
+            color: #666;
+            text-transform: uppercase;
+            margin-bottom: 4px;
+        }
+        
+        .stat-value {
+            font-size: 18px;
+            font-weight: bold;
+            color: #2c3e50;
+        }
+        
+        .stat-value small {
+            font-size: 12px;
+            color: #999;
+            font-weight: normal;
+            margin-left: 4px;
+        }
+        
+        /* Loading State */
+        .chart-loading {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 250px;
+            color: #999;
+        }
+        
+        .chart-loading i {
+            font-size: 30px;
+            margin-bottom: 10px;
+            color: #7a0000;
+        }
+    `;
+    document.head.appendChild(style);
+}
+// ============================================
+// 🎨 CREATE DAILY PRACTICE TIME CHART
+// ============================================
+async function createDailyPracticeChart() {
+    console.log('📊 Creating Daily Practice Time Chart...');
+    
+    const chartContainer = document.getElementById('practiceTimeChart');
+    if (!chartContainer) {
+        console.error('❌ Chart container not found');
+        return;
+    }
+    
+    // Clear container
+    chartContainer.innerHTML = '';
+    
+    // Create chart structure
+    chartContainer.innerHTML = `
+        <div class="chart-controls">
+            <button class="chart-period-btn active" data-period="7">7 Days</button>
+            <button class="chart-period-btn" data-period="14">14 Days</button>
+            <button class="chart-period-btn" data-period="30">30 Days</button>
+        </div>
+        <div class="chart-container" id="dailyChartCanvas"></div>
+        <div class="chart-legend">
+            <div class="legend-item">
+                <span class="legend-color lessons"></span>
+                <span>Practice Time (minutes)</span>
+            </div>
+        </div>
+        <div class="chart-stats" id="chartStats"></div>
+    `;
+    
+    // Add period button listeners
+    document.querySelectorAll('.chart-period-btn').forEach(btn => {
+        btn.addEventListener('click', function() {
+            document.querySelectorAll('.chart-period-btn').forEach(b => b.classList.remove('active'));
+            this.classList.add('active');
+            const days = parseInt(this.getAttribute('data-period'));
+            renderDailyPracticeChart(days);
+        });
+    });
+    
+    // Initial render (7 days)
+    await renderDailyPracticeChart(7);
+}
+// ============================================
+// 📈 RENDER DAILY PRACTICE CHART
+// ============================================
+async function renderDailyPracticeChart(days = 7) {
+    console.log(`📊 Rendering practice chart for last ${days} days...`);
+    
+    const canvasContainer = document.getElementById('dailyChartCanvas');
+    if (!canvasContainer) return;
+    
+    // Show loading
+    canvasContainer.innerHTML = `
+        <div class="chart-loading">
+            <i class="fas fa-spinner fa-spin"></i>
+            <span>Loading chart data...</span>
+        </div>
+    `;
+    
+    try {
+        // Fetch real data from database
+        const chartData = await fetchPracticeTimeData(days);
+        
+        // Clear loading
+        canvasContainer.innerHTML = '';
+        
+        // Create canvas element
+        const canvas = document.createElement('canvas');
+        canvas.id = 'practiceChart';
+        canvas.width = canvasContainer.clientWidth;
+        canvas.height = 220;
+        canvasContainer.appendChild(canvas);
+        
+        const ctx = canvas.getContext('2d');
+        
+        // Draw the chart
+        drawPracticeChart(ctx, canvas, chartData);
+        
+        // Update stats
+        updateChartStats(chartData);
+        
+    } catch (error) {
+        console.error('❌ Error rendering chart:', error);
+        canvasContainer.innerHTML = `
+            <div class="chart-loading">
+                <i class="fas fa-exclamation-triangle" style="color: #e74c3c;"></i>
+                <span>Failed to load chart data</span>
+                <button onclick="renderDailyPracticeChart(${days})" style="margin-top: 10px; padding: 5px 15px; background: #7a0000; color: white; border: none; border-radius: 5px; cursor: pointer;">
+                    <i class="fas fa-redo"></i> Retry
+                </button>
+            </div>
+        `;
+    }
+}
+
+// ============================================
+// 📥 FETCH PRACTICE TIME DATA FROM DATABASE
+// ============================================
+async function fetchPracticeTimeData(days = 7) {
+    try {
+        const token = localStorage.getItem('authToken') || authToken;
+        
+        if (!token) {
+            console.log('No token, using demo data');
+            return generateDemoData(days);
+        }
+        
+        const response = await fetch(`/api/progress/practice-time?days=${days}`, {
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Accept': 'application/json'
+            }
+        });
+        
+        if (!response.ok) {
+            console.log('Using demo data (API not available)');
+            return generateDemoData(days);
+        }
+        
+        const data = await response.json();
+        
+        if (data.success && data.data) {
+            console.log('✅ Practice data loaded:', data.data);
+            return data.data;
+        } else {
+            return generateDemoData(days);
+        }
+        
+    } catch (error) {
+        console.error('Error fetching practice data:', error);
+        return generateDemoData(days);
+    }
+}
+
+// ============================================
+// ✏️ DRAW PRACTICE CHART
+// ============================================
+function drawPracticeChart(ctx, canvas, data) {
+    const width = canvas.width;
+    const height = canvas.height;
+    const padding = { left: 45, right: 20, top: 20, bottom: 30 };
+    const chartWidth = width - padding.left - padding.right;
+    const chartHeight = height - padding.top - padding.bottom;
+    
+    const points = data.datasets[0].data;
+    const maxValue = Math.max(...points, 1) * 1.1; // Add 10% padding
+    const stepY = chartHeight / 5;
+    const stepX = chartWidth / (points.length - 1);
+    
+    // Clear canvas
+    ctx.clearRect(0, 0, width, height);
+    
+    // Draw background
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0, 0, width, height);
+    
+    // Draw grid lines
+    ctx.strokeStyle = '#e0e0e0';
+    ctx.lineWidth = 0.5;
+    
+    // Horizontal grid lines
+    for (let i = 0; i <= 5; i++) {
+        const y = padding.top + (stepY * i);
+        ctx.beginPath();
+        ctx.moveTo(padding.left, y);
+        ctx.lineTo(width - padding.right, y);
+        ctx.stroke();
+        
+        // Y-axis labels
+        ctx.fillStyle = '#666';
+        ctx.font = '10px Arial';
+        ctx.textAlign = 'right';
+        ctx.textBaseline = 'middle';
+        const value = Math.round(maxValue - (maxValue * i / 5));
+        ctx.fillText(value + ' min', padding.left - 8, y);
+    }
+    
+    // Draw axes
+    ctx.strokeStyle = '#333';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(padding.left, padding.top);
+    ctx.lineTo(padding.left, height - padding.bottom);
+    ctx.lineTo(width - padding.right, height - padding.bottom);
+    ctx.stroke();
+    
+    // Draw area under line (gradient)
+    const gradient = ctx.createLinearGradient(0, padding.top, 0, height - padding.bottom);
+    gradient.addColorStop(0, 'rgba(122, 0, 0, 0.3)');
+    gradient.addColorStop(1, 'rgba(122, 0, 0, 0.05)');
+    
+    ctx.beginPath();
+    ctx.moveTo(padding.left, height - padding.bottom);
+    
+    points.forEach((value, index) => {
+        const x = padding.left + (stepX * index);
+        const y = padding.top + ((maxValue - value) / maxValue) * chartHeight;
+        
+        if (index === 0) {
+            ctx.moveTo(x, y);
+        } else {
+            ctx.lineTo(x, y);
+        }
+    });
+    
+    ctx.lineTo(padding.left + (stepX * (points.length - 1)), height - padding.bottom);
+    ctx.closePath();
+    ctx.fillStyle = gradient;
+    ctx.fill();
+    
+    // Draw line
+    ctx.strokeStyle = '#7a0000';
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    
+    points.forEach((value, index) => {
+        const x = padding.left + (stepX * index);
+        const y = padding.top + ((maxValue - value) / maxValue) * chartHeight;
+        
+        if (index === 0) {
+            ctx.moveTo(x, y);
+        } else {
+            ctx.lineTo(x, y);
+        }
+    });
+    
+    ctx.stroke();
+    
+    // Draw points
+    points.forEach((value, index) => {
+        const x = padding.left + (stepX * index);
+        const y = padding.top + ((maxValue - value) / maxValue) * chartHeight;
+        
+        // Outer glow
+        ctx.beginPath();
+        ctx.arc(x, y, 6, 0, 2 * Math.PI);
+        ctx.fillStyle = 'rgba(122, 0, 0, 0.2)';
+        ctx.fill();
+        
+        // Main point
+        ctx.beginPath();
+        ctx.arc(x, y, 4, 0, 2 * Math.PI);
+        ctx.fillStyle = '#7a0000';
+        ctx.fill();
+        ctx.strokeStyle = '#ffffff';
+        ctx.lineWidth = 2;
+        ctx.stroke();
+        
+        // Add tooltip on hover
+        canvas.addEventListener('mousemove', function(e) {
+            const rect = canvas.getBoundingClientRect();
+            const mouseX = e.clientX - rect.left;
+            const mouseY = e.clientY - rect.top;
+            
+            const distance = Math.sqrt(Math.pow(mouseX - x, 2) + Math.pow(mouseY - y, 2));
+            
+            if (distance < 8) {
+                showChartTooltip(e.clientX, e.clientY, value, data.labels[index]);
+            }
+        });
+    });
+    
+    // Draw X-axis labels
+    ctx.fillStyle = '#666';
+    ctx.font = '9px Arial';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'top';
+    
+    points.forEach((_, index) => {
+        if (index % 2 === 0 || index === points.length - 1) {
+            const x = padding.left + (stepX * index);
+            const label = data.labels[index].split(' ').slice(0, 2).join(' ');
+            ctx.fillText(label, x, height - padding.bottom + 8);
+        }
+    });
+    
+    // Draw zero line
+    ctx.strokeStyle = '#ccc';
+    ctx.lineWidth = 1;
+    ctx.setLineDash([5, 5]);
+    ctx.beginPath();
+    ctx.moveTo(padding.left, height - padding.bottom);
+    ctx.lineTo(width - padding.right, height - padding.bottom);
+    ctx.stroke();
+    ctx.setLineDash([]);
+}
+
+// ============================================
+// 🎯 SHOW CHART TOOLTIP
+// ============================================
+function showChartTooltip(x, y, value, label) {
+    // Remove existing tooltip
+    const existingTooltip = document.querySelector('.chart-tooltip');
+    if (existingTooltip) {
+        existingTooltip.remove();
+    }
+    
+    // Create tooltip
+    const tooltip = document.createElement('div');
+    tooltip.className = 'chart-tooltip';
+    tooltip.innerHTML = `
+        <div class="tooltip-date">${label}</div>
+        <div class="tooltip-value">
+            <span class="tooltip-color" style="background: #7a0000;"></span>
+            <span>${value} minutes</span>
+        </div>
+    `;
+    
+    tooltip.style.left = (x + 15) + 'px';
+    tooltip.style.top = (y - 50) + 'px';
+    
+    document.body.appendChild(tooltip);
+    
+    // Auto remove after 2 seconds
+    setTimeout(() => {
+        if (tooltip.parentNode) {
+            tooltip.remove();
+        }
+    }, 2000);
+}
+// ============================================
+// 📊 UPDATE CHART STATISTICS
+// ============================================
+function updateChartStats(data) {
+    const statsContainer = document.getElementById('chartStats');
+    if (!statsContainer || !data.stats) return;
+    
+    const stats = data.stats;
+    const avgPerDay = Math.round(stats.average);
+    const totalHours = (stats.total / 60).toFixed(1);
+    
+    statsContainer.innerHTML = `
+        <div class="stat-item">
+            <div class="stat-label">Total Practice Time</div>
+            <div class="stat-value">${totalHours}<small>hours</small></div>
+        </div>
+        <div class="stat-item">
+            <div class="stat-label">Daily Average</div>
+            <div class="stat-value">${avgPerDay}<small>min</small></div>
+        </div>
+        <div class="stat-item">
+            <div class="stat-label">Best Day</div>
+            <div class="stat-value">${stats.max}<small>min</small></div>
+        </div>
+    `;
+}
+
+// ============================================
+// 🚀 INITIALIZE CHART ON PAGE LOAD
+// ============================================
+document.addEventListener('DOMContentLoaded', function() {
+    addChartStyles();
+    
+    // Initialize chart when progress page becomes visible
+    const progressPage = document.getElementById('progress-page');
+    
+    if (progressPage) {
+        const observer = new MutationObserver(function(mutations) {
+            mutations.forEach(function(mutation) {
+                if (mutation.type === 'attributes' && mutation.attributeName === 'class') {
+                    if (!progressPage.classList.contains('hidden')) {
+                        console.log('📊 Progress page visible, creating chart...');
+                        setTimeout(() => {
+                            createDailyPracticeChart();
+                        }, 500);
+                    }
+                }
+            });
+        });
+        
+        observer.observe(progressPage, { attributes: true });
+    }
+    
+    // Also create chart when page is already visible
+    if (progressPage && !progressPage.classList.contains('hidden')) {
+        setTimeout(createDailyPracticeChart, 500);
+    }
+});
+
+// Make functions globally available
+window.createDailyPracticeChart = createDailyPracticeChart;
+window.renderDailyPracticeChart = renderDailyPracticeChart;
 // ============================================
 // FIXED: Create modal if missing
 // ============================================
