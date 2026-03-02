@@ -10563,7 +10563,7 @@ function getCategoryColor(categoryId) {
 }
 
 // ============================================
-// ✅ FIXED: Load quizzes for category - WITH PROPER FILTERING
+// ✅ FIXED: Load quizzes for category - FILTER BY LESSON_ID
 // ============================================
 async function loadQuizzesForCategory(categoryId) {
     try {
@@ -10577,10 +10577,9 @@ async function loadQuizzesForCategory(categoryId) {
         }
         
         const selectedApp = localStorage.getItem('selectedApp') || 'polylearn';
-        const lessonFilter = localStorage.getItem('currentLessonFilter');
-        const expectedTopicId = APP_LESSON_MAP[selectedApp]?.lessonId || 2;
+        const currentLessonId = APP_LESSON_MAP[selectedApp]?.lessonId || 2;
         
-        console.log(`🎯 Loading quizzes for app: ${selectedApp}, category: ${categoryId}`);
+        console.log(`🎯 Loading quizzes for app: ${selectedApp}, lesson_id: ${currentLessonId}`);
         
         // Get current user ID
         const userJson = localStorage.getItem('mathhub_user');
@@ -10595,11 +10594,9 @@ async function loadQuizzesForCategory(categoryId) {
             }
         }
         
-        // Build endpoint with app filter
-        let endpoint = `/api/quiz/category/${categoryId}/quizzes`;
-        if (lessonFilter) {
-            endpoint += `?lesson_id=${lessonFilter}`;
-        }
+        // ✅ Pass lesson_id as query parameter
+        let endpoint = `/api/quiz/category/${categoryId}/quizzes?lesson_id=${currentLessonId}`;
+        console.log(`📡 Fetching from: ${endpoint}`);
         
         const response = await fetch(endpoint, {
             headers: {
@@ -10616,15 +10613,12 @@ async function loadQuizzesForCategory(categoryId) {
         console.log('📥 Quiz data:', data);
         
         if (data.success && data.quizzes) {
-            // ✅ Filter quizzes to ensure they belong to current app
-            let filteredQuizzes = data.quizzes;
-            
-            // Filter by topic_id if available
-            filteredQuizzes = filteredQuizzes.filter(quiz => 
-                quiz.topic_id == expectedTopicId || !quiz.topic_id // Include quizzes without topic_id
+            // ✅ Filter quizzes by lesson_id
+            let filteredQuizzes = data.quizzes.filter(quiz => 
+                quiz.lesson_id == currentLessonId || !quiz.lesson_id // Include quizzes without lesson_id
             );
             
-            console.log(`✅ Found ${filteredQuizzes.length} quizzes for ${selectedApp} (topic ${expectedTopicId})`);
+            console.log(`✅ Found ${filteredQuizzes.length} quizzes for ${selectedApp} (lesson ${currentLessonId})`);
             
             // Filter attempts for current user
             filteredQuizzes = filteredQuizzes.map(quiz => {
@@ -10673,7 +10667,7 @@ async function loadQuizzesForCategory(categoryId) {
         if (quizOptionsContainer) {
             quizOptionsContainer.innerHTML = `
                 <div style="grid-column: 1/-1; text-align: center; padding: 40px;">
-                    <i class="fas fa-exclamation-triangle" style="font-size: 48px; color: #e74c3c; margin-bottom: 15px;"></i>
+                    <i class="fas fa-exclamation-triangle" style="font-size: 48px; color: #e74c3c;"></i>
                     <h3>Failed to load quizzes</h3>
                     <p>${error.message}</p>
                     <button class="btn-primary" onclick="loadQuizzesForCategory(${categoryId})" style="margin-top: 15px;">
@@ -15198,7 +15192,7 @@ function addFeedbackStyles() {
 // ============================================
 
 // ============================================
-// FIXED: Fetch lessons based on selected app
+// ✅ FIXED: Fetch all lessons - FILTER BY LESSON_ID
 // ============================================
 async function fetchAllLessons() {
     try {
@@ -15210,16 +15204,11 @@ async function fetchAllLessons() {
         
         // Get the selected app from localStorage
         const selectedApp = localStorage.getItem('selectedApp') || 'polylearn';
-        const lessonFilter = localStorage.getItem('currentLessonFilter');
+        const currentLessonId = APP_LESSON_MAP[selectedApp]?.lessonId || 2;
         
-        console.log(`📚 Fetching lessons for app: ${selectedApp}, filter: ${lessonFilter}`);
+        console.log(`📚 Fetching lessons for app: ${selectedApp}, lesson ID: ${currentLessonId}`);
         
-        let endpoint = '/api/lessons-db/complete';
-        
-        // Add filter parameter if we have a lesson filter
-        if (lessonFilter) {
-            endpoint += `?lesson_id=${lessonFilter}`;
-        }
+        let endpoint = `/api/lessons-db/complete?lesson_id=${currentLessonId}`;
         
         const response = await fetch(endpoint, {
             headers: {
@@ -15235,11 +15224,8 @@ async function fetchAllLessons() {
         const data = await response.json();
         
         if (data.success && data.lessons) {
-            // Filter lessons based on the selected app
-            const filteredLessons = filterLessonsByApp(data.lessons, selectedApp, lessonFilter);
-            
-            console.log(`✅ Fetched ${filteredLessons.length} lessons for ${selectedApp}`);
-            return filteredLessons;
+            console.log(`✅ Fetched ${data.lessons.length} lessons for ${selectedApp}`);
+            return data.lessons;
         } else {
             throw new Error(data.message || 'No lessons returned');
         }
@@ -17845,7 +17831,7 @@ async function loadPracticeExercises() {
 // ============================================
 
 // ============================================
-// ✅ FIXED: Initialize practice page - WITH PROPER TOPIC FILTERING
+// ✅ FIXED: Initialize practice page - USING LESSON_ID
 // ============================================
 async function initPracticePage() {
     console.log('💪 Initializing practice page with database-driven content...');
@@ -17861,33 +17847,27 @@ async function initPracticePage() {
         });
     }
     
-    // ✅ FIX: Get the current selected app and set default topic
+    // ✅ Get current app's lesson ID
     const selectedApp = localStorage.getItem('selectedApp') || 'polylearn';
-    const defaultTopicId = APP_LESSON_MAP[selectedApp]?.lessonId || 2; // Default to PolyLearn (ID 2)
+    const currentLessonId = APP_LESSON_MAP[selectedApp]?.lessonId || 2;
     
-    console.log(`🎯 Selected app: ${selectedApp}, default topic ID: ${defaultTopicId}`);
+    console.log(`🎯 Selected app: ${selectedApp}, lesson ID: ${currentLessonId}`);
     
-    // ✅ Set PracticeState.currentTopic if not set
+    // ✅ Store lesson ID in localStorage for other functions
+    localStorage.setItem('currentLessonId', currentLessonId);
+    
+    // Reset current topic if needed
     if (!PracticeState.currentTopic) {
-        PracticeState.currentTopic = defaultTopicId.toString();
-        console.log(`🎯 Setting default topic to ${defaultTopicId} for ${selectedApp}`);
-    } else {
-        // Check if current topic matches the selected app
-        const currentTopicNum = parseInt(PracticeState.currentTopic);
-        if (currentTopicNum !== defaultTopicId) {
-            console.log(`⚠️ Current topic (${currentTopicNum}) doesn't match selected app (${selectedApp} - topic ${defaultTopicId})`);
-            console.log(`🔄 Forcing topic to ${defaultTopicId}`);
-            PracticeState.currentTopic = defaultTopicId.toString();
-        }
+        PracticeState.currentTopic = '1'; // Default to topic 1, but will be filtered by lesson
     }
     
     // ✅ I-LOAD AGAD ANG PRACTICE STATISTICS MULA DATABASE
     await loadPracticeStatistics();
     
-    // Load topics progress
+    // Load topics progress (will be filtered by lesson_id)
     await loadTopicsProgress();
     
-    // Load practice exercises for current topic
+    // Load practice exercises for current topic (with lesson_id filter)
     console.log(`🎯 Loading exercises for topic: ${PracticeState.currentTopic}`);
     await loadPracticeExercisesForTopic(PracticeState.currentTopic);
     
@@ -17934,7 +17914,7 @@ window.checkPracticeRecords = async function() {
 };
 
 // ============================================
-// ✅ FIXED: loadTopicsProgress - WITH APP FILTERING
+// ✅ FIXED: loadTopicsProgress - FILTER BY LESSON_ID
 // ============================================
 async function loadTopicsProgress() {
     try {
@@ -17969,16 +17949,16 @@ async function loadTopicsProgress() {
         const data = await response.json();
         
         if (data.success && data.topics) {
-            // ✅ Filter topics by current app
+            // ✅ Get current app's lesson ID
             const selectedApp = localStorage.getItem('selectedApp') || 'polylearn';
-            const expectedTopicId = APP_LESSON_MAP[selectedApp]?.lessonId || 2;
+            const currentLessonId = APP_LESSON_MAP[selectedApp]?.lessonId || 2;
             
-            // Show only the topic that matches the current app
+            // Filter topics by lesson_id
             const filteredTopics = data.topics.filter(topic => 
-                topic.topic_id == expectedTopicId
+                topic.lesson_id == currentLessonId
             );
             
-            console.log(`🎯 Showing ${filteredTopics.length} topic for ${selectedApp}`);
+            console.log(`🎯 Showing ${filteredTopics.length} topics for ${selectedApp} (lesson ${currentLessonId})`);
             displayTopics(filteredTopics);
             
             const unlockedCount = filteredTopics.filter(t => t.practice_unlocked).length;
@@ -18158,26 +18138,16 @@ async function selectTopicForPractice(topicId) {
 
 
 // ============================================
-// ✅ FIXED: Load practice exercises for topic - WITH STRICT FILTERING
+// ✅ FIXED: Load practice exercises - FILTER BY LESSON_ID
 // ============================================
 async function loadPracticeExercisesForTopic(topicId) {
     try {
         console.log(`📝 Getting practice exercises for topic ${topicId}`);
         
         const selectedApp = localStorage.getItem('selectedApp') || 'polylearn';
-        const lessonFilter = localStorage.getItem('currentLessonFilter');
+        const currentLessonId = APP_LESSON_MAP[selectedApp]?.lessonId || 2; // Default to PolyLearn
         
-        console.log(`🎯 Loading for app: ${selectedApp}, filter: ${lessonFilter}`);
-        
-        // ✅ VALIDATE: Check if this topic belongs to the current app
-        const expectedTopicId = APP_LESSON_MAP[selectedApp]?.lessonId || 2;
-        if (parseInt(topicId) !== expectedTopicId) {
-            console.log(`⚠️ Topic ID mismatch! Got ${topicId}, expected ${expectedTopicId} for ${selectedApp}`);
-            
-            // Force correct topic ID
-            topicId = expectedTopicId.toString();
-            console.log(`🔄 Forcing topic ID to ${topicId}`);
-        }
+        console.log(`🎯 Current app: ${selectedApp}, lesson_id: ${currentLessonId}`);
         
         // Get the exercise area
         const exerciseArea = document.getElementById('exerciseArea');
@@ -18190,12 +18160,9 @@ async function loadPracticeExercisesForTopic(topicId) {
             </div>
         `;
         
-        // ✅ Build endpoint with topic ID and lesson filter
-        let endpoint = `/api/practice/topic/${topicId}`;
-        if (lessonFilter) {
-            endpoint += `?lesson_id=${lessonFilter}`;
-            console.log(`📡 Fetching from: ${endpoint}`);
-        }
+        // ✅ Pass the lesson_id as a query parameter
+        let endpoint = `/api/practice/topic/${topicId}?lesson_id=${currentLessonId}`;
+        console.log(`📡 Fetching from: ${endpoint}`);
         
         const response = await fetch(endpoint, {
             headers: {
@@ -18211,23 +18178,12 @@ async function loadPracticeExercisesForTopic(topicId) {
         console.log('📥 Practice data received:', data);
         
         if (data.success && data.exercises) {
-            // ✅ Filter exercises to ensure they belong to the current app
-            let filteredExercises = data.exercises;
-            
-            // First filter by lesson_id if available
-            if (lessonFilter) {
-                filteredExercises = data.exercises.filter(ex => 
-                    ex.lesson_id == lessonFilter || 
-                    ex.lesson_id == expectedTopicId
-                );
-            }
-            
-            // Additional filter by topic_id to be absolutely sure
-            filteredExercises = filteredExercises.filter(ex => 
-                ex.topic_id == topicId
+            // ✅ Filter exercises by lesson_id to be absolutely sure
+            const filteredExercises = data.exercises.filter(ex => 
+                ex.lesson_id == currentLessonId
             );
             
-            console.log(`✅ Found ${filteredExercises.length} exercises for ${selectedApp} (topic ${topicId})`);
+            console.log(`✅ Found ${filteredExercises.length} exercises for ${selectedApp} (lesson ${currentLessonId})`);
             
             if (filteredExercises.length > 0) {
                 displayPracticeExercises(filteredExercises);
@@ -24165,11 +24121,13 @@ function updateCompleteButtonState(isCompleted) {
 // ============================================
 // Helper: Get Current Lesson ID
 // ============================================
+// ============================================
+// ✅ HELPER: Get current app's lesson ID
+// ============================================
 function getCurrentLessonId() {
-    // Check LessonState first
-    if (LessonState.currentLesson?.content_id) {
-        return LessonState.currentLesson.content_id;
-    }
+    const selectedApp = localStorage.getItem('selectedApp') || 'polylearn';
+    return APP_LESSON_MAP[selectedApp]?.lessonId || 2;
+}
     
     // Check from URL parameters
     const urlParams = new URLSearchParams(window.location.search);
