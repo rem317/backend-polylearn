@@ -10286,23 +10286,68 @@ async function loadQuizCategories() {
     }
 }
 // ============================================
-// ✅ FIXED: Display quiz categories
+// ✅ FIXED: Display quiz categories with element creation
 // ============================================
 function displayQuizCategories(categories) {
     console.log('📋 Displaying quiz categories:', categories);
     
-    const categoriesContainer = document.getElementById('quizCategoriesGrid');
+    // Try to find the container in multiple ways
+    let categoriesContainer = document.getElementById('quizCategoriesGrid');
+    
+    // If not found, try alternative IDs
     if (!categoriesContainer) {
-        console.error('❌ Quiz categories container not found');
-        return;
+        categoriesContainer = document.getElementById('categoriesGrid') || 
+                             document.getElementById('quiz-categories') ||
+                             document.querySelector('.categories-grid');
     }
+    
+    // If still not found, create the container
+    if (!categoriesContainer) {
+        console.log('⚠️ Categories container not found, creating one...');
+        
+        // Find the quiz dashboard page
+        const quizDashboard = document.getElementById('quiz-dashboard-page');
+        if (quizDashboard) {
+            // Find or create the userQuizzesContainer
+            let userQuizzesContainer = document.getElementById('userQuizzesContainer');
+            if (!userQuizzesContainer) {
+                userQuizzesContainer = document.createElement('div');
+                userQuizzesContainer.id = 'userQuizzesContainer';
+                userQuizzesContainer.className = 'quizzes-container';
+                quizDashboard.querySelector('.container')?.appendChild(userQuizzesContainer);
+            }
+            
+            // Create the categories grid
+            categoriesContainer = document.createElement('div');
+            categoriesContainer.id = 'quizCategoriesGrid';
+            categoriesContainer.className = 'categories-grid';
+            categoriesContainer.style.cssText = `
+                display: grid;
+                grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+                gap: 20px;
+                padding: 20px 0;
+            `;
+            
+            userQuizzesContainer.appendChild(categoriesContainer);
+            console.log('✅ Created quizCategoriesGrid element');
+        } else {
+            console.error('❌ Quiz dashboard page not found');
+            return;
+        }
+    }
+    
+    // Clear the container
+    categoriesContainer.innerHTML = '';
     
     if (!categories || categories.length === 0) {
         categoriesContainer.innerHTML = `
-            <div class="no-categories" style="grid-column: 1/-1; text-align: center; padding: 40px;">
-                <i class="fas fa-folder-open" style="font-size: 48px; color: #ccc; margin-bottom: 15px;"></i>
-                <h3 style="color: #666;">No Quiz Categories Available</h3>
-                <p style="color: #999;">Check back later for new quiz categories!</p>
+            <div class="no-categories" style="grid-column: 1/-1; text-align: center; padding: 60px 20px; background: white; border-radius: 10px;">
+                <i class="fas fa-folder-open" style="font-size: 64px; color: #ccc; margin-bottom: 20px;"></i>
+                <h3 style="color: #666; margin-bottom: 10px;">No Quiz Categories Available</h3>
+                <p style="color: #999; margin-bottom: 20px;">Check back later for new quiz categories!</p>
+                <button class="btn-primary" onclick="loadQuizCategories()" style="background: #7a0000; color: white; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer;">
+                    <i class="fas fa-redo"></i> Refresh
+                </button>
             </div>
         `;
         return;
@@ -10321,48 +10366,73 @@ function displayQuizCategories(categories) {
         
         html += `
             <div class="quiz-category-card" data-category-id="${categoryId}" 
-                 style="cursor: pointer; background: white; border-radius: 10px; padding: 20px; 
-                        margin-bottom: 15px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); 
-                        transition: all 0.3s; display: flex; align-items: center; gap: 15px;">
+                 style="cursor: pointer; background: white; border-radius: 12px; padding: 25px; 
+                        box-shadow: 0 4px 15px rgba(0,0,0,0.1); transition: all 0.3s; 
+                        display: flex; align-items: center; gap: 20px; border: 2px solid transparent;
+                        position: relative; overflow: hidden;">
                 
-                <div class="quiz-category-icon" style="width: 60px; height: 60px; 
-                     background: ${categoryColor}; border-radius: 10px; display: flex; 
-                     align-items: center; justify-content: center; font-size: 24px; color: white;">
+                <div class="quiz-category-icon" style="width: 70px; height: 70px; 
+                     background: ${categoryColor}; border-radius: 12px; display: flex; 
+                     align-items: center; justify-content: center; font-size: 28px; color: white;
+                     box-shadow: 0 4px 10px ${categoryColor}40;">
                     <i class="fas ${getCategoryIcon(categoryName)}"></i>
                 </div>
                 
                 <div class="quiz-category-info" style="flex: 1;">
-                    <h3 class="quiz-category-title" style="margin: 0 0 5px 0; color: #2c3e50;">
+                    <h3 class="quiz-category-title" style="margin: 0 0 5px 0; color: #2c3e50; font-size: 18px;">
                         ${categoryName}
                     </h3>
-                    <p class="quiz-category-desc" style="margin: 0 0 10px 0; color: #6c757d; font-size: 14px;">
+                    <p class="quiz-category-desc" style="margin: 0 0 12px 0; color: #6c757d; font-size: 14px; line-height: 1.5;">
                         ${categoryDesc}
                     </p>
                     
-                    <div class="quiz-category-stats" style="display: flex; gap: 15px; font-size: 12px; color: #7f8c8d;">
-                        <span class="quiz-category-stat">
-                            <i class="fas fa-question-circle"></i> ${totalQuizzes} Quizzes
+                    <div class="quiz-category-stats" style="display: flex; gap: 20px; font-size: 13px; color: #7f8c8d;">
+                        <span class="quiz-category-stat" style="display: flex; align-items: center; gap: 5px;">
+                            <i class="fas fa-question-circle" style="color: #3498db;"></i> ${totalQuizzes} Quizzes
                         </span>
-                        <span class="quiz-category-stat">
-                            <i class="fas fa-check-circle"></i> ${completedQuizzes} Completed
+                        <span class="quiz-category-stat" style="display: flex; align-items: center; gap: 5px;">
+                            <i class="fas fa-check-circle" style="color: #27ae60;"></i> ${completedQuizzes} Completed
                         </span>
                     </div>
                 </div>
                 
                 <button class="quiz-category-btn" data-category-id="${categoryId}" 
                         style="background: ${categoryColor}; color: white; border: none; 
-                               width: 40px; height: 40px; border-radius: 50%; cursor: pointer; 
+                               width: 45px; height: 45px; border-radius: 50%; cursor: pointer; 
                                display: flex; align-items: center; justify-content: center; 
-                               font-size: 16px; transition: all 0.3s;">
+                               font-size: 18px; transition: all 0.3s; box-shadow: 0 4px 10px ${categoryColor}40;
+                               position: relative; z-index: 2;">
                     <i class="fas fa-arrow-right"></i>
                 </button>
+                
+                <!-- Progress indicator (optional) -->
+                ${completedQuizzes > 0 ? `
+                    <div style="position: absolute; top: 0; left: 0; height: 4px; width: ${(completedQuizzes/totalQuizzes)*100}%; 
+                         background: ${categoryColor};"></div>
+                ` : ''}
             </div>
         `;
     });
     
     categoriesContainer.innerHTML = html;
     
-    // Add click event listeners to category cards and buttons
+    // Add hover effects
+    const style = document.createElement('style');
+    style.textContent = `
+        .quiz-category-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 8px 25px rgba(0,0,0,0.15) !important;
+            border-color: ${categories[0]?.color || '#7a0000'}20;
+        }
+        
+        .quiz-category-btn:hover {
+            transform: scale(1.1) rotate(90deg);
+            box-shadow: 0 6px 15px ${categories[0]?.color || '#7a0000'}60 !important;
+        }
+    `;
+    document.head.appendChild(style);
+    
+    // Add click event listeners to category cards
     document.querySelectorAll('.quiz-category-card').forEach(card => {
         card.addEventListener('click', function(e) {
             // Don't trigger if the button was clicked (it has its own handler)
@@ -10372,6 +10442,19 @@ function displayQuizCategories(categories) {
             if (categoryId) {
                 console.log('🎯 Category card clicked:', categoryId);
                 loadQuizzesForCategory(categoryId);
+            }
+        });
+        
+        // Add keyboard accessibility
+        card.setAttribute('tabindex', '0');
+        card.addEventListener('keypress', function(e) {
+            if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                const categoryId = this.getAttribute('data-category-id');
+                if (categoryId) {
+                    console.log('🎯 Category card activated via keyboard:', categoryId);
+                    loadQuizzesForCategory(categoryId);
+                }
             }
         });
     });
@@ -10395,6 +10478,7 @@ function displayQuizCategories(categories) {
     
     console.log('✅ Quiz categories displayed successfully');
 }
+
 
 // ============================================
 // Helper: Get category icon based on name
@@ -10956,6 +11040,9 @@ function displayLeaderboard(leaderboard) {
 }
 
 
+// ============================================
+// FIXED: initQuizDashboard - With container verification
+// ============================================
 async function initQuizDashboard() {
     console.log('🧠 Initializing quiz dashboard...');
     
@@ -10964,9 +11051,9 @@ async function initQuizDashboard() {
         const container = document.getElementById('userQuizzesContainer');
         if (container) {
             container.innerHTML = `
-                <div class="loading-container">
-                    <i class="fas fa-spinner fa-spin"></i>
-                    <p>Loading quiz categories...</p>
+                <div class="loading-container" style="text-align: center; padding: 40px;">
+                    <i class="fas fa-spinner fa-spin" style="font-size: 40px; color: #7a0000; margin-bottom: 20px;"></i>
+                    <p style="color: #666;">Loading quiz categories...</p>
                 </div>
             `;
         }
@@ -10984,7 +11071,7 @@ async function initQuizDashboard() {
         if (statsElements.time) statsElements.time.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
         if (statsElements.rank) statsElements.rank.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
         
-        // Load all data in parallel for better performance
+        // Load all data in parallel
         const [categories, stats, leaderboard, badges] = await Promise.allSettled([
             loadQuizCategories(),
             loadQuizStatsFromServer(),
@@ -10999,7 +11086,6 @@ async function initQuizDashboard() {
         
         if (stats.status === 'rejected') {
             console.error('❌ Failed to load stats:', stats.reason);
-            // Set default stats
             updateQuizStatsUI({
                 current_score: 0,
                 accuracy: 0,
@@ -11025,14 +11111,10 @@ async function initQuizDashboard() {
         
         console.log('✅ Quiz dashboard initialized successfully');
         
-        // Show success notification
-        showNotification('Quiz dashboard ready!', 'success');
-        
     } catch (error) {
         console.error('❌ Error initializing quiz dashboard:', error);
         showNotification('Failed to initialize quiz dashboard', 'error');
         
-        // Show error in stats
         updateQuizStatsUI({
             current_score: 0,
             accuracy: 0,
@@ -11041,7 +11123,6 @@ async function initQuizDashboard() {
         });
     }
 }
-
 
 
 // ============================================
