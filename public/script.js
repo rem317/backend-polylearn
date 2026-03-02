@@ -18100,16 +18100,24 @@ async function loadPracticeExercisesForTopic(topicId) {
         const selectedApp = localStorage.getItem('selectedApp') || 'polylearn';
         const lessonFilter = localStorage.getItem('currentLessonFilter');
         
+        console.log(`🎯 Loading for app: ${selectedApp}, filter: ${lessonFilter}`);
+        
         // Get the exercise area
         const exerciseArea = document.getElementById('exerciseArea');
         if (!exerciseArea) return;
         
-        exerciseArea.innerHTML = `<div class="loading">Loading...</div>`;
+        exerciseArea.innerHTML = `
+            <div class="loading-container" style="text-align: center; padding: 30px;">
+                <i class="fas fa-spinner fa-spin" style="font-size: 30px; color: #7a0000;"></i>
+                <p style="margin-top: 10px;">Loading exercises for ${selectedApp}...</p>
+            </div>
+        `;
         
-        // Add lesson filter to API call
+        // ✅ FIX: Add lesson filter to API call
         let endpoint = `/api/practice/topic/${topicId}`;
         if (lessonFilter) {
             endpoint += `?lesson_id=${lessonFilter}`;
+            console.log(`📡 Fetching from: ${endpoint}`);
         }
         
         const response = await fetch(endpoint, {
@@ -18118,17 +18126,47 @@ async function loadPracticeExercisesForTopic(topicId) {
             }
         });
         
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        
         const data = await response.json();
+        console.log('📥 Practice data received:', data);
         
         if (data.success && data.exercises) {
-            // ✅ FIX: Use displayPracticeExercises instead of createPracticeExercisesUI
-            displayPracticeExercises(data.exercises);
+            // ✅ Filter na ulit sa client side para sigurado
+            const filteredExercises = data.exercises.filter(ex => 
+                ex.lesson_id == lessonFilter || 
+                ex.lesson_id == APP_LESSON_MAP[selectedApp]?.lessonId
+            );
+            
+            console.log(`✅ Found ${filteredExercises.length} exercises for ${selectedApp}`);
+            displayPracticeExercises(filteredExercises);
         } else {
-            exerciseArea.innerHTML = `<div class="error">No exercises found</div>`;
+            exerciseArea.innerHTML = `
+                <div class="no-exercises" style="text-align: center; padding: 40px;">
+                    <i class="fas fa-pencil-alt" style="font-size: 48px; color: #ccc; margin-bottom: 15px;"></i>
+                    <h3 style="color: #666;">No Practice Exercises</h3>
+                    <p style="color: #999;">There are no practice exercises available for this topic yet.</p>
+                </div>
+            `;
         }
         
     } catch (error) {
         console.error('Error loading exercises:', error);
+        const exerciseArea = document.getElementById('exerciseArea');
+        if (exerciseArea) {
+            exerciseArea.innerHTML = `
+                <div class="error-message" style="text-align: center; padding: 40px;">
+                    <i class="fas fa-exclamation-triangle" style="font-size: 48px; color: #e74c3c;"></i>
+                    <h3 style="color: #666;">Failed to load exercises</h3>
+                    <p style="color: #999;">${error.message}</p>
+                    <button class="btn-primary" onclick="location.reload()" style="margin-top: 15px;">
+                        <i class="fas fa-redo"></i> Try Again
+                    </button>
+                </div>
+            `;
+        }
     }
 }
 
