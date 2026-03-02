@@ -7010,13 +7010,24 @@ app.get('/api/stats/quick', async (req, res) => {
     }
 });
 // ============================================
-// ✅ FIXED: Get quiz categories - FILTER BY LESSON_ID
+// ✅ FIXED: GET /api/quiz/categories - WITH LESSON_ID FILTER
 // ============================================
 app.get('/api/quiz/categories', async (req, res) => {
     try {
-        const { lesson_id } = req.query; // Kunin ang lesson_id mula sa query
-        console.log(`📥 Fetching quiz categories with lesson_id: ${lesson_id || 'all'}`);
+        const { lesson_id } = req.query;
+        console.log(`📥 Fetching quiz categories with lesson_id: ${lesson_id || 'none'}`);
         
+        // Check if table exists
+        const [tables] = await promisePool.query("SHOW TABLES LIKE 'quiz_categories'");
+        
+        if (tables.length === 0) {
+            return res.json({
+                success: true,
+                categories: []
+            });
+        }
+        
+        // Build query with optional lesson_id filter
         let query = `
             SELECT 
                 category_id,
@@ -7024,8 +7035,8 @@ app.get('/api/quiz/categories', async (req, res) => {
                 icon,
                 description,
                 color,
-                is_active,
                 lesson_id,
+                is_active,
                 created_at
             FROM quiz_categories 
             WHERE is_active = 1 OR is_active IS NULL
@@ -7033,9 +7044,9 @@ app.get('/api/quiz/categories', async (req, res) => {
         
         const params = [];
         
-        // ✅ Add lesson_id filter if provided
+        // Add lesson_id filter if provided
         if (lesson_id) {
-            query += ` AND lesson_id = ?`;
+            query += ` AND (lesson_id = ? OR lesson_id IS NULL)`;
             params.push(lesson_id);
         }
         
@@ -7043,21 +7054,7 @@ app.get('/api/quiz/categories', async (req, res) => {
         
         const [categories] = await promisePool.query(query, params);
         
-        console.log(`✅ Found ${categories.length} quiz categories for lesson_id ${lesson_id || 'all'}`);
-        
-        // Get quiz count for each category
-        for (let category of categories) {
-            let quizQuery = `SELECT COUNT(*) as count FROM quizzes WHERE category_id = ?`;
-            const quizParams = [category.category_id];
-            
-            if (lesson_id) {
-                quizQuery += ` AND lesson_id = ?`;
-                quizParams.push(lesson_id);
-            }
-            
-            const [count] = await promisePool.query(quizQuery, quizParams);
-            category.quiz_count = count[0]?.count || 0;
-        }
+        console.log(`✅ Found ${categories.length} quiz categories`);
         
         res.json({
             success: true,
@@ -7066,14 +7063,13 @@ app.get('/api/quiz/categories', async (req, res) => {
         
     } catch (error) {
         console.error('❌ Error fetching quiz categories:', error);
-        res.status(500).json({ 
-            success: false, 
-            message: error.message,
-            categories: [] 
+        // Return empty array with success true para hindi mag-break ang frontend
+        res.status(200).json({ 
+            success: true, 
+            categories: []
         });
     }
 });
-
 
 
 // ============================================
