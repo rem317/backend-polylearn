@@ -9707,10 +9707,10 @@ function connectReviewButtons() {
 
 
 // ============================================
-// CLOSE QUIZ MODAL - BALIK DIN SA DASHBOARD
+// FIXED: Close quiz modal - STAYS IN CURRENT CATEGORY'S QUIZ LIST
 // ============================================
 function closeQuizSystemModal() {
-    console.log('🚪 Closing quiz modal - returning to dashboard');
+    console.log('🚪 Closing quiz modal - returning to quiz list for current category');
     
     const modal = document.getElementById('quizModal');
     const quizContainer = document.getElementById('quizContainer');
@@ -9735,21 +9735,59 @@ function closeQuizSystemModal() {
         QuizSystem.timerInterval = null;
     }
     
-    // I-SHOW ANG QUIZ DASHBOARD (may categories)
+    // ===== IMPORTANT: Keep showing the quiz interface, not categories =====
     const quizInterface = document.getElementById('quizInterfaceContainer');
     const quizCards = document.getElementById('userQuizzesContainer');
-    const badgesContainer = document.getElementById('badgesContainer');
-    const leaderboardContainer = document.getElementById('leaderboardContainer');
     
     if (quizInterface) {
-        quizInterface.classList.add('hidden');
-        quizInterface.style.display = 'none';
+        // Make sure quiz interface is visible
+        quizInterface.classList.remove('hidden');
+        quizInterface.style.display = 'block';
+        quizInterface.style.opacity = '1';
+        quizInterface.style.visibility = 'visible';
+        
+        // Keep categories hidden
+        if (quizCards) {
+            quizCards.classList.add('hidden');
+            quizCards.style.display = 'none';
+        }
+        
+        // Get the current category ID from QuizState
+        const currentCategoryId = QuizState.selectedCategory;
+        console.log('📋 Current category ID:', currentCategoryId);
+        
+        // If we have a current category, make sure its quizzes are still displayed
+        if (currentCategoryId) {
+            // Check if quiz options container is empty or showing results
+            const quizOptionsContainer = document.getElementById('quizOptionsContainer');
+            if (quizOptionsContainer && quizOptionsContainer.children.length === 0) {
+                console.log('🔄 Reloading quizzes for category', currentCategoryId);
+                
+                // Show loading state
+                quizOptionsContainer.innerHTML = `
+                    <div style="text-align: center; padding: 30px; grid-column: 1/-1;">
+                        <i class="fas fa-spinner fa-spin" style="font-size: 30px; color: #7a0000;"></i>
+                        <p style="margin-top: 15px;">Refreshing quizzes...</p>
+                    </div>
+                `;
+                
+                // Reload quizzes for this category
+                setTimeout(() => {
+                    loadQuizzesForCategory(currentCategoryId);
+                }, 300);
+            }
+        }
+    } else {
+        // Fallback: if quiz interface doesn't exist, show categories
+        if (quizCards) {
+            quizCards.classList.remove('hidden');
+            quizCards.style.display = 'block';
+        }
     }
     
-    if (quizCards) {
-        quizCards.classList.remove('hidden');
-        quizCards.style.display = 'block';
-    }
+    // Keep badges and leaderboard visible
+    const badgesContainer = document.getElementById('badgesContainer');
+    const leaderboardContainer = document.getElementById('leaderboardContainer');
     
     if (badgesContainer) {
         badgesContainer.classList.remove('hidden');
@@ -9761,14 +9799,23 @@ function closeQuizSystemModal() {
         leaderboardContainer.style.display = 'block';
     }
     
-    // I-refresh ang quiz dashboard
-    if (typeof loadQuizCategories === 'function') {
-        setTimeout(() => {
-            loadQuizCategories();
-        }, 100);
-    }
+    // Reset quiz system state but KEEP the selected category
+    const currentCategory = QuizState.selectedCategory;
+    
+    QuizSystem.currentQuiz = null;
+    QuizSystem.currentAttemptId = null;
+    QuizSystem.questions = [];
+    QuizSystem.currentIndex = 0;
+    QuizSystem.userAnswers = {};
+    QuizSystem.startTime = null;
+    QuizSystem.timeLeft = 0;
+    QuizSystem.stats = { correct: 0, wrong: 0, score: 0 };
+    
+    // Restore the selected category
+    QuizState.selectedCategory = currentCategory;
+    
+    console.log('✅ Returned to quiz list for category:', currentCategory);
 }
-
 
 // Replace the startQuizAttempt function
 // Sa script.js, gamitin itong modified startQuizAttempt
