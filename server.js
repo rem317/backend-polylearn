@@ -10777,7 +10777,7 @@ app.get('/api/practice/user/stats', authenticateUser, async (req, res) => {
     }
 });
 // ============================================
-// GET PRACTICE EXERCISES COUNT BY LESSON ID
+// ✅ GET PRACTICE EXERCISES COUNT BY LESSON ID
 // ============================================
 app.get('/api/practice/exercises/count', authenticateToken, async (req, res) => {
     try {
@@ -10790,6 +10790,8 @@ app.get('/api/practice/exercises/count', authenticateToken, async (req, res) => 
             });
         }
         
+        console.log(`📊 Counting practice exercises for lesson_id: ${lesson_id}`);
+        
         // Get all topics under this lesson
         const [topics] = await promisePool.execute(`
             SELECT topic_id 
@@ -10799,7 +10801,11 @@ app.get('/api/practice/exercises/count', authenticateToken, async (req, res) => 
         `, [lesson_id]);
         
         if (topics.length === 0) {
-            return res.json({ success: true, count: 0 });
+            return res.json({ 
+                success: true, 
+                count: 0,
+                message: 'No topics found for this lesson' 
+            });
         }
         
         const topicIds = topics.map(t => t.topic_id);
@@ -10812,19 +10818,22 @@ app.get('/api/practice/exercises/count', authenticateToken, async (req, res) => 
             WHERE topic_id IN (${placeholders}) AND is_active = 1
         `, topicIds);
         
+        console.log(`✅ Found ${result[0].count} practice exercises for lesson ${lesson_id}`);
+        
         res.json({
             success: true,
             count: result[0].count
         });
         
     } catch (error) {
-        console.error('❌ Error:', error);
+        console.error('❌ Error counting practice exercises:', error);
         res.status(500).json({
             success: false,
             message: error.message
         });
     }
 });
+
 // ============================================
 // ✅ FIXED: Get topics progress - WITH LESSON_ID
 // ============================================
