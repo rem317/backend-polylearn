@@ -6223,18 +6223,19 @@ async function getDetailedPracticeStats() {
 
 
 // ============================================
-// ✅ FIXED: Load Progress Dashboard Data - POLYLEARN ONLY (NO ERRORS)
+// ✅ FIXED: Load Progress Dashboard Data - WITH 1-SECOND HIDE
 // ============================================
 async function loadProgressDashboardData() {
     console.log('📊 Loading PolyLearn progress dashboard data...');
     
     try {
-        // Show loading state
+        // Show loading state (will auto-hide after 1 second)
         showProgressDashboardLoading();
         
         const token = localStorage.getItem('authToken') || authToken;
         if (!token) {
             console.error('❌ No auth token');
+            setTimeout(() => hideProgressDashboardLoading(), 500);
             return;
         }
         
@@ -6294,13 +6295,9 @@ async function loadProgressDashboardData() {
                 a.completion_status === 'completed' || a.percentage >= 70
             ).length;
             
-            // Calculate total practice time in seconds
             attempts.forEach(a => {
                 totalPracticeSeconds += a.time_spent_seconds || 0;
             });
-            
-            console.log(`✅ PolyLearn practice completed: ${exercisesCompleted}`);
-            console.log(`⏱️ Total practice seconds: ${totalPracticeSeconds}`);
         }
         
         // ===== PROCESS QUIZ DATA =====
@@ -6311,22 +6308,16 @@ async function loadProgressDashboardData() {
             const attempts = quizStats.value.attempts || [];
             quizAttempts = attempts.length;
             
-            // Calculate points (10 points per correct answer)
             attempts.forEach(attempt => {
                 const correctAnswers = attempt.correct_answers || 0;
                 quizPoints += correctAnswers * 10;
             });
-            
-            console.log(`✅ PolyLearn quiz points: ${quizPoints}`);
         }
         
         // ===== CALCULATE OVERALL PROGRESS =====
-        // Base sa lessons lang dapat ang overall progress (0-100%)
         const overallPercentage = totalLessons > 0 
             ? Math.round((lessonsCompleted / totalLessons) * 100) 
             : 0;
-        
-        console.log(`📊 Overall progress: ${overallPercentage}% (${lessonsCompleted}/${totalLessons} lessons)`);
         
         // ===== UPDATE OVERALL PROGRESS UI =====
         const overallProgress = document.getElementById('overallProgress');
@@ -6334,21 +6325,10 @@ async function loadProgressDashboardData() {
         
         if (overallProgress) {
             overallProgress.textContent = `${overallPercentage}%`;
-            
-            // Add animation
-            overallProgress.style.transition = 'all 0.3s';
-            overallProgress.style.transform = 'scale(1.1)';
-            overallProgress.style.color = '#7a0000';
-            setTimeout(() => {
-                overallProgress.style.transform = 'scale(1)';
-                overallProgress.style.color = '';
-            }, 300);
         }
         
         if (overallProgressBar) {
             overallProgressBar.style.width = `${overallPercentage}%`;
-            
-            // Set color based on progress
             overallProgressBar.className = 'progress-fill';
             if (overallPercentage >= 70) {
                 overallProgressBar.classList.add('progress-good');
@@ -6367,36 +6347,23 @@ async function loadProgressDashboardData() {
         
         const pointsChange = document.getElementById('pointsChange');
         if (pointsChange) {
-            // Compute points this week
-            const pointsThisWeek = Math.min(quizPoints, 10); // Sample computation
+            const pointsThisWeek = Math.min(quizPoints, 10);
             pointsChange.textContent = `+${pointsThisWeek} this week`;
         }
         
         // ===== UPDATE TOTAL TIME =====
         const totalTime = document.getElementById('totalTime');
         if (totalTime) {
-            // Convert seconds to minutes
             const totalMinutes = Math.floor(totalPracticeSeconds / 60);
-            
-            // Format display
-            let timeDisplay = '';
-            if (totalMinutes < 60) {
-                timeDisplay = `${totalMinutes}m`;
-            } else {
-                const hours = Math.floor(totalMinutes / 60);
-                const mins = totalMinutes % 60;
-                timeDisplay = `${hours}h ${mins}m`;
-            }
-            
+            let timeDisplay = totalMinutes < 60 
+                ? `${totalMinutes}m` 
+                : `${Math.floor(totalMinutes / 60)}h ${totalMinutes % 60}m`;
             totalTime.textContent = timeDisplay;
-            console.log(`⏱️ Display time: ${timeDisplay} (${totalMinutes} minutes)`);
         }
         
         const timeChange = document.getElementById('timeChange');
         if (timeChange) {
-            // Convert seconds to minutes for active days computation
             const totalMinutes = Math.floor(totalPracticeSeconds / 60);
-            // Compute active days (1 day = 30 minutes of activity)
             const activeDays = Math.max(1, Math.min(30, Math.ceil(totalMinutes / 30)));
             timeChange.textContent = `${activeDays} days active`;
         }
@@ -6404,7 +6371,6 @@ async function loadProgressDashboardData() {
         // ===== UPDATE BADGES =====
         const totalBadges = document.getElementById('totalBadges');
         if (totalBadges) {
-            // Calculate badges based on achievements
             let badgeCount = 0;
             if (lessonsCompleted >= 1) badgeCount++;
             if (lessonsCompleted >= 5) badgeCount++;
@@ -6422,9 +6388,6 @@ async function loadProgressDashboardData() {
             badgesChange.textContent = `+${badgesThisMonth} this month`;
         }
         
-        // Hide loading
-        hideProgressDashboardLoading();
-        
         console.log('✅ PolyLearn progress dashboard updated');
         
         // Store in ProgressState
@@ -6440,7 +6403,6 @@ async function loadProgressDashboardData() {
         
     } catch (error) {
         console.error('❌ Error loading progress dashboard:', error);
-        hideProgressDashboardLoading();
         
         // Set fallback values
         const overallProgress = document.getElementById('overallProgress');
@@ -6454,6 +6416,12 @@ async function loadProgressDashboardData() {
         
         const totalBadges = document.getElementById('totalBadges');
         if (totalBadges) totalBadges.textContent = '0/10';
+        
+    } finally {
+        // ✅ HIDE LOADING AFTER 1 SECOND MAX
+        setTimeout(() => {
+            hideProgressDashboardLoading();
+        }, 1000);
     }
 }
 // ============================================
@@ -25356,29 +25324,57 @@ function updateDashboardUI(data) {
 }
 
 // ============================================
-// ✅ FIXED: SHOW PROGRESS DASHBOARD LOADING
+// ✅ FIXED: Show Progress Dashboard Loading - 1 SECOND MAX
 // ============================================
 function showProgressDashboardLoading() {
-    console.log('⏳ Showing loading state');
+    console.log('⏳ Showing loading state (max 1 second)');
     
+    // Clear any existing timeout
+    if (window.progressLoadingTimeout) {
+        clearTimeout(window.progressLoadingTimeout);
+    }
+    
+    // Set timeout to force hide after 1 second
+    window.progressLoadingTimeout = setTimeout(() => {
+        hideProgressDashboardLoading();
+        console.log('⏱️ Loading timeout reached - forcing hide after 1 second');
+    }, 1000); // ⏱️ 1 SECOND LANG!
+    
+    // Show loading spinners on elements
     const elements = [
         { id: 'overallProgress', defaultValue: '0%' },
         { id: 'totalPointsProgress', defaultValue: '0' },
-        { id: 'totalTime', defaultValue: '0h' },
+        { id: 'totalTime', defaultValue: '0m' },
         { id: 'totalBadges', defaultValue: '0/10' }
     ];
     
     elements.forEach(item => {
         const element = document.getElementById(item.id);
         if (element) {
-            element.setAttribute('data-original', element.textContent);
-            element.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+            // Store original value
+            if (!element.hasAttribute('data-original')) {
+                element.setAttribute('data-original', element.textContent);
+            }
+            
+            // Show spinner
+            element.innerHTML = '<i class="fas fa-spinner fa-spin" style="font-size: 14px; color: #7a0000;"></i>';
             element.style.opacity = '0.7';
             element.classList.add('loading');
         }
     });
+    
+    // Disable any buttons that might cause issues
+    const buttons = document.querySelectorAll('.progress-section button, .dashboard-card button');
+    buttons.forEach(btn => {
+        if (!btn.disabled) {
+            btn.setAttribute('data-was-enabled', 'true');
+            btn.disabled = true;
+            btn.style.opacity = '0.5';
+        }
+    });
+    
+    console.log('✅ Loading state shown - will hide in 1 second');
 }
-
 // ============================================
 // FIXED: updateModuleDashboardStats - RAILWAY VERSION
 // ============================================
