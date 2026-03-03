@@ -5820,7 +5820,7 @@ function addSaveButtonToModuleModal() {
     console.log("✅ Save button added to module modal");
 }
 
-// ===== FIXED CREATE MODULE MODAL WITH VISIBLE BUTTONS =====
+// ===== ENSURE CREATEQUICKMODULEMODAL HAS PROPER FOOTER =====
 function createQuickModuleModal() {
     // Remove existing modal if any
     const existingModal = document.getElementById('quickModuleModal');
@@ -5831,28 +5831,10 @@ function createQuickModuleModal() {
     const modalHTML = `
         <div id="quickModuleModal" class="modal" style="display: none; z-index: 10002;">
             <div class="modal-backdrop" onclick="closeQuickModuleModal()"></div>
-            <div class="modal-content" style="
-                max-width: 500px; 
-                width: 90%;
-                border-radius: 12px; 
-                overflow: hidden; 
-                box-shadow: 0 10px 40px rgba(0,0,0,0.2); 
-                display: flex; 
-                flex-direction: column;
-                max-height: 90vh;
-                position: relative;
-            ">
+            <div class="modal-content" style="max-width: 500px; border-radius: 12px; overflow: hidden; box-shadow: 0 10px 40px rgba(0,0,0,0.2);">
                 
-                <!-- MODAL HEADER - FIXED -->
-                <div class="modal-header" style="
-                    background: linear-gradient(135deg, #7a0000 0%, #a30000 100%); 
-                    color: white; 
-                    padding: 20px 25px; 
-                    display: flex; 
-                    justify-content: space-between; 
-                    align-items: center;
-                    flex-shrink: 0;
-                ">
+                <!-- MODAL HEADER -->
+                <div class="modal-header" style="background: linear-gradient(135deg, #7a0000 0%, #a30000 100%); color: white; padding: 20px 25px; display: flex; justify-content: space-between; align-items: center;">
                     <div>
                         <h3 style="margin: 0; display: flex; align-items: center; gap: 10px; font-size: 1.3rem;">
                             <i class="fas fa-cubes"></i> Create New Module
@@ -5867,14 +5849,8 @@ function createQuickModuleModal() {
                     </button>
                 </div>
                 
-                <!-- MODAL BODY - SCROLLABLE -->
-                <div class="modal-body" style="
-                    padding: 30px; 
-                    background: white; 
-                    overflow-y: auto; 
-                    flex: 1;
-                    min-height: 200px;
-                ">
+                <!-- MODAL BODY -->
+                <div class="modal-body" style="padding: 30px; background: white;">
                     
                     <!-- Lesson Selection -->
                     <div style="margin-bottom: 25px;">
@@ -5904,7 +5880,7 @@ function createQuickModuleModal() {
                     </div>
                     
                     <!-- Module Description (Optional) -->
-                    <div style="margin-bottom: 10px;">
+                    <div style="margin-bottom: 25px;">
                         <label style="display: block; margin-bottom: 10px; font-weight: 600; color: #333;">
                             <i class="fas fa-align-left"></i> Description (Optional)
                         </label>
@@ -5915,7 +5891,7 @@ function createQuickModuleModal() {
                     </div>
                     
                     <!-- Preview Card -->
-                    <div id="modulePreviewContainer" style="background: #f8f9fa; border-radius: 10px; padding: 20px; margin-top: 15px; border-left: 4px solid #7a0000; display: none;">
+                    <div id="modulePreviewContainer" style="background: #f8f9fa; border-radius: 10px; padding: 20px; margin-bottom: 10px; border-left: 4px solid #7a0000; display: none;">
                         <h4 style="margin: 0 0 15px 0; font-size: 0.9rem; color: #666; display: flex; align-items: center; gap: 8px;">
                             <i class="fas fa-eye"></i> Module Preview
                         </h4>
@@ -5923,17 +5899,8 @@ function createQuickModuleModal() {
                     </div>
                 </div>
                 
-                <!-- MODAL FOOTER - FIXED WITH BUTTONS -->
-                <div class="modal-footer" style="
-                    padding: 20px 30px; 
-                    background: #f8f9fa; 
-                    border-top: 1px solid #e0e0e0; 
-                    display: flex; 
-                    justify-content: flex-end; 
-                    gap: 12px; 
-                    flex-shrink: 0;
-                    box-shadow: 0 -2px 10px rgba(0,0,0,0.05);
-                ">
+                <!-- MODAL FOOTER - WITH SAVE BUTTON -->
+                <div class="modal-footer" style="padding: 20px 30px; background: #f8f9fa; border-top: 1px solid #e0e0e0; display: flex; justify-content: flex-end; gap: 12px;">
                     
                     <!-- CLOSE BUTTON -->
                     <button class="btn btn-secondary" onclick="closeQuickModuleModal()" 
@@ -5953,93 +5920,67 @@ function createQuickModuleModal() {
     
     document.body.insertAdjacentHTML('beforeend', modalHTML);
     
-    // Populate lesson dropdown
+    // Add preview update listener
+    const nameInput = document.getElementById('quickModuleName');
     const lessonSelect = document.getElementById('quickModuleLessonSelect');
-    if (lessonSelect && window.quickLessons && window.quickLessons.length > 0) {
-        window.quickLessons.forEach(lesson => {
-            const option = document.createElement('option');
-            option.value = lesson.id;
-            option.textContent = lesson.name;
-            lessonSelect.appendChild(option);
-        });
-    }
-}
-
-// ===== ADD THIS FUNCTION TO FIX MODULE DROPDOWN =====
-function updateModuleDropdown(lessonId) {
-    console.log("🔄 Updating module dropdown for lesson:", lessonId);
+    const descInput = document.getElementById('quickModuleDescription');
+    const previewContainer = document.getElementById('modulePreviewContainer');
+    const previewDiv = document.getElementById('modulePreview');
     
-    const moduleSelect = document.getElementById('quickModuleSelect');
-    if (!moduleSelect) return;
-    
-    // Clear dropdown
-    moduleSelect.innerHTML = '';
-    
-    if (!lessonId) {
-        // Walang napiling lesson
-        const option = document.createElement('option');
-        option.value = '';
-        option.textContent = '-- Select Lesson First --';
-        option.disabled = true;
-        option.selected = true;
-        moduleSelect.appendChild(option);
-        moduleSelect.disabled = true;
-        return;
-    }
-    
-    // Kunin ang modules para sa napiling lesson
-    const lessonModules = window.quickModules ? 
-        window.quickModules.filter(m => parseInt(m.lesson_id) === parseInt(lessonId)) : [];
-    
-    // Default option
-    const defaultOption = document.createElement('option');
-    defaultOption.value = '';
-    defaultOption.textContent = '-- Select Module --';
-    defaultOption.disabled = true;
-    defaultOption.selected = true;
-    moduleSelect.appendChild(defaultOption);
-    
-    // Modules from database
-    if (lessonModules.length > 0) {
-        lessonModules.forEach(module => {
-            const option = document.createElement('option');
-            option.value = module.id;
-            option.textContent = module.name;
-            moduleSelect.appendChild(option);
-        });
+    if (nameInput && lessonSelect && previewContainer && previewDiv) {
+        // Populate lesson dropdown
+        if (window.quickLessons && window.quickLessons.length > 0) {
+            window.quickLessons.forEach(lesson => {
+                const option = document.createElement('option');
+                option.value = lesson.id;
+                option.textContent = lesson.name;
+                lessonSelect.appendChild(option);
+            });
+            
+            // Auto-select the lesson from topic modal if available
+            const topicLessonSelect = document.getElementById('quickLessonSelect');
+            if (topicLessonSelect && topicLessonSelect.value) {
+                lessonSelect.value = topicLessonSelect.value;
+            }
+        }
         
-        // Add separator
-        const separator = document.createElement('option');
-        separator.disabled = true;
-        separator.textContent = '──────────';
-        moduleSelect.appendChild(separator);
+        // Update preview on input
+        function updatePreview() {
+            const moduleName = nameInput.value.trim();
+            const selectedLesson = lessonSelect.options[lessonSelect.selectedIndex]?.text || 'Selected Lesson';
+            const moduleDesc = descInput?.value.trim() || 'No description provided';
+            
+            if (moduleName) {
+                previewContainer.style.display = 'block';
+                previewDiv.innerHTML = `
+                    <div style="background: white; padding: 18px; border-radius: 8px; border: 1px solid #e0e0e0; box-shadow: 0 2px 8px rgba(0,0,0,0.05);">
+                        <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 10px;">
+                            <div style="background: #7a0000; width: 40px; height: 40px; border-radius: 8px; display: flex; align-items: center; justify-content: center; color: white;">
+                                <i class="fas fa-cubes"></i>
+                            </div>
+                            <div>
+                                <strong style="color: #7a0000; font-size: 1.1rem; display: block;">${moduleName}</strong>
+                                <span style="font-size: 0.75rem; color: #666; display: flex; align-items: center; gap: 5px;">
+                                    <i class="fas fa-folder"></i> ${selectedLesson}
+                                </span>
+                            </div>
+                        </div>
+                        <p style="margin: 5px 0 0 0; font-size: 0.8rem; color: #555; padding-top: 8px; border-top: 1px dashed #e0e0e0;">
+                            ${moduleDesc}
+                        </p>
+                    </div>
+                `;
+            } else {
+                previewContainer.style.display = 'none';
+            }
+        }
+        
+        nameInput.addEventListener('input', updatePreview);
+        lessonSelect.addEventListener('change', updatePreview);
+        if (descInput) descInput.addEventListener('input', updatePreview);
     }
     
-    // Special options
-    const generalOption = document.createElement('option');
-    generalOption.value = 'general';
-    generalOption.textContent = '📁 General Module (Auto-create)';
-    generalOption.style.color = '#4CAF50';
-    generalOption.style.fontWeight = 'bold';
-    moduleSelect.appendChild(generalOption);
-    
-    const createOption = document.createElement('option');
-    createOption.value = 'create';
-    createOption.textContent = '➕ Create New Module...';
-    createOption.style.color = '#7a0000';
-    createOption.style.fontWeight = 'bold';
-    moduleSelect.appendChild(createOption);
-    
-    moduleSelect.disabled = false;
-}
-
-// ===== UPDATE THE EXISTING filterQuickModules FUNCTION =====
-// Hanapin ito sa code mo at palitan ng:
-function filterQuickModules() {
-    const lessonSelect = document.getElementById('quickLessonSelect');
-    if (lessonSelect) {
-        updateModuleDropdown(lessonSelect.value);
-    }
+    console.log("✅ Quick module modal created with Save button");
 }
 // ===== SAVE QUICK MODULE =====
 async function saveQuickModule() {
