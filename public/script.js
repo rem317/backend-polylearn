@@ -6221,7 +6221,78 @@ async function getDetailedPracticeStats() {
     }
 }
 
-
+// ============================================
+// ✅ FORCE UPDATE UI - DIRECT DOM MANIPULATION
+// ============================================
+function forceUpdateProgressUI(progress) {
+    console.log('🎨 Force updating UI with:', progress);
+    
+    const percentage = progress.overall_percentage || 0;
+    
+    // 1. Update overall progress text
+    const overallProgress = document.getElementById('overallProgress');
+    if (overallProgress) {
+        overallProgress.textContent = percentage + '%';
+        overallProgress.style.transition = 'all 0.3s';
+        overallProgress.style.transform = 'scale(1.1)';
+        overallProgress.style.color = '#7a0000';
+        setTimeout(() => {
+            overallProgress.style.transform = 'scale(1)';
+            overallProgress.style.color = '';
+        }, 300);
+        console.log('✅ Updated overallProgress to:', percentage + '%');
+    } else {
+        console.warn('⚠️ overallProgress element not found');
+    }
+    
+    // 2. Update progress bar
+    const overallProgressBar = document.getElementById('overallProgressBar');
+    if (overallProgressBar) {
+        overallProgressBar.style.width = percentage + '%';
+        overallProgressBar.className = 'progress-fill';
+        if (percentage >= 70) {
+            overallProgressBar.classList.add('progress-good');
+        } else if (percentage >= 40) {
+            overallProgressBar.classList.add('progress-medium');
+        } else {
+            overallProgressBar.classList.add('progress-low');
+        }
+        console.log('✅ Updated progress bar to:', percentage + '%');
+    }
+    
+    // 3. Update total points
+    const totalPointsProgress = document.getElementById('totalPointsProgress');
+    if (totalPointsProgress) {
+        totalPointsProgress.textContent = progress.total_points_earned || 0;
+    }
+    
+    // 4. Update total time
+    const totalTime = document.getElementById('totalTime');
+    if (totalTime) {
+        const totalMinutes = progress.total_time_spent_minutes || 0;
+        let timeDisplay = totalMinutes < 60 
+            ? `${totalMinutes}m` 
+            : `${Math.floor(totalMinutes / 60)}h ${totalMinutes % 60}m`;
+        totalTime.textContent = timeDisplay;
+    }
+    
+    // 5. Update badges
+    const totalBadges = document.getElementById('totalBadges');
+    if (totalBadges) {
+        // Compute badges
+        let badgeCount = 0;
+        if (progress.total_lessons_completed >= 1) badgeCount++;
+        if (progress.total_lessons_completed >= 5) badgeCount++;
+        if (progress.total_lessons_completed >= 10) badgeCount++;
+        if (progress.exercises_completed >= 5) badgeCount++;
+        if (progress.exercises_completed >= 15) badgeCount++;
+        if (progress.total_quizzes_completed >= 1) badgeCount++;
+        
+        totalBadges.textContent = `${badgeCount}/10`;
+    }
+    
+    console.log('✅ UI force updated with', percentage + '%');
+}
 // ============================================
 // ✅ FIXED: Load Progress Dashboard Data - POLYLEARN ONLY (NO ERRORS)
 // ============================================
@@ -6330,7 +6401,14 @@ async function loadProgressDashboardData() {
         
         // ===== UPDATE OVERALL PROGRESS UI =====
         const overallProgress = document.getElementById('overallProgress');
-        const overallProgressBar = document.getElementById('overallProgressBar');
+        if (overallProgress) {
+             overallProgress.textContent = overallPercentage + '%';
+         }
+         
+         const progressBar = document.getElementById('overallProgressBar');
+         if (progressBar) {
+             progressBar.style.width = overallPercentage + '%';
+          }
         
         if (overallProgress) {
             overallProgress.textContent = `${overallPercentage}%`;
@@ -23074,7 +23152,39 @@ function navigateTo(page) {
             break;
         case 'progress':
             if (AppState.currentUser) {
-                initProgressDashboard();
+                console.log('📊 Progress page opened - updating UI...');
+                
+                // Show loading
+                showProgressDashboardLoading();
+                
+                // ✅ STEP 1: Try to show cached data immediately
+                const cached = localStorage.getItem('polylearn_progress_cache');
+                if (cached) {
+                    try {
+                        const { data } = JSON.parse(cached);
+                        if (data) {
+                            console.log('📦 Showing cached data:', data.overall_percentage + '%');
+                            // Store in ProgressState
+                            ProgressState.cumulativeProgress = data;
+                            // Force update UI
+                            forceUpdateProgressUI(data);
+                        }
+                    } catch (e) {
+                        console.log('Cache error:', e);
+                    }
+                }
+                
+                // ✅ STEP 2: Load fresh data in background
+                setTimeout(() => {
+                    loadProgressDashboardData().then(() => {
+                        // Force update UI again with fresh data
+                        if (ProgressState.cumulativeProgress) {
+                            forceUpdateProgressUI(ProgressState.cumulativeProgress);
+                        }
+                        hideProgressDashboardLoading();
+                    });
+                }, 100);
+                
                 setupProgressNavigation();
             }
             break;
