@@ -10420,6 +10420,7 @@ function getHardcodedCategories() {
     ];
 }
 
+
 // ============================================
 // 🆘 Ultimate fallback if all else fails
 // ============================================
