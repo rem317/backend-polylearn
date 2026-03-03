@@ -4797,20 +4797,23 @@ app.post('/api/quiz/answer', authenticateUser, async (req, res) => {
 
 
 // ============================================
-// ✅ GET /api/quiz/user/attempts - Get user's quiz attempts
+// ✅ FIXED: Get user's quiz attempts - WITH LESSON_ID FILTER
 // ============================================
 app.get('/api/quiz/user/attempts', authenticateUser, async (req, res) => {
     try {
         const userId = req.user.id;
-        const { limit = 10 } = req.query;
+        const { limit = 10, lesson_id } = req.query;
         
-        const [attempts] = await promisePool.query(`
+        console.log(`📊 Fetching quiz attempts for user ${userId}, lesson_id: ${lesson_id || 'all'}`);
+        
+        let query = `
             SELECT 
                 uqa.attempt_id,
                 uqa.quiz_id,
                 q.quiz_title,
                 q.difficulty,
                 q.total_questions,
+                q.lesson_id,
                 uqa.score,
                 uqa.correct_answers,
                 uqa.time_spent_seconds,
@@ -4821,13 +4824,27 @@ app.get('/api/quiz/user/attempts', authenticateUser, async (req, res) => {
             JOIN quizzes q ON uqa.quiz_id = q.quiz_id
             LEFT JOIN quiz_categories qc ON q.category_id = qc.category_id
             WHERE uqa.user_id = ? AND uqa.completion_status = 'completed'
-            ORDER BY uqa.end_time DESC
-            LIMIT ?
-        `, [userId, parseInt(limit)]);
+        `;
+        
+        const params = [userId];
+        
+        // ✅ ADD LESSON_ID FILTER KUNG MAY BINIGAY
+        if (lesson_id) {
+            query += ` AND q.lesson_id = ?`;
+            params.push(lesson_id);
+        }
+        
+        query += ` ORDER BY uqa.end_time DESC LIMIT ?`;
+        params.push(parseInt(limit));
+        
+        const [attempts] = await promisePool.query(query, params);
+        
+        console.log(`✅ Found ${attempts.length} quiz attempts for user ${userId}`);
         
         res.json({
             success: true,
-            attempts: attempts
+            attempts: attempts,
+            filtered_by_lesson: lesson_id || 'all'
         });
         
     } catch (error) {
@@ -4839,7 +4856,6 @@ app.get('/api/quiz/user/attempts', authenticateUser, async (req, res) => {
         });
     }
 });
-
 // ============================================
 // ✅ GET /api/quizzes/available - Available quizzes for user
 // ============================================
@@ -9670,7 +9686,7 @@ app.get('/api/admin/quizzes/top', authenticateAdmin, async (req, res) => {
 // ============================================
 
 // ============================================
-// FIXED: Get ALL lessons with progress - WITH FILTER
+// ✅ FIXED: Get ALL lessons with progress - WITH LESSON_ID FILTER
 // ============================================
 app.get('/api/lessons-db/complete', verifyToken, async (req, res) => {
     try {
@@ -9709,7 +9725,7 @@ app.get('/api/lessons-db/complete', verifyToken, async (req, res) => {
         
         const params = [];
         
-        // Add lesson_id filter if provided
+        // ✅ ADD LESSON_ID FILTER KUNG MAY BINIGAY
         if (lesson_id) {
             query += ` AND l.lesson_id = ?`;
             params.push(lesson_id);
@@ -9721,7 +9737,7 @@ app.get('/api/lessons-db/complete', verifyToken, async (req, res) => {
         
         console.log(`✅ Found ${lessons.length} lessons in database`);
         
-        // Get user progress (same as before)
+        // Get user progress
         let progressRows = [];
         if (lessons.length > 0) {
             const contentIds = lessons.map(l => l.content_id);
@@ -9773,6 +9789,63 @@ app.get('/api/lessons-db/complete', verifyToken, async (req, res) => {
         });
     }
 });
+
+// ============================================
+// ✅ FIXED: Get all lessons with progress - WITH LESSON_ID FILTER
+// ============================================
+app.get('/api/progress/lessons', verifyToken, async (req, res) => {
+    try {
+        const userId = req.user.id;
+        const { lesson_id } = req.query;
+        
+        console.log(`📊 Fetching lessons progress for user ${userId}, lesson_id: ${lesson_id || 'all'}`);
+
+        let query = `
+            SELECT 
+                ucp.*,
+                tci.content_title,
+                tci.content_description,
+                tci.content_type,
+                tci.video_duration_seconds,
+                l.lesson_id,
+                l.lesson_name
+            FROM user_content_progress ucp
+            JOIN topic_content_items tci ON ucp.content_id = tci.content_id
+            JOIN module_topics mt ON tci.topic_id = mt.topic_id
+            JOIN course_modules cm ON mt.module_id = cm.module_id
+            JOIN lessons l ON cm.lesson_id = l.lesson_id
+            WHERE ucp.user_id = ?
+        `;
+        
+        const params = [userId];
+        
+        // ✅ ADD LESSON_ID FILTER KUNG MAY BINIGAY
+        if (lesson_id) {
+            query += ` AND l.lesson_id = ?`;
+            params.push(lesson_id);
+        }
+        
+        query += ` ORDER BY ucp.last_accessed DESC`;
+        
+        const [progress] = await promisePool.execute(query, params);
+        
+        console.log(`✅ Found ${progress.length} lesson progress records for user ${userId}`);
+        
+        res.json({
+            success: true,
+            progress: progress,
+            filtered_by_lesson: lesson_id || 'all'
+        });
+        
+    } catch (error) {
+        console.error('❌ Error fetching lesson progress:', error);
+        res.status(500).json({ 
+            success: false, 
+            message: error.message 
+        });
+    }
+});
+
 
 // ============================================
 // ✅ FIXED: Get SINGLE lesson by ID with ADJACENT LESSONS
@@ -10835,7 +10908,7 @@ app.get('/api/practice/user/stats', authenticateUser, async (req, res) => {
     }
 });
 // ============================================
-// ✅ GET PRACTICE EXERCISES COUNT BY LESSON ID
+// ✅ FIXED: GET PRACTICE EXERCISES COUNT - WITH LESSON_ID FILTER
 // ============================================
 app.get('/api/practice/exercises/count', authenticateToken, async (req, res) => {
     try {
@@ -10850,37 +10923,19 @@ app.get('/api/practice/exercises/count', authenticateToken, async (req, res) => 
         
         console.log(`📊 Counting practice exercises for lesson_id: ${lesson_id}`);
         
-        // Get all topics under this lesson
-        const [topics] = await promisePool.execute(`
-            SELECT topic_id 
-            FROM module_topics mt
-            JOIN course_modules cm ON mt.module_id = cm.module_id
-            WHERE cm.lesson_id = ?
-        `, [lesson_id]);
-        
-        if (topics.length === 0) {
-            return res.json({ 
-                success: true, 
-                count: 0,
-                message: 'No topics found for this lesson' 
-            });
-        }
-        
-        const topicIds = topics.map(t => t.topic_id);
-        const placeholders = topicIds.map(() => '?').join(',');
-        
-        // Count exercises for these topics
+        // ✅ DIRECT COUNT FROM practice_exercises TABLE WITH lesson_id FILTER
         const [result] = await promisePool.execute(`
             SELECT COUNT(*) as count
             FROM practice_exercises
-            WHERE topic_id IN (${placeholders}) AND is_active = 1
-        `, topicIds);
+            WHERE lesson_id = ? AND is_active = 1
+        `, [lesson_id]);
         
         console.log(`✅ Found ${result[0].count} practice exercises for lesson ${lesson_id}`);
         
         res.json({
             success: true,
-            count: result[0].count
+            count: result[0].count,
+            lesson_id: lesson_id
         });
         
     } catch (error) {
@@ -10970,12 +11025,14 @@ app.get('/api/topics/progress', authenticateUser, async (req, res) => {
 });
 
 // ============================================
-// ✅ ADD THIS TO YOUR server.js - PRACTICE ATTEMPTS ENDPOINT
+// ✅ FIXED: Get practice attempts - FILTER BY LESSON_ID
 // ============================================
-// Get practice attempts
 app.get('/api/progress/practice-attempts', authenticateUser, async (req, res) => {
     try {
         const userId = req.user.id;
+        const { lesson_id } = req.query; // Kunin ang lesson_id mula sa query
+        
+        console.log(`📊 Fetching practice attempts for user ${userId}, lesson_id: ${lesson_id || 'all'}`);
         
         // Check if practice_attempts table exists
         const [tables] = await promisePool.query("SHOW TABLES LIKE 'practice_attempts'");
@@ -10987,29 +11044,48 @@ app.get('/api/progress/practice-attempts', authenticateUser, async (req, res) =>
             });
         }
         
-        const [attempts] = await promisePool.query(`
+        // Build query with optional lesson_id filter
+        let query = `
             SELECT 
                 pa.*,
                 pe.title as exercise_title,
                 pe.difficulty,
-                t.topic_title
+                pe.lesson_id,
+                t.topic_title,
+                l.lesson_name
             FROM practice_attempts pa
             LEFT JOIN practice_exercises pe ON pa.exercise_id = pe.exercise_id
             LEFT JOIN module_topics t ON pa.topic_id = t.topic_id
+            LEFT JOIN lessons l ON pe.lesson_id = l.lesson_id
             WHERE pa.user_id = ?
-            ORDER BY pa.created_at DESC
-        `, [userId]);
+        `;
+        
+        const params = [userId];
+        
+        // ✅ ADD LESSON_ID FILTER KUNG MAY BINIGAY
+        if (lesson_id) {
+            query += ` AND pe.lesson_id = ?`;
+            params.push(lesson_id);
+        }
+        
+        query += ` ORDER BY pa.created_at DESC`;
+        
+        const [attempts] = await promisePool.query(query, params);
+        
+        console.log(`✅ Found ${attempts.length} practice attempts for user ${userId}`);
         
         res.json({
             success: true,
-            attempts: attempts
+            attempts: attempts,
+            filtered_by_lesson: lesson_id || 'all'
         });
         
     } catch (error) {
         console.error('❌ Error fetching practice attempts:', error);
         res.json({ 
             success: true, 
-            attempts: []
+            attempts: [],
+            error: error.message
         });
     }
 });
