@@ -5579,7 +5579,7 @@ function saveLessonToLocalStorage() {
     }
 }
 
-// ===== OPEN QUICK TOPIC MODAL =====
+// ===== UPDATED openQuickTopicModal with better module loading =====
 async function openQuickTopicModal() {
     console.log("📝 Opening quick topic modal...");
     
@@ -5601,10 +5601,10 @@ async function openQuickTopicModal() {
     const statusDiv = document.getElementById('quickTopicStatus');
     const createModuleBtn = document.getElementById('createModuleButton');
     
-    // Reset module select
+    // Reset module select - clear it completely
     if (moduleSelect) {
-        moduleSelect.innerHTML = '<option value="">-- Select Module --</option>';
-        moduleSelect.disabled = true;  // I-disable muna hanggat walang napipiling lesson
+        moduleSelect.innerHTML = '<option value="">Loading modules...</option>';
+        moduleSelect.disabled = true;
     }
     
     // Show loading
@@ -5612,7 +5612,7 @@ async function openQuickTopicModal() {
         statusDiv.style.display = 'block';
         statusDiv.innerHTML = `
             <div style="background: #e3f2fd; color: #1976d2; padding: 15px; border-radius: 4px;">
-                <i class="fas fa-spinner fa-spin"></i> Loading modules from database...
+                <i class="fas fa-spinner fa-spin"></i> Loading lessons and modules from database...
             </div>
         `;
     }
@@ -5624,9 +5624,21 @@ async function openQuickTopicModal() {
         }
         
         console.log("📡 Fetching structure from server...");
-        const response = await fetch(`/api/admin/structure`, {
+        
+        // Use Promise with timeout to prevent hanging
+        const fetchPromise = fetch(`/api/admin/structure`, {
             headers: { 'Authorization': `Bearer ${token}` }
         });
+        
+        const timeoutPromise = new Promise((_, reject) => 
+            setTimeout(() => reject(new Error('Request timeout')), 10000)
+        );
+        
+        const response = await Promise.race([fetchPromise, timeoutPromise]);
+        
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
         
         const result = await response.json();
         console.log("📥 Server response:", result);
@@ -5640,8 +5652,9 @@ async function openQuickTopicModal() {
             console.log("✅ GLOBAL VARIABLES SET:");
             console.log("   📦 Modules:", window.quickModules.length);
             console.log("   📚 Lessons:", window.quickLessons.length);
+            console.log("   📋 Topics:", window.quickTopics.length);
             
-            // POPULATE LESSON DROPDOWN - WALANG AUTO-SELECT
+            // POPULATE LESSON DROPDOWN
             if (lessonSelect) {
                 lessonSelect.innerHTML = '<option value="">-- Select Lesson --</option>';
                 
@@ -5653,9 +5666,14 @@ async function openQuickTopicModal() {
                         lessonSelect.appendChild(option);
                     });
                     
-                    console.log("✅ Lesson dropdown populated - please select a lesson");
+                    console.log("✅ Lesson dropdown populated with", window.quickLessons.length, "lessons");
                 } else {
                     console.warn("⚠️ No lessons found in database");
+                    const option = document.createElement('option');
+                    option.value = '';
+                    option.textContent = '-- No lessons available --';
+                    option.disabled = true;
+                    lessonSelect.appendChild(option);
                 }
             }
             
@@ -5664,12 +5682,25 @@ async function openQuickTopicModal() {
                 statusDiv.style.display = 'none';
             }
             
+            // Initialize the change listener for lesson select
+            initializeQuickTopicModalListeners();
+            
+            // Force filter modules if there's a preselected lesson
+            if (lessonSelect && lessonSelect.value) {
+                setTimeout(() => {
+                    filterQuickModules();
+                }, 100);
+            }
+            
+            showNotification('success', 'Loaded', `📚 ${window.quickLessons.length} lessons, 📦 ${window.quickModules.length} modules loaded`);
+            
         } else {
             throw new Error(result.message || 'Failed to load structure');
         }
         
     } catch (error) {
         console.error('❌ Error in openQuickTopicModal:', error);
+        
         if (statusDiv) {
             statusDiv.innerHTML = `
                 <div style="background: #ffebee; color: #c62828; padding: 15px; border-radius: 4px;">
@@ -5681,6 +5712,9 @@ async function openQuickTopicModal() {
                 </div>
             `;
         }
+        
+        // Setup fallback dropdowns
+        setupFallbackTopicDropdowns(lessonSelect, moduleSelect);
     }
     
     // Show modal
@@ -5689,7 +5723,8 @@ async function openQuickTopicModal() {
     document.body.classList.add('modal-open');
 }
 
-// ===== OPEN QUICK MODULE MODAL WITH SAVE BUTTON =====
+
+// ===== OPEN QUICK MODULE MODAL WITH PROPER DISPLAY =====
 function openQuickModuleModal() {
     console.log("📦 Opening quick module modal with Save button...");
     
@@ -5750,11 +5785,9 @@ function openQuickModuleModal() {
         if (nameInput) nameInput.focus();
     }, 300);
     
-    // ❌ ALISIN ITO - Hindi na kailangan dahil may Save button na sa modal
-    // addSaveButtonToModuleModal();
-    
     console.log("✅ Quick module modal opened successfully with Save button");
 }
+
 
 // ===== ADD SAVE BUTTON TO MODULE MODAL =====
 function addSaveButtonToModuleModal() {
@@ -5820,7 +5853,7 @@ function addSaveButtonToModuleModal() {
     console.log("✅ Save button added to module modal");
 }
 
-// ===== ENSURE CREATEQUICKMODULEMODAL HAS PROPER FOOTER =====
+// ===== CREATE QUICK MODULE MODAL WITH CLOSE BUTTON, SAVE BUTTON, AND SCROLL =====
 function createQuickModuleModal() {
     // Remove existing modal if any
     const existingModal = document.getElementById('quickModuleModal');
@@ -5831,10 +5864,10 @@ function createQuickModuleModal() {
     const modalHTML = `
         <div id="quickModuleModal" class="modal" style="display: none; z-index: 10002;">
             <div class="modal-backdrop" onclick="closeQuickModuleModal()"></div>
-            <div class="modal-content" style="max-width: 500px; border-radius: 12px; overflow: hidden; box-shadow: 0 10px 40px rgba(0,0,0,0.2);">
+            <div class="modal-content" style="max-width: 500px; border-radius: 12px; overflow: hidden; box-shadow: 0 10px 40px rgba(0,0,0,0.2); display: flex; flex-direction: column; max-height: 90vh;">
                 
-                <!-- MODAL HEADER -->
-                <div class="modal-header" style="background: linear-gradient(135deg, #7a0000 0%, #a30000 100%); color: white; padding: 20px 25px; display: flex; justify-content: space-between; align-items: center;">
+                <!-- MODAL HEADER - FIXED -->
+                <div class="modal-header" style="background: linear-gradient(135deg, #7a0000 0%, #a30000 100%); color: white; padding: 20px 25px; display: flex; justify-content: space-between; align-items: center; flex-shrink: 0;">
                     <div>
                         <h3 style="margin: 0; display: flex; align-items: center; gap: 10px; font-size: 1.3rem;">
                             <i class="fas fa-cubes"></i> Create New Module
@@ -5844,13 +5877,13 @@ function createQuickModuleModal() {
                         </p>
                     </div>
                     <button class="modal-close" onclick="closeQuickModuleModal()" 
-                            style="background: none; border: none; color: white; font-size: 28px; cursor: pointer; width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; border-radius: 50%;">
+                            style="background: none; border: none; color: white; font-size: 28px; cursor: pointer; width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; border-radius: 50%; hover:background:rgba(255,255,255,0.1);">
                         &times;
                     </button>
                 </div>
                 
-                <!-- MODAL BODY -->
-                <div class="modal-body" style="padding: 30px; background: white;">
+                <!-- MODAL BODY - SCROLLABLE -->
+                <div class="modal-body" style="padding: 30px; background: white; overflow-y: auto; flex: 1; max-height: calc(90vh - 180px);">
                     
                     <!-- Lesson Selection -->
                     <div style="margin-bottom: 25px;">
@@ -5886,7 +5919,7 @@ function createQuickModuleModal() {
                         </label>
                         <textarea id="quickModuleDescription" class="form-control" 
                                   placeholder="What will students learn in this module?"
-                                  rows="3"
+                                  rows="4"
                                   style="width: 100%; padding: 12px; border: 2px solid #e0e0e0; border-radius: 8px; font-size: 0.9rem; resize: vertical;"></textarea>
                     </div>
                     
@@ -5899,18 +5932,18 @@ function createQuickModuleModal() {
                     </div>
                 </div>
                 
-                <!-- MODAL FOOTER - WITH SAVE BUTTON -->
-                <div class="modal-footer" style="padding: 20px 30px; background: #f8f9fa; border-top: 1px solid #e0e0e0; display: flex; justify-content: flex-end; gap: 12px;">
+                <!-- MODAL FOOTER - FIXED WITH SAVE BUTTON -->
+                <div class="modal-footer" style="padding: 20px 30px; background: #f8f9fa; border-top: 1px solid #e0e0e0; display: flex; justify-content: flex-end; gap: 12px; flex-shrink: 0;">
                     
                     <!-- CLOSE BUTTON -->
                     <button class="btn btn-secondary" onclick="closeQuickModuleModal()" 
-                            style="padding: 12px 24px; border: 1px solid #ccc; background: white; border-radius: 6px; font-weight: 600; cursor: pointer; color: #666; display: flex; align-items: center; gap: 8px;">
+                            style="padding: 12px 24px; border: 1px solid #ccc; background: white; border-radius: 6px; font-weight: 600; cursor: pointer; color: #666; display: flex; align-items: center; gap: 8px; transition: all 0.2s;">
                         <i class="fas fa-times"></i> Cancel
                     </button>
                     
                     <!-- SAVE MODULE BUTTON -->
                     <button class="btn btn-primary save-module-btn" onclick="saveQuickModule()" 
-                            style="padding: 12px 24px; background: #7a0000; color: white; border: none; border-radius: 6px; font-weight: 600; display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                            style="padding: 12px 24px; background: #7a0000; color: white; border: none; border-radius: 6px; font-weight: 600; display: flex; align-items: center; gap: 8px; cursor: pointer; transition: all 0.2s;">
                         <i class="fas fa-save"></i> Create Module
                     </button>
                 </div>
@@ -5980,9 +6013,10 @@ function createQuickModuleModal() {
         if (descInput) descInput.addEventListener('input', updatePreview);
     }
     
-    console.log("✅ Quick module modal created with Save button");
+    console.log("✅ Quick module modal created with close button, save button, and scroll");
 }
-// ===== SAVE QUICK MODULE =====
+
+// ===== UPDATE SAVE QUICK MODULE FUNCTION TO SHOW LOADING STATE =====
 async function saveQuickModule() {
     console.log("💾 Saving quick module...");
     
@@ -6453,7 +6487,7 @@ function removeVideoFile() {
     }
 }
 
-// ===== FILTER MODULES FOR QUICK TOPIC =====
+// ===== FILTER MODULES FOR QUICK TOPIC - FIXED VERSION =====
 function filterQuickModules() {
     console.log("🔍 Filtering modules for quick topic...");
     
@@ -6468,15 +6502,76 @@ function filterQuickModules() {
     
     console.log("📋 Selected Lesson ID:", lessonId || "(none)");
     
-    // I-enable ang module dropdown
-    moduleSelect.disabled = false;
-    
     // I-clear ang dropdown
-    moduleSelect.innerHTML = '<option value="">-- Select Module --</option>';
+    moduleSelect.innerHTML = '';
     
     // KUNG WALANG NAPILING LESSON
     if (!lessonId) {
         console.log("ℹ️ No lesson selected - please select a lesson first");
+        
+        // Add disabled placeholder
+        const placeholderOption = document.createElement('option');
+        placeholderOption.value = '';
+        placeholderOption.textContent = '-- Select a Lesson First --';
+        placeholderOption.disabled = true;
+        placeholderOption.selected = true;
+        moduleSelect.appendChild(placeholderOption);
+        
+        moduleSelect.disabled = true;
+        
+        if (createModuleBtn) createModuleBtn.style.display = 'none';
+        return;
+    }
+    
+    // MAY NAPILING LESSON - I-filter ang modules
+    console.log(`🔎 Filtering modules for lesson ID: ${lessonId}`);
+    
+    // Make sure we have modules data
+    if (!window.quickModules || window.quickModules.length === 0) {
+        console.log("⚠️ No modules loaded yet, showing loading state");
+        
+        const loadingOption = document.createElement('option');
+        loadingOption.value = '';
+        loadingOption.textContent = 'Loading modules...';
+        loadingOption.disabled = true;
+        loadingOption.selected = true;
+        moduleSelect.appendChild(loadingOption);
+        
+        moduleSelect.disabled = true;
+        
+        // Try to load modules
+        loadModuleStructure().then(() => {
+            setTimeout(() => filterQuickModules(), 500);
+        });
+        return;
+    }
+    
+    // Filter modules for this lesson
+    const filteredModules = window.quickModules.filter(m => parseInt(m.lesson_id) === parseInt(lessonId));
+    console.log(`📊 Found ${filteredModules.length} modules for lesson ${lessonId}`);
+    
+    // Always add a placeholder
+    const placeholderOption = document.createElement('option');
+    placeholderOption.value = '';
+    placeholderOption.textContent = '-- Select Module --';
+    placeholderOption.disabled = true;
+    placeholderOption.selected = true;
+    moduleSelect.appendChild(placeholderOption);
+    
+    if (filteredModules.length > 0) {
+        // Add existing modules
+        filteredModules.forEach(module => {
+            const option = document.createElement('option');
+            option.value = module.id;
+            option.textContent = `📦 ${module.name}`;
+            moduleSelect.appendChild(option);
+        });
+        
+        // Add separator
+        const separator = document.createElement('option');
+        separator.disabled = true;
+        separator.textContent = '──────────';
+        moduleSelect.appendChild(separator);
         
         // Add General Module option
         const generalOption = document.createElement('option');
@@ -6494,63 +6589,47 @@ function filterQuickModules() {
         createOption.style.fontWeight = 'bold';
         moduleSelect.appendChild(createOption);
         
-        if (createModuleBtn) createModuleBtn.style.display = 'block';
-        
-        // Also fetch topics from database even without lesson selected
-        fetchTopicsFromDatabase();
-        return;
-    }
-    
-    // MAY NAPILING LESSON - I-filter ang modules
-    console.log(`🔎 Filtering modules for lesson ID: ${lessonId}`);
-    
-    // Make sure we have modules data
-    if (!window.quickModules) {
-        console.log("⚠️ No modules loaded yet, fetching from server...");
-        loadModuleStructure().then(() => {
-            // Retry after loading
-            setTimeout(() => filterQuickModules(), 500);
-        });
-        return;
-    }
-    
-    const filteredModules = window.quickModules?.filter(m => parseInt(m.lesson_id) === parseInt(lessonId)) || [];
-    console.log(`📊 Found ${filteredModules.length} modules for lesson ${lessonId}`);
-    
-    if (filteredModules.length > 0) {
-        filteredModules.forEach(module => {
-            const option = document.createElement('option');
-            option.value = module.id;
-            option.textContent = `📦 ${module.name}`;
-            moduleSelect.appendChild(option);
-        });
-        
+        moduleSelect.disabled = false;
         if (createModuleBtn) createModuleBtn.style.display = 'none';
+        
+        console.log("✅ Module dropdown populated with", filteredModules.length, "modules + special options");
     } else {
         console.log(`⚠️ No modules found for lesson ${lessonId}`);
+        
+        // Add "No modules" message
+        const noModuleOption = document.createElement('option');
+        noModuleOption.value = '';
+        noModuleOption.textContent = '-- No modules available --';
+        noModuleOption.disabled = true;
+        moduleSelect.appendChild(noModuleOption);
+        
+        // Add separator
+        const separator = document.createElement('option');
+        separator.disabled = true;
+        separator.textContent = '──────────';
+        moduleSelect.appendChild(separator);
+        
+        // Add General Module option
+        const generalOption = document.createElement('option');
+        generalOption.value = 'general';
+        generalOption.textContent = '📁 General Module (Auto-create)';
+        generalOption.style.color = '#4CAF50';
+        generalOption.style.fontWeight = 'bold';
+        moduleSelect.appendChild(generalOption);
+        
+        // Add Create Module option
+        const createOption = document.createElement('option');
+        createOption.value = 'create';
+        createOption.textContent = '➕ Create New Module...';
+        createOption.style.color = '#7a0000';
+        createOption.style.fontWeight = 'bold';
+        moduleSelect.appendChild(createOption);
+        
+        moduleSelect.disabled = false;
         if (createModuleBtn) createModuleBtn.style.display = 'block';
     }
     
-    // Add General Module option
-    const generalOption = document.createElement('option');
-    generalOption.value = 'general';
-    generalOption.textContent = '📁 General Module (Auto-create)';
-    generalOption.style.color = '#4CAF50';
-    generalOption.style.fontWeight = 'bold';
-    moduleSelect.appendChild(generalOption);
-    
-    // Add Create Module option
-    const createOption = document.createElement('option');
-    createOption.value = 'create';
-    createOption.textContent = '➕ Create New Module...';
-    createOption.style.color = '#7a0000';
-    createOption.style.fontWeight = 'bold';
-    moduleSelect.appendChild(createOption);
-    
-    console.log("✅ Module dropdown populated for lesson", lessonId);
-    
-    // Fetch topics for this lesson
-    fetchTopicsForLesson(lessonId);
+    console.log("✅ Module dropdown filtered and enabled for lesson", lessonId);
 }
 
 // ===== ADD THIS TO YOUR INITIALIZATION CODE =====
@@ -18705,23 +18784,41 @@ async function loadTopicStructure() {
     }
 }
 
-// ===== SETUP FALLBACK TOPIC DROPDOWN =====
-function setupFallbackTopicDropdown() {
-    const topicSelect = document.getElementById('topicSelect');
-    if (!topicSelect) return;
+// ===== SETUP FALLBACK TOPIC DROPDOWNS =====
+function setupFallbackTopicDropdowns(lessonSelect, moduleSelect) {
+    console.log("⚠️ Setting up fallback dropdowns");
     
-    topicSelect.innerHTML = `
-        <option value="">-- Select Topic --</option>
-        <option value="1">Polynomial Functions (PolyLearn)</option>
-        <option value="2">Factorial Notation (FactoLearn)</option>
-        <option value="3">MDAS Operations (MathEase)</option>
-        <option value="4">Introduction to Polynomials (PolyLearn)</option>
-        <option value="5">Advanced Factorials (FactoLearn)</option>
-    `;
+    if (lessonSelect) {
+        lessonSelect.innerHTML = `
+            <option value="">-- Select Lesson --</option>
+            <option value="1">PolyLearn</option>
+            <option value="2">MathEase</option>
+            <option value="3">FactoLearn</option>
+        `;
+    }
     
-    console.log("⚠️ Using fallback topic dropdown");
+    if (moduleSelect) {
+        moduleSelect.innerHTML = `
+            <option value="">-- Select Module --</option>
+            <option value="general" style="color:#4CAF50;">📁 General Module (Auto-create)</option>
+            <option value="create" style="color:#7a0000;">➕ Create New Module...</option>
+        `;
+        moduleSelect.disabled = false;
+    }
 }
 
+// ===== HANDLE MODULE SELECT CHANGE =====
+document.addEventListener('change', function(e) {
+    if (e.target.id === 'quickModuleSelect') {
+        if (e.target.value === 'create') {
+            openQuickModuleModal();
+            // Reset selection after opening modal
+            setTimeout(() => {
+                e.target.value = '';
+            }, 100);
+        }
+    }
+});
 // Function para mag-save sa localStorage bilang backup
 function saveToLocalStorageBackup(lessonData) {
     try {
