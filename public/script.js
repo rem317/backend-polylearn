@@ -4150,58 +4150,48 @@ async function fetchDailyProgress() {
         console.log('📊 Fetching PolyLearn daily progress...');
         
         const token = localStorage.getItem('authToken') || authToken;
-        if (!token) return getDefaultPolyLearnDailyProgress();
+        if (!token) {
+            console.warn('No auth token available');
+            return getDefaultPolyLearnDailyProgress();
+        }
         
-        const POLYLEARN_LESSON_ID = 2;
-        const today = new Date().toISOString().split('T')[0];
+        // ✅ GUMAMIT NG FETCH API, HINDI PROMISEPOOL
+        const response = await fetch(`/api/progress/daily?lesson_id=2`, {
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+            }
+        });
         
-        // Get today's practice attempts for PolyLearn
-        const [practiceToday] = await promisePool.query(`
-            SELECT COUNT(*) as count
-            FROM practice_attempts pa
-            JOIN practice_exercises pe ON pa.exercise_id = pe.exercise_id
-            WHERE pa.user_id = ? 
-            AND DATE(pa.created_at) = CURDATE()
-            AND pe.lesson_id = ?
-        `, [userId, POLYLEARN_LESSON_ID]);
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
         
-        // Get today's lesson completions for PolyLearn
-        const [lessonsToday] = await promisePool.query(`
-            SELECT COUNT(*) as count
-            FROM user_content_progress ucp
-            JOIN topic_content_items tci ON ucp.content_id = tci.content_id
-            WHERE ucp.user_id = ? 
-            AND ucp.completion_status = 'completed' 
-            AND DATE(ucp.completed_at) = CURDATE()
-            AND tci.lesson_id = ?
-        `, [userId, POLYLEARN_LESSON_ID]);
+        const data = await response.json();
         
-        // Get today's quiz completions for PolyLearn
-        const [quizzesToday] = await promisePool.query(`
-            SELECT COUNT(*) as count
-            FROM user_quiz_attempts uqa
-            JOIN quizzes q ON uqa.quiz_id = q.quiz_id
-            WHERE uqa.user_id = ? 
-            AND uqa.completion_status = 'completed' 
-            AND DATE(uqa.end_time) = CURDATE()
-            AND q.lesson_id = ?
-        `, [userId, POLYLEARN_LESSON_ID]);
-        
-        return {
-            lessons_completed: lessonsToday[0]?.count || 0,
-            exercises_completed: practiceToday[0]?.count || 0,
-            quizzes_completed: quizzesToday[0]?.count || 0,
-            points_earned: (lessonsToday[0]?.count * 50) + (practiceToday[0]?.count * 10) + (quizzesToday[0]?.count * 20),
-            time_spent_minutes: 0,
-            streak_maintained: 0
-        };
+        if (data.success && data.progress) {
+            console.log('✅ PolyLearn daily progress loaded:', data.progress);
+            
+            return {
+                lessons_completed: data.progress.lessons_completed || 0,
+                exercises_completed: data.progress.exercises_completed || 0,
+                quizzes_completed: data.progress.quizzes_completed || 0,
+                points_earned: data.progress.points_earned || 0,
+                time_spent_minutes: data.progress.time_spent_minutes || 0,
+                streak_days: data.progress.streak_maintained || 0
+            };
+        } else {
+            console.warn('No daily progress data');
+            return getDefaultPolyLearnDailyProgress();
+        }
         
     } catch (error) {
-        console.error('Error fetching daily progress:', error);
+        console.error('❌ Error fetching daily progress:', error);
         return getDefaultPolyLearnDailyProgress();
     }
 }
 
+// ===== Default progress for PolyLearn =====
 function getDefaultPolyLearnDailyProgress() {
     return {
         lessons_completed: 0,
@@ -4209,7 +4199,7 @@ function getDefaultPolyLearnDailyProgress() {
         quizzes_completed: 0,
         points_earned: 0,
         time_spent_minutes: 0,
-        streak_maintained: 0
+        streak_days: 0
     };
 }
 
@@ -4897,8 +4887,9 @@ async function logUserActivity(activityType, relatedId = null, details = {}) {
     }
 }
 
-// Update daily progress
-// ITO ANG BAGONG VERSION - HINDI NA NAG-AADD NG POINTS
+// ============================================
+// ✅ FIXED: Update daily progress - POLYLEARN ONLY
+// ============================================
 async function updateDailyProgress(progressData) {
     try {
         const token = localStorage.getItem('authToken') || authToken;
@@ -4907,33 +4898,27 @@ async function updateDailyProgress(progressData) {
             return false;
         }
         
-        console.log('📊 Updating daily progress (FIXED - NO POINTS)...', progressData);
+        console.log('📊 Updating PolyLearn daily progress...', progressData);
         
-        // TANGGALIN ang points_earned - HINDI NA ISASAMA
+        // ✅ Add lesson_id = 2 for PolyLearn
         const updateData = {
-            // Only include lessons_completed if explicitly provided
             ...(progressData.lessons_completed !== undefined && { 
                 lessons_completed: progressData.lessons_completed 
             }),
-            // Only include exercises_completed if explicitly provided
             ...(progressData.exercises_completed !== undefined && { 
                 exercises_completed: progressData.exercises_completed 
             }),
-            // Only include quizzes_completed if explicitly provided
             ...(progressData.quizzes_completed !== undefined && { 
                 quizzes_completed: progressData.quizzes_completed 
             }),
-            // I-REMOVE ANG points_earned
-            // ...(progressData.points_earned !== undefined && { 
-            //     points_earned: progressData.points_earned 
-            // }),
             ...(progressData.time_spent_minutes !== undefined && { 
                 time_spent_minutes: progressData.time_spent_minutes 
-            })
+            }),
+            lesson_id: 2 // ✅ FORCE POLYLEARN
         };
         
         // If no data to update, return
-        if (Object.keys(updateData).length === 0) {
+        if (Object.keys(updateData).length === 1) { // 1 because lesson_id is always there
             console.log('⚠️ No progress data to update');
             return true;
         }
@@ -4948,27 +4933,23 @@ async function updateDailyProgress(progressData) {
         });
         
         if (!response.ok) {
-            if (response.status === 404) {
-                console.warn('⚠️ Daily progress endpoint not found (404), skipping...');
-                return false;
-            }
-            throw new Error(`Failed to update daily progress: ${response.status}`);
+            throw new Error(`HTTP error! status: ${response.status}`);
         }
         
         const data = await response.json();
         
         if (data.success) {
-            console.log('✅ Daily progress updated (no points)');
+            console.log('✅ PolyLearn daily progress updated');
             return true;
         } else {
             throw new Error(data.message || 'Failed to update daily progress');
         }
+        
     } catch (error) {
-        console.error('Error updating daily progress:', error);
+        console.error('❌ Error updating daily progress:', error);
         return false;
     }
 }
-
 // Update topic mastery
 async function updateTopicMastery(topicId, masteryData) {
     try {
