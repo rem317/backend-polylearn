@@ -10261,7 +10261,7 @@ async function loadQuizStatsFromServer() {
 
 
 // ============================================
-// ✅ ULTIMATE FIX: Load quiz categories - WITH HARDCODED FALLBACK
+// ✅ ULTIMATE FIX: Load quiz categories - WITH OFFLINE SUPPORT
 // ============================================
 async function loadQuizCategories() {
     console.log('📚 Loading quiz categories...');
@@ -10270,86 +10270,143 @@ async function loadQuizCategories() {
         const token = localStorage.getItem('authToken') || authToken;
         if (!token) {
             console.warn('No auth token available');
-            return useHardcodedCategories();
+            return useOfflineCategories();
         }
         
         const currentLessonId = 2; // Force to PolyLearn
         
         console.log(`🎯 Loading categories for PolyLearn, lesson_id: ${currentLessonId}`);
         
-        // Show loading state sa container (kung may existing)
+        // Show loading state
         let categoriesContainer = document.getElementById('quizCategoriesGrid');
         if (categoriesContainer) {
             categoriesContainer.innerHTML = `
                 <div style="grid-column: 1/-1; text-align: center; padding: 40px;">
                     <i class="fas fa-spinner fa-spin" style="font-size: 40px; color: #7a0000;"></i>
-                    <p style="margin-top: 15px; color: #666;">Loading quiz categories...</p>
+                    <p style="margin-top: 15px; color: #666;">Connecting to server...</p>
                 </div>
             `;
         }
         
-        // TRY WITH LESSON_ID
-        let endpoint = `/api/quiz/categories?lesson_id=${currentLessonId}`;
-        console.log(`📡 Fetching from: ${endpoint}`);
+        // Try to fetch from server with timeout
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 5000); // 5 second timeout
         
-        let response = await fetch(endpoint, {
-            headers: {
-                'Authorization': `Bearer ${token}`,
-                'Accept': 'application/json'
-            }
-        });
-        
-        // If 500 error, try without lesson_id
-        if (response.status === 500) {
-            console.log('⚠️ Server error with lesson_id, trying without...');
-            response = await fetch('/api/quiz/categories', {
+        try {
+            const response = await fetch(`/api/quiz/categories?lesson_id=${currentLessonId}`, {
                 headers: {
                     'Authorization': `Bearer ${token}`,
                     'Accept': 'application/json'
-                }
-            });
-        }
-        
-        if (!response.ok) {
-            console.log(`⚠️ API returned ${response.status}, using hardcoded categories`);
-            return useHardcodedCategories();
-        }
-        
-        const data = await response.json();
-        console.log('📥 Quiz categories response:', data);
-        
-        if (data.success && data.categories && data.categories.length > 0) {
-            let categories = data.categories;
-            
-            // Filter for lesson_id=2 on client side
-            categories = categories.filter(cat => {
-                const catLessonId = cat.lesson_id || cat.lessonId;
-                return catLessonId == currentLessonId || !catLessonId;
+                },
+                signal: controller.signal
             });
             
-            console.log(`✅ Found ${categories.length} categories from API`);
+            clearTimeout(timeoutId);
             
-            if (categories.length > 0) {
-                // Store in QuizState
-                if (!window.QuizState) window.QuizState = {};
-                window.QuizState.quizCategories = categories;
-                
-                // Display the categories
-                displayQuizCategories(categories);
-                return categories;
-            } else {
-                console.log('ℹ️ No categories match lesson_id=2, using hardcoded');
-                return useHardcodedCategories();
+            if (!response.ok) {
+                throw new Error(`HTTP error: ${response.status}`);
             }
-        } else {
-            console.log('ℹ️ No categories from API, using hardcoded');
-            return useHardcodedCategories();
+            
+            const data = await response.json();
+            console.log('📥 Server response:', data);
+            
+            if (data.success && data.categories && data.categories.length > 0) {
+                console.log(`✅ Found ${data.categories.length} categories from server`);
+                displayQuizCategories(data.categories);
+                return data.categories;
+            } else {
+                console.log('ℹ️ No categories from server, using offline data');
+                return useOfflineCategories();
+            }
+            
+        } catch (fetchError) {
+            clearTimeout(timeoutId);
+            
+            if (fetchError.name === 'AbortError') {
+                console.log('⚠️ Request timeout - server not responding');
+            } else if (fetchError.message.includes('Failed to fetch') || 
+                       fetchError.message.includes('ERR_INTERNET_DISCONNECTED')) {
+                console.log('⚠️ Network error - offline mode');
+            } else {
+                console.error('❌ Fetch error:', fetchError);
+            }
+            
+            return useOfflineCategories();
         }
         
     } catch (error) {
-        console.error('❌ Error loading quiz categories:', error);
-        return useHardcodedCategories();
+        console.error('❌ Error in loadQuizCategories:', error);
+        return useOfflineCategories();
     }
+}
+
+// ============================================
+// 🆘 OFFLINE CATEGORIES - Gumagana kahit walang internet
+// ============================================
+function useOfflineCategories() {
+    console.log('📚 Using offline PolyLearn categories');
+    
+    const offlineCategories = [
+        {
+            category_id: 1,
+            category_name: 'Polynomial Division Basics',
+            description: 'Master the fundamentals of polynomial division',
+            icon: 'fa-divide',
+            color: '#7a0000',
+            quiz_count: 3
+        },
+        {
+            category_id: 2,
+            category_name: 'Synthetic Division',
+            description: 'Learn efficient polynomial division techniques',
+            icon: 'fa-bolt',
+            color: '#27ae60',
+            quiz_count: 2
+        },
+        {
+            category_id: 3,
+            category_name: 'Remainder & Factor Theorems',
+            description: 'Understand key theorems in polynomial algebra',
+            icon: 'fa-calculator',
+            color: '#3498db',
+            quiz_count: 2
+        },
+        {
+            category_id: 4,
+            category_name: 'Long Division Practice',
+            description: 'Step-by-step polynomial long division problems',
+            icon: 'fa-pencil-alt',
+            color: '#f39c12',
+            quiz_count: 3
+        }
+    ];
+    
+    // Show offline indicator
+    const offlineIndicator = document.createElement('div');
+    offlineIndicator.style.cssText = `
+        background: #f39c12;
+        color: white;
+        padding: 8px 15px;
+        border-radius: 5px;
+        margin-bottom: 15px;
+        text-align: center;
+        font-size: 14px;
+    `;
+    offlineIndicator.innerHTML = '<i class="fas fa-wifi-slash"></i> Offline Mode - Using sample data';
+    
+    const quizDashboard = document.getElementById('quiz-dashboard-page');
+    if (quizDashboard) {
+        const existingIndicator = quizDashboard.querySelector('.offline-indicator');
+        if (!existingIndicator) {
+            offlineIndicator.classList.add('offline-indicator');
+            quizDashboard.insertBefore(offlineIndicator, quizDashboard.firstChild);
+        }
+    }
+    
+    // Display the categories
+    displayQuizCategories(offlineCategories);
+    
+    return offlineCategories;
 }
 
 // ============================================
