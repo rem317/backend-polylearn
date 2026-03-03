@@ -10549,42 +10549,19 @@ function handleCategoriesResponse(data, filterOnClient = false) {
     }
 }
 // ============================================
-// ✅ UPDATED: Display quiz categories - WITH STRICT FILTERING
+// ✅ FIXED: Display quiz categories INSIDE Available Quizzes container
 // ============================================
 function displayQuizCategories(categories, isHardcoded = false) {
     console.log('📋 Displaying PolyLearn quiz categories:', categories);
     
-    // Find or create container
-    let categoriesContainer = document.getElementById('quizCategoriesGrid');
-    
-    if (!categoriesContainer) {
-        const quizDashboard = document.getElementById('quiz-dashboard-page');
-        if (!quizDashboard) {
-            console.error('❌ Quiz dashboard page not found');
-            return;
-        }
-        
-        const quizContainer = quizDashboard.querySelector('.quiz-container');
-        if (!quizContainer) {
-            console.error('❌ Quiz container not found');
-            return;
-        }
-        
-        categoriesContainer = document.createElement('div');
-        categoriesContainer.id = 'quizCategoriesGrid';
-        categoriesContainer.className = 'categories-grid';
-        categoriesContainer.style.cssText = `
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-            gap: 20px;
-            margin: 20px 0;
-        `;
-        quizContainer.insertBefore(categoriesContainer, quizContainer.firstChild);
+    // Ito ang Available Quizzes container
+    const quizzesContainer = document.getElementById('userQuizzesContainer');
+    if (!quizzesContainer) {
+        console.error('❌ userQuizzesContainer not found');
+        return;
     }
     
-    categoriesContainer.innerHTML = '';
-    
-    // STRICT FILTER - lesson_id=2 LANG (double check)
+    // STRICT FILTER - lesson_id=2 LANG (PolyLearn)
     const polyLearnCategories = categories.filter(cat => {
         const catLessonId = cat.lesson_id || cat.lessonId;
         return catLessonId == 2; // Para sa PolyLearn lang
@@ -10592,8 +10569,11 @@ function displayQuizCategories(categories, isHardcoded = false) {
     
     console.log('🎯 After strict filtering:', polyLearnCategories.length, 'categories');
     
+    // Clear the container
+    quizzesContainer.innerHTML = '';
+    
     if (!polyLearnCategories || polyLearnCategories.length === 0) {
-        categoriesContainer.innerHTML = `
+        quizzesContainer.innerHTML = `
             <div style="grid-column: 1/-1; text-align: center; padding: 60px 20px; background: white; border-radius: 10px;">
                 <i class="fas fa-folder-open" style="font-size: 64px; color: #ccc; margin-bottom: 20px;"></i>
                 <h3 style="color: #666;">No PolyLearn Categories Available</h3>
@@ -10603,13 +10583,34 @@ function displayQuizCategories(categories, isHardcoded = false) {
         return;
     }
     
-    let html = '';
+    // Add header
+    let html = `
+        <div style="margin-bottom: 20px;">
+            <h3 style="color: #2c3e50; margin: 0;">
+                <i class="fas fa-folder" style="color: #7a0000;"></i> 
+                PolyLearn Quiz Categories
+            </h3>
+            <p style="color: #666; margin-top: 5px;">Select a category to start practicing</p>
+        </div>
+    `;
+    
+    // Add offline indicator if using hardcoded data
+    if (isHardcoded) {
+        html += `
+            <div style="background: #f39c12; color: white; padding: 8px 15px; border-radius: 5px; margin-bottom: 15px; text-align: center;">
+                <i class="fas fa-info-circle"></i> Using sample data (offline mode)
+            </div>
+        `;
+    }
+    
+    // Start categories grid
+    html += `<div class="categories-grid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 20px;">`;
     
     polyLearnCategories.forEach(category => {
         const categoryId = category.category_id || category.id;
         const categoryName = category.category_name || category.name || 'PolyLearn Quiz';
         const categoryDesc = category.description || 'Test your PolyLearn knowledge.';
-        const totalQuizzes = category.quiz_count || category.total_quizzes || 0;
+        const totalQuizzes = category.quiz_count || category.total_quizzes || 3;
         const categoryColor = category.color || '#7a0000';
         const categoryIcon = category.icon || 'fa-graduation-cap';
         
@@ -10617,7 +10618,8 @@ function displayQuizCategories(categories, isHardcoded = false) {
             <div class="quiz-category-card" data-category-id="${categoryId}" 
                  style="cursor: pointer; background: white; border-radius: 12px; padding: 25px; 
                         box-shadow: 0 4px 15px rgba(0,0,0,0.1); display: flex; align-items: center; gap: 20px;
-                        border: 2px solid ${categoryColor}; position: relative;">
+                        border: 2px solid ${categoryColor}; position: relative;
+                        transition: transform 0.3s, box-shadow 0.3s;">
                 
                 <div style="position: absolute; top: 10px; right: 10px; background: ${categoryColor}; 
                             color: white; padding: 3px 8px; border-radius: 12px; font-size: 11px;">
@@ -10625,7 +10627,8 @@ function displayQuizCategories(categories, isHardcoded = false) {
                 </div>
                 
                 <div style="width: 70px; height: 70px; background: ${categoryColor}; border-radius: 12px; 
-                     display: flex; align-items: center; justify-content: center; font-size: 28px; color: white;">
+                     display: flex; align-items: center; justify-content: center; font-size: 28px; color: white;
+                     box-shadow: 0 4px 10px ${categoryColor}40;">
                     <i class="fas ${categoryIcon}"></i>
                 </div>
                 
@@ -10644,35 +10647,17 @@ function displayQuizCategories(categories, isHardcoded = false) {
                 
                 <button class="quiz-category-btn" data-category-id="${categoryId}" 
                         style="background: ${categoryColor}; color: white; border: none; 
-                               width: 45px; height: 45px; border-radius: 50%; cursor: pointer;">
+                               width: 45px; height: 45px; border-radius: 50%; cursor: pointer;
+                               display: flex; align-items: center; justify-content: center;
+                               font-size: 18px; transition: all 0.3s;">
                     <i class="fas fa-arrow-right"></i>
                 </button>
             </div>
         `;
     });
     
-    categoriesContainer.innerHTML = html;
-    
-    // Add offline indicator kung hardcoded
-    if (isHardcoded) {
-        const indicator = document.createElement('div');
-        indicator.style.cssText = `
-            background: #f39c12;
-            color: white;
-            padding: 8px 15px;
-            border-radius: 5px;
-            margin: 10px 0;
-            text-align: center;
-            font-size: 13px;
-        `;
-        indicator.innerHTML = '<i class="fas fa-info-circle"></i> Using PolyLearn sample data (offline mode)';
-        
-        const quizContainer = document.querySelector('#quiz-dashboard-page .quiz-container');
-        if (quizContainer && !quizContainer.querySelector('.offline-indicator')) {
-            indicator.classList.add('offline-indicator');
-            quizContainer.insertBefore(indicator, categoriesContainer);
-        }
-    }
+    html += `</div>`; // Close categories-grid
+    quizzesContainer.innerHTML = html;
     
     // Add event listeners
     document.querySelectorAll('.quiz-category-card').forEach(card => {
@@ -10698,7 +10683,6 @@ function displayQuizCategories(categories, isHardcoded = false) {
         });
     });
 }
-
 
 // ============================================
 // Helper: Get category icon based on name
@@ -10880,6 +10864,129 @@ async function loadQuizzesForCategory(categoryId) {
             `;
         }
     }
+}
+// ============================================
+// ✅ UPDATED: Load and display quizzes in same container
+// ============================================
+async function loadQuizzesForCategory(categoryId) {
+    try {
+        console.log(`📝 Loading quizzes for category ${categoryId}...`);
+        
+        const token = localStorage.getItem('authToken') || authToken;
+        if (!token) {
+            showNotification('Please login to view quizzes', 'error');
+            return;
+        }
+        
+        const quizzesContainer = document.getElementById('userQuizzesContainer');
+        if (!quizzesContainer) return;
+        
+        // Show loading
+        quizzesContainer.innerHTML = `
+            <div style="text-align: center; padding: 40px;">
+                <i class="fas fa-spinner fa-spin" style="font-size: 40px; color: #7a0000;"></i>
+                <p style="margin-top: 15px;">Loading quizzes...</p>
+            </div>
+        `;
+        
+        // Fetch quizzes
+        const response = await fetch(`/api/quiz/category/${categoryId}/quizzes?lesson_id=2`, {
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+            }
+        });
+        
+        if (!response.ok) {
+            throw new Error(`Failed to fetch quizzes: ${response.status}`);
+        }
+        
+        const data = await response.json();
+        
+        if (data.success && data.quizzes) {
+            // Display quizzes
+            displayQuizzesInContainer(data.quizzes, categoryId);
+        } else {
+            throw new Error(data.message || 'No quizzes returned');
+        }
+        
+    } catch (error) {
+        console.error('Error loading quizzes:', error);
+        
+        // Show error with back button
+        const quizzesContainer = document.getElementById('userQuizzesContainer');
+        if (quizzesContainer) {
+            quizzesContainer.innerHTML = `
+                <div style="text-align: center; padding: 40px;">
+                    <i class="fas fa-exclamation-triangle" style="font-size: 48px; color: #e74c3c; margin-bottom: 15px;"></i>
+                    <h3>Failed to load quizzes</h3>
+                    <p>${error.message}</p>
+                    <button class="btn-primary" onclick="goBackToCategories()" style="margin-top: 15px;">
+                        <i class="fas fa-arrow-left"></i> Back to Categories
+                    </button>
+                </div>
+            `;
+        }
+    }
+}
+
+// ============================================
+// ✅ Display quizzes in the same container
+// ============================================
+function displayQuizzesInContainer(quizzes, categoryId) {
+    const quizzesContainer = document.getElementById('userQuizzesContainer');
+    if (!quizzesContainer) return;
+    
+    if (!quizzes || quizzes.length === 0) {
+        quizzesContainer.innerHTML = `
+            <div style="text-align: center; padding: 40px;">
+                <i class="fas fa-clipboard-check" style="font-size: 48px; color: #95a5a6; margin-bottom: 15px;"></i>
+                <h3>No quizzes available</h3>
+                <p>Check back later for new quizzes!</p>
+                <button class="btn-primary" onclick="goBackToCategories()" style="margin-top: 15px;">
+                    <i class="fas fa-arrow-left"></i> Back to Categories
+                </button>
+            </div>
+        `;
+        return;
+    }
+    
+    // Header with back button
+    let html = `
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+            <h3 style="margin: 0; color: #2c3e50;">
+                <i class="fas fa-question-circle" style="color: #7a0000;"></i> 
+                PolyLearn Quizzes
+            </h3>
+            <button class="btn-secondary" onclick="goBackToCategories()" style="padding: 8px 15px;">
+                <i class="fas fa-arrow-left"></i> Back to Categories
+            </button>
+        </div>
+    `;
+    
+    html += `<div class="quizzes-grid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 20px;">`;
+    
+    quizzes.forEach(quiz => {
+        html += `
+            <div class="quiz-card" data-quiz-id="${quiz.quiz_id}" 
+                 style="background: white; border-radius: 12px; padding: 20px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); cursor: pointer;">
+                <h4 style="margin: 0 0 10px 0; color: #2c3e50;">${quiz.quiz_title}</h4>
+                <p style="color: #666; margin-bottom: 15px;">${quiz.description || ''}</p>
+                <button class="btn-primary" style="width: 100%;">Start Quiz</button>
+            </div>
+        `;
+    });
+    
+    html += `</div>`;
+    quizzesContainer.innerHTML = html;
+}
+
+// ============================================
+// ✅ Go back to categories
+// ============================================
+function goBackToCategories() {
+    console.log('📚 Going back to categories');
+    loadQuizCategories(); // Reload the categories
 }
 
 // ============================================
