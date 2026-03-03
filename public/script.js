@@ -6427,10 +6427,10 @@ function updateProgressDashboardUI() {
 }
 
 // ============================================
-// ✅ FIXED: Update progress summary cards - POLYLEARN ONLY
+// ✅ FIXED: Update progress summary cards - POLYLEARN ONLY (LESSON_ID = 2)
 // ============================================
 async function updateProgressSummaryCards() {
-    console.log('📊 Updating PolyLearn progress summary cards...');
+    console.log('📊 Updating PolyLearn progress summary cards (lesson_id = 2)...');
     
     try {
         const token = localStorage.getItem('authToken') || authToken;
@@ -6438,134 +6438,226 @@ async function updateProgressSummaryCards() {
         
         const POLYLEARN_LESSON_ID = 2;
         
-        // Fetch PolyLearn-specific data
-        const [lessonsResponse, practiceResponse, quizResponse] = await Promise.all([
-            // PolyLearn lessons completed
-            fetch(`/api/progress/lessons?lesson_id=${POLYLEARN_LESSON_ID}`, {
-                headers: { 'Authorization': `Bearer ${token}` }
-            }).catch(() => ({ ok: false })),
-            
-            // PolyLearn practice stats
-            fetch(`/api/progress/practice-attempts?lesson_id=${POLYLEARN_LESSON_ID}`, {
-                headers: { 'Authorization': `Bearer ${token}` }
-            }).catch(() => ({ ok: false })),
-            
-            // PolyLearn quiz stats
-            fetch(`/api/quiz/user/points?lesson_id=${POLYLEARN_LESSON_ID}`, {
-                headers: { 'Authorization': `Bearer ${token}` }
-            }).catch(() => ({ ok: false }))
-        ]);
-        
-        // Process lessons
+        // ===== 1. GET POLYLEARN LESSONS COMPLETED =====
         let lessonsCompleted = 0;
         let totalLessons = 10;
         
-        if (lessonsResponse && lessonsResponse.ok) {
-            const lessonsData = await lessonsResponse.json();
-            if (lessonsData.success && lessonsData.progress) {
-                lessonsCompleted = lessonsData.progress.filter(p => 
-                    p.completion_status === 'completed' || p.status === 'completed'
-                ).length;
-                totalLessons = lessonsData.total || 10;
+        try {
+            // Get lessons progress for PolyLearn only
+            const lessonsResponse = await fetch(`/api/progress/lessons?lesson_id=${POLYLEARN_LESSON_ID}`, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            
+            if (lessonsResponse.ok) {
+                const lessonsData = await lessonsResponse.json();
+                if (lessonsData.success && lessonsData.progress) {
+                    // Count only completed lessons
+                    lessonsCompleted = lessonsData.progress.filter(p => 
+                        p.completion_status === 'completed' || p.status === 'completed'
+                    ).length;
+                    
+                    // Get total lessons count for PolyLearn
+                    const totalResponse = await fetch(`/api/lessons-db/complete?lesson_id=${POLYLEARN_LESSON_ID}`, {
+                        headers: { 'Authorization': `Bearer ${token}` }
+                    });
+                    
+                    if (totalResponse.ok) {
+                        const totalData = await totalResponse.json();
+                        if (totalData.success && totalData.lessons) {
+                            totalLessons = totalData.lessons.length;
+                        }
+                    }
+                    
+                    console.log(`✅ PolyLearn lessons completed: ${lessonsCompleted}/${totalLessons}`);
+                }
             }
+        } catch (error) {
+            console.warn('⚠️ Could not fetch PolyLearn lessons:', error.message);
         }
         
-        // Process practice exercises
+        // ===== 2. GET POLYLEARN PRACTICE EXERCISES =====
         let exercisesCompleted = 0;
         let totalExercises = 15;
         
-        if (practiceResponse && practiceResponse.ok) {
-            const practiceData = await practiceResponse.json();
-            if (practiceData.success && practiceData.attempts) {
-                // Count COMPLETED exercises (score >= 70 or status completed)
-                exercisesCompleted = practiceData.attempts.filter(a => 
-                    a.completion_status === 'completed' || 
-                    a.percentage >= 70 ||
-                    a.score >= 70
-                ).length;
-                totalExercises = practiceData.total || 15;
-                console.log(`✅ Practice exercises completed: ${exercisesCompleted}`);
+        try {
+            // Get practice attempts for PolyLearn only
+            const practiceResponse = await fetch(`/api/progress/practice-attempts?lesson_id=${POLYLEARN_LESSON_ID}`, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            
+            if (practiceResponse.ok) {
+                const practiceData = await practiceResponse.json();
+                if (practiceData.success && practiceData.attempts) {
+                    // Count COMPLETED exercises (score >= 70 or status completed)
+                    exercisesCompleted = practiceData.attempts.filter(a => 
+                        a.completion_status === 'completed' || 
+                        a.percentage >= 70 ||
+                        a.score >= 70
+                    ).length;
+                    
+                    // Get total exercises count for PolyLearn
+                    const totalExercisesResponse = await fetch(`/api/practice/exercises?lesson_id=${POLYLEARN_LESSON_ID}`, {
+                        headers: { 'Authorization': `Bearer ${token}` }
+                    });
+                    
+                    if (totalExercisesResponse.ok) {
+                        const totalData = await totalExercisesResponse.json();
+                        if (totalData.success && totalData.exercises) {
+                            totalExercises = totalData.exercises.length;
+                        }
+                    }
+                    
+                    console.log(`✅ PolyLearn practice completed: ${exercisesCompleted}/${totalExercises}`);
+                }
             }
+        } catch (error) {
+            console.warn('⚠️ Could not fetch PolyLearn practice:', error.message);
         }
         
-        // Process quiz points
+        // ===== 3. GET POLYLEARN QUIZ POINTS =====
         let totalPoints = 0;
         
-        if (quizResponse && quizResponse.ok) {
-            const quizData = await quizResponse.json();
-            if (quizData.success) {
-                // Try different response structures
-                totalPoints = quizData.points?.total_points || 
-                             quizData.stats?.total_points || 
-                             quizData.total_points || 
-                             0;
-                console.log(`✅ Quiz points: ${totalPoints}`);
+        try {
+            // Get quiz attempts for PolyLearn only
+            const quizAttemptsResponse = await fetch(`/api/quiz/user/attempts?lesson_id=${POLYLEARN_LESSON_ID}`, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            
+            if (quizAttemptsResponse.ok) {
+                const attemptsData = await quizAttemptsResponse.json();
+                if (attemptsData.success && attemptsData.attempts) {
+                    // Calculate points (10 points per correct answer)
+                    attemptsData.attempts.forEach(attempt => {
+                        const correctAnswers = attempt.correct_answers || 0;
+                        totalPoints += correctAnswers * 10;
+                    });
+                    console.log(`✅ PolyLearn quiz points: ${totalPoints}`);
+                }
             }
-        }
-        
-        // Fallback: try to get quiz points from attempts if above fails
-        if (totalPoints === 0) {
-            try {
-                const attemptsResponse = await fetch(`/api/quiz/user/attempts?lesson_id=${POLYLEARN_LESSON_ID}`, {
+            
+            // If no attempts found, try the points endpoint
+            if (totalPoints === 0) {
+                const pointsResponse = await fetch(`/api/quiz/user/points?lesson_id=${POLYLEARN_LESSON_ID}`, {
                     headers: { 'Authorization': `Bearer ${token}` }
                 });
                 
-                if (attemptsResponse.ok) {
-                    const attemptsData = await attemptsResponse.json();
-                    if (attemptsData.success && attemptsData.attempts) {
-                        // Calculate points (each correct answer = 10 points)
-                        attemptsData.attempts.forEach(attempt => {
-                            const correctAnswers = attempt.correct_answers || 0;
-                            totalPoints += correctAnswers * 10;
-                        });
-                        console.log(`✅ Quiz points from attempts: ${totalPoints}`);
+                if (pointsResponse.ok) {
+                    const pointsData = await pointsResponse.json();
+                    if (pointsData.success) {
+                        totalPoints = pointsData.points?.total_points || 
+                                     pointsData.stats?.total_points || 
+                                     pointsData.total_points || 
+                                     0;
                     }
                 }
-            } catch (e) {
-                console.log('Could not fetch quiz attempts:', e.message);
             }
+        } catch (error) {
+            console.warn('⚠️ Could not fetch PolyLearn quiz points:', error.message);
         }
         
-        // ===== UPDATE THE UI =====
+        // ===== 4. UPDATE THE UI =====
         
         // Update lessons count
         const lessonsCount = document.getElementById('lessonsCount');
         if (lessonsCount) {
             lessonsCount.innerHTML = `${lessonsCompleted}<span class="item-unit">/${totalLessons}</span>`;
-            console.log(`📊 Lessons: ${lessonsCompleted}/${totalLessons}`);
+            console.log(`📊 PolyLearn Lessons: ${lessonsCompleted}/${totalLessons}`);
         }
         
         // Update exercises count (PRACTICE)
         const exercisesCount = document.getElementById('exercisesCount');
         if (exercisesCount) {
             exercisesCount.innerHTML = `${exercisesCompleted}<span class="item-unit">/${totalExercises}</span>`;
-            console.log(`📊 Practice: ${exercisesCompleted}/${totalExercises}`);
+            console.log(`📊 PolyLearn Practice: ${exercisesCompleted}/${totalExercises}`);
         }
         
         // Update quiz score
         const quizScore = document.getElementById('quizScore');
         if (quizScore) {
             quizScore.innerHTML = `${totalPoints}<span class="item-unit">points</span>`;
-            console.log(`📊 Quiz points: ${totalPoints}`);
+            console.log(`📊 PolyLearn Quiz Points: ${totalPoints}`);
         }
         
-        // Update avg time
+        // Update avg time (keep existing logic)
         const avgTime = document.getElementById('avgTime');
         if (avgTime) {
-            // Calculate average time from lessons and practice
-            const avgPerActivity = lessonsCompleted > 0 ? Math.round(5 + (lessonsCompleted * 2)) : 5;
+            // Calculate average time based on activities
+            const totalActivities = lessonsCompleted + exercisesCompleted;
+            const avgPerActivity = totalActivities > 0 ? Math.round(5 + (totalActivities * 0.5)) : 5;
             avgTime.innerHTML = `${avgPerActivity}<span class="item-unit">min/day</span>`;
         }
         
-        console.log('✅ Progress summary cards updated successfully');
+        console.log('✅ PolyLearn progress summary cards updated successfully');
         
     } catch (error) {
-        console.error('❌ Error updating progress summary cards:', error);
+        console.error('❌ Error updating PolyLearn progress summary cards:', error);
         
         // Set fallback values
-        setDefaultProgressValues();
+        const lessonsCount = document.getElementById('lessonsCount');
+        const exercisesCount = document.getElementById('exercisesCount');
+        const quizScore = document.getElementById('quizScore');
+        const avgTime = document.getElementById('avgTime');
+        
+        if (lessonsCount) lessonsCount.innerHTML = `0<span class="item-unit">/10</span>`;
+        if (exercisesCount) exercisesCount.innerHTML = `0<span class="item-unit">/15</span>`;
+        if (quizScore) quizScore.innerHTML = `0<span class="item-unit">points</span>`;
+        if (avgTime) avgTime.innerHTML = `5<span class="item-unit">min/day</span>`;
     }
 }
+
+// ============================================
+// DEBUG: Check PolyLearn Progress
+// ============================================
+window.debugPolyLearnProgress = async function() {
+    console.log('🔍 DEBUGGING POLYLEARN PROGRESS...');
+    
+    const token = localStorage.getItem('authToken');
+    const POLYLEARN_LESSON_ID = 2;
+    
+    console.log('📡 Fetching PolyLearn data (lesson_id = 2)...');
+    
+    // Check lessons
+    try {
+        const lessonsRes = await fetch(`/api/progress/lessons?lesson_id=${POLYLEARN_LESSON_ID}`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        const lessonsData = await lessonsRes.json();
+        console.log('📚 PolyLearn Lessons:', lessonsData);
+    } catch (e) {
+        console.log('Lessons error:', e.message);
+    }
+    
+    // Check practice
+    try {
+        const practiceRes = await fetch(`/api/progress/practice-attempts?lesson_id=${POLYLEARN_LESSON_ID}`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        const practiceData = await practiceRes.json();
+        console.log('💪 PolyLearn Practice:', practiceData);
+    } catch (e) {
+        console.log('Practice error:', e.message);
+    }
+    
+    // Check quizzes
+    try {
+        const quizRes = await fetch(`/api/quiz/user/attempts?lesson_id=${POLYLEARN_LESSON_ID}`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        const quizData = await quizRes.json();
+        console.log('🧠 PolyLearn Quizzes:', quizData);
+    } catch (e) {
+        console.log('Quiz error:', e.message);
+    }
+    
+    // Check current UI values
+    console.log('📊 Current UI values:');
+    console.log('- Lessons:', document.getElementById('lessonsCount')?.innerHTML);
+    console.log('- Practice:', document.getElementById('exercisesCount')?.innerHTML);
+    console.log('- Quiz:', document.getElementById('quizScore')?.innerHTML);
+    console.log('- Avg Time:', document.getElementById('avgTime')?.innerHTML);
+    
+    console.log('✅ Debug complete');
+};
 
 // ============================================
 // Fallback function for default values
