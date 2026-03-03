@@ -5998,8 +5998,8 @@ function createQuickModuleModal() {
     }
 }
 
-// ===== ADD THIS FUNCTION TO FIX MODULE DROPDOWN =====
-function updateModuleDropdown(lessonId) {
+// ===== UPDATED updateModuleDropdown WITH AUTO-SELECT SUPPORT =====
+function updateModuleDropdown(lessonId, selectModuleId = null) {
     console.log("🔄 Updating module dropdown for lesson:", lessonId);
     
     const moduleSelect = document.getElementById('quickModuleSelect');
@@ -6029,7 +6029,7 @@ function updateModuleDropdown(lessonId) {
     defaultOption.value = '';
     defaultOption.textContent = '-- Select Module --';
     defaultOption.disabled = true;
-    defaultOption.selected = true;
+    defaultOption.selected = !selectModuleId; // Hindi selected kung may napili
     moduleSelect.appendChild(defaultOption);
     
     // Modules from database
@@ -6038,6 +6038,13 @@ function updateModuleDropdown(lessonId) {
             const option = document.createElement('option');
             option.value = module.id;
             option.textContent = module.name;
+            
+            // Auto-select kung match ang ID
+            if (selectModuleId && module.id == selectModuleId) {
+                option.selected = true;
+                console.log(`✅ Auto-selected module: ${module.name} (ID: ${module.id})`);
+            }
+            
             moduleSelect.appendChild(option);
         });
         
@@ -6065,7 +6072,6 @@ function updateModuleDropdown(lessonId) {
     
     moduleSelect.disabled = false;
 }
-
 // ===== UPDATE THE EXISTING filterQuickModules FUNCTION =====
 // Hanapin ito sa code mo at palitan ng:
 function filterQuickModules() {
@@ -6074,7 +6080,7 @@ function filterQuickModules() {
         updateModuleDropdown(lessonSelect.value);
     }
 }
-// ===== UPDATE SAVE QUICK MODULE FUNCTION TO SHOW LOADING STATE =====
+// ===== UPDATED saveQuickModule WITH AUTO-REFRESH =====
 async function saveQuickModule() {
     console.log("💾 Saving quick module...");
     
@@ -6141,18 +6147,53 @@ async function saveQuickModule() {
             // Close module modal
             closeQuickModuleModal();
             
-            // Refresh structure from server
+            // ===== REFRESH MODULES FROM SERVER =====
             try {
+                console.log("🔄 Refreshing modules from server...");
+                
                 const structureResponse = await fetch(`/api/admin/structure`, {
                     headers: { 'Authorization': `Bearer ${token}` }
                 });
-                const structureResult = await structureResponse.json();
                 
-                if (structureResult.success) {
-                    window.quickModules = structureResult.structure.modules || [];
-                    window.quickLessons = structureResult.structure.lessons || [];
-                    window.quickTopics = structureResult.structure.topics || [];
-                    console.log("✅ Structure refreshed, modules:", window.quickModules.length);
+                if (structureResponse.ok) {
+                    const structureResult = await structureResponse.json();
+                    
+                    if (structureResult.success) {
+                        // Update global modules
+                        window.quickModules = structureResult.structure.modules || [];
+                        window.quickLessons = structureResult.structure.lessons || [];
+                        window.quickTopics = structureResult.structure.topics || [];
+                        
+                        console.log(`✅ Modules refreshed: ${window.quickModules.length} total modules`);
+                        
+                        // ===== AUTO-SELECT THE NEW MODULE IN TOPIC MODAL =====
+                        // Get the lesson select from topic modal
+                        const topicLessonSelect = document.getElementById('quickLessonSelect');
+                        const topicModuleSelect = document.getElementById('quickModuleSelect');
+                        
+                        if (topicLessonSelect && topicModuleSelect) {
+                            // If the same lesson is still selected, update module dropdown
+                            if (topicLessonSelect.value === lessonId) {
+                                // Refresh module dropdown
+                                updateModuleDropdown(lessonId);
+                                
+                                // Try to find and select the newly created module
+                                setTimeout(() => {
+                                    const newModuleId = result.module?.id;
+                                    if (newModuleId) {
+                                        // Check if option exists and select it
+                                        for (let i = 0; i < topicModuleSelect.options.length; i++) {
+                                            if (topicModuleSelect.options[i].value == newModuleId) {
+                                                topicModuleSelect.selectedIndex = i;
+                                                console.log(`✅ Auto-selected new module ID: ${newModuleId}`);
+                                                break;
+                                            }
+                                        }
+                                    }
+                                }, 100);
+                            }
+                        }
+                    }
                 }
             } catch (refreshError) {
                 console.warn("⚠️ Could not refresh structure:", refreshError);
@@ -6177,7 +6218,6 @@ async function saveQuickModule() {
         if (cancelBtn) cancelBtn.disabled = false;
     }
 }
-
 // ===== CLOSE QUICK MODULE MODAL =====
 function closeQuickModuleModal() {
     console.log("🔴 Closing quick module modal...");
