@@ -10908,7 +10908,7 @@ async function loadQuizzesForCategory(categoryId) {
 }
 
 // ============================================
-// ✅ Display quizzes in the same container
+// ✅ FIXED: Display quizzes na parang dashboard card
 // ============================================
 function displayQuizzesInContainer(quizzes, categoryId, isHardcoded = false) {
     const quizzesContainer = document.getElementById('userQuizzesContainer');
@@ -10916,11 +10916,13 @@ function displayQuizzesInContainer(quizzes, categoryId, isHardcoded = false) {
     
     if (!quizzes || quizzes.length === 0) {
         quizzesContainer.innerHTML = `
-            <div style="text-align: center; padding: 40px; background: white; border-radius: 10px;">
-                <i class="fas fa-clipboard-check" style="font-size: 48px; color: #95a5a6; margin-bottom: 15px;"></i>
-                <h3>No quizzes available</h3>
-                <p>Check back later for new PolyLearn quizzes!</p>
-                <button class="btn-primary" onclick="goBackToCategories()" style="margin-top: 15px;">
+            <div class="card" style="padding: 40px; text-align: center;">
+                <div style="font-size: 60px; color: #ccc; margin-bottom: 20px;">
+                    <i class="fas fa-clipboard-list"></i>
+                </div>
+                <h3 style="color: #666; margin-bottom: 10px;">No Quizzes Available</h3>
+                <p style="color: #999; margin-bottom: 20px;">Check back later for new PolyLearn quizzes!</p>
+                <button class="btn-primary" onclick="goBackToCategories()" style="background: #7a0000; color: white; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer;">
                     <i class="fas fa-arrow-left"></i> Back to Categories
                 </button>
             </div>
@@ -10928,29 +10930,40 @@ function displayQuizzesInContainer(quizzes, categoryId, isHardcoded = false) {
         return;
     }
     
-    // Header with back button
+    // Gaya ng ibang dashboard cards
     let html = `
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
-            <h3 style="margin: 0; color: #2c3e50;">
-                <i class="fas fa-question-circle" style="color: #7a0000;"></i> 
-                PolyLearn Quizzes
-            </h3>
-            <button class="btn-secondary" onclick="goBackToCategories()" style="padding: 8px 15px;">
-                <i class="fas fa-arrow-left"></i> Back to Categories
-            </button>
-        </div>
+        <!-- Quizzes Card - gaya ng ibang dashboard cards -->
+        <div class="card full-width-card">
+            <div class="card-header" style="padding: 20px 25px 0; display: flex; justify-content: space-between; align-items: center;">
+                <div>
+                    <h2 class="card-title" style="display: flex; align-items: center; gap: 10px; font-size: 1.4rem; color: var(--text-color); margin-bottom: 5px;">
+                        <i class="fas fa-question-circle" style="color: #7a0000;"></i> 
+                        PolyLearn Quizzes
+                    </h2>
+                    <p class="card-subtitle" style="color: var(--text-light); font-size: 0.95rem;">
+                        Test your knowledge with these quizzes
+                    </p>
+                </div>
+                <button class="btn-secondary" onclick="goBackToCategories()" style="padding: 8px 15px; display: flex; align-items: center; gap: 8px;">
+                    <i class="fas fa-arrow-left"></i> Back to Categories
+                </button>
+            </div>
+            
+            <div style="padding: 20px 25px 25px;">
     `;
     
-    // Add offline indicator if using hardcoded data
+    // Add offline indicator kung hardcoded
     if (isHardcoded) {
         html += `
-            <div style="background: #f39c12; color: white; padding: 8px 15px; border-radius: 5px; margin-bottom: 15px; text-align: center;">
-                <i class="fas fa-info-circle"></i> Using sample quiz data (offline mode)
+            <div style="background: #f39c12; color: white; padding: 10px 15px; border-radius: 8px; margin-bottom: 20px; display: flex; align-items: center; gap: 10px;">
+                <i class="fas fa-info-circle"></i>
+                <span>Using sample quiz data</span>
             </div>
         `;
     }
     
-    html += `<div class="quizzes-grid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 20px;">`;
+    // Grid ng quizzes
+    html += `<div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 20px;">`;
     
     quizzes.forEach(quiz => {
         const difficultyColor = 
@@ -10958,57 +10971,148 @@ function displayQuizzesInContainer(quizzes, categoryId, isHardcoded = false) {
             quiz.difficulty === 'medium' ? '#f39c12' : 
             quiz.difficulty === 'hard' ? '#e74c3c' : '#3498db';
         
+        const difficultyLabel = quiz.difficulty || 'medium';
+        
+        // Quiz card - gaya ng design sa buong app
         html += `
             <div class="quiz-card" data-quiz-id="${quiz.quiz_id}" 
-                 style="background: white; border-radius: 12px; padding: 20px; 
-                        box-shadow: 0 4px 15px rgba(0,0,0,0.1); 
-                        border-left: 4px solid ${difficultyColor};
-                        transition: transform 0.3s;">
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
-                    <h4 style="margin: 0; color: #2c3e50;">${quiz.quiz_title || 'PolyLearn Quiz'}</h4>
-                    <span style="background: ${difficultyColor}; color: white; padding: 3px 8px; border-radius: 12px; font-size: 11px;">
-                        ${quiz.difficulty || 'medium'}
-                    </span>
+                 style="background: white; border-radius: 12px; overflow: hidden;
+                        box-shadow: 0 4px 12px rgba(0,0,0,0.1); border: 1px solid var(--border-color);
+                        transition: all 0.3s ease; cursor: pointer;
+                        display: flex; flex-direction: column;">
+                
+                <!-- Colored top bar with difficulty -->
+                <div style="height: 6px; background: ${difficultyColor}; width: 100%;"></div>
+                
+                <div style="padding: 20px; flex: 1; display: flex; flex-direction: column;">
+                    <!-- Header with title and difficulty badge -->
+                    <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 12px;">
+                        <h3 style="margin: 0; color: #2c3e50; font-size: 18px; font-weight: 600; line-height: 1.3;">
+                            ${quiz.quiz_title || 'PolyLearn Quiz'}
+                        </h3>
+                        <span style="background: ${difficultyColor}; color: white; 
+                                   padding: 4px 10px; border-radius: 20px; font-size: 11px; 
+                                   font-weight: 600; text-transform: uppercase; white-space: nowrap; margin-left: 10px;">
+                            ${difficultyLabel}
+                        </span>
+                    </div>
+                    
+                    <!-- Description -->
+                    <p style="color: #6c757d; font-size: 14px; line-height: 1.5; margin: 0 0 15px 0; min-height: 42px;">
+                        ${quiz.description || 'Test your knowledge with this PolyLearn quiz.'}
+                    </p>
+                    
+                    <!-- Quiz metadata - gaya ng sa progress items -->
+                    <div style="display: flex; gap: 15px; margin-bottom: 20px; padding: 10px 0; border-top: 1px solid #f0f0f0; border-bottom: 1px solid #f0f0f0;">
+                        <div style="display: flex; align-items: center; gap: 5px; color: #7f8c8d; font-size: 13px;">
+                            <i class="fas fa-question-circle" style="color: #3498db;"></i>
+                            <span>${quiz.total_questions || 0} items</span>
+                        </div>
+                        <div style="display: flex; align-items: center; gap: 5px; color: #7f8c8d; font-size: 13px;">
+                            <i class="fas fa-clock" style="color: #e67e22;"></i>
+                            <span>${quiz.duration_minutes || 10} min</span>
+                        </div>
+                        <div style="display: flex; align-items: center; gap: 5px; color: #7f8c8d; font-size: 13px;">
+                            <i class="fas fa-trophy" style="color: #f39c12;"></i>
+                            <span>${quiz.passing_score || 70}% pass</span>
+                        </div>
+                    </div>
+                    
+                    <!-- Action button -->
+                    <button class="start-quiz-btn" data-quiz-id="${quiz.quiz_id}" 
+                            style="width: 100%; padding: 12px; background: #7a0000; 
+                                   color: white; border: none; border-radius: 8px; 
+                                   font-weight: 600; cursor: pointer; display: flex;
+                                   align-items: center; justify-content: center; gap: 8px;
+                                   transition: all 0.3s ease; margin-top: auto;">
+                        <i class="fas fa-play-circle"></i> Start Quiz
+                        <i class="fas fa-arrow-right" style="font-size: 14px;"></i>
+                    </button>
                 </div>
-                <p style="color: #666; margin-bottom: 15px; font-size: 14px;">${quiz.description || ''}</p>
-                <div style="display: flex; gap: 10px; margin-bottom: 10px; font-size: 12px; color: #7f8c8d;">
-                    <span><i class="fas fa-question-circle"></i> ${quiz.total_questions || 0} items</span>
-                    <span><i class="fas fa-clock"></i> ${quiz.duration_minutes || 10} min</span>
-                </div>
-                <button class="btn-primary start-quiz-btn" data-quiz-id="${quiz.quiz_id}" 
-                        style="width: 100%; padding: 10px; background: #7a0000; color: white; border: none; border-radius: 5px; cursor: pointer;">
-                    <i class="fas fa-play"></i> Start Quiz
-                </button>
             </div>
         `;
     });
     
-    html += `</div>`;
+    html += `</div>`; // Close grid
+    html += `</div></div>`; // Close card body and card
+    
     quizzesContainer.innerHTML = html;
     
-    // Add event listeners to quiz cards
+    // Add event listeners sa buong quiz card
+    document.querySelectorAll('.quiz-card').forEach(card => {
+        card.addEventListener('click', function(e) {
+            // Kung ang click ay sa button, hayaan ang button mag-handle
+            if (e.target.closest('.start-quiz-btn')) return;
+            
+            const quizId = this.getAttribute('data-quiz-id');
+            if (quizId) {
+                console.log('🎯 Quiz card clicked:', quizId);
+                // Hanapin ang button at i-click
+                const btn = this.querySelector('.start-quiz-btn');
+                if (btn) btn.click();
+            }
+        });
+    });
+    
+    // Add event listeners sa start buttons
     document.querySelectorAll('.start-quiz-btn').forEach(btn => {
         btn.addEventListener('click', function(e) {
             e.preventDefault();
             e.stopPropagation();
+            
             const quizId = this.getAttribute('data-quiz-id');
             if (quizId) {
-                console.log('🎯 Starting quiz:', quizId);
+                console.log('🎯 Start quiz button clicked:', quizId);
+                
+                // Show loading state sa button
+                const originalText = this.innerHTML;
+                this.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Loading...';
+                this.disabled = true;
+                
+                // Call the quiz system
                 if (typeof startQuizSystem === 'function') {
-                    startQuizSystem(parseInt(quizId));
+                    startQuizSystem(parseInt(quizId)).finally(() => {
+                        // Reset button kung may error (optional)
+                        setTimeout(() => {
+                            this.innerHTML = originalText;
+                            this.disabled = false;
+                        }, 1000);
+                    });
                 } else {
-                    alert('Quiz starting... ID: ' + quizId);
+                    alert(`Starting Quiz ID: ${quizId}`);
+                    this.innerHTML = originalText;
+                    this.disabled = false;
                 }
             }
         });
     });
 }
+
 // ============================================
-// ✅ Go back to categories
+// ✅ Go back to categories - with loading state
 // ============================================
 function goBackToCategories() {
     console.log('📚 Going back to categories');
-    loadQuizCategories(); // Reload the categories
+    
+    const quizzesContainer = document.getElementById('userQuizzesContainer');
+    if (quizzesContainer) {
+        // Show loading state
+        quizzesContainer.innerHTML = `
+            <div class="card" style="padding: 40px; text-align: center;">
+                <div style="font-size: 40px; color: #7a0000; margin-bottom: 20px;">
+                    <i class="fas fa-spinner fa-spin"></i>
+                </div>
+                <p style="color: #666;">Loading categories...</p>
+            </div>
+        `;
+        
+        // Reload categories
+        if (typeof loadQuizCategories === 'function') {
+            setTimeout(() => {
+                loadQuizCategories();
+            }, 300);
+        }
+    }
 }
 
 // ============================================
