@@ -10476,19 +10476,52 @@ function handleCategoriesResponse(data, filterOnClient = false) {
     }
 }
 // ============================================
-// ✅ FIXED: Display quiz categories - WITH FALLBACK SUPPORT
+// ✅ FIXED: Display quiz categories - CREATE CONTAINER IF MISSING
 // ============================================
 function displayQuizCategories(categories) {
     console.log('📋 Displaying quiz categories:', categories);
     
-    const categoriesContainer = document.getElementById('quizCategoriesGrid');
+    // ✅ FIND OR CREATE the categories container
+    let categoriesContainer = document.getElementById('quizCategoriesGrid');
+    
+    // If container doesn't exist, CREATE IT
     if (!categoriesContainer) {
-        console.error('❌ Categories container not found');
-        return;
+        console.log('⚠️ Categories container not found - CREATING ONE NOW');
+        
+        // Find the quiz dashboard page
+        const quizDashboard = document.getElementById('quiz-dashboard-page');
+        if (!quizDashboard) {
+            console.error('❌ Quiz dashboard page not found');
+            return;
+        }
+        
+        // Find or create the container div
+        const container = quizDashboard.querySelector('.container');
+        if (!container) {
+            console.error('❌ Container div not found in quiz dashboard');
+            return;
+        }
+        
+        // Create the categories grid
+        categoriesContainer = document.createElement('div');
+        categoriesContainer.id = 'quizCategoriesGrid';
+        categoriesContainer.className = 'categories-grid';
+        categoriesContainer.style.cssText = `
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 20px;
+            padding: 20px 0;
+        `;
+        
+        // Insert at the beginning of the container
+        container.insertBefore(categoriesContainer, container.firstChild);
+        console.log('✅ Created quizCategoriesGrid element');
     }
     
+    // Clear the container
     categoriesContainer.innerHTML = '';
     
+    // Handle empty categories
     if (!categories || categories.length === 0) {
         categoriesContainer.innerHTML = `
             <div class="no-categories" style="grid-column: 1/-1; text-align: center; padding: 60px 20px; background: white; border-radius: 10px;">
@@ -10503,6 +10536,7 @@ function displayQuizCategories(categories) {
         return;
     }
     
+    // Generate HTML for categories
     let html = '';
     
     categories.forEach(category => {
