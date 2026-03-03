@@ -2517,7 +2517,8 @@
     </div>
 
     <!-- ===== CREATE LESSON MODAL (Integrated with Topic Creation) ===== -->
-    <div id="createLessonModal" class=" modal">
+    <!-- ===== CREATE LESSON MODAL (Integrated with Topic Creation) ===== -->
+    <div id="createLessonModal" class="modal">
         <div class="modal-backdrop" onclick="closeCreateLessonModal()"></div>
         <div class="modal-content" style="max-width: 800px;">
             <div class="modal-header mobile-compact">
@@ -2538,23 +2539,7 @@
                     <h3 class="mobile-font-small" style="display: flex; align-items: center; gap: 8px; margin-bottom: 15px; color: #7a0000;">
                         <i class="fas fa-info-circle"></i> Basic Information
                     </h3>
-    
-                    <!-- ✅ NEW: SUBJECT SELECTION using lesson_id -->
-                    <div class="form-group" style="margin-bottom: 15px;">
-                        <label class="form-label mobile-font-smaller">
-                            <i class="fas fa-book"></i> Subject <span style="color: #e74c3c;">*</span>
-                        </label>
-                        <select class="form-control mobile-font-smaller" id="lessonSubjectSelect" onchange="loadTopicsBySubject()" required>
-                            <option value="">-- Select Subject --</option>
-                            <option value="1">📐 MathEase (Basic Operations)</option>
-                            <option value="2">🔢 PolyLearn (Polynomial Factors)</option>
-                            <option value="3">❗ FactoLearn (Factorial Factors)</option>
-                        </select>
-                        <small style="color: #666; display: block; margin-top: 5px;">
-                            <i class="fas fa-info-circle"></i> Choose which subject this lesson belongs to
-                        </small>
-                    </div>
-    
+
                     <!-- LESSON TITLE - REQUIRED -->
                     <div class="form-group">
                         <label class="form-label mobile-font-smaller">
@@ -2564,7 +2549,7 @@
                             placeholder="Enter lesson title (e.g., Introduction to Polynomials)"
                             id="createLessonTitle" required>
                     </div>
-    
+
                     <!-- LESSON DESCRIPTION - REQUIRED -->
                     <div class="form-group">
                         <label class="form-label mobile-font-smaller">
@@ -2588,14 +2573,34 @@
                             Select the topic where this lesson will be stored in MySQL database
                         </p>
                         
-                        <!-- TOPIC DROPDOWN (FILTERED BY SUBJECT) -->
+                        <!-- LESSON DROPDOWN (Level 1) -->
                         <div class="form-group" style="margin-bottom: 15px;">
+                            <label class="form-label mobile-font-smaller">
+                                <i class="fas fa-book"></i> Lesson
+                            </label>
+                            <select class="form-control mobile-font-smaller" id="lessonSelect" onchange="filterModulesByLesson()">
+                                <option value="">-- Select Lesson (Optional) --</option>
+                            </select>
+                        </div>
+                        
+                        <!-- MODULE DROPDOWN (Level 2) -->
+                        <div class="form-group" style="margin-bottom: 15px;">
+                            <label class="form-label mobile-font-smaller">
+                                <i class="fas fa-cubes"></i> Module
+                            </label>
+                            <select class="form-control mobile-font-smaller" id="moduleSelect" onchange="filterTopicsByModule()" disabled>
+                                <option value="">-- Select Module (Optional) --</option>
+                            </select>
+                        </div>
+                        
+                        <!-- TOPIC DROPDOWN WITH INTEGRATED "CREATE NEW TOPIC" BUTTON -->
+                        <div class="form-group" style="margin-bottom: 5px;">
                             <label class="form-label mobile-font-smaller">
                                 <i class="fas fa-tag"></i> Topic <span style="color: #e74c3c; font-size: 0.9rem;">* REQUIRED</span>
                             </label>
                             <div style="display: flex; gap: 10px;">
-                                <select class="form-control mobile-font-smaller" id="topicSelect" required style="flex: 1;" disabled>
-                                    <option value="">-- Select Subject First --</option>
+                                <select class="form-control mobile-font-smaller" id="topicSelect" required style="flex: 1;">
+                                    <option value="">-- Select Topic --</option>
                                 </select>
                                 <button type="button" class="btn btn-outline" onclick="showCreateTopicPanel()" 
                                         style="padding: 8px 15px; white-space: nowrap; background: #7a0000; color: white; border: none;" 
@@ -2605,38 +2610,19 @@
                             </div>
                             <small style="display: block; margin-top: 8px; color: #7a0000; font-size: 0.75rem;">
                                 <i class="fas fa-info-circle"></i> 
-                                <strong>IMPORTANT:</strong> Select a subject first to load available topics.
+                                <strong>IMPORTANT:</strong> You must select a topic. Click "New Topic" if you need to create one.
                             </small>
                         </div>
-                        
-                        <!-- OPTIONAL: Module Structure (for advanced organization) -->
-                        <div style="margin-top: 15px; padding-top: 15px; border-top: 1px dashed #ccc;">
-                            <details>
-                                <summary style="cursor: pointer; color: #7a0000; font-weight: 600;">
-                                    <i class="fas fa-sitemap"></i> Advanced: Module Structure (Optional)
-                                </summary>
-                                <div style="margin-top: 15px;">
-                                    <!-- LESSON DROPDOWN (Level 1) -->
-                                    <div class="form-group" style="margin-bottom: 15px;">
-                                        <label class="form-label mobile-font-smaller">
-                                            <i class="fas fa-book"></i> Lesson
-                                        </label>
-                                        <select class="form-control mobile-font-smaller" id="lessonSelect" onchange="filterModulesByLesson()">
-                                            <option value="">-- Select Lesson (Optional) --</option>
-                                        </select>
-                                    </div>
-                                    
-                                    <!-- MODULE DROPDOWN (Level 2) -->
-                                    <div class="form-group" style="margin-bottom: 15px;">
-                                        <label class="form-label mobile-font-smaller">
-                                            <i class="fas fa-cubes"></i> Module
-                                        </label>
-                                        <select class="form-control mobile-font-smaller" id="moduleSelect" onchange="filterTopicsByModule()" disabled>
-                                            <option value="">-- Select Module (Optional) --</option>
-                                        </select>
-                                    </div>
-                                </div>
-                            </details>
+                        <!-- Add this inside the create lesson modal, after topic selection -->
+                        <div class="form-group" style="margin-bottom: 15px;">
+                            <label class="form-label mobile-font-smaller">
+                                <i class="fas fa-chalkboard-teacher"></i> Assign to Teacher (Optional)
+                            </label>
+                            <select class="form-control mobile-font-smaller" id="assignedTeacherId">
+                                <option value="">-- Select Teacher (Leave empty for self) --</option>
+                                <!-- Options will be populated dynamically -->
+                            </select>
+                            <small style="color: #666;">If not selected, lesson will be assigned to you (admin)</small>
                         </div>
                         
                         <!-- QUICK CREATE TOPIC PANEL - Integrated directly into the modal -->
@@ -2716,20 +2702,6 @@
                                 <i class="fas fa-list"></i> Manage Topics
                             </button>
                         </div>
-                    </div>
-                </div>
-                
-                <!-- TEACHER ASSIGNMENT -->
-                <div class="lesson-section mobile-compact" style="margin-top: 20px;">
-                    <div style="background: #f8f9fa; padding: 15px; border-radius: 8px;">
-                        <label class="form-label mobile-font-smaller">
-                            <i class="fas fa-chalkboard-teacher"></i> Assign to Teacher (Optional)
-                        </label>
-                        <select class="form-control mobile-font-smaller" id="assignedTeacherId">
-                            <option value="">-- Select Teacher (Leave empty for self) --</option>
-                            <!-- Options will be populated dynamically -->
-                        </select>
-                        <small style="color: #666;">If not selected, lesson will be assigned to you (admin)</small>
                     </div>
                 </div>
                 
@@ -2824,6 +2796,7 @@
                 
                 <!-- HIDDEN FIELDS -->
                 <input type="hidden" id="editLessonId" value="">
+                <input type="hidden" id="selectedSubjectId" value="1">
             </div>
             
             <!-- MODAL FOOTER WITH SAVE BUTTON -->
@@ -2839,6 +2812,7 @@
             </div>
         </div>
     </div>
+
 
     <!-- ===== EDIT LESSON MODAL (Enhanced with full editing capabilities) ===== -->
     <div id="editLessonModal" class="modal">
