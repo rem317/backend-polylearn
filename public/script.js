@@ -10261,21 +10261,19 @@ async function loadQuizStatsFromServer() {
 
 
 // ============================================
-// ✅ ULTIMATE FIX: Load quiz categories - WITH OFFLINE SUPPORT
+// ✅ FIXED: Load quiz categories - ONLY LESSON_ID=2
 // ============================================
 async function loadQuizCategories() {
-    console.log('📚 Loading quiz categories...');
+    console.log('📚 Loading quiz categories for PolyLearn (lesson_id=2 only)...');
     
     try {
         const token = localStorage.getItem('authToken') || authToken;
         if (!token) {
             console.warn('No auth token available');
-            return useOfflineCategories();
+            return useHardcodedPolyLearnCategories();
         }
         
-        const currentLessonId = 2; // Force to PolyLearn
-        
-        console.log(`🎯 Loading categories for PolyLearn, lesson_id: ${currentLessonId}`);
+        const POLYLEARN_LESSON_ID = 2; // Fixed for PolyLearn
         
         // Show loading state
         let categoriesContainer = document.getElementById('quizCategoriesGrid');
@@ -10283,60 +10281,74 @@ async function loadQuizCategories() {
             categoriesContainer.innerHTML = `
                 <div style="grid-column: 1/-1; text-align: center; padding: 40px;">
                     <i class="fas fa-spinner fa-spin" style="font-size: 40px; color: #7a0000;"></i>
-                    <p style="margin-top: 15px; color: #666;">Connecting to server...</p>
+                    <p style="margin-top: 15px; color: #666;">Loading PolyLearn categories...</p>
                 </div>
             `;
         }
         
-        // Try to fetch from server with timeout
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 5000); // 5 second timeout
+        // TRY MULTIPLE ENDPOINTS para makuha ang categories
+        let categories = null;
         
+        // Endpoint 1: With lesson_id parameter
         try {
-            const response = await fetch(`/api/quiz/categories?lesson_id=${currentLessonId}`, {
+            console.log('📡 Trying /api/quiz/categories?lesson_id=2');
+            const response = await fetch(`/api/quiz/categories?lesson_id=${POLYLEARN_LESSON_ID}`, {
                 headers: {
                     'Authorization': `Bearer ${token}`,
                     'Accept': 'application/json'
-                },
-                signal: controller.signal
+                }
             });
             
-            clearTimeout(timeoutId);
-            
-            if (!response.ok) {
-                throw new Error(`HTTP error: ${response.status}`);
+            if (response.ok) {
+                const data = await response.json();
+                if (data.success && data.categories) {
+                    categories = data.categories;
+                    console.log(`✅ Found ${categories.length} categories with lesson_id filter`);
+                }
             }
-            
-            const data = await response.json();
-            console.log('📥 Server response:', data);
-            
-            if (data.success && data.categories && data.categories.length > 0) {
-                console.log(`✅ Found ${data.categories.length} categories from server`);
-                displayQuizCategories(data.categories);
-                return data.categories;
-            } else {
-                console.log('ℹ️ No categories from server, using offline data');
-                return useOfflineCategories();
-            }
-            
-        } catch (fetchError) {
-            clearTimeout(timeoutId);
-            
-            if (fetchError.name === 'AbortError') {
-                console.log('⚠️ Request timeout - server not responding');
-            } else if (fetchError.message.includes('Failed to fetch') || 
-                       fetchError.message.includes('ERR_INTERNET_DISCONNECTED')) {
-                console.log('⚠️ Network error - offline mode');
-            } else {
-                console.error('❌ Fetch error:', fetchError);
-            }
-            
-            return useOfflineCategories();
+        } catch (e) {
+            console.log('⚠️ Endpoint 1 failed:', e.message);
         }
         
+        // Endpoint 2: Without lesson_id (filter on client side)
+        if (!categories) {
+            try {
+                console.log('📡 Trying /api/quiz/categories (no filter)');
+                const response = await fetch('/api/quiz/categories', {
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Accept': 'application/json'
+                    }
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    if (data.success && data.categories) {
+                        // Filter for lesson_id=2 only
+                        categories = data.categories.filter(cat => 
+                            cat.lesson_id == POLYLEARN_LESSON_ID
+                        );
+                        console.log(`✅ Filtered to ${categories.length} categories for lesson_id=2`);
+                    }
+                }
+            } catch (e) {
+                console.log('⚠️ Endpoint 2 failed:', e.message);
+            }
+        }
+        
+        // If still no categories, use hardcoded
+        if (!categories || categories.length === 0) {
+            console.log('ℹ️ No categories from API, using hardcoded PolyLearn categories');
+            return useHardcodedPolyLearnCategories();
+        }
+        
+        // Display the categories
+        displayQuizCategories(categories);
+        return categories;
+        
     } catch (error) {
-        console.error('❌ Error in loadQuizCategories:', error);
-        return useOfflineCategories();
+        console.error('❌ Error loading quiz categories:', error);
+        return useHardcodedPolyLearnCategories();
     }
 }
 
@@ -10515,90 +10527,69 @@ function handleCategoriesResponse(data, filterOnClient = false) {
     }
 }
 // ============================================
-// ✅ UPDATED: Display quiz categories - WITH BETTER STYLING
+// ✅ FIXED: Display quiz categories - WITH POLYLEARN BADGE
 // ============================================
 function displayQuizCategories(categories) {
-    console.log('📋 Displaying quiz categories:', categories);
+    console.log('📋 Displaying PolyLearn quiz categories:', categories);
     
     // Find or create container
     let categoriesContainer = document.getElementById('quizCategoriesGrid');
     
     if (!categoriesContainer) {
-        console.log('⚠️ Categories container not found - CREATING ONE NOW');
-        
+        // Create container code (same as before)
         const quizDashboard = document.getElementById('quiz-dashboard-page');
-        if (!quizDashboard) {
-            console.error('❌ Quiz dashboard page not found');
-            return;
-        }
+        if (!quizDashboard) return;
         
         const quizContainer = quizDashboard.querySelector('.quiz-container');
-        if (!quizContainer) {
-            console.error('❌ Quiz container not found');
-            return;
-        }
+        if (!quizContainer) return;
         
         categoriesContainer = document.createElement('div');
         categoriesContainer.id = 'quizCategoriesGrid';
-        categoriesContainer.className = 'categories-grid';
         categoriesContainer.style.cssText = `
             display: grid;
             grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
             gap: 20px;
-            margin-bottom: 30px;
-            padding: 20px 0;
+            margin: 20px 0;
         `;
-        
-        const quizStatsRow = quizContainer.querySelector('.quiz-stats-row');
-        if (quizStatsRow) {
-            quizStatsRow.insertAdjacentElement('afterend', categoriesContainer);
-        } else {
-            quizContainer.insertBefore(categoriesContainer, quizContainer.firstChild);
-        }
-        
-        console.log('✅ Created and inserted quizCategoriesGrid element');
+        quizContainer.insertBefore(categoriesContainer, quizContainer.firstChild);
     }
     
-    // Clear container
     categoriesContainer.innerHTML = '';
     
-    // Check if categories exist
     if (!categories || categories.length === 0) {
         categoriesContainer.innerHTML = `
-            <div style="grid-column: 1/-1; text-align: center; padding: 60px 20px; background: white; border-radius: 10px; box-shadow: 0 4px 12px rgba(0,0,0,0.1);">
-                <i class="fas fa-folder-open" style="font-size: 64px; color: #ccc; margin-bottom: 20px;"></i>
-                <h3 style="color: #666; margin-bottom: 10px;">No Quiz Categories Available</h3>
-                <p style="color: #999; margin-bottom: 20px;">Check back later for new quiz categories!</p>
-                <button class="btn-primary" onclick="loadQuizCategories()" style="background: #7a0000; color: white; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer;">
-                    <i class="fas fa-redo"></i> Refresh
-                </button>
+            <div style="grid-column: 1/-1; text-align: center; padding: 60px 20px;">
+                <i class="fas fa-folder-open" style="font-size: 64px; color: #ccc;"></i>
+                <h3>No PolyLearn Categories Available</h3>
+                <p>Check back later for new PolyLearn quizzes!</p>
             </div>
         `;
         return;
     }
     
-    // Generate HTML for each category
     let html = '';
     
     categories.forEach(category => {
         const categoryId = category.category_id || category.id;
-        const categoryName = category.category_name || category.name || 'Quiz Category';
-        const categoryDesc = category.description || 'Test your knowledge with PolyLearn quizzes.';
+        const categoryName = category.category_name || category.name || 'PolyLearn Quiz';
+        const categoryDesc = category.description || 'Test your PolyLearn knowledge.';
         const totalQuizzes = category.quiz_count || category.total_quizzes || 0;
         const categoryColor = category.color || '#7a0000';
-        const categoryIcon = category.icon || 'fa-question-circle';
+        const categoryIcon = category.icon || 'fa-graduation-cap';
         
         html += `
             <div class="quiz-category-card" data-category-id="${categoryId}" 
                  style="cursor: pointer; background: white; border-radius: 12px; padding: 25px; 
-                        box-shadow: 0 4px 15px rgba(0,0,0,0.1); transition: all 0.3s; 
-                        display: flex; align-items: center; gap: 20px; border: 2px solid transparent;
-                        position: relative; overflow: hidden;">
+                        box-shadow: 0 4px 15px rgba(0,0,0,0.1); display: flex; align-items: center; gap: 20px;
+                        border: 2px solid ${categoryColor}; position: relative;">
                 
-                <div style="width: 70px; height: 70px; 
-                     background: ${categoryColor}; border-radius: 12px; display: flex; 
-                     align-items: center; justify-content: center; font-size: 28px; color: white;
-                     box-shadow: 0 4px 10px ${categoryColor}40;">
+                <div style="position: absolute; top: 10px; right: 10px; background: ${categoryColor}; 
+                            color: white; padding: 3px 8px; border-radius: 12px; font-size: 11px;">
+                    <i class="fas fa-graduation-cap"></i> PolyLearn
+                </div>
+                
+                <div style="width: 70px; height: 70px; background: ${categoryColor}; border-radius: 12px; 
+                     display: flex; align-items: center; justify-content: center; font-size: 28px; color: white;">
                     <i class="fas ${categoryIcon}"></i>
                 </div>
                 
@@ -10606,22 +10597,18 @@ function displayQuizCategories(categories) {
                     <h3 style="margin: 0 0 5px 0; color: #2c3e50; font-size: 18px;">
                         ${categoryName}
                     </h3>
-                    <p style="margin: 0 0 12px 0; color: #6c757d; font-size: 14px; line-height: 1.5;">
+                    <p style="margin: 0 0 12px 0; color: #6c757d; font-size: 14px;">
                         ${categoryDesc}
                     </p>
                     
                     <div style="display: flex; gap: 20px; font-size: 13px; color: #7f8c8d;">
-                        <span style="display: flex; align-items: center; gap: 5px;">
-                            <i class="fas fa-question-circle" style="color: #3498db;"></i> ${totalQuizzes} Quizzes
-                        </span>
+                        <span><i class="fas fa-question-circle" style="color: #3498db;"></i> ${totalQuizzes} PolyLearn Quizzes</span>
                     </div>
                 </div>
                 
                 <button class="quiz-category-btn" data-category-id="${categoryId}" 
                         style="background: ${categoryColor}; color: white; border: none; 
-                               width: 45px; height: 45px; border-radius: 50%; cursor: pointer; 
-                               display: flex; align-items: center; justify-content: center; 
-                               font-size: 18px; transition: all 0.3s; box-shadow: 0 4px 10px ${categoryColor}40;">
+                               width: 45px; height: 45px; border-radius: 50%; cursor: pointer;">
                     <i class="fas fa-arrow-right"></i>
                 </button>
             </div>
@@ -10630,16 +10617,12 @@ function displayQuizCategories(categories) {
     
     categoriesContainer.innerHTML = html;
     
-    // Add click event listeners
+    // Add event listeners (same as before)
     document.querySelectorAll('.quiz-category-card').forEach(card => {
         card.addEventListener('click', function(e) {
             if (e.target.closest('.quiz-category-btn')) return;
-            
             const categoryId = this.getAttribute('data-category-id');
-            if (categoryId) {
-                console.log(`🎯 Category card clicked:`, categoryId);
-                loadQuizzesForCategory(categoryId);
-            }
+            if (categoryId) loadQuizzesForCategory(categoryId);
         });
     });
     
@@ -10647,16 +10630,10 @@ function displayQuizCategories(categories) {
         btn.addEventListener('click', function(e) {
             e.preventDefault();
             e.stopPropagation();
-            
             const categoryId = this.getAttribute('data-category-id');
-            if (categoryId) {
-                console.log(`🎯 Category button clicked:`, categoryId);
-                loadQuizzesForCategory(categoryId);
-            }
+            if (categoryId) loadQuizzesForCategory(categoryId);
         });
     });
-    
-    console.log(`✅ Displayed ${categories.length} quiz categories`);
 }
 
 
@@ -10698,11 +10675,11 @@ function getCategoryColor(categoryId) {
 }
 
 // ============================================
-// ✅ FIXED: Load quizzes for category - FORCED LESSON_ID = 2
+// ✅ FIXED: Load quizzes for category - ONLY LESSON_ID=2
 // ============================================
 async function loadQuizzesForCategory(categoryId) {
     try {
-        console.log(`📝 Fetching quizzes for category ${categoryId}...`);
+        console.log(`📝 Fetching quizzes for category ${categoryId} (PolyLearn only)...`);
         
         const token = localStorage.getItem('authToken') || authToken;
         if (!token) {
@@ -10711,9 +10688,9 @@ async function loadQuizzesForCategory(categoryId) {
             return;
         }
         
-        const currentLessonId = POLYLEARN_LESSON_ID; // Force to 2
+        const POLYLEARN_LESSON_ID = 2; // Fixed for PolyLearn
         
-        console.log(`🎯 Loading quizzes for PolyLearn, forced lesson_id: ${currentLessonId}`);
+        console.log(`🎯 Loading quizzes for PolyLearn, lesson_id: ${POLYLEARN_LESSON_ID}`);
         
         // Get current user ID
         const userJson = localStorage.getItem('mathhub_user');
@@ -10728,71 +10705,99 @@ async function loadQuizzesForCategory(categoryId) {
             }
         }
         
-        // ✅ Force lesson_id=2 in API call
-        let endpoint = `/api/quiz/category/${categoryId}/quizzes?lesson_id=${currentLessonId}`;
-        console.log(`📡 Fetching from: ${endpoint}`);
+        // TRY MULTIPLE ENDPOINTS
+        let quizzes = null;
         
-        const response = await fetch(endpoint, {
-            headers: {
-                'Authorization': `Bearer ${token}`,
-                'Content-Type': 'application/json'
+        // Endpoint 1: With lesson_id parameter
+        try {
+            const endpoint = `/api/quiz/category/${categoryId}/quizzes?lesson_id=${POLYLEARN_LESSON_ID}`;
+            console.log(`📡 Fetching from: ${endpoint}`);
+            
+            const response = await fetch(endpoint, {
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json'
+                }
+            });
+            
+            if (response.ok) {
+                const data = await response.json();
+                if (data.success && data.quizzes) {
+                    quizzes = data.quizzes;
+                    console.log(`✅ Found ${quizzes.length} quizzes with lesson_id filter`);
+                }
             }
+        } catch (e) {
+            console.log('⚠️ Endpoint 1 failed:', e.message);
+        }
+        
+        // Endpoint 2: Without lesson_id (filter on client side)
+        if (!quizzes) {
+            try {
+                const endpoint = `/api/quiz/category/${categoryId}/quizzes`;
+                console.log(`📡 Fetching from: ${endpoint} (no filter)`);
+                
+                const response = await fetch(endpoint, {
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    if (data.success && data.quizzes) {
+                        // Filter for lesson_id=2 only
+                        quizzes = data.quizzes.filter(quiz => 
+                            quiz.lesson_id == POLYLEARN_LESSON_ID
+                        );
+                        console.log(`✅ Filtered to ${quizzes.length} quizzes for lesson_id=2`);
+                    }
+                }
+            } catch (e) {
+                console.log('⚠️ Endpoint 2 failed:', e.message);
+            }
+        }
+        
+        // If no quizzes, use hardcoded
+        if (!quizzes || quizzes.length === 0) {
+            console.log('ℹ️ No quizzes from API, using hardcoded PolyLearn quizzes');
+            quizzes = getHardcodedPolyLearnQuizzes(categoryId);
+        }
+        
+        // Filter attempts for current user
+        quizzes = quizzes.map(quiz => {
+            if (quiz.user_attempts && Array.isArray(quiz.user_attempts)) {
+                quiz.user_attempts = quiz.user_attempts.filter(
+                    attempt => attempt.user_id === currentUserId
+                );
+            }
+            
+            if (quiz.user_attempts && quiz.user_attempts.length > 0) {
+                const bestScore = Math.max(...quiz.user_attempts.map(a => a.score || 0));
+                quiz.user_progress = {
+                    attempts: quiz.user_attempts.length,
+                    best_score: bestScore,
+                    passed: quiz.user_attempts.some(a => a.passed === 1)
+                };
+            } else {
+                quiz.user_progress = {
+                    attempts: 0,
+                    best_score: 0,
+                    passed: false
+                };
+            }
+            
+            return quiz;
         });
         
-        if (!response.ok) {
-            throw new Error(`Failed to fetch quizzes: ${response.status}`);
-        }
+        // Find the selected category
+        const selectedCategory = {
+            category_id: categoryId,
+            category_name: 'PolyLearn Quizzes'
+        };
         
-        const data = await response.json();
-        console.log('📥 Quiz data:', data);
-        
-        if (data.success && data.quizzes) {
-            // ✅ STRICT FILTERING - lesson_id=2 lang
-            let filteredQuizzes = data.quizzes.filter(quiz => {
-                const quizLessonId = quiz.lesson_id || quiz.lessonId;
-                return quizLessonId == currentLessonId;
-            });
-            
-            console.log(`✅ Found ${filteredQuizzes.length} quizzes for PolyLearn (lesson ${currentLessonId})`);
-            
-            // Filter attempts for current user
-            filteredQuizzes = filteredQuizzes.map(quiz => {
-                if (quiz.user_attempts && Array.isArray(quiz.user_attempts)) {
-                    quiz.user_attempts = quiz.user_attempts.filter(
-                        attempt => attempt.user_id === currentUserId
-                    );
-                }
-                
-                if (quiz.user_attempts && quiz.user_attempts.length > 0) {
-                    const bestScore = Math.max(...quiz.user_attempts.map(a => a.score || 0));
-                    quiz.user_progress = {
-                        attempts: quiz.user_attempts.length,
-                        best_score: bestScore,
-                        passed: quiz.user_attempts.some(a => a.passed === 1)
-                    };
-                } else {
-                    quiz.user_progress = {
-                        attempts: 0,
-                        best_score: 0,
-                        passed: false
-                    };
-                }
-                
-                return quiz;
-            });
-            
-            // Find the selected category
-            const selectedCategory = QuizState?.quizCategories?.find(
-                cat => cat.category_id == categoryId || cat.id == categoryId
-            ) || {
-                category_id: categoryId,
-                category_name: data.category?.name || 'PolyLearn Quizzes'
-            };
-            
-            showQuizInterfaceForCategory(selectedCategory, filteredQuizzes);
-        } else {
-            throw new Error(data.message || 'No quizzes returned');
-        }
+        showQuizInterfaceForCategory(selectedCategory, quizzes);
         
     } catch (error) {
         console.error('Error loading quizzes:', error);
