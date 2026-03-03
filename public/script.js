@@ -6235,7 +6235,7 @@ async function getDetailedPracticeStats() {
 
 
 // ============================================
-// ✅ FIXED: Load Progress Dashboard Data - POLYLEARN ONLY
+// ✅ FIXED: Load Progress Dashboard Data - POLYLEARN ONLY (NO ERRORS)
 // ============================================
 async function loadProgressDashboardData() {
     console.log('📊 Loading PolyLearn progress dashboard data...');
@@ -6298,7 +6298,7 @@ async function loadProgressDashboardData() {
         
         // ===== PROCESS PRACTICE DATA =====
         let exercisesCompleted = 0;
-        let totalPracticeTime = 0;
+        let totalPracticeSeconds = 0;
         
         if (practiceStats.status === 'fulfilled' && practiceStats.value?.success) {
             const attempts = practiceStats.value.attempts || [];
@@ -6306,12 +6306,13 @@ async function loadProgressDashboardData() {
                 a.completion_status === 'completed' || a.percentage >= 70
             ).length;
             
-            // Calculate total practice time
+            // Calculate total practice time in seconds
             attempts.forEach(a => {
-                totalPracticeTime += a.time_spent_seconds || 0;
+                totalPracticeSeconds += a.time_spent_seconds || 0;
             });
             
             console.log(`✅ PolyLearn practice completed: ${exercisesCompleted}`);
+            console.log(`⏱️ Total practice seconds: ${totalPracticeSeconds}`);
         }
         
         // ===== PROCESS QUIZ DATA =====
@@ -6331,7 +6332,7 @@ async function loadProgressDashboardData() {
             console.log(`✅ PolyLearn quiz points: ${quizPoints}`);
         }
         
-        // ===== FIX: CALCULATE OVERALL PROGRESS =====
+        // ===== CALCULATE OVERALL PROGRESS =====
         // Base sa lessons lang dapat ang overall progress (0-100%)
         const overallPercentage = totalLessons > 0 
             ? Math.round((lessonsCompleted / totalLessons) * 100) 
@@ -6386,24 +6387,29 @@ async function loadProgressDashboardData() {
         // ===== UPDATE TOTAL TIME =====
         const totalTime = document.getElementById('totalTime');
         if (totalTime) {
-            const totalMinutes = Math.floor(totalPracticeTime / 60);
-            const hours = Math.floor(totalMinutes / 60);
-            const mins = totalMinutes % 60;
+            // Convert seconds to minutes
+            const totalMinutes = Math.floor(totalPracticeSeconds / 60);
             
+            // Format display
             let timeDisplay = '';
-            if (hours > 0) {
-                timeDisplay = `${hours}h ${mins}m`;
-            } else {
+            if (totalMinutes < 60) {
                 timeDisplay = `${totalMinutes}m`;
+            } else {
+                const hours = Math.floor(totalMinutes / 60);
+                const mins = totalMinutes % 60;
+                timeDisplay = `${hours}h ${mins}m`;
             }
             
             totalTime.textContent = timeDisplay;
+            console.log(`⏱️ Display time: ${timeDisplay} (${totalMinutes} minutes)`);
         }
         
         const timeChange = document.getElementById('timeChange');
         if (timeChange) {
-            // Compute active days (sample)
-            const activeDays = Math.min(8, Math.ceil(totalMinutes / 30));
+            // Convert seconds to minutes for active days computation
+            const totalMinutes = Math.floor(totalPracticeSeconds / 60);
+            // Compute active days (1 day = 30 minutes of activity)
+            const activeDays = Math.max(1, Math.min(30, Math.ceil(totalMinutes / 30)));
             timeChange.textContent = `${activeDays} days active`;
         }
         
@@ -6441,7 +6447,7 @@ async function loadProgressDashboardData() {
             exercises_completed: exercisesCompleted,
             total_quizzes_completed: quizAttempts,
             total_points_earned: quizPoints,
-            total_time_spent_minutes: Math.floor(totalPracticeTime / 60)
+            total_time_spent_minutes: Math.floor(totalPracticeSeconds / 60)
         };
         
     } catch (error) {
