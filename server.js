@@ -10991,17 +10991,53 @@ app.get('/api/progress/today-stats', authenticateUser, async (req, res) => {
 });
 
 // Get daily progress
+// ===== GET DAILY PROGRESS - WITH LESSON FILTER =====
 app.get('/api/progress/daily', authenticateUser, async (req, res) => {
     try {
         const userId = req.user.id;
+        const { lesson_id } = req.query; // Kunin ang lesson_id parameter
         
         const today = new Date().toISOString().split('T')[0];
         
-        // Try to get from daily_progress table
-        const [daily] = await promisePool.query(
-            'SELECT * FROM daily_progress WHERE user_id = ? AND progress_date = ?',
-            [userId, today]
-        );
+        // ✅ May lesson_id filter
+        if (lesson_id) {
+            console.log(`📊 Fetching daily progress for user ${userId}, lesson ${lesson_id}`);
+            
+            // Kunin ang daily progress para sa specific lesson
+            const [daily] = await promisePool.query(`
+                SELECT * FROM daily_progress 
+                WHERE user_id = ? AND progress_date = ? AND lesson_id = ?
+            `, [userId, today, lesson_id]);
+            
+            if (daily.length > 0) {
+                return res.json({
+                    success: true,
+                    progress: daily[0]
+                });
+            }
+            
+            // Return default kung walang record
+            return res.json({
+                success: true,
+                progress: {
+                    user_id: userId,
+                    lesson_id: parseInt(lesson_id),
+                    progress_date: today,
+                    lessons_completed: 0,
+                    exercises_completed: 0,
+                    quizzes_completed: 0,
+                    points_earned: 0,
+                    time_spent_minutes: 0,
+                    streak_maintained: 0
+                }
+            });
+        }
+        
+        // ✅ Walang filter - return all daily progress (existing behavior)
+        const [daily] = await promisePool.query(`
+            SELECT * FROM daily_progress 
+            WHERE user_id = ? AND progress_date = ?
+        `, [userId, today]);
         
         if (daily.length > 0) {
             return res.json({
@@ -11010,56 +11046,19 @@ app.get('/api/progress/daily', authenticateUser, async (req, res) => {
             });
         }
         
-        // Calculate from other tables
-        const startOfDay = new Date();
-        startOfDay.setHours(0, 0, 0, 0);
-        const endOfDay = new Date();
-        endOfDay.setHours(23, 59, 59, 999);
-        
-        // Count today's practice attempts
-        let exercisesToday = 0;
-        try {
-            const [practice] = await promisePool.query(
-                'SELECT COUNT(*) as count FROM practice_attempts WHERE user_id = ? AND created_at BETWEEN ? AND ?',
-                [userId, startOfDay, endOfDay]
-            );
-            exercisesToday = practice[0]?.count || 0;
-        } catch (e) {}
-        
-        // Count today's lesson completions
-        let lessonsToday = 0;
-        try {
-            const [lessons] = await promisePool.query(
-                'SELECT COUNT(*) as count FROM user_content_progress WHERE user_id = ? AND completion_status = "completed" AND DATE(completed_at) = CURDATE()',
-                [userId]
-            );
-            lessonsToday = lessons[0]?.count || 0;
-        } catch (e) {}
-        
-        // Count today's quiz completions
-        let quizzesToday = 0;
-        try {
-            const [quizzes] = await promisePool.query(
-                'SELECT COUNT(*) as count FROM user_quiz_attempts WHERE user_id = ? AND completion_status = "completed" AND DATE(end_time) = CURDATE()',
-                [userId]
-            );
-            quizzesToday = quizzes[0]?.count || 0;
-        } catch (e) {}
-        
-        const defaultProgress = {
-            user_id: userId,
-            progress_date: today,
-            lessons_completed: lessonsToday,
-            exercises_completed: exercisesToday,
-            quizzes_completed: quizzesToday,
-            points_earned: 0,
-            time_spent_minutes: 0,
-            streak_maintained: 0
-        };
-        
+        // Default response
         res.json({
             success: true,
-            progress: defaultProgress
+            progress: {
+                user_id: userId,
+                progress_date: today,
+                lessons_completed: 0,
+                exercises_completed: 0,
+                quizzes_completed: 0,
+                points_earned: 0,
+                time_spent_minutes: 0,
+                streak_maintained: 0
+            }
         });
         
     } catch (error) {
@@ -11070,7 +11069,6 @@ app.get('/api/progress/daily', authenticateUser, async (req, res) => {
         });
     }
 });
-
 // Get cumulative progress
 app.get('/api/progress/cumulative', authenticateUser, async (req, res) => {
     try {
@@ -11153,66 +11151,81 @@ app.get('/api/progress/cumulative', authenticateUser, async (req, res) => {
 });
 
 // Update daily progress
+// ===== UPDATE DAILY PROGRESS - WITH LESSON ID =====
 app.post('/api/progress/update-daily', authenticateUser, async (req, res) => {
     try {
         const userId = req.user.id;
-        const { lessons_completed, exercises_completed, quizzes_completed, time_spent_minutes } = req.body;
+        const { 
+            lessons_completed, 
+            exercises_completed, 
+            quizzes_completed, 
+            time_spent_minutes,
+            lesson_id // ✅ Add this
+        } = req.body;
         
         const today = new Date().toISOString().split('T')[0];
         
-        // Check if entry exists
-        const [existing] = await promisePool.query(
-            'SELECT * FROM daily_progress WHERE user_id = ? AND progress_date = ?',
-            [userId, today]
-        );
+        // Check if entry exists for this lesson
+        let query = 'SELECT * FROM daily_progress WHERE user_id = ? AND progress_date = ?';
+        let params = [userId, today];
+        
+        if (lesson_id) {
+            query += ' AND lesson_id = ?';
+            params.push(lesson_id);
+        }
+        
+        const [existing] = await promisePool.query(query, params);
         
         if (existing.length > 0) {
             // Update existing
             const updates = [];
-            const values = [];
+            const updateValues = [];
             
             if (lessons_completed) {
                 updates.push('lessons_completed = lessons_completed + ?');
-                values.push(lessons_completed);
+                updateValues.push(lessons_completed);
             }
             if (exercises_completed) {
                 updates.push('exercises_completed = exercises_completed + ?');
-                values.push(exercises_completed);
+                updateValues.push(exercises_completed);
             }
             if (quizzes_completed) {
                 updates.push('quizzes_completed = quizzes_completed + ?');
-                values.push(quizzes_completed);
+                updateValues.push(quizzes_completed);
             }
             if (time_spent_minutes) {
                 updates.push('time_spent_minutes = time_spent_minutes + ?');
-                values.push(time_spent_minutes);
+                updateValues.push(time_spent_minutes);
             }
             
             if (updates.length === 0) {
                 return res.json({ success: true });
             }
             
-            values.push(userId, today);
+            updateValues.push(userId, today);
+            if (lesson_id) updateValues.push(lesson_id);
             
-            await promisePool.query(
-                `UPDATE daily_progress SET ${updates.join(', ')} WHERE user_id = ? AND progress_date = ?`,
-                values
-            );
+            let updateQuery = `UPDATE daily_progress SET ${updates.join(', ')} 
+                              WHERE user_id = ? AND progress_date = ?`;
+            if (lesson_id) updateQuery += ' AND lesson_id = ?';
+            
+            await promisePool.query(updateQuery, updateValues);
         } else {
             // Insert new
-            await promisePool.query(
-                `INSERT INTO daily_progress 
-                 (user_id, progress_date, lessons_completed, exercises_completed, quizzes_completed, time_spent_minutes)
-                 VALUES (?, ?, ?, ?, ?, ?)`,
-                [
-                    userId,
-                    today,
-                    lessons_completed || 0,
-                    exercises_completed || 0,
-                    quizzes_completed || 0,
-                    time_spent_minutes || 0
-                ]
-            );
+            await promisePool.query(`
+                INSERT INTO daily_progress 
+                (user_id, lesson_id, progress_date, lessons_completed, exercises_completed, 
+                 quizzes_completed, time_spent_minutes)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+            `, [
+                userId,
+                lesson_id || null,
+                today,
+                lessons_completed || 0,
+                exercises_completed || 0,
+                quizzes_completed || 0,
+                time_spent_minutes || 0
+            ]);
         }
         
         res.json({ success: true });
