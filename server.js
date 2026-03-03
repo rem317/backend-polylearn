@@ -357,6 +357,64 @@ const generateToken = (userId, username, email, role) => {
 };
 
 // ============================================
+// ✅ FIXED: GET PRACTICE EXERCISES COUNT BY LESSON ID - NO AUTH REQUIRED
+// ============================================
+app.get('/api/practice/exercises/count', async (req, res) => {
+    try {
+        const { lesson_id } = req.query;
+        
+        if (!lesson_id) {
+            return res.status(400).json({
+                success: false,
+                message: 'lesson_id is required'
+            });
+        }
+        
+        console.log(`📊 Counting practice exercises for lesson_id: ${lesson_id}`);
+        
+        // Get all topics under this lesson
+        const [topics] = await promisePool.execute(`
+            SELECT topic_id 
+            FROM module_topics mt
+            JOIN course_modules cm ON mt.module_id = cm.module_id
+            WHERE cm.lesson_id = ?
+        `, [lesson_id]);
+        
+        if (topics.length === 0) {
+            return res.json({ 
+                success: true, 
+                count: 0,
+                message: 'No topics found for this lesson' 
+            });
+        }
+        
+        const topicIds = topics.map(t => t.topic_id);
+        const placeholders = topicIds.map(() => '?').join(',');
+        
+        // Count exercises for these topics
+        const [result] = await promisePool.execute(`
+            SELECT COUNT(*) as count
+            FROM practice_exercises
+            WHERE topic_id IN (${placeholders}) AND is_active = 1
+        `, topicIds);
+        
+        console.log(`✅ Found ${result[0].count} practice exercises for lesson ${lesson_id}`);
+        
+        res.json({
+            success: true,
+            count: result[0].count
+        });
+        
+    } catch (error) {
+        console.error('❌ Error counting practice exercises:', error);
+        res.status(500).json({
+            success: false,
+            message: error.message
+        });
+    }
+});
+
+// ============================================
 // AUTHENTICATION MIDDLEWARE - LAHAT GUMAGAMIT NG IISANG JWT_SECRET
 // ============================================
 
