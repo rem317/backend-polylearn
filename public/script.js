@@ -10884,133 +10884,84 @@ function getCategoryColor(categoryId) {
 }
 
 // ============================================
-// ✅ FIXED: Load quizzes for category - WITH BETTER AUTH HANDLING
+// FIXED: Close quiz modal - STAYS IN QUIZ LIST
 // ============================================
-async function loadQuizzesForCategory(categoryId) {
-    try {
-        console.log(`📝 Loading quizzes for category ${categoryId}...`);
-        
-        const token = localStorage.getItem('authToken') || authToken;
-        if (!token) {
-            console.warn('No auth token available');
-            showNotification('Please login to view quizzes', 'error');
-            
-            // Show login prompt sa container
-            const quizzesContainer = document.getElementById('userQuizzesContainer');
-            if (quizzesContainer) {
-                quizzesContainer.innerHTML = `
-                    <div style="text-align: center; padding: 40px; background: white; border-radius: 10px;">
-                        <i class="fas fa-lock" style="font-size: 48px; color: #e74c3c; margin-bottom: 15px;"></i>
-                        <h3>Please Login First</h3>
-                        <p>You need to be logged in to view quizzes.</p>
-                        <button class="btn-primary" onclick="navigateTo('login')" style="margin-top: 15px;">
-                            <i class="fas fa-sign-in-alt"></i> Go to Login
-                        </button>
-                        <button class="btn-secondary" onclick="goBackToCategories()" style="margin-top: 15px; margin-left: 10px;">
-                            <i class="fas fa-arrow-left"></i> Back
-                        </button>
-                    </div>
-                `;
-            }
-            return;
-        }
-        
-        const quizzesContainer = document.getElementById('userQuizzesContainer');
-        if (!quizzesContainer) return;
-        
-        // Show loading
-        quizzesContainer.innerHTML = `
-            <div style="text-align: center; padding: 40px;">
-                <i class="fas fa-spinner fa-spin" style="font-size: 40px; color: #7a0000;"></i>
-                <p style="margin-top: 15px;">Loading PolyLearn quizzes...</p>
-            </div>
-        `;
-        
-        const POLYLEARN_LESSON_ID = 2;
-        let quizzes = null;
-        let usedHardcoded = false;
-        
-        // TRY MULTIPLE ENDPOINTS
-        
-        // Endpoint 1: With lesson_id parameter
-        try {
-            const url = `/api/quiz/category/${categoryId}/quizzes?lesson_id=${POLYLEARN_LESSON_ID}`;
-            console.log(`📡 Fetching from: ${url}`);
-            
-            const response = await fetch(url, {
-                headers: {
-                    'Authorization': `Bearer ${token}`,
-                    'Content-Type': 'application/json',
-                    'Accept': 'application/json'
-                }
-            });
-            
-            console.log(`📥 Response status: ${response.status}`);
-            
-            if (response.ok) {
-                const data = await response.json();
-                if (data.success && data.quizzes) {
-                    quizzes = data.quizzes;
-                    console.log(`✅ Found ${quizzes.length} quizzes from server`);
-                }
-            } else if (response.status === 401) {
-                console.log('⚠️ Authentication failed - token may be expired');
-                // Try to refresh token or redirect to login
-            } else {
-                console.log(`⚠️ Server returned ${response.status}`);
-            }
-        } catch (e) {
-            console.log('⚠️ Endpoint 1 failed:', e.message);
-        }
-        
-        // Endpoint 2: Without lesson_id (filter on client side)
-        if (!quizzes || quizzes.length === 0) {
-            try {
-                const url = `/api/quiz/category/${categoryId}/quizzes`;
-                console.log(`📡 Fetching from: ${url} (no filter)`);
-                
-                const response = await fetch(url, {
-                    headers: {
-                        'Authorization': `Bearer ${token}`,
-                        'Content-Type': 'application/json',
-                        'Accept': 'application/json'
-                    }
-                });
-                
-                if (response.ok) {
-                    const data = await response.json();
-                    if (data.success && data.quizzes) {
-                        // Filter for lesson_id=2 only
-                        quizzes = data.quizzes.filter(quiz => 
-                            quiz.lesson_id == POLYLEARN_LESSON_ID
-                        );
-                        console.log(`✅ Filtered to ${quizzes.length} quizzes for lesson_id=2`);
-                    }
-                } else {
-                    console.log(`⚠️ Server returned ${response.status}`);
-                }
-            } catch (e) {
-                console.log('⚠️ Endpoint 2 failed:', e.message);
-            }
-        }
-        
-        // If still no quizzes, use hardcoded data
-        if (!quizzes || quizzes.length === 0) {
-            console.log('ℹ️ No quizzes from API, using hardcoded PolyLearn quizzes');
-            usedHardcoded = true;
-            quizzes = getHardcodedPolyLearnQuizzes(categoryId);
-        }
-        
-        // Display quizzes
-        displayQuizzesInContainer(quizzes, categoryId, usedHardcoded);
-        
-    } catch (error) {
-        console.error('Error loading quizzes:', error);
-        
-        // Use hardcoded as fallback
-        const hardcodedQuizzes = getHardcodedPolyLearnQuizzes(categoryId);
-        displayQuizzesInContainer(hardcodedQuizzes, categoryId, true);
+function closeQuizSystemModal() {
+    console.log('🚪 Closing quiz modal - returning to quiz list');
+    
+    const modal = document.getElementById('quizModal');
+    const quizContainer = document.getElementById('quizContainer');
+    const resultsContainer = document.getElementById('quizResultsContainer');
+    
+    if (modal) {
+        modal.style.display = 'none';
+        document.body.classList.remove('modal-open');
     }
+    
+    // Reset containers
+    if (quizContainer) {
+        quizContainer.style.display = 'block';
+    }
+    if (resultsContainer) {
+        resultsContainer.style.display = 'none';
+    }
+    
+    // Stop timer
+    if (QuizSystem.timerInterval) {
+        clearInterval(QuizSystem.timerInterval);
+        QuizSystem.timerInterval = null;
+    }
+    
+    // ===== ITO LANG ANG BAGO =====
+    // Ipakita ang quiz interface (list of quizzes), hindi categories
+    const quizInterface = document.getElementById('quizInterfaceContainer');
+    const quizCards = document.getElementById('userQuizzesContainer');
+    
+    if (quizInterface) {
+        // Show quiz list
+        quizInterface.classList.remove('hidden');
+        quizInterface.style.display = 'block';
+        quizInterface.style.opacity = '1';
+        quizInterface.style.visibility = 'visible';
+        
+        // Hide categories
+        if (quizCards) {
+            quizCards.classList.add('hidden');
+            quizCards.style.display = 'none';
+        }
+    } else {
+        // Fallback
+        if (quizCards) {
+            quizCards.classList.remove('hidden');
+            quizCards.style.display = 'block';
+        }
+    }
+    
+    // Keep badges and leaderboard visible
+    const badgesContainer = document.getElementById('badgesContainer');
+    const leaderboardContainer = document.getElementById('leaderboardContainer');
+    
+    if (badgesContainer) {
+        badgesContainer.classList.remove('hidden');
+        badgesContainer.style.display = 'block';
+    }
+    
+    if (leaderboardContainer) {
+        leaderboardContainer.classList.remove('hidden');
+        leaderboardContainer.style.display = 'block';
+    }
+    
+    // Reset quiz state
+    QuizSystem.currentQuiz = null;
+    QuizSystem.currentAttemptId = null;
+    QuizSystem.questions = [];
+    QuizSystem.currentIndex = 0;
+    QuizSystem.userAnswers = {};
+    QuizSystem.startTime = null;
+    QuizSystem.timeLeft = 0;
+    QuizSystem.stats = { correct: 0, wrong: 0, score: 0 };
+    
+    console.log('✅ Returned to quiz list');
 }
 
 // ============================================
