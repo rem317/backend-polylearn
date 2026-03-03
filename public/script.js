@@ -78,6 +78,111 @@ function addAppFilterToUrl(url) {
 }
 
 // ============================================
+// ✅ NEW: Connect tool buttons specifically for lesson dashboard
+// ============================================
+function connectLessonToolButtons(lesson) {
+    console.log('🔧 Connecting tool buttons for lesson dashboard...');
+    
+    const tools = [
+        { id: 'openCalculator', name: 'calculator', icon: 'fa-calculator' },
+        { id: 'openGraphTools', name: 'graph', icon: 'fa-chart-line' },
+        { id: 'openWhiteboard', name: 'whiteboard', icon: 'fa-paint-brush' },
+        { id: 'openNotepad', name: 'notepad', icon: 'fa-sticky-note' },
+        { id: 'openFormulaSheet', name: 'formula', icon: 'fa-square-root-alt' },
+        { id: 'openTimer', name: 'timer', icon: 'fa-clock' }
+    ];
+    
+    tools.forEach(tool => {
+        const btn = document.getElementById(tool.id);
+        if (!btn) {
+            console.warn(`⚠️ Button not found: ${tool.id}`);
+            return;
+        }
+        
+        // Remove old listeners
+        const newBtn = btn.cloneNode(true);
+        btn.parentNode.replaceChild(newBtn, btn);
+        
+        // Add new click handler
+        newBtn.addEventListener('click', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            
+            console.log(`🎯 Opening ${tool.name} from lesson dashboard`);
+            
+            // Make sure ToolManager exists
+            if (!window.toolManager) {
+                console.log('🔧 Creating new ToolManager...');
+                window.toolManager = new ToolManager();
+            }
+            
+            // Open the tool
+            window.toolManager.openTool(tool.name);
+            
+            // Log activity
+            logUserActivity('tool_used', lesson?.content_id, {
+                tool: tool.name,
+                lesson: lesson?.content_title
+            });
+        });
+        
+        console.log(`✅ Connected ${tool.id}`);
+    });
+    
+    // Also add note-saving capability to notepad
+    const notepadSaveBtn = document.querySelector('#notepadModal .btn-primary');
+    if (notepadSaveBtn && lesson) {
+        const newSaveBtn = notepadSaveBtn.cloneNode(true);
+        notepadSaveBtn.parentNode.replaceChild(newSaveBtn, notepadSaveBtn);
+        
+        newSaveBtn.addEventListener('click', async function(e) {
+            e.preventDefault();
+            
+            const title = document.getElementById('noteTitle')?.value || 'Lesson Note';
+            const content = document.getElementById('noteContent')?.value;
+            
+            if (!content) {
+                showNotification('Please write something before saving', 'error');
+                return;
+            }
+            
+            // Save to database
+            try {
+                const token = localStorage.getItem('authToken') || authToken;
+                const response = await fetch('/api/notes/save', {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        title: title,
+                        content: content,
+                        lesson_id: lesson.content_id
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    showNotification('Note saved to database!', 'success');
+                    
+                    // Clear form
+                    document.getElementById('noteTitle').value = '';
+                    document.getElementById('noteContent').value = '';
+                } else {
+                    showNotification('Failed to save note', 'error');
+                }
+            } catch (error) {
+                console.error('Error saving note:', error);
+                showNotification('Error saving note', 'error');
+            }
+        });
+    }
+}
+
+
+// ============================================
 // ✅ FIXED: ToolManager with better error handling
 // ============================================
 class ToolManager {
