@@ -412,272 +412,6 @@ app.get('/api/debug/practice-count', authenticateToken, async (req, res) => {
 });
 
 
-// ============================================
-// 🧮 TOOL ENDPOINTS - FOR LESSON DASHBOARD
-// ============================================
-
-// ============================================
-// SAVE CALCULATOR HISTORY
-// ============================================
-app.post('/api/calculator/save', authenticateUser, async (req, res) => {
-    try {
-        const userId = req.user.id;
-        const { expression, result } = req.body;
-        
-        console.log(`🧮 Saving calculation for user ${userId}: ${expression} = ${result}`);
-        
-        // Check if calculator_history table exists, create if not
-        await promisePool.execute(`
-            CREATE TABLE IF NOT EXISTS calculator_history (
-                history_id INT AUTO_INCREMENT PRIMARY KEY,
-                user_id INT NOT NULL,
-                expression TEXT NOT NULL,
-                result VARCHAR(255) NOT NULL,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                FOREIGN KEY (user_id) REFERENCES users(user_id) ON DELETE CASCADE,
-                INDEX idx_user_history (user_id, created_at)
-            )
-        `);
-        
-        await promisePool.execute(
-            'INSERT INTO calculator_history (user_id, expression, result) VALUES (?, ?, ?)',
-            [userId, expression, result]
-        );
-        
-        res.json({ success: true });
-        
-    } catch (error) {
-        console.error('❌ Error saving calculator history:', error);
-        res.status(500).json({ success: false, message: error.message });
-    }
-});
-
-// ============================================
-// GET CALCULATOR HISTORY
-// ============================================
-app.get('/api/calculator/history', authenticateUser, async (req, res) => {
-    try {
-        const userId = req.user.id;
-        const { limit = 10 } = req.query;
-        
-        const [history] = await promisePool.execute(
-            'SELECT * FROM calculator_history WHERE user_id = ? ORDER BY created_at DESC LIMIT ?',
-            [userId, parseInt(limit)]
-        );
-        
-        res.json({
-            success: true,
-            history: history
-        });
-        
-    } catch (error) {
-        console.error('❌ Error fetching calculator history:', error);
-        res.status(500).json({ success: false, message: error.message });
-    }
-});
-
-// ============================================
-// SAVE GRAPH
-// ============================================
-app.post('/api/graph/save', authenticateUser, async (req, res) => {
-    try {
-        const userId = req.user.id;
-        const { expression, graph_type, range, xRoots, yRoots, turningPoints } = req.body;
-        
-        console.log(`📈 Saving graph for user ${userId}: ${expression}`);
-        
-        // Create table if not exists
-        await promisePool.execute(`
-            CREATE TABLE IF NOT EXISTS saved_graphs (
-                graph_id INT AUTO_INCREMENT PRIMARY KEY,
-                user_id INT NOT NULL,
-                expression TEXT NOT NULL,
-                graph_type VARCHAR(50) DEFAULT 'polynomial',
-                range_min FLOAT DEFAULT -5,
-                range_max FLOAT DEFAULT 5,
-                x_roots JSON,
-                y_roots JSON,
-                turning_points JSON,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                FOREIGN KEY (user_id) REFERENCES users(user_id) ON DELETE CASCADE
-            )
-        `);
-        
-        await promisePool.execute(
-            `INSERT INTO saved_graphs 
-             (user_id, expression, graph_type, range_min, range_max, x_roots, y_roots, turning_points) 
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-            [
-                userId, 
-                expression, 
-                graph_type || 'polynomial',
-                range?.min || -5,
-                range?.max || 5,
-                JSON.stringify(xRoots || []),
-                JSON.stringify(yRoots || []),
-                JSON.stringify(turningPoints || [])
-            ]
-        );
-        
-        res.json({ success: true });
-        
-    } catch (error) {
-        console.error('❌ Error saving graph:', error);
-        res.status(500).json({ success: false, message: error.message });
-    }
-});
-
-// ============================================
-// SAVE WHITEBOARD
-// ============================================
-app.post('/api/whiteboard/save', authenticateUser, async (req, res) => {
-    try {
-        const userId = req.user.id;
-        const { image_data, title } = req.body;
-        
-        console.log(`🎨 Saving whiteboard for user ${userId}`);
-        
-        // Create table if not exists
-        await promisePool.execute(`
-            CREATE TABLE IF NOT EXISTS saved_whiteboards (
-                whiteboard_id INT AUTO_INCREMENT PRIMARY KEY,
-                user_id INT NOT NULL,
-                title VARCHAR(255),
-                image_data LONGTEXT,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                FOREIGN KEY (user_id) REFERENCES users(user_id) ON DELETE CASCADE
-            )
-        `);
-        
-        await promisePool.execute(
-            'INSERT INTO saved_whiteboards (user_id, title, image_data) VALUES (?, ?, ?)',
-            [userId, title || 'Untitled', image_data]
-        );
-        
-        res.json({ success: true });
-        
-    } catch (error) {
-        console.error('❌ Error saving whiteboard:', error);
-        res.status(500).json({ success: false, message: error.message });
-    }
-});
-
-// ============================================
-// SAVE NOTE
-// ============================================
-app.post('/api/notes/save', authenticateUser, async (req, res) => {
-    try {
-        const userId = req.user.id;
-        const { title, content, lesson_id } = req.body;
-        
-        console.log(`📝 Saving note for user ${userId}: ${title}`);
-        
-        // Create table if not exists
-        await promisePool.execute(`
-            CREATE TABLE IF NOT EXISTS saved_notes (
-                note_id INT AUTO_INCREMENT PRIMARY KEY,
-                user_id INT NOT NULL,
-                lesson_id INT,
-                title VARCHAR(255),
-                content TEXT,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-                FOREIGN KEY (user_id) REFERENCES users(user_id) ON DELETE CASCADE,
-                FOREIGN KEY (lesson_id) REFERENCES lessons(lesson_id) ON DELETE SET NULL
-            )
-        `);
-        
-        await promisePool.execute(
-            'INSERT INTO saved_notes (user_id, lesson_id, title, content) VALUES (?, ?, ?, ?)',
-            [userId, lesson_id || null, title || 'Untitled', content]
-        );
-        
-        // Log activity
-        await logUserActivity(userId, 'note_saved', null, {
-            note_title: title,
-            lesson_id: lesson_id
-        });
-        
-        res.json({ success: true, note_id: result.insertId });
-        
-    } catch (error) {
-        console.error('❌ Error saving note:', error);
-        res.status(500).json({ success: false, message: error.message });
-    }
-});
-
-// ============================================
-// GET NOTES FOR LESSON
-// ============================================
-app.get('/api/notes/lesson/:lessonId', authenticateUser, async (req, res) => {
-    try {
-        const userId = req.user.id;
-        const { lessonId } = req.params;
-        
-        const [notes] = await promisePool.execute(
-            'SELECT * FROM saved_notes WHERE user_id = ? AND lesson_id = ? ORDER BY created_at DESC',
-            [userId, lessonId]
-        );
-        
-        res.json({
-            success: true,
-            notes: notes
-        });
-        
-    } catch (error) {
-        console.error('❌ Error fetching notes:', error);
-        res.status(500).json({ success: false, message: error.message });
-    }
-});
-
-// ============================================
-// SAVE TIMER SESSION
-// ============================================
-app.post('/api/timer/save', authenticateUser, async (req, res) => {
-    try {
-        const userId = req.user.id;
-        const { duration_minutes, session_type, completed } = req.body;
-        
-        console.log(`⏱️ Saving timer session for user ${userId}: ${duration_minutes} minutes`);
-        
-        // Create table if not exists
-        await promisePool.execute(`
-            CREATE TABLE IF NOT EXISTS timer_sessions (
-                session_id INT AUTO_INCREMENT PRIMARY KEY,
-                user_id INT NOT NULL,
-                duration_minutes INT NOT NULL,
-                session_type VARCHAR(50) DEFAULT 'study',
-                completed BOOLEAN DEFAULT TRUE,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                FOREIGN KEY (user_id) REFERENCES users(user_id) ON DELETE CASCADE
-            )
-        `);
-        
-        await promisePool.execute(
-            'INSERT INTO timer_sessions (user_id, duration_minutes, session_type, completed) VALUES (?, ?, ?, ?)',
-            [userId, duration_minutes, session_type || 'study', completed !== false ? 1 : 0]
-        );
-        
-        // Update user progress time
-        await promisePool.execute(`
-            UPDATE user_progress 
-            SET total_time_spent_minutes = total_time_spent_minutes + ?
-            WHERE user_id = ?
-        `, [duration_minutes, userId]);
-        
-        // Log activity
-        await logUserActivity(userId, 'timer_session', null, {
-            duration: duration_minutes,
-            type: session_type
-        }, duration_minutes);
-        
-        res.json({ success: true });
-        
-    } catch (error) {
-        console.error('❌ Error saving timer session:', error);
-        res.status(500).json({ success: false, message: error.message });
-    }
-});
 
 // ============================================
 // ✅ FIXED: GET PRACTICE EXERCISES COUNT BY LESSON ID - NO AUTH REQUIRED
@@ -1449,6 +1183,274 @@ app.post('/api/auth/register', async (req, res) => {
         });
     }
 });
+
+// ============================================
+// 🧮 TOOL ENDPOINTS - FOR LESSON DASHBOARD
+// ============================================
+
+// ============================================
+// SAVE CALCULATOR HISTORY
+// ============================================
+app.post('/api/calculator/save', authenticateUser, async (req, res) => {
+    try {
+        const userId = req.user.id;
+        const { expression, result } = req.body;
+        
+        console.log(`🧮 Saving calculation for user ${userId}: ${expression} = ${result}`);
+        
+        // Check if calculator_history table exists, create if not
+        await promisePool.execute(`
+            CREATE TABLE IF NOT EXISTS calculator_history (
+                history_id INT AUTO_INCREMENT PRIMARY KEY,
+                user_id INT NOT NULL,
+                expression TEXT NOT NULL,
+                result VARCHAR(255) NOT NULL,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (user_id) REFERENCES users(user_id) ON DELETE CASCADE,
+                INDEX idx_user_history (user_id, created_at)
+            )
+        `);
+        
+        await promisePool.execute(
+            'INSERT INTO calculator_history (user_id, expression, result) VALUES (?, ?, ?)',
+            [userId, expression, result]
+        );
+        
+        res.json({ success: true });
+        
+    } catch (error) {
+        console.error('❌ Error saving calculator history:', error);
+        res.status(500).json({ success: false, message: error.message });
+    }
+});
+
+// ============================================
+// GET CALCULATOR HISTORY
+// ============================================
+app.get('/api/calculator/history', authenticateUser, async (req, res) => {
+    try {
+        const userId = req.user.id;
+        const { limit = 10 } = req.query;
+        
+        const [history] = await promisePool.execute(
+            'SELECT * FROM calculator_history WHERE user_id = ? ORDER BY created_at DESC LIMIT ?',
+            [userId, parseInt(limit)]
+        );
+        
+        res.json({
+            success: true,
+            history: history
+        });
+        
+    } catch (error) {
+        console.error('❌ Error fetching calculator history:', error);
+        res.status(500).json({ success: false, message: error.message });
+    }
+});
+
+// ============================================
+// SAVE GRAPH
+// ============================================
+app.post('/api/graph/save', authenticateUser, async (req, res) => {
+    try {
+        const userId = req.user.id;
+        const { expression, graph_type, range, xRoots, yRoots, turningPoints } = req.body;
+        
+        console.log(`📈 Saving graph for user ${userId}: ${expression}`);
+        
+        // Create table if not exists
+        await promisePool.execute(`
+            CREATE TABLE IF NOT EXISTS saved_graphs (
+                graph_id INT AUTO_INCREMENT PRIMARY KEY,
+                user_id INT NOT NULL,
+                expression TEXT NOT NULL,
+                graph_type VARCHAR(50) DEFAULT 'polynomial',
+                range_min FLOAT DEFAULT -5,
+                range_max FLOAT DEFAULT 5,
+                x_roots JSON,
+                y_roots JSON,
+                turning_points JSON,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (user_id) REFERENCES users(user_id) ON DELETE CASCADE
+            )
+        `);
+        
+        await promisePool.execute(
+            `INSERT INTO saved_graphs 
+             (user_id, expression, graph_type, range_min, range_max, x_roots, y_roots, turning_points) 
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+            [
+                userId, 
+                expression, 
+                graph_type || 'polynomial',
+                range?.min || -5,
+                range?.max || 5,
+                JSON.stringify(xRoots || []),
+                JSON.stringify(yRoots || []),
+                JSON.stringify(turningPoints || [])
+            ]
+        );
+        
+        res.json({ success: true });
+        
+    } catch (error) {
+        console.error('❌ Error saving graph:', error);
+        res.status(500).json({ success: false, message: error.message });
+    }
+});
+
+// ============================================
+// SAVE WHITEBOARD
+// ============================================
+app.post('/api/whiteboard/save', authenticateUser, async (req, res) => {
+    try {
+        const userId = req.user.id;
+        const { image_data, title } = req.body;
+        
+        console.log(`🎨 Saving whiteboard for user ${userId}`);
+        
+        // Create table if not exists
+        await promisePool.execute(`
+            CREATE TABLE IF NOT EXISTS saved_whiteboards (
+                whiteboard_id INT AUTO_INCREMENT PRIMARY KEY,
+                user_id INT NOT NULL,
+                title VARCHAR(255),
+                image_data LONGTEXT,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (user_id) REFERENCES users(user_id) ON DELETE CASCADE
+            )
+        `);
+        
+        await promisePool.execute(
+            'INSERT INTO saved_whiteboards (user_id, title, image_data) VALUES (?, ?, ?)',
+            [userId, title || 'Untitled', image_data]
+        );
+        
+        res.json({ success: true });
+        
+    } catch (error) {
+        console.error('❌ Error saving whiteboard:', error);
+        res.status(500).json({ success: false, message: error.message });
+    }
+});
+
+// ============================================
+// SAVE NOTE
+// ============================================
+app.post('/api/notes/save', authenticateUser, async (req, res) => {
+    try {
+        const userId = req.user.id;
+        const { title, content, lesson_id } = req.body;
+        
+        console.log(`📝 Saving note for user ${userId}: ${title}`);
+        
+        // Create table if not exists
+        await promisePool.execute(`
+            CREATE TABLE IF NOT EXISTS saved_notes (
+                note_id INT AUTO_INCREMENT PRIMARY KEY,
+                user_id INT NOT NULL,
+                lesson_id INT,
+                title VARCHAR(255),
+                content TEXT,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                FOREIGN KEY (user_id) REFERENCES users(user_id) ON DELETE CASCADE,
+                FOREIGN KEY (lesson_id) REFERENCES lessons(lesson_id) ON DELETE SET NULL
+            )
+        `);
+        
+        await promisePool.execute(
+            'INSERT INTO saved_notes (user_id, lesson_id, title, content) VALUES (?, ?, ?, ?)',
+            [userId, lesson_id || null, title || 'Untitled', content]
+        );
+        
+        // Log activity
+        await logUserActivity(userId, 'note_saved', null, {
+            note_title: title,
+            lesson_id: lesson_id
+        });
+        
+        res.json({ success: true, note_id: result.insertId });
+        
+    } catch (error) {
+        console.error('❌ Error saving note:', error);
+        res.status(500).json({ success: false, message: error.message });
+    }
+});
+
+// ============================================
+// GET NOTES FOR LESSON
+// ============================================
+app.get('/api/notes/lesson/:lessonId', authenticateUser, async (req, res) => {
+    try {
+        const userId = req.user.id;
+        const { lessonId } = req.params;
+        
+        const [notes] = await promisePool.execute(
+            'SELECT * FROM saved_notes WHERE user_id = ? AND lesson_id = ? ORDER BY created_at DESC',
+            [userId, lessonId]
+        );
+        
+        res.json({
+            success: true,
+            notes: notes
+        });
+        
+    } catch (error) {
+        console.error('❌ Error fetching notes:', error);
+        res.status(500).json({ success: false, message: error.message });
+    }
+});
+
+// ============================================
+// SAVE TIMER SESSION
+// ============================================
+app.post('/api/timer/save', authenticateUser, async (req, res) => {
+    try {
+        const userId = req.user.id;
+        const { duration_minutes, session_type, completed } = req.body;
+        
+        console.log(`⏱️ Saving timer session for user ${userId}: ${duration_minutes} minutes`);
+        
+        // Create table if not exists
+        await promisePool.execute(`
+            CREATE TABLE IF NOT EXISTS timer_sessions (
+                session_id INT AUTO_INCREMENT PRIMARY KEY,
+                user_id INT NOT NULL,
+                duration_minutes INT NOT NULL,
+                session_type VARCHAR(50) DEFAULT 'study',
+                completed BOOLEAN DEFAULT TRUE,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (user_id) REFERENCES users(user_id) ON DELETE CASCADE
+            )
+        `);
+        
+        await promisePool.execute(
+            'INSERT INTO timer_sessions (user_id, duration_minutes, session_type, completed) VALUES (?, ?, ?, ?)',
+            [userId, duration_minutes, session_type || 'study', completed !== false ? 1 : 0]
+        );
+        
+        // Update user progress time
+        await promisePool.execute(`
+            UPDATE user_progress 
+            SET total_time_spent_minutes = total_time_spent_minutes + ?
+            WHERE user_id = ?
+        `, [duration_minutes, userId]);
+        
+        // Log activity
+        await logUserActivity(userId, 'timer_session', null, {
+            duration: duration_minutes,
+            type: session_type
+        }, duration_minutes);
+        
+        res.json({ success: true });
+        
+    } catch (error) {
+        console.error('❌ Error saving timer session:', error);
+        res.status(500).json({ success: false, message: error.message });
+    }
+});
+
 
 
 // ============================================
