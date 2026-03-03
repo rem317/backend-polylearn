@@ -10261,129 +10261,105 @@ async function loadQuizStatsFromServer() {
 
 
 // ============================================
-// ✅ ULTIMATE FIX: Load quiz categories - WITH MULTIPLE FALLBACKS
+// ✅ FIXED: Load quiz categories - WITH CONTAINER CREATION
 // ============================================
 async function loadQuizCategories() {
-    console.log('📚 Loading quiz categories - ULTIMATE FIX VERSION...');
+    console.log('📚 Loading quiz categories...');
     
     try {
         const token = localStorage.getItem('authToken') || authToken;
         if (!token) {
             console.warn('No auth token available');
-            showQuizCategoriesFallback();
             return [];
         }
         
-        const currentLessonId = POLYLEARN_LESSON_ID || 2;
+        const currentLessonId = 2; // Force to PolyLearn
+        
         console.log(`🎯 Loading categories for PolyLearn, lesson_id: ${currentLessonId}`);
         
-        // Show loading state
-        const categoriesContainer = document.getElementById('quizCategoriesGrid');
+        // Show loading state sa container (kung may existing)
+        let categoriesContainer = document.getElementById('quizCategoriesGrid');
         if (categoriesContainer) {
             categoriesContainer.innerHTML = `
                 <div style="grid-column: 1/-1; text-align: center; padding: 40px;">
                     <i class="fas fa-spinner fa-spin" style="font-size: 40px; color: #7a0000;"></i>
-                    <p style="margin-top: 15px; color: #666;">Loading quiz categories from database...</p>
+                    <p style="margin-top: 15px; color: #666;">Loading quiz categories...</p>
                 </div>
             `;
         }
         
-        // TRY MULTIPLE ENDPOINTS
-        let categories = null;
-        let success = false;
+        // TRY WITH LESSON_ID
+        let endpoint = `/api/quiz/categories?lesson_id=${currentLessonId}`;
+        console.log(`📡 Fetching from: ${endpoint}`);
         
-        // ENDPOINT 1: With lesson_id
-        try {
-            console.log('📡 Trying endpoint 1: /api/quiz/categories?lesson_id=' + currentLessonId);
-            const response1 = await fetch(`/api/quiz/categories?lesson_id=${currentLessonId}`, {
+        let response = await fetch(endpoint, {
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Accept': 'application/json'
+            }
+        });
+        
+        // If 500 error, try without lesson_id
+        if (response.status === 500) {
+            console.log('⚠️ Server error with lesson_id, trying without...');
+            response = await fetch('/api/quiz/categories', {
                 headers: {
                     'Authorization': `Bearer ${token}`,
                     'Accept': 'application/json'
                 }
             });
+        }
+        
+        if (!response.ok) {
+            throw new Error(`Failed to fetch categories: ${response.status}`);
+        }
+        
+        const data = await response.json();
+        console.log('📥 Quiz categories response:', data);
+        
+        if (data.success && data.categories) {
+            let categories = data.categories;
             
-            if (response1.ok) {
-                const data1 = await response1.json();
-                if (data1.success && data1.categories) {
-                    categories = data1.categories;
-                    success = true;
-                    console.log(`✅ Endpoint 1 success: ${categories.length} categories`);
-                }
-            } else {
-                console.log(`⚠️ Endpoint 1 failed: ${response1.status}`);
-            }
-        } catch (e) {
-            console.log('⚠️ Endpoint 1 error:', e.message);
-        }
-        
-        // ENDPOINT 2: Without lesson_id (fallback)
-        if (!success) {
-            try {
-                console.log('📡 Trying endpoint 2: /api/quiz/categories (no params)');
-                const response2 = await fetch('/api/quiz/categories', {
-                    headers: {
-                        'Authorization': `Bearer ${token}`,
-                        'Accept': 'application/json'
-                    }
-                });
-                
-                if (response2.ok) {
-                    const data2 = await response2.json();
-                    if (data2.success && data2.categories) {
-                        // Filter on client side
-                        categories = data2.categories.filter(cat => {
-                            const catLessonId = cat.lesson_id || cat.lessonId;
-                            return catLessonId == currentLessonId || !catLessonId;
-                        });
-                        success = true;
-                        console.log(`✅ Endpoint 2 success: filtered to ${categories.length} categories`);
-                    }
-                } else {
-                    console.log(`⚠️ Endpoint 2 failed: ${response2.status}`);
-                }
-            } catch (e) {
-                console.log('⚠️ Endpoint 2 error:', e.message);
-            }
-        }
-        
-        // ENDPOINT 3: Hardcoded fallback
-        if (!success) {
-            console.log('📡 Using hardcoded fallback categories');
-            categories = getHardcodedCategories();
-            success = true;
-        }
-        
-        // Display categories
-        if (success && categories && categories.length > 0) {
-            console.log(`✅ FINAL: Displaying ${categories.length} categories`);
+            // Filter for lesson_id=2 on client side
+            categories = categories.filter(cat => {
+                const catLessonId = cat.lesson_id || cat.lessonId;
+                return catLessonId == currentLessonId || !catLessonId;
+            });
+            
+            console.log(`✅ Found ${categories.length} categories for PolyLearn`);
             
             // Store in QuizState
             if (!window.QuizState) window.QuizState = {};
             window.QuizState.quizCategories = categories;
             
-            // Display
+            // Display the categories (container will be created if missing)
             displayQuizCategories(categories);
+            
             return categories;
         } else {
-            console.log('❌ No categories available');
-            if (categoriesContainer) {
-                categoriesContainer.innerHTML = `
-                    <div class="no-categories" style="grid-column: 1/-1; text-align: center; padding: 60px 20px;">
-                        <i class="fas fa-folder-open" style="font-size: 64px; color: #ccc; margin-bottom: 20px;"></i>
-                        <h3 style="color: #666; margin-bottom: 10px;">No Quiz Categories Available</h3>
-                        <p style="color: #999; margin-bottom: 20px;">There are no quiz categories for PolyLearn yet.</p>
-                        <button class="btn-primary" onclick="loadQuizCategories()" style="background: #7a0000; color: white; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer;">
-                            <i class="fas fa-redo"></i> Refresh
-                        </button>
-                    </div>
-                `;
-            }
+            console.log('ℹ️ No categories returned');
+            displayQuizCategories([]);
             return [];
         }
         
     } catch (error) {
-        console.error('❌ Fatal error in loadQuizCategories:', error);
-        showQuizCategoriesFallback();
+        console.error('❌ Error loading quiz categories:', error);
+        
+        // Show error in container if exists
+        const categoriesContainer = document.getElementById('quizCategoriesGrid');
+        if (categoriesContainer) {
+            categoriesContainer.innerHTML = `
+                <div style="grid-column: 1/-1; text-align: center; padding: 40px;">
+                    <i class="fas fa-exclamation-triangle" style="font-size: 48px; color: #e74c3c; margin-bottom: 15px;"></i>
+                    <h3 style="color: #666;">Failed to load categories</h3>
+                    <p style="color: #999;">${error.message}</p>
+                    <button class="btn-primary" onclick="loadQuizCategories()" style="margin-top: 15px;">
+                        <i class="fas fa-redo"></i> Try Again
+                    </button>
+                </div>
+            `;
+        }
+        
         return [];
     }
 }
@@ -10484,7 +10460,7 @@ function displayQuizCategories(categories) {
     // ✅ FIND OR CREATE the categories container
     let categoriesContainer = document.getElementById('quizCategoriesGrid');
     
-    // If container doesn't exist, CREATE IT
+    // If container doesn't exist, CREATE IT and insert it in the right place
     if (!categoriesContainer) {
         console.log('⚠️ Categories container not found - CREATING ONE NOW');
         
@@ -10495,14 +10471,14 @@ function displayQuizCategories(categories) {
             return;
         }
         
-        // Find or create the container div
-        const container = quizDashboard.querySelector('.container');
-        if (!container) {
-            console.error('❌ Container div not found in quiz dashboard');
+        // Find the quiz container
+        const quizContainer = quizDashboard.querySelector('.quiz-container');
+        if (!quizContainer) {
+            console.error('❌ Quiz container not found');
             return;
         }
         
-        // Create the categories grid
+        // Create the categories container
         categoriesContainer = document.createElement('div');
         categoriesContainer.id = 'quizCategoriesGrid';
         categoriesContainer.className = 'categories-grid';
@@ -10510,12 +10486,20 @@ function displayQuizCategories(categories) {
             display: grid;
             grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
             gap: 20px;
-            padding: 20px 0;
+            margin-bottom: 30px;
         `;
         
-        // Insert at the beginning of the container
-        container.insertBefore(categoriesContainer, container.firstChild);
-        console.log('✅ Created quizCategoriesGrid element');
+        // Insert it BEFORE the quiz stats row or at the beginning of quiz container
+        const quizStatsRow = quizContainer.querySelector('.quiz-stats-row');
+        if (quizStatsRow) {
+            // Insert after stats row
+            quizStatsRow.insertAdjacentElement('afterend', categoriesContainer);
+        } else {
+            // Insert at the beginning of quiz container
+            quizContainer.insertBefore(categoriesContainer, quizContainer.firstChild);
+        }
+        
+        console.log('✅ Created and inserted quizCategoriesGrid element');
     }
     
     // Clear the container
@@ -10524,7 +10508,7 @@ function displayQuizCategories(categories) {
     // Handle empty categories
     if (!categories || categories.length === 0) {
         categoriesContainer.innerHTML = `
-            <div class="no-categories" style="grid-column: 1/-1; text-align: center; padding: 60px 20px; background: white; border-radius: 10px;">
+            <div style="grid-column: 1/-1; text-align: center; padding: 60px 20px; background: white; border-radius: 10px; box-shadow: 0 4px 12px rgba(0,0,0,0.1);">
                 <i class="fas fa-folder-open" style="font-size: 64px; color: #ccc; margin-bottom: 20px;"></i>
                 <h3 style="color: #666; margin-bottom: 10px;">No Quiz Categories Available</h3>
                 <p style="color: #999; margin-bottom: 20px;">Check back later for new quiz categories!</p>
@@ -10554,23 +10538,23 @@ function displayQuizCategories(categories) {
                         display: flex; align-items: center; gap: 20px; border: 2px solid transparent;
                         position: relative; overflow: hidden;">
                 
-                <div class="quiz-category-icon" style="width: 70px; height: 70px; 
+                <div style="width: 70px; height: 70px; 
                      background: ${categoryColor}; border-radius: 12px; display: flex; 
                      align-items: center; justify-content: center; font-size: 28px; color: white;
                      box-shadow: 0 4px 10px ${categoryColor}40;">
                     <i class="fas ${categoryIcon}"></i>
                 </div>
                 
-                <div class="quiz-category-info" style="flex: 1;">
-                    <h3 class="quiz-category-title" style="margin: 0 0 5px 0; color: #2c3e50; font-size: 18px;">
+                <div style="flex: 1;">
+                    <h3 style="margin: 0 0 5px 0; color: #2c3e50; font-size: 18px;">
                         ${categoryName}
                     </h3>
-                    <p class="quiz-category-desc" style="margin: 0 0 12px 0; color: #6c757d; font-size: 14px; line-height: 1.5;">
+                    <p style="margin: 0 0 12px 0; color: #6c757d; font-size: 14px; line-height: 1.5;">
                         ${categoryDesc}
                     </p>
                     
-                    <div class="quiz-category-stats" style="display: flex; gap: 20px; font-size: 13px; color: #7f8c8d;">
-                        <span class="quiz-category-stat" style="display: flex; align-items: center; gap: 5px;">
+                    <div style="display: flex; gap: 20px; font-size: 13px; color: #7f8c8d;">
+                        <span style="display: flex; align-items: center; gap: 5px;">
                             <i class="fas fa-question-circle" style="color: #3498db;"></i> ${totalQuizzes} Quizzes
                         </span>
                     </div>
