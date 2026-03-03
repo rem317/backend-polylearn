@@ -4142,33 +4142,76 @@ function completeExercise(topicName) {
     // Show success message
     showNotification('Exercise completed! 🎉');
 }
-// Replace the fetchDailyProgress function starting at line 98:
+// ============================================
+// ✅ FIXED: Fetch daily progress - POLYLEARN ONLY
+// ============================================
 async function fetchDailyProgress() {
     try {
-        console.log('📊 Fetching daily progress...');
+        console.log('📊 Fetching PolyLearn daily progress...');
         
-        const data = await apiRequest('/api/progress/daily');
+        const token = localStorage.getItem('authToken') || authToken;
+        if (!token) return getDefaultPolyLearnDailyProgress();
         
-        if (data.success) {
-            console.log('✅ Daily progress loaded');
-            ProgressState.dailyProgress = data.progress || {};
-            
-            return {
-                lessons_completed: data.progress?.lessons_completed || 0,
-                exercises_completed: data.progress?.exercises_completed || 0,
-                points_earned: data.progress?.points_earned || 0,
-                time_spent_minutes: data.progress?.time_spent_minutes || 0,
-                streak_days: data.progress?.streak_maintained || 0
-            };
-        } else {
-            return getDefaultProgress();
-        }
+        const POLYLEARN_LESSON_ID = 2;
+        const today = new Date().toISOString().split('T')[0];
+        
+        // Get today's practice attempts for PolyLearn
+        const [practiceToday] = await promisePool.query(`
+            SELECT COUNT(*) as count
+            FROM practice_attempts pa
+            JOIN practice_exercises pe ON pa.exercise_id = pe.exercise_id
+            WHERE pa.user_id = ? 
+            AND DATE(pa.created_at) = CURDATE()
+            AND pe.lesson_id = ?
+        `, [userId, POLYLEARN_LESSON_ID]);
+        
+        // Get today's lesson completions for PolyLearn
+        const [lessonsToday] = await promisePool.query(`
+            SELECT COUNT(*) as count
+            FROM user_content_progress ucp
+            JOIN topic_content_items tci ON ucp.content_id = tci.content_id
+            WHERE ucp.user_id = ? 
+            AND ucp.completion_status = 'completed' 
+            AND DATE(ucp.completed_at) = CURDATE()
+            AND tci.lesson_id = ?
+        `, [userId, POLYLEARN_LESSON_ID]);
+        
+        // Get today's quiz completions for PolyLearn
+        const [quizzesToday] = await promisePool.query(`
+            SELECT COUNT(*) as count
+            FROM user_quiz_attempts uqa
+            JOIN quizzes q ON uqa.quiz_id = q.quiz_id
+            WHERE uqa.user_id = ? 
+            AND uqa.completion_status = 'completed' 
+            AND DATE(uqa.end_time) = CURDATE()
+            AND q.lesson_id = ?
+        `, [userId, POLYLEARN_LESSON_ID]);
+        
+        return {
+            lessons_completed: lessonsToday[0]?.count || 0,
+            exercises_completed: practiceToday[0]?.count || 0,
+            quizzes_completed: quizzesToday[0]?.count || 0,
+            points_earned: (lessonsToday[0]?.count * 50) + (practiceToday[0]?.count * 10) + (quizzesToday[0]?.count * 20),
+            time_spent_minutes: 0,
+            streak_maintained: 0
+        };
+        
     } catch (error) {
         console.error('Error fetching daily progress:', error);
-        return getDefaultProgress();
+        return getDefaultPolyLearnDailyProgress();
     }
 }
 
+function getDefaultPolyLearnDailyProgress() {
+    return {
+        lessons_completed: 0,
+        exercises_completed: 0,
+        quizzes_completed: 0,
+        points_earned: 0,
+        time_spent_minutes: 0,
+        streak_maintained: 0
+    };
+}
 
 
 function handleActivityResponse(data) {
@@ -4187,9 +4230,75 @@ function handleActivityResponse(data) {
         return [];
     }
 }
+// Helper function para sa PolyLearn practice stats
+async function fetchPolyLearnPracticeStats(userId) {
+    try {
+        const POLYLEARN_LESSON_ID = 2;
+        const [stats] = await promisePool.query(`
+            SELECT 
+                COUNT(DISTINCT CASE WHEN completion_status = 'completed' THEN exercise_id END) as exercises_completed,
+                COUNT(*) as total_attempts,
+                COALESCE(AVG(score), 0) as average_score,
+                COALESCE(SUM(time_spent_seconds), 0) as total_time_seconds
+            FROM user_practice_progress upp
+            JOIN practice_exercises pe ON upp.exercise_id = pe.exercise_id
+            WHERE upp.user_id = ? AND pe.lesson_id = ?
+        `, [userId, POLYLEARN_LESSON_ID]);
+        
+        return stats[0] || {
+            exercises_completed: 0,
+            total_attempts: 0,
+            average_score: 0,
+            total_time_seconds: 0
+        };
+    } catch (error) {
+        console.error('Error fetching practice stats:', error);
+        return {};
+    }
+}
+
+// Helper function para sa PolyLearn quiz stats
+async function fetchPolyLearnQuizStats(userId) {
+    try {
+        const POLYLEARN_LESSON_ID = 2;
+        const [stats] = await promisePool.query(`
+            SELECT 
+                COUNT(*) as quizzes_completed,
+                COALESCE(SUM(score), 0) as total_points,
+                COALESCE(AVG(score), 0) as avg_score
+            FROM user_quiz_attempts uqa
+            JOIN quizzes q ON uqa.quiz_id = q.quiz_id
+            WHERE uqa.user_id = ? 
+            AND uqa.completion_status = 'completed'
+            AND q.lesson_id = ?
+        `, [userId, POLYLEARN_LESSON_ID]);
+        
+        return stats[0] || {
+            quizzes_completed: 0,
+            total_points: 0,
+            avg_score: 0
+        };
+    } catch (error) {
+        console.error('Error fetching quiz stats:', error);
+        return {};
+    }
+}
+
+function getDefaultPolyLearnProgress() {
+    return {
+        lessons_completed: 0,
+        total_lessons: 10,
+        percentage: 0,
+        total_points: 0,
+        practice_completed: 0,
+        quizzes_completed: 0,
+        total_time_spent_minutes: 0,
+        average_time: 0
+    };
+}
 
 // ============================================
-// ✅ FIXED: fetchCumulativeProgress - FASTER RESPONSE
+// ✅ FIXED: Fetch cumulative progress - POLYLEARN ONLY (lesson_id=2)
 // ============================================
 async function fetchCumulativeProgress() {
     try {
@@ -4197,71 +4306,76 @@ async function fetchCumulativeProgress() {
         
         if (!token) {
             console.warn('❌ No auth token available');
-            return getDefaultProgress();
+            return getDefaultPolyLearnProgress();
         }
         
-        console.log('📊 Fetching cumulative progress...');
+        console.log('📊 Fetching PolyLearn cumulative progress...');
         
-        const response = await fetch(`/api/progress/overall`, {
-            headers: { 'Authorization': `Bearer ${token}` }
-        });
+        const POLYLEARN_LESSON_ID = 2;
         
-        if (response.ok) {
-            const data = await response.json();
+        // Fetch lessons completed for PolyLearn only
+        const [lessonsCompleted, totalPolyLessons, userProgress] = await Promise.all([
+            // Lessons completed in PolyLearn
+            promisePool.query(`
+                SELECT COUNT(DISTINCT ucp.content_id) as count
+                FROM user_content_progress ucp
+                JOIN topic_content_items tci ON ucp.content_id = tci.content_id
+                WHERE ucp.user_id = ? 
+                AND ucp.completion_status = 'completed'
+                AND tci.lesson_id = ?
+            `, [userId, POLYLEARN_LESSON_ID]),
             
-            if (data.success) {
-                console.log('✅ Overall progress loaded:', data.overall);
-                
-                // Convert seconds to minutes
-                const totalSeconds = data.overall.total_time_spent_minutes || 0;
-                const totalMinutes = Math.floor(totalSeconds / 60);
-                
-                // Calculate average time per activity
-                const totalActivities = (data.overall.lessons_completed || 0) + 
-                                       (data.overall.practice_completed || 0) + 
-                                       (data.overall.quizzes_completed || 0);
-                
-                const avgPerActivity = totalActivities > 0 
-                    ? Math.round(totalMinutes / totalActivities) 
-                    : 5;
-                
-                // Calculate weekly improvement
-                const weeklyImprovement = calculateWeeklyImprovement(data.overall);
-                
-                const progress = {
-                    total_lessons_completed: data.overall.lessons_completed || 0,
-                    total_lessons: data.overall.total_lessons || 20,
-                    overall_percentage: data.overall.percentage || 0,
-                    exercises_completed: data.overall.practice_completed || 0,
-                    total_quizzes_completed: data.overall.quizzes_completed || 0,
-                    total_points_earned: data.overall.total_points || 0,
-                    total_time_spent_minutes: totalMinutes,
-                    weekly_time_spent: data.overall.weekly?.minutes || 0,
-                    avg_time_per_activity: avgPerActivity,
-                    weekly_improvement: weeklyImprovement,
-                    total_time_display: formatTime(totalMinutes),
-                    streak_days: data.overall.streak_days || 1,
-                    weekly: data.overall.weekly || { lessons: 0, exercises: 0, quizzes: 0, points: 0, minutes: 0 }
-                };
-                
-                console.log(`📊 Progress loaded - Lessons: ${progress.total_lessons_completed}/${progress.total_lessons}`);
-                
-                ProgressState.cumulativeProgress = progress;
-                
-                // IMMEDIATELY update display
-                updateOverallProgressDisplay(progress);
-                
-                return progress;
-            }
-        }
+            // Total PolyLearn lessons available
+            promisePool.query(`
+                SELECT COUNT(*) as count 
+                FROM topic_content_items 
+                WHERE is_active = 1 AND lesson_id = ?
+            `, [POLYLEARN_LESSON_ID]),
+            
+            // User progress for average time (PolyLearn only)
+            promisePool.query(`
+                SELECT average_time 
+                FROM user_progress 
+                WHERE user_id = ?
+            `, [userId])
+        ]);
         
-        return getDefaultProgress();
+        // Calculate values
+        const completed = lessonsCompleted[0]?.[0]?.count || 0;
+        const total = totalPolyLessons[0]?.[0]?.count || 1;
+        const percentage = Math.min(100, Math.round((completed / total) * 100));
+        
+        // Get practice stats for PolyLearn
+        const practiceStats = await fetchPolyLearnPracticeStats(userId);
+        
+        // Get quiz stats for PolyLearn
+        const quizStats = await fetchPolyLearnQuizStats(userId);
+        
+        const response = {
+            success: true,
+            overall: {
+                lessons_completed: completed,
+                total_lessons: total,
+                percentage: percentage,
+                bar_width: `${percentage}%`,
+                bar_class: percentage >= 70 ? 'progress-good' : (percentage >= 40 ? 'progress-medium' : 'progress-low'),
+                total_points: quizStats.total_points || 0,
+                practice_completed: practiceStats.exercises_completed || 0,
+                quizzes_completed: quizStats.quizzes_completed || 0,
+                total_time_spent_minutes: practiceStats.total_time_seconds || 0,
+                average_time: userProgress[0]?.[0]?.average_time || 0
+            }
+        };
+        
+        console.log('✅ PolyLearn progress loaded:', response.overall);
+        return response.overall;
         
     } catch (error) {
         console.error('❌ Error in fetchCumulativeProgress:', error);
-        return getDefaultProgress();
+        return getDefaultPolyLearnProgress();
     }
 }
+
 // Helper function to calculate weekly improvement
 function calculateWeeklyImprovement(data) {
     // Get this week's activities
@@ -6313,53 +6427,63 @@ function updateProgressDashboardUI() {
 }
 
 // ============================================
-// ✅ FIXED: updateProgressSummaryCards - WITH AVG TIME
+// ✅ FIXED: Update progress summary cards - POLYLEARN ONLY
 // ============================================
 async function updateProgressSummaryCards() {
-    console.log('📊 Updating progress summary cards with database data...');
+    console.log('📊 Updating PolyLearn progress summary cards...');
     
     try {
         const token = localStorage.getItem('authToken') || authToken;
         if (!token) return;
         
-        const [progressData, practiceStats, totalExercisesCount] = await Promise.all([
-            fetchCumulativeProgress(),
-            fetchPracticeStatistics(),
-            fetchTotalExercisesCount()
-        ]);
+        const POLYLEARN_LESSON_ID = 2;
         
-        console.log('📊 Progress data received:', progressData);
+        // Fetch PolyLearn-specific data
+        const [polyLessons, polyPractice, polyQuizzes] = await Promise.all([
+            // PolyLearn lessons completed
+            fetch(`/api/progress/lessons?lesson_id=${POLYLEARN_LESSON_ID}`, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            }).then(res => res.json()).catch(() => ({ success: false })),
+            
+            // PolyLearn practice stats
+            fetch(`/api/progress/practice-stats?lesson_id=${POLYLEARN_LESSON_ID}`, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            }).then(res => res.json()).catch(() => ({ success: false })),
+            
+            // PolyLearn quiz stats
+            fetch(`/api/quiz/user/stats?lesson_id=${POLYLEARN_LESSON_ID}`, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            }).then(res => res.json()).catch(() => ({ success: false }))
+        ]);
         
         // Update lessons count
         const lessonsCount = document.getElementById('lessonsCount');
         if (lessonsCount) {
-            const completed = progressData?.total_lessons_completed || 0;
-            const total = progressData?.total_lessons || 20;
+            const completed = polyLessons?.progress?.filter(p => p.completion_status === 'completed').length || 0;
+            const total = polyLessons?.total || 10;
             lessonsCount.innerHTML = `${completed}<span class="item-unit">/${total}</span>`;
         }
         
         // Update exercises count
         const exercisesCount = document.getElementById('exercisesCount');
         if (exercisesCount) {
-            const exercisesCompleted = practiceStats?.exercises_completed || 
-                                       progressData?.exercises_completed || 0;
-            const totalExercises = totalExercisesCount || 5;
+            const exercisesCompleted = polyPractice?.stats?.exercises_completed || 0;
+            const totalExercises = polyPractice?.total || 15;
             exercisesCount.innerHTML = `${exercisesCompleted}<span class="item-unit">/${totalExercises}</span>`;
         }
         
         // Update quiz score
         const quizScore = document.getElementById('quizScore');
         if (quizScore) {
-            const totalPoints = progressData?.total_points_earned || 0;
+            const totalPoints = polyQuizzes?.stats?.total_points || 0;
             quizScore.innerHTML = `${totalPoints}<span class="item-unit">points</span>`;
         }
         
-        // ✅ UPDATE AVG TIME - Ito ay average time per activity
+        // Update avg time
         const avgTime = document.getElementById('avgTime');
         if (avgTime) {
-            const avgPerActivity = progressData?.avg_time_per_activity || 5;
+            const avgPerActivity = polyLessons?.avg_time || 5;
             avgTime.innerHTML = `${avgPerActivity}<span class="item-unit">min/activity</span>`;
-            console.log(`✅ Average time updated: ${avgPerActivity} min per activity`);
         }
         
     } catch (error) {
@@ -11767,16 +11891,18 @@ async function loadUserBadges() {
 
 
 // ============================================
-// FETCH ACCURACY RATE - NEW FUNCTION
+// ✅ FIXED: Fetch accuracy rate - POLYLEARN ONLY
 // ============================================
 async function fetchAccuracyRate() {
     try {
         const token = localStorage.getItem('authToken') || authToken;
         if (!token) return null;
         
-        console.log('📊 Fetching accuracy rate...');
+        console.log('📊 Fetching PolyLearn accuracy rate...');
         
-        const response = await fetch(`/api/progress/accuracy-rate`, {
+        const POLYLEARN_LESSON_ID = 2;
+        
+        const response = await fetch(`/api/progress/accuracy-rate?lesson_id=${POLYLEARN_LESSON_ID}`, {
             headers: { 'Authorization': `Bearer ${token}` }
         });
         
@@ -11785,15 +11911,12 @@ async function fetchAccuracyRate() {
         const data = await response.json();
         
         if (data.success && data.accuracy) {
-            console.log('✅ Accuracy rate loaded:', data.accuracy);
-            
-            // Update UI elements
+            console.log('✅ PolyLearn accuracy rate loaded:', data.accuracy);
             updateAccuracyRateDisplay(data.accuracy);
-            
             return data.accuracy;
-        } else {
-            return null;
         }
+        
+        return null;
     } catch (error) {
         console.error('Error fetching accuracy rate:', error);
         return null;
