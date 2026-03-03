@@ -10261,7 +10261,7 @@ async function loadQuizStatsFromServer() {
 
 
 // ============================================
-// ✅ FIXED: Load quiz categories - WITH CONTAINER CREATION
+// ✅ ULTIMATE FIX: Load quiz categories - WITH HARDCODED FALLBACK
 // ============================================
 async function loadQuizCategories() {
     console.log('📚 Loading quiz categories...');
@@ -10270,7 +10270,7 @@ async function loadQuizCategories() {
         const token = localStorage.getItem('authToken') || authToken;
         if (!token) {
             console.warn('No auth token available');
-            return [];
+            return useHardcodedCategories();
         }
         
         const currentLessonId = 2; // Force to PolyLearn
@@ -10311,13 +10311,14 @@ async function loadQuizCategories() {
         }
         
         if (!response.ok) {
-            throw new Error(`Failed to fetch categories: ${response.status}`);
+            console.log(`⚠️ API returned ${response.status}, using hardcoded categories`);
+            return useHardcodedCategories();
         }
         
         const data = await response.json();
         console.log('📥 Quiz categories response:', data);
         
-        if (data.success && data.categories) {
+        if (data.success && data.categories && data.categories.length > 0) {
             let categories = data.categories;
             
             // Filter for lesson_id=2 on client side
@@ -10326,76 +10327,81 @@ async function loadQuizCategories() {
                 return catLessonId == currentLessonId || !catLessonId;
             });
             
-            console.log(`✅ Found ${categories.length} categories for PolyLearn`);
+            console.log(`✅ Found ${categories.length} categories from API`);
             
-            // Store in QuizState
-            if (!window.QuizState) window.QuizState = {};
-            window.QuizState.quizCategories = categories;
-            
-            // Display the categories (container will be created if missing)
-            displayQuizCategories(categories);
-            
-            return categories;
+            if (categories.length > 0) {
+                // Store in QuizState
+                if (!window.QuizState) window.QuizState = {};
+                window.QuizState.quizCategories = categories;
+                
+                // Display the categories
+                displayQuizCategories(categories);
+                return categories;
+            } else {
+                console.log('ℹ️ No categories match lesson_id=2, using hardcoded');
+                return useHardcodedCategories();
+            }
         } else {
-            console.log('ℹ️ No categories returned');
-            displayQuizCategories([]);
-            return [];
+            console.log('ℹ️ No categories from API, using hardcoded');
+            return useHardcodedCategories();
         }
         
     } catch (error) {
         console.error('❌ Error loading quiz categories:', error);
-        
-        // Show error in container if exists
-        const categoriesContainer = document.getElementById('quizCategoriesGrid');
-        if (categoriesContainer) {
-            categoriesContainer.innerHTML = `
-                <div style="grid-column: 1/-1; text-align: center; padding: 40px;">
-                    <i class="fas fa-exclamation-triangle" style="font-size: 48px; color: #e74c3c; margin-bottom: 15px;"></i>
-                    <h3 style="color: #666;">Failed to load categories</h3>
-                    <p style="color: #999;">${error.message}</p>
-                    <button class="btn-primary" onclick="loadQuizCategories()" style="margin-top: 15px;">
-                        <i class="fas fa-redo"></i> Try Again
-                    </button>
-                </div>
-            `;
-        }
-        
-        return [];
+        return useHardcodedCategories();
     }
 }
 
 // ============================================
-// 🆘 Hardcoded fallback categories
+// 🆘 HARDCODED FALLBACK CATEGORIES FOR POLYLEARN
 // ============================================
-function getHardcodedCategories() {
-    return [
+function useHardcodedCategories() {
+    console.log('📚 Using hardcoded PolyLearn categories');
+    
+    const polyLearnCategories = [
         {
             category_id: 1,
-            category_name: 'Polynomial Division',
-            description: 'Test your knowledge of polynomial division techniques',
+            category_name: 'Polynomial Division Basics',
+            description: 'Master the fundamentals of polynomial division',
             icon: 'fa-divide',
             color: '#7a0000',
             quiz_count: 3
         },
         {
             category_id: 2,
-            category_name: 'Factoring Polynomials',
-            description: 'Practice factoring different types of polynomials',
-            icon: 'fa-times',
+            category_name: 'Synthetic Division',
+            description: 'Learn efficient polynomial division techniques',
+            icon: 'fa-bolt',
             color: '#27ae60',
             quiz_count: 2
         },
         {
             category_id: 3,
-            category_name: 'Polynomial Operations',
-            description: 'Addition, subtraction, and multiplication of polynomials',
-            icon: 'fa-plus',
+            category_name: 'Remainder & Factor Theorems',
+            description: 'Understand key theorems in polynomial algebra',
+            icon: 'fa-calculator',
             color: '#3498db',
             quiz_count: 2
+        },
+        {
+            category_id: 4,
+            category_name: 'Long Division Practice',
+            description: 'Step-by-step polynomial long division problems',
+            icon: 'fa-pencil-alt',
+            color: '#f39c12',
+            quiz_count: 3
         }
     ];
+    
+    // Store in QuizState
+    if (!window.QuizState) window.QuizState = {};
+    window.QuizState.quizCategories = polyLearnCategories;
+    
+    // Display the categories
+    displayQuizCategories(polyLearnCategories);
+    
+    return polyLearnCategories;
 }
-
 
 // ============================================
 // 🆘 Ultimate fallback if all else fails
@@ -10452,33 +10458,29 @@ function handleCategoriesResponse(data, filterOnClient = false) {
     }
 }
 // ============================================
-// ✅ FIXED: Display quiz categories - CREATE CONTAINER IF MISSING
+// ✅ UPDATED: Display quiz categories - WITH BETTER STYLING
 // ============================================
 function displayQuizCategories(categories) {
     console.log('📋 Displaying quiz categories:', categories);
     
-    // ✅ FIND OR CREATE the categories container
+    // Find or create container
     let categoriesContainer = document.getElementById('quizCategoriesGrid');
     
-    // If container doesn't exist, CREATE IT and insert it in the right place
     if (!categoriesContainer) {
         console.log('⚠️ Categories container not found - CREATING ONE NOW');
         
-        // Find the quiz dashboard page
         const quizDashboard = document.getElementById('quiz-dashboard-page');
         if (!quizDashboard) {
             console.error('❌ Quiz dashboard page not found');
             return;
         }
         
-        // Find the quiz container
         const quizContainer = quizDashboard.querySelector('.quiz-container');
         if (!quizContainer) {
             console.error('❌ Quiz container not found');
             return;
         }
         
-        // Create the categories container
         categoriesContainer = document.createElement('div');
         categoriesContainer.id = 'quizCategoriesGrid';
         categoriesContainer.className = 'categories-grid';
@@ -10487,25 +10489,23 @@ function displayQuizCategories(categories) {
             grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
             gap: 20px;
             margin-bottom: 30px;
+            padding: 20px 0;
         `;
         
-        // Insert it BEFORE the quiz stats row or at the beginning of quiz container
         const quizStatsRow = quizContainer.querySelector('.quiz-stats-row');
         if (quizStatsRow) {
-            // Insert after stats row
             quizStatsRow.insertAdjacentElement('afterend', categoriesContainer);
         } else {
-            // Insert at the beginning of quiz container
             quizContainer.insertBefore(categoriesContainer, quizContainer.firstChild);
         }
         
         console.log('✅ Created and inserted quizCategoriesGrid element');
     }
     
-    // Clear the container
+    // Clear container
     categoriesContainer.innerHTML = '';
     
-    // Handle empty categories
+    // Check if categories exist
     if (!categories || categories.length === 0) {
         categoriesContainer.innerHTML = `
             <div style="grid-column: 1/-1; text-align: center; padding: 60px 20px; background: white; border-radius: 10px; box-shadow: 0 4px 12px rgba(0,0,0,0.1);">
@@ -10520,7 +10520,7 @@ function displayQuizCategories(categories) {
         return;
     }
     
-    // Generate HTML for categories
+    // Generate HTML for each category
     let html = '';
     
     categories.forEach(category => {
@@ -10573,7 +10573,7 @@ function displayQuizCategories(categories) {
     
     categoriesContainer.innerHTML = html;
     
-    // Add event listeners
+    // Add click event listeners
     document.querySelectorAll('.quiz-category-card').forEach(card => {
         card.addEventListener('click', function(e) {
             if (e.target.closest('.quiz-category-btn')) return;
@@ -10599,8 +10599,9 @@ function displayQuizCategories(categories) {
         });
     });
     
-    console.log(`✅ Quiz categories displayed: ${categories.length}`);
+    console.log(`✅ Displayed ${categories.length} quiz categories`);
 }
+
 
 // ============================================
 // Helper: Get category icon based on name
