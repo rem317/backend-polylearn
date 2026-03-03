@@ -10776,7 +10776,55 @@ app.get('/api/practice/user/stats', authenticateUser, async (req, res) => {
         });
     }
 });
-
+// ============================================
+// GET PRACTICE EXERCISES COUNT BY LESSON ID
+// ============================================
+app.get('/api/practice/exercises/count', authenticateToken, async (req, res) => {
+    try {
+        const { lesson_id } = req.query;
+        
+        if (!lesson_id) {
+            return res.status(400).json({
+                success: false,
+                message: 'lesson_id is required'
+            });
+        }
+        
+        // Get all topics under this lesson
+        const [topics] = await promisePool.execute(`
+            SELECT topic_id 
+            FROM module_topics mt
+            JOIN course_modules cm ON mt.module_id = cm.module_id
+            WHERE cm.lesson_id = ?
+        `, [lesson_id]);
+        
+        if (topics.length === 0) {
+            return res.json({ success: true, count: 0 });
+        }
+        
+        const topicIds = topics.map(t => t.topic_id);
+        const placeholders = topicIds.map(() => '?').join(',');
+        
+        // Count exercises for these topics
+        const [result] = await promisePool.execute(`
+            SELECT COUNT(*) as count
+            FROM practice_exercises
+            WHERE topic_id IN (${placeholders}) AND is_active = 1
+        `, topicIds);
+        
+        res.json({
+            success: true,
+            count: result[0].count
+        });
+        
+    } catch (error) {
+        console.error('❌ Error:', error);
+        res.status(500).json({
+            success: false,
+            message: error.message
+        });
+    }
+});
 // ============================================
 // ✅ FIXED: Get topics progress - WITH LESSON_ID
 // ============================================
