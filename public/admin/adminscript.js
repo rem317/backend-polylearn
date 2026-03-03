@@ -5998,8 +5998,8 @@ function createQuickModuleModal() {
     }
 }
 
-// ===== UPDATED updateModuleDropdown WITH CREATE OPTION =====
-function updateModuleDropdown(lessonId, selectModuleId = null) {
+// ===== ADD THIS FUNCTION TO FIX MODULE DROPDOWN =====
+function updateModuleDropdown(lessonId) {
     console.log("🔄 Updating module dropdown for lesson:", lessonId);
     
     const moduleSelect = document.getElementById('quickModuleSelect');
@@ -6024,14 +6024,12 @@ function updateModuleDropdown(lessonId, selectModuleId = null) {
     const lessonModules = window.quickModules ? 
         window.quickModules.filter(m => parseInt(m.lesson_id) === parseInt(lessonId)) : [];
     
-    console.log(`📦 Found ${lessonModules.length} modules for lesson ${lessonId}`);
-    
     // Default option
     const defaultOption = document.createElement('option');
     defaultOption.value = '';
     defaultOption.textContent = '-- Select Module --';
     defaultOption.disabled = true;
-    defaultOption.selected = !selectModuleId;
+    defaultOption.selected = true;
     moduleSelect.appendChild(defaultOption);
     
     // Modules from database
@@ -6040,24 +6038,24 @@ function updateModuleDropdown(lessonId, selectModuleId = null) {
             const option = document.createElement('option');
             option.value = module.id;
             option.textContent = module.name;
-            
-            // Auto-select kung match ang ID
-            if (selectModuleId && module.id == selectModuleId) {
-                option.selected = true;
-                console.log(`✅ Auto-selected module: ${module.name}`);
-            }
-            
             moduleSelect.appendChild(option);
         });
+        
+        // Add separator
+        const separator = document.createElement('option');
+        separator.disabled = true;
+        separator.textContent = '──────────';
+        moduleSelect.appendChild(separator);
     }
     
-    // SEPARATOR
-    const separator = document.createElement('option');
-    separator.disabled = true;
-    separator.textContent = '──────────';
-    moduleSelect.appendChild(separator);
+    // Special options
+    const generalOption = document.createElement('option');
+    generalOption.value = 'general';
+    generalOption.textContent = '📁 General Module (Auto-create)';
+    generalOption.style.color = '#4CAF50';
+    generalOption.style.fontWeight = 'bold';
+    moduleSelect.appendChild(generalOption);
     
-    // CREATE NEW MODULE OPTION - ITO ANG DAPAT ANDYAN
     const createOption = document.createElement('option');
     createOption.value = 'create';
     createOption.textContent = '➕ Create New Module...';
@@ -6068,19 +6066,16 @@ function updateModuleDropdown(lessonId, selectModuleId = null) {
     moduleSelect.disabled = false;
 }
 
-// ===== HANDLE MODULE SELECT CHANGE =====
-document.addEventListener('change', function(e) {
-    if (e.target.id === 'quickModuleSelect') {
-        if (e.target.value === 'create') {
-            console.log("📦 Opening create module modal...");
-            openQuickModuleModal();
-            // Reset selection after opening
-            setTimeout(() => {
-                e.target.value = '';
-            }, 100);
-        }
+// ===== UPDATE THE EXISTING filterQuickModules FUNCTION =====
+// Hanapin ito sa code mo at palitan ng:
+function filterQuickModules() {
+    const lessonSelect = document.getElementById('quickLessonSelect');
+    if (lessonSelect) {
+        updateModuleDropdown(lessonSelect.value);
     }
-});
+}
+
+
 // ===== UPDATE THE EXISTING filterQuickModules FUNCTION =====
 // Hanapin ito sa code mo at palitan ng:
 function filterQuickModules() {
