@@ -10261,7 +10261,7 @@ async function loadQuizStatsFromServer() {
 
 
 // ============================================
-// ✅ FIXED: Load quiz categories - ONLY LESSON_ID=2
+// ✅ ULTIMATE FIX: Load quiz categories - STRICT LESSON_ID=2 ONLY
 // ============================================
 async function loadQuizCategories() {
     console.log('📚 Loading quiz categories for PolyLearn (lesson_id=2 only)...');
@@ -10286,8 +10286,9 @@ async function loadQuizCategories() {
             `;
         }
         
-        // TRY MULTIPLE ENDPOINTS para makuha ang categories
+        // TRY MULTIPLE ENDPOINTS
         let categories = null;
+        let usedHardcoded = false;
         
         // Endpoint 1: With lesson_id parameter
         try {
@@ -10302,16 +10303,22 @@ async function loadQuizCategories() {
             if (response.ok) {
                 const data = await response.json();
                 if (data.success && data.categories) {
-                    categories = data.categories;
-                    console.log(`✅ Found ${categories.length} categories with lesson_id filter`);
+                    // STRICT FILTER - lesson_id=2 LANG
+                    categories = data.categories.filter(cat => {
+                        const catLessonId = cat.lesson_id || cat.lessonId;
+                        return catLessonId === POLYLEARN_LESSON_ID; // Strict equality
+                    });
+                    console.log(`✅ Found ${categories.length} categories with lesson_id=2`);
                 }
+            } else {
+                console.log(`⚠️ Endpoint returned ${response.status}`);
             }
         } catch (e) {
             console.log('⚠️ Endpoint 1 failed:', e.message);
         }
         
         // Endpoint 2: Without lesson_id (filter on client side)
-        if (!categories) {
+        if (!categories || categories.length === 0) {
             try {
                 console.log('📡 Trying /api/quiz/categories (no filter)');
                 const response = await fetch('/api/quiz/categories', {
@@ -10324,12 +10331,25 @@ async function loadQuizCategories() {
                 if (response.ok) {
                     const data = await response.json();
                     if (data.success && data.categories) {
-                        // Filter for lesson_id=2 only
-                        categories = data.categories.filter(cat => 
-                            cat.lesson_id == POLYLEARN_LESSON_ID
-                        );
+                        // STRICT FILTER - lesson_id=2 LANG
+                        categories = data.categories.filter(cat => {
+                            const catLessonId = cat.lesson_id || cat.lessonId;
+                            return catLessonId === POLYLEARN_LESSON_ID; // Strict equality
+                        });
                         console.log(`✅ Filtered to ${categories.length} categories for lesson_id=2`);
+                        
+                        // Log kung ano ang mga na-filter out
+                        const filteredOut = data.categories.filter(cat => {
+                            const catLessonId = cat.lesson_id || cat.lessonId;
+                            return catLessonId !== POLYLEARN_LESSON_ID;
+                        });
+                        console.log('🚫 Filtered out categories:', filteredOut.map(c => ({
+                            name: c.category_name || c.name,
+                            lesson_id: c.lesson_id || c.lessonId
+                        })));
                     }
+                } else {
+                    console.log(`⚠️ Endpoint returned ${response.status}`);
                 }
             } catch (e) {
                 console.log('⚠️ Endpoint 2 failed:', e.message);
@@ -10339,19 +10359,21 @@ async function loadQuizCategories() {
         // If still no categories, use hardcoded
         if (!categories || categories.length === 0) {
             console.log('ℹ️ No categories from API, using hardcoded PolyLearn categories');
-            return useHardcodedPolyLearnCategories();
+            usedHardcoded = true;
+            categories = getHardcodedPolyLearnCategories();
         }
         
-        // Display the categories
-        displayQuizCategories(categories);
+        // Display the categories (with strict filtering)
+        displayQuizCategories(categories, usedHardcoded);
         return categories;
         
     } catch (error) {
         console.error('❌ Error loading quiz categories:', error);
-        return useHardcodedPolyLearnCategories();
+        const hardcoded = getHardcodedPolyLearnCategories();
+        displayQuizCategories(hardcoded, true);
+        return hardcoded;
     }
 }
-
 // ============================================
 // 🆘 OFFLINE CATEGORIES - Gumagana kahit walang internet
 // ============================================
@@ -10527,24 +10549,30 @@ function handleCategoriesResponse(data, filterOnClient = false) {
     }
 }
 // ============================================
-// ✅ FIXED: Display quiz categories - WITH POLYLEARN BADGE
+// ✅ UPDATED: Display quiz categories - WITH STRICT FILTERING
 // ============================================
-function displayQuizCategories(categories) {
+function displayQuizCategories(categories, isHardcoded = false) {
     console.log('📋 Displaying PolyLearn quiz categories:', categories);
     
     // Find or create container
     let categoriesContainer = document.getElementById('quizCategoriesGrid');
     
     if (!categoriesContainer) {
-        // Create container code (same as before)
         const quizDashboard = document.getElementById('quiz-dashboard-page');
-        if (!quizDashboard) return;
+        if (!quizDashboard) {
+            console.error('❌ Quiz dashboard page not found');
+            return;
+        }
         
         const quizContainer = quizDashboard.querySelector('.quiz-container');
-        if (!quizContainer) return;
+        if (!quizContainer) {
+            console.error('❌ Quiz container not found');
+            return;
+        }
         
         categoriesContainer = document.createElement('div');
         categoriesContainer.id = 'quizCategoriesGrid';
+        categoriesContainer.className = 'categories-grid';
         categoriesContainer.style.cssText = `
             display: grid;
             grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
@@ -10556,12 +10584,20 @@ function displayQuizCategories(categories) {
     
     categoriesContainer.innerHTML = '';
     
-    if (!categories || categories.length === 0) {
+    // STRICT FILTER - lesson_id=2 LANG (double check)
+    const polyLearnCategories = categories.filter(cat => {
+        const catLessonId = cat.lesson_id || cat.lessonId;
+        return catLessonId == 2; // Para sa PolyLearn lang
+    });
+    
+    console.log('🎯 After strict filtering:', polyLearnCategories.length, 'categories');
+    
+    if (!polyLearnCategories || polyLearnCategories.length === 0) {
         categoriesContainer.innerHTML = `
-            <div style="grid-column: 1/-1; text-align: center; padding: 60px 20px;">
-                <i class="fas fa-folder-open" style="font-size: 64px; color: #ccc;"></i>
-                <h3>No PolyLearn Categories Available</h3>
-                <p>Check back later for new PolyLearn quizzes!</p>
+            <div style="grid-column: 1/-1; text-align: center; padding: 60px 20px; background: white; border-radius: 10px;">
+                <i class="fas fa-folder-open" style="font-size: 64px; color: #ccc; margin-bottom: 20px;"></i>
+                <h3 style="color: #666;">No PolyLearn Categories Available</h3>
+                <p style="color: #999;">Check back later for new PolyLearn quizzes!</p>
             </div>
         `;
         return;
@@ -10569,7 +10605,7 @@ function displayQuizCategories(categories) {
     
     let html = '';
     
-    categories.forEach(category => {
+    polyLearnCategories.forEach(category => {
         const categoryId = category.category_id || category.id;
         const categoryName = category.category_name || category.name || 'PolyLearn Quiz';
         const categoryDesc = category.description || 'Test your PolyLearn knowledge.';
@@ -10617,12 +10653,36 @@ function displayQuizCategories(categories) {
     
     categoriesContainer.innerHTML = html;
     
-    // Add event listeners (same as before)
+    // Add offline indicator kung hardcoded
+    if (isHardcoded) {
+        const indicator = document.createElement('div');
+        indicator.style.cssText = `
+            background: #f39c12;
+            color: white;
+            padding: 8px 15px;
+            border-radius: 5px;
+            margin: 10px 0;
+            text-align: center;
+            font-size: 13px;
+        `;
+        indicator.innerHTML = '<i class="fas fa-info-circle"></i> Using PolyLearn sample data (offline mode)';
+        
+        const quizContainer = document.querySelector('#quiz-dashboard-page .quiz-container');
+        if (quizContainer && !quizContainer.querySelector('.offline-indicator')) {
+            indicator.classList.add('offline-indicator');
+            quizContainer.insertBefore(indicator, categoriesContainer);
+        }
+    }
+    
+    // Add event listeners
     document.querySelectorAll('.quiz-category-card').forEach(card => {
         card.addEventListener('click', function(e) {
             if (e.target.closest('.quiz-category-btn')) return;
             const categoryId = this.getAttribute('data-category-id');
-            if (categoryId) loadQuizzesForCategory(categoryId);
+            if (categoryId) {
+                console.log('🎯 Category clicked:', categoryId);
+                loadQuizzesForCategory(categoryId);
+            }
         });
     });
     
@@ -10631,7 +10691,10 @@ function displayQuizCategories(categories) {
             e.preventDefault();
             e.stopPropagation();
             const categoryId = this.getAttribute('data-category-id');
-            if (categoryId) loadQuizzesForCategory(categoryId);
+            if (categoryId) {
+                console.log('🎯 Button clicked:', categoryId);
+                loadQuizzesForCategory(categoryId);
+            }
         });
     });
 }
