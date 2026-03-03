@@ -71,6 +71,7 @@ async function loadPerformanceTrendData() {
     }
 }
 
+
 // ===== UPDATED: Load teachers for ALL dropdowns =====
 async function loadTeachersForAssignment() {
     console.log("👨‍🏫 Loading teachers for ALL assignment dropdowns...");
