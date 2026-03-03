@@ -10261,119 +10261,82 @@ async function loadQuizStatsFromServer() {
 
 
 // ============================================
-// ✅ ULTIMATE FIX: Load quiz categories - STRICT LESSON_ID=2 ONLY
+// ✅ FIXED: Load quiz categories from database
 // ============================================
 async function loadQuizCategories() {
-    console.log('📚 Loading quiz categories for PolyLearn (lesson_id=2 only)...');
+    console.log('📚 Loading quiz categories from database...');
     
     try {
         const token = localStorage.getItem('authToken') || authToken;
         if (!token) {
             console.warn('No auth token available');
-            return useHardcodedPolyLearnCategories();
+            return [];
         }
         
-        const POLYLEARN_LESSON_ID = 2; // Fixed for PolyLearn
+        const POLYLEARN_LESSON_ID = 2;
         
         // Show loading state
-        let categoriesContainer = document.getElementById('quizCategoriesGrid');
-        if (categoriesContainer) {
-            categoriesContainer.innerHTML = `
-                <div style="grid-column: 1/-1; text-align: center; padding: 40px;">
-                    <i class="fas fa-spinner fa-spin" style="font-size: 40px; color: #7a0000;"></i>
-                    <p style="margin-top: 15px; color: #666;">Loading PolyLearn categories...</p>
+        const quizzesContainer = document.getElementById('userQuizzesContainer');
+        if (quizzesContainer) {
+            quizzesContainer.innerHTML = `
+                <div class="card" style="padding: 40px; text-align: center;">
+                    <div style="font-size: 40px; color: #7a0000; margin-bottom: 20px;">
+                        <i class="fas fa-spinner fa-spin"></i>
+                    </div>
+                    <p style="color: #666;">Loading PolyLearn categories from database...</p>
                 </div>
             `;
         }
         
-        // TRY MULTIPLE ENDPOINTS
-        let categories = null;
-        let usedHardcoded = false;
-        
-        // Endpoint 1: With lesson_id parameter
-        try {
-            console.log('📡 Trying /api/quiz/categories?lesson_id=2');
-            const response = await fetch(`/api/quiz/categories?lesson_id=${POLYLEARN_LESSON_ID}`, {
-                headers: {
-                    'Authorization': `Bearer ${token}`,
-                    'Accept': 'application/json'
-                }
-            });
-            
-            if (response.ok) {
-                const data = await response.json();
-                if (data.success && data.categories) {
-                    // STRICT FILTER - lesson_id=2 LANG
-                    categories = data.categories.filter(cat => {
-                        const catLessonId = cat.lesson_id || cat.lessonId;
-                        return catLessonId === POLYLEARN_LESSON_ID; // Strict equality
-                    });
-                    console.log(`✅ Found ${categories.length} categories with lesson_id=2`);
-                }
-            } else {
-                console.log(`⚠️ Endpoint returned ${response.status}`);
+        // Fetch categories from server with lesson_id filter
+        const response = await fetch(`/api/quiz/categories?lesson_id=${POLYLEARN_LESSON_ID}`, {
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Accept': 'application/json'
             }
-        } catch (e) {
-            console.log('⚠️ Endpoint 1 failed:', e.message);
+        });
+        
+        if (!response.ok) {
+            throw new Error(`Failed to fetch categories: ${response.status}`);
         }
         
-        // Endpoint 2: Without lesson_id (filter on client side)
-        if (!categories || categories.length === 0) {
-            try {
-                console.log('📡 Trying /api/quiz/categories (no filter)');
-                const response = await fetch('/api/quiz/categories', {
-                    headers: {
-                        'Authorization': `Bearer ${token}`,
-                        'Accept': 'application/json'
-                    }
-                });
-                
-                if (response.ok) {
-                    const data = await response.json();
-                    if (data.success && data.categories) {
-                        // STRICT FILTER - lesson_id=2 LANG
-                        categories = data.categories.filter(cat => {
-                            const catLessonId = cat.lesson_id || cat.lessonId;
-                            return catLessonId === POLYLEARN_LESSON_ID; // Strict equality
-                        });
-                        console.log(`✅ Filtered to ${categories.length} categories for lesson_id=2`);
-                        
-                        // Log kung ano ang mga na-filter out
-                        const filteredOut = data.categories.filter(cat => {
-                            const catLessonId = cat.lesson_id || cat.lessonId;
-                            return catLessonId !== POLYLEARN_LESSON_ID;
-                        });
-                        console.log('🚫 Filtered out categories:', filteredOut.map(c => ({
-                            name: c.category_name || c.name,
-                            lesson_id: c.lesson_id || c.lessonId
-                        })));
-                    }
-                } else {
-                    console.log(`⚠️ Endpoint returned ${response.status}`);
-                }
-            } catch (e) {
-                console.log('⚠️ Endpoint 2 failed:', e.message);
-            }
-        }
+        const data = await response.json();
+        console.log('📥 Server response:', data);
         
-        // If still no categories, use hardcoded
-        if (!categories || categories.length === 0) {
-            console.log('ℹ️ No categories from API, using hardcoded PolyLearn categories');
-            usedHardcoded = true;
-            categories = getHardcodedPolyLearnCategories();
+        if (data.success && data.categories) {
+            console.log(`✅ Found ${data.categories.length} categories from database`);
+            displayQuizCategories(data.categories, false);
+            return data.categories;
+        } else {
+            console.log('ℹ️ No categories returned from database');
+            displayQuizCategories([], false);
+            return [];
         }
-        
-        // Display the categories (with strict filtering)
-        displayQuizCategories(categories, usedHardcoded);
-        return categories;
         
     } catch (error) {
         console.error('❌ Error loading quiz categories:', error);
-        const hardcoded = getHardcodedPolyLearnCategories();
-        displayQuizCategories(hardcoded, true);
-        return hardcoded;
+        
+        // Show error in container
+        const quizzesContainer = document.getElementById('userQuizzesContainer');
+        if (quizzesContainer) {
+            quizzesContainer.innerHTML = `
+                <div class="card" style="padding: 40px; text-align: center;">
+                    <div style="font-size: 60px; color: #e74c3c; margin-bottom: 20px;">
+                        <i class="fas fa-exclamation-triangle"></i>
+                    </div>
+                    <h3 style="color: #666; margin-bottom: 10px;">Failed to load categories</h3>
+                    <p style="color: #999; margin-bottom: 20px;">${error.message}</p>
+                    <button class="btn-primary" onclick="loadQuizCategories()" style="background: #7a0000; color: white; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer;">
+                        <i class="fas fa-redo"></i> Try Again
+                    </button>
+                </div>
+            `;
+        }
+        
+        return [];
     }
 }
+
 // ============================================
 // 🆘 OFFLINE CATEGORIES - Gumagana kahit walang internet
 // ============================================
@@ -10549,62 +10512,73 @@ function handleCategoriesResponse(data, filterOnClient = false) {
     }
 }
 // ============================================
-// ✅ FIXED: Display quiz categories INSIDE Available Quizzes container
+// ✅ FIXED: Display quiz categories na parang dashboard card
 // ============================================
 function displayQuizCategories(categories, isHardcoded = false) {
     console.log('📋 Displaying PolyLearn quiz categories:', categories);
     
-    // Ito ang Available Quizzes container
     const quizzesContainer = document.getElementById('userQuizzesContainer');
     if (!quizzesContainer) {
         console.error('❌ userQuizzesContainer not found');
         return;
     }
     
-    // STRICT FILTER - lesson_id=2 LANG (PolyLearn)
+    // STRICT FILTER - lesson_id=2 LANG
     const polyLearnCategories = categories.filter(cat => {
         const catLessonId = cat.lesson_id || cat.lessonId;
-        return catLessonId == 2; // Para sa PolyLearn lang
+        return catLessonId == 2;
     });
     
     console.log('🎯 After strict filtering:', polyLearnCategories.length, 'categories');
     
-    // Clear the container
+    // I-clear ang container
     quizzesContainer.innerHTML = '';
     
     if (!polyLearnCategories || polyLearnCategories.length === 0) {
         quizzesContainer.innerHTML = `
-            <div style="grid-column: 1/-1; text-align: center; padding: 60px 20px; background: white; border-radius: 10px;">
-                <i class="fas fa-folder-open" style="font-size: 64px; color: #ccc; margin-bottom: 20px;"></i>
-                <h3 style="color: #666;">No PolyLearn Categories Available</h3>
-                <p style="color: #999;">Check back later for new PolyLearn quizzes!</p>
+            <div class="card" style="padding: 40px; text-align: center;">
+                <div style="font-size: 60px; color: #ccc; margin-bottom: 20px;">
+                    <i class="fas fa-folder-open"></i>
+                </div>
+                <h3 style="color: #666; margin-bottom: 10px;">No PolyLearn Categories Available</h3>
+                <p style="color: #999; margin-bottom: 20px;">Check back later for new PolyLearn quizzes!</p>
+                <button class="btn-primary" onclick="loadQuizCategories()" style="background: #7a0000; color: white; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer;">
+                    <i class="fas fa-redo"></i> Refresh
+                </button>
             </div>
         `;
         return;
     }
     
-    // Add header
+    // Gaya ng ibang dashboard cards - may header at card body
     let html = `
-        <div style="margin-bottom: 20px;">
-            <h3 style="color: #2c3e50; margin: 0;">
-                <i class="fas fa-folder" style="color: #7a0000;"></i> 
-                PolyLearn Quiz Categories
-            </h3>
-            <p style="color: #666; margin-top: 5px;">Select a category to start practicing</p>
-        </div>
+        <!-- Categories Card - gaya ng ibang dashboard cards -->
+        <div class="card full-width-card" style="margin-bottom: 20px;">
+            <div class="card-header" style="padding: 20px 25px 0;">
+                <h2 class="card-title" style="display: flex; align-items: center; gap: 10px; font-size: 1.4rem; color: var(--text-color); margin-bottom: 5px;">
+                    <i class="fas fa-folder" style="color: #7a0000;"></i> 
+                    PolyLearn Quiz Categories
+                </h2>
+                <p class="card-subtitle" style="color: var(--text-light); font-size: 0.95rem;">
+                    Select a category to start practicing
+                </p>
+            </div>
+            
+            <div style="padding: 20px 25px 25px;">
     `;
     
-    // Add offline indicator if using hardcoded data
+    // Add offline indicator kung hardcoded
     if (isHardcoded) {
         html += `
-            <div style="background: #f39c12; color: white; padding: 8px 15px; border-radius: 5px; margin-bottom: 15px; text-align: center;">
-                <i class="fas fa-info-circle"></i> Using sample data (offline mode)
+            <div style="background: #f39c12; color: white; padding: 10px 15px; border-radius: 8px; margin-bottom: 20px; display: flex; align-items: center; gap: 10px;">
+                <i class="fas fa-info-circle"></i>
+                <span>Using sample data (offline mode)</span>
             </div>
         `;
     }
     
-    // Start categories grid
-    html += `<div class="categories-grid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 20px;">`;
+    // Grid ng categories - gaya ng sa ibang grids
+    html += `<div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 20px;">`;
     
     polyLearnCategories.forEach(category => {
         const categoryId = category.category_id || category.id;
@@ -10614,70 +10588,87 @@ function displayQuizCategories(categories, isHardcoded = false) {
         const categoryColor = category.color || '#7a0000';
         const categoryIcon = category.icon || 'fa-graduation-cap';
         
+        // Category card - gaya ng design sa buong app
         html += `
             <div class="quiz-category-card" data-category-id="${categoryId}" 
-                 style="cursor: pointer; background: white; border-radius: 12px; padding: 25px; 
-                        box-shadow: 0 4px 15px rgba(0,0,0,0.1); display: flex; align-items: center; gap: 20px;
-                        border: 2px solid ${categoryColor}; position: relative;
-                        transition: transform 0.3s, box-shadow 0.3s;">
+                 style="cursor: pointer; background: white; border-radius: 12px; overflow: hidden;
+                        box-shadow: 0 4px 12px rgba(0,0,0,0.1); border: 1px solid var(--border-color);
+                        transition: all 0.3s ease; position: relative;">
                 
-                <div style="position: absolute; top: 10px; right: 10px; background: ${categoryColor}; 
-                            color: white; padding: 3px 8px; border-radius: 12px; font-size: 11px;">
-                    <i class="fas fa-graduation-cap"></i> PolyLearn
-                </div>
+                <!-- Colored top bar -->
+                <div style="height: 6px; background: ${categoryColor}; width: 100%;"></div>
                 
-                <div style="width: 70px; height: 70px; background: ${categoryColor}; border-radius: 12px; 
-                     display: flex; align-items: center; justify-content: center; font-size: 28px; color: white;
-                     box-shadow: 0 4px 10px ${categoryColor}40;">
-                    <i class="fas ${categoryIcon}"></i>
-                </div>
-                
-                <div style="flex: 1;">
-                    <h3 style="margin: 0 0 5px 0; color: #2c3e50; font-size: 18px;">
-                        ${categoryName}
-                    </h3>
-                    <p style="margin: 0 0 12px 0; color: #6c757d; font-size: 14px;">
+                <div style="padding: 20px;">
+                    <!-- Header with icon and title -->
+                    <div style="display: flex; align-items: center; gap: 15px; margin-bottom: 15px;">
+                        <div style="width: 50px; height: 50px; background: ${categoryColor}20; 
+                                    border-radius: 12px; display: flex; align-items: center; 
+                                    justify-content: center; font-size: 24px; color: ${categoryColor};">
+                            <i class="fas ${categoryIcon}"></i>
+                        </div>
+                        <div style="flex: 1;">
+                            <h3 style="margin: 0 0 5px 0; color: #2c3e50; font-size: 18px; font-weight: 600;">
+                                ${categoryName}
+                            </h3>
+                            <div style="display: flex; align-items: center; gap: 10px;">
+                                <span style="background: ${categoryColor}10; color: ${categoryColor}; 
+                                           padding: 4px 10px; border-radius: 20px; font-size: 12px;">
+                                    <i class="fas fa-graduation-cap"></i> PolyLearn
+                                </span>
+                                <span style="color: #7f8c8d; font-size: 13px;">
+                                    <i class="fas fa-question-circle"></i> ${totalQuizzes} quizzes
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Description -->
+                    <p style="color: #6c757d; font-size: 14px; line-height: 1.5; margin: 0 0 20px 0; min-height: 42px;">
                         ${categoryDesc}
                     </p>
                     
-                    <div style="display: flex; gap: 20px; font-size: 13px; color: #7f8c8d;">
-                        <span><i class="fas fa-question-circle" style="color: #3498db;"></i> ${totalQuizzes} PolyLearn Quizzes</span>
-                    </div>
+                    <!-- Action button -->
+                    <button class="quiz-category-btn" data-category-id="${categoryId}" 
+                            style="width: 100%; padding: 12px; background: ${categoryColor}; 
+                                   color: white; border: none; border-radius: 8px; 
+                                   font-weight: 600; cursor: pointer; display: flex;
+                                   align-items: center; justify-content: center; gap: 8px;
+                                   transition: all 0.3s ease;">
+                        <i class="fas fa-play-circle"></i> Browse Quizzes
+                        <i class="fas fa-arrow-right" style="font-size: 14px;"></i>
+                    </button>
                 </div>
-                
-                <button class="quiz-category-btn" data-category-id="${categoryId}" 
-                        style="background: ${categoryColor}; color: white; border: none; 
-                               width: 45px; height: 45px; border-radius: 50%; cursor: pointer;
-                               display: flex; align-items: center; justify-content: center;
-                               font-size: 18px; transition: all 0.3s;">
-                    <i class="fas fa-arrow-right"></i>
-                </button>
             </div>
         `;
     });
     
-    html += `</div>`; // Close categories-grid
+    html += `</div>`; // Close grid
+    html += `</div></div>`; // Close card body and card
+    
     quizzesContainer.innerHTML = html;
     
-    // Add event listeners
+    // Add event listeners sa buong card (para sa click sa buong card)
     document.querySelectorAll('.quiz-category-card').forEach(card => {
         card.addEventListener('click', function(e) {
+            // Kung ang click ay sa button, hayaan ang button mag-handle
             if (e.target.closest('.quiz-category-btn')) return;
+            
             const categoryId = this.getAttribute('data-category-id');
             if (categoryId) {
-                console.log('🎯 Category clicked:', categoryId);
+                console.log('🎯 Category card clicked:', categoryId);
                 loadQuizzesForCategory(categoryId);
             }
         });
     });
     
+    // Add event listeners sa button
     document.querySelectorAll('.quiz-category-btn').forEach(btn => {
         btn.addEventListener('click', function(e) {
             e.preventDefault();
             e.stopPropagation();
             const categoryId = this.getAttribute('data-category-id');
             if (categoryId) {
-                console.log('🎯 Button clicked:', categoryId);
+                console.log('🎯 Browse button clicked:', categoryId);
                 loadQuizzesForCategory(categoryId);
             }
         });
