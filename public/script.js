@@ -9707,26 +9707,16 @@ function connectReviewButtons() {
 
 
 // ============================================
-// FIXED: Close quiz modal - STAYS IN CURRENT CATEGORY'S QUIZ LIST
+// FIXED: Close quiz modal - RETURNS TO QUIZ LIST (SECOND PICTURE)
 // ============================================
 function closeQuizSystemModal() {
-    console.log('🚪 Closing quiz modal - returning to quiz list for current category');
+    console.log('🚪 Closing quiz modal - returning to quiz list');
     
     const modal = document.getElementById('quizModal');
-    const quizContainer = document.getElementById('quizContainer');
-    const resultsContainer = document.getElementById('quizResultsContainer');
     
     if (modal) {
         modal.style.display = 'none';
         document.body.classList.remove('modal-open');
-    }
-    
-    // Reset containers
-    if (quizContainer) {
-        quizContainer.style.display = 'block';
-    }
-    if (resultsContainer) {
-        resultsContainer.style.display = 'none';
     }
     
     // Stop timer
@@ -9735,54 +9725,19 @@ function closeQuizSystemModal() {
         QuizSystem.timerInterval = null;
     }
     
-    // ===== IMPORTANT: Keep showing the quiz interface, not categories =====
+    // ===== ITO ANG TAMA: Ipakita ang QUIZ LIST (second picture) =====
+    // 1. I-hide ang quiz interface (yung may "Available Quizzes" at "Exit Quiz")
     const quizInterface = document.getElementById('quizInterfaceContainer');
-    const quizCards = document.getElementById('userQuizzesContainer');
-    
     if (quizInterface) {
-        // Make sure quiz interface is visible
-        quizInterface.classList.remove('hidden');
-        quizInterface.style.display = 'block';
-        quizInterface.style.opacity = '1';
-        quizInterface.style.visibility = 'visible';
-        
-        // Keep categories hidden
-        if (quizCards) {
-            quizCards.classList.add('hidden');
-            quizCards.style.display = 'none';
-        }
-        
-        // Get the current category ID from QuizState
-        const currentCategoryId = QuizState.selectedCategory;
-        console.log('📋 Current category ID:', currentCategoryId);
-        
-        // If we have a current category, make sure its quizzes are still displayed
-        if (currentCategoryId) {
-            // Check if quiz options container is empty or showing results
-            const quizOptionsContainer = document.getElementById('quizOptionsContainer');
-            if (quizOptionsContainer && quizOptionsContainer.children.length === 0) {
-                console.log('🔄 Reloading quizzes for category', currentCategoryId);
-                
-                // Show loading state
-                quizOptionsContainer.innerHTML = `
-                    <div style="text-align: center; padding: 30px; grid-column: 1/-1;">
-                        <i class="fas fa-spinner fa-spin" style="font-size: 30px; color: #7a0000;"></i>
-                        <p style="margin-top: 15px;">Refreshing quizzes...</p>
-                    </div>
-                `;
-                
-                // Reload quizzes for this category
-                setTimeout(() => {
-                    loadQuizzesForCategory(currentCategoryId);
-                }, 300);
-            }
-        }
-    } else {
-        // Fallback: if quiz interface doesn't exist, show categories
-        if (quizCards) {
-            quizCards.classList.remove('hidden');
-            quizCards.style.display = 'block';
-        }
+        quizInterface.classList.add('hidden');
+        quizInterface.style.display = 'none';
+    }
+    
+    // 2. Ipakita ang userQuizzesContainer (second picture - list of quizzes)
+    const quizCards = document.getElementById('userQuizzesContainer');
+    if (quizCards) {
+        quizCards.classList.remove('hidden');
+        quizCards.style.display = 'block';
     }
     
     // Keep badges and leaderboard visible
@@ -9799,9 +9754,7 @@ function closeQuizSystemModal() {
         leaderboardContainer.style.display = 'block';
     }
     
-    // Reset quiz system state but KEEP the selected category
-    const currentCategory = QuizState.selectedCategory;
-    
+    // Reset quiz state
     QuizSystem.currentQuiz = null;
     QuizSystem.currentAttemptId = null;
     QuizSystem.questions = [];
@@ -9811,10 +9764,7 @@ function closeQuizSystemModal() {
     QuizSystem.timeLeft = 0;
     QuizSystem.stats = { correct: 0, wrong: 0, score: 0 };
     
-    // Restore the selected category
-    QuizState.selectedCategory = currentCategory;
-    
-    console.log('✅ Returned to quiz list for category:', currentCategory);
+    console.log('✅ Returned to quiz list (second picture)');
 }
 
 // Replace the startQuizAttempt function
