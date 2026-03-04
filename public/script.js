@@ -42,9 +42,9 @@ const APP_LESSON_MAP = {
         lessonId: 2,
         name: 'PolyLearn'
     },
-    'factorial': {
+    'factolearn': {  // CHANGE THIS from 'factorial' to 'factolearn'
         lessonId: 3,
-        name: 'Factorial'
+        name: 'FactoLearn'
     }
 };
 
@@ -23247,7 +23247,7 @@ function setupAppSelectionListeners() {
 }
 
 // ============================================
-// FIXED: Handle app selection with proper redirection to app-specific folders
+// ULTIMATE FIX: Handle app selection with proper folder paths
 // ============================================
 function handleAppSelection(appName) {
     console.log(`📱 Handling app selection: ${appName}`);
@@ -23259,67 +23259,38 @@ function handleAppSelection(appName) {
     localStorage.setItem('hasSelectedApp', 'true');
     
     // Set the lesson filter based on the selected app
-    const lessonId = APP_LESSON_MAP[appName]?.lessonId;
-    if (lessonId) {
-        localStorage.setItem('currentLessonFilter', lessonId.toString());
-        console.log(`🔍 Setting lesson filter: ${lessonId} for ${appName}`);
+    // Handle both 'factolearn' and 'factorial' just in case
+    let lessonId = 2; // Default to PolyLearn
+    
+    if (appName === 'mathease') {
+        lessonId = 1;
+    } else if (appName === 'polylearn') {
+        lessonId = 2;
+    } else if (appName === 'factolearn' || appName === 'factorial') {
+        lessonId = 3;
     }
     
-    // Define app-specific HTML files with correct folder paths
-    const appFiles = {
-        'polylearn': 'index.html',                    // Same directory (root)
-        'mathease': 'MathEase/mathease.html',         // MathEase folder
-        'factolearn': 'FactoLearn/factolearn.html'    // FactoLearn folder
-    };
+    localStorage.setItem('currentLessonFilter', lessonId.toString());
+    console.log(`🔍 Setting lesson filter: ${lessonId} for ${appName}`);
     
-    // Get the target HTML file path
-    const targetPath = appFiles[appName] || 'index.html';
+    // Determine redirect path based on app name
+    let redirectPath = 'index.html'; // Default
+    let notificationMessage = 'Opening PolyLearn...';
     
-    switch(appName) {
-        case 'polylearn':
-            console.log('Opening PolyLearn app...');
-            
-            // Set lesson filter for PolyLearn (lesson_id = 2)
-            localStorage.setItem('currentLessonFilter', '2');
-            
-            showNotification('Opening PolyLearn Dashboard...', 'success');
-            setTimeout(() => {
-                window.location.href = targetPath;
-            }, 300);
-            break;
-            
-        case 'mathease':
-            console.log('Opening MathEase app...');
-            showNotification('Opening MathEase...', 'info');
-            
-            // Set lesson filter for MathEase (lesson_id = 1)
-            localStorage.setItem('currentLessonFilter', '1');
-            
-            setTimeout(() => {
-                window.location.href = targetPath;
-            }, 500);
-            break;
-            
-        case 'factolearn':
-            console.log('Opening FactoLearn app...');
-            
-            // Set lesson filter for FactoLearn (lesson_id = 3)
-            localStorage.setItem('currentLessonFilter', '3');
-            
-            showNotification('Opening FactoLearn...', 'info');
-            setTimeout(() => {
-                window.location.href = targetPath;
-            }, 500);
-            break;
-            
-        default:
-            console.log(`Unknown app: ${appName}`);
-            showNotification(`App ${appName} not found`, 'error');
-            // Fallback to index.html
-            setTimeout(() => {
-                window.location.href = 'index.html';
-            }, 500);
+    if (appName === 'mathease') {
+        redirectPath = 'MathEase/mathease.html';
+        notificationMessage = 'Opening MathEase...';
+    } else if (appName === 'factolearn' || appName === 'factorial') {
+        redirectPath = 'FactoLearn/factolearn.html';
+        notificationMessage = 'Opening FactoLearn...';
     }
+    
+    console.log(`🎯 Redirecting to: ${redirectPath}`);
+    showNotification(notificationMessage, 'info');
+    
+    setTimeout(() => {
+        window.location.href = redirectPath;
+    }, 500);
 }
 
 // Initialize app selection page
