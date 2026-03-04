@@ -23597,10 +23597,10 @@ function getSubjectIdFromName(subject) {
     const subjectMap = {
         'polynomial': 2,
         'polylearn': 2,
-        'factorial': 1,
-        'factolearn': 1,
-        'mdas': 3,
-        'mathease': 3
+        'factorial': 3,
+        'factolearn': 3,
+        'mdas': 1,
+        'mathease': 1
     };
     return subjectMap[subject.toLowerCase()] || 1;
 }
