@@ -23247,7 +23247,7 @@ function setupAppSelectionListeners() {
 }
 
 // ============================================
-// FIXED: Handle app selection with proper filtering
+// FIXED: Handle app selection with proper redirection to app-specific folders
 // ============================================
 function handleAppSelection(appName) {
     console.log(`📱 Handling app selection: ${appName}`);
@@ -23265,20 +23265,17 @@ function handleAppSelection(appName) {
         console.log(`🔍 Setting lesson filter: ${lessonId} for ${appName}`);
     }
     
+    // Define app-specific HTML files with correct folder paths
+    const appFiles = {
+        'polylearn': 'index.html',                    // Same directory (root)
+        'mathease': 'MathEase/mathease.html',         // MathEase folder
+        'factolearn': 'FactoLearn/factolearn.html'    // FactoLearn folder
+    };
+    
+    // Get the target HTML file path
+    const targetPath = appFiles[appName] || 'index.html';
+    
     switch(appName) {
-        case 'mathease':
-            console.log('Opening MathEase app...');
-            showNotification('Opening MathEase...', 'info');
-            
-            // Set lesson filter for MathEase (lesson_id = 1)
-            localStorage.setItem('currentLessonFilter', '1');
-            
-            setTimeout(() => {
-                // For now, navigate to dashboard but with filter
-                navigateTo('dashboard');
-            }, 500);
-            break;
-            
         case 'polylearn':
             console.log('Opening PolyLearn app...');
             
@@ -23287,8 +23284,20 @@ function handleAppSelection(appName) {
             
             showNotification('Opening PolyLearn Dashboard...', 'success');
             setTimeout(() => {
-                navigateTo('dashboard');
+                window.location.href = targetPath;
             }, 300);
+            break;
+            
+        case 'mathease':
+            console.log('Opening MathEase app...');
+            showNotification('Opening MathEase...', 'info');
+            
+            // Set lesson filter for MathEase (lesson_id = 1)
+            localStorage.setItem('currentLessonFilter', '1');
+            
+            setTimeout(() => {
+                window.location.href = targetPath;
+            }, 500);
             break;
             
         case 'factolearn':
@@ -23299,13 +23308,17 @@ function handleAppSelection(appName) {
             
             showNotification('Opening FactoLearn...', 'info');
             setTimeout(() => {
-                navigateTo('dashboard');
+                window.location.href = targetPath;
             }, 500);
             break;
             
         default:
             console.log(`Unknown app: ${appName}`);
             showNotification(`App ${appName} not found`, 'error');
+            // Fallback to index.html
+            setTimeout(() => {
+                window.location.href = 'index.html';
+            }, 500);
     }
 }
 
