@@ -411,6 +411,19 @@ app.get('/api/debug/practice-count', authenticateToken, async (req, res) => {
     }
 });
 
+// ============================================
+// LESSON ID CONSTANTS - PARA SA TATLONG APPS
+// ============================================
+const LESSON_IDS = {
+    MATHEASE: 1,
+    POLYLEARN: 2,
+    FACTORIAL: 3
+};
+
+// Para madaling gamitin
+const MATHEASE_LESSON_ID = 1;
+const POLYLEARN_LESSON_ID = 2;
+const FACTORIAL_LESSON_ID = 3;
 
 
 // ============================================
@@ -10011,15 +10024,14 @@ app.get('/api/admin/quizzes/top', authenticateAdmin, async (req, res) => {
 // ============================================
 
 // ============================================
-// ✅ FIXED: Get ALL lessons with progress - WITH LESSON_ID FILTER
+// ✅ GET ALL LESSONS - SUPPORTS ALL LESSONS
 // ============================================
 app.get('/api/lessons-db/complete', verifyToken, async (req, res) => {
     try {
         const userId = req.user.id;
-        const { lesson_id } = req.query; // Get lesson_id from query parameter
+        const lessonId = req.query.lesson_id;
         
-        console.log(`📚 Fetching all lessons with progress for user ID: ${userId}`);
-        console.log(`📋 Filter by lesson_id: ${lesson_id || 'none'}`);
+        console.log(`📚 Fetching lessons for user ${userId}, lesson: ${lessonId || 'all'}`);
         
         let query = `
             SELECT 
@@ -10034,13 +10046,10 @@ app.get('/api/lessons-db/complete', verifyToken, async (req, res) => {
                 tci.content_order,
                 mt.topic_id,
                 mt.topic_title,
-                mt.topic_order,
                 cm.module_id,
                 cm.module_name,
-                cm.module_order,
                 l.lesson_id,
-                l.lesson_name,
-                l.lesson_order
+                l.lesson_name
             FROM topic_content_items tci
             JOIN module_topics mt ON tci.topic_id = mt.topic_id
             JOIN course_modules cm ON mt.module_id = cm.module_id
@@ -10050,90 +10059,72 @@ app.get('/api/lessons-db/complete', verifyToken, async (req, res) => {
         
         const params = [];
         
-        // ✅ ADD LESSON_ID FILTER KUNG MAY BINIGAY
-        if (lesson_id) {
+        if (lessonId) {
             query += ` AND l.lesson_id = ?`;
-            params.push(lesson_id);
+            params.push(lessonId);
         }
         
         query += ` ORDER BY l.lesson_order, cm.module_order, mt.topic_order, tci.content_order`;
         
         const [lessons] = await promisePool.execute(query, params);
         
-        console.log(`✅ Found ${lessons.length} lessons in database`);
-        
         // Get user progress
-        let progressRows = [];
+        let progressMap = {};
         if (lessons.length > 0) {
             const contentIds = lessons.map(l => l.content_id);
+            const placeholders = contentIds.map(() => '?').join(',');
             const [progress] = await promisePool.execute(
                 `SELECT * FROM user_content_progress 
-                WHERE user_id = ? AND content_id IN (${contentIds.map(() => '?').join(',')})`,
+                WHERE user_id = ? AND content_id IN (${placeholders})`,
                 [userId, ...contentIds]
             );
-            progressRows = progress;
+            
+            progress.forEach(p => {
+                progressMap[p.content_id] = {
+                    completion_status: p.completion_status,
+                    percentage: p.score || 0,
+                    time_spent_seconds: p.time_spent_seconds,
+                    last_accessed: p.last_accessed
+                };
+            });
         }
         
-        const progressMap = {};
-        progressRows.forEach(progress => {
-            progressMap[progress.content_id] = {
-                completion_status: progress.completion_status,
-                percentage: progress.score || 0,
-                time_spent_seconds: progress.time_spent_seconds,
-                last_accessed: progress.last_accessed
-            };
-        });
-        
-        const lessonsWithProgress = lessons.map(lesson => {
-            const lessonProgress = progressMap[lesson.content_id] || {};
-            
-            return {
-                ...lesson,
-                progress: {
-                    status: lessonProgress.completion_status || 'not_started',
-                    percentage: lessonProgress.percentage || 0,
-                    time_spent: lessonProgress.time_spent_seconds || 0,
-                    last_accessed: lessonProgress.last_accessed
-                }
-            };
-        });
+        const lessonsWithProgress = lessons.map(lesson => ({
+            ...lesson,
+            progress: progressMap[lesson.content_id] || {
+                status: 'not_started',
+                percentage: 0,
+                time_spent: 0,
+                last_accessed: null
+            }
+        }));
         
         res.json({
             success: true,
             lessons: lessonsWithProgress,
             count: lessons.length,
-            filter: lesson_id || 'all'
+            filter: lessonId || 'all'
         });
         
     } catch (error) {
-        console.error('❌ Get lessons error:', error.message);
-        res.status(500).json({
-            success: false,
-            message: 'Failed to get lessons',
-            error: process.env.NODE_ENV === 'development' ? error.message : undefined
-        });
+        console.error('❌ Error:', error.message);
+        res.status(500).json({ success: false, message: 'Failed to get lessons' });
     }
 });
 
 // ============================================
-// ✅ FIXED: Get all lessons with progress - WITH LESSON_ID FILTER
+// ✅ GET LESSON PROGRESS - SUPPORTS ALL LESSONS
 // ============================================
 app.get('/api/progress/lessons', verifyToken, async (req, res) => {
     try {
         const userId = req.user.id;
-        const { lesson_id } = req.query;
-        
-        console.log(`📊 Fetching lessons progress for user ${userId}, lesson_id: ${lesson_id || 'all'}`);
+        const lessonId = req.query.lesson_id;
 
         let query = `
             SELECT 
                 ucp.*,
                 tci.content_title,
-                tci.content_description,
-                tci.content_type,
-                tci.video_duration_seconds,
-                l.lesson_id,
-                l.lesson_name
+                l.lesson_id
             FROM user_content_progress ucp
             JOIN topic_content_items tci ON ucp.content_id = tci.content_id
             JOIN module_topics mt ON tci.topic_id = mt.topic_id
@@ -10144,33 +10135,26 @@ app.get('/api/progress/lessons', verifyToken, async (req, res) => {
         
         const params = [userId];
         
-        // ✅ ADD LESSON_ID FILTER KUNG MAY BINIGAY
-        if (lesson_id) {
+        if (lessonId) {
             query += ` AND l.lesson_id = ?`;
-            params.push(lesson_id);
+            params.push(lessonId);
         }
         
         query += ` ORDER BY ucp.last_accessed DESC`;
         
         const [progress] = await promisePool.execute(query, params);
         
-        console.log(`✅ Found ${progress.length} lesson progress records for user ${userId}`);
-        
         res.json({
             success: true,
             progress: progress,
-            filtered_by_lesson: lesson_id || 'all'
+            filtered_by_lesson: lessonId || 'all'
         });
         
     } catch (error) {
-        console.error('❌ Error fetching lesson progress:', error);
-        res.status(500).json({ 
-            success: false, 
-            message: error.message 
-        });
+        console.error('❌ Error:', error);
+        res.status(500).json({ success: false, message: error.message });
     }
 });
-
 
 // ============================================
 // ✅ FIXED: Get SINGLE lesson by ID with ADJACENT LESSONS
@@ -10280,6 +10264,35 @@ app.get('/api/lessons-db/:contentId', verifyToken, async (req, res) => {
     }
 });
 
+// ============================================
+// 🔍 DEBUG: Check all lessons data
+// ============================================
+app.get('/api/debug/lessons-all', authenticateToken, async (req, res) => {
+    try {
+        const [lessonCounts] = await promisePool.execute(`
+            SELECT 
+                l.lesson_id,
+                l.lesson_name,
+                COUNT(DISTINCT tci.content_id) as lesson_count,
+                COUNT(DISTINCT pe.exercise_id) as practice_count
+            FROM lessons l
+            LEFT JOIN course_modules cm ON l.lesson_id = cm.lesson_id
+            LEFT JOIN module_topics mt ON cm.module_id = mt.module_id
+            LEFT JOIN topic_content_items tci ON mt.topic_id = tci.topic_id
+            LEFT JOIN practice_exercises pe ON mt.topic_id = pe.topic_id
+            GROUP BY l.lesson_id
+        `);
+        
+        res.json({
+            success: true,
+            lesson_counts: lessonCounts
+        });
+        
+    } catch (error) {
+        console.error('❌ Debug error:', error);
+        res.status(500).json({ success: false, message: error.message });
+    }
+});
 
 // Mark lesson as complete
 app.post('/api/lessons/:contentId/complete', verifyToken, async (req, res) => {
@@ -10621,17 +10634,18 @@ app.get('/api/user/progress', verifyToken, async (req, res) => {
 
 
 // ============================================
-// ✅ FIXED: Get practice exercises by topic WITH lesson_id FILTER
+// ✅ GET PRACTICE EXERCISES BY TOPIC - SUPPORTS ALL LESSONS
 // ============================================
 app.get('/api/practice/topic/:topicId', authenticateToken, async (req, res) => {
     try {
         const { topicId } = req.params;
-        const { lesson_id } = req.query; // Kunin ang lesson_id mula sa query parameter
         const userId = req.user.id;
         
-        console.log(`📝 Fetching practice exercises for topic ${topicId}, lesson_id: ${lesson_id || 'none'}`);
+        // ✅ Kunin ang lesson_id mula sa query (ito ang magsasabi kung anong app)
+        const lessonId = req.query.lesson_id;
         
-        // ✅ Modified query to filter by lesson_id
+        console.log(`📝 Fetching practice for topic ${topicId}, lesson: ${lessonId || 'all'}`);
+
         let query = `
             SELECT 
                 pe.exercise_id,
@@ -10643,28 +10657,22 @@ app.get('/api/practice/topic/:topicId', authenticateToken, async (req, res) => {
                 pe.content_json,
                 pe.is_active,
                 pe.topic_id,
-                pe.lesson_id,
-                mt.module_id,
-                cm.lesson_id as lesson_id
+                pe.lesson_id
             FROM practice_exercises pe
-            JOIN module_topics mt ON pe.topic_id = mt.topic_id
-            JOIN course_modules cm ON mt.module_id = cm.module_id
             WHERE pe.topic_id = ? AND pe.is_active = 1
         `;
         
         const params = [topicId];
         
-        // ✅ Add lesson_id filter if provided
-        if (lesson_id) {
+        // ✅ MAG-FILTER KUNG MAY LESSON_ID
+        if (lessonId) {
             query += ` AND pe.lesson_id = ?`;
-            params.push(lesson_id);
+            params.push(lessonId);
         }
         
         const [exercises] = await promisePool.query(query, params);
         
-        console.log(`✅ Found ${exercises.length} exercises for lesson_id ${lesson_id || 'any'}`);
-        
-        // Get user progress for each exercise
+        // Get user progress
         for (let exercise of exercises) {
             const [progress] = await promisePool.query(
                 `SELECT completion_status, score, attempts 
@@ -10673,30 +10681,25 @@ app.get('/api/practice/topic/:topicId', authenticateToken, async (req, res) => {
                 [userId, exercise.exercise_id]
             );
             
-            if (progress.length > 0) {
-                exercise.user_progress = progress[0];
-            } else {
-                exercise.user_progress = {
-                    completion_status: 'not_started',
-                    score: 0,
-                    attempts: 0
-                };
-            }
+            exercise.user_progress = progress[0] || {
+                completion_status: 'not_started',
+                score: 0,
+                attempts: 0
+            };
         }
         
         res.json({
             success: true,
-            exercises: exercises
+            exercises: exercises,
+            lesson_id: lessonId || 'all'
         });
         
     } catch (error) {
-        console.error('❌ Error in practice endpoint:', error);
-        res.status(500).json({
-            success: false,
-            message: error.message
-        });
+        console.error('❌ Error:', error);
+        res.status(500).json({ success: false, message: error.message });
     }
 });
+
 // ===== BAGONG ENDPOINTS - IDAGDAG LANG =====
 
 // For students - get practice by SUBJECT (hindi lang topic)
@@ -11233,61 +11236,33 @@ app.get('/api/practice/user/stats', authenticateUser, async (req, res) => {
     }
 });
 // ============================================
-// ✅ FIXED: GET PRACTICE EXERCISES COUNT - WITH DEBUG LOGS
+// ✅ GET PRACTICE EXERCISES COUNT - SUPPORTS ALL LESSONS
 // ============================================
 app.get('/api/practice/exercises/count', authenticateToken, async (req, res) => {
     try {
-        const { lesson_id } = req.query;
+        const lessonId = req.query.lesson_id;
         
-        if (!lesson_id) {
-            return res.status(400).json({
-                success: false,
-                message: 'lesson_id is required'
-            });
+        console.log(`📊 Counting practice for lesson: ${lessonId || 'all'}`);
+        
+        let query = `SELECT COUNT(*) as count FROM practice_exercises WHERE is_active = 1`;
+        const params = [];
+        
+        if (lessonId) {
+            query += ` AND lesson_id = ?`;
+            params.push(lessonId);
         }
         
-        console.log(`📊 Counting practice exercises for lesson_id: ${lesson_id}`);
-        
-        // ✅ Tingnan muna lahat ng exercises
-        const [allExercises] = await promisePool.execute(`
-            SELECT exercise_id, title, lesson_id, is_active
-            FROM practice_exercises
-        `);
-        
-        console.log('📋 All exercises in database:');
-        allExercises.forEach(ex => {
-            console.log(`   ID: ${ex.exercise_id}, Title: ${ex.title}, Lesson: ${ex.lesson_id}, Active: ${ex.is_active}`);
-        });
-        
-        // ✅ Count for specific lesson
-        const [result] = await promisePool.execute(`
-            SELECT COUNT(*) as count
-            FROM practice_exercises
-            WHERE lesson_id = ? AND is_active = 1
-        `, [lesson_id]);
-        
-        console.log(`✅ Found ${result[0].count} active practice exercises for lesson ${lesson_id}`);
+        const [result] = await promisePool.execute(query, params);
         
         res.json({
             success: true,
             count: result[0].count,
-            lesson_id: lesson_id,
-            debug: {
-                all_exercises: allExercises.map(e => ({
-                    id: e.exercise_id,
-                    title: e.title,
-                    lesson: e.lesson_id,
-                    active: e.is_active
-                }))
-            }
+            lesson_id: lessonId || 'all'
         });
         
     } catch (error) {
-        console.error('❌ Error counting practice exercises:', error);
-        res.status(500).json({
-            success: false,
-            message: error.message
-        });
+        console.error('❌ Error:', error);
+        res.status(500).json({ success: false, message: error.message });
     }
 });
 
@@ -11369,87 +11344,56 @@ app.get('/api/topics/progress', authenticateUser, async (req, res) => {
 });
 
 // ============================================
-// ✅ FIXED: Get practice attempts - WITH DEBUG LOGS
+// ✅ GET PRACTICE ATTEMPTS - SUPPORTS ALL LESSONS
 // ============================================
 app.get('/api/progress/practice-attempts', authenticateUser, async (req, res) => {
     try {
         const userId = req.user.id;
-        const { lesson_id } = req.query;
+        const lessonId = req.query.lesson_id;
         
-        console.log(`📊 Fetching practice attempts for user ${userId}, lesson_id: ${lesson_id || 'all'}`);
+        console.log(`📊 Fetching practice attempts for user ${userId}, lesson: ${lessonId || 'all'}`);
         
-        // Check if practice_attempts table exists
+        // Check if table exists
         const [tables] = await promisePool.query("SHOW TABLES LIKE 'practice_attempts'");
-        
         if (tables.length === 0) {
-            return res.json({
-                success: true,
-                attempts: []
-            });
+            return res.json({ success: true, attempts: [] });
         }
         
-        // Get all attempts first for debugging
-        const [allAttempts] = await promisePool.execute(`
-            SELECT pa.*, pe.lesson_id, pe.title
-            FROM practice_attempts pa
-            JOIN practice_exercises pe ON pa.exercise_id = pe.exercise_id
-            WHERE pa.user_id = ?
-        `, [userId]);
-        
-        console.log(`📋 All attempts for user ${userId}:`, allAttempts.length);
-        allAttempts.forEach((attempt, index) => {
-            console.log(`   Attempt ${index + 1}: Exercise ${attempt.exercise_id} (Lesson ${attempt.lesson_id}), Status: ${attempt.completion_status}, Score: ${attempt.score}%`);
-        });
-        
-        // Build query with optional lesson_id filter
         let query = `
             SELECT 
                 pa.*,
                 pe.title as exercise_title,
                 pe.difficulty,
                 pe.lesson_id,
-                t.topic_title,
-                l.lesson_name
+                t.topic_title
             FROM practice_attempts pa
             LEFT JOIN practice_exercises pe ON pa.exercise_id = pe.exercise_id
             LEFT JOIN module_topics t ON pa.topic_id = t.topic_id
-            LEFT JOIN lessons l ON pe.lesson_id = l.lesson_id
             WHERE pa.user_id = ?
         `;
         
         const params = [userId];
         
-        if (lesson_id) {
+        if (lessonId) {
             query += ` AND pe.lesson_id = ?`;
-            params.push(lesson_id);
+            params.push(lessonId);
         }
         
         query += ` ORDER BY pa.created_at DESC`;
         
         const [attempts] = await promisePool.query(query, params);
         
-        console.log(`✅ Found ${attempts.length} filtered practice attempts for user ${userId}`);
-        
         res.json({
             success: true,
             attempts: attempts,
-            filtered_by_lesson: lesson_id || 'all',
-            debug: {
-                all_attempts_count: allAttempts.length,
-                filtered_count: attempts.length
-            }
+            filtered_by_lesson: lessonId || 'all'
         });
         
     } catch (error) {
-        console.error('❌ Error fetching practice attempts:', error);
-        res.json({ 
-            success: true, 
-            attempts: [],
-            error: error.message
-        });
+        console.error('❌ Error:', error);
+        res.json({ success: true, attempts: [] });
     }
 });
-
 
 // ============================================
 // PROGRESS DASHBOARD ENDPOINTS - ADD THESE
