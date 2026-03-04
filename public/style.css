@@ -10102,7 +10102,7 @@ code {
 }
 
 /* ============================================
-   VERTICAL DASHBOARD LAYOUT - 1/4 BAWAS SA SPACE (930px)
+   VERTICAL DASHBOARD LAYOUT - MAS MABAIT NA SPACE SA GILID (1000px)
    ============================================ */
 
 /* I-override lahat ng existing containers */
@@ -10116,7 +10116,7 @@ code {
     display: flex !important;
     flex-direction: column !important;
     gap: 20px !important;
-    max-width: 930px !important;
+    max-width: 1000px !important; /* 1000px - mas maliit na space sa gilid */
     margin: 0 auto 80px auto !important;
     padding: 20px !important;
     width: 100% !important;
@@ -10131,7 +10131,7 @@ code {
 .help-dashboard-container {
     display: block !important;
     grid-template-columns: 1fr !important;
-    max-width: 930px !important;
+    max-width: 1000px !important;
     margin-left: auto !important;
     margin-right: auto !important;
 }
@@ -10143,7 +10143,7 @@ code {
 #progress-page .card,
 #settings-page .card,
 #feedback-page .card {
-    max-width: 930px !important;
+    max-width: 1000px !important;
     margin-left: auto !important;
     margin-right: auto !important;
     width: 100% !important;
@@ -10375,12 +10375,8 @@ code {
     gap: 15px;
 }
 
-/* ============================================
-   MOBILE RESPONSIVE - FIXED PARA HINDI SIKISIKAN
-   ============================================ */
-
+/* Responsive */
 @media (max-width: 768px) {
-    /* Baguhin ang container para sa mobile */
     .dashboard-vertical-container,
     #dashboard-page .dashboard-vertical-container,
     #practice-exercises-page .dashboard-vertical-container,
@@ -10388,216 +10384,10 @@ code {
     #progress-page .dashboard-vertical-container,
     #settings-page .dashboard-vertical-container,
     #feedback-page .dashboard-vertical-container {
-        max-width: 100% !important; /* Full width sa mobile */
-        margin: 0 15px 60px 15px !important; /* May konting space sa gilid */
-        padding: 10px !important; /* Mas maliit na padding */
-        gap: 15px !important;
-    }
-
-    /* I-adjust ang cards para hindi siksikan */
-    .dashboard-card,
-    #dashboard-page .card,
-    #practice-exercises-page .card,
-    #quiz-dashboard-page .card,
-    #progress-page .card,
-    #settings-page .card,
-    #feedback-page .card {
-        padding: 16px !important; /* Mas maliit na padding sa mobile */
-        border-radius: 14px;
-    }
-
-    /* Ayusin ang progress items */
-    .progress-item-vertical {
-        padding: 14px 12px !important;
-        gap: 10px;
-    }
-
-    .progress-item-vertical .item-left {
-        gap: 8px;
-    }
-
-    .progress-item-vertical .item-icon {
-        width: 36px !important;
-        height: 36px !important;
-        font-size: 1rem !important;
-    }
-
-    .progress-item-vertical h3 {
-        font-size: 0.95rem;
-    }
-
-    .progress-item-vertical p {
-        font-size: 0.8rem;
-    }
-
-    .progress-item-vertical .item-value {
-        font-size: 1.2rem !important;
-    }
-
-    /* Ayusin ang tools */
-    .tool-item-vertical {
-        padding: 12px 14px !important;
-        gap: 12px;
-    }
-
-    .tool-item-vertical .tool-icon {
-        width: 40px !important;
-        height: 40px !important;
-        font-size: 1.1rem !important;
-    }
-
-    .tool-item-vertical .tool-name {
-        font-size: 0.95rem;
-    }
-
-    .tool-item-vertical .tool-desc {
-        font-size: 0.8rem;
-    }
-
-    /* Ayusin ang quiz stats */
-    .quiz-stat-card {
-        padding: 14px 16px !important;
-    }
-
-    .quiz-stat-card i {
-        font-size: 1.1rem !important;
-    }
-
-    .quiz-stat-card h3 {
-        font-size: 0.85rem;
-    }
-
-    .quiz-stat-value {
-        font-size: 1.3rem !important;
-    }
-
-    /* Ayusin ang topics */
-    .topics-container-vertical {
-        gap: 12px;
-    }
-
-    /* Ayusin ang settings */
-    .settings-nav-btn {
-        padding: 12px 14px !important;
-        font-size: 0.95rem;
-    }
-
-    .setting-item {
-        padding: 14px 0 !important;
-        gap: 6px;
-    }
-
-    .setting-item .form-label {
-        font-size: 0.9rem;
-    }
-
-    .setting-item .form-control {
-        padding: 12px !important;
-    }
-
-    /* Ayusin ang faq */
-    .faq-vertical-list {
-        gap: 12px;
-    }
-
-    .faq-item .faq-question {
-        padding: 14px !important;
-        font-size: 0.95rem;
-    }
-
-    .faq-item .faq-answer {
-        padding: 12px !important;
-        font-size: 0.9rem;
-    }
-
-    /* Ayusin ang contact methods */
-    .contact-methods-vertical {
-        gap: 12px;
-    }
-
-    .contact-method {
-        padding: 14px !important;
-    }
-
-    .contact-method .contact-icon {
-        width: 40px !important;
-        height: 40px !important;
-        font-size: 1.1rem !important;
-    }
-
-    .contact-method h4 {
-        font-size: 0.95rem;
-    }
-
-    .contact-method p {
-        font-size: 0.85rem;
-    }
-
-    /* Ayusin ang mga text */
-    .card-title {
-        font-size: 1.2rem !important;
-    }
-
-    .card-subtitle {
-        font-size: 0.85rem !important;
-    }
-
-    .welcome-title {
-        font-size: 1.4rem !important;
-    }
-
-    .student-name {
-        font-size: 1.2rem !important;
-    }
-
-    /* Ayusin ang mga charts */
-    .charts-vertical {
-        gap: 15px;
-    }
-
-    .chart-container {
         padding: 15px !important;
+        max-width: 100% !important; /* Full width sa mobile */
     }
-
-    .chart-container h3 {
-        font-size: 1rem !important;
-    }
-
-    /* Ayusin ang timeline */
-    .timeline-vertical {
-        gap: 15px;
-        padding-left: 15px;
-    }
-
-    /* Ayusin ang leaderboard */
-    .leaderboard-vertical {
-        gap: 8px;
-    }
-
-    /* Ayusin ang action buttons */
-    .action-buttons-vertical {
-        gap: 10px;
-    }
-
-    .action-buttons-vertical .btn {
-        padding: 12px !important;
-        font-size: 0.95rem;
-    }
-}
-
-/* Para sa sobrang liit na mobile */
-@media (max-width: 480px) {
-    .dashboard-vertical-container,
-    #dashboard-page .dashboard-vertical-container,
-    #practice-exercises-page .dashboard-vertical-container,
-    #quiz-dashboard-page .dashboard-vertical-container,
-    #progress-page .dashboard-vertical-container,
-    #settings-page .dashboard-vertical-container,
-    #feedback-page .dashboard-vertical-container {
-        margin: 0 10px 50px 10px !important;
-        padding: 8px !important;
-    }
-
+    
     .dashboard-card,
     #dashboard-page .card,
     #practice-exercises-page .card,
@@ -10605,295 +10395,10 @@ code {
     #progress-page .card,
     #settings-page .card,
     #feedback-page .card {
-        padding: 14px !important;
-    }
-
-    /* Stack items sa sobrang liit */
-    .progress-item-vertical {
-        flex-direction: column;
-        align-items: flex-start;
-    }
-
-    .progress-item-vertical .item-value {
-        align-self: flex-end;
-        width: 100%;
-        text-align: right;
-    }
-
-    .tool-item-vertical {
-        flex-wrap: wrap;
-    }
-
-    .quiz-stat-card {
-        text-align: center;
+        padding: 18px !important;
     }
 }
 
-/* ============================================
-   SIMPLE LOADING PAGE ENHANCEMENTS
-   ============================================ */
-
-/* Floating Math Symbols - 5 pieces */
-.math-float {
-    position: absolute;
-    font-size: 4rem;
-    font-weight: bold;
-    color: rgba(255, 255, 255, 0.08);
-    z-index: 0;
-    pointer-events: none;
-    user-select: none;
-}
-
-.math-1 { top: 5%; left: 5%; animation: float1 12s ease-in-out infinite; }
-.math-2 { top: 15%; right: 10%; animation: float2 10s ease-in-out infinite; }
-.math-3 { bottom: 20%; left: 10%; animation: float3 14s ease-in-out infinite; }
-.math-4 { bottom: 30%; right: 15%; animation: float1 11s ease-in-out infinite; }
-.math-5 { top: 40%; left: 20%; animation: float2 13s ease-in-out infinite; }
-
-@keyframes float1 {
-    0%, 100% { transform: translate(0, 0) rotate(0deg); }
-    50% { transform: translate(20px, 20px) rotate(5deg); }
-}
-
-@keyframes float2 {
-    0%, 100% { transform: translate(0, 0) rotate(0deg); }
-    50% { transform: translate(-20px, 15px) rotate(-5deg); }
-}
-
-@keyframes float3 {
-    0%, 100% { transform: translate(0, 0) rotate(0deg); }
-    50% { transform: translate(15px, -20px) rotate(8deg); }
-}
-
-/* Simple animated circles */
-.circle {
-    position: absolute;
-    border-radius: 50%;
-    background: rgba(255, 215, 0, 0.03);
-    z-index: 0;
-    pointer-events: none;
-}
-
-.circle-1 {
-    width: 300px;
-    height: 300px;
-    top: -100px;
-    right: -100px;
-    animation: pulse 8s ease-in-out infinite;
-}
-
-.circle-2 {
-    width: 200px;
-    height: 200px;
-    bottom: -50px;
-    left: -50px;
-    animation: pulse 6s ease-in-out infinite reverse;
-}
-
-@keyframes pulse {
-    0%, 100% { transform: scale(1); opacity: 0.3; }
-    50% { transform: scale(1.1); opacity: 0.5; }
-}
-
-/* Enhanced skip button */
-.skip-button {
-    transition: all 0.3s ease;
-}
-
-.skip-button:hover {
-    transform: translateY(-3px);
-    box-shadow: 0 5px 15px rgba(255, 215, 0, 0.3);
-}
-
-.skip-button i {
-    transition: transform 0.3s ease;
-}
-
-.skip-button:hover i {
-    transform: translateX(5px);
-}
-
-/* FAQ Enhanced Styles - Make it work properly */
-.faq-item {
-    margin-bottom: 15px;
-    border: 1px solid var(--border-color, #e0e0e0);
-    border-radius: 12px;
-    overflow: hidden;
-    transition: all 0.3s ease;
-    background: var(--white, #ffffff);
-}
-
-.faq-item:hover {
-    border-color: var(--primary, #8B0000);
-    box-shadow: 0 5px 15px rgba(139, 0, 0, 0.1);
-}
-
-.faq-question {
-    padding: 18px 20px;
-    background: linear-gradient(to right, #f8f9fa, #ffffff);
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    cursor: pointer;
-    font-weight: 600;
-    font-size: 1.1rem;
-    color: var(--text, #333333);
-    transition: all 0.3s ease;
-    border-left: 4px solid transparent;
-    user-select: none;
-}
-
-.faq-question:hover {
-    background: linear-gradient(to right, #f0f0f0, #f8f9fa);
-    border-left-color: var(--primary, #8B0000);
-}
-
-.faq-question.active {
-    background: linear-gradient(to right, #f0f0f0, #f8f9fa);
-    border-left-color: var(--primary, #8B0000);
-}
-
-.faq-question i {
-    transition: transform 0.3s ease;
-    color: var(--primary, #8B0000);
-    font-size: 1rem;
-}
-
-.faq-question.active i {
-    transform: rotate(180deg);
-}
-
-.faq-answer {
-    max-height: 0;
-    overflow: hidden;
-    transition: max-height 0.5s cubic-bezier(0.4, 0, 0.2, 1);
-    background: #fafafa;
-    padding: 0 20px;
-    color: var(--text-light, #666666);
-    line-height: 1.6;
-    font-size: 0.95rem;
-}
-
-.faq-answer.show {
-    max-height: 2000px; /* Malaking value para sa mahahabang sagot */
-    padding: 20px;
-}
-
-.faq-answer p {
-    margin: 0 0 15px 0;
-}
-
-.faq-answer p:last-child {
-    margin-bottom: 0;
-}
-
-.faq-answer ul, .faq-answer ol {
-    margin: 10px 0 15px 20px;
-    padding-left: 10px;
-}
-
-.faq-answer li {
-    margin-bottom: 8px;
-    color: var(--text, #333333);
-}
-
-.faq-answer strong {
-    color: var(--primary, #8B0000);
-    font-weight: 600;
-}
-
-.faq-answer table {
-    width: 100%;
-    border-collapse: collapse;
-    margin: 15px 0;
-    border-radius: 8px;
-    overflow: hidden;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.05);
-}
-
-.faq-answer th {
-    background: var(--primary, #8B0000);
-    color: white;
-    padding: 12px 15px;
-    text-align: left;
-    font-weight: 600;
-    font-size: 0.95rem;
-}
-
-.faq-answer td {
-    padding: 10px 15px;
-    border-bottom: 1px solid #e0e0e0;
-    background: white;
-}
-
-.faq-answer tr:last-child td {
-    border-bottom: none;
-}
-
-.faq-answer tr:hover td {
-    background: #f5f5f5;
-}
-
-.faq-note {
-    background: #fff3cd;
-    border-left: 4px solid #ffc107;
-    padding: 15px 20px;
-    border-radius: 8px;
-    margin: 15px 0;
-    font-size: 0.95rem;
-    color: #856404;
-    display: flex;
-    align-items: center;
-    gap: 10px;
-}
-
-.faq-note i {
-    font-size: 1.2rem;
-    color: #856404;
-}
-
-/* Rating stars in FAQ */
-.rating-stars {
-    font-size: 1.2rem;
-    letter-spacing: 2px;
-}
-
-.rating-stars .star {
-    color: #f39c12;
-    margin-right: 2px;
-}
-
-/* Dark mode support */
-body.dark-theme .faq-item {
-    background: var(--bg-card, #2d2d2d);
-    border-color: var(--border-color, #404040);
-}
-
-body.dark-theme .faq-question {
-    background: linear-gradient(to right, #2d2d2d, #1a1a1a);
-    color: var(--text-primary, #ecf0f1);
-}
-
-body.dark-theme .faq-answer {
-    background: #1a1a1a;
-    color: var(--text-secondary, #bdc3c7);
-}
-
-body.dark-theme .faq-answer td {
-    background: #2d2d2d;
-    color: var(--text-primary, #ecf0f1);
-    border-bottom-color: #404040;
-}
-
-body.dark-theme .faq-answer tr:hover td {
-    background: #3d3d3d;
-}
-
-body.dark-theme .faq-note {
-    background: #2d2d2d;
-    color: #ffc107;
-    border-left-color: #ffc107;
-}
 /* ============================================
    END OF CSS
    ============================================ */
