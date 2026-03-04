@@ -51,6 +51,8 @@ const APP_LESSON_MAP = {
 // FACTORIAL CONSTANTS - FORCE LESSON_ID = 3
 // ============================================
 const FACTORIAL_LESSON_ID = 3; // Fixed for Factorial app
+const POLYLEARN_LESSON_ID = 2; // ← IDAGDAG ITO
+const MATHEASE_LESSON_ID = 1;  // ← IDAGDAG ITO
 
 // Para madaling gamitin
 const CURRENT_LESSON_ID = 3; // Factorial only
@@ -4264,7 +4266,7 @@ async function fetchDailyProgress() {
         const token = localStorage.getItem('authToken') || authToken;
         if (!token) {
             console.warn('No auth token available');
-            return getDefaultPolyLearnDailyProgress();
+            return getDefaultFactorialDailyProgress();
         }
         
         // ✅ GUMAMIT NG FETCH API, HINDI PROMISEPOOL
@@ -4282,7 +4284,7 @@ async function fetchDailyProgress() {
         const data = await response.json();
         
         if (data.success && data.progress) {
-            console.log('✅ PolyLearn daily progress loaded:', data.progress);
+            console.log('✅ FactoLearn daily progress loaded:', data.progress);
             
             return {
                 lessons_completed: data.progress.lessons_completed || 0,
@@ -4294,17 +4296,17 @@ async function fetchDailyProgress() {
             };
         } else {
             console.warn('No daily progress data');
-            return getDefaultPolyLearnDailyProgress();
+            return getDefaultFactorialDailyProgress();
         }
         
     } catch (error) {
         console.error('❌ Error fetching daily progress:', error);
-        return getDefaultPolyLearnDailyProgress();
+        return getDefaultFactorialDailyProgress();
     }
 }
 
 // ===== Default progress for PolyLearn =====
-function getDefaultPolyLearnDailyProgress() {
+function getDefaultFactorialDailyProgress() {
     return {
         lessons_completed: 0,
         exercises_completed: 0,
@@ -8488,17 +8490,17 @@ async function fetchPracticeStatistics() {
 
         // ===== GET ALL PRACTICE STATS FROM DATABASE IN PARALLEL =====
         const [lessonsData, attemptsData, totalExercisesData] = await Promise.allSettled([
-            // Get lessons progress (lesson_id=2)
-            fetch(`/api/progress/lessons?lesson_id=${POLYLEARN_LESSON_ID}`, {
+            // Get lessons progress (lesson_id=3)
+            fetch(`/api/progress/lessons?lesson_id=${FACTORIAL_LESSON_ID}`, {
                 headers: { 'Authorization': `Bearer ${token}` }
             }).then(res => res.json()).catch(err => ({ success: false, error: err })),
             
-            // Get practice attempts (lesson_id=2)
-            fetch(`/api/progress/practice-attempts?lesson_id=${POLYLEARN_LESSON_ID}`, {
+            // Get practice attempts (lesson_id=3)
+             fetch(`/api/progress/practice-attempts?lesson_id=${FACTORIAL_LESSON_ID}`, {
                 headers: { 'Authorization': `Bearer ${token}` }
             }).then(res => res.json()).catch(err => ({ success: false, error: err })),
             
-            // Get total exercises count (lesson_id=2)
+            // Get total exercises count (lesson_id=3)
             fetch(`/api/practice/exercises/count?lesson_id=${FACTORIAL_LESSON_ID}`, {
                 headers: { 'Authorization': `Bearer ${token}` }
             }).then(res => res.json()).catch(err => ({ success: false, error: err }))
@@ -18966,13 +18968,13 @@ async function loadTopicsProgress() {
         if (data.success && data.topics) {
             console.log(`✅ Received ${data.topics.length} topics from server`);
             
-            // ✅ FORCE FILTER - lesson_id=2 lang
+            // ✅ FORCE FILTER - lesson_id=3 lang
             const filteredTopics = data.topics.filter(topic => {
                 const topicLessonId = topic.lesson_id || topic.lessonId;
                 return topicLessonId == currentLessonId;
             });
             
-            console.log(`🎯 Filtered to ${filteredTopics.length} topics for PolyLearn (lesson ${currentLessonId})`);
+            console.log(`🎯 Filtered to ${filteredTopics.length} topics for FactoLearn (lesson ${currentLessonId})`);
             
             if (filteredTopics.length > 0) {
                 displayTopics(filteredTopics);
@@ -22155,7 +22157,7 @@ function initApp() {
     localStorage.setItem('mathhub_user', JSON.stringify(demoUser));
     localStorage.setItem('hasSelectedApp', 'true');
     localStorage.setItem('selectedApp', 'factorial');
-    localStorage.setItem('currentLessonFilter', '2');
+    localStorage.setItem('currentLessonFilter', '3');
     
     // Initialize hamburger menu
     initHamburgerMenu();
