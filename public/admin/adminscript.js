@@ -5297,16 +5297,27 @@ if (typeof animateNumber !== 'function') {
 
 // KEEP ONLY ONE VERSION OF THESE FUNCTIONS:
 
-// ===== SAVE LESSON TO MYSQL - WITH SUBJECT FILTER =====
+// ===== FIXED: SAVE LESSON TO MYSQL - WITH CORRECT ID HANDLING =====
 async function saveLessonToMySQL() {
     console.log("=== SAVING TO MYSQL DATABASE ===");
     
     try {
-        // Get form values
+        // ===== GET FORM VALUES =====
         const title = document.getElementById('createLessonTitle')?.value.trim();
         const description = document.getElementById('createLessonDescription')?.value.trim();
-        const subjectId = document.getElementById('lessonSubjectSelect')?.value; // lesson_id
-        const topicId = document.getElementById('topicSelect')?.value;
+        
+        // ===== FIX 1: GET LESSON ID (subject) =====
+        const lessonSelect = document.getElementById('lessonSelect');
+        const lessonId = lessonSelect?.value;
+        
+        // ===== FIX 2: GET MODULE ID =====
+        const moduleSelect = document.getElementById('moduleSelect');
+        const moduleId = moduleSelect?.value;
+        
+        // ===== FIX 3: GET TOPIC ID =====
+        const topicSelect = document.getElementById('topicSelect');
+        const topicId = topicSelect?.value;
+        
         const editId = document.getElementById('editLessonId')?.value || '';
         const isUpdate = editId && editId !== '';
         
@@ -5315,14 +5326,15 @@ async function saveLessonToMySQL() {
         
         // Get subject name for logging
         let subjectName = '';
-        if (subjectId == 1) subjectName = 'MathEase';
-        else if (subjectId == 2) subjectName = 'PolyLearn';
-        else if (subjectId == 3) subjectName = 'FactoLearn';
+        if (lessonId == 1) subjectName = 'MathEase';
+        else if (lessonId == 2) subjectName = 'PolyLearn';
+        else if (lessonId == 3) subjectName = 'FactoLearn';
         
         console.log('📋 Lesson data:', { 
             title, 
-            subjectId, 
+            lessonId, 
             subjectName,
+            moduleId,
             topicId, 
             isUpdate, 
             assignedTeacherId 
@@ -5334,18 +5346,13 @@ async function saveLessonToMySQL() {
             return;
         }
         
-        if (!description) {
-            showNotification('error', 'Error', 'Please enter a lesson description');
-            return;
-        }
-        
-        if (!subjectId) {
-            showNotification('error', 'Error', 'Please select a subject');
+        if (!lessonId) {
+            showNotification('error', 'Error', 'Please select a subject (lesson)');
             return;
         }
         
         if (!topicId) {
-            showNotification('error', 'Error', 'Please select a topic');
+            showNotification('error', 'Error', 'Please select a topic. Click "New Topic" if needed.');
             return;
         }
         
@@ -5370,12 +5377,27 @@ async function saveLessonToMySQL() {
         const formData = new FormData();
         formData.append('title', title);
         formData.append('description', description);
-        formData.append('topic_id', parseInt(topicId));
         
-        // ✅ ADD SUBJECT ID (lesson_id)
-        if (subjectId) {
-            formData.append('lesson_id', parseInt(subjectId));
-            console.log(`📦 Adding lesson_id: ${subjectId} (${subjectName})`);
+        // ===== FIX 4: ALWAYS SEND topic_id (MOST IMPORTANT) =====
+        if (topicId) {
+            formData.append('topic_id', parseInt(topicId));
+            console.log(`📦 Adding topic_id: ${topicId}`);
+        } else {
+            // If no topic, show error again
+            showNotification('error', 'Missing Topic', 'Please select or create a topic first');
+            return;
+        }
+        
+        // ===== FIX 5: SEND lesson_id (subject) =====
+        if (lessonId) {
+            formData.append('lesson_id', parseInt(lessonId));
+            console.log(`📦 Adding lesson_id: ${lessonId} (${subjectName})`);
+        }
+        
+        // ===== FIX 6: SEND module_id (optional) =====
+        if (moduleId && moduleId !== '' && moduleId !== 'create') {
+            formData.append('module_id', parseInt(moduleId));
+            console.log(`📦 Adding module_id: ${moduleId}`);
         }
         
         // Add update flag if editing
@@ -5393,7 +5415,7 @@ async function saveLessonToMySQL() {
         
         // ===== ADD CONTENT BASED ON TYPE =====
         if (contentType === 'video') {
-            if (youtubeUrl) {
+            if (youtubeUrl && youtubeUrl.trim() !== '') {
                 formData.append('youtube_url', youtubeUrl);
                 console.log("🔗 YouTube URL added:", youtubeUrl);
             }
@@ -5401,7 +5423,7 @@ async function saveLessonToMySQL() {
                 formData.append('video_file', videoFile);
                 console.log("🎬 Video file added:", videoFile.name);
             }
-        } else if (contentType === 'text' && textContent) {
+        } else if (contentType === 'text' && textContent && textContent.trim() !== '') {
             formData.append('text_content', textContent);
             console.log("📝 Text content added");
         }
@@ -5423,6 +5445,14 @@ async function saveLessonToMySQL() {
         
         // ===== SEND TO SERVER =====
         console.log("📡 Sending request to server...");
+        console.log("📦 FormData contents:");
+        for (let pair of formData.entries()) {
+            if (pair[0] === 'video_file') {
+                console.log(`   ${pair[0]}: [File: ${pair[1].name}]`);
+            } else {
+                console.log(`   ${pair[0]}: ${pair[1]}`);
+            }
+        }
         
         const response = await fetch(`/api/admin/lessons`, {
             method: 'POST',
@@ -5442,7 +5472,7 @@ async function saveLessonToMySQL() {
         
         if (result.success) {
             let successMessage = isUpdate ? 'Lesson updated successfully!' : 'Lesson created successfully!';
-            successMessage += ` (${subjectName})`;
+            if (subjectName) successMessage += ` (${subjectName})`;
             
             if (assignedTeacherId) {
                 successMessage += ' (Assigned to teacher)';
@@ -5450,8 +5480,9 @@ async function saveLessonToMySQL() {
             
             showNotification('success', 'Success!', successMessage);
             
-            console.log('📝 Lesson recorded for subject:', subjectName);
-            console.log(`   - lesson_id: ${subjectId}`);
+            console.log('📝 Lesson recorded:');
+            console.log(`   - lesson_id: ${lessonId || 'NULL'}`);
+            console.log(`   - module_id: ${moduleId || 'NULL'}`);
             console.log(`   - topic_id: ${topicId}`);
             
             // Close modal
