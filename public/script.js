@@ -22332,15 +22332,20 @@ function simulateLoading() {
     const loadingProgress = document.getElementById('loadingProgress');
     const percentageElement = document.getElementById('percentage');
     const skipLoadingBtn = document.getElementById('skipLoading');
+    const loadingMessage = document.getElementById('loadingMessage');
+    const loadingTip = document.getElementById('loadingTip');
     
     // Hide footer navigation on loading page
     hideFooterNavigation();
     
     const loadingInterval = setInterval(() => {
-        progress += Math.random() * 10;
+        progress += Math.random() * 8 + 2;
+        
         if (progress >= 100) {
             progress = 100;
             clearInterval(loadingInterval);
+            
+            if (loadingMessage) loadingMessage.textContent = "Ready!";
             
             setTimeout(() => {
                 const savedUser = localStorage.getItem('mathhub_user');
@@ -22354,13 +22359,20 @@ function simulateLoading() {
                         const hasSelectedApp = localStorage.getItem('hasSelectedApp') === 'true';
                         
                         if (hasSelectedApp) {
-                            loadInitialData().then(); 
-                            navigateTo('dashboard');
+                            if (typeof loadInitialData === 'function') {
+                                loadInitialData().then(() => {
+                                    navigateTo('dashboard');
+                                });
+                            } else {
+                                navigateTo('dashboard');
+                            }
                         } else {
                             navigateTo('appSelection');
                         }
                     } catch (error) {
-                        logoutAndRedirect();
+                        if (typeof logoutAndRedirect === 'function') {
+                            logoutAndRedirect();
+                        }
                     }
                 } else {
                     navigateTo('login');
@@ -22368,37 +22380,118 @@ function simulateLoading() {
             }, 500);
         }
         
+        // Update progress
         if (loadingProgress) loadingProgress.style.width = `${progress}%`;
         if (percentageElement) percentageElement.textContent = `${Math.floor(progress)}%`;
-    }, 300);
+        
+        // Update loading message
+        if (loadingMessage) {
+            if (progress < 20) loadingMessage.textContent = messages[0];
+            else if (progress < 40) loadingMessage.textContent = messages[1];
+            else if (progress < 60) loadingMessage.textContent = messages[2];
+            else if (progress < 80) loadingMessage.textContent = messages[3];
+            else if (progress < 95) loadingMessage.textContent = messages[4];
+        }
+        
+        // Change tip occasionally
+        if (Math.random() < 0.2 && loadingTip && progress < 90) {
+            loadingTip.textContent = "💡 " + tips[Math.floor(Math.random() * tips.length)];
+        }
+        
+    }, 200);
     
+    // Skip button
     if (skipLoadingBtn) {
         skipLoadingBtn.addEventListener('click', () => {
             clearInterval(loadingInterval);
-            const savedUser = localStorage.getItem('mathhub_user');
             
-            if (savedUser) {
-                try {
-                    const user = JSON.parse(savedUser);
-                    AppState.currentUser = user;
-                    AppState.isAuthenticated = true;
-                    
-                    const hasSelectedApp = localStorage.getItem('hasSelectedApp') === 'true';
-                    
-                    if (hasSelectedApp) {
-                        navigateTo('dashboard');
-                    } else {
-                        navigateTo('appSelection');
-                    }
-                } catch (error) {
-                    logoutAndRedirect();
-                }
-            } else {
-                navigateTo('login');
+            const splashContainer = document.querySelector('.splash-container');
+            if (splashContainer) {
+                splashContainer.style.transition = 'opacity 0.2s ease';
+                splashContainer.style.opacity = '0';
             }
+            
+            setTimeout(() => {
+                const savedUser = localStorage.getItem('mathhub_user');
+                
+                if (savedUser) {
+                    try {
+                        const user = JSON.parse(savedUser);
+                        AppState.currentUser = user;
+                        AppState.isAuthenticated = true;
+                        
+                        const hasSelectedApp = localStorage.getItem('hasSelectedApp') === 'true';
+                        
+                        if (hasSelectedApp) {
+                            navigateTo('dashboard');
+                        } else {
+                            navigateTo('appSelection');
+                        }
+                    } catch (error) {
+                        if (typeof logoutAndRedirect === 'function') {
+                            logoutAndRedirect();
+                        }
+                    }
+                } else {
+                    navigateTo('login');
+                }
+            }, 200);
         });
     }
 }
+
+// FAQ Toggle Function - Gumagana ito para sa pag-click
+function toggleFAQ(element) {
+    console.log('FAQ clicked:', element);
+    
+    // Toggle active class sa question
+    element.classList.toggle('active');
+    
+    // Hanapin ang answer element (next sibling)
+    const answer = element.nextElementSibling;
+    
+    // Check kung may show class na
+    if (answer.classList.contains('show')) {
+        // Kung meron, alisin
+        answer.classList.remove('show');
+    } else {
+        // Kung wala, i-close muna lahat ng ibang open FAQs
+        const allAnswers = document.querySelectorAll('.faq-answer');
+        const allQuestions = document.querySelectorAll('.faq-question');
+        
+        allAnswers.forEach(ans => {
+            ans.classList.remove('show');
+        });
+        
+        allQuestions.forEach(q => {
+            q.classList.remove('active');
+        });
+        
+        // I-open ang current FAQ
+        answer.classList.add('show');
+        element.classList.add('active');
+    }
+}
+
+// I-initialize ang FAQ listeners pag na-load ang page
+document.addEventListener('DOMContentLoaded', function() {
+    console.log('FAQ System initialized');
+    
+    // Siguraduhin na ang lahat ng FAQ question ay may tamang event listener
+    const faqQuestions = document.querySelectorAll('.faq-question');
+    
+    faqQuestions.forEach(question => {
+        // Para sure, gumawa ng bagong click handler
+        question.addEventListener('click', function(e) {
+            e.preventDefault();
+            toggleFAQ(this);
+        });
+    });
+});
+
+
+
+
 
 // ============================================
 // 🚀 NEW: Show/hide loading states
