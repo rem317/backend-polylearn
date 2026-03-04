@@ -27189,62 +27189,44 @@ function setupFeedbackForm() {
                 data = { success: false, message: 'Invalid server response' };
             }
             
-            if (response.ok && data.success) {
-                console.log('✅ Feedback saved to database! ID:', data.feedback_id);
-                
-                // Show success message
-                if (feedbackSuccess) {
-                    feedbackSuccess.style.display = 'block';
-                    feedbackSuccess.innerHTML = `
-                        <i class="fas fa-check-circle"></i> 
-                        Thank you! Your feedback has been saved to the database.
-                    `;
-                    setTimeout(() => {
-                        feedbackSuccess.style.display = 'none';
-                    }, 3000);
-                }
-                
-                // Reset form
-                newForm.reset();
-                
-                // Reset rating stars
-                const stars = document.querySelectorAll('.star');
-                stars.forEach(star => {
-                    star.classList.remove('active');
-                    star.innerHTML = '☆';
-                });
-                document.getElementById('ratingValue').value = 0;
-                
-                showNotification('success', 'Thank You!', 'Your feedback has been submitted successfully!');
-                
-                // Refresh feedback history
-                if (typeof loadFeedbackHistory === 'function') {
-                    setTimeout(() => {
-                        loadFeedbackHistory(10);
-                    }, 500);
-                }
-                
-            } else {
-                console.error('❌ Server error:', data);
-                showNotification('error', 'Error', data.message || 'Failed to submit feedback');
-            }
-            
-        } catch (error) {
-            console.error('❌ Error:', error);
-            showNotification('error', 'Error', 'Failed to submit feedback. Please try again.');
-            
-        } finally {
-            // Restore button
-            newBtn.innerHTML = originalText;
-            newBtn.disabled = false;
-        }
-    });
+            // Inside your button click handler, after successful submission:
+
+if (response.ok && data.success) {
+    console.log('✅ Feedback saved to database! ID:', data.feedback_id);
     
-    console.log('✅ Feedback button handler attached');
+    // Show success message
+    if (feedbackSuccess) {
+        feedbackSuccess.style.display = 'block';
+        feedbackSuccess.innerHTML = `
+            <i class="fas fa-check-circle"></i> 
+            Thank you! Your feedback has been saved to the database.
+        `;
+        setTimeout(() => {
+            feedbackSuccess.style.display = 'none';
+        }, 3000);
+    }
+    
+    // Reset form
+    newForm.reset();
+    
+    // Reset rating stars
+    const stars = document.querySelectorAll('.star');
+    stars.forEach(star => {
+        star.classList.remove('active');
+        star.innerHTML = '☆';
+    });
+    document.getElementById('ratingValue').value = 0;
+    
+    showNotification('success', 'Thank You!', 'Your feedback has been submitted successfully!');
+    
+    // ✅ CRITICAL: Refresh feedback history
+    await loadFeedbackHistory(10);
 }
 
 
-// In your script.js, around line 9400
+// ============================================
+// ✅ FIXED: Submit Feedback - Direct function
+// ============================================
 async function submitFeedback(feedbackType, feedbackMessage, rating = 0) {
     try {
         const token = localStorage.getItem('authToken') || authToken;
@@ -27264,8 +27246,8 @@ async function submitFeedback(feedbackType, feedbackMessage, rating = 0) {
         
         // Prepare feedback data
         const feedbackData = {
-            feedback_type: feedbackType || 'general',  // ← Must match server expected field
-            feedback_message: feedbackMessage,         // ← Must match server expected field
+            feedback_type: feedbackType || 'general',
+            feedback_message: feedbackMessage,
             rating: rating,
             user_id: userId,
             page_url: window.location.href,
@@ -27296,47 +27278,78 @@ async function submitFeedback(feedbackType, feedbackMessage, rating = 0) {
         
         if (response.ok && data.success) {
             console.log('✅ Feedback saved to database! ID:', data.feedback_id);
+            
+            // Save to localStorage as backup
+            saveFeedbackLocally(feedbackData);
+            
+            // Refresh feedback history immediately
+            setTimeout(() => {
+                loadFeedbackHistory(10);
+            }, 500);
+            
             return true;
         } else {
             console.error('❌ Server error:', data);
+            
+            // Save locally as fallback
+            saveFeedbackLocally(feedbackData);
+            
+            // Still refresh history
+            setTimeout(() => {
+                loadFeedbackHistory(10);
+            }, 500);
+            
             return false;
         }
         
     } catch (error) {
         console.error('❌ Error:', error);
+        
+        // Save locally as fallback
+        saveFeedbackLocally({
+            feedback_type: feedbackType,
+            feedback_message: feedbackMessage,
+            rating: rating
+        });
+        
         return false;
     }
 }
 
-// Load feedback history - UPDATED TO ONLY UPDATE FEEDBACK SECTION
+// ============================================
+// ✅ FIXED: Load Feedback History - WITH AUTO REFRESH
+// ============================================
 async function loadFeedbackHistory(limit = 10) {
+    console.log('📋 Loading feedback history...');
+    
+    const historyContainer = document.getElementById('feedbackHistory');
+    if (!historyContainer) {
+        console.log('Feedback history container not found');
+        return;
+    }
+    
     try {
         const token = localStorage.getItem('authToken') || authToken;
         if (!token) {
             console.log('User not authenticated, skipping feedback history');
-            return;
-        }
-        
-        const historyContainer = document.getElementById('feedbackHistory');
-        if (!historyContainer) {
-            console.log('Feedback history container not found');
+            historyContainer.innerHTML = `
+                <div class="no-feedback">
+                    <i class="fas fa-comment-slash"></i>
+                    <h4>Please login to view your feedback history</h4>
+                </div>
+            `;
             return;
         }
         
         // Show loading state
         historyContainer.innerHTML = `
-            <div class="loading-container">
-                <i class="fas fa-spinner fa-spin"></i>
-                <p>Loading your feedback history...</p>
+            <div class="loading-container" style="text-align: center; padding: 20px;">
+                <i class="fas fa-spinner fa-spin" style="font-size: 24px; color: #7a0000;"></i>
+                <p style="margin-top: 10px; color: #666;">Loading your feedback history...</p>
             </div>
         `;
         
-        console.log('📋 Fetching feedback history...');
-        
-        // Ensure limit is a number
-        const limitValue = parseInt(limit) || 10;
-        
-        const response = await fetch(`/api/feedback/history?limit=${limitValue}`, {
+        const response = await fetch(`/api/feedback/history?limit=${limit}`, {
             headers: {
                 'Authorization': `Bearer ${token}`,
                 'Content-Type': 'application/json'
@@ -27344,50 +27357,52 @@ async function loadFeedbackHistory(limit = 10) {
         });
         
         if (!response.ok) {
-            // Try without limit parameter if fails
-            console.log('Trying without limit parameter...');
-            const fallbackResponse = await fetch(`/api/feedback/history`, {
-                headers: {
-                    'Authorization': `Bearer ${token}`,
-                    'Content-Type': 'application/json'
-                }
-            });
-            
-            if (!fallbackResponse.ok) {
-                throw new Error(`Failed to fetch: ${fallbackResponse.status}`);
-            }
-            
-            const fallbackData = await fallbackResponse.json();
-            handleFeedbackResponse(fallbackData, historyContainer);
+            throw new Error(`Failed to fetch: ${response.status}`);
+        }
+        
+        const data = await response.json();
+        console.log('📥 Feedback history response:', data);
+        
+        if (data.success && data.feedback && data.feedback.length > 0) {
+            displayFeedbackHistory(data.feedback);
         } else {
-            const data = await response.json();
-            handleFeedbackResponse(data, historyContainer);
+            // Try to get from localStorage as fallback
+            const localFeedback = JSON.parse(localStorage.getItem('local_feedback') || '[]');
+            if (localFeedback.length > 0) {
+                displayLocalFeedbackHistory();
+            } else {
+                historyContainer.innerHTML = `
+                    <div class="no-feedback">
+                        <i class="fas fa-comment-slash" style="font-size: 40px; color: #ccc; margin-bottom: 15px;"></i>
+                        <h4 style="color: #666; margin-bottom: 10px;">No feedback yet</h4>
+                        <p style="color: #999;">Your submitted feedback will appear here</p>
+                    </div>
+                `;
+            }
         }
         
     } catch (error) {
         console.error('Error loading feedback history:', error);
-        const historyContainer = document.getElementById('feedbackHistory');
-        if (historyContainer) {
+        
+        // Try localStorage as fallback
+        const localFeedback = JSON.parse(localStorage.getItem('local_feedback') || '[]');
+        if (localFeedback.length > 0) {
+            displayLocalFeedbackHistory();
+        } else {
             historyContainer.innerHTML = `
-                <div class="error-message">
-                    <i class="fas fa-exclamation-triangle"></i>
-                    <p>Failed to load feedback history: ${error.message}</p>
-                    <button class="btn-primary" onclick="loadFeedbackHistory(10)">
+                <div class="error-message" style="text-align: center; padding: 30px;">
+                    <i class="fas fa-exclamation-triangle" style="font-size: 40px; color: #e74c3c; margin-bottom: 15px;"></i>
+                    <p style="color: #666; margin-bottom: 10px;">Failed to load feedback history</p>
+                    <button onclick="loadFeedbackHistory(10)" 
+                            style="background: #7a0000; color: white; border: none; padding: 8px 15px; border-radius: 5px; cursor: pointer;">
                         <i class="fas fa-redo"></i> Retry
                     </button>
                 </div>
             `;
-            
-            // Add event listener to the retry button
-            const retryBtn = historyContainer.querySelector('.btn-primary');
-            if (retryBtn) {
-                retryBtn.addEventListener('click', function() {
-                    loadFeedbackHistory(10);
-                });
-            }
         }
     }
 }
+
 // Helper function to handle response - UPDATED
 function handleFeedbackResponse(data, container) {
     if (data.success) {
@@ -27411,11 +27426,23 @@ function handleFeedbackResponse(data, container) {
         `;
     }
 }
-// Display feedback history
+// ============================================
+// ✅ FIXED: Display Feedback History
+// ============================================
 function displayFeedbackHistory(feedbackItems) {
     const historyContainer = document.getElementById('feedbackHistory');
-    
     if (!historyContainer) return;
+    
+    if (!feedbackItems || feedbackItems.length === 0) {
+        historyContainer.innerHTML = `
+            <div class="no-feedback">
+                <i class="fas fa-comment-slash"></i>
+                <h4>No feedback submitted yet</h4>
+                <p>Your submitted feedback will appear here</p>
+            </div>
+        `;
+        return;
+    }
     
     let html = '<div class="feedback-history-list">';
     
@@ -27431,37 +27458,62 @@ function displayFeedbackHistory(feedbackItems) {
         
         const ratingStars = '★'.repeat(item.rating || 0) + '☆'.repeat(5 - (item.rating || 0));
         const statusClass = item.status || 'pending';
-        const isLocal = !item.id || item.id > 1000000; // Local IDs are timestamps
         
         html += `
-            <div class="feedback-history-item status-${statusClass}">
-                <div class="feedback-history-header">
+            <div class="feedback-history-item status-${statusClass}" style="
+                background: #f8f9fa;
+                border-radius: 8px;
+                padding: 15px;
+                margin-bottom: 15px;
+                border-left: 4px solid #7a0000;
+                box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            ">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
                     <div>
-                        <span class="feedback-type-badge">${item.feedback_type || 'feedback'}</span>
-                        <span class="feedback-status-badge status-${statusClass}">${statusClass}</span>
-                        ${isLocal ? '<span class="local-badge">(Saved locally)</span>' : ''}
+                        <span style="
+                            background: #7a0000;
+                            color: white;
+                            padding: 4px 10px;
+                            border-radius: 4px;
+                            font-size: 12px;
+                            text-transform: capitalize;
+                        ">${item.feedback_type || 'feedback'}</span>
+                        <span style="
+                            background: ${statusClass === 'resolved' ? '#27ae60' : '#f39c12'};
+                            color: white;
+                            padding: 4px 10px;
+                            border-radius: 4px;
+                            font-size: 12px;
+                            margin-left: 8px;
+                        ">${statusClass}</span>
                     </div>
-                    <span class="feedback-date">${formattedDate}</span>
+                    <span style="font-size: 12px; color: #666;">${formattedDate}</span>
                 </div>
                 
-                <div class="feedback-history-body">
-                    <p class="feedback-message">${escapeHtml(item.feedback_message || item.message || '')}</p>
-                    
-                    ${item.rating > 0 ? `
-                        <div class="feedback-rating-display">
-                            <span class="rating-stars">${ratingStars}</span>
-                            <span class="rating-value">${item.rating}/5</span>
-                        </div>
-                    ` : ''}
-                    
-                    ${item.admin_notes ? `
-                        <div class="admin-response">
-                            <i class="fas fa-reply"></i>
-                            <strong>Admin Response:</strong>
-                            <p>${escapeHtml(item.admin_notes)}</p>
-                        </div>
-                    ` : ''}
+                <div style="margin-bottom: 10px;">
+                    <p style="margin: 0; color: #2c3e50; line-height: 1.5;">${escapeHtml(item.feedback_message || item.message || '')}</p>
                 </div>
+                
+                ${item.rating > 0 ? `
+                    <div style="display: flex; align-items: center; gap: 8px;">
+                        <span style="color: #f39c12; font-size: 16px;">${ratingStars}</span>
+                        <span style="color: #666; font-size: 12px;">${item.rating}/5</span>
+                    </div>
+                ` : ''}
+                
+                ${item.admin_notes ? `
+                    <div style="
+                        background: #e8f4f8;
+                        padding: 10px;
+                        border-radius: 6px;
+                        margin-top: 10px;
+                        border-left: 3px solid #3498db;
+                    ">
+                        <i class="fas fa-reply" style="color: #3498db; margin-right: 5px;"></i>
+                        <strong style="color: #2c3e50;">Admin Response:</strong>
+                        <p style="margin: 5px 0 0 20px; color: #34495e;">${escapeHtml(item.admin_notes)}</p>
+                    </div>
+                ` : ''}
             </div>
         `;
     });
@@ -27469,6 +27521,7 @@ function displayFeedbackHistory(feedbackItems) {
     html += '</div>';
     historyContainer.innerHTML = html;
 }
+
 // Helper function to escape HTML
 function escapeHtml(text) {
     if (!text) return '';
