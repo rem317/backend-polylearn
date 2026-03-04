@@ -5142,8 +5142,6 @@ async function updateTopicMastery(topicId, masteryData) {
     
     // Override the constants
     window.FACTORIAL_LESSON_ID = 3;
-    window.POLYLEARN_LESSON_ID = 3; // Override this too just in case
-    window.MATHEASE_LESSON_ID = 3;
     
     // Override getCurrentAppLessonId
     window.getCurrentAppLessonId = function() {
