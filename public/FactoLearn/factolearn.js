@@ -22944,7 +22944,7 @@ document.addEventListener('DOMContentLoaded', function() {
             'quizScore': '250<span class="item-unit">points</span>',
             'avgTime': '25<span class="item-unit">min/day</span>',
             'dashboardWelcomeTitle': 'Welcome back, Student!',
-            'dashboardUserName': 'Welcome to <span>PolyLearn!</span>',
+            'dashboardUserName': 'Welcome to <span>FactoLearn!</span>',
             'currentDate': new Date().toLocaleDateString('en-US', { 
                 weekday: 'long', 
                 year: 'numeric', 
