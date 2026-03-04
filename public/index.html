@@ -1825,46 +1825,31 @@
     <!-- Page Container -->
     <div id="page-container">
         <!-- Loading Page -->
-<div class="splash-container" id="loading-page">
-    <!-- FLOATING MATH SYMBOLS -->
-    <div class="math-float math-1">π</div>
-    <div class="math-float math-2">∑</div>
-    <div class="math-float math-3">∫</div>
-    <div class="math-float math-4">√</div>
-    <div class="math-float math-5">∞</div>
-    
-    <!-- SIMPLE ANIMATED CIRCLES -->
-    <div class="circle circle-1"></div>
-    <div class="circle circle-2"></div>
-    
-    <div class="logo-card">
-        <i class="fas fa-graduation-cap"></i>
-    </div>
-    
-    <h1 class="logo-text">Math<span class="logo-accent">Hub</span></h1>
-    
-    <p class="tagline">Master Mathematics the <span class="highlight">Fun and Interactive</span> way!</p>
-    
-    <div class="loading-container">
-        <div class="loading-text">
-            <i class="fas fa-spinner fa-spin"></i> Loading
+        <div class="splash-container" id="loading-page">
+            <div class="logo-card">
+                <i class="fas fa-graduation-cap"></i>
+            </div>
+            
+            <h1 class="logo-text">Math<span class="logo-accent">Hub</span></h1>
+            
+            <p class="tagline">Master Mathematics the <span class="highlight">Fun and Interactive</span> way!</p>
+            
+            <div class="loading-container">
+                <div class="loading-text">
+                    <i class="fas fa-spinner fa-spin"></i> Loading
+                </div>
+                
+                <div class="progress-bar">
+                    <div class="progress" id="loadingProgress"></div>
+                </div>
+                
+                <div class="percentage" id="percentage">0%</div>
+                
+                <button class="skip-button" id="skipLoading">
+                    Skip Intro
+                </button>
+            </div>
         </div>
-        
-        <div class="progress-bar">
-            <div class="progress" id="loadingProgress"></div>
-        </div>
-        
-        <div class="percentage" id="percentage">0%</div>
-        
-        <button class="skip-button" id="skipLoading">
-            <i class="fas fa-forward"></i> Skip Intro
-        </button>
-    </div>
-</div>
-    
-    <!-- SIMPLE LOADING TIPS (1 LINE LANG) -->
-    <div class="loading-tip" id="loadingTip"></div>
-</div>
 
         <!-- Login Page -->
         <div id="login-page" class="hidden">
@@ -3217,7 +3202,7 @@
 
                 <!-- Dashboard Grid -->
                 <div class="dashboard-grid">
-                    <!-- FAQ Section - WITH COMPLETE CONTENT -->
+                    <!-- FAQ Section -->
                     <div class="card">
                         <div class="card-header">
                             <div class="card-icon icon-faq">
@@ -3226,116 +3211,45 @@
                             <h2>Frequently Asked Questions</h2>
                         </div>
                         <div class="card-body">
-                            
-                            <!-- FAQ 1: Reset Password -->
                             <div class="faq-item">
-                                <div class="faq-question">
+                                <div class="faq-question" onclick="toggleFAQ(this)">
                                     How do I reset my password?
                                     <i class="fas fa-chevron-down"></i>
                                 </div>
                                 <div class="faq-answer">
-                                    <p><strong>Step-by-step guide:</strong></p>
-                                    <ol>
-                                        <li>Go to the login page and click the <strong>"Forgot Password?"</strong> link below the login form</li>
-                                        <li>Enter your registered email address or username</li>
-                                        <li>Check your email inbox for a password reset link <em>(check spam folder if not found)</em></li>
-                                        <li>Click the reset link and you'll be redirected to create a new password</li>
-                                        <li>Enter your new password <em>(minimum 6 characters with at least one number)</em></li>
-                                        <li>Confirm your new password and click <strong>"Reset Password"</strong></li>
-                                        <li>Return to login page and sign in with your new password</li>
-                                    </ol>
-                                    
-                                    <div class="faq-note">
-                                        <i class="fas fa-lightbulb"></i>
-                                        <div>
-                                            <strong>Tip:</strong> If you don't receive the reset email within 5 minutes, 
-                                            contact support at <strong>support@mathhub.com</strong>
-                                        </div>
-                                    </div>
-                                    
-                                    <div class="faq-note" style="background: #e8f4fd; border-left-color: #2196F3;">
-                                        <i class="fas fa-clock"></i>
-                                        <div>
-                                            <strong>Note:</strong> Password reset links expire after <strong>24 hours</strong> for security reasons.
-                                        </div>
-                                    </div>
+                                    <p>To reset your password, go to the login page and click "Forgot Password". Enter your email address and follow the instructions sent to your inbox.</p>
                                 </div>
                             </div>
 
-                            <!-- FAQ 2: Track Progress -->
                             <div class="faq-item">
-                                <div class="faq-question">
+                                <div class="faq-question" onclick="toggleFAQ(this)">
                                     How can I track my learning progress?
                                     <i class="fas fa-chevron-down"></i>
                                 </div>
                                 <div class="faq-answer">
-                                    <p><strong>Comprehensive progress tracking is available through:</strong></p>
-                                    
-                                    <h4 style="color: var(--primary, #8B0000); margin: 15px 0 5px 0;">📊 Progress Dashboard</h4>
-                                    <ul>
-                                        <li>Navigate to the <strong>"Progress"</strong> page from the main menu or footer navigation</li>
-                                        <li>View overall completion percentage across all lessons and topics</li>
-                                        <li>Track daily practice time with interactive charts and graphs</li>
-                                        <li>Monitor accuracy rates for different subject areas</li>
-                                        <li>See badges earned and achievements unlocked</li>
-                                    </ul>
-
-                                    <h4 style="color: var(--primary, #8B0000); margin: 15px 0 5px 0;">📈 Statistics You Can Monitor:</h4>
-                                    <ul>
-                                        <li><strong>Lessons Completed:</strong> Total number of lessons finished</li>
-                                        <li><strong>Practice Exercises:</strong> Problems solved with success rate</li>
-                                        <li><strong>Quiz Scores:</strong> Performance in interactive quizzes</li>
-                                        <li><strong>Time Spent:</strong> Daily and weekly learning duration</li>
-                                        <li><strong>Streak Counter:</strong> Consecutive days of learning</li>
-                                    </ul>
-
-                                    <div class="faq-note" style="background: #e8f4fd; border-left-color: #2196F3;">
-                                        <i class="fas fa-star"></i>
-                                        <div>
-                                            <strong>Pro Tip:</strong> Check the <strong>"Learning Insights"</strong> section in your Progress page 
-                                            for personalized recommendations on areas that need more practice!
-                                        </div>
-                                    </div>
+                                    <p>Visit the Progress page in your dashboard. You'll find detailed analytics about your completed lessons, practice exercises, and quiz scores.</p>
                                 </div>
                             </div>
 
-                            <!-- FAQ 3: Badges and Points (SIMPLIFIED) -->
                             <div class="faq-item">
-                                <div class="faq-question">
+                                <div class="faq-question" onclick="toggleFAQ(this)">
+                                    Are there mobile apps available?
+                                    <i class="fas fa-chevron-down"></i>
+                                </div>
+                                <div class="faq-answer">
+                                    <p>Yes! MathHub is available on both iOS and Android. Download from the App Store or Google Play Store.</p>
+                                </div>
+                            </div>
+
+                            <div class="faq-item">
+                                <div class="faq-question" onclick="toggleFAQ(this)">
                                     How do I earn badges and points?
                                     <i class="fas fa-chevron-down"></i>
                                 </div>
                                 <div class="faq-answer">
-                                    <p><strong>🎯 Earning Points:</strong></p>
-                                    <p>You can earn points by completing lessons, answering quiz questions correctly, and solving practice exercises. The more you participate, the more points you accumulate!</p>
-                                    
-                                    <p><strong>🏆 Earning Badges:</strong></p>
-                                    <p>Badges are awarded when you reach specific milestones, such as:</p>
-                                    <ul>
-                                        <li>Completing a certain number of lessons</li>
-                                        <li>Maintaining a learning streak</li>
-                                        <li>Getting perfect scores on quizzes</li>
-                                        <li>Mastering different topics</li>
-                                    </ul>
-
-                                    <p><strong>🎁 Rewards:</strong></p>
-                                    <ul>
-                                        <li>Get featured on the leaderboard</li>
-                                    </ul>
-
-                                    <div class="faq-note" style="background: #fff3cd; border-left-color: #ffc107;">
-                                        <i class="fas fa-calendar-alt"></i>
-                                        <div>
-                                            <strong>Weekly Challenge:</strong> Complete daily goals to earn bonus points and special badges!
-                                        </div>
-                                    </div>
-
-                                    <p style="margin-top: 15px; font-style: italic; color: #666;">
-                                        💡 Check your Progress page to see which badges you're closest to earning next!
-                                    </p>
+                                    <p>Complete lessons, practice exercises, and participate in quiz games to earn points. Badges are awarded for achieving specific milestones.</p>
                                 </div>
                             </div>
-
                         </div>
                     </div>
 
@@ -3933,5 +3847,7 @@
     </div>
 
     <script src="script.js"></script>
+    <script src="lesson-tools-fix.js"></script>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
 </body>
 </html>
