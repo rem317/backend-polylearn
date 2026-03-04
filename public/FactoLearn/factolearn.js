@@ -49,9 +49,9 @@ const APP_LESSON_MAP = {
 };
 
 // ============================================
-// POLYLEARN CONSTANTS - FORCE LESSON_ID = 2
+// POLYLEARN CONSTANTS - FORCE LESSON_ID = 3
 // ============================================
-const POLYLEARN_LESSON_ID = 2; // Fixed for PolyLearn only
+const POLYLEARN_LESSON_ID = 3; // Fixed for PolyLearn only
 
 // Get the current selected app
 function getCurrentApp() {
@@ -61,7 +61,7 @@ function getCurrentApp() {
 // Get the lesson ID for the current app
 function getCurrentAppLessonId() {
     const app = getCurrentApp();
-    return APP_LESSON_MAP[app]?.lessonId || 2; // Default to PolyLearn (ID 2)
+    return APP_LESSON_MAP[app]?.lessonId || 3; // Default to PolyLearn (ID 3)
 }
 
 // Get the filter parameter for API calls
