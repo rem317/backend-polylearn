@@ -63,10 +63,24 @@ function getCurrentApp() {
 }
 
 function getCurrentAppLessonId() {
-    // FORCE FACTORIAL: Laging 3 ang ibalik
-    return FACTORIAL_LESSON_ID; // 3
+    // Kunin ang app selection ng user
+    const selectedApp = localStorage.getItem('selectedApp') || 'factorial';
+    
+    // Return appropriate lesson_id based on selected app
+    const appMap = {
+        'mathease': 1,
+        'polylearn': 2,
+        'factorial': 3
+    };
+    
+    return appMap[selectedApp] || 3;
 }
 
+// Example API call - lahat ng user ay makakakita ng FactoLearn data
+// kung naka-select sila ng FactoLearn
+fetch(`/api/topics/progress?lesson_id=${getCurrentAppLessonId()}`, {
+    headers: { 'Authorization': `Bearer ${token}` }
+})
 // Get the filter parameter for API calls
 function getAppFilterParam() {
     const app = getCurrentApp();
@@ -22388,11 +22402,42 @@ function addProgressStyles() {
 // CORE FUNCTIONS
 // ============================================
 
-// Initialize application
 function initApp() {
     console.log('🎮 MathHub Application Initializing...');
     
-    // Set default user (bypassing login)
+    // ✅ CHECK MUNA KUNG MAY EXISTING USER (galing sa login)
+    const existingUser = localStorage.getItem('mathhub_user');
+    const existingToken = localStorage.getItem('authToken');
+    
+    if (existingUser && existingToken) {
+        console.log('📱 Using existing user session');
+        try {
+            AppState.currentUser = JSON.parse(existingUser);
+            AppState.isAuthenticated = true;
+            
+            // Kunin ang app selection (kung meron)
+            AppState.selectedApp = localStorage.getItem('selectedApp') || 'factorial';
+            AppState.hasSelectedApp = true;
+            
+            console.log(`👤 User: ${AppState.currentUser.username}`);
+            console.log(`📱 Selected app: ${AppState.selectedApp}`);
+            
+            // Setup listeners
+            initHamburgerMenu();
+            setupAppSelectionListeners();
+            
+            navigateTo('dashboard');
+            return;
+        } catch (e) {
+            console.error('Error parsing existing user:', e);
+            // Clear invalid data
+            localStorage.removeItem('mathhub_user');
+            localStorage.removeItem('authToken');
+        }
+    }
+    
+    // ✅ WALANG USER - use demo
+    console.log('📱 No existing session, using demo user');
     const demoUser = {
         id: 1,
         username: 'demo_user',
@@ -22406,7 +22451,6 @@ function initApp() {
     AppState.hasSelectedApp = true;
     AppState.selectedApp = 'factorial';
     
-    // Set auth token
     authToken = 'demo_token_' + Date.now();
     localStorage.setItem('authToken', authToken);
     localStorage.setItem('mathhub_user', JSON.stringify(demoUser));
@@ -22425,7 +22469,6 @@ function initApp() {
     
     console.log('🎮 MathHub Application Initialized - Direct to Dashboard');
 }
-
 // ============================================
 // 🚀 NEW: Show/hide loading states
 // ============================================
