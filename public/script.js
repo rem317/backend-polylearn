@@ -28149,24 +28149,7 @@ function setupConnectedAccounts() {
     }
 }
 
-/**
- * Export user data
- */
-function exportData() {
-    console.log('📤 Exporting user data');
-    showNotification('Data export coming soon!', 'info');
-}
 
-/**
- * Clear learning history
- */
-function clearHistory() {
-    console.log('🧹 Clearing learning history');
-    
-    if (confirm('Are you sure you want to clear all your learning history? This action cannot be undone.')) {
-        showNotification('Learning history cleared!', 'success');
-    }
-}
 
 // Make functions globally available
 window.exportData = exportData;
