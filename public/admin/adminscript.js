@@ -18652,7 +18652,8 @@ function getTimeAgo(dateString) {
         return 'Recently';
     }
 }
-// ===== LOAD TOPICS FROM MYSQL =====
+
+// ===== FIXED: LOAD TOPIC STRUCTURE =====
 async function loadTopicStructure() {
     console.log("📚 Loading topic structure from MySQL...");
     
@@ -18672,18 +18673,20 @@ async function loadTopicStructure() {
             throw new Error('No admin token found');
         }
         
+        // Fetch topics from server
         const response = await fetch(`/api/admin/topics`, {
             headers: { 'Authorization': `Bearer ${token}` }
         });
         
         const result = await response.json();
+        console.log("📥 Topics response:", result);
         
         if (result.success) {
             const topics = result.topics || [];
             
             console.log("✅ Topics loaded:", topics.length);
             
-            // Populate Topic dropdown (THIS IS REQUIRED)
+            // Populate Topic dropdown
             const topicSelect = document.getElementById('topicSelect');
             if (topicSelect) {
                 topicSelect.innerHTML = '<option value="">-- Select Topic --</option>';
@@ -18691,7 +18694,9 @@ async function loadTopicStructure() {
                 if (topics.length > 0) {
                     // Group topics by lesson for better organization
                     const groupedTopics = {};
+                    
                     topics.forEach(topic => {
+                        // ===== FIX: Use topic_title instead of name =====
                         const lessonName = topic.lesson_name || 'General';
                         if (!groupedTopics[lessonName]) {
                             groupedTopics[lessonName] = [];
@@ -18706,8 +18711,14 @@ async function loadTopicStructure() {
                         
                         lessonTopics.forEach(topic => {
                             const option = document.createElement('option');
-                            option.value = topic.id;
-                            option.textContent = `${topic.name} (${topic.module_name || 'No Module'})`;
+                            option.value = topic.topic_id;  // ← ID
+                            
+                            // ===== FIX: Use topic_title =====
+                            const topicName = topic.topic_title || 'Untitled';
+                            const moduleName = topic.module_name ? ` (${topic.module_name})` : '';
+                            
+                            option.textContent = topicName + moduleName;
+                            
                             optgroup.appendChild(option);
                         });
                         
