@@ -8478,118 +8478,129 @@ function initializeTimeTracker() {
 
 
 // ============================================
-// ✅ UPDATED: fetchPracticeStatistics - PURE DATABASE, FILTERED BY LESSON_ID=2
+// ✅ FIXED: fetchPracticeStatistics - DATABASE ONLY
 // ============================================
 async function fetchPracticeStatistics() {
     try {
-        const token = localStorage.getItem('authToken') || authToken;
-        if (!token) {
-            console.error('❌ No auth token available');
+        const practiceStats = document.getElementById('practiceStats');
+        if (!practiceStats) {
+            console.log('Practice stats element not found');
             return null;
         }
         
-        console.log('📊 Fetching PolyLearn practice statistics DIRECTLY FROM DATABASE (lesson_id=2)...');
+        console.log('📊 Loading practice statistics from database...');
+        
+        practiceStats.innerHTML = `
+            <div class="loading-container" style="grid-column: 1/-1; text-align: center; padding: 20px;">
+                <i class="fas fa-spinner fa-spin" style="font-size: 24px; color: #7a0000;"></i>
+                <p style="margin-top: 10px;">Loading statistics from database...</p>
+            </div>
+        `;
+        
+        const token = localStorage.getItem('authToken') || authToken;
+        if (!token) {
+            throw new Error('No authentication token');
+        }
         
         const POLYLEARN_LESSON_ID = 2;
         
-        // ===== GET ALL PRACTICE STATS FROM DATABASE IN PARALLEL =====
-        const [lessonsData, attemptsData, totalExercisesData] = await Promise.allSettled([
-            // Get lessons progress (lesson_id=2)
-            fetch(`/api/progress/lessons?lesson_id=${POLYLEARN_LESSON_ID}`, {
-                headers: { 'Authorization': `Bearer ${token}` }
-            }).then(res => res.json()).catch(err => ({ success: false, error: err })),
-            
-            // Get practice attempts (lesson_id=2)
-            fetch(`/api/progress/practice-attempts?lesson_id=${POLYLEARN_LESSON_ID}`, {
-                headers: { 'Authorization': `Bearer ${token}` }
-            }).then(res => res.json()).catch(err => ({ success: false, error: err })),
-            
-            // Get total exercises count (lesson_id=2)
-            fetch(`/api/practice/exercises/count?lesson_id=${POLYLEARN_LESSON_ID}`, {
-                headers: { 'Authorization': `Bearer ${token}` }
-            }).then(res => res.json()).catch(err => ({ success: false, error: err }))
-        ]);
+        // Get lessons progress
+        const lessonsResponse = await fetch(`/api/progress/lessons?lesson_id=${POLYLEARN_LESSON_ID}`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
         
-        // ===== PROCESS LESSONS DATA =====
+        if (!lessonsResponse.ok) {
+            throw new Error(`Lessons API returned ${lessonsResponse.status}`);
+        }
+        
+        const contentType = lessonsResponse.headers.get('content-type');
+        if (!contentType || !contentType.includes('application/json')) {
+            throw new Error('Lessons API returned non-JSON response');
+        }
+        
+        const lessonsData = await lessonsResponse.json();
+        
+        // Get practice attempts
+        const practiceResponse = await fetch(`/api/progress/practice-attempts?lesson_id=${POLYLEARN_LESSON_ID}`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        
+        if (!practiceResponse.ok) {
+            throw new Error(`Practice API returned ${practiceResponse.status}`);
+        }
+        
+        const practiceContentType = practiceResponse.headers.get('content-type');
+        if (!practiceContentType || !practiceContentType.includes('application/json')) {
+            throw new Error('Practice API returned non-JSON response');
+        }
+        
+        const practiceData = await practiceResponse.json();
+        
+        // Calculate statistics
         let lessonsCompleted = 0;
-        let totalLessons = 0;
-        
-        if (lessonsData.status === 'fulfilled' && lessonsData.value.success) {
-            const progress = lessonsData.value.progress || [];
-            lessonsCompleted = progress.filter(p => 
-                p.completion_status === 'completed' || p.status === 'completed'
+        if (lessonsData.success && lessonsData.progress) {
+            lessonsCompleted = lessonsData.progress.filter(p => 
+                p.completion_status === 'completed'
             ).length;
-            console.log(`✅ Lessons completed from DB: ${lessonsCompleted}`);
         }
         
-        // ===== PROCESS TOTAL EXERCISES =====
-        let totalExercises = 0;
-        if (totalExercisesData.status === 'fulfilled' && totalExercisesData.value.success) {
-            totalExercises = totalExercisesData.value.count || 0;
-            console.log(`✅ Total exercises from DB: ${totalExercises}`);
-        }
-        
-        // ===== PROCESS PRACTICE ATTEMPTS =====
         let exercisesCompleted = 0;
-        let totalAttempts = 0;
-        let totalScore = 0;
-        let totalTimeSeconds = 0;
-        let averageScore = 0;
-        
-        if (attemptsData.status === 'fulfilled' && attemptsData.value.success) {
-            const attempts = attemptsData.value.attempts || [];
-            
-            // Count completed exercises
-            exercisesCompleted = attempts.filter(a => 
-                a.completion_status === 'completed' || 
-                a.percentage >= 70 ||
-                a.score >= 70
+        if (practiceData.success && practiceData.attempts) {
+            exercisesCompleted = practiceData.attempts.filter(a => 
+                a.completion_status === 'completed' || a.percentage >= 70
             ).length;
-            
-            totalAttempts = attempts.length;
-            
-            // Calculate average score
-            if (totalAttempts > 0) {
-                const totalScoreSum = attempts.reduce((sum, a) => sum + (a.score || 0), 0);
-                averageScore = Math.round(totalScoreSum / totalAttempts);
-            }
-            
-            // Calculate total time
-            totalTimeSeconds = attempts.reduce((sum, a) => sum + (a.time_spent_seconds || 0), 0);
-            
-            console.log(`✅ Exercises completed from DB: ${exercisesCompleted}/${totalExercises}`);
-            console.log(`✅ Total attempts from DB: ${totalAttempts}`);
-            console.log(`✅ Average score from DB: ${averageScore}%`);
-            console.log(`✅ Total time from DB: ${totalTimeSeconds}s`);
         }
         
-        // ===== CREATE STATS OBJECT FROM DATABASE =====
         const stats = {
-            total_exercises_completed: exercisesCompleted,
-            total_attempts: totalAttempts,
-            average_score: averageScore,
             lessons_completed: lessonsCompleted,
             exercises_completed: exercisesCompleted,
-            practice_unlocked: true,
-            total_lessons: totalLessons || 3,
-            total_exercises: totalExercises,
-            total_time_minutes: Math.round(totalTimeSeconds / 60),
-            total_time_seconds: totalTimeSeconds,
-            accuracy_rate: averageScore,
-            lessons_display: `${lessonsCompleted}/${totalLessons || 3}`,
-            exercises_display: `${exercisesCompleted}`,
-            lessons_percentage: totalLessons > 0 ? Math.round((lessonsCompleted / totalLessons) * 100) : 0
+            total_lessons: 3,
+            total_exercises: 5,
+            average_score: 0,
+            total_time_seconds: 0
         };
         
-        console.log('✅ FINAL PRACTICE STATISTICS FROM DATABASE:', stats);
+        // Calculate average score if there are attempts
+        if (practiceData.success && practiceData.attempts && practiceData.attempts.length > 0) {
+            const totalScore = practiceData.attempts.reduce((sum, a) => sum + (a.score || 0), 0);
+            stats.average_score = Math.round(totalScore / practiceData.attempts.length);
+            stats.total_time_seconds = practiceData.attempts.reduce((sum, a) => sum + (a.time_spent_seconds || 0), 0);
+        }
         
-        // Save to PracticeState
-        PracticeState.userPracticeProgress = stats;
+        console.log('✅ Statistics from database:', stats);
+        
+        // Update UI
+        practiceStats.innerHTML = `
+            <div class="stat-card">
+                <div class="stat-value">${stats.lessons_completed}</div>
+                <div class="stat-label">LESSONS COMPLETED</div>
+                <div class="stat-subtext">out of ${stats.total_lessons}</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value">${stats.exercises_completed}</div>
+                <div class="stat-label">EXERCISES COMPLETED</div>
+                <div class="stat-subtext">total completed</div>
+            </div>
+        `;
         
         return stats;
         
     } catch (error) {
-        console.error('❌ Error fetching practice statistics from database:', error);
+        console.error('❌ Error fetching practice statistics:', error);
+        
+        const practiceStats = document.getElementById('practiceStats');
+        if (practiceStats) {
+            practiceStats.innerHTML = `
+                <div class="error-message" style="grid-column: 1/-1; text-align: center; padding: 20px;">
+                    <i class="fas fa-exclamation-triangle" style="font-size: 24px; color: #e74c3c; margin-bottom: 10px;"></i>
+                    <p style="color: #666;">Failed to load statistics: ${error.message}</p>
+                    <button class="btn-primary" onclick="fetchPracticeStatistics()" style="margin-top: 10px; padding: 5px 15px;">
+                        <i class="fas fa-redo"></i> Retry
+                    </button>
+                </div>
+            `;
+        }
+        
         return null;
     }
 }
@@ -18821,10 +18832,10 @@ async function loadPracticeExercises() {
     }
 }
 // ============================================
-// ✅ FIXED: Initialize practice page - STRICT LESSON_ID FILTERING
+// ✅ FIXED: initPracticePage - NO FALLBACKS
 // ============================================
 async function initPracticePage() {
-    console.log('💪 Initializing practice page with strict lesson_id filtering...');
+    console.log('💪 Initializing practice page - DATABASE ONLY, NO FALLBACKS');
     
     // Update date
     const practiceDate = document.getElementById('practiceDate');
@@ -18837,35 +18848,68 @@ async function initPracticePage() {
         });
     }
     
-    // ✅ Get current app's lesson ID
-    const selectedApp = localStorage.getItem('selectedApp') || 'polylearn';
-    const currentLessonId = getCurrentLessonId(); // Kunin ang lesson_id (2 for PolyLearn)
+    // ✅ Force PolyLearn lesson_id = 2
+    const POLYLEARN_LESSON_ID = 2;
+    localStorage.setItem('currentLessonId', POLYLEARN_LESSON_ID);
     
-    console.log(`🎯 Selected app: ${selectedApp}, lesson ID: ${currentLessonId}`);
-    console.log(`🎯 Will ONLY show content with lesson_id = ${currentLessonId}`);
-    
-    // ✅ Store lesson ID in localStorage for other functions
-    localStorage.setItem('currentLessonId', currentLessonId);
+    console.log(`🎯 Forced lesson_id: ${POLYLEARN_LESSON_ID} (PolyLearn only)`);
     
     // Reset current topic if needed
     if (!PracticeState.currentTopic) {
-        PracticeState.currentTopic = '1'; // Default to topic 1, but will be filtered by lesson
+        PracticeState.currentTopic = '1';
     }
     
-    // ✅ I-LOAD AGAD ANG PRACTICE STATISTICS MULA DATABASE
-    await loadPracticeStatistics();
+    try {
+        // Show loading states
+        const exerciseArea = document.getElementById('exerciseArea');
+        if (exerciseArea) {
+            exerciseArea.innerHTML = `
+                <div class="loading-container" style="text-align: center; padding: 40px;">
+                    <i class="fas fa-spinner fa-spin" style="font-size: 40px; color: #7a0000;"></i>
+                    <p style="margin-top: 15px;">Loading PolyLearn data from database...</p>
+                </div>
+            `;
+        }
+        
+        // Load ALL data in parallel
+        const [statsResult, topicsResult] = await Promise.allSettled([
+            fetchPracticeStatistics(),
+            loadTopicsProgress()
+        ]);
+        
+        // Check statistics
+        if (statsResult.status === 'rejected' || (statsResult.value && !statsResult.value.success)) {
+            console.error('❌ Failed to load practice statistics from database');
+        }
+        
+        // Check topics
+        if (topicsResult.status === 'rejected') {
+            console.error('❌ Failed to load topics from database');
+        }
+        
+        // Load practice exercises for current topic
+        await loadPracticeExercisesForTopic(PracticeState.currentTopic);
+        
+    } catch (error) {
+        console.error('❌ Error initializing practice page:', error);
+        
+        const exerciseArea = document.getElementById('exerciseArea');
+        if (exerciseArea) {
+            exerciseArea.innerHTML = `
+                <div class="error-message" style="text-align: center; padding: 40px;">
+                    <i class="fas fa-exclamation-triangle" style="font-size: 60px; color: #e74c3c; margin-bottom: 20px;"></i>
+                    <h3 style="color: #2c3e50; margin-bottom: 10px;">Failed to Load Practice Data</h3>
+                    <p style="color: #7f8c8d; margin-bottom: 20px;">${error.message}</p>
+                    <button class="btn-primary" onclick="initPracticePage()" style="padding: 12px 25px;">
+                        <i class="fas fa-redo"></i> Try Again
+                    </button>
+                </div>
+            `;
+        }
+    }
     
-    // Load topics progress (will be filtered by lesson_id)
-    await loadTopicsProgress();
-    
-    // Load practice exercises for current topic (with lesson_id filter)
-    console.log(`🎯 Loading exercises for topic: ${PracticeState.currentTopic}`);
-    await loadPracticeExercisesForTopic(PracticeState.currentTopic);
-    
-    // Add practice styles
     addPracticeStyles();
-    
-    console.log('✅ Practice page initialized for app: ' + selectedApp + ' (lesson ' + currentLessonId + ')');
+    console.log('✅ Practice page initialization complete');
 }
 
 // ============================================
@@ -18924,7 +18968,7 @@ window.checkPracticeRecords = async function() {
 };
 
 // ============================================
-// ✅ FIXED: loadTopicsProgress - FORCED LESSON_ID = 2
+// ✅ FIXED: loadTopicsProgress - REAL DATABASE ONLY, NO FALLBACKS
 // ============================================
 async function loadTopicsProgress() {
     try {
@@ -18945,69 +18989,86 @@ async function loadTopicsProgress() {
             return;
         }
         
-        console.log('📊 Fetching topics progress...');
+        console.log('📊 Fetching topics progress from database...');
         
-        const currentLessonId = POLYLEARN_LESSON_ID; // Force to 2
+        // ✅ Force PolyLearn lesson_id = 2
+        const POLYLEARN_LESSON_ID = 2;
         
-        console.log(`🎯 Loading topics for PolyLearn, forced lesson_id: ${currentLessonId}`);
-        
-        const response = await fetch(`/api/topics/progress`, {
-            headers: { 'Authorization': `Bearer ${token}` }
+        const response = await fetch(`/api/topics/progress?lesson_id=${POLYLEARN_LESSON_ID}`, {
+            headers: { 
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+            }
         });
         
-        if (!response.ok) {
-            console.error(`❌ API returned ${response.status}`);
+        console.log(`📡 Response status: ${response.status}`);
+        
+        // Check if response is JSON
+        const contentType = response.headers.get('content-type');
+        if (!contentType || !contentType.includes('application/json')) {
+            const text = await response.text();
+            console.error('❌ Non-JSON response:', text.substring(0, 200));
+            
             topicsContainer.innerHTML = `
                 <div class="error-message">
                     <i class="fas fa-exclamation-triangle"></i>
-                    <h3>Failed to load topics</h3>
-                    <p>API returned ${response.status}</p>
+                    <h3>Server Error</h3>
+                    <p>The topics endpoint returned an invalid response.</p>
+                    <p class="error-detail">Status: ${response.status}</p>
+                </div>
+            `;
+            return;
+        }
+        
+        if (!response.ok) {
+            const errorData = await response.json();
+            console.error('❌ API Error:', errorData);
+            
+            topicsContainer.innerHTML = `
+                <div class="error-message">
+                    <i class="fas fa-exclamation-triangle"></i>
+                    <h3>Failed to Load Topics</h3>
+                    <p>${errorData.message || `Server returned ${response.status}`}</p>
                 </div>
             `;
             return;
         }
         
         const data = await response.json();
-        console.log('📥 Topics progress data received:', data);
+        console.log('📥 Server response:', data);
         
-        if (data.success && data.topics) {
-            console.log(`✅ Received ${data.topics.length} topics from server`);
-            
-            // ✅ FORCE FILTER - lesson_id=2 lang
-            const filteredTopics = data.topics.filter(topic => {
-                const topicLessonId = topic.lesson_id || topic.lessonId;
-                return topicLessonId == currentLessonId;
-            });
-            
-            console.log(`🎯 Filtered to ${filteredTopics.length} topics for PolyLearn (lesson ${currentLessonId})`);
-            
-            if (filteredTopics.length > 0) {
-                displayTopics(filteredTopics);
-                
-                const unlockedCount = filteredTopics.filter(t => t.practice_unlocked).length;
-                const unlockedCountElement = document.getElementById('unlockedCount');
-                if (unlockedCountElement) {
-                    unlockedCountElement.textContent = unlockedCount;
-                }
-            } else {
-                topicsContainer.innerHTML = `
-                    <div class="no-topics" style="text-align: center; padding: 40px;">
-                        <i class="fas fa-folder-open" style="font-size: 48px; color: #ccc; margin-bottom: 15px;"></i>
-                        <h3 style="color: #666;">No topics available for PolyLearn</h3>
-                        <p style="color: #999;">Topics with lesson_id = ${currentLessonId} will appear here.</p>
-                        <p style="color: #999; font-size: 12px;">Debug: Received ${data.topics.length} total topics</p>
-                    </div>
-                `;
-            }
-        } else {
+        if (!data.success || !data.topics) {
             topicsContainer.innerHTML = `
                 <div class="error-message">
                     <i class="fas fa-info-circle"></i>
-                    <h3>No topics found</h3>
-                    <p>${data.message || 'No topics available yet'}</p>
+                    <h3>No Topics Found</h3>
+                    <p>No topics are available in the database.</p>
                 </div>
             `;
+            return;
         }
+        
+        // ✅ Filter to ensure only lesson_id = 2
+        const polyLearnTopics = data.topics.filter(topic => {
+            const topicLessonId = topic.lesson_id || topic.lessonId;
+            return topicLessonId == POLYLEARN_LESSON_ID;
+        });
+        
+        console.log(`🎯 Database returned ${polyLearnTopics.length} topics for PolyLearn`);
+        
+        if (polyLearnTopics.length === 0) {
+            topicsContainer.innerHTML = `
+                <div class="error-message">
+                    <i class="fas fa-folder-open"></i>
+                    <h3>No PolyLearn Topics</h3>
+                    <p>There are no topics with lesson_id = ${POLYLEARN_LESSON_ID} in the database.</p>
+                </div>
+            `;
+            return;
+        }
+        
+        displayTopics(polyLearnTopics);
+        
     } catch (error) {
         console.error('❌ Error loading topics progress:', error);
         const topicsContainer = document.getElementById('topicsContainer');
@@ -19015,10 +19076,10 @@ async function loadTopicsProgress() {
             topicsContainer.innerHTML = `
                 <div class="error-message">
                     <i class="fas fa-exclamation-triangle"></i>
-                    <h3>Failed to load topics</h3>
+                    <h3>Connection Error</h3>
                     <p>${error.message}</p>
                     <button class="btn-primary" onclick="loadTopicsProgress()" style="margin-top: 15px;">
-                        <i class="fas fa-redo"></i> Try Again
+                        <i class="fas fa-redo"></i> Retry
                     </button>
                 </div>
             `;
@@ -19263,85 +19324,126 @@ async function selectTopicForPractice(topicId) {
 
 
 // ============================================
-// ✅ FIXED: Load practice exercises - FORCED LESSON_ID = 2
+// ✅ FIXED: loadPracticeExercisesForTopic - DATABASE ONLY
 // ============================================
 async function loadPracticeExercisesForTopic(topicId) {
     try {
-        console.log(`📝 Getting practice exercises for topic ${topicId}`);
+        console.log(`📝 Getting practice exercises for topic ${topicId} from database`);
         
-        const currentLessonId = POLYLEARN_LESSON_ID; // Force to 2
-        
-        console.log(`🎯 Forced lesson_id: ${currentLessonId} (PolyLearn only)`);
-        
-        // Get the exercise area
+        const POLYLEARN_LESSON_ID = 2;
         const exerciseArea = document.getElementById('exerciseArea');
+        
         if (!exerciseArea) return;
         
         exerciseArea.innerHTML = `
             <div class="loading-container" style="text-align: center; padding: 30px;">
                 <i class="fas fa-spinner fa-spin" style="font-size: 30px; color: #7a0000;"></i>
-                <p style="margin-top: 10px;">Loading PolyLearn exercises...</p>
+                <p style="margin-top: 10px;">Loading exercises from database...</p>
             </div>
         `;
         
-        // ✅ Force lesson_id=2 in API call
-        let endpoint = `/api/practice/topic/${topicId}?lesson_id=${currentLessonId}`;
+        const token = localStorage.getItem('authToken') || authToken;
+        if (!token) {
+            exerciseArea.innerHTML = `
+                <div class="error-message" style="text-align: center; padding: 40px;">
+                    <i class="fas fa-exclamation-triangle" style="font-size: 48px; color: #e74c3c;"></i>
+                    <h3 style="color: #666;">Authentication Required</h3>
+                    <p style="color: #999;">Please login to view practice exercises.</p>
+                </div>
+            `;
+            return;
+        }
+        
+        // ✅ Single endpoint - no fallbacks
+        const endpoint = `/api/practice/topic/${topicId}?lesson_id=${POLYLEARN_LESSON_ID}`;
         console.log(`📡 Fetching from: ${endpoint}`);
         
         const response = await fetch(endpoint, {
-            headers: {
-                'Authorization': `Bearer ${localStorage.getItem('authToken')}`
+            headers: { 
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
             }
         });
         
+        console.log(`📥 Response status: ${response.status}`);
+        
+        // Check if response is JSON
+        const contentType = response.headers.get('content-type');
+        if (!contentType || !contentType.includes('application/json')) {
+            const text = await response.text();
+            console.error('❌ Non-JSON response:', text.substring(0, 200));
+            
+            exerciseArea.innerHTML = `
+                <div class="error-message" style="text-align: center; padding: 40px;">
+                    <i class="fas fa-exclamation-triangle" style="font-size: 48px; color: #e74c3c;"></i>
+                    <h3 style="color: #666;">Server Error</h3>
+                    <p style="color: #999;">The practice endpoint returned an invalid response.</p>
+                    <p class="error-detail">Status: ${response.status}</p>
+                </div>
+            `;
+            return;
+        }
+        
         if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
+            const errorData = await response.json();
+            console.error('❌ API Error:', errorData);
+            
+            exerciseArea.innerHTML = `
+                <div class="error-message" style="text-align: center; padding: 40px;">
+                    <i class="fas fa-exclamation-triangle" style="font-size: 48px; color: #e74c3c;"></i>
+                    <h3 style="color: #666;">Failed to Load Exercises</h3>
+                    <p style="color: #999;">${errorData.message || `Server returned ${response.status}`}</p>
+                </div>
+            `;
+            return;
         }
         
         const data = await response.json();
-        console.log('📥 Practice data received:', data);
+        console.log('📥 Server response:', data);
         
-        if (data.success && data.exercises) {
-            // ✅ STRICT FILTERING - lesson_id=2 lang
-            const filteredExercises = data.exercises.filter(ex => {
-                const exerciseLessonId = ex.lesson_id || ex.lessonId;
-                return exerciseLessonId == currentLessonId;
-            });
-            
-            console.log(`✅ Found ${filteredExercises.length} exercises for PolyLearn (lesson ${currentLessonId})`);
-            
-            if (filteredExercises.length > 0) {
-                displayPracticeExercises(filteredExercises);
-            } else {
-                exerciseArea.innerHTML = `
-                    <div class="no-exercises" style="text-align: center; padding: 40px;">
-                        <i class="fas fa-pencil-alt" style="font-size: 48px; color: #ccc; margin-bottom: 15px;"></i>
-                        <h3 style="color: #666;">No Practice Exercises for PolyLearn</h3>
-                        <p style="color: #999;">There are no practice exercises available for PolyLearn yet.</p>
-                    </div>
-                `;
-            }
-        } else {
+        if (!data.success || !data.exercises) {
             exerciseArea.innerHTML = `
-                <div class="no-exercises" style="text-align: center; padding: 40px;">
-                    <i class="fas fa-pencil-alt" style="font-size: 48px; color: #ccc; margin-bottom: 15px;"></i>
-                    <h3 style="color: #666;">No Practice Exercises</h3>
-                    <p style="color: #999;">There are no practice exercises available for this topic yet.</p>
+                <div class="error-message" style="text-align: center; padding: 40px;">
+                    <i class="fas fa-info-circle" style="font-size: 48px; color: #3498db;"></i>
+                    <h3 style="color: #666;">No Exercises Available</h3>
+                    <p style="color: #999;">There are no practice exercises in the database for this topic.</p>
                 </div>
             `;
+            return;
         }
         
+        // Filter to ensure only lesson_id = 2
+        const polyLearnExercises = data.exercises.filter(ex => {
+            const exLessonId = ex.lesson_id || ex.lessonId;
+            return exLessonId == POLYLEARN_LESSON_ID;
+        });
+        
+        console.log(`✅ Database returned ${polyLearnExercises.length} exercises for PolyLearn`);
+        
+        if (polyLearnExercises.length === 0) {
+            exerciseArea.innerHTML = `
+                <div class="error-message" style="text-align: center; padding: 40px;">
+                    <i class="fas fa-info-circle" style="font-size: 48px; color: #3498db;"></i>
+                    <h3 style="color: #666;">No PolyLearn Exercises</h3>
+                    <p style="color: #999;">There are no exercises with lesson_id = ${POLYLEARN_LESSON_ID} in the database.</p>
+                </div>
+            `;
+            return;
+        }
+        
+        displayPracticeExercises(polyLearnExercises);
+        
     } catch (error) {
-        console.error('Error loading exercises:', error);
+        console.error('❌ Error loading exercises:', error);
         const exerciseArea = document.getElementById('exerciseArea');
         if (exerciseArea) {
             exerciseArea.innerHTML = `
                 <div class="error-message" style="text-align: center; padding: 40px;">
                     <i class="fas fa-exclamation-triangle" style="font-size: 48px; color: #e74c3c;"></i>
-                    <h3 style="color: #666;">Failed to load exercises</h3>
+                    <h3 style="color: #666;">Connection Error</h3>
                     <p style="color: #999;">${error.message}</p>
-                    <button class="btn-primary" onclick="location.reload()" style="margin-top: 15px;">
-                        <i class="fas fa-redo"></i> Try Again
+                    <button class="btn-primary" onclick="loadPracticeExercisesForTopic('${topicId}')" style="margin-top: 15px;">
+                        <i class="fas fa-redo"></i> Retry
                     </button>
                 </div>
             `;
