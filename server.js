@@ -1222,6 +1222,24 @@ app.post('/api/auth/register', async (req, res) => {
     }
 });
 
+// Run this in the browser console
+function debugFactorialFilter() {
+    console.log('=== FACTORIAL DEBUG ===');
+    console.log('FACTORIAL_LESSON_ID:', window.FACTORIAL_LESSON_ID);
+    console.log('POLYLEARN_LESSON_ID:', window.POLYLEARN_LESSON_ID);
+    console.log('MATHEASE_LESSON_ID:', window.MATHEASE_LESSON_ID);
+    console.log('getCurrentAppLessonId():', window.getCurrentAppLessonId());
+    console.log('localStorage selectedApp:', localStorage.getItem('selectedApp'));
+    console.log('localStorage currentLessonFilter:', localStorage.getItem('currentLessonFilter'));
+    
+    // Test a fetch call
+    fetch('/api/progress/practice-attempts')
+        .then(res => {
+            console.log('Actual URL called:', res.url);
+        })
+        .catch(() => {});
+}
+
 // ============================================
 // 🧮 TOOL ENDPOINTS - FOR LESSON DASHBOARD
 // ============================================
