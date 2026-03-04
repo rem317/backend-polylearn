@@ -32497,38 +32497,7 @@ function showDeleteConfirmationModal() {
     }
 }
 
-/**
- * Delete account permanently
- */
-async function deleteAccount() {
-    if (!confirm('⚠️ WARNING: This will permanently delete ALL your data. This action cannot be undone. Continue?')) return;
-    
-    if (!confirm('Type "DELETE" to confirm:')) return;
-    
-    try {
-        const token = localStorage.getItem('authToken') || authToken;
-        
-        const response = await fetch(`/api/user/delete`, {
-            method: 'DELETE',
-            headers: {
-                'Authorization': `Bearer ${token}`,
-                'Content-Type': 'application/json'
-            }
-        });
-        
-        const data = await response.json();
-        
-        if (data.success) {
-            showNotification('Account deleted permanently', 'info');
-            setTimeout(logoutAndRedirect, 2000);
-        } else {
-            showNotification('Failed to delete account', 'error');
-        }
-    } catch (error) {
-        console.error('Error deleting account:', error);
-        showNotification('Failed to delete account', 'error');
-    }
-}
+
 /**
  * Export user data
  */
