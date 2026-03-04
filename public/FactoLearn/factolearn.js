@@ -79,7 +79,7 @@ function getCurrentAppLessonId() {
 // Example API call - lahat ng user ay makakakita ng FactoLearn data
 // kung naka-select sila ng FactoLearn
 fetch(`/api/topics/progress?lesson_id=${getCurrentAppLessonId()}`, {
-    headers: { 'Authorization': `Bearer ${token}` }
+    headers: { 'Authorization': `Bearer ${authToken}` }
 })
 // Get the filter parameter for API calls
 function getAppFilterParam() {
