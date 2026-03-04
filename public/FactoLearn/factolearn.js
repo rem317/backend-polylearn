@@ -17656,10 +17656,10 @@ async function testVideoAccessibility(url) {
 async function loadVideoFromDatabase(contentId = null) {
     console.log('🎬 loadVideoFromDatabase called with contentId:', contentId);
     
-    // Try multiple selectors for video container
-    const videoContainer = document.getElementById('videoContainer') || 
-                           document.querySelector('.video-container') ||
-                           document.querySelector('#module-dashboard-page .video-section');
+    // Try multiple selectors for video container - use LET instead of CONST
+    let videoContainer = document.getElementById('videoContainer') || 
+                         document.querySelector('.video-container') ||
+                         document.querySelector('#module-dashboard-page .video-section');
     
     const videoInfo = document.getElementById('videoInfo');
     const refreshVideoBtn = document.getElementById('refreshVideoBtn');
@@ -17688,7 +17688,7 @@ async function loadVideoFromDatabase(contentId = null) {
             }
         }
         
-        // Try to get container again
+        // Try to get container again - reassign to LET variable
         videoContainer = document.getElementById('videoContainer');
         if (!videoContainer) {
             console.error('❌ Still cannot find video container');
@@ -17899,6 +17899,69 @@ async function loadVideoFromDatabase(contentId = null) {
         }
     }
 }
+
+// Add this at the end of your script.js file
+window.debugLessonId3 = async function() {
+    console.log('🔍 DEBUGGING LESSON ID 3 (Factorial)');
+    console.log('=====================================');
+    
+    const token = localStorage.getItem('authToken');
+    
+    if (!token) {
+        console.error('❌ No auth token found');
+        return;
+    }
+    
+    // 1. Check lesson data
+    console.log('\n📚 CHECKING LESSON DATA:');
+    try {
+        const lessonRes = await fetch('/api/lessons-db/complete?lesson_id=3', {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        const lessonData = await lessonRes.json();
+        console.log('Lessons for lesson_id=3:', lessonData);
+    } catch (e) {
+        console.error('Lesson fetch error:', e);
+    }
+    
+    // 2. Check practice exercises
+    console.log('\n💪 CHECKING PRACTICE EXERCISES:');
+    try {
+        const practiceRes = await fetch('/api/practice/exercises/count?lesson_id=3', {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        const practiceData = await practiceRes.json();
+        console.log('Practice exercises count:', practiceData);
+    } catch (e) {
+        console.error('Practice fetch error:', e);
+    }
+    
+    // 3. Check user progress
+    console.log('\n📊 CHECKING USER PROGRESS:');
+    try {
+        const progressRes = await fetch('/api/progress/lessons?lesson_id=3', {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        const progressData = await progressRes.json();
+        console.log('User progress for lesson_id=3:', progressData);
+    } catch (e) {
+        console.error('Progress fetch error:', e);
+    }
+    
+    // 4. Check quizzes
+    console.log('\n🧠 CHECKING QUIZZES:');
+    try {
+        const quizRes = await fetch('/api/quiz/categories?lesson_id=3', {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        const quizData = await quizRes.json();
+        console.log('Quiz categories for lesson_id=3:', quizData);
+    } catch (e) {
+        console.error('Quiz fetch error:', e);
+    }
+    
+    console.log('\n✅ Debug complete');
+};
 
 
 // Get default video (fallback)
