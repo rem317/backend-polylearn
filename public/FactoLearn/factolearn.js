@@ -16206,7 +16206,7 @@ async function fetchAllLessons() {
             return [];
         }
         
-        const currentLessonId = POLYLEARN_LESSON_ID; // Force to 2
+        const currentLessonId = FACTORIAL_LESSON_ID;  // Force to 2
         
         console.log(`📚 Fetching lessons for PolyLearn, lesson ID: ${currentLessonId}`);
         
@@ -19273,7 +19273,7 @@ async function loadPracticeExercisesForTopic(topicId) {
     try {
         console.log(`📝 Getting practice exercises for topic ${topicId}`);
         
-        const currentLessonId = POLYLEARN_LESSON_ID; // Force to 2
+        const currentLessonId = FACTORIAL_LESSON_ID; // Force to 2
         
         console.log(`🎯 Forced lesson_id: ${currentLessonId} (PolyLearn only)`);
         
