@@ -1824,38 +1824,41 @@
 </head>
 <body>
     
-        <!-- Dashboard Page -->
-        <div id="dashboard-page" class="hidden">
+            <!-- Dashboard Page -->
+        <div id="dashboard-page" class="">
             <!-- Dashboard Content -->
             <div class="dashboard-container">
                 <!-- Welcome Card -->
                 <section class="card welcome-card">
                     <div class="welcome-header">
-                        <h1 class="welcome-title" id="dashboardWelcomeTitle">Welcome!</h1>
+                        <h1 class="welcome-title" id="dashboardWelcomeTitle">Welcome to <span class="app-title">FactoLearn</span>!</h1>
                         <div class="date-display" id="currentDate">Loading date... </div>
                     </div>
                     
                     <div class="student-info">
                         <div class="student-avatar-large" id="userInitial">U</div>
                         <div class="student-details">
-                            <h2 class="student-name" id="dashboardUserName">Welcome to <span>PolyLearn!</span></h2>
+                            <h2 class="student-name" id="dashboardUserName">Welcome to <span>FactoLearn!</span></h2>
                             <p style="color: var(--text-light); margin-bottom: 15px;" id="dashboardUserMessage">
-                                You're making excellent progress in your polynomial journey. Keep up the great work!
+                                You're making excellent progress in your FactoLearn journey. Keep up the great work!
                             </p>
                             <div class="achievement-badge" id="userAchievementBadge">
-                                <i class="fas fa-medal"></i> Loading...
+                                <i class="fas fa-medal"></i> FactoLearn Learner
+                            </div>
+                            <div class="factolearn-badge" style="margin-top: 10px;">
+                                <i class="fas fa-check-circle"></i> FactoLearn Active
                             </div>
                         </div>
                     </div>
                 </section>
-
+    
                 <!-- Progress Summary Card -->
                 <section class="card">
                     <div class="card-header">
                         <h2 class="card-title">
                             <i class="fas fa-chart-bar"></i> Progress Summary
                         </h2>
-                        <p class="card-subtitle">Your learning progress this week</p>
+                        <p class="card-subtitle">Your FactoLearn progress this week</p>
                     </div>
                     
                     <div class="progress-items">
@@ -1867,7 +1870,7 @@
                                 </div>
                                 <div>
                                     <h3>Lessons Completed</h3>
-                                    <p>Total polynomial lessons finished</p>
+                                    <p>FactoLearn lessons finished</p>
                                 </div>
                             </div>
                             <div class="item-value" id="lessonsCount">0<span class="item-unit">/0</span></div>
@@ -1881,7 +1884,7 @@
                                 </div>
                                 <div>
                                     <h3>Practice Exercises</h3>
-                                    <p>Exercises solved correctly</p>
+                                    <p>FactoLearn exercises solved</p>
                                 </div>
                             </div>
                             <div class="item-value" id="exercisesCount">0<span class="item-unit">/0</span></div>
@@ -1895,7 +1898,7 @@
                                 </div>
                                 <div>
                                     <h3>Quiz Game Score</h3>
-                                    <p>Your high score in polynomial games</p>
+                                    <p>Your high score in FactoLearn</p>
                                 </div>
                             </div>
                             <div class="item-value" id="quizScore">0<span class="item-unit">points</span></div>
@@ -1916,33 +1919,33 @@
                         </div>
                     </div>
                 </section>
-
+    
                 <!-- Continue Learning Card - DATABASE DRIVEN -->
                 <section class="card full-width-card">
                     <div class="card-header">
                         <h2 class="card-title">
                             <i class="fas fa-play-circle"></i> Continue Learning
                         </h2>
-                        <p class="card-subtitle">Pick up where you left off</p>
+                        <p class="card-subtitle">Pick up where you left off in FactoLearn</p>
                     </div>
                     
                     <!-- Continue Learning Module - Loaded dynamically from database -->
                     <div id="continueLearningContainer" class="continue-learning-module">
                         <div class="loading-container">
                             <div class="loading-text">
-                                <i class="fas fa-spinner fa-spin"></i> Loading lessons from database...
+                                <i class="fas fa-spinner fa-spin"></i> Loading FactoLearn lessons from database...
                             </div>
                         </div>
                     </div>
                 </section>
-
-                <!-- NEW: Lesson Dashboard Container with Learning Tools and Quick Tools -->
+    
+                <!-- Lesson Dashboard Container with Learning Tools -->
                 <section class="card full-width-card">
                     <div class="card-header">
                         <h2 class="card-title">
-                            <i class="fas fa-tools"></i> Lesson Dashboard
+                            <i class="fas fa-tools"></i> FactoLearn Tools
                         </h2>
-                        <p class="card-subtitle">Access learning tools and quick utilities for your lessons</p>
+                        <p class="card-subtitle">Access learning tools and utilities for your FactoLearn lessons</p>
                     </div>
                     
                     <div class="lesson-dashboard-container">
@@ -1950,7 +1953,7 @@
                         <div class="learning-tools-box">
                             <div class="tools-header">
                                 <i class="fas fa-graduation-cap"></i>
-                                <h3>Learning Tools</h3>
+                                <h3>FactoLearn Learning Tools</h3>
                             </div>
                             
                             <div class="tools-grid-compact">
@@ -1993,29 +1996,20 @@
                                     <div class="tool-name">Notepad</div>
                                     <div class="tool-desc">Take notes</div>
                                 </div>
-                                
-                
                             </div>
                             
                             <div class="tools-description">
-                                <p><i class="fas fa-info-circle"></i> Learning tools help you understand concepts better with interactive features.</p>
+                                <p><i class="fas fa-info-circle"></i> FactoLearn tools help you understand concepts better with interactive features.</p>
                             </div>
                         </div>
-                        
-                        
                     </div>
                 </section>
-
             </div>
         </div>
-
-        <!-- Module Dashboard Page - DATABASE DRIVEN -->
+    
+        <!-- Module Dashboard Page - FactoLearn Focused -->
         <div id="module-dashboard-page" class="hidden">
-            <!-- Page Container -->
             <div id="module-page-container">
-                <!-- Header -->
-
-                <!-- Dashboard Content -->
                 <div class="dashboard-container">
                     <!-- Main Content -->
                     <main class="main-content">
@@ -2023,16 +2017,16 @@
                         <div class="card">
                             <div class="card-header">
                                 <h2 class="card-title">
-                                    <i class="fas fa-book-open"></i> Lesson: <span id="moduleTitle">Loading...</span>
+                                    <i class="fas fa-book-open"></i> FactoLearn Lesson: <span id="moduleTitle">Loading...</span>
                                 </h2>
-                                <p class="card-subtitle" id="moduleSubtitle">Loading lesson content...</p>
+                                <p class="card-subtitle" id="moduleSubtitle">Loading FactoLearn content...</p>
                             </div>
                             
                             <div class="lesson-content">
                                 <!-- Video Section -->
                                 <div class="media-container">
                                     <div class="media-header">
-                                        <span><i class="fas fa-video"></i> Lesson Video</span>
+                                        <span><i class="fas fa-video"></i> FactoLearn Video</span>
                                         <div class="media-controls">
                                             <span id="videoTime" style="font-family: monospace; color: white;">0:00 / 0:00</span>
                                             <button class="refresh-video-btn" id="refreshVideoBtn" title="Reload video">
@@ -2041,51 +2035,45 @@
                                         </div>
                                     </div>
                                     <div class="video-container">
-                                        <!-- VIDEO: Loaded from database -->
                                         <video id="lessonVideo" width="100%" height="100%" controls>
                                             <source src="" type="video/mp4">
                                             Your browser does not support the video tag.
                                         </video>
                                     </div>
                                     <div class="video-info" id="videoInfo">
-                                        <p><i class="fas fa-info-circle"></i> Video loaded from database. Changes will appear automatically.</p>
+                                        <p><i class="fas fa-info-circle"></i> FactoLearn video loaded from database.</p>
                                     </div>
                                 </div>
                             
                                 <!-- Example Section -->
                                 <div class="step-container" id="exampleSection">
                                     <div class="step-title">
-                                        <span class="step-number"><i class="fas fa-book"></i></span> Lesson Content
+                                        <span class="step-number"><i class="fas fa-book"></i></span> FactoLearn Content
                                     </div>
                                     <div class="step-content" id="lessonContent">
-                                        <p>Loading lesson content from database...</p>
+                                        <p>Loading FactoLearn content from database...</p>
                                         <div class="math-example">
-                                            <p><strong>Loading example...</strong></p>
+                                            <p><strong>Loading FactoLearn example...</strong></p>
                                         </div>
                                         <ol class="steps">
-                                            <li>Lesson steps will appear here</li>
+                                            <li>FactoLearn steps will appear here</li>
                                             <li>Loaded dynamically from database</li>
                                         </ol>
                                     </div>
                                 </div>
                                 
-                                <!-- Divider Line -->
-                                <div style="height: 1px; background: var(--border-color); margin: 30px 0;"></div>
-                                
-                                
                                 <!-- Lesson Navigation -->
                                 <div class="lesson-navigation">
                                     <button class="lesson-nav-btn nav-prev" id="prevLessonBtn" disabled>
-                                        <i class="fas fa-arrow-left"></i> Previous Lesson
+                                        <i class="fas fa-arrow-left"></i> Previous FactoLearn Lesson
                                     </button>
                                     
-                                    <!-- CRITICAL: Admin Connection - data-lesson-id added for backend tracking -->
                                     <button class="btn-primary" id="completeLessonBtn" data-lesson-id="1">
-                                        <i class="fas fa-check-circle"></i> Mark Lesson Complete
+                                        <i class="fas fa-check-circle"></i> Mark FactoLearn Lesson Complete
                                     </button>
                                     
                                     <button class="lesson-nav-btn nav-next" id="nextLessonBtn" disabled>
-                                        Next Lesson <i class="fas fa-arrow-right"></i>
+                                        Next FactoLearn Lesson <i class="fas fa-arrow-right"></i>
                                     </button>
                                 </div>
                             </div>
@@ -2094,15 +2082,14 @@
                     
                     <!-- Sidebar -->
                     <aside class="sidebar">
-                        <!-- Progress and Learning Tool -->
                         <div class="progress-learning-tool">
                             <h2 class="progress-title">
-                                <i class="fas fa-chart-line"></i> Your Progress & Learning
+                                <i class="fas fa-chart-line"></i> FactoLearn Progress
                             </h2>
                             
                             <!-- Current Lesson Progress -->
                             <div class="lesson-progress-section">
-                                <h3><i class="fas fa-book"></i> Current Lesson Progress</h3>
+                                <h3><i class="fas fa-book"></i> Current FactoLearn Progress</h3>
                                 <div class="progress-bar-container">
                                     <div class="progress-fill" id="lessonProgressFill" style="width: 0%"></div>
                                 </div>
@@ -2114,7 +2101,7 @@
                             
                             <!-- Learning Statistics -->
                             <div class="learning-stats">
-                                <h3><i class="fas fa-chart-bar"></i> Today's Learning</h3>
+                                <h3><i class="fas fa-chart-bar"></i> Today's FactoLearn Stats</h3>
                                 <div class="stat-item">
                                     <div class="stat-icon">
                                         <i class="fas fa-clock"></i>
@@ -2148,9 +2135,9 @@
                         <!-- Learning Tools Container -->
                         <div class="learning-tools-container">
                             <h2 class="tools-title">
-                                <i class="fas fa-tools"></i> Learning Tools
+                                <i class="fas fa-tools"></i> FactoLearn Tools
                             </h2>
-                            <p class="tools-subtitle">Interactive tools to enhance your learning experience</p>
+                            <p class="tools-subtitle">Interactive tools for FactoLearn</p>
                             
                             <div class="tools-grid">
                                 <div class="tool-item" id="openCalculator">
@@ -2158,7 +2145,7 @@
                                         <i class="fas fa-calculator"></i>
                                     </div>
                                     <div class="tool-name">Calculator</div>
-                                    <div class="tool-description">Advanced math calculator with functions</div>
+                                    <div class="tool-description">Advanced math calculator</div>
                                 </div>
                                 
                                 <div class="tool-item" id="openGraphTools">
@@ -2166,7 +2153,7 @@
                                         <i class="fas fa-chart-line"></i>
                                     </div>
                                     <div class="tool-name">Graph Tools</div>
-                                    <div class="tool-description">Visualize functions and equations</div>
+                                    <div class="tool-description">Visualize functions</div>
                                 </div>
                                 
                                 <div class="tool-item" id="openNotepad">
@@ -2190,7 +2177,7 @@
                                         <i class="fas fa-paint-brush"></i>
                                     </div>
                                     <div class="tool-name">Whiteboard</div>
-                                    <div class="tool-description">Draw and solve problems visually</div>
+                                    <div class="tool-description">Draw and solve problems</div>
                                 </div>
                                 
                                 <div class="tool-item" id="openTimer">
@@ -2201,25 +2188,19 @@
                                     <div class="tool-description">Track your study sessions</div>
                                 </div>
                             </div>
-                            
-                            <div class="tool-info">
-                                <i class="fas fa-info-circle"></i>
-                                <p>Click on any tool to open it in a new window. All tools save automatically.</p>
-                            </div>
                         </div>
                     </aside>
                 </div>
             </div>
         </div>
-
-        <!-- Practice Exercises Page -->
+    
+        <!-- Practice Exercises Page - FactoLearn Focused -->
         <div id="practice-exercises-page" class="hidden">
-            <!-- Practice Content -->
             <div class="practice-container">
                 <!-- Welcome Section -->
                 <section class="card welcome-card">
                     <div class="welcome-header">
-                        <h1 class="welcome-title">Topic-Based Practice</h1>
+                        <h1 class="welcome-title">FactoLearn Topic-Based Practice</h1>
                         <div class="date-display" id="practiceDate">Today</div>
                     </div>
                     
@@ -2228,57 +2209,59 @@
                             <i class="fas fa-graduation-cap"></i>
                         </div>
                         <div class="practice-intro-text">
-                            <p>Practice exercises unlock as you complete topics. Master each concept before moving to more challenging problems!</p>
+                            <p>FactoLearn practice exercises unlock as you complete topics. Master each concept!</p>
                             <div class="current-streak">
-                                <i class="fas fa-unlock"></i> Unlocked: <span id="unlockedCount">0</span>/5 topics
+                                <i class="fas fa-unlock"></i> Unlocked: <span id="unlockedCount">0</span>/5 FactoLearn topics
+                            </div>
+                            <div class="factolearn-badge" style="margin-top: 10px;">
+                                <i class="fas fa-check-circle"></i> FactoLearn Practice
                             </div>
                         </div>
                     </div>
                 </section>
-
+    
                 <!-- Topics Progress -->
                 <section class="card full-width-card">
                     <div class="card-header">
                         <h2 class="card-title">
-                            <i class="fas fa-book-open"></i> Topics Progress
+                            <i class="fas fa-book-open"></i> FactoLearn Topics Progress
                         </h2>
-                        <p class="card-subtitle">Complete topics to unlock practice exercises</p>
+                        <p class="card-subtitle">Complete FactoLearn topics to unlock practice exercises</p>
                     </div>
                     
                     <div class="topics-container" id="topicsContainer">
-                        <!-- Topics will be loaded dynamically from database -->
                         <div class="loading-container">
                             <i class="fas fa-spinner fa-spin"></i>
-                            <p>Loading topics and progress...</p>
+                            <p>Loading FactoLearn topics and progress...</p>
                         </div>
                     </div>
                 </section>
-
+    
                 <!-- Current Practice Area -->
                 <section class="card full-width-card" id="currentPracticeSection">
                     <div class="card-header">
                         <h2 class="card-title">
-                            <i class="fas fa-brain"></i> Practice Exercises
+                            <i class="fas fa-brain"></i> FactoLearn Practice Exercises
                         </h2>
-                        <p class="card-subtitle" id="practiceTopicTitle">Select a topic to practice</p>
+                        <p class="card-subtitle" id="practiceTopicTitle">Select a FactoLearn topic to practice</p>
                     </div>
                     
                     <div class="exercise-area" id="exerciseArea">
                         <div class="no-topic-selected">
                             <i class="fas fa-mouse-pointer"></i>
-                            <h3>Select a Topic</h3>
+                            <h3>Select a FactoLearn Topic</h3>
                             <p>Choose a topic from the list above to start practicing</p>
                         </div>
                     </div>
                 </section>
-
+    
                 <!-- Practice Statistics -->
                 <section class="card">
                     <div class="card-header">
                         <h2 class="card-title">
-                            <i class="fas fa-chart-line"></i> Practice Statistics
+                            <i class="fas fa-chart-line"></i> FactoLearn Practice Statistics
                         </h2>
-                        <p class="card-subtitle">Your performance across topics</p>
+                        <p class="card-subtitle">Your performance across FactoLearn topics</p>
                     </div>
                     
                     <div class="stats-grid" id="practiceStats">
@@ -2287,58 +2270,57 @@
                 </section>
             </div>
         </div>
-
-        <!-- Quiz Dashboard Page - DATABASE DRIVEN -->
+    
+        <!-- Quiz Dashboard Page - FactoLearn Focused -->
         <div id="quiz-dashboard-page" class="hidden">
-            <!-- Quiz Content -->
             <div class="quiz-container">
                 <!-- Quiz Header Section -->
-                <div class="quiz-header-section" style=" padding: 30px; border-radius: 10px; margin-bottom: 20px;">
-                    <h1 class="quiz-welcome-title" style="color: white; margin: 0 0 10px 0; font-size: 28px;">Welcome to Quiz Dashboard!</h1>
-                    <p class="quiz-subtitle" style="color: white; margin: 0; opacity: 0.9; font-size: 16px;">Test your knowledge and track your progress with interactive quizzes</p>
+                <div class="factolearn-header" style="padding: 30px; border-radius: 10px; margin-bottom: 20px;">
+                    <h1 class="quiz-welcome-title" style="color: white; margin: 0 0 10px 0; font-size: 28px;">Welcome to FactoLearn Quiz Dashboard!</h1>
+                    <p class="quiz-subtitle" style="color: white; margin: 0; opacity: 0.9; font-size: 16px;">Test your FactoLearn knowledge and track your progress</p>
                 </div>
                 
                 <div class="quiz-stats-row">
                     <div class="quiz-stat-card">
                         <i class="fas fa-trophy"></i>
-                        <h3>Current Score</h3>
+                        <h3>FactoLearn Score</h3>
                         <div class="quiz-stat-value" id="quizCurrentScore">Loading...</div>
                     </div>
                     <div class="quiz-stat-card">
                         <i class="fas fa-chart-line"></i>
-                        <h3>Accuracy</h3>
+                        <h3>FactoLearn Accuracy</h3>
                         <div class="quiz-stat-value" id="quizAccuracy">Loading...</div>
                     </div>
                     <div class="quiz-stat-card">
                         <i class="fas fa-clock"></i>
-                        <h3>Time Spent</h3>
+                        <h3>FactoLearn Time</h3>
                         <div class="quiz-stat-value" id="quizTimeSpent">Loading...</div>
                     </div>
                     <div class="quiz-stat-card">
                         <i class="fas fa-medal"></i>
-                        <h3>Rank</h3>
+                        <h3>FactoLearn Rank</h3>
                         <div class="quiz-stat-value" id="quizRank">Loading...</div>
                     </div>
                 </div>
-
-                <!-- QUIZ CARDS - Where user sees available quizzes -->
+    
+                <!-- QUIZ CARDS -->
                 <div class="quiz-cards-container" id="quizCardsContainer">
-                    <h2 class="section-title"><i class="fas fa-puzzle-piece"></i> Available Quizzes</h2>
+                    <h2 class="section-title"><i class="fas fa-puzzle-piece"></i> Available FactoLearn Quizzes</h2>
                     <div class="quizzes-grid" id="userQuizzesContainer">
                         <div class="loading-container">
                             <i class="fas fa-spinner fa-spin"></i>
-                            <p>Loading quizzes from database...</p>
+                            <p>Loading FactoLearn quizzes from database...</p>
                         </div>
                     </div>
                 </div>
-
-                <!-- QUIZ INTERFACE - Shows when user starts a quiz -->
+    
+                <!-- QUIZ INTERFACE -->
                 <div class="quiz-interface-container" id="quizInterfaceContainer" style="display: none;">
                     <div class="quiz-header">
                         <button onclick="exitQuiz()" class="btn-secondary">
-                            <i class="fas fa-times"></i> Exit Quiz
+                            <i class="fas fa-times"></i> Exit FactoLearn Quiz
                         </button>
-                        <h2 id="activeQuizTitle">Quiz Title</h2>
+                        <h2 id="activeQuizTitle">FactoLearn Quiz</h2>
                         <div class="quiz-timer">
                             <i class="fas fa-clock"></i> <span id="timerDisplay">00:00</span>
                         </div>
@@ -2354,7 +2336,7 @@
                             <span class="question-points" id="questionPoints">10 points</span>
                         </div>
                         
-                        <h3 class="question-text" id="quizQuestionText">Loading question...</h3>
+                        <h3 class="question-text" id="quizQuestionText">Loading FactoLearn question...</h3>
                         
                         <div class="options-grid" id="quizOptionsContainer">
                             <!-- Options will be loaded here -->
@@ -2363,48 +2345,41 @@
                     
                     <div class="quiz-navigation">
                         <button class="nav-btn submit" onclick="submitQuiz()" id="submitQuizBtn" style="display: none;">
-                            Submit Quiz
+                            Submit FactoLearn Quiz
                         </button>
                     </div>
                 </div>
-
+    
                 <!-- Leaderboard Section -->
                 <div class="leaderboard-container" id="leaderboardContainer">
                     <h2 class="card-title">
-                        <i class="fas fa-chart-bar"></i> Quiz Leaderboard
+                        <i class="fas fa-chart-bar"></i> FactoLearn Leaderboard
                     </h2>
-                    <p class="card-subtitle">Top performers this week</p>
+                    <p class="card-subtitle">Top FactoLearn performers this week</p>
                     
                     <div class="leaderboard-list" id="leaderboardList">
                         <div class="loading-container">
-                            <i class="fas fa-spinner fa-spin"></i> Loading leaderboard...
+                            <i class="fas fa-spinner fa-spin"></i> Loading FactoLearn leaderboard...
                         </div>
                     </div>
                 </div>
             </div>
         </div>
-
-
-        <!-- Progress Tracking Dashboard Page - DATABASE DRIVEN -->
+    
+        <!-- Progress Tracking Dashboard Page - FactoLearn Focused -->
         <div id="progress-page" class="hidden">
-            <!-- Header -->
             <header class="header">
                 <div class="logo" id="progressLogo">
                     <i class="fas fa-chart-line logo-icon"></i>
-                    <div class="logo-text">Progress<span class="logo-accent">Tracker</span></div>
+                    <div class="logo-text">FactoLearn<span class="logo-accent">Progress</span></div>
                 </div>
-                
-                <!-- Back Button -->
-                <button class="back-button" id="backToDashboardFromProgress">
-                </button>
             </header>
-
-            <!-- Progress Dashboard Content -->
+    
             <div class="progress-container">
                 <!-- Summary Stats Card -->
                 <section class="card welcome-card animate-fade-in">
                     <div class="welcome-header">
-                        <h1 class="welcome-title" id="progressWelcomeTitle">Your Learning Progress</h1>
+                        <h1 class="welcome-title" id="progressWelcomeTitle">Your FactoLearn Learning Progress</h1>
                         <div class="date-display" id="progressDate">Last updated: Today</div>
                     </div>
                     
@@ -2414,7 +2389,7 @@
                                 <i class="fas fa-trophy"></i>
                             </div>
                             <div class="stat-content">
-                                <h3>Overall Progress</h3>
+                                <h3>Overall FactoLearn Progress</h3>
                                 <div class="stat-value" id="overallProgress">0%</div>
                                 <div class="progress-bar-container mini">
                                     <div class="progress-fill progress-good" id="overallProgressBar" style="width: 0%"></div>
@@ -2427,7 +2402,7 @@
                                 <i class="fas fa-coins"></i>
                             </div>
                             <div class="stat-content">
-                                <h3>Total Points</h3>
+                                <h3>Total FactoLearn Points</h3>
                                 <div class="stat-value" id="totalPointsProgress">0</div>
                                 <p class="stat-change" id="pointsChange">+0 this week</p>
                             </div>
@@ -2438,7 +2413,7 @@
                                 <i class="fas fa-clock"></i>
                             </div>
                             <div class="stat-content">
-                                <h3>Time Invested</h3>
+                                <h3>FactoLearn Time Invested</h3>
                                 <div class="stat-value" id="totalTime">0h</div>
                                 <p class="stat-change" id="timeChange">0h this week</p>
                             </div>
@@ -2449,19 +2424,19 @@
                                 <i class="fas fa-award"></i>
                             </div>
                             <div class="stat-content">
-                                <h3>Badges Earned</h3>
+                                <h3>FactoLearn Badges Earned</h3>
                                 <div class="stat-value" id="totalBadges">0/0</div>
                                 <p class="stat-change" id="badgesChange">0 new this month</p>
                             </div>
                         </div>
                     </div>
                 </section>
-
+    
                 <!-- Progress Charts -->
                 <section class="card full-width-card animate-fade-in" style="animation-delay: 0.1s">
                     <div class="card-header">
                         <h2 class="card-title">
-                            <i class="fas fa-chart-bar"></i> Weekly Progress Trends
+                            <i class="fas fa-chart-bar"></i> Weekly FactoLearn Trends
                         </h2>
                         <div class="time-period-selector">
                             <select id="timePeriodSelect" class="form-control">
@@ -2475,7 +2450,7 @@
                     
                     <div class="charts-grid">
                         <div class="chart-container">
-                            <h3>Daily Practice Time</h3>
+                            <h3>Daily FactoLearn Practice Time</h3>
                             <div class="chart" id="practiceTimeChart">
                                 <div class="simple-bar-chart">
                                     <div class="chart-bars" id="practiceTimeBars">
@@ -2489,7 +2464,7 @@
                         </div>
                         
                         <div class="chart-container">
-                            <h3>Accuracy Rate</h3>
+                            <h3>FactoLearn Accuracy Rate</h3>
                             <div class="chart" id="accuracyChart">
                                 <div class="simple-line-chart">
                                     <div class="chart-line" id="accuracyLine">
@@ -2503,91 +2478,86 @@
                         </div>
                     </div>
                 </section>
-
+    
                 <!-- Topic Progress Breakdown -->
                 <section class="card animate-fade-in" style="animation-delay: 0.2s">
                     <div class="card-header">
                         <h2 class="card-title">
-                            <i class="fas fa-book-open"></i> Topic Progress Breakdown
+                            <i class="fas fa-book-open"></i> FactoLearn Topic Progress Breakdown
                         </h2>
-                        <p class="card-subtitle">Detailed progress for each learning topic</p>
+                        <p class="card-subtitle">Detailed progress for each FactoLearn topic</p>
                     </div>
                     
                     <div class="topics-progress-detailed" id="topicsProgressDetailed">
-                        <!-- Topic progress items will be loaded dynamically -->
                         <div class="loading-container">
                             <i class="fas fa-spinner fa-spin"></i>
-                            <p>Loading topic progress...</p>
+                            <p>Loading FactoLearn topic progress...</p>
                         </div>
                     </div>
                 </section>
-
+    
                 <!-- Performance Analytics -->
                 <section class="card animate-fade-in" style="animation-delay: 0.3s">
                     <div class="card-header">
                         <h2 class="card-title">
-                            <i class="fas fa-chart-line"></i> Performance Analytics
+                            <i class="fas fa-chart-line"></i> FactoLearn Performance Analytics
                         </h2>
                         <p class="card-subtitle">Your learning efficiency and improvement trends</p>
                     </div>
                     
                     <div class="performance-grid" id="performanceGrid">
-                        <!-- Performance cards will be loaded dynamically -->
                         <div class="loading-container">
                             <i class="fas fa-spinner fa-spin"></i>
-                            <p>Loading performance analytics...</p>
+                            <p>Loading FactoLearn performance analytics...</p>
                         </div>
                     </div>
                     
                     <div class="learning-insights">
-                        <h4><i class="fas fa-lightbulb"></i> Learning Insights</h4>
+                        <h4><i class="fas fa-lightbulb"></i> FactoLearn Insights</h4>
                         <ul class="insights-list" id="insightsList">
                             <!-- Insights will be loaded dynamically -->
                         </ul>
                     </div>
                 </section>
-
+    
                 <!-- Achievement Timeline -->
                 <section class="card full-width-card animate-fade-in" style="animation-delay: 0.4s">
                     <div class="card-header">
                         <h2 class="card-title">
-                            <i class="fas fa-trophy"></i> Achievement Timeline
+                            <i class="fas fa-trophy"></i> FactoLearn Achievement Timeline
                         </h2>
-                        <p class="card-subtitle">Your journey and milestones</p>
+                        <p class="card-subtitle">Your journey and milestones in FactoLearn</p>
                     </div>
                     
                     <div class="timeline" id="achievementTimeline">
-                        <!-- Timeline items will be loaded dynamically -->
                         <div class="loading-container">
-                            <i class="fas fa-spinner fa-spin"></i>cd 
-                            <p>Loading achievement timeline...</p>
+                            <i class="fas fa-spinner fa-spin"></i> 
+                            <p>Loading FactoLearn achievement timeline...</p>
                         </div>
                     </div>
                 </section>
             </div>
         </div>
-
-        <!-- NEW: Settings Dashboard Page -->
+    
+        <!-- Settings Dashboard Page -->
         <div id="settings-page" class="hidden">
-            <!-- Settings content remains the same -->
             <div class="page-container">
-                <!-- Header -->
                 <div class="main-header">
-                    <h1><i class="fas fa-square-root-alt"></i> MathHub</h1>
+                    <h1><i class="fas fa-square-root-alt"></i> FactoLearn Settings</h1>
                 </div>
-
+    
                 <div class="dashboard-container">
                     <!-- Main Content Area -->
                     <div class="main-settings">
                         <!-- General Settings -->
                         <div id="general" class="settings-section active">
                             <div class="section-header">
-                                <h2><i class="fas fa-user"></i> General Settings</h2>
-                                <p class="section-subtitle">Manage your profile and regional preferences</p>
+                                <h2><i class="fas fa-user"></i> FactoLearn Profile</h2>
+                                <p class="section-subtitle">Manage your FactoLearn profile and preferences</p>
                             </div>
-
+    
                             <div class="settings-card">
-                                <h3><i class="fas fa-user-edit"></i> Profile Information</h3>
+                                <h3><i class="fas fa-user-edit"></i> FactoLearn Profile Information</h3>
                                 <div class="form-row">
                                     <label class="form-label">Display Name</label>
                                     <input type="text" class="form-control" id="displayName" value="Loading..." placeholder="Enter your display name">
@@ -2596,68 +2566,18 @@
                                     <label class="form-label">Email Address</label>
                                     <input type="email" class="form-control" id="userEmail" value="Loading..." placeholder="Enter your email">
                                 </div>
-                                <div class="form-row">
-                                    <label class="form-label">Profile Picture</label>
-                                    <div class="file-upload">
-                                        <div class="profile-preview" id="profilePreview">
-                                            <i class="fas fa-user-circle"></i>
-                                        </div>
-                                        <button class="btn btn-secondary"><i class="fas fa-upload"></i> Upload New Photo</button>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div class="settings-card">
-                                <h3><i class="fas fa-language"></i> Language & Region</h3>
-                                <div class="form-row">
-                                    <label class="form-label">Interface Language</label>
-                                    <select class="form-control" id="interfaceLanguage">
-                                        <option>English (US)</option>
-                                    </select>
-                                </div>
-                                <div class="form-row">
-                                    <label class="form-label">Province (Batangas)</label>
-                                    <select class="form-control" id="batangas-municipalities">
-                                        <option value="">Select Municipality/City</option>
-                                        <option value="batangas_city" selected>Batangas City</option>
-                                        <option value="lipa">Lipa City</option>
-                                        <option value="tanauan">Tanauan City</option>
-                                        <option value="sto_tomas">Sto. Tomas City</option>
-                                        <option value="balayan">Balayan</option>
-                                        <option value="calaca">Calaca</option>
-                                        <option value="lemery">Lemery</option>
-                                        <option value="nasugbu">Nasugbu</option>
-                                        <option value="taal">Taal</option>
-                                        <option value="san_juan">San Juan</option>
-                                        <option value="lobo">Lobo</option>
-                                        <option value="mabini">Mabini</option>
-                                        <option value="san_luis">San Luis</option>
-                                        <option value="tingloy">Tingloy</option>
-                                    </select>
-                                </div>
-                                <div class="form-row">
-                                    <label class="form-label">Time Zone</label>
-                                    <select class="form-control" id="timeZone">
-                                        <option value="PHST" selected>Philippine Standard Time (UTC+8)</option>
-                                    </select>
-                                </div>
-                                <div class="info-box">
-                                    <p><i class="fas fa-info-circle"></i> <strong>Location Settings:</strong> Your location helps us provide relevant content and features.</p>
-                                    <p><i class="fas fa-map-marker-alt"></i> <strong>Selected:</strong> Batangas Province, Philippines</p>
-                                    <p><i class="fas fa-clock"></i> <strong>Time Zone:</strong> Philippine Standard Time (UTC+8)</p>
-                                </div>
                             </div>
                         </div>
-
+    
                         <!-- Learning Settings -->
                         <div id="learning" class="settings-section">
                             <div class="section-header">
-                                <h2><i class="fas fa-graduation-cap"></i> Learning Preferences</h2>
-                                <p class="section-subtitle">Customize how you learn and practice mathematics</p>
+                                <h2><i class="fas fa-graduation-cap"></i> FactoLearn Preferences</h2>
+                                <p class="section-subtitle">Customize how you learn in FactoLearn</p>
                             </div>
-
+    
                             <div class="settings-card">
-                                <h3><i class="fas fa-chart-line"></i> Difficulty Level</h3>
+                                <h3><i class="fas fa-chart-line"></i> FactoLearn Difficulty Level</h3>
                                 <div class="form-row">
                                     <label class="form-label">Adaptive Difficulty</label>
                                     <label class="toggle-switch">
@@ -2675,225 +2595,21 @@
                                     </select>
                                 </div>
                             </div>
-
-                            <div class="settings-card">
-                                <h3><i class="fas fa-book-open"></i> Learning Mode</h3>
-                                <div class="form-row">
-                                    <label class="form-label">Default Practice Problems</label>
-                                    <div class="radio-group">
-                                        <label class="radio-option">
-                                            <input type="radio" name="practice" id="practice10" checked> 10 per session
-                                        </label>
-                                        <label class="radio-option">
-                                            <input type="radio" name="practice" id="practice20"> 20 per session
-                                        </label>
-                                        <label class="radio-option">
-                                            <input type="radio" name="practice" id="practiceUnlimited"> Unlimited
-                                        </label>
-                                    </div>
-                                </div>
-                                <div class="form-row">
-                                    <label class="form-label">Show Step-by-Step Solutions</label>
-                                    <label class="toggle-switch">
-                                        <input type="checkbox" id="showSolutions" checked>
-                                        <span class="toggle-slider"></span>
-                                    </label>
-                                </div>
-                            </div>
                         </div>
-
-                        <!-- Privacy & Security -->
-                        <div id="privacy" class="settings-section">
-                            <div class="section-header">
-                                <h2><i class="fas fa-shield-alt"></i> Privacy & Security</h2>
-                                <p class="section-subtitle">Manage your account security and privacy settings</p>
-                            </div>
-
-                            <div class="settings-card">
-                                <h3><i class="fas fa-lock"></i> Account Security</h3>
-                                <div class="form-row">
-                                    <label class="form-label">Two-Factor Authentication</label>
-                                    <label class="toggle-switch">
-                                        <input type="checkbox" id="twoFactorAuth">
-                                        <span class="toggle-slider"></span>
-                                    </label>
-                                </div>
-                                <div class="form-row">
-                                    <label class="form-label">Change Password</label>
-                                    <button class="btn btn-secondary" id="changePasswordBtn"><i class="fas fa-key"></i> Update Password</button>
-                                </div>
-                            </div>
-
-                            <div class="settings-card">
-                                <h3><i class="fas fa-user-secret"></i> Privacy Settings</h3>
-                                <div class="form-row">
-                                    <label class="form-label">Profile Visibility</label>
-                                    <select class="form-control" id="profileVisibility">
-                                        <option>Public</option>
-                                        <option selected>Private</option>
-                                        <option>Friends Only</option>
-                                    </select>
-                                </div>
-                                <div class="form-row">
-                                    <label class="form-label">Data Sharing for Research</label>
-                                    <label class="toggle-switch">
-                                        <input type="checkbox" id="dataSharing">
-                                        <span class="toggle-slider"></span>
-                                    </label>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- Notifications -->
-                        <div id="notifications" class="settings-section">
-                            <div class="section-header">
-                                <h2><i class="fas fa-bell"></i> Notification Settings</h2>
-                                <p class="section-subtitle">Control how and when you receive notifications</p>
-                            </div>
-
-                            <div class="settings-card">
-                                <h3><i class="fas fa-envelope"></i> Email Notifications</h3>
-                                <div class="form-row">
-                                    <label class="form-label">Weekly Progress Report</label>
-                                    <label class="toggle-switch">
-                                        <input type="checkbox" id="weeklyReport" checked>
-                                        <span class="toggle-slider"></span>
-                                    </label>
-                                </div>
-                                <div class="form-row">
-                                    <label class="form-label">New Feature Announcements</label>
-                                    <label class="toggle-switch">
-                                        <input type="checkbox" id="featureAnnouncements" checked>
-                                        <span class="toggle-slider"></span>
-                                    </label>
-                                </div>
-                            </div>
-
-                            <div class="settings-card">
-                                <h3><i class="fas fa-mobile-alt"></i> Push Notifications</h3>
-                                <div class="form-row">
-                                    <label class="form-label">Practice Reminders</label>
-                                    <label class="toggle-switch">
-                                        <input type="checkbox" id="practiceReminders" checked>
-                                        <span class="toggle-slider"></span>
-                                    </label>
-                                </div>
-                                <div class="form-row">
-                                    <label class="form-label">Achievement Alerts</label>
-                                    <label class="toggle-switch">
-                                        <input type="checkbox" id="achievementAlerts" checked>
-                                        <span class="toggle-slider"></span>
-                                    </label>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- Display Settings -->
-                        <div id="display" class="settings-section">
-                            <div class="section-header">
-                                <h2><i class="fas fa-desktop"></i> Display Settings</h2>
-                                <p class="section-subtitle">Customize the look and feel of MathHub</p>
-                            </div>
-
-                            <div class="settings-card">
-                                <h3><i class="fas fa-palette"></i> Theme & Appearance</h3>
-                                <div class="form-row">
-                                    <label class="form-label">Theme</label>
-                                    <div class="radio-group">
-                                        <label class="radio-option">
-                                            <input type="radio" name="theme" id="themeLight" checked> Light
-                                        </label>
-                                        <label class="radio-option">
-                                            <input type="radio" name="theme" id="themeDark"> Dark
-                                        </label>
-                                        <label class="radio-option">
-                                            <input type="radio" name="theme" id="themeAuto"> Auto
-                                        </label>
-                                    </div>
-                                </div>
-                                <div class="form-row">
-                                    <label class="form-label">Math Symbol Style</label>
-                                    <select class="form-control" id="mathSymbolStyle">
-                                        <option>Traditional</option>
-                                        <option selected>Modern</option>
-                                        <option>Handwritten</option>
-                                    </select>
-                                </div>
-                            </div>
-
-                            <div class="settings-card">
-                                <h3><i class="fas fa-eye"></i> Accessibility</h3>
-                                <div class="form-row">
-                                    <label class="form-label">High Contrast Mode</label>
-                                    <label class="toggle-switch">
-                                        <input type="checkbox" id="highContrast">
-                                        <span class="toggle-slider"></span>
-                                    </label>
-                                </div>
-                                <div class="form-row">
-                                    <label class="form-label">Font Size</label>
-                                    <select class="form-control" id="fontSize">
-                                        <option>Small</option>
-                                        <option selected>Medium</option>
-                                        <option>Large</option>
-                                        <option>Extra Large</option>
-                                    </select>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- Account Settings -->
-                        <div id="account" class="settings-section">
-                            <div class="section-header">
-                                <h2><i class="fas fa-user-cog"></i> Account Management</h2>
-                                <p class="section-subtitle">Manage your account and connected services</p>
-                            </div>
-
-                            <div class="settings-card">
-                                <h3><i class="fas fa-user-edit"></i> Profile Management</h3>
-                                <div class="info-box" style="margin-bottom: 20px;">
-                                    <p><i class="fas fa-info-circle"></i> <strong>Edit Your Profile:</strong> You can edit your personal information in the <strong>General Settings</strong> section.</p>
-                                    <p><i class="fas fa-arrow-right"></i> Go to General Settings to update your display name, email, and profile picture.</p>
-                                </div>
-                                <div class="form-row">
-                                    <label class="form-label">View Profile</label>
-                                    <button class="btn btn-secondary" onclick="viewProfile()"><i class="fas fa-eye"></i> View Public Profile</button>
-                                </div>
-                            </div>
-
-                            <div class="settings-card">
-                                <h3><i class="fas fa-link"></i> Connected Accounts</h3>
-                                <div class="form-row">
-                                    <label class="form-label">Google Account</label>
-                                    <button class="btn btn-secondary" id="googleAccountBtn"><i class="fab fa-google"></i> Connected</button>
-                                </div>
-                                <div class="form-row">
-                                    <label class="form-label">GitHub Account</label>
-                                    <button class="btn btn-secondary" id="githubAccountBtn"><i class="fab fa-github"></i> Connect</button>
-                                </div>
-                            </div>
-                        </div>
-
                     </div>
-
+    
                     <!-- Sidebar -->
                     <div class="settings-sidebar">
-                        <!-- Navigation Menu -->
                         <div class="sidebar-card">
-                            <h3><i class="fas fa-cogs"></i> MathHub Settings</h3>
-                            <p class="sidebar-subtitle">Customize your learning experience and account preferences</p>
+                            <h3><i class="fas fa-cogs"></i> FactoLearn Settings</h3>
+                            <p class="sidebar-subtitle">Customize your FactoLearn experience</p>
                             
                             <ul class="sidebar-menu">
-                                <li><a href="#" class="active" onclick="showSection('general')"><i class="fas fa-user"></i> General</a></li>
-                                <li><a href="#" onclick="showSection('learning')"><i class="fas fa-graduation-cap"></i> Learning</a></li>
-                                <li><a href="#" onclick="showSection('privacy')"><i class="fas fa-shield-alt"></i> Privacy & Security</a></li>
-                                <li><a href="#" onclick="showSection('notifications')"><i class="fas fa-bell"></i> Notifications</a></li>
-                                <li><a href="#" onclick="showSection('display')"><i class="fas fa-desktop"></i> Display</a></li>
-                                <li><a href="#" onclick="showSection('account')"><i class="fas fa-user-cog"></i> Account</a></li>
+                                <li><a href="#" class="active" onclick="showSection('general')"><i class="fas fa-user"></i> FactoLearn Profile</a></li>
+                                <li><a href="#" onclick="showSection('learning')"><i class="fas fa-graduation-cap"></i> FactoLearn Preferences</a></li>
                             </ul>
                         </div>
-
-                        <!-- Action Buttons -->
+    
                         <div class="action-buttons">
                             <button class="btn btn-secondary" onclick="resetSettings()"><i class="fas fa-undo"></i> Reset to Defaults</button>
                             <button class="btn btn-primary" onclick="saveSettings()"><i class="fas fa-save"></i> Save Changes</button>
@@ -2902,26 +2618,17 @@
                 </div>
             </div>
         </div>
-
-        <!-- NEW: Feedback Dashboard Page -->
+    
+        <!-- Feedback Dashboard Page -->
         <div id="feedback-page" class="hidden">
-            <!-- Feedback content remains the same -->
             <div class="help-dashboard-container">
-                <!-- Header -->
-                <div class="help-header">
+                <div class="help-header factolearn-header">
                     <div class="header-left">
-                        <h1><i class="fas fa-question-circle"></i> Help & Feedback Center</h1>
-                        <p>Get help, send feedback, and find resources to enhance your MathHub experience</p>
-                    </div>
-                    <div class="header-right">
-                        <button class="btn btn-primary" id="emergencyHelp">
-                            <i class="fas fa-life-ring"></i>
-                            Emergency Help
-                        </button>
+                        <h1><i class="fas fa-question-circle"></i> FactoLearn Help & Feedback</h1>
+                        <p>Get help with FactoLearn and send feedback</p>
                     </div>
                 </div>
-
-                <!-- Dashboard Grid -->
+    
                 <div class="dashboard-grid">
                     <!-- FAQ Section -->
                     <div class="card">
@@ -2929,644 +2636,248 @@
                             <div class="card-icon icon-faq">
                                 <i class="fas fa-book-open"></i>
                             </div>
-                            <h2>Frequently Asked Questions</h2>
+                            <h2>FactoLearn FAQs</h2>
                         </div>
                         <div class="card-body">
                             <div class="faq-item">
                                 <div class="faq-question" onclick="toggleFAQ(this)">
-                                    How do I reset my password?
+                                    How do I reset my FactoLearn password?
                                     <i class="fas fa-chevron-down"></i>
                                 </div>
                                 <div class="faq-answer">
-                                    <p>To reset your password, go to the login page and click "Forgot Password". Enter your email address and follow the instructions sent to your inbox.</p>
+                                    <p>To reset your FactoLearn password, go to the login page and click "Forgot Password".</p>
                                 </div>
                             </div>
-
+    
                             <div class="faq-item">
                                 <div class="faq-question" onclick="toggleFAQ(this)">
-                                    How can I track my learning progress?
+                                    How can I track my FactoLearn progress?
                                     <i class="fas fa-chevron-down"></i>
                                 </div>
                                 <div class="faq-answer">
-                                    <p>Visit the Progress page in your dashboard. You'll find detailed analytics about your completed lessons, practice exercises, and quiz scores.</p>
-                                </div>
-                            </div>
-
-                            <div class="faq-item">
-                                <div class="faq-question" onclick="toggleFAQ(this)">
-                                    Are there mobile apps available?
-                                    <i class="fas fa-chevron-down"></i>
-                                </div>
-                                <div class="faq-answer">
-                                    <p>Yes! MathHub is available on both iOS and Android. Download from the App Store or Google Play Store.</p>
-                                </div>
-                            </div>
-
-                            <div class="faq-item">
-                                <div class="faq-question" onclick="toggleFAQ(this)">
-                                    How do I earn badges and points?
-                                    <i class="fas fa-chevron-down"></i>
-                                </div>
-                                <div class="faq-answer">
-                                    <p>Complete lessons, practice exercises, and participate in quiz games to earn points. Badges are awarded for achieving specific milestones.</p>
+                                    <p>Visit the FactoLearn Progress page in your dashboard for detailed analytics.</p>
                                 </div>
                             </div>
                         </div>
                     </div>
-
-                    <!-- Contact Support -->
-                    <div class="card">
-                        <div class="card-header">
-                            <div class="card-icon icon-contact">
-                                <i class="fas fa-headset"></i>
-                            </div>
-                            <h2>Contact Support</h2>
-                        </div>
-                        <div class="card-body">
-                            <div class="contact-methods">
-                                <div class="contact-method">
-                                    <div class="contact-icon">
-                                        <i class="fas fa-envelope"></i>
-                                    </div>
-                                    <div>
-                                        <h4>Email Support</h4>
-                                        <p>support@mathhub.com</p>
-                                        <p class="response-time">Response time: 24 hours</p>
-                                    </div>
-                                </div>
-
-                                <div class="contact-method">
-                                    <div class="contact-icon">
-                                        <i class="fas fa-phone"></i>
-                                    </div>
-                                    <div>
-                                        <h4>Phone Support</h4>
-                                        <p>+1 (800) MATH-HUB</p>
-                                        <p class="hours">Mon-Fri: 9AM-6PM EST</p>
-                                    </div>
-                                </div>
-
-                                <div class="contact-method">
-                                    <div class="contact-icon">
-                                        <i class="fas fa-comments"></i>
-                                    </div>
-                                    <div>
-                                        <h4>Live Chat</h4>
-                                        <p>Available during business hours</p>
-                                        <button class="btn btn-primary" style="margin-top: 10px; padding: 8px 15px;">
-                                            <i class="fas fa-comment-dots"></i>
-                                            Start Chat
-                                        </button>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
+    
                     <!-- Send Feedback -->
                     <div class="card">
                         <div class="card-header">
                             <div class="card-icon icon-feedback">
                                 <i class="fas fa-comment-alt"></i>
                             </div>
-                            <h2>Send Feedback</h2>
+                            <h2>Send FactoLearn Feedback</h2>
                         </div>
                         <div class="card-body">
                             <form id="feedbackForm">
                                 <div class="form-group">
                                     <label for="feedbackType">Feedback Type</label>
                                     <select id="feedbackType" class="form-control">
-                                        <option value="suggestion">Suggestion</option>
-                                        <option value="bug">Bug Report</option>
-                                        <option value="praise">Praise</option>
-                                        <option value="other">Other</option>
+                                        <option value="suggestion">FactoLearn Suggestion</option>
+                                        <option value="bug">FactoLearn Bug Report</option>
+                                        <option value="praise">FactoLearn Praise</option>
                                     </select>
                                 </div>
-
+    
                                 <div class="form-group">
-                                    <label for="feedbackMessage">Your Feedback</label>
-                                    <textarea id="feedbackMessage" class="form-control" placeholder="Tell us what you think..."></textarea>
+                                    <label for="feedbackMessage">Your FactoLearn Feedback</label>
+                                    <textarea id="feedbackMessage" class="form-control" placeholder="Tell us about your FactoLearn experience..."></textarea>
                                 </div>
-
-                                <div class="form-group">
-                                    <label>Overall Rating</label>
-                                    <div class="rating">
-                                        <span class="star" onclick="rate(1)">★</span>
-                                        <span class="star" onclick="rate(2)">★</span>
-                                        <span class="star" onclick="rate(3)">★</span>
-                                        <span class="star" onclick="rate(4)">★</span>
-                                        <span class="star" onclick="rate(5)">★</span>
-                                    </div>
-                                    <input type="hidden" id="ratingValue" value="0">
-                                </div>
-
-                                <button type="submit" class="btn btn-primary" style="width: 100%;">
+    
+                                <button type="submit" class="btn btn-primary" style="width: 100%; background: #7a0000;">
                                     <i class="fas fa-paper-plane"></i>
-                                    Submit Feedback
+                                    Submit FactoLearn Feedback
                                 </button>
                             </form>
-                            <div class="success-message" id="feedbackSuccess" style="display: none;">
-                                <i class="fas fa-check-circle"></i>
-                                Thank you for your feedback! We'll review it shortly.
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    
+        <!-- Tool Modals Container -->
+        <div id="toolModalsContainer">
+            <!-- Calculator Modal -->
+            <div id="calculatorModal" class="modal-overlay" style="display: none;">
+                <div class="modal-container">
+                    <div class="modal-header" style="background: #7a0000; color: white;">
+                        <h3 style="margin: 0;"><i class="fas fa-calculator"></i> FactoLearn Calculator</h3>
+                        <button class="modal-close" onclick="window.toolManager.closeTool()" style="color: white; background: none; border: none; font-size: 24px; cursor: pointer;">&times;</button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="calculator-container">
+                            <div id="calcDisplay" class="calculator-display" style="background: #f5f5f5; padding: 15px; text-align: right; font-size: 24px; margin-bottom: 15px; border-radius: 5px;">0</div>
+                            <div id="calcButtons" class="calculator-buttons" style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 5px;"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+    
+            <!-- Graph Modal -->
+            <div id="graphModal" class="modal-overlay" style="display: none;">
+                <div class="modal-container">
+                    <div class="modal-header" style="background: #7a0000; color: white;">
+                        <h3 style="margin: 0;"><i class="fas fa-chart-line"></i> FactoLearn Graph Tool</h3>
+                        <button class="modal-close" onclick="window.toolManager.closeTool()" style="color: white; background: none; border: none; font-size: 24px; cursor: pointer;">&times;</button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="graph-container">
+                            <canvas id="graphCanvas" width="600" height="400" style="width: 100%; height: auto; border: 1px solid #ddd; border-radius: 5px;"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </div>
+    
+            <!-- Whiteboard Modal -->
+            <div id="whiteboardModal" class="modal-overlay" style="display: none;">
+                <div class="modal-container">
+                    <div class="modal-header" style="background: #7a0000; color: white;">
+                        <h3 style="margin: 0;"><i class="fas fa-paint-brush"></i> FactoLearn Whiteboard</h3>
+                        <button class="modal-close" onclick="window.toolManager.closeTool()" style="color: white; background: none; border: none; font-size: 24px; cursor: pointer;">&times;</button>
+                    </div>
+                    <div class="modal-body">
+                        <canvas id="whiteboardCanvas" width="600" height="400" style="width: 100%; height: 300px; border: 1px solid #ddd; border-radius: 5px;"></canvas>
+                    </div>
+                </div>
+            </div>
+    
+            <!-- Notepad Modal -->
+            <div id="notepadModal" class="modal-overlay" style="display: none;">
+                <div class="modal-container">
+                    <div class="modal-header" style="background: #7a0000; color: white;">
+                        <h3 style="margin: 0;"><i class="fas fa-sticky-note"></i> FactoLearn Notepad</h3>
+                        <button class="modal-close" onclick="window.toolManager.closeTool()" style="color: white; background: none; border: none; font-size: 24px; cursor: pointer;">&times;</button>
+                    </div>
+                    <div class="modal-body">
+                        <textarea id="noteContent" rows="10" placeholder="Write your FactoLearn notes here..." style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 5px;"></textarea>
+                    </div>
+                </div>
+            </div>
+        </div>
+    
+        <footer class="footer-nav">
+            <div class="footer-nav-content">
+                <a href="#" class="footer-nav-item active" data-page="dashboard">
+                    <i class="fas fa-tachometer-alt"></i>
+                    <span>FactoLearn Home</span>
+                </a>
+                <a href="#" class="footer-nav-item" data-page="practice">
+                    <i class="fas fa-book-open"></i>
+                    <span>FactoLearn Practice</span>
+                </a>
+                <button class="footer-hamburger" id="footerHamburgerBtn">
+                    <i class="fas fa-bars"></i>
+                    <span>Menu</span>
+                </button>
+                <a href="#" class="footer-nav-item" data-page="quiz">
+                    <i class="fas fa-question-circle"></i>
+                    <span>FactoLearn Quiz</span>
+                </a>
+                <a href="#" class="footer-nav-item" data-page="settings">
+                    <i class="fas fa-user"></i>
+                    <span>FactoLearn Profile</span>
+                </a>
+            </div>
+        </footer>
+    
+        <!-- Mobile Menu Overlay -->
+        <div class="mobile-menu-overlay" id="mobileMenuOverlay"></div>
+        <div class="mobile-menu-panel" id="mobileMenuPanel">
+            <div class="mobile-menu-header">
+                <h3>FactoLearn Menu</h3>
+            </div>
+            <div class="mobile-menu-grid">
+                <a href="#" class="mobile-menu-item active" onclick="showDashboard(event)">
+                    <i class="fas fa-tachometer-alt"></i>
+                    <span>FactoLearn Dashboard</span>
+                </a>
+                <a href="#" class="mobile-menu-item" onclick="showPracticeDashboard(event)">
+                    <i class="fas fa-book-open"></i>
+                    <span>FactoLearn Practice</span>
+                </a>
+                <a href="#" class="mobile-menu-item" onclick="showQuizDashboard(event)">
+                    <i class="fas fa-question-circle"></i>
+                    <span>FactoLearn Quiz</span>
+                </a>
+                <a href="#" class="mobile-menu-item" onclick="showProgressPage(event)">
+                    <i class="fas fa-chart-line"></i>
+                    <span>FactoLearn Progress</span>
+                </a>
+                <a href="#" class="mobile-menu-item" onclick="goToModuleDashboard(event)">
+                    <i class="fas fa-graduation-cap"></i>
+                    <span>FactoLearn Lessons</span>
+                </a>
+            </div>
+        </div>
+    
+        <!-- Quiz Modal -->
+        <div class="modal-overlay" id="quizModal">
+            <div class="modal-container" style="max-width: 800px;">
+                <div class="modal-header" style="background: #7a0000; color: white;">
+                    <h2><i class="fas fa-question-circle"></i> <span id="quizModalTitle">FactoLearn Quiz</span></h2>
+                    <button class="modal-close" onclick="closeQuizSystemModal()">&times;</button>
+                </div>
+                
+                <div id="quizContainer">
+                    <div class="modal-body">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                            <div>
+                                <span class="quiz-progress" style="background: #f0f0f0; padding: 5px 15px; border-radius: 20px;">
+                                    FactoLearn Question <span id="quizCurrentNum">1</span>/<span id="quizTotalNum">10</span>
+                                </span>
+                            </div>
+                            <div class="quiz-timer" style="background: #7a0000; color: white; padding: 5px 20px; border-radius: 30px;">
+                                <i class="fas fa-clock"></i> <span id="quizTimerDisplay">00:00</span>
                             </div>
                         </div>
+                        
+                        <h3 id="quizQuestionTextModal" style="color: #2c3e50;">Loading FactoLearn question...</h3>
+                        
+                        <div id="quizOptionsGridModal" style="margin: 20px 0;">
+                            <!-- Options will be loaded here -->
+                        </div>
+                        
+                        <div style="display: flex; justify-content: flex-end; gap: 10px;">
+                            <button class="btn-secondary" onclick="closeQuizSystemModal()">
+                                <i class="fas fa-times"></i> Cancel
+                            </button>
+                            <button class="btn-primary" id="submitQuizBtn" onclick="submitQuizSystem()" style="background: #7a0000;">
+                                <i class="fas fa-paper-plane"></i> Submit FactoLearn Quiz
+                            </button>
+                        </div>
                     </div>
                 </div>
             </div>
         </div>
-
-    </div> <!-- End of page-container -->
-
-    <!-- ADDED: Quiz Popup Container -->
-    <div class="quiz-popup-overlay hidden" id="quizPopup">
-        <div class="quiz-popup-container">
-            <div class="quiz-popup-header">
-                <h2><i class="fas fa-question-circle"></i> Quick Math Quiz</h2>
-                <button class="close-quiz-popup" onclick="closeQuizPopup()">&times; </button>
-            </div>
-            
-            <div class="quiz-popup-body">
-                <div class="quiz-meta-info">
-                    <div class="quiz-meta-item">
-                        <i class="fas fa-question-circle"></i>
-                        <span id="quizTotalQuestions">5 Questions</span>
-                    </div>
-                    <div class="quiz-meta-item">
-                        <i class="fas fa-clock"></i>
-                        <span id="quizTimeLimit">5 Minutes</span>
-                    </div>
-                    <div class="quiz-meta-item">
-                        <i class="fas fa-graduation-cap"></i>
-                        <span id="quizDifficulty">Beginner Level</span>
-                    </div>
-                </div>
-                
-                <div class="quiz-instructions">
-                    <h4><i class="fas fa-info-circle"></i> Quiz Instructions:</h4>
-                    <ul>
-                        <li>Answer all questions to complete the quiz</li>
-                        <li>You have <span id="quizTimeLimitText">5 minutes</span> to complete the quiz</li>
-                        <li>Select the correct answer by clicking on it</li>
-                        <li>You can change your answer before submitting</li>
-                        <li>Your score will be displayed at the end</li>
-                    </ul>
-                </div>
-                
-                <!-- Question Container - ONE QUESTION AT A TIME -->
-                <div class="quiz-question-container" id="currentQuestionContainer">
-                    <h3 class="quiz-question" id="currentQuestionText">Loading question... </h3>
-                    <div class="quiz-options" id="currentQuestionOptions">
-                        <!-- Options will be loaded dynamically -->
-                    </div>
-                </div>
-                
-                <!-- Quiz Results -->
-                <div class="quiz-results-popup hidden" id="quizResults">
-                    <div class="quiz-results-icon">
-                        <i class="fas fa-trophy"></i>
-                    </div>
-                    <h2>Quiz Completed!</h2>
-                    <p>Great job! Here are your results:</p>
-                    <div class="quiz-score-display" id="finalScore">0%</div>
-                    <div class="quiz-results-details">
-                        <div class="result-detail">
-                            <div class="result-detail-value" id="correctCount">0</div>
-                            <div class="result-detail-label">Correct</div>
-                        </div>
-                        <div class="result-detail">
-                            <div class="result-detail-value" id="totalQuestionsCount">0</div>
-                            <div class="result-detail-label">Total</div>
-                        </div>
-                        <div class="result-detail">
-                            <div class="result-detail-value" id="timeSpent">0:00</div>
-                            <div class="result-detail-label">Time</div>
-                        </div>
-                        <div class="result-detail">
-                            <div class="result-detail-value" id="scorePoints">0</div>
-                            <div class="result-detail-label">Points</div>
-                        </div>
-                    </div>
-                    <button class="quiz-restart-btn" onclick="restartQuiz()">
-                        <i class="fas fa-redo"></i> Try Again
-                    </button>
-                </div>
-            </div>
-            
-            <div class="quiz-popup-footer">
-                <div class="quiz-timer">
-                    <i class="fas fa-clock"></i>
-                    <span id="quizTimerDisplay">05:00</span>
-                </div>
-                <div class="quiz-popup-actions">
-                    <button class="btn-secondary" onclick="closeQuizPopup()">
-                        <i class="fas fa-times"></i> Cancel
-                    </button>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Tool Modal (for expanded tool view) -->
-    <div class="tool-modal hidden" id="toolModal">
-        <div class="tool-modal-content">
-            <div class="tool-modal-header">
-                <h3><i class="fas fa-calculator" id="toolModalIcon"></i> <span id="toolModalTitle">Calculator</span> <span class="tool-status" id="toolStatus">Active</span></h3>
-                <button class="close-tool-modal">&times;</button>
-            </div>
-            <div class="tool-modal-body">
-                <div id="toolContent">
-                    <!-- Tool content will be loaded here -->
-                </div>
-                <div class="tool-instructions" id="toolInstructions">
-                    <h4><i class="fas fa-info-circle"></i> How to use this tool:</h4>
-                    <p id="toolInstructionsText">Instructions will appear here based on the selected tool.</p>
-                </div>
-                <div class="tool-actions">
-                    <button class="btn-secondary" id="closeToolBtn">Close</button>
-                    <button class="btn-primary" id="launchToolBtn">Launch Tool</button>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- ============================================ -->
-    <!-- TOOL MODALS - MUST BE OUTSIDE PAGE CONTAINERS -->
-    <!-- ============================================ -->
-    <!-- Tool Modals Container -->
-    <div id="toolModalsContainer">
-        <!-- Calculator Modal -->
-        <div id="calculatorModal" class="modal-overlay" style="display: none;">
-            <div class="modal-container">
+    
+        <!-- Forgot Password Modal -->
+        <div id="forgotPasswordModal" class="modal-overlay">
+            <div class="modal-container" style="max-width: 450px;">
                 <div class="modal-header" style="background: #7a0000; color: white;">
-                    <h3 style="margin: 0;"><i class="fas fa-calculator"></i> Scientific Calculator</h3>
-                    <button class="modal-close" onclick="window.toolManager.closeTool()" style="color: white; background: none; border: none; font-size: 24px; cursor: pointer;">&times;</button>
+                    <h3 style="margin: 0;"><i class="fas fa-key"></i> FactoLearn Password Reset</h3>
+                    <button class="modal-close" onclick="closeForgotPasswordModal()" style="color: white;">&times;</button>
                 </div>
-                <div class="modal-body">
-                    <div class="calculator-container">
-                        <div id="calcDisplay" class="calculator-display" style="background: #f5f5f5; padding: 15px; text-align: right; font-size: 24px; margin-bottom: 15px; border-radius: 5px;">0</div>
-                        <div id="calcButtons" class="calculator-buttons" style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 5px;"></div>
-                        <div class="calculator-history">
-                            <h4 style="margin: 15px 0 10px;">History</h4>
-                            <div id="calcHistory" style="max-height: 150px; overflow-y: auto;"></div>
+                
+                <div class="modal-body" style="padding: 25px;">
+                    <div id="forgotStep1">
+                        <p style="margin-bottom: 20px;">Enter your email to reset your FactoLearn password.</p>
+                        
+                        <div style="margin-bottom: 20px;">
+                            <input type="email" id="resetEmail" class="form-control" 
+                                   placeholder="your@email.com" 
+                                   style="width: 100%; padding: 12px;">
+                        </div>
+                        
+                        <div style="display: flex; gap: 10px; justify-content: flex-end;">
+                            <button class="btn-secondary" onclick="closeForgotPasswordModal()">Cancel</button>
+                            <button class="btn-primary" onclick="requestPasswordReset()" style="background: #7a0000;">Send Reset Link</button>
                         </div>
                     </div>
                 </div>
             </div>
         </div>
-
-        <!-- Graph Modal -->
-        <div id="graphModal" class="modal-overlay" style="display: none;">
-            <div class="modal-container">
-                <div class="modal-header" style="background: #7a0000; color: white;">
-                    <h3 style="margin: 0;"><i class="fas fa-chart-line"></i> Graph Tool</h3>
-                    <button class="modal-close" onclick="window.toolManager.closeTool()" style="color: white; background: none; border: none; font-size: 24px; cursor: pointer;">&times;</button>
-                </div>
-                <div class="modal-body">
-                    <div class="graph-container">
-                        <div style="margin-bottom: 15px;">
-                            <input type="text" id="graphExpression" placeholder="Enter function (e.g., x^2, 2x+1)" style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 5px;">
-                        </div>
-                        <div style="display: flex; gap: 10px; margin-bottom: 15px;">
-                            <button onclick="window.toolManager.tools.graph.plotFunction()" style="background: #7a0000; color: white; border: none; padding: 8px 15px; border-radius: 5px;">Plot</button>
-                            <button onclick="window.toolManager.tools.graph.clear()" style="background: #95a5a6; color: white; border: none; padding: 8px 15px; border-radius: 5px;">Clear</button>
-                        </div>
-                        <canvas id="graphCanvas" width="600" height="400" style="width: 100%; height: auto; border: 1px solid #ddd; border-radius: 5px;"></canvas>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- Whiteboard Modal -->
-        <div id="whiteboardModal" class="modal-overlay" style="display: none;">
-            <div class="modal-container">
-                <div class="modal-header" style="background: #7a0000; color: white;">
-                    <h3 style="margin: 0;"><i class="fas fa-paint-brush"></i> Whiteboard</h3>
-                    <button class="modal-close" onclick="window.toolManager.closeTool()" style="color: white; background: none; border: none; font-size: 24px; cursor: pointer;">&times;</button>
-                </div>
-                <div class="modal-body">
-                    <div class="whiteboard-toolbar" style="display: flex; gap: 10px; margin-bottom: 15px;">
-                        <button onclick="window.toolManager.tools.whiteboard.setTool('pen')" style="padding: 8px 15px;">Pen</button>
-                        <button onclick="window.toolManager.tools.whiteboard.setTool('eraser')" style="padding: 8px 15px;">Eraser</button>
-                        <input type="color" id="colorPicker" value="#7a0000">
-                        <button onclick="window.toolManager.tools.whiteboard.clear()" style="padding: 8px 15px;">Clear</button>
-                    </div>
-                    <canvas id="whiteboardCanvas" width="600" height="400" style="width: 100%; height: 300px; border: 1px solid #ddd; border-radius: 5px;"></canvas>
-                </div>
-            </div>
-        </div>
-
-        <!-- Notepad Modal -->
-        <div id="notepadModal" class="modal-overlay" style="display: none;">
-            <div class="modal-container">
-                <div class="modal-header" style="background: #7a0000; color: white;">
-                    <h3 style="margin: 0;"><i class="fas fa-sticky-note"></i> Notepad</h3>
-                    <button class="modal-close" onclick="window.toolManager.closeTool()" style="color: white; background: none; border: none; font-size: 24px; cursor: pointer;">&times;</button>
-                </div>
-                <div class="modal-body">
-                    <div style="margin-bottom: 15px;">
-                        <input type="text" id="noteTitle" placeholder="Note title" style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 5px;">
-                    </div>
-                    <textarea id="noteContent" rows="10" placeholder="Write your notes here..." style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 5px;"></textarea>
-                    <div style="margin-top: 15px;">
-                        <button onclick="window.toolManager.tools.notepad.save()" style="background: #7a0000; color: white; border: none; padding: 10px 20px; border-radius: 5px;">Save Note</button>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- Formula Sheet Modal -->
-        <div id="formulaModal" class="modal-overlay" style="display: none;">
-            <div class="modal-container">
-                <div class="modal-header" style="background: #7a0000; color: white;">
-                    <h3 style="margin: 0;"><i class="fas fa-book"></i> Formula Sheet</h3>
-                    <button class="modal-close" onclick="window.toolManager.closeTool()" style="color: white; background: none; border: none; font-size: 24px; cursor: pointer;">&times;</button>
-                </div>
-                <div class="modal-body">
-                    <div id="formulaList">
-                        <!-- Formulas will be loaded here -->
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- Timer Modal -->
-        <div id="timerModal" class="modal-overlay" style="display: none;">
-            <div class="modal-container">
-                <div class="modal-header" style="background: #7a0000; color: white;">
-                    <h3 style="margin: 0;"><i class="fas fa-stopwatch"></i> Study Timer</h3>
-                    <button class="modal-close" onclick="window.toolManager.closeTool()" style="color: white; background: none; border: none; font-size: 24px; cursor: pointer;">&times;</button>
-                </div>
-                <div class="modal-body" style="text-align: center;">
-                    <div id="timerDisplay" style="font-size: 48px; font-weight: bold; margin: 20px 0; color: #7a0000;">25:00</div>
-                    <div style="display: flex; gap: 10px; justify-content: center; margin: 20px 0;">
-                        <button id="timerStartBtn" onclick="window.toolManager.startTimer()" style="background: #27ae60; color: white; border: none; padding: 10px 20px; border-radius: 5px;">Start</button>
-                        <button id="timerPauseBtn" onclick="window.toolManager.pauseTimer()" style="background: #f39c12; color: white; border: none; padding: 10px 20px; border-radius: 5px;">Pause</button>
-                        <button id="timerResetBtn" onclick="window.toolManager.resetTimer()" style="background: #e74c3c; color: white; border: none; padding: 10px 20px; border-radius: 5px;">Reset</button>
-                    </div>
-                    <div style="display: flex; gap: 10px; justify-content: center;">
-                        <button onclick="window.toolManager.tools.timer.setTime(15)" style="padding: 8px 15px; border: 1px solid #ddd; border-radius: 5px;">15 min</button>
-                        <button onclick="window.toolManager.tools.timer.setTime(25)" style="padding: 8px 15px; border: 1px solid #ddd; border-radius: 5px;">25 min</button>
-                        <button onclick="window.toolManager.tools.timer.setTime(50)" style="padding: 8px 15px; border: 1px solid #ddd; border-radius: 5px;">50 min</button>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <footer class="footer-nav">
-        <div class="footer-nav-content">
-            <a href="#" class="footer-nav-item active" data-page="dashboard">
-                <i class="fas fa-tachometer-alt"></i>
-                <span>Home</span>
-            </a>
-            <a href="#" class="footer-nav-item" data-page="practice">
-                <i class="fas fa-book-open"></i>
-                <span>Practice</span>
-            </a>
-            <button class="footer-hamburger" id="footerHamburgerBtn">
-                <i class="fas fa-bars"></i>
-                <span>Menu</span>
-            </button>
-            <a href="#" class="footer-nav-item" data-page="quiz">
-                <i class="fas fa-question-circle"></i>
-                <span>Quiz</span>
-            </a>
-            <a href="#" class="footer-nav-item" data-page="settings">
-                <i class="fas fa-user"></i>
-                <span>Profile</span>
-            </a>
-        </div>
-    </footer>
-
-    <!-- Mobile Menu Overlay -->
-    <div class="mobile-menu-overlay" id="mobileMenuOverlay"></div>
-    <div class="mobile-menu-panel" id="mobileMenuPanel">
-        <div class="mobile-menu-header">
-        </div>
-        <div class="mobile-menu-grid">
-            <a href="#" class="mobile-menu-item active" onclick="showDashboard(event)">
-                <i class="fas fa-tachometer-alt"></i>
-                <span>Dashboard</span>
-            </a>
-            <a href="#" class="mobile-menu-item" onclick="showPracticeDashboard(event)">
-                <i class="fas fa-book-open"></i>
-                <span>Practice</span>
-            </a>
-            <a href="#" class="mobile-menu-item" onclick="showQuizDashboard(event)">
-                <i class="fas fa-question-circle"></i>
-                <span>Quiz</span>
-            </a>
-            <a href="#" class="mobile-menu-item" onclick="showProgressPage(event)">
-                <i class="fas fa-chart-line"></i>
-                <span>Progress</span>
-            </a>
-            <a href="#" class="mobile-menu-item" onclick="showFeedbackPage(event)">
-                <i class="fas fa-comments"></i>
-                <span>Feedback</span>
-            </a>
-            <a href="#" class="mobile-menu-item" onclick="showSettingsPage(event)">
-                <i class="fas fa-cog"></i>
-                <span>Settings</span>
-            </a>
-            <a href="#" class="mobile-menu-item" onclick="goToModuleDashboard(event)">
-                <i class="fas fa-graduation-cap"></i>
-                <span>Lessons</span>
-            </a>
-            <a href="#" class="mobile-menu-item" onclick="showLogoutConfirmation()">
-                <i class="fas fa-sign-out-alt"></i>
-                <span>Logout</span>
-            </a>
-        </div>
-    </div>
-
-    <!-- Quiz Modal -->
-    <div class="modal-overlay" id="quizModal">
-        <div class="modal-container" style="max-width: 800px;">
-            <div class="modal-header" style="background: #7a0000; color: white;">
-                <h2><i class="fas fa-question-circle"></i> <span id="quizModalTitle">Quiz</span></h2>
-                <button class="modal-close" onclick="closeQuizSystemModal()">&times;</button>
-            </div>
-            
-            <!-- QUIZ CONTAINER (questions) -->
-            <div id="quizContainer">
-                <div class="modal-body">
-                    <!-- Progress and Timer -->
-                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
-                        <div style="display: flex; gap: 10px;">
-                            <span class="quiz-progress" style="background: #f0f0f0; padding: 5px 15px; border-radius: 20px;">
-                                Question <span id="quizCurrentNum">1</span>/<span id="quizTotalNum">10</span>
-                            </span>
-                        </div>
-                        <div class="quiz-timer" style="background: #7a0000; color: white; padding: 5px 20px; border-radius: 30px; font-size: 18px; font-weight: bold;">
-                            <i class="fas fa-clock"></i> <span id="quizTimerDisplay">00:00</span>
-                        </div>
-                    </div>
-                    
-                    <!-- Progress Dots -->
-                    <div id="quizProgressDotsModal" style="display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 20px; padding: 10px 0;">
-                        <!-- Dots will be generated here -->
-                    </div>
-                    
-                    <!-- Question Text -->
-                    <div style="margin-bottom: 25px;">
-                        <h3 id="quizQuestionTextModal" style="color: #2c3e50; line-height: 1.5;">Loading question...</h3>
-                    </div>
-                    
-                    <!-- Options Grid -->
-                    <div id="quizOptionsGridModal" style="margin-bottom: 20px;">
-                        <!-- Options will be loaded here -->
-                    </div>
-                    
-                    <!-- Navigation Buttons -->
-                    <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px;">
-                        <button class="btn-secondary" onclick="closeQuizSystemModal()">
-                            <i class="fas fa-times"></i> Cancel
-                        </button>
-                        <button class="btn-primary" id="submitQuizBtn" onclick="submitQuizSystem()">
-                            <i class="fas fa-paper-plane"></i> Submit Quiz
-                        </button>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Forgot Password Modal -->
-<div id="forgotPasswordModal" class="modal-overlay">
-    <div class="modal-container" style="max-width: 450px;">
-        <div class="modal-header" style="background: #7a0000; color: white; padding: 15px 20px; border-radius: 10px 10px 0 0;">
-            <h3 style="margin: 0; font-size: 18px;"><i class="fas fa-key"></i> Reset Password</h3>
-            <button class="modal-close" onclick="closeForgotPasswordModal()" style="background: none; border: none; color: white; font-size: 24px; cursor: pointer;">&times;</button>
-        </div>
-        
-        <div class="modal-body" style="padding: 25px;">
-            <!-- Step 1: Email Form -->
-            <div id="forgotStep1" style="display: block;">
-                <p style="margin-bottom: 20px; color: #2c3e50;">Enter your email address and we'll send you a link to reset your password.</p>
-                
-                <div style="margin-bottom: 20px;">
-                    <label style="display: block; margin-bottom: 8px; font-weight: 600; color: #2c3e50;">
-                        <i class="fas fa-envelope"></i> Email Address
-                    </label>
-                    <input type="email" id="resetEmail" class="form-control" 
-                           placeholder="your@email.com" 
-                           style="width: 100%; padding: 12px 15px; border: 1px solid #ddd; border-radius: 6px;">
-                </div>
-                
-                <div id="forgotError" style="display: none; background: #fee9e7; color: #e74c3c; padding: 10px; border-radius: 6px; margin-bottom: 15px; font-size: 14px;"></div>
-                
-                <div style="display: flex; gap: 10px; justify-content: flex-end;">
-                    <button class="btn-secondary" onclick="closeForgotPasswordModal()" style="padding: 10px 20px; border: none; border-radius: 6px; cursor: pointer; background: #95a5a6; color: white;">
-                        <i class="fas fa-times"></i> Cancel
-                    </button>
-                    <button class="btn-primary" onclick="requestPasswordReset()" style="padding: 10px 20px; border: none; border-radius: 6px; cursor: pointer; background: #7a0000; color: white;">
-                        <i class="fas fa-paper-plane"></i> Send Reset Link
-                    </button>
-                </div>
-            </div>
-            
-            <!-- Step 2: Reset Link Generated (Demo Mode) -->
-            <div id="forgotStep2" style="display: none;">
-                <div style="text-align: center; margin-bottom: 20px;">
-                    <div style="width: 80px; height: 80px; background: #27ae60; border-radius: 50%; margin: 0 auto 15px; display: flex; align-items: center; justify-content: center;">
-                        <i class="fas fa-check" style="font-size: 40px; color: white;"></i>
-                    </div>
-                    <h4 style="color: #2c3e50; margin-bottom: 10px;">Reset Link Generated!</h4>
-                    <p style="color: #7f8c8d; margin-bottom: 5px;" id="resetEmailDisplay"></p>
-                </div>
-                
-                <div style="background: #f8f9fa; border-radius: 8px; padding: 15px; margin-bottom: 20px; border-left: 4px solid #7a0000;">
-                    <p style="margin: 0 0 5px 0; font-weight: bold; color: #2c3e50;">
-                        <i class="fas fa-info-circle"></i> DEMO MODE (No Email Configured)
-                    </p>
-                    <p style="margin: 5px 0; color: #34495e; font-size: 14px;">
-                        Since email is not connected, use this reset link:
-                    </p>
-                    <div style="background: white; padding: 10px; border-radius: 5px; border: 1px solid #ddd; margin: 10px 0;">
-                        <code id="resetLinkDisplay" style="word-break: break-all; font-size: 12px;"></code>
-                    </div>
-                    <button class="btn-secondary" onclick="copyResetLink()" style="width: 100%; padding: 8px; background: #3498db; color: white; border: none; border-radius: 5px; cursor: pointer;">
-                        <i class="fas fa-copy"></i> Copy Reset Link
-                    </button>
-                </div>
-                
-                <div style="display: flex; gap: 10px; justify-content: center;">
-                    <button class="btn-primary" onclick="closeForgotPasswordModal()" style="padding: 10px 20px; background: #7a0000; color: white; border: none; border-radius: 6px; cursor: pointer;">
-                        <i class="fas fa-check"></i> OK, Got It
-                    </button>
-                </div>
-            </div>
-        </div>
-    </div>
-</div>
-
-<!-- Reset Password Modal -->
-<div id="resetPasswordModal" class="modal-overlay">
-    <div class="modal-container" style="max-width: 450px;">
-        <div class="modal-header" style="background: #7a0000; color: white; padding: 15px 20px; border-radius: 10px 10px 0 0;">
-            <h3 style="margin: 0; font-size: 18px;"><i class="fas fa-lock"></i> Create New Password</h3>
-            <button class="modal-close" onclick="closeResetPasswordModal()" style="background: none; border: none; color: white; font-size: 24px; cursor: pointer;">&times;</button>
-        </div>
-        
-        <div class="modal-body" style="padding: 25px;">
-            <div id="resetPasswordStep1" style="display: block;">
-                <div style="margin-bottom: 20px; background: #f8f9fa; padding: 12px; border-radius: 6px;">
-                    <p style="margin: 0; font-size: 14px; color: #2c3e50;">
-                        <i class="fas fa-user"></i> <span id="resetUserName"></span>
-                    </p>
-                    <p style="margin: 5px 0 0 0; font-size: 13px; color: #7f8c8d;">
-                        <i class="fas fa-envelope"></i> <span id="resetUserEmail"></span>
-                    </p>
-                </div>
-                
-                <div style="margin-bottom: 20px;">
-                    <label style="display: block; margin-bottom: 8px; font-weight: 600; color: #2c3e50;">
-                        <i class="fas fa-lock"></i> New Password
-                    </label>
-                    <input type="password" id="newPassword" class="form-control" 
-                           placeholder="Enter new password (min. 6 characters)" 
-                           style="width: 100%; padding: 12px 15px; border: 1px solid #ddd; border-radius: 6px;">
-                    <div class="strength-meter" style="height: 4px; background: #ecf0f1; margin-top: 8px; border-radius: 2px; overflow: hidden;">
-                        <div id="passwordStrength" style="height: 100%; width: 0; background: #e74c3c; transition: all 0.3s;"></div>
-                    </div>
-                </div>
-                
-                <div style="margin-bottom: 20px;">
-                    <label style="display: block; margin-bottom: 8px; font-weight: 600; color: #2c3e50;">
-                        <i class="fas fa-check-circle"></i> Confirm Password
-                    </label>
-                    <input type="password" id="confirmNewPassword" class="form-control" 
-                           placeholder="Re-enter new password" 
-                           style="width: 100%; padding: 12px 15px; border: 1px solid #ddd; border-radius: 6px;">
-                </div>
-                
-                <div id="resetError" style="display: none; background: #fee9e7; color: #e74c3c; padding: 10px; border-radius: 6px; margin-bottom: 15px; font-size: 14px;"></div>
-                <div id="resetSuccess" style="display: none; background: #d4edda; color: #155724; padding: 10px; border-radius: 6px; margin-bottom: 15px; font-size: 14px;">
-                    <i class="fas fa-check-circle"></i> Password reset successful! Redirecting to login...
-                </div>
-                
-                <div style="display: flex; gap: 10px; justify-content: flex-end;">
-                    <button class="btn-secondary" onclick="closeResetPasswordModal()" style="padding: 10px 20px; background: #95a5a6; color: white; border: none; border-radius: 6px; cursor: pointer;">
-                        <i class="fas fa-times"></i> Cancel
-                    </button>
-                    <button class="btn-primary" onclick="submitPasswordReset()" style="padding: 10px 20px; background: #7a0000; color: white; border: none; border-radius: 6px; cursor: pointer;">
-                        <i class="fas fa-save"></i> Reset Password
-                    </button>
-                </div>
-            </div>
-        </div>
-    </div>
-</div>
-            
-            <!-- ✅ RESULTS CONTAINER (hiwalay) -->
-            <div id="quizResultsContainer" style="display: none;">
-                <div class="modal-body" style="padding: 30px;">
-                    <div id="quizResultsContent">
-                        <!-- Results will be loaded here -->
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <script src="factolearn.js"></script>
-</body>
+    
+        <script src="factolearn.js"></script>
+    </body>
 </html>
