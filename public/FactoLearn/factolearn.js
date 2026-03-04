@@ -48,18 +48,21 @@ const APP_LESSON_MAP = {
 };
 
 // ============================================
-// POLYLEARN CONSTANTS - FORCE LESSON_ID = 3
+// FACTORIAL CONSTANTS - FORCE LESSON_ID = 3
 // ============================================
-const FACTORIAL_LESSON_ID = 3; // Fixed for PolyLearn only
+const FACTORIAL_LESSON_ID = 3; // Fixed for Factorial app
+
+// Para madaling gamitin
+const CURRENT_LESSON_ID = 3; // Factorial only
+const CURRENT_APP_NAME = 'Factorial';
 
 function getCurrentApp() {
     return localStorage.getItem('selectedApp') || 'factorial'; // Factorial na ang default
 }
 
-// Get the lesson ID for the current app
 function getCurrentAppLessonId() {
-    const app = getCurrentApp();
-    return APP_LESSON_MAP[app]?.lessonId || 3; // Default to PolyLearn (ID 3)
+    // FORCE FACTORIAL: Laging 3 ang ibalik
+    return FACTORIAL_LESSON_ID; // 3
 }
 
 // Get the filter parameter for API calls
@@ -68,13 +71,11 @@ function getAppFilterParam() {
     return APP_LESSON_MAP[app]?.filter || 'polylearn';
 }
 
-// Add this to all your fetch calls that need filtering
 function addAppFilterToUrl(url) {
     const separator = url.includes('?') ? '&' : '?';
-    const filterParam = `app_filter=${getAppFilterParam()}`;
-    return url + separator + filterParam;
+    // FORCE FACTORIAL: Laging lesson_id=3
+    return `${url}${separator}lesson_id=${FACTORIAL_LESSON_ID}`;
 }
-
 
 // ============================================
 // ✅ FIXED: ToolManager with better error handling
@@ -4267,7 +4268,7 @@ async function fetchDailyProgress() {
         }
         
         // ✅ GUMAMIT NG FETCH API, HINDI PROMISEPOOL
-        const response = await fetch(`/api/progress/daily?lesson_id=2`, {
+        const response = await fetch(`/api/progress/daily?lesson_id=${FACTORIAL_LESSON_ID}`, {
             headers: {
                 'Authorization': `Bearer ${token}`,
                 'Content-Type': 'application/json'
@@ -4334,7 +4335,7 @@ function handleActivityResponse(data) {
 // Helper function para sa PolyLearn practice stats
 async function fetchPolyLearnPracticeStats(userId) {
     try {
-        const FACTORIAL_LESSON_ID = 3;
+
         const [stats] = await promisePool.query(`
             SELECT 
                 COUNT(DISTINCT CASE WHEN completion_status = 'completed' THEN exercise_id END) as exercises_completed,
@@ -4361,7 +4362,7 @@ async function fetchPolyLearnPracticeStats(userId) {
 // Helper function para sa PolyLearn quiz stats
 async function fetchPolyLearnQuizStats(userId) {
     try {
-        const FACTORIAL_LESSON_ID = 3;
+
         const [stats] = await promisePool.query(`
             SELECT 
                 COUNT(*) as quizzes_completed,
@@ -5032,7 +5033,7 @@ async function updateDailyProgress(progressData) {
             ...(progressData.time_spent_minutes !== undefined && { 
                 time_spent_minutes: progressData.time_spent_minutes 
             }),
-            lesson_id: 2 // ✅ FORCE POLYLEARN
+           lesson_id: FACTORIAL_LESSON_ID // ✅ FORCE POLYLEARN
         };
         
         // If no data to update, return
@@ -6420,7 +6421,7 @@ async function loadProgressDashboardData() {
             return;
         }
         
-        const FACTORIAL_LESSON_ID = 3;
+
         
         // ===== FETCH ALL POLYLEARN DATA =====
         const [
@@ -6756,7 +6757,7 @@ async function updateProgressSummaryCards() {
         const token = localStorage.getItem('authToken') || authToken;
         if (!token) return;
         
-        const FACTORIAL_LESSON_ID = 3;
+
         
         // ===== DEBUG: Check database directly =====
         try {
@@ -6777,7 +6778,7 @@ async function updateProgressSummaryCards() {
         
         try {
             // Get total lessons count for PolyLearn
-            const totalResponse = await fetch(`/api/lessons-db/complete?lesson_id=${POLYLEARN_LESSON_ID}`, {
+            const totalResponse = await fetch(`/api/lessons-db/complete?lesson_id=${FACTORIAL_LESSON_ID}`, {
                 headers: { 'Authorization': `Bearer ${token}` }
             });
             
@@ -6790,7 +6791,7 @@ async function updateProgressSummaryCards() {
             }
             
             // Get lessons progress for PolyLearn
-            const lessonsResponse = await fetch(`/api/progress/lessons?lesson_id=${POLYLEARN_LESSON_ID}`, {
+            const lessonsResponse = await fetch(`/api/progress/lessons?lesson_id=${FACTORIAL_LESSON_ID}`, {
                 headers: { 'Authorization': `Bearer ${token}` }
             });
             
@@ -6815,7 +6816,7 @@ async function updateProgressSummaryCards() {
         try {
             // ✅ Get total PolyLearn practice exercises (lesson_id=2)
             console.log(`📡 Fetching total exercises count for lesson ${POLYLEARN_LESSON_ID}...`);
-            const totalExercisesResponse = await fetch(`/api/practice/exercises/count?lesson_id=${POLYLEARN_LESSON_ID}`, {
+            const totalExercisesResponse = await fetch(`/api/practice/exercises/count?lesson_id=${FACTORIAL_LESSON_ID}`, {
                 headers: { 'Authorization': `Bearer ${token}` }
             });
             
@@ -6838,7 +6839,7 @@ async function updateProgressSummaryCards() {
             
             // ✅ Get PolyLearn practice attempts (lesson_id=3)
             console.log(`📡 Fetching practice attempts for lesson ${POLYLEARN_LESSON_ID}...`);
-            const practiceResponse = await fetch(`/api/progress/practice-attempts?lesson_id=${POLYLEARN_LESSON_ID}`, {
+            const practiceResponse = await fetch(`/api/progress/practice-attempts?lesson_id=${FACTORIAL_LESSON_ID}`, {
                 headers: { 'Authorization': `Bearer ${token}` }
             });
             
@@ -6867,7 +6868,7 @@ async function updateProgressSummaryCards() {
         let totalPoints = 0;
         
         try {
-            const quizResponse = await fetch(`/api/quiz/user/attempts?lesson_id=${POLYLEARN_LESSON_ID}`, {
+            const quizResponse = await fetch(`/api/quiz/user/attempts?lesson_id=${FACTORIAL_LESSON_ID}`, {
                 headers: { 'Authorization': `Bearer ${token}` }
             });
             
@@ -6923,56 +6924,46 @@ async function updateProgressSummaryCards() {
         console.error('❌ Error updating PolyLearn progress summary cards:', error);
     }
 }
-// ============================================
-// DEBUG: Check PolyLearn Progress
-// ============================================
-window.debugPolyLearnProgress = async function() {
-    console.log('🔍 DEBUGGING POLYLEARN PROGRESS...');
+// Palitan ang pangalan:
+window.debugFactorialProgress = async function() {
+    console.log('🔍 DEBUGGING FACTORIAL PROGRESS...');
     
     const token = localStorage.getItem('authToken');
-    const FACTORIAL_LESSON_ID = 3;
     
-    console.log('📡 Fetching PolyLearn data (lesson_id = 2)...');
+    console.log(`📡 Fetching Factorial data (lesson_id = ${FACTORIAL_LESSON_ID})...`);
     
     // Check lessons
     try {
-        const lessonsRes = await fetch(`/api/progress/lessons?lesson_id=${POLYLEARN_LESSON_ID}`, {
+        const lessonsRes = await fetch(`/api/progress/lessons?lesson_id=${FACTORIAL_LESSON_ID}`, {
             headers: { 'Authorization': `Bearer ${token}` }
         });
         const lessonsData = await lessonsRes.json();
-        console.log('📚 PolyLearn Lessons:', lessonsData);
+        console.log('📚 Factorial Lessons:', lessonsData);
     } catch (e) {
         console.log('Lessons error:', e.message);
     }
     
     // Check practice
     try {
-        const practiceRes = await fetch(`/api/progress/practice-attempts?lesson_id=${POLYLEARN_LESSON_ID}`, {
+        const practiceRes = await fetch(`/api/progress/practice-attempts?lesson_id=${FACTORIAL_LESSON_ID}`, {
             headers: { 'Authorization': `Bearer ${token}` }
         });
         const practiceData = await practiceRes.json();
-        console.log('💪 PolyLearn Practice:', practiceData);
+        console.log('💪 Factorial Practice:', practiceData);
     } catch (e) {
         console.log('Practice error:', e.message);
     }
     
     // Check quizzes
     try {
-        const quizRes = await fetch(`/api/quiz/user/attempts?lesson_id=${POLYLEARN_LESSON_ID}`, {
+        const quizRes = await fetch(`/api/quiz/user/attempts?lesson_id=${FACTORIAL_LESSON_ID}`, {
             headers: { 'Authorization': `Bearer ${token}` }
         });
         const quizData = await quizRes.json();
-        console.log('🧠 PolyLearn Quizzes:', quizData);
+        console.log('🧠 Factorial Quizzes:', quizData);
     } catch (e) {
         console.log('Quiz error:', e.message);
     }
-    
-    // Check current UI values
-    console.log('📊 Current UI values:');
-    console.log('- Lessons:', document.getElementById('lessonsCount')?.innerHTML);
-    console.log('- Practice:', document.getElementById('exercisesCount')?.innerHTML);
-    console.log('- Quiz:', document.getElementById('quizScore')?.innerHTML);
-    console.log('- Avg Time:', document.getElementById('avgTime')?.innerHTML);
     
     console.log('✅ Debug complete');
 };
@@ -8494,8 +8485,7 @@ async function fetchPracticeStatistics() {
         
         console.log('📊 Fetching PolyLearn practice statistics DIRECTLY FROM DATABASE (lesson_id=3)...');
         
-        const FACTORIAL_LESSON_ID = 3;
-        
+
         // ===== GET ALL PRACTICE STATS FROM DATABASE IN PARALLEL =====
         const [lessonsData, attemptsData, totalExercisesData] = await Promise.allSettled([
             // Get lessons progress (lesson_id=2)
@@ -8509,7 +8499,7 @@ async function fetchPracticeStatistics() {
             }).then(res => res.json()).catch(err => ({ success: false, error: err })),
             
             // Get total exercises count (lesson_id=2)
-            fetch(`/api/practice/exercises/count?lesson_id=${POLYLEARN_LESSON_ID}`, {
+            fetch(`/api/practice/exercises/count?lesson_id=${FACTORIAL_LESSON_ID}`, {
                 headers: { 'Authorization': `Bearer ${token}` }
             }).then(res => res.json()).catch(err => ({ success: false, error: err }))
         ]);
@@ -9418,7 +9408,7 @@ async function fetchQuizzesForCategory(categoryId) {
             }
         }
         
-        const response = await fetch(`/api/quiz/category/${categoryId}/quizzes?lesson_id=2`, {
+        const response = await fetch(`/api/quiz/category/${categoryId}/quizzes?lesson_id=${FACTORIAL_LESSON_ID}`, {
             headers: {
                 'Authorization': `Bearer ${token}`,
                 'Content-Type': 'application/json'
@@ -10975,7 +10965,6 @@ async function loadQuizCategories() {
             return [];
         }
         
-        const FACTORIAL_LESSON_ID = 3;
         
         // Show loading state
         const quizzesContainer = document.getElementById('userQuizzesContainer');
@@ -10991,7 +10980,7 @@ async function loadQuizCategories() {
         }
         
         // Fetch categories from server with lesson_id filter
-        const response = await fetch(`/api/quiz/categories?lesson_id=${POLYLEARN_LESSON_ID}`, {
+        const response = await fetch(`/api/quiz/categories?lesson_id=${FACTORIAL_LESSON_ID}`,{
             headers: {
                 'Authorization': `Bearer ${token}`,
                 'Accept': 'application/json'
@@ -11440,7 +11429,7 @@ async function loadQuizzesForCategory(categoryId) {
         `;
         
         // Fetch quizzes
-        const response = await fetch(`/api/quiz/category/${categoryId}/quizzes?lesson_id=2`, {
+        const response = await fetch(`/api/quiz/category/${categoryId}/quizzes?lesson_id=${FACTORIAL_LESSON_ID}`, {
             headers: {
                 'Authorization': `Bearer ${token}`,
                 'Content-Type': 'application/json'
@@ -12349,9 +12338,9 @@ async function fetchAccuracyRate() {
         
         console.log('📊 Fetching Factorial accuracy rate...');
         
-        const FACTORIAL_LESSON_ID = 3;
+
         
-        const response = await fetch(`/api/progress/accuracy-rate?lesson_id=${POLYLEARN_LESSON_ID}`, {
+        const response = await fetch(`/api/progress/accuracy-rate?lesson_id=${FACTORIAL_LESSON_ID}`, {
             headers: { 'Authorization': `Bearer ${token}` }
         });
         
@@ -16208,7 +16197,7 @@ async function fetchAllLessons() {
         
         const currentLessonId = FACTORIAL_LESSON_ID;  // Force to 2
         
-        console.log(`📚 Fetching lessons for PolyLearn, lesson ID: ${currentLessonId}`);
+        console.log(`📚 Fetching lessons for Factorial, lesson ID: ${currentLessonId}`);
         
         let endpoint = `/api/lessons-db/complete?lesson_id=${currentLessonId}`;
         
@@ -18951,9 +18940,9 @@ async function loadTopicsProgress() {
         
         console.log('📊 Fetching topics progress...');
         
-        const currentLessonId = POLYLEARN_LESSON_ID; // Force to 2
+       const currentLessonId = FACTORIAL_LESSON_ID; // Force to 2
         
-        console.log(`🎯 Loading topics for PolyLearn, forced lesson_id: ${currentLessonId}`);
+        console.log(`🎯 Loading topics for Factorial, lesson_id: ${currentLessonId}`);
         
         const response = await fetch(`/api/topics/progress`, {
             headers: { 'Authorization': `Bearer ${token}` }
@@ -19275,7 +19264,7 @@ async function loadPracticeExercisesForTopic(topicId) {
         
         const currentLessonId = FACTORIAL_LESSON_ID; // Force to 2
         
-        console.log(`🎯 Forced lesson_id: ${currentLessonId} (PolyLearn only)`);
+        console.log(`🎯 Loading exercises for Factorial, lesson_id: ${currentLessonId}`);
         
         // Get the exercise area
         const exerciseArea = document.getElementById('exerciseArea');
@@ -19312,7 +19301,7 @@ async function loadPracticeExercisesForTopic(topicId) {
                 return exerciseLessonId == currentLessonId;
             });
             
-            console.log(`✅ Found ${filteredExercises.length} exercises for PolyLearn (lesson ${currentLessonId})`);
+            console.log(`✅ Found ${filteredExercises.length} exercises for Factorial`);
             
             if (filteredExercises.length > 0) {
                 displayPracticeExercises(filteredExercises);
