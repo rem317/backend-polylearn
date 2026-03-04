@@ -32,30 +32,28 @@ function getDefaultPracticeStats() {
 // APP FILTERING SYSTEM - USING LESSON_ID
 // ============================================
 
-// Map app names to their corresponding LESSON IDs
 const APP_LESSON_MAP = {
     'mathease': {
         lessonId: 1,
         name: 'MathEase'
     },
+    'factorial': {
+        lessonId: 3,
+        name: 'Factorial'  // Ito na ang gagamitin
+    },
     'polylearn': {
         lessonId: 2,
         name: 'PolyLearn'
-    },
-    'factorial': {
-        lessonId: 3,
-        name: 'Factorial'
     }
 };
 
 // ============================================
 // POLYLEARN CONSTANTS - FORCE LESSON_ID = 3
 // ============================================
-const POLYLEARN_LESSON_ID = 3; // Fixed for PolyLearn only
+const FACTORIAL_LESSON_ID = 3; // Fixed for PolyLearn only
 
-// Get the current selected app
 function getCurrentApp() {
-    return localStorage.getItem('selectedApp') || 'polylearn';
+    return localStorage.getItem('selectedApp') || 'factorial'; // Factorial na ang default
 }
 
 // Get the lesson ID for the current app
@@ -4260,7 +4258,7 @@ function completeExercise(topicName) {
 // ============================================
 async function fetchDailyProgress() {
     try {
-        console.log('📊 Fetching PolyLearn daily progress...');
+        console.log('📊 Fetching Factorial daily progress...');
         
         const token = localStorage.getItem('authToken') || authToken;
         if (!token) {
@@ -4336,7 +4334,7 @@ function handleActivityResponse(data) {
 // Helper function para sa PolyLearn practice stats
 async function fetchPolyLearnPracticeStats(userId) {
     try {
-        const POLYLEARN_LESSON_ID = 2;
+        const FACTORIAL_LESSON_ID = 3;
         const [stats] = await promisePool.query(`
             SELECT 
                 COUNT(DISTINCT CASE WHEN completion_status = 'completed' THEN exercise_id END) as exercises_completed,
@@ -4363,7 +4361,7 @@ async function fetchPolyLearnPracticeStats(userId) {
 // Helper function para sa PolyLearn quiz stats
 async function fetchPolyLearnQuizStats(userId) {
     try {
-        const POLYLEARN_LESSON_ID = 2;
+        const FACTORIAL_LESSON_ID = 3;
         const [stats] = await promisePool.query(`
             SELECT 
                 COUNT(*) as quizzes_completed,
@@ -6410,7 +6408,7 @@ function forceUpdateProgressUI(progress) {
 // ✅ FIXED: Load Progress Dashboard Data - POLYLEARN ONLY (NO ERRORS)
 // ============================================
 async function loadProgressDashboardData() {
-    console.log('📊 Loading PolyLearn progress dashboard data...');
+    console.log('📊 Loading Factorial progress dashboard data...');
     
     try {
         // Show loading state
@@ -6422,7 +6420,7 @@ async function loadProgressDashboardData() {
             return;
         }
         
-        const POLYLEARN_LESSON_ID = 2;
+        const FACTORIAL_LESSON_ID = 3;
         
         // ===== FETCH ALL POLYLEARN DATA =====
         const [
@@ -6752,13 +6750,13 @@ function updateProgressDashboardUI() {
 // ✅ UPDATED: updateProgressSummaryCards - WITH DEBUG LOGS
 // ============================================
 async function updateProgressSummaryCards() {
-    console.log('📊 Updating PolyLearn progress summary cards (lesson_id = 2)...');
+    console.log('📊 Updating Factorial progress summary cards (lesson_id = 3)...');
     
     try {
         const token = localStorage.getItem('authToken') || authToken;
         if (!token) return;
         
-        const POLYLEARN_LESSON_ID = 2;
+        const FACTORIAL_LESSON_ID = 3;
         
         // ===== DEBUG: Check database directly =====
         try {
@@ -6838,7 +6836,7 @@ async function updateProgressSummaryCards() {
                 console.error('❌ Failed to fetch total exercises count:', totalExercisesResponse.status);
             }
             
-            // ✅ Get PolyLearn practice attempts (lesson_id=2)
+            // ✅ Get PolyLearn practice attempts (lesson_id=3)
             console.log(`📡 Fetching practice attempts for lesson ${POLYLEARN_LESSON_ID}...`);
             const practiceResponse = await fetch(`/api/progress/practice-attempts?lesson_id=${POLYLEARN_LESSON_ID}`, {
                 headers: { 'Authorization': `Bearer ${token}` }
@@ -6932,7 +6930,7 @@ window.debugPolyLearnProgress = async function() {
     console.log('🔍 DEBUGGING POLYLEARN PROGRESS...');
     
     const token = localStorage.getItem('authToken');
-    const POLYLEARN_LESSON_ID = 2;
+    const FACTORIAL_LESSON_ID = 3;
     
     console.log('📡 Fetching PolyLearn data (lesson_id = 2)...');
     
@@ -8494,9 +8492,9 @@ async function fetchPracticeStatistics() {
             return null;
         }
         
-        console.log('📊 Fetching PolyLearn practice statistics DIRECTLY FROM DATABASE (lesson_id=2)...');
+        console.log('📊 Fetching PolyLearn practice statistics DIRECTLY FROM DATABASE (lesson_id=3)...');
         
-        const POLYLEARN_LESSON_ID = 2;
+        const FACTORIAL_LESSON_ID = 3;
         
         // ===== GET ALL PRACTICE STATS FROM DATABASE IN PARALLEL =====
         const [lessonsData, attemptsData, totalExercisesData] = await Promise.allSettled([
@@ -10977,7 +10975,7 @@ async function loadQuizCategories() {
             return [];
         }
         
-        const POLYLEARN_LESSON_ID = 2;
+        const FACTORIAL_LESSON_ID = 3;
         
         // Show loading state
         const quizzesContainer = document.getElementById('userQuizzesContainer');
@@ -12349,9 +12347,9 @@ async function fetchAccuracyRate() {
         const token = localStorage.getItem('authToken') || authToken;
         if (!token) return null;
         
-        console.log('📊 Fetching PolyLearn accuracy rate...');
+        console.log('📊 Fetching Factorial accuracy rate...');
         
-        const POLYLEARN_LESSON_ID = 2;
+        const FACTORIAL_LESSON_ID = 3;
         
         const response = await fetch(`/api/progress/accuracy-rate?lesson_id=${POLYLEARN_LESSON_ID}`, {
             headers: { 'Authorization': `Bearer ${token}` }
@@ -18930,7 +18928,7 @@ window.checkPracticeRecords = async function() {
 };
 
 // ============================================
-// ✅ FIXED: loadTopicsProgress - FORCED LESSON_ID = 2
+// ✅ FIXED: loadTopicsProgress - FORCED LESSON_ID = 3
 // ============================================
 async function loadTopicsProgress() {
     try {
@@ -22160,14 +22158,14 @@ function initApp() {
     AppState.currentUser = demoUser;
     AppState.isAuthenticated = true;
     AppState.hasSelectedApp = true;
-    AppState.selectedApp = 'polylearn';
+    AppState.selectedApp = 'factorial';
     
     // Set auth token
     authToken = 'demo_token_' + Date.now();
     localStorage.setItem('authToken', authToken);
     localStorage.setItem('mathhub_user', JSON.stringify(demoUser));
     localStorage.setItem('hasSelectedApp', 'true');
-    localStorage.setItem('selectedApp', 'polylearn');
+    localStorage.setItem('selectedApp', 'factorial');
     localStorage.setItem('currentLessonFilter', '2');
     
     // Initialize hamburger menu
