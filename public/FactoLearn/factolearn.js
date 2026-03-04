@@ -22884,3 +22884,207 @@ document.addEventListener('DOMContentLoaded', function() {
         observer.observe(quizInterface, { attributes: true });
     }
 });
+
+// ============================================
+// 🚀 EMERGENCY FIX - FORCE SHOW DASHBOARD
+// ============================================
+(function forceShowDashboard() {
+    console.log('🚨 EMERGENCY FIX: Forcing dashboard to show...');
+    
+    // Wait for DOM to be ready
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', showDashboard);
+    } else {
+        showDashboard();
+    }
+    
+    function showDashboard() {
+        console.log('📊 Showing dashboard page...');
+        
+        // Hide all pages first
+        const pages = [
+            'dashboard-page',
+            'module-dashboard-page',
+            'practice-exercises-page',
+            'quiz-dashboard-page',
+            'progress-page',
+            'settings-page',
+            'feedback-page'
+        ];
+        
+        pages.forEach(id => {
+            const page = document.getElementById(id);
+            if (page) {
+                page.classList.add('hidden');
+                console.log(`✅ Hidden: ${id}`);
+            } else {
+                console.warn(`⚠️ Page not found: ${id}`);
+            }
+        });
+        
+        // Show dashboard page
+        const dashboard = document.getElementById('dashboard-page');
+        if (dashboard) {
+            dashboard.classList.remove('hidden');
+            console.log('✅ Dashboard is now visible!');
+        } else {
+            console.error('❌ Dashboard page not found!');
+        }
+        
+        // Set some sample data para may makita
+        setSampleData();
+    }
+    
+    function setSampleData() {
+        console.log('📝 Setting sample data...');
+        
+        const elements = {
+            'lessonsCount': '3<span class="item-unit">/10</span>',
+            'exercisesCount': '15<span class="item-unit">/20</span>',
+            'quizScore': '250<span class="item-unit">points</span>',
+            'avgTime': '25<span class="item-unit">min/day</span>',
+            'dashboardWelcomeTitle': 'Welcome back, Student!',
+            'dashboardUserName': 'Welcome to <span>PolyLearn!</span>',
+            'currentDate': new Date().toLocaleDateString('en-US', { 
+                weekday: 'long', 
+                year: 'numeric', 
+                month: 'long', 
+                day: 'numeric' 
+            }),
+            'userInitial': 'S',
+            'userAchievementBadge': '<i class="fas fa-medal"></i> 5-Day Streak!'
+        };
+        
+        for (const [id, value] of Object.entries(elements)) {
+            const el = document.getElementById(id);
+            if (el) {
+                if (id === 'userInitial') {
+                    el.textContent = value;
+                } else {
+                    el.innerHTML = value;
+                }
+                console.log(`✅ Set ${id}`);
+            }
+        }
+    }
+})();
+
+// ============================================
+// 🚨 BACKUP FIX - If navigation doesn't work
+// ============================================
+window.showDashboardManually = function() {
+    console.log('🖐️ Manual show dashboard called');
+    
+    // Hide all pages
+    document.querySelectorAll('[id$="-page"]').forEach(page => {
+        page.classList.add('hidden');
+    });
+    
+    // Show dashboard
+    const dashboard = document.getElementById('dashboard-page');
+    if (dashboard) {
+        dashboard.classList.remove('hidden');
+        alert('✅ Dashboard is now visible!');
+    }
+};
+
+// ============================================
+// 🚨 FIX FOR NAVIGATE FUNCTION
+// ============================================
+window.navigateTo = function(page) {
+    console.log(`🧭 Navigating to: ${page}`);
+    
+    // Map page names to element IDs
+    const pageMap = {
+        'dashboard': 'dashboard-page',
+        'moduleDashboard': 'module-dashboard-page',
+        'practice': 'practice-exercises-page',
+        'quiz': 'quiz-dashboard-page',
+        'progress': 'progress-page',
+        'settings': 'settings-page',
+        'feedback': 'feedback-page'
+    };
+    
+    const targetId = pageMap[page];
+    if (!targetId) {
+        console.error(`❌ Unknown page: ${page}`);
+        return;
+    }
+    
+    // Hide all pages
+    document.querySelectorAll('[id$="-page"]').forEach(page => {
+        page.classList.add('hidden');
+    });
+    
+    // Show target page
+    const targetPage = document.getElementById(targetId);
+    if (targetPage) {
+        targetPage.classList.remove('hidden');
+        AppState.currentPage = page;
+        console.log(`✅ Showing page: ${targetId}`);
+    } else {
+        console.error(`❌ Page not found: ${targetId}`);
+    }
+};
+
+// ============================================
+// 🚨 FIX FOR HAMBURGER MENU
+// ============================================
+function initHamburgerMenu() {
+    console.log('🍔 Initializing hamburger menu...');
+    
+    const hamburgerBtn = document.getElementById('footerHamburgerBtn');
+    const menuOverlay = document.getElementById('mobileMenuOverlay');
+    const menuPanel = document.getElementById('mobileMenuPanel');
+    
+    if (!hamburgerBtn || !menuOverlay || !menuPanel) {
+        console.warn('⚠️ Menu elements not found');
+        return;
+    }
+    
+    // Remove old listeners
+    const newBtn = hamburgerBtn.cloneNode(true);
+    hamburgerBtn.parentNode.replaceChild(newBtn, hamburgerBtn);
+    
+    newBtn.addEventListener('click', function(e) {
+        e.preventDefault();
+        e.stopPropagation();
+        console.log('🍔 Hamburger clicked');
+        
+        menuOverlay.style.display = 'block';
+        menuPanel.classList.add('show');
+    });
+    
+    menuOverlay.addEventListener('click', function() {
+        menuOverlay.style.display = 'none';
+        menuPanel.classList.remove('show');
+    });
+    
+    console.log('✅ Hamburger menu initialized');
+}
+
+// ============================================
+// 🚨 FIX FOR PAGE LOAD
+// ============================================
+(function() {
+    console.log('🚀 Page load fix running...');
+    
+    // Run after everything loads
+    window.addEventListener('load', function() {
+        console.log('📄 Window loaded');
+        
+        // Initialize hamburger menu
+        setTimeout(initHamburgerMenu, 500);
+        
+        // Force show dashboard
+        setTimeout(() => {
+            const dashboard = document.getElementById('dashboard-page');
+            if (dashboard && dashboard.classList.contains('hidden')) {
+                console.log('⚠️ Dashboard still hidden, forcing show...');
+                window.showDashboardManually();
+            }
+        }, 1000);
+    });
+})();
+
+console.log('✅ Emergency fixes applied!');
