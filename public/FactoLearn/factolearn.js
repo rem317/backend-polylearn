@@ -11001,10 +11001,10 @@ async function loadQuizStatsFromServer() {
 
 
 // ============================================
-// ✅ FIXED: Load quiz categories - ONLY LESSON_ID = 3
+// ✅ FIXED: Load quiz categories - ONLY for current lesson
 // ============================================
 async function loadQuizCategories() {
-    console.log('📚 Loading FactoLearn quiz categories from database...');
+    console.log('📚 Loading quiz categories from database...');
     
     try {
         const token = localStorage.getItem('authToken') || authToken;
@@ -11012,6 +11012,11 @@ async function loadQuizCategories() {
             console.warn('No auth token available');
             return [];
         }
+        
+        // ✅ Get current lesson ID from app selection
+        const currentLessonId = getCurrentAppLessonId();
+        
+        console.log(`🎯 Loading quiz categories for lesson_id: ${currentLessonId}`);
         
         // Show loading state
         const quizzesContainer = document.getElementById('userQuizzesContainer');
@@ -11021,13 +11026,13 @@ async function loadQuizCategories() {
                     <div style="font-size: 40px; color: #7a0000; margin-bottom: 20px;">
                         <i class="fas fa-spinner fa-spin"></i>
                     </div>
-                    <p style="color: #666;">Loading FactoLearn categories from database...</p>
+                    <p style="color: #666;">Loading ${CURRENT_APP_NAME} categories...</p>
                 </div>
             `;
         }
         
-        // Fetch categories from server with lesson_id=3 filter
-        const response = await fetch(`/api/quiz/categories?lesson_id=${FACTORIAL_LESSON_ID}`, {
+        // Fetch categories with lesson_id filter
+        const response = await fetch(`/api/quiz/categories?lesson_id=${currentLessonId}`, {
             headers: {
                 'Authorization': `Bearer ${token}`,
                 'Accept': 'application/json'
@@ -11042,32 +11047,29 @@ async function loadQuizCategories() {
         console.log('📥 Server response:', data);
         
         if (data.success && data.categories) {
-            // Strict filter - lesson_id=3 only
-            const filteredCategories = data.categories.filter(cat => {
-                const catLessonId = cat.lesson_id || cat.lessonId;
-                return catLessonId == FACTORIAL_LESSON_ID;
-            });
+            // Categories are already filtered by server
+            const categories = data.categories;
             
-            console.log(`✅ Found ${filteredCategories.length} FactoLearn categories from database`);
+            console.log(`✅ Found ${categories.length} ${CURRENT_APP_NAME} categories`);
             
-            if (filteredCategories.length > 0) {
-                displayQuizCategories(filteredCategories, false);
+            if (categories.length > 0) {
+                displayQuizCategories(categories, false);
             } else {
-                console.log('ℹ️ No FactoLearn categories found');
+                // No categories for this app
                 if (quizzesContainer) {
                     quizzesContainer.innerHTML = `
                         <div class="card" style="padding: 40px; text-align: center;">
                             <div style="font-size: 60px; color: #ccc; margin-bottom: 20px;">
                                 <i class="fas fa-folder-open"></i>
                             </div>
-                            <h3 style="color: #666; margin-bottom: 10px;">No FactoLearn Categories Available</h3>
-                            <p style="color: #999; margin-bottom: 20px;">Check back later for new FactoLearn quizzes!</p>
+                            <h3 style="color: #666; margin-bottom: 10px;">No ${CURRENT_APP_NAME} Categories Available</h3>
+                            <p style="color: #999; margin-bottom: 20px;">Check back later for new ${CURRENT_APP_NAME} quizzes!</p>
                         </div>
                     `;
                 }
             }
             
-            return filteredCategories;
+            return categories;
         } else {
             console.log('ℹ️ No categories returned from database');
             return [];
@@ -11271,10 +11273,10 @@ function handleCategoriesResponse(data, filterOnClient = false) {
     }
 }
 // ============================================
-// ✅ FIXED: Display quiz categories na parang dashboard card
+// ✅ FIXED: Display quiz categories with app name
 // ============================================
 function displayQuizCategories(categories, isHardcoded = false) {
-    console.log('📋 Displaying FactoLearn quiz categories:', categories);
+    console.log(`📋 Displaying ${CURRENT_APP_NAME} quiz categories:`, categories);
     
     const quizzesContainer = document.getElementById('userQuizzesContainer');
     if (!quizzesContainer) {
@@ -11282,41 +11284,29 @@ function displayQuizCategories(categories, isHardcoded = false) {
         return;
     }
     
-    // STRICT FILTER - lesson_id=2 LANG
-    const factoLearnCategories = categories.filter(cat => {
-        const catLessonId = cat.lesson_id || cat.lessonId;
-        return catLessonId == 3;
-    });
-    
-    console.log('🎯 After strict filtering:', factoLearnCategories.length, 'categories');
-    
-    // I-clear ang container
+    // Clear container
     quizzesContainer.innerHTML = '';
     
-    if (!factoLearnCategories || factoLearnCategories.length === 0) {
+    if (!categories || categories.length === 0) {
         quizzesContainer.innerHTML = `
             <div class="card" style="padding: 40px; text-align: center;">
                 <div style="font-size: 60px; color: #ccc; margin-bottom: 20px;">
                     <i class="fas fa-folder-open"></i>
                 </div>
-                <h3 style="color: #666; margin-bottom: 10px;">No FactoLearn Categories Available</h3>
-                <p style="color: #999; margin-bottom: 20px;">Check back later for new FactoLearn quizzes!</p>
-                <button class="btn-primary" onclick="loadQuizCategories()" style="background: #7a0000; color: white; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer;">
-                    <i class="fas fa-redo"></i> Refresh
-                </button>
+                <h3 style="color: #666; margin-bottom: 10px;">No ${CURRENT_APP_NAME} Categories Available</h3>
+                <p style="color: #999; margin-bottom: 20px;">Check back later for new ${CURRENT_APP_NAME} quizzes!</p>
             </div>
         `;
         return;
     }
     
-    // Gaya ng ibang dashboard cards - may header at card body
+    // Create categories card
     let html = `
-        <!-- Categories Card - gaya ng ibang dashboard cards -->
         <div class="card full-width-card" style="margin-bottom: 20px;">
             <div class="card-header" style="padding: 20px 25px 0;">
                 <h2 class="card-title" style="display: flex; align-items: center; gap: 10px; font-size: 1.4rem; color: var(--text-color); margin-bottom: 5px;">
                     <i class="fas fa-folder" style="color: #7a0000;"></i> 
-                    FactoLearn Quiz Categories
+                    ${CURRENT_APP_NAME.charAt(0).toUpperCase() + CURRENT_APP_NAME.slice(1)} Quiz Categories
                 </h2>
                 <p class="card-subtitle" style="color: var(--text-light); font-size: 0.95rem;">
                     Select a category to start practicing
@@ -11326,7 +11316,7 @@ function displayQuizCategories(categories, isHardcoded = false) {
             <div style="padding: 20px 25px 25px;">
     `;
     
-    // Add offline indicator kung hardcoded
+    // Add offline indicator if needed
     if (isHardcoded) {
         html += `
             <div style="background: #f39c12; color: white; padding: 10px 15px; border-radius: 8px; margin-bottom: 20px; display: flex; align-items: center; gap: 10px;">
@@ -11336,25 +11326,24 @@ function displayQuizCategories(categories, isHardcoded = false) {
         `;
     }
     
-    // Grid ng categories - gaya ng sa ibang grids
+    // Categories grid
     html += `<div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 20px;">`;
     
-    factoLearnCategories.forEach(category => {
+    categories.forEach(category => {
         const categoryId = category.category_id || category.id;
-        const categoryName = category.category_name || category.name || 'FactoLearn Quiz';
-        const categoryDesc = category.description || 'Test your FactoLearn knowledge.';
-        const totalQuizzes = category.quiz_count || category.total_quizzes || 3;
+        const categoryName = category.category_name || category.name || 'Quiz Category';
+        const categoryDesc = category.description || 'Test your knowledge.';
+        const totalQuizzes = category.quiz_count || 0;
         const categoryColor = category.color || '#7a0000';
-        const categoryIcon = category.icon || 'fa-graduation-cap';
+        const categoryIcon = category.icon || 'fa-question-circle';
         
-        // Category card - gaya ng design sa buong app
         html += `
             <div class="quiz-category-card" data-category-id="${categoryId}" 
                  style="cursor: pointer; background: white; border-radius: 12px; overflow: hidden;
                         box-shadow: 0 4px 12px rgba(0,0,0,0.1); border: 1px solid var(--border-color);
                         transition: all 0.3s ease; position: relative;">
                 
-                <!-- Colored top bar -->
+                <!-- Colored top bar with app name -->
                 <div style="height: 6px; background: ${categoryColor}; width: 100%;"></div>
                 
                 <div style="padding: 20px;">
@@ -11372,7 +11361,7 @@ function displayQuizCategories(categories, isHardcoded = false) {
                             <div style="display: flex; align-items: center; gap: 10px;">
                                 <span style="background: ${categoryColor}10; color: ${categoryColor}; 
                                            padding: 4px 10px; border-radius: 20px; font-size: 12px;">
-                                    <i class="fas fa-graduation-cap"></i> FactoLearn
+                                    <i class="fas fa-graduation-cap"></i> ${CURRENT_APP_NAME}
                                 </span>
                                 <span style="color: #7f8c8d; font-size: 13px;">
                                     <i class="fas fa-question-circle"></i> ${totalQuizzes} quizzes
@@ -11401,39 +11390,34 @@ function displayQuizCategories(categories, isHardcoded = false) {
         `;
     });
     
-    html += `</div>`; // Close grid
-    html += `</div></div>`; // Close card body and card
+    html += `</div></div></div>`;
     
     quizzesContainer.innerHTML = html;
     
-    // Add event listeners sa buong card (para sa click sa buong card)
+    // Add event listeners
     document.querySelectorAll('.quiz-category-card').forEach(card => {
         card.addEventListener('click', function(e) {
-            // Kung ang click ay sa button, hayaan ang button mag-handle
             if (e.target.closest('.quiz-category-btn')) return;
-            
             const categoryId = this.getAttribute('data-category-id');
             if (categoryId) {
-                console.log('🎯 Category card clicked:', categoryId);
+                console.log(`🎯 ${CURRENT_APP_NAME} category clicked:`, categoryId);
                 loadQuizzesForCategory(categoryId);
             }
         });
     });
     
-    // Add event listeners sa button
     document.querySelectorAll('.quiz-category-btn').forEach(btn => {
         btn.addEventListener('click', function(e) {
             e.preventDefault();
             e.stopPropagation();
             const categoryId = this.getAttribute('data-category-id');
             if (categoryId) {
-                console.log('🎯 Browse button clicked:', categoryId);
+                console.log(`🎯 ${CURRENT_APP_NAME} browse button clicked:`, categoryId);
                 loadQuizzesForCategory(categoryId);
             }
         });
     });
 }
-
 // ============================================
 // Helper: Get category icon based on name
 // ============================================
@@ -11473,7 +11457,7 @@ function getCategoryColor(categoryId) {
 
 
 // ============================================
-// ✅ UPDATED: Load and display quizzes in same container
+// ✅ FIXED: Load quizzes for category - Pass lesson_id
 // ============================================
 async function loadQuizzesForCategory(categoryId) {
     try {
@@ -11485,6 +11469,9 @@ async function loadQuizzesForCategory(categoryId) {
             return;
         }
         
+        // ✅ Get current lesson ID
+        const currentLessonId = getCurrentAppLessonId();
+        
         const quizzesContainer = document.getElementById('userQuizzesContainer');
         if (!quizzesContainer) return;
         
@@ -11492,12 +11479,12 @@ async function loadQuizzesForCategory(categoryId) {
         quizzesContainer.innerHTML = `
             <div style="text-align: center; padding: 40px;">
                 <i class="fas fa-spinner fa-spin" style="font-size: 40px; color: #7a0000;"></i>
-                <p style="margin-top: 15px;">Loading quizzes...</p>
+                <p style="margin-top: 15px;">Loading ${CURRENT_APP_NAME} quizzes...</p>
             </div>
         `;
         
-        // Fetch quizzes
-        const response = await fetch(`/api/quiz/category/${categoryId}/quizzes?lesson_id=${FACTORIAL_LESSON_ID}`, {
+        // Fetch quizzes with lesson_id
+        const response = await fetch(`/api/quiz/category/${categoryId}/quizzes?lesson_id=${currentLessonId}`, {
             headers: {
                 'Authorization': `Bearer ${token}`,
                 'Content-Type': 'application/json'
@@ -11511,8 +11498,8 @@ async function loadQuizzesForCategory(categoryId) {
         const data = await response.json();
         
         if (data.success && data.quizzes) {
-            // Display quizzes
-            displayQuizzesInContainer(data.quizzes, categoryId);
+            // Display quizzes (they're already filtered by server)
+            displayQuizzesInContainer(data.quizzes, categoryId, data.category_name);
         } else {
             throw new Error(data.message || 'No quizzes returned');
         }
@@ -11520,13 +11507,12 @@ async function loadQuizzesForCategory(categoryId) {
     } catch (error) {
         console.error('Error loading quizzes:', error);
         
-        // Show error with back button
         const quizzesContainer = document.getElementById('userQuizzesContainer');
         if (quizzesContainer) {
             quizzesContainer.innerHTML = `
                 <div style="text-align: center; padding: 40px;">
                     <i class="fas fa-exclamation-triangle" style="font-size: 48px; color: #e74c3c; margin-bottom: 15px;"></i>
-                    <h3>Failed to load quizzes</h3>
+                    <h3>Failed to load ${CURRENT_APP_NAME} quizzes</h3>
                     <p>${error.message}</p>
                     <button class="btn-primary" onclick="goBackToCategories()" style="margin-top: 15px;">
                         <i class="fas fa-arrow-left"></i> Back to Categories
