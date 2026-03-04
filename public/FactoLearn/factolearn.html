@@ -3,38 +3,454 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>MathHub | Complete Application</title>
+    <title>FactoLearn | Master Factorial Mathematics</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="factolearn.css">
     <style>
-        /* Additional styles for the lesson dashboard container */
-        .lesson-dashboard-container {
-            display: flex;
-            flex-direction: column;
-            gap: 20px;
-            margin-top: 20px;
+        /* ============================================
+           FACTOLEARN GLOBAL STYLES
+           ============================================ */
+        :root {
+            --primary: #7a0000;
+            --primary-dark: #5a0000;
+            --secondary: #4a6bff;
+            --success: #27ae60;
+            --warning: #f39c12;
+            --danger: #e74c3c;
+            --info: #3498db;
+            --text-color: #2c3e50;
+            --text-light: #7f8c8d;
+            --bg-color: #f5f5f5;
+            --card-bg: #ffffff;
+            --sidebar-bg: #f8f9fa;
+            --border-color: #e0e0e0;
         }
-        
-        .lesson-tools-section {
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+            background: var(--bg-color);
+            color: var(--text-color);
+            line-height: 1.6;
+        }
+
+        /* Page Container */
+        #page-container {
+            min-height: 100vh;
+            padding-bottom: 70px;
+        }
+
+        .hidden {
+            display: none !important;
+        }
+
+        /* ============================================
+           FACTOLEARN DASHBOARD STYLES
+           ============================================ */
+        .dashboard-container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 25px;
             display: grid;
             grid-template-columns: 1fr;
-            gap: 20px;
+            gap: 25px;
         }
-        
+
         @media (min-width: 1024px) {
-            .lesson-tools-section {
-                grid-template-columns: 1fr 1fr;
+            .dashboard-container {
+                grid-template-columns: 1fr 350px;
             }
         }
-        
-        .learning-tools-box, .quick-tools-box {
+
+        .card {
             background: var(--card-bg);
             border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+            border: 1px solid var(--border-color);
+            overflow: hidden;
+        }
+
+        .full-width-card {
+            grid-column: 1 / -1;
+        }
+
+        .card-header {
+            padding: 25px 25px 0;
+        }
+
+        .card-title {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 1.4rem;
+            color: var(--text-color);
+            margin-bottom: 5px;
+        }
+
+        .card-title i {
+            color: var(--primary);
+        }
+
+        .card-subtitle {
+            color: var(--text-light);
+            font-size: 0.95rem;
+        }
+
+        /* Welcome Card */
+        .welcome-card {
+            background: linear-gradient(135deg, #fff 0%, #f8f9fa 100%);
+        }
+
+        .welcome-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 25px 25px 0;
+            flex-wrap: wrap;
+            gap: 15px;
+        }
+
+        .welcome-title {
+            font-size: 1.8rem;
+            color: var(--text-color);
+        }
+
+        .app-title {
+            color: var(--primary);
+            font-weight: 700;
+        }
+
+        .date-display {
+            color: var(--text-light);
+            font-size: 1rem;
+        }
+
+        .student-info {
+            display: flex;
+            align-items: center;
+            gap: 25px;
+            padding: 25px;
+            flex-wrap: wrap;
+        }
+
+        .student-avatar-large {
+            width: 80px;
+            height: 80px;
+            background: linear-gradient(135deg, var(--primary), #4a6bff);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 2.5rem;
+            font-weight: bold;
+            box-shadow: 0 8px 16px rgba(122,0,0,0.2);
+        }
+
+        .student-details {
+            flex: 1;
+        }
+
+        .student-name {
+            font-size: 1.5rem;
+            margin-bottom: 10px;
+            color: var(--text-color);
+        }
+
+        .student-name span {
+            color: var(--primary);
+        }
+
+        .achievement-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            background: linear-gradient(135deg, #f1c40f, #f39c12);
+            color: white;
+            padding: 8px 15px;
+            border-radius: 25px;
+            font-size: 0.9rem;
+            font-weight: 600;
+            box-shadow: 0 4px 8px rgba(241,196,15,0.3);
+        }
+
+        .factolearn-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            color: var(--primary);
+            font-size: 0.9rem;
+        }
+
+        /* Progress Items */
+        .progress-items {
+            padding: 25px;
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+        }
+
+        .progress-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 15px;
+            background: var(--sidebar-bg);
+            border-radius: 10px;
+            transition: all 0.3s ease;
+        }
+
+        .progress-item:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+        }
+
+        .item-left {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        .item-icon {
+            width: 50px;
+            height: 50px;
+            background: linear-gradient(135deg, var(--primary), #4a6bff);
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 1.2rem;
+        }
+
+        .item-left h3 {
+            font-size: 1rem;
+            margin-bottom: 5px;
+            color: var(--text-color);
+        }
+
+        .item-left p {
+            font-size: 0.85rem;
+            color: var(--text-light);
+        }
+
+        .item-value {
+            font-size: 2rem;
+            font-weight: 700;
+            color: var(--primary);
+        }
+
+        .item-unit {
+            font-size: 1rem;
+            color: var(--text-light);
+            margin-left: 5px;
+        }
+
+        /* Continue Learning Module */
+        .continue-learning-module {
+            padding: 25px;
+        }
+
+        .module-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+            gap: 15px;
+        }
+
+        .module-title {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 1.3rem;
+            color: var(--text-color);
+        }
+
+        .module-title i {
+            color: var(--primary);
+        }
+
+        .module-status {
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-size: 0.85rem;
+            font-weight: 600;
+        }
+
+        .status-in-progress {
+            background: linear-gradient(135deg, #fff3cd, #ffeaa7);
+            color: #856404;
+            border: 1px solid #ffeaa7;
+        }
+
+        .status-not-started {
+            background: linear-gradient(135deg, #f8f9fa, #e9ecef);
+            color: #6c757d;
+            border: 1px solid #e9ecef;
+        }
+
+        .status-completed {
+            background: linear-gradient(135deg, #d4edda, #c3e6cb);
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+
+        .module-progress {
+            margin-bottom: 25px;
+        }
+
+        .progress-label {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 8px;
+            font-size: 0.9rem;
+        }
+
+        .progress-bar-container {
+            width: 100%;
+            height: 8px;
+            background: var(--sidebar-bg);
+            border-radius: 4px;
+            overflow: hidden;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, var(--primary), #4a6bff);
+            border-radius: 4px;
+            transition: width 0.3s ease;
+        }
+
+        .module-lessons {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            margin-bottom: 20px;
+        }
+
+        .lesson-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 15px;
+            background: var(--sidebar-bg);
+            border-radius: 8px;
+            border: 1px solid var(--border-color);
+            transition: all 0.2s ease;
+        }
+
+        .lesson-item:hover {
+            transform: translateX(5px);
+            border-color: var(--primary);
+            background: linear-gradient(135deg, var(--sidebar-bg), #f8f9ff);
+        }
+
+        .lesson-item.completed {
+            background: linear-gradient(135deg, #e8f5e9, #d4edda);
+            border-color: #c3e6cb;
+        }
+
+        .lesson-item.current {
+            background: linear-gradient(135deg, #e3f2fd, #bbdefb);
+            border-color: #90caf9;
+        }
+
+        .lesson-item.locked {
+            background: linear-gradient(135deg, #f5f5f5, #e0e0e0);
+            border-color: #bdbdbd;
+            opacity: 0.7;
+        }
+
+        .lesson-info {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        .lesson-icon {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: var(--primary);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+        }
+
+        .lesson-item.completed .lesson-icon {
+            background: var(--success);
+        }
+
+        .lesson-item.current .lesson-icon {
+            background: var(--info);
+        }
+
+        .lesson-item.locked .lesson-icon {
+            background: #9e9e9e;
+        }
+
+        .lesson-title {
+            font-weight: 600;
+            color: var(--text-color);
+            margin-bottom: 5px;
+        }
+
+        .lesson-duration {
+            font-size: 0.85rem;
+            color: var(--text-light);
+        }
+
+        .lesson-actions button {
+            padding: 8px 16px;
+            border-radius: 6px;
+            font-size: 0.85rem;
+            font-weight: 600;
+            cursor: pointer;
+            border: none;
+            transition: all 0.2s ease;
+        }
+
+        .start-btn {
+            background: linear-gradient(135deg, var(--primary), #4a6bff);
+            color: white;
+        }
+
+        .start-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(74, 107, 255, 0.3);
+        }
+
+        .review-btn {
+            background: linear-gradient(135deg, var(--success), #2e7d32);
+            color: white;
+        }
+
+        .locked-btn {
+            background: #9e9e9e;
+            color: white;
+            cursor: not-allowed;
+        }
+
+        /* Tools Section */
+        .lesson-dashboard-container {
+            padding: 25px;
+        }
+
+        .learning-tools-box {
+            background: var(--sidebar-bg);
+            border-radius: 12px;
             padding: 20px;
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
             border: 1px solid var(--border-color);
         }
-        
+
         .tools-header {
             display: flex;
             align-items: center;
@@ -43,26 +459,26 @@
             padding-bottom: 15px;
             border-bottom: 2px solid var(--primary);
         }
-        
+
         .tools-header h3 {
             margin: 0;
             color: var(--text-color);
             font-size: 1.2rem;
         }
-        
+
         .tools-header i {
             color: var(--primary);
             font-size: 1.3rem;
         }
-        
+
         .tools-grid-compact {
             display: grid;
             grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
             gap: 15px;
         }
-        
+
         .tool-item-compact {
-            background: var(--sidebar-bg);
+            background: var(--card-bg);
             border-radius: 8px;
             padding: 15px;
             text-align: center;
@@ -70,14 +486,14 @@
             transition: all 0.3s ease;
             border: 1px solid var(--border-color);
         }
-        
+
         .tool-item-compact:hover {
             transform: translateY(-3px);
-            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
             border-color: var(--primary);
-            background: linear-gradient(135deg, var(--sidebar-bg), #f0f7ff);
+            background: linear-gradient(135deg, var(--card-bg), #f0f7ff);
         }
-        
+
         .tool-item-compact .tool-icon {
             width: 50px;
             height: 50px;
@@ -90,387 +506,90 @@
             color: white;
             font-size: 1.2rem;
         }
-        
+
         .tool-item-compact .tool-name {
             font-weight: 600;
             color: var(--text-color);
             margin-bottom: 5px;
             font-size: 0.9rem;
         }
-        
+
         .tool-item-compact .tool-desc {
             font-size: 0.8rem;
             color: var(--text-light);
             line-height: 1.3;
         }
-        
+
         .tools-description {
             margin-top: 15px;
             padding: 10px;
-            background: var(--sidebar-bg);
-            border-radius: 8px;
-            border-left: 3px solid var(--primary);
-        }
-        
-        .tools-description p {
-            margin: 0;
-            font-size: 0.85rem;
-            color: var(--text-light);
-        }
-        
-        .tool-active {
-            border: 2px solid var(--primary);
-            background: linear-gradient(135deg, #f0f7ff, #e6f0ff);
-        }
-        
-        /* Tool modal styles */
-        .tool-modal {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(0, 0, 0, 0.7);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            z-index: 2000;
-            padding: 20px;
-        }
-        
-        .tool-modal-content {
-            background: white;
-            border-radius: 12px;
-            width: 90%;
-            max-width: 500px;
-            max-height: 80vh;
-            overflow-y: auto;
-            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
-        }
-        
-        .tool-modal-header {
-            padding: 20px;
-            border-bottom: 1px solid #eee;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-        }
-        
-        .tool-modal-header h3 {
-            margin: 0;
-            color: var(--primary);
-            display: flex;
-            align-items: center;
-            gap: 10px;
-        }
-        
-        .close-tool-modal {
-            background: none;
-            border: none;
-            font-size: 1.5rem;
-            cursor: pointer;
-            color: #666;
-        }
-        
-        .tool-modal-body {
-            padding: 20px;
-        }
-        
-        .tool-status {
-            display: inline-block;
-            padding: 3px 8px;
-            background: #e8f5e9;
-            color: #2e7d32;
-            border-radius: 4px;
-            font-size: 0.8rem;
-            margin-left: 10px;
-        }
-        
-        .tool-instructions {
-            background: #f5f5f5;
-            padding: 15px;
-            border-radius: 8px;
-            margin: 15px 0;
-        }
-        
-        .tool-actions {
-            display: flex;
-            gap: 10px;
-            margin-top: 20px;
-        }
-        
-        /* Quick tools specific styling */
-        .quick-tools-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(80px, 1fr));
-            gap: 12px;
-        }
-        
-        .quick-tool-item {
-            background: var(--sidebar-bg);
-            border-radius: 8px;
-            padding: 12px 8px;
-            text-align: center;
-            cursor: pointer;
-            transition: all 0.2s ease;
-            border: 1px solid var(--border-color);
-        }
-        
-        .quick-tool-item:hover {
-            background: var(--primary);
-            color: white;
-            transform: scale(1.05);
-        }
-        
-        .quick-tool-item:hover .quick-tool-icon {
-            color: white;
-        }
-        
-        .quick-tool-icon {
-            font-size: 1.5rem;
-            margin-bottom: 8px;
-            color: var(--primary);
-        }
-        
-        .quick-tool-name {
-            font-size: 0.75rem;
-            font-weight: 600;
-        }
-        
-        /* Progress indicators */
-        .tool-progress {
-            margin-top: 10px;
-            font-size: 0.8rem;
-            color: var(--text-light);
-        }
-        
-        .progress-dot {
-            display: inline-block;
-            width: 8px;
-            height: 8px;
-            border-radius: 50%;
-            background: #ddd;
-            margin-right: 5px;
-        }
-        
-        .progress-dot.active {
-            background: var(--primary);
-        }
-        
-        /* Tool categories */
-        .tool-category {
-            margin-bottom: 20px;
-        }
-        
-        .category-title {
-            font-size: 0.9rem;
-            color: var(--text-light);
-            margin-bottom: 10px;
-            padding-left: 5px;
-            border-left: 3px solid var(--primary);
-        }
-        
-        /* Continue Learning - Updated Styles */
-        .continue-learning-module {
             background: var(--card-bg);
-            border-radius: 12px;
-            padding: 25px;
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-            border: 1px solid var(--border-color);
-        }
-        
-        .module-header {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            margin-bottom: 20px;
-        }
-        
-        .module-title {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            font-size: 1.3rem;
-            color: var(--text-color);
-        }
-        
-        .module-title i {
-            color: var(--primary);
-        }
-        
-        .module-status {
-            padding: 6px 12px;
-            border-radius: 20px;
-            font-size: 0.85rem;
-            font-weight: 600;
-        }
-        
-        .status-in-progress {
-            background: linear-gradient(135deg, #fff3cd, #ffeaa7);
-            color: #856404;
-            border: 1px solid #ffeaa7;
-        }
-        
-        .status-not-started {
-            background: linear-gradient(135deg, #f8f9fa, #e9ecef);
-            color: #6c757d;
-            border: 1px solid #e9ecef;
-        }
-        
-        .status-completed {
-            background: linear-gradient(135deg, #d4edda, #c3e6cb);
-            color: #155724;
-            border: 1px solid #c3e6cb;
-        }
-        
-        .module-progress {
-            margin-bottom: 25px;
-        }
-        
-        .progress-label {
-            display: flex;
-            justify-content: space-between;
-            margin-bottom: 8px;
-            font-size: 0.9rem;
-        }
-        
-        .progress-bar-container {
-            width: 100%;
-            height: 8px;
-            background: var(--sidebar-bg);
-            border-radius: 4px;
-            overflow: hidden;
-        }
-        
-        .progress-fill {
-            height: 100%;
-            background: linear-gradient(90deg, var(--primary), #4a6bff);
-            border-radius: 4px;
-            transition: width 0.3s ease;
-        }
-        
-        .module-lessons {
-            display: flex;
-            flex-direction: column;
-            gap: 12px;
-            margin-bottom: 20px;
-        }
-        
-        .lesson-item {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 15px;
-            background: var(--sidebar-bg);
             border-radius: 8px;
-            border: 1px solid var(--border-color);
-            transition: all 0.2s ease;
+            border-left: 3px solid var(--primary);
         }
-        
-        .lesson-item:hover {
-            transform: translateX(5px);
-            border-color: var(--primary);
-            background: linear-gradient(135deg, var(--sidebar-bg), #f8f9ff);
+
+        /* Quick Stats */
+        .quick-stats-grid {
+            padding: 25px;
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
         }
-        
-        .lesson-item.completed {
-            background: linear-gradient(135deg, #e8f5e9, #d4edda);
-            border-color: #c3e6cb;
-        }
-        
-        .lesson-item.current {
-            background: linear-gradient(135deg, #e3f2fd, #bbdefb);
-            border-color: #90caf9;
-        }
-        
-        .lesson-item.locked {
-            background: linear-gradient(135deg, #f5f5f5, #e0e0e0);
-            border-color: #bdbdbd;
-            opacity: 0.7;
-        }
-        
-        .lesson-info {
+
+        .stat-item {
             display: flex;
             align-items: center;
             gap: 15px;
+            padding: 15px;
+            background: var(--sidebar-bg);
+            border-radius: 10px;
+            transition: all 0.3s ease;
         }
-        
-        .lesson-icon {
-            width: 40px;
-            height: 40px;
-            border-radius: 50%;
-            background: var(--primary);
+
+        .stat-item:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+        }
+
+        .stat-icon {
+            width: 50px;
+            height: 50px;
+            background: linear-gradient(135deg, var(--primary), #4a6bff);
+            border-radius: 10px;
             display: flex;
             align-items: center;
             justify-content: center;
             color: white;
+            font-size: 1.2rem;
         }
-        
-        .lesson-item.completed .lesson-icon {
-            background: #4caf50;
+
+        .stat-info {
+            flex: 1;
         }
-        
-        .lesson-item.current .lesson-icon {
-            background: #2196f3;
-        }
-        
-        .lesson-item.locked .lesson-icon {
-            background: #9e9e9e;
-        }
-        
-        .lesson-title {
-            font-weight: 600;
-            color: var(--text-color);
+
+        .stat-info h3 {
+            font-size: 0.9rem;
+            color: var(--text-light);
             margin-bottom: 5px;
         }
-        
-        .lesson-duration {
-            font-size: 0.85rem;
+
+        .stat-value {
+            font-size: 1.5rem;
+            font-weight: bold;
+            color: var(--text-color);
+        }
+
+        .stat-label {
+            font-size: 0.8rem;
             color: var(--text-light);
         }
-        
-        .lesson-actions button {
-            padding: 8px 16px;
-            border-radius: 6px;
-            font-size: 0.85rem;
-            font-weight: 600;
-            cursor: pointer;
-            border: none;
-            transition: all 0.2s ease;
-        }
-        
-        .start-btn {
-            background: linear-gradient(135deg, var(--primary), #4a6bff);
-            color: white;
-        }
-        
-        .start-btn:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 4px 8px rgba(74, 107, 255, 0.3);
-        }
-        
-        .review-btn {
-            background: linear-gradient(135deg, #4caf50, #2e7d32);
-            color: white;
-        }
-        
-        .review-btn:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 4px 8px rgba(76, 175, 80, 0.3);
-        }
-        
-        .locked-btn {
-            background: #9e9e9e;
-            color: white;
-            cursor: not-allowed;
-        }
-        
-        /* Loading states */
+
+        /* Loading States */
         .loading-container {
             text-align: center;
             padding: 40px 20px;
         }
-        
+
         .loading-text {
             display: flex;
             align-items: center;
@@ -479,1386 +598,521 @@
             color: var(--text-light);
             margin-bottom: 20px;
         }
-        
-        .no-lessons {
+
+        .no-lessons, .error-message {
             text-align: center;
             padding: 40px 20px;
         }
-        
-        .no-lessons i {
+
+        .no-lessons i, .error-message i {
             font-size: 3rem;
             color: var(--primary);
             margin-bottom: 15px;
         }
-        
+
         .error-message {
-            text-align: center;
-            padding: 40px 20px;
-            color: #e74c3c;
+            color: var(--danger);
         }
-        
-        /* Module Dashboard - Updated Styles */
-        #module-page-container {
-            min-height: 100vh;
-            background: var(--sidebar-bg);
-        }
-        
-        .module-header {
-            background: white;
-            padding: 20px;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            border-bottom: 1px solid var(--border-color);
-            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-            position: sticky;
-            top: 0;
-            z-index: 100;
-        }
-        
-        .logo {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-        }
-        
-        .logo-icon {
-            font-size: 2rem;
-            color: var(--primary);
-        }
-        
-        .logo-text {
-            font-size: 1.5rem;
-            font-weight: 700;
-            color: var(--text-color);
-        }
-        
-        .logo-accent {
-            color: var(--primary);
-        }
-        
-        .lesson-title {
-            font-size: 1.3rem;
-            font-weight: 600;
-            color: var(--text-color);
-            display: flex;
-            align-items: center;
-            gap: 10px;
-        }
-        
-        .header-actions {
-            display: flex;
-            gap: 10px;
-        }
-        
-        .dashboard-container {
-            display: grid;
-            grid-template-columns: 1fr;
-            gap: 25px;
-            padding: 25px;
-            max-width: 1400px;
-            margin: 0 auto;
-        }
-        
-        @media (min-width: 1024px) {
-            .dashboard-container {
-                grid-template-columns: 1fr 350px;
-            }
-        }
-        
-        .main-content {
-            display: flex;
-            flex-direction: column;
-            gap: 25px;
-        }
-        
-        .card {
-            background: white;
-            border-radius: 12px;
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-            border: 1px solid var(--border-color);
-            overflow: hidden;
-        }
-        
-        .card-header {
-            padding: 25px 25px 0;
-        }
-        
-        .card-title {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            font-size: 1.4rem;
-            color: var(--text-color);
-            margin-bottom: 5px;
-        }
-        
-        .card-subtitle {
-            color: var(--text-light);
-            font-size: 0.95rem;
-        }
-        
-        .lesson-content {
-            padding: 25px;
-        }
-        
-        .media-container {
-            background: #1a1a2e;
-            border-radius: 10px;
-            overflow: hidden;
-            margin-bottom: 30px;
-        }
-        
-        .media-header {
-            padding: 15px 20px;
-            background: rgba(0, 0, 0, 0.3);
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            color: white;
-        }
-        
-        .media-controls {
-            display: flex;
-            align-items: center;
-            gap: 15px;
-        }
-        
-        .refresh-video-btn {
-            background: rgba(255, 255, 255, 0.1);
-            border: none;
-            color: white;
-            width: 35px;
-            height: 35px;
-            border-radius: 50%;
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            transition: all 0.2s ease;
-        }
-        
-        .refresh-video-btn:hover {
-            background: rgba(255, 255, 255, 0.2);
-            transform: rotate(90deg);
-        }
-        
-        .video-container {
-            width: 100%;
-            height: 400px;
-            background: #000;
-        }
-        
-        #lessonVideo {
-            width: 100%;
-            height: 100%;
-            object-fit: contain;
-        }
-        
-        .video-info {
-            padding: 15px 20px;
-            background: rgba(0, 0, 0, 0.1);
-            color: #b0b0b0;
-            font-size: 0.85rem;
-        }
-        
-        .video-info p {
-            margin: 5px 0;
-        }
-        
-        .step-container {
-            margin-bottom: 30px;
-        }
-        
-        .step-title {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 15px;
-            padding-bottom: 10px;
-            border-bottom: 2px solid var(--primary);
-        }
-        
-        .step-title span {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            font-size: 1.2rem;
-            font-weight: 600;
-            color: var(--text-color);
-        }
-        
-        .step-number {
-            width: 30px;
-            height: 30px;
-            background: var(--primary);
-            color: white;
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
-        
-        .audio-btn {
+
+        /* Buttons */
+        .btn-primary {
             background: linear-gradient(135deg, var(--primary), #4a6bff);
             color: white;
             border: none;
-            padding: 8px 16px;
-            border-radius: 6px;
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            font-size: 0.9rem;
-            transition: all 0.2s ease;
-        }
-        
-        .audio-btn:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 4px 8px rgba(74, 107, 255, 0.3);
-        }
-        
-        .audio-btn.playing {
-            background: linear-gradient(135deg, #4caf50, #2e7d32);
-        }
-        
-        .step-content {
-            padding-left: 15px;
-            border-left: 3px solid var(--primary);
-        }
-        
-        .math-example {
-            background: #f8f9ff;
-            padding: 20px;
-            border-radius: 8px;
-            margin: 15px 0;
-            border-left: 4px solid var(--primary);
-            font-family: 'Courier New', monospace;
-            font-size: 1.1rem;
-        }
-        
-        .steps {
-            list-style-type: decimal;
-            padding-left: 20px;
-            margin-top: 15px;
-        }
-        
-        .steps li {
-            margin-bottom: 8px;
-            line-height: 1.5;
-        }
-        
-        .practice-problem {
-            background: #f8f9ff;
-            padding: 25px;
-            border-radius: 10px;
-            border: 2px dashed var(--border-color);
-        }
-        
-        .problem-statement {
-            font-size: 1.1rem;
-            margin-bottom: 20px;
-            color: var(--text-color);
-        }
-        
-        .action-buttons {
-            display: flex;
-            gap: 15px;
-            flex-wrap: wrap;
-        }
-        
-        .btn-primary, .btn-secondary {
             padding: 12px 24px;
             border-radius: 8px;
             font-weight: 600;
             cursor: pointer;
-            border: none;
-            transition: all 0.3s ease;
-            display: flex;
+            display: inline-flex;
             align-items: center;
             gap: 10px;
+            transition: all 0.3s ease;
         }
-        
-        .btn-primary {
-            background: linear-gradient(135deg, var(--primary), #4a6bff);
-            color: white;
-        }
-        
+
         .btn-primary:hover {
             transform: translateY(-3px);
-            box-shadow: 0 5px 15px rgba(74, 107, 255, 0.3);
+            box-shadow: 0 5px 15px rgba(74,107,255,0.3);
         }
-        
+
         .btn-secondary {
             background: white;
             color: var(--primary);
             border: 2px solid var(--primary);
+            padding: 10px 20px;
+            border-radius: 6px;
+            font-weight: 600;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            transition: all 0.3s ease;
         }
-        
+
         .btn-secondary:hover {
             background: var(--primary);
             color: white;
-            transform: translateY(-3px);
+            transform: translateY(-2px);
         }
-        
-        /* Sidebar Styles */
-        .sidebar {
-            display: flex;
-            flex-direction: column;
-            gap: 25px;
-        }
-        
-        .progress-learning-tool {
-            background: white;
-            border-radius: 12px;
-            padding: 25px;
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-        }
-        
-        .progress-title {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            font-size: 1.3rem;
-            margin-bottom: 20px;
-            color: var(--text-color);
-        }
-        
-        .lesson-progress-section {
-            margin-bottom: 25px;
-        }
-        
-        .lesson-progress-section h3 {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            font-size: 1.1rem;
-            margin-bottom: 15px;
-            color: var(--text-color);
-        }
-        
-        .progress-details {
-            display: flex;
-            justify-content: space-between;
-            font-size: 0.9rem;
-            color: var(--text-light);
-            margin-top: 8px;
-        }
-        
-        .learning-stats {
-            margin-bottom: 25px;
-        }
-        
-        .learning-stats h3 {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            font-size: 1.1rem;
-            margin-bottom: 15px;
-            color: var(--text-color);
-        }
-        
-        .stat-item {
-            display: flex;
-            align-items: center;
-            gap: 15px;
-            margin-bottom: 15px;
-            padding-bottom: 15px;
-            border-bottom: 1px solid var(--border-color);
-        }
-        
-        .stat-item:last-child {
-            border-bottom: none;
-            margin-bottom: 0;
-        }
-        
-        .stat-icon {
-            width: 45px;
-            height: 45px;
-            background: linear-gradient(135deg, var(--primary), #4a6bff);
-            border-radius: 10px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            color: white;
-            font-size: 1.2rem;
-        }
-        
-        .stat-content {
-            flex-grow: 1;
-        }
-        
-        .stat-value {
-            font-size: 1.3rem;
-            font-weight: 700;
-            color: var(--text-color);
-        }
-        
-        .stat-label {
-            font-size: 0.85rem;
-            color: var(--text-light);
-        }
-        
-        .module-progress-section {
-            margin-bottom: 25px;
-        }
-        
-        .module-progress-section h3 {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            font-size: 1.1rem;
-            margin-bottom: 15px;
-            color: var(--text-color);
-        }
-        
-        .module-item {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            padding: 12px;
-            margin-bottom: 10px;
-            border-radius: 8px;
-            transition: all 0.2s ease;
-        }
-        
-        .module-item:hover {
-            background: var(--sidebar-bg);
-        }
-        
-        .module-item.current {
-            background: linear-gradient(135deg, #e3f2fd, #bbdefb);
-            border: 1px solid #90caf9;
-        }
-        
-        .module-name {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            color: var(--text-color);
-        }
-        
-        .module-name i {
-            font-size: 1.2rem;
-        }
-        
-        .module-name i.completed {
-            color: #4caf50;
-        }
-        
-        .module-name i.in-progress {
-            color: #2196f3;
-        }
-        
-        .module-name i.locked {
-            color: #9e9e9e;
-        }
-        
-        .module-percentage {
-            font-weight: 600;
-            color: var(--text-color);
-        }
-        
-        .daily-goals {
-            margin-bottom: 25px;
-        }
-        
-        .daily-goals h3 {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            font-size: 1.1rem;
-            margin-bottom: 15px;
-            color: var(--text-color);
-        }
-        
-        .goal-item {
-            display: flex;
-            align-items: center;
-            gap: 15px;
-            margin-bottom: 15px;
-            padding-bottom: 15px;
-            border-bottom: 1px solid var(--border-color);
-        }
-        
-        .goal-item:last-child {
-            border-bottom: none;
-            margin-bottom: 0;
-        }
-        
-        .goal-icon {
-            width: 45px;
-            height: 45px;
-            background: linear-gradient(135deg, #ff9800, #f57c00);
-            border-radius: 10px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            color: white;
-            font-size: 1.2rem;
-        }
-        
-        .goal-content {
-            flex-grow: 1;
-        }
-        
-        .goal-title {
-            font-weight: 600;
-            color: var(--text-color);
-            margin-bottom: 5px;
-        }
-        
-        .goal-status {
-            font-size: 0.85rem;
-            padding: 3px 8px;
-            border-radius: 4px;
-            display: inline-block;
-        }
-        
-        .goal-status.completed {
-            background: #e8f5e9;
-            color: #2e7d32;
-        }
-        
-        .goal-status.in-progress {
-            background: #e3f2fd;
-            color: #1565c0;
-        }
-        
-        .quick-actions {
-            display: flex;
-            gap: 10px;
-        }
-        
-        .btn-sm {
-            padding: 8px 16px;
-            font-size: 0.9rem;
-        }
-        
-        /* Quiz Popup Styles */
-        .quiz-popup-overlay {
+
+        /* Footer Navigation */
+        .footer-nav {
             position: fixed;
-            top: 0;
+            bottom: 0;
             left: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(0, 0, 0, 0.7);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            z-index: 3000;
-            padding: 20px;
-        }
-        
-        .quiz-popup-container {
+            right: 0;
             background: white;
-            border-radius: 15px;
-            width: 90%;
+            border-top: 1px solid var(--border-color);
+            box-shadow: 0 -2px 10px rgba(0,0,0,0.1);
+            z-index: 1000;
+        }
+
+        .footer-nav-content {
             max-width: 600px;
-            max-height: 90vh;
-            overflow-y: auto;
-            box-shadow: 0 15px 40px rgba(0, 0, 0, 0.3);
-            animation: popupSlideIn 0.3s ease-out;
-        }
-        
-        @keyframes popupSlideIn {
-            from {
-                opacity: 0;
-                transform: translateY(-50px);
-            }
-            to {
-                opacity: 1;
-                transform: translateY(0);
-            }
-        }
-        
-        .quiz-popup-header {
-            background: linear-gradient(135deg, var(--primary), #4a6bff);
-            color: white;
-            padding: 25px 30px;
-            border-radius: 15px 15px 0 0;
+            margin: 0 auto;
             display: flex;
-            justify-content: space-between;
+            justify-content: space-around;
             align-items: center;
+            padding: 10px 15px;
         }
-        
-        .quiz-popup-header h2 {
-            margin: 0;
-            font-size: 1.5rem;
-            display: flex;
-            align-items: center;
-            gap: 10px;
-        }
-        
-        .close-quiz-popup {
-            background: rgba(255, 255, 255, 0.2);
-            border: none;
-            color: white;
-            width: 40px;
-            height: 40px;
-            border-radius: 50%;
-            cursor: pointer;
-            font-size: 1.2rem;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            transition: all 0.3s ease;
-        }
-        
-        .close-quiz-popup:hover {
-            background: rgba(255, 255, 255, 0.3);
-            transform: rotate(90deg);
-        }
-        
-        .quiz-popup-body {
-            padding: 30px;
-        }
-        
-        .quiz-meta-info {
-            display: flex;
-            gap: 20px;
-            margin-bottom: 25px;
-            padding-bottom: 20px;
-            border-bottom: 1px solid #eee;
-        }
-        
-        .quiz-meta-item {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            color: var(--text-light);
-        }
-        
-        .quiz-meta-item i {
-            color: var(--primary);
-        }
-        
-        .quiz-instructions {
-            background: #f8f9ff;
-            padding: 20px;
-            border-radius: 10px;
-            margin-bottom: 25px;
-            border-left: 4px solid var(--primary);
-        }
-        
-        .quiz-instructions h4 {
-            margin-top: 0;
-            color: var(--primary);
-            display: flex;
-            align-items: center;
-            gap: 10px;
-        }
-        
-        .quiz-instructions ul {
-            margin: 10px 0 0 20px;
-            padding: 0;
-        }
-        
-        .quiz-instructions li {
-            margin-bottom: 8px;
-        }
-        
-        .quiz-question-container {
-            margin-bottom: 30px;
-        }
-        
-        .quiz-question {
-            font-size: 1.1rem;
-            margin-bottom: 20px;
-            line-height: 1.6;
-        }
-        
-        .quiz-options {
+
+        .footer-nav-item {
             display: flex;
             flex-direction: column;
-            gap: 12px;
-        }
-        
-        .quiz-option {
-            padding: 15px;
-            border: 2px solid #eee;
-            border-radius: 8px;
-            cursor: pointer;
-            transition: all 0.1s ease;
-            display: flex;
             align-items: center;
-            gap: 15px;
-        }
-        
-        .quiz-option:hover {
-            border-color: var(--primary);
-            background: #f8f9ff;
-        }
-        
-        .quiz-option.selected {
-            border-color: var(--primary);
-            background: #f0f7ff;
-        }
-        
-        .option-letter {
-            width: 30px;
-            height: 30px;
-            background: #e9ecef;
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-weight: bold;
-            color: var(--text-color);
-            flex-shrink: 0;
-            transition: all 0.1s ease;
-        }
-        
-        .quiz-option.selected .option-letter {
-            background: var(--primary);
-            color: white;
-        }
-        
-        .option-text {
-            flex-grow: 1;
-        }
-        
-        .quiz-results-popup {
-            text-align: center;
-        }
-        
-        .quiz-results-icon {
-            width: 80px;
-            height: 80px;
-            background: linear-gradient(135deg, var(--primary), #4a6bff);
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            margin: 0 auto 20px;
-            color: white;
-            font-size: 2rem;
-        }
-        
-        .quiz-score-display {
-            font-size: 3rem;
-            font-weight: 700;
-            color: var(--primary);
-            margin: 10px 0;
-        }
-        
-        .quiz-results-details {
-            display: grid;
-            grid-template-columns: repeat(2, 1fr);
-            gap: 15px;
-            margin: 25px 0;
-        }
-        
-        .result-detail {
-            background: #f8f9ff;
-            padding: 15px;
-            border-radius: 8px;
-        }
-        
-        .result-detail-value {
-            font-size: 1.5rem;
-            font-weight: 700;
-            color: var(--primary);
-        }
-        
-        .result-detail-label {
-            font-size: 0.85rem;
+            text-decoration: none;
             color: var(--text-light);
-            margin-top: 5px;
-        }
-        
-        .quiz-restart-btn {
-            background: linear-gradient(135deg, var(--primary), #4a6bff);
-            color: white;
-            border: none;
-            padding: 12px 25px;
-            border-radius: 8px;
-            font-size: 1rem;
-            font-weight: 600;
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 10px;
-            margin: 20px auto 0;
-            transition: all 0.3s ease;
-        }
-        
-        .quiz-restart-btn:hover {
-            transform: translateY(-3px);
-            box-shadow: 0 5px 15px rgba(74, 107, 255, 0.3);
+            font-size: 0.7rem;
+            transition: all 0.3s;
+            padding: 5px 0;
+            flex: 1;
         }
 
-        .quiz-popup-footer {
-            padding: 20px 30px;
-            background: #f8f9ff;
-            border-radius: 0 0 15px 15px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
+        .footer-nav-item i {
+            font-size: 1.3rem;
+            margin-bottom: 3px;
         }
-        
-        .quiz-timer {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            font-weight: 600;
+
+        .footer-nav-item.active {
             color: var(--primary);
         }
-        
-        .quiz-popup-actions {
-            display: flex;
-            gap: 10px;
-        }
-        
-        /* Lesson Navigation Styles */
-        .lesson-navigation {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-top: 30px;
-            padding-top: 20px;
-            border-top: 1px solid var(--border-color);
-        }
-        
-        .lesson-nav-btn {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            padding: 12px 24px;
-            border-radius: 8px;
-            font-weight: 600;
-            cursor: pointer;
-            border: none;
-            transition: all 0.3s ease;
-        }
-        
-        .lesson-nav-btn:disabled {
-            opacity: 0.5;
-            cursor: not-allowed;
-        }
-        
-        .nav-prev {
-            background: white;
+
+        .footer-nav-item.active i {
             color: var(--primary);
-            border: 2px solid var(--primary);
         }
-        
-        .nav-prev:not(:disabled):hover {
+
+        .footer-hamburger {
             background: var(--primary);
             color: white;
-        }
-        
-        .nav-next {
-            background: linear-gradient(135deg, var(--primary), #4a6bff);
-            color: white;
-        }
-        
-        .nav-next:not(:disabled):hover {
-            transform: translateY(-3px);
-            box-shadow: 0 5px 15px rgba(74, 107, 255, 0.3);
-        }
-        
-        /* Complete lesson button state */
-        .lesson-completed {
-            background: linear-gradient(135deg, #4caf50, #2e7d32) !important;
-            cursor: default !important;
-        }
-        
-        .lesson-completed:hover {
-            transform: none !important;
-            box-shadow: none !important;
-        }
-
-        /* Practice Page Specific Styles */
-        .topic-card {
-            background: white;
-            border-radius: 12px;
-            padding: 20px;
-            margin-bottom: 15px;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-            border: 2px solid transparent;
-            transition: all 0.3s ease;
-            position: relative;
-        }
-        
-        .topic-card.unlocked {
-            border-color: #27ae60;
-            cursor: pointer;
-        }
-        
-        .topic-card.locked {
-            border-color: #bdc3c7;
-            opacity: 0.7;
-            cursor: not-allowed;
-        }
-        
-        .topic-card:hover:not(.locked) {
-            transform: translateY(-3px);
-            box-shadow: 0 5px 15px rgba(0,0,0,0.15);
-        }
-        
-        .topic-header {
-            display: flex;
-            align-items: center;
-            gap: 15px;
-            margin-bottom: 10px;
-        }
-        
-        .topic-icon {
-            position: relative;
+            border: none;
             width: 50px;
             height: 50px;
-            background: linear-gradient(135deg, var(--primary), #4a6bff);
             border-radius: 50%;
             display: flex;
+            flex-direction: column;
             align-items: center;
             justify-content: center;
-            color: white;
-            font-size: 1.2rem;
-        }
-        
-        .lock-icon {
-            position: absolute;
-            top: -5px;
-            right: -5px;
-            background: #e74c3c;
-            width: 20px;
-            height: 20px;
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            color: white;
-            font-size: 0.7rem;
-        }
-        
-        .topic-status {
-            padding: 4px 10px;
-            border-radius: 12px;
-            font-size: 0.8rem;
-            font-weight: 600;
-        }
-        
-        .topic-status.completed {
-            background: #d4edda;
-            color: #155724;
-        }
-        
-        .topic-status.in-progress {
-            background: #fff3cd;
-            color: #856404;
-        }
-        
-        .topic-status.locked {
-            background: #f8d7da;
-            color: #721c24;
-        }
-        
-        .topic-description {
-            color: var(--text-light);
-            margin-bottom: 15px;
-            font-size: 0.9rem;
-        }
-        
-        .topic-progress {
-            margin-top: 15px;
-        }
-        
-        .topic-actions {
-            margin-top: 15px;
-            display: flex;
-            gap: 10px;
-        }
-        
-        .btn-topic-action {
-            padding: 8px 16px;
-            border-radius: 6px;
-            font-size: 0.85rem;
-            font-weight: 600;
             cursor: pointer;
-            border: none;
-            display: flex;
-            align-items: center;
-            gap: 8px;
+            margin-top: -25px;
+            box-shadow: 0 4px 12px rgba(122,0,0,0.3);
         }
-        
-        .btn-start-practice {
-            background: linear-gradient(135deg, var(--primary), #4a6bff);
-            color: white;
+
+        .footer-hamburger i {
+            font-size: 1.5rem;
         }
-        
-        .btn-continue-topic {
-            background: linear-gradient(135deg, #f39c12, #e67e22);
-            color: white;
+
+        .footer-hamburger span {
+            font-size: 0.6rem;
+            margin-top: 2px;
         }
-        
-        .btn-unlock-topic:disabled {
-            background: #95a5a6;
-            cursor: not-allowed;
-        }
-        
-        .locked-overlay {
-            position: absolute;
+
+        /* Mobile Menu */
+        .mobile-menu-overlay {
+            position: fixed;
             top: 0;
             left: 0;
             right: 0;
             bottom: 0;
-            background: rgba(255, 255, 255, 0.95);
+            background: rgba(0,0,0,0.5);
+            z-index: 1001;
+            display: none;
+        }
+
+        .mobile-menu-panel {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: white;
+            border-radius: 20px 20px 0 0;
+            padding: 20px;
+            transform: translateY(100%);
+            transition: transform 0.3s ease;
+            z-index: 1002;
+            max-height: 80vh;
+            overflow-y: auto;
+        }
+
+        .mobile-menu-panel.open {
+            transform: translateY(0);
+        }
+
+        .mobile-menu-header {
+            text-align: center;
+            margin-bottom: 20px;
+            padding-bottom: 15px;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .mobile-menu-header h3 {
+            color: var(--primary);
+            font-size: 1.3rem;
+        }
+
+        .mobile-menu-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 15px;
+        }
+
+        .mobile-menu-item {
             display: flex;
             flex-direction: column;
             align-items: center;
-            justify-content: center;
-            border-radius: 12px;
-            padding: 20px;
-            opacity: 0;
-            visibility: hidden;
-            transition: all 0.3s ease;
-        }
-        
-        .topic-card.locked .locked-overlay {
-            opacity: 1;
-            visibility: visible;
-        }
-        
-        .locked-icon {
-            font-size: 40px;
-            color: #95a5a6;
-            margin-bottom: 15px;
-        }
-        
-        .locked-message {
             text-align: center;
+            padding: 15px;
+            background: var(--sidebar-bg);
+            border-radius: 10px;
+            text-decoration: none;
+            color: var(--text-color);
+            transition: all 0.3s;
         }
-        
-        .locked-message h4 {
-            margin-bottom: 10px;
-            color: #2c3e50;
-        }
-        
-        .locked-message p {
-            color: #7f8c8d;
-            margin-bottom: 15px;
-            font-size: 0.9rem;
-        }
-        
-        .no-topic-selected {
-            text-align: center;
-            padding: 40px 20px;
-            color: var(--text-light);
-        }
-        
-        .no-topic-selected i {
-            font-size: 50px;
+
+        .mobile-menu-item i {
+            font-size: 1.8rem;
+            margin-bottom: 8px;
             color: var(--primary);
-            margin-bottom: 15px;
-            opacity: 0.5;
         }
-        
-        .exercise-display {
+
+        .mobile-menu-item span {
+            font-size: 0.9rem;
+            font-weight: 500;
+        }
+
+        .mobile-menu-item.active {
+            background: var(--primary);
+            color: white;
+        }
+
+        .mobile-menu-item.active i {
+            color: white;
+        }
+
+        /* Modal Styles */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0,0,0,0.7);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 2000;
+            padding: 20px;
+        }
+
+        .modal-container {
             background: white;
-            padding: 30px;
             border-radius: 12px;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+            max-width: 500px;
+            width: 100%;
+            max-height: 90vh;
+            overflow-y: auto;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
         }
-        
-        .exercise-header {
+
+        .modal-header {
+            padding: 20px;
+            border-bottom: 1px solid #eee;
             display: flex;
             justify-content: space-between;
             align-items: center;
-            margin-bottom: 20px;
-            padding-bottom: 15px;
-            border-bottom: 1px solid #eee;
-        }
-        
-        .topic-badge {
-            background: linear-gradient(135deg, var(--primary), #4a6bff);
+            background: var(--primary);
             color: white;
-            padding: 6px 15px;
-            border-radius: 20px;
-            font-size: 0.85rem;
-            display: inline-flex;
+            border-radius: 12px 12px 0 0;
+        }
+
+        .modal-header h3 {
+            margin: 0;
+            display: flex;
             align-items: center;
-            gap: 8px;
-        }
-        
-        .exercise-timer {
-            background: #fff3cd;
-            padding: 6px 12px;
-            border-radius: 20px;
-            font-size: 0.85rem;
-            display: inline-flex;
-            align-items: center;
-            gap: 8px;
-            color: #856404;
-        }
-        
-        .exercise-problem {
-            margin-bottom: 30px;
-        }
-        
-        .math-expression {
-            font-size: 1.2rem;
-            font-family: 'Courier New', monospace;
-            background: #f8f9ff;
-            padding: 15px;
-            border-radius: 8px;
-            margin: 15px 0;
-            border-left: 4px solid var(--primary);
-        }
-        
-        .multiple-choice-options {
-            display: grid;
-            grid-template-columns: 1fr;
             gap: 10px;
+        }
+
+        .modal-close {
+            background: rgba(255,255,255,0.2);
+            border: none;
+            color: white;
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            cursor: pointer;
+            font-size: 1.2rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.3s;
+        }
+
+        .modal-close:hover {
+            background: rgba(255,255,255,0.3);
+            transform: rotate(90deg);
+        }
+
+        .modal-body {
+            padding: 25px;
+        }
+
+        /* Calculator Display */
+        .calculator-display {
+            background: #f5f5f5;
+            padding: 15px;
+            text-align: right;
+            font-size: 24px;
+            margin-bottom: 15px;
+            border-radius: 5px;
+            font-family: monospace;
+        }
+
+        .calculator-buttons {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 5px;
+        }
+
+        .calc-btn {
+            padding: 15px;
+            font-size: 18px;
+            border: 1px solid #ddd;
+            background: white;
+            cursor: pointer;
+            border-radius: 5px;
+            transition: all 0.2s;
+        }
+
+        .calc-btn:hover {
+            background: #f0f0f0;
+        }
+
+        .calc-btn.operator {
+            background: var(--primary);
+            color: white;
+        }
+
+        .calc-btn.equals {
+            background: var(--success);
+            color: white;
+        }
+
+        .calculator-history {
+            margin-top: 20px;
+            max-height: 150px;
+            overflow-y: auto;
+        }
+
+        .history-item {
+            padding: 8px;
+            border-bottom: 1px solid #eee;
+            cursor: pointer;
+        }
+
+        .history-item:hover {
+            background: #f5f5f5;
+        }
+
+        /* Whiteboard */
+        #whiteboardCanvas {
+            width: 100%;
+            height: 300px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            touch-action: none;
+        }
+
+        .whiteboard-toolbar {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 15px;
+            flex-wrap: wrap;
+        }
+
+        .whiteboard-toolbar button {
+            padding: 8px 15px;
+            border: 1px solid #ddd;
+            background: white;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+
+        .whiteboard-toolbar button:hover {
+            background: #f0f0f0;
+        }
+
+        #colorPicker {
+            width: 50px;
+            height: 38px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+
+        /* Graph */
+        #graphExpression {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            margin-bottom: 10px;
+        }
+
+        #graphCanvas {
+            width: 100%;
+            height: 300px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+
+        /* Notepad */
+        #noteTitle {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            margin-bottom: 10px;
+        }
+
+        #noteContent {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            min-height: 200px;
+            resize: vertical;
+        }
+
+        /* Timer */
+        #timerDisplay {
+            font-size: 48px;
+            font-weight: bold;
+            margin: 20px 0;
+            color: var(--primary);
+            text-align: center;
+        }
+
+        .timer-controls {
+            display: flex;
+            gap: 10px;
+            justify-content: center;
             margin: 20px 0;
         }
-        
-        @media (min-width: 768px) {
-            .multiple-choice-options {
-                grid-template-columns: 1fr 1fr;
-            }
-        }
-        
-        .option {
-            background: #f8f9fa;
-            border: 2px solid #e9ecef;
-            border-radius: 8px;
-            padding: 15px;
+
+        .timer-controls button {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 5px;
             cursor: pointer;
-            transition: all 0.2s ease;
-            display: flex;
-            align-items: center;
-            gap: 15px;
+            font-weight: 600;
         }
-        
-        .option:hover {
-            background: #e9ecef;
+
+        #timerStartBtn {
+            background: var(--success);
+            color: white;
+        }
+
+        #timerPauseBtn {
+            background: var(--warning);
+            color: white;
+        }
+
+        #timerResetBtn {
+            background: var(--danger);
+            color: white;
+        }
+
+        .timer-presets {
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+        }
+
+        .timer-presets button {
+            padding: 8px 15px;
+            border: 1px solid #ddd;
+            background: white;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+
+        .timer-presets button:hover {
+            background: #f0f0f0;
+        }
+
+        .timer-presets button.active {
+            background: var(--primary);
+            color: white;
             border-color: var(--primary);
         }
-        
-        .option input[type="radio"] {
-            transform: scale(1.2);
-        }
-        
-        .hint {
-            background: #fff3cd;
-            padding: 12px 15px;
-            border-radius: 8px;
-            margin-top: 15px;
-            font-size: 0.9rem;
-            color: #856404;
-            display: flex;
-            align-items: center;
-            gap: 10px;
-        }
-        
-        .solution-input {
-            margin-top: 20px;
-        }
-        
-        .input-group {
-            display: flex;
-            gap: 10px;
-        }
-        
-        .input-group input {
-            flex-grow: 1;
-            padding: 12px 15px;
-            border: 2px solid #e9ecef;
-            border-radius: 8px;
-            font-size: 1rem;
-        }
-        
-        .btn-submit {
-            background: linear-gradient(135deg, var(--primary), #4a6bff);
-            color: white;
-            border: none;
-            padding: 12px 24px;
-            border-radius: 8px;
-            font-weight: 600;
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            gap: 10px;
-        }
-        
-        .feedback-area {
-            margin-top: 20px;
-            animation: fadeIn 0.5s ease;
-        }
-        
+
+        /* Animations */
         @keyframes fadeIn {
             from { opacity: 0; transform: translateY(20px); }
             to { opacity: 1; transform: translateY(0); }
         }
-        
-        .feedback-header {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            margin-bottom: 15px;
-            padding-bottom: 10px;
-            border-bottom: 2px solid var(--primary);
-        }
-        
-        .feedback-message {
-            padding: 20px;
-            border-radius: 8px;
-            margin-bottom: 20px;
-            display: flex;
-            align-items: center;
-            gap: 20px;
-        }
-        
-        .feedback-message.success {
-            background: #d4edda;
-            border: 1px solid #c3e6cb;
-            color: #155724;
-        }
-        
-        .feedback-message.error {
-            background: #f8d7da;
-            border: 1px solid #f5c6cb;
-            color: #721c24;
-        }
-        
-        .feedback-icon {
-            font-size: 2rem;
-        }
-        
-        .feedback-text {
-            flex-grow: 1;
-        }
-        
-        .solution-steps {
-            background: #f8f9ff;
-            padding: 20px;
-            border-radius: 8px;
-            margin: 20px 0;
-            border-left: 4px solid var(--primary);
-        }
-        
-        .feedback-actions {
-            display: flex;
-            gap: 10px;
-            margin-top: 20px;
-        }
-        
-        .stats-grid {
-            display: grid;
-            grid-template-columns: repeat(2, 1fr);
-            gap: 15px;
-            margin-top: 15px;
-        }
-        
-        @media (min-width: 768px) {
-            .stats-grid {
-                grid-template-columns: repeat(4, 1fr);
-            }
-        }
-        
-        .stat-item {
-            background: white;
-            padding: 20px;
-            border-radius: 8px;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-            text-align: center;
-        }
-        
-        .stat-icon {
-            width: 50px;
-            height: 50px;
-            background: linear-gradient(135deg, var(--primary), #4a6bff);
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            margin: 0 auto 15px;
-            color: white;
-            font-size: 1.2rem;
-        }
-        
-        .stat-info h3 {
-            font-size: 0.9rem;
-            color: var(--text-light);
-            margin-bottom: 5px;
-        }
-        
-        .stat-value {
-            font-size: 1.5rem;
-            font-weight: bold;
-            color: var(--text-color);
-        }
-        
-        .stat-change {
-            font-size: 0.8rem;
-            color: #27ae60;
-            margin-top: 5px;
-        }
-        
-        /* Rating stars styles */
-        .rating {
-            display: flex;
-            gap: 5px;
-            margin: 10px 0;
-        }
-        
-        .rating .star {
-            font-size: 24px;
-            color: #ccc;
-            cursor: pointer;
-            transition: color 0.2s;
-        }
-        
-        .rating .star:hover,
-        .rating .star.rated {
-            color: #ffc107;
-        }
-        
-        .rating .star:hover ~ .star {
-            color: #ccc;
-        }
 
+        .animate-fade-in {
+            animation: fadeIn 0.5s ease forwards;
+        }
     </style>
 </head>
 <body>
-    
-            <!-- Dashboard Page -->
-        <div id="dashboard-page" class="">
-            <!-- Dashboard Content -->
+        <!-- ============================================
+             FACTOLEARN DASHBOARD - MAIN PAGE
+             ============================================ -->
+        <div id="factolearn-dashboard-page" class="hidden">
+            <!-- Dashboard Container -->
             <div class="dashboard-container">
                 <!-- Welcome Card -->
                 <section class="card welcome-card">
                     <div class="welcome-header">
-                        <h1 class="welcome-title" id="dashboardWelcomeTitle">Welcome to <span class="app-title">FactoLearn</span>!</h1>
-                        <div class="date-display" id="currentDate">Loading date... </div>
+                        <h1 class="welcome-title" id="factolearnWelcomeTitle">Welcome to <span class="app-title">FactoLearn</span>!</h1>
+                        <div class="date-display" id="factolearnDate">Loading date...</div>
                     </div>
                     
                     <div class="student-info">
-                        <div class="student-avatar-large" id="userInitial">U</div>
+                        <div class="student-avatar-large" id="factolearnUserInitial">F</div>
                         <div class="student-details">
-                            <h2 class="student-name" id="dashboardUserName">Welcome to <span>FactoLearn!</span></h2>
-                            <p style="color: var(--text-light); margin-bottom: 15px;" id="dashboardUserMessage">
-                                You're making excellent progress in your FactoLearn journey. Keep up the great work!
+                            <h2 class="student-name" id="factolearnUserName">Welcome to <span>FactoLearn!</span></h2>
+                            <p style="color: var(--text-light); margin-bottom: 15px;" id="factolearnUserMessage">
+                                You're making excellent progress in your factorial journey. Master factorials step by step!
                             </p>
-                            <div class="achievement-badge" id="userAchievementBadge">
+                            <div class="achievement-badge" id="factolearnAchievementBadge">
                                 <i class="fas fa-medal"></i> FactoLearn Learner
                             </div>
-                            <div class="factolearn-badge" style="margin-top: 10px;">
-                                <i class="fas fa-check-circle"></i> FactoLearn Active
+                            <div class="factolearn-badge" style="margin-top: 10px;" id="factolearnStatusBadge">
+                                <i class="fas fa-check-circle"></i> Factorials Master in Training
                             </div>
                         </div>
                     </div>
                 </section>
-    
+
                 <!-- Progress Summary Card -->
                 <section class="card">
                     <div class="card-header">
                         <h2 class="card-title">
-                            <i class="fas fa-chart-bar"></i> Progress Summary
+                            <i class="fas fa-chart-bar"></i> FactoLearn Progress Summary
                         </h2>
-                        <p class="card-subtitle">Your FactoLearn progress this week</p>
+                        <p class="card-subtitle" id="factolearnProgressSubtitle">Your factorial learning progress this week</p>
                     </div>
                     
                     <div class="progress-items">
@@ -1870,10 +1124,10 @@
                                 </div>
                                 <div>
                                     <h3>Lessons Completed</h3>
-                                    <p>FactoLearn lessons finished</p>
+                                    <p>Total factorial lessons finished</p>
                                 </div>
                             </div>
-                            <div class="item-value" id="lessonsCount">0<span class="item-unit">/0</span></div>
+                            <div class="item-value" id="factolearnLessonsCount">0<span class="item-unit" id="factolearnTotalLessons">/0</span></div>
                         </div>
                         
                         <!-- Practice Exercises -->
@@ -1884,10 +1138,10 @@
                                 </div>
                                 <div>
                                     <h3>Practice Exercises</h3>
-                                    <p>FactoLearn exercises solved</p>
+                                    <p>Factorial exercises solved correctly</p>
                                 </div>
                             </div>
-                            <div class="item-value" id="exercisesCount">0<span class="item-unit">/0</span></div>
+                            <div class="item-value" id="factolearnExercisesCount">0<span class="item-unit" id="factolearnTotalExercises">/0</span></div>
                         </div>
                         
                         <!-- Quiz Game Score -->
@@ -1898,10 +1152,10 @@
                                 </div>
                                 <div>
                                     <h3>Quiz Game Score</h3>
-                                    <p>Your high score in FactoLearn</p>
+                                    <p>Your high score in factorial games</p>
                                 </div>
                             </div>
-                            <div class="item-value" id="quizScore">0<span class="item-unit">points</span></div>
+                            <div class="item-value" id="factolearnQuizScore">0<span class="item-unit">points</span></div>
                         </div>
                         
                         <!-- Average Time Spent -->
@@ -1912,121 +1166,183 @@
                                 </div>
                                 <div>
                                     <h3>Average Time Spent</h3>
-                                    <p>Daily average learning time</p>
+                                    <p>Daily average learning time on factorials</p>
                                 </div>
                             </div>
-                            <div class="item-value" id="avgTime">0<span class="item-unit">minutes/day</span></div>
+                            <div class="item-value" id="factolearnAvgTime">0<span class="item-unit">minutes/day</span></div>
                         </div>
                     </div>
                 </section>
-    
+
                 <!-- Continue Learning Card - DATABASE DRIVEN -->
                 <section class="card full-width-card">
                     <div class="card-header">
                         <h2 class="card-title">
                             <i class="fas fa-play-circle"></i> Continue Learning
                         </h2>
-                        <p class="card-subtitle">Pick up where you left off in FactoLearn</p>
+                        <p class="card-subtitle" id="factolearnContinueSubtitle">Pick up where you left off in your factorial journey</p>
                     </div>
                     
                     <!-- Continue Learning Module - Loaded dynamically from database -->
-                    <div id="continueLearningContainer" class="continue-learning-module">
+                    <div id="factolearnContinueContainer" class="continue-learning-module">
                         <div class="loading-container">
                             <div class="loading-text">
-                                <i class="fas fa-spinner fa-spin"></i> Loading FactoLearn lessons from database...
+                                <i class="fas fa-spinner fa-spin"></i> Loading your factorial lessons from database...
                             </div>
                         </div>
                     </div>
                 </section>
-    
-                <!-- Lesson Dashboard Container with Learning Tools -->
+
+                <!-- FactoLearn Tools Section -->
                 <section class="card full-width-card">
                     <div class="card-header">
                         <h2 class="card-title">
                             <i class="fas fa-tools"></i> FactoLearn Tools
                         </h2>
-                        <p class="card-subtitle">Access learning tools and utilities for your FactoLearn lessons</p>
+                        <p class="card-subtitle">Interactive tools to master factorial concepts</p>
                     </div>
                     
                     <div class="lesson-dashboard-container">
-                        <!-- Learning Tools Section -->
                         <div class="learning-tools-box">
                             <div class="tools-header">
                                 <i class="fas fa-graduation-cap"></i>
-                                <h3>FactoLearn Learning Tools</h3>
+                                <h3>Factorial Learning Tools</h3>
                             </div>
                             
                             <div class="tools-grid-compact">
-                                <div class="tool-item-compact" data-tool="calculator" id="openCalculator">
+                                <div class="tool-item-compact" data-tool="calculator" id="factolearnCalculator">
                                     <div class="tool-icon">
                                         <i class="fas fa-calculator"></i>
                                     </div>
                                     <div class="tool-name">Calculator</div>
-                                    <div class="tool-desc">Advanced math calculator</div>
+                                    <div class="tool-desc">Advanced factorial calculator</div>
                                 </div>
                                 
-                                <div class="tool-item-compact" data-tool="graph" id="openGraphTools">
+                                <div class="tool-item-compact" data-tool="graph" id="factolearnGraph">
                                     <div class="tool-icon">
                                         <i class="fas fa-chart-line"></i>
                                     </div>
                                     <div class="tool-name">Graph Tools</div>
-                                    <div class="tool-desc">Visualize functions</div>
+                                    <div class="tool-desc">Visualize factorial functions</div>
                                 </div>
                                 
-                                <div class="tool-item-compact" data-tool="formula" id="openFormulaSheet">
+                                <div class="tool-item-compact" data-tool="formula" id="factolearnFormula">
                                     <div class="tool-icon">
-                                        <i class="fas fa-book"></i>
+                                        <i class="fas fa-square-root-alt"></i>
                                     </div>
                                     <div class="tool-name">Formula Sheet</div>
-                                    <div class="tool-desc">Quick references</div>
+                                    <div class="tool-desc">Quick factorial references</div>
                                 </div>
                                 
-                                <div class="tool-item-compact" data-tool="whiteboard" id="openWhiteboard">
+                                <div class="tool-item-compact" data-tool="whiteboard" id="factolearnWhiteboard">
                                     <div class="tool-icon">
                                         <i class="fas fa-paint-brush"></i>
                                     </div>
                                     <div class="tool-name">Whiteboard</div>
-                                    <div class="tool-desc">Draw and solve</div>
+                                    <div class="tool-desc">Draw and solve factorial problems</div>
                                 </div>
                                 
-                                <div class="tool-item-compact" data-tool="notepad" id="openNotepad">
+                                <div class="tool-item-compact" data-tool="notepad" id="factolearnNotepad">
                                     <div class="tool-icon">
                                         <i class="fas fa-sticky-note"></i>
                                     </div>
                                     <div class="tool-name">Notepad</div>
-                                    <div class="tool-desc">Take notes</div>
+                                    <div class="tool-desc">Take notes during factorial lessons</div>
+                                </div>
+                                
+                                <div class="tool-item-compact" data-tool="timer" id="factolearnTimer">
+                                    <div class="tool-icon">
+                                        <i class="fas fa-stopwatch"></i>
+                                    </div>
+                                    <div class="tool-name">Timer</div>
+                                    <div class="tool-desc">Track factorial study sessions</div>
                                 </div>
                             </div>
                             
                             <div class="tools-description">
-                                <p><i class="fas fa-info-circle"></i> FactoLearn tools help you understand concepts better with interactive features.</p>
+                                <p><i class="fas fa-info-circle"></i> Factorial learning tools help you understand concepts better with interactive features. All tools save automatically to the database.</p>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Quick Stats Card - DATABASE DRIVEN -->
+                <section class="card">
+                    <div class="card-header">
+                        <h2 class="card-title">
+                            <i class="fas fa-bolt"></i> Quick Stats
+                        </h2>
+                        <p class="card-subtitle">Your factorial learning at a glance</p>
+                    </div>
+                    
+                    <div class="quick-stats-grid" id="factolearnQuickStats">
+                        <div class="stat-item">
+                            <div class="stat-icon">
+                                <i class="fas fa-calendar-check"></i>
+                            </div>
+                            <div class="stat-info">
+                                <h3>Current Streak</h3>
+                                <div class="stat-value" id="factolearnStreak">0</div>
+                                <div class="stat-label">days</div>
+                            </div>
+                        </div>
+                        
+                        <div class="stat-item">
+                            <div class="stat-icon">
+                                <i class="fas fa-star"></i>
+                            </div>
+                            <div class="stat-info">
+                                <h3>Mastery Level</h3>
+                                <div class="stat-value" id="factolearnMastery">0%</div>
+                                <div class="stat-label">overall</div>
+                            </div>
+                        </div>
+                        
+                        <div class="stat-item">
+                            <div class="stat-icon">
+                                <i class="fas fa-fire"></i>
+                            </div>
+                            <div class="stat-info">
+                                <h3>Today's Activity</h3>
+                                <div class="stat-value" id="factolearnTodayActivity">0</div>
+                                <div class="stat-label">exercises</div>
+                            </div>
+                        </div>
+                        
+                        <div class="stat-item">
+                            <div class="stat-icon">
+                                <i class="fas fa-flag-checkered"></i>
+                            </div>
+                            <div class="stat-info">
+                                <h3>Next Milestone</h3>
+                                <div class="stat-value" id="factolearnNextMilestone">0</div>
+                                <div class="stat-label">lessons to go</div>
                             </div>
                         </div>
                     </div>
                 </section>
             </div>
         </div>
-    
-        <!-- Module Dashboard Page - FactoLearn Focused -->
+
+        <!-- Module Dashboard Page - DATABASE DRIVEN -->
         <div id="module-dashboard-page" class="hidden">
             <div id="module-page-container">
                 <div class="dashboard-container">
                     <!-- Main Content -->
                     <main class="main-content">
-                        <!-- Lesson Content Card -->
                         <div class="card">
                             <div class="card-header">
                                 <h2 class="card-title">
-                                    <i class="fas fa-book-open"></i> FactoLearn Lesson: <span id="moduleTitle">Loading...</span>
+                                    <i class="fas fa-cube"></i> FactoLearn Lesson: <span id="moduleTitle">Loading...</span>
                                 </h2>
-                                <p class="card-subtitle" id="moduleSubtitle">Loading FactoLearn content...</p>
+                                <p class="card-subtitle" id="moduleSubtitle">Loading factorial content...</p>
                             </div>
                             
                             <div class="lesson-content">
                                 <!-- Video Section -->
                                 <div class="media-container">
                                     <div class="media-header">
-                                        <span><i class="fas fa-video"></i> FactoLearn Video</span>
+                                        <span><i class="fas fa-video"></i> Factorial Video</span>
                                         <div class="media-controls">
                                             <span id="videoTime" style="font-family: monospace; color: white;">0:00 / 0:00</span>
                                             <button class="refresh-video-btn" id="refreshVideoBtn" title="Reload video">
@@ -2041,22 +1357,22 @@
                                         </video>
                                     </div>
                                     <div class="video-info" id="videoInfo">
-                                        <p><i class="fas fa-info-circle"></i> FactoLearn video loaded from database.</p>
+                                        <p><i class="fas fa-info-circle"></i> Factorial video loaded from database.</p>
                                     </div>
                                 </div>
                             
-                                <!-- Example Section -->
+                                <!-- Content Section -->
                                 <div class="step-container" id="exampleSection">
                                     <div class="step-title">
-                                        <span class="step-number"><i class="fas fa-book"></i></span> FactoLearn Content
+                                        <span class="step-number"><i class="fas fa-cube"></i></span> Factorial Content
                                     </div>
                                     <div class="step-content" id="lessonContent">
-                                        <p>Loading FactoLearn content from database...</p>
+                                        <p>Loading factorial content from database...</p>
                                         <div class="math-example">
-                                            <p><strong>Loading FactoLearn example...</strong></p>
+                                            <p><strong>Loading factorial example...</strong></p>
                                         </div>
                                         <ol class="steps">
-                                            <li>FactoLearn steps will appear here</li>
+                                            <li>Factorial steps will appear here</li>
                                             <li>Loaded dynamically from database</li>
                                         </ol>
                                     </div>
@@ -2065,15 +1381,15 @@
                                 <!-- Lesson Navigation -->
                                 <div class="lesson-navigation">
                                     <button class="lesson-nav-btn nav-prev" id="prevLessonBtn" disabled>
-                                        <i class="fas fa-arrow-left"></i> Previous FactoLearn Lesson
+                                        <i class="fas fa-arrow-left"></i> Previous Factorial Lesson
                                     </button>
                                     
                                     <button class="btn-primary" id="completeLessonBtn" data-lesson-id="1">
-                                        <i class="fas fa-check-circle"></i> Mark FactoLearn Lesson Complete
+                                        <i class="fas fa-check-circle"></i> Mark Factorial Lesson Complete
                                     </button>
                                     
                                     <button class="lesson-nav-btn nav-next" id="nextLessonBtn" disabled>
-                                        Next FactoLearn Lesson <i class="fas fa-arrow-right"></i>
+                                        Next Factorial Lesson <i class="fas fa-arrow-right"></i>
                                     </button>
                                 </div>
                             </div>
@@ -2084,12 +1400,12 @@
                     <aside class="sidebar">
                         <div class="progress-learning-tool">
                             <h2 class="progress-title">
-                                <i class="fas fa-chart-line"></i> FactoLearn Progress
+                                <i class="fas fa-chart-line"></i> Your Factorial Progress
                             </h2>
                             
                             <!-- Current Lesson Progress -->
                             <div class="lesson-progress-section">
-                                <h3><i class="fas fa-book"></i> Current FactoLearn Progress</h3>
+                                <h3><i class="fas fa-cube"></i> Current Factorial Progress</h3>
                                 <div class="progress-bar-container">
                                     <div class="progress-fill" id="lessonProgressFill" style="width: 0%"></div>
                                 </div>
@@ -2101,7 +1417,7 @@
                             
                             <!-- Learning Statistics -->
                             <div class="learning-stats">
-                                <h3><i class="fas fa-chart-bar"></i> Today's FactoLearn Stats</h3>
+                                <h3><i class="fas fa-chart-bar"></i> Today's Factorial Learning</h3>
                                 <div class="stat-item">
                                     <div class="stat-icon">
                                         <i class="fas fa-clock"></i>
@@ -2126,7 +1442,7 @@
                                     </div>
                                     <div class="stat-content">
                                         <div class="stat-value" id="exercisesCompleted">0/0</div>
-                                        <div class="stat-label">Exercises Completed</div>
+                                        <div class="stat-label">Factorial Exercises Completed</div>
                                     </div>
                                 </div>
                             </div>                      
@@ -2135,9 +1451,9 @@
                         <!-- Learning Tools Container -->
                         <div class="learning-tools-container">
                             <h2 class="tools-title">
-                                <i class="fas fa-tools"></i> FactoLearn Tools
+                                <i class="fas fa-tools"></i> Factorial Tools
                             </h2>
-                            <p class="tools-subtitle">Interactive tools for FactoLearn</p>
+                            <p class="tools-subtitle">Interactive tools for factorial learning</p>
                             
                             <div class="tools-grid">
                                 <div class="tool-item" id="openCalculator">
@@ -2145,7 +1461,7 @@
                                         <i class="fas fa-calculator"></i>
                                     </div>
                                     <div class="tool-name">Calculator</div>
-                                    <div class="tool-description">Advanced math calculator</div>
+                                    <div class="tool-description">Advanced factorial calculator</div>
                                 </div>
                                 
                                 <div class="tool-item" id="openGraphTools">
@@ -2153,7 +1469,7 @@
                                         <i class="fas fa-chart-line"></i>
                                     </div>
                                     <div class="tool-name">Graph Tools</div>
-                                    <div class="tool-description">Visualize functions</div>
+                                    <div class="tool-description">Visualize factorial functions</div>
                                 </div>
                                 
                                 <div class="tool-item" id="openNotepad">
@@ -2161,7 +1477,7 @@
                                         <i class="fas fa-sticky-note"></i>
                                     </div>
                                     <div class="tool-name">Notepad</div>
-                                    <div class="tool-description">Take notes during lessons</div>
+                                    <div class="tool-description">Take notes during factorial lessons</div>
                                 </div>
                                 
                                 <div class="tool-item" id="openFormulaSheet">
@@ -2169,7 +1485,7 @@
                                         <i class="fas fa-book"></i>
                                     </div>
                                     <div class="tool-name">Formula Sheet</div>
-                                    <div class="tool-description">Quick reference for formulas</div>
+                                    <div class="tool-description">Quick reference for factorial formulas</div>
                                 </div>
                                 
                                 <div class="tool-item" id="openWhiteboard">
@@ -2177,7 +1493,7 @@
                                         <i class="fas fa-paint-brush"></i>
                                     </div>
                                     <div class="tool-name">Whiteboard</div>
-                                    <div class="tool-description">Draw and solve problems</div>
+                                    <div class="tool-description">Draw and solve factorial problems</div>
                                 </div>
                                 
                                 <div class="tool-item" id="openTimer">
@@ -2185,7 +1501,7 @@
                                         <i class="fas fa-stopwatch"></i>
                                     </div>
                                     <div class="tool-name">Timer</div>
-                                    <div class="tool-description">Track your study sessions</div>
+                                    <div class="tool-description">Track your factorial study sessions</div>
                                 </div>
                             </div>
                         </div>
@@ -2193,75 +1509,75 @@
                 </div>
             </div>
         </div>
-    
-        <!-- Practice Exercises Page - FactoLearn Focused -->
+
+        <!-- Practice Exercises Page - DATABASE DRIVEN -->
         <div id="practice-exercises-page" class="hidden">
             <div class="practice-container">
                 <!-- Welcome Section -->
                 <section class="card welcome-card">
                     <div class="welcome-header">
-                        <h1 class="welcome-title">FactoLearn Topic-Based Practice</h1>
+                        <h1 class="welcome-title">Factorial Topic-Based Practice</h1>
                         <div class="date-display" id="practiceDate">Today</div>
                     </div>
                     
                     <div class="practice-intro">
                         <div class="practice-icon-large">
-                            <i class="fas fa-graduation-cap"></i>
+                            <i class="fas fa-cube"></i>
                         </div>
                         <div class="practice-intro-text">
-                            <p>FactoLearn practice exercises unlock as you complete topics. Master each concept!</p>
+                            <p>Factorial practice exercises unlock as you complete topics. Master each factorial concept!</p>
                             <div class="current-streak">
-                                <i class="fas fa-unlock"></i> Unlocked: <span id="unlockedCount">0</span>/5 FactoLearn topics
+                                <i class="fas fa-unlock"></i> Unlocked: <span id="unlockedCount">0</span>/5 factorial topics
                             </div>
                             <div class="factolearn-badge" style="margin-top: 10px;">
-                                <i class="fas fa-check-circle"></i> FactoLearn Practice
+                                <i class="fas fa-check-circle"></i> Factorial Practice
                             </div>
                         </div>
                     </div>
                 </section>
-    
+
                 <!-- Topics Progress -->
                 <section class="card full-width-card">
                     <div class="card-header">
                         <h2 class="card-title">
-                            <i class="fas fa-book-open"></i> FactoLearn Topics Progress
+                            <i class="fas fa-book-open"></i> Factorial Topics Progress
                         </h2>
-                        <p class="card-subtitle">Complete FactoLearn topics to unlock practice exercises</p>
+                        <p class="card-subtitle">Complete factorial topics to unlock practice exercises</p>
                     </div>
                     
                     <div class="topics-container" id="topicsContainer">
                         <div class="loading-container">
                             <i class="fas fa-spinner fa-spin"></i>
-                            <p>Loading FactoLearn topics and progress...</p>
+                            <p>Loading factorial topics and progress...</p>
                         </div>
                     </div>
                 </section>
-    
+
                 <!-- Current Practice Area -->
                 <section class="card full-width-card" id="currentPracticeSection">
                     <div class="card-header">
                         <h2 class="card-title">
-                            <i class="fas fa-brain"></i> FactoLearn Practice Exercises
+                            <i class="fas fa-brain"></i> Factorial Practice Exercises
                         </h2>
-                        <p class="card-subtitle" id="practiceTopicTitle">Select a FactoLearn topic to practice</p>
+                        <p class="card-subtitle" id="practiceTopicTitle">Select a factorial topic to practice</p>
                     </div>
                     
                     <div class="exercise-area" id="exerciseArea">
                         <div class="no-topic-selected">
                             <i class="fas fa-mouse-pointer"></i>
-                            <h3>Select a FactoLearn Topic</h3>
+                            <h3>Select a Factorial Topic</h3>
                             <p>Choose a topic from the list above to start practicing</p>
                         </div>
                     </div>
                 </section>
-    
+
                 <!-- Practice Statistics -->
                 <section class="card">
                     <div class="card-header">
                         <h2 class="card-title">
-                            <i class="fas fa-chart-line"></i> FactoLearn Practice Statistics
+                            <i class="fas fa-chart-line"></i> Factorial Practice Statistics
                         </h2>
-                        <p class="card-subtitle">Your performance across FactoLearn topics</p>
+                        <p class="card-subtitle">Your performance across factorial topics</p>
                     </div>
                     
                     <div class="stats-grid" id="practiceStats">
@@ -2270,57 +1586,57 @@
                 </section>
             </div>
         </div>
-    
-        <!-- Quiz Dashboard Page - FactoLearn Focused -->
+
+        <!-- Quiz Dashboard Page - DATABASE DRIVEN -->
         <div id="quiz-dashboard-page" class="hidden">
             <div class="quiz-container">
                 <!-- Quiz Header Section -->
-                <div class="factolearn-header" style="padding: 30px; border-radius: 10px; margin-bottom: 20px;">
-                    <h1 class="quiz-welcome-title" style="color: white; margin: 0 0 10px 0; font-size: 28px;">Welcome to FactoLearn Quiz Dashboard!</h1>
-                    <p class="quiz-subtitle" style="color: white; margin: 0; opacity: 0.9; font-size: 16px;">Test your FactoLearn knowledge and track your progress</p>
+                <div class="factolearn-header" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 30px; border-radius: 10px; margin-bottom: 20px;">
+                    <h1 class="quiz-welcome-title" style="color: white; margin: 0 0 10px 0; font-size: 28px;">Welcome to Factorial Quiz Dashboard!</h1>
+                    <p class="quiz-subtitle" style="color: white; margin: 0; opacity: 0.9; font-size: 16px;">Test your factorial knowledge and track your progress</p>
                 </div>
                 
                 <div class="quiz-stats-row">
                     <div class="quiz-stat-card">
                         <i class="fas fa-trophy"></i>
-                        <h3>FactoLearn Score</h3>
+                        <h3>Factorial Score</h3>
                         <div class="quiz-stat-value" id="quizCurrentScore">Loading...</div>
                     </div>
                     <div class="quiz-stat-card">
                         <i class="fas fa-chart-line"></i>
-                        <h3>FactoLearn Accuracy</h3>
+                        <h3>Factorial Accuracy</h3>
                         <div class="quiz-stat-value" id="quizAccuracy">Loading...</div>
                     </div>
                     <div class="quiz-stat-card">
                         <i class="fas fa-clock"></i>
-                        <h3>FactoLearn Time</h3>
+                        <h3>Factorial Time</h3>
                         <div class="quiz-stat-value" id="quizTimeSpent">Loading...</div>
                     </div>
                     <div class="quiz-stat-card">
                         <i class="fas fa-medal"></i>
-                        <h3>FactoLearn Rank</h3>
+                        <h3>Factorial Rank</h3>
                         <div class="quiz-stat-value" id="quizRank">Loading...</div>
                     </div>
                 </div>
-    
+
                 <!-- QUIZ CARDS -->
                 <div class="quiz-cards-container" id="quizCardsContainer">
-                    <h2 class="section-title"><i class="fas fa-puzzle-piece"></i> Available FactoLearn Quizzes</h2>
+                    <h2 class="section-title"><i class="fas fa-puzzle-piece"></i> Available Factorial Quizzes</h2>
                     <div class="quizzes-grid" id="userQuizzesContainer">
                         <div class="loading-container">
                             <i class="fas fa-spinner fa-spin"></i>
-                            <p>Loading FactoLearn quizzes from database...</p>
+                            <p>Loading factorial quizzes from database...</p>
                         </div>
                     </div>
                 </div>
-    
+
                 <!-- QUIZ INTERFACE -->
                 <div class="quiz-interface-container" id="quizInterfaceContainer" style="display: none;">
                     <div class="quiz-header">
                         <button onclick="exitQuiz()" class="btn-secondary">
-                            <i class="fas fa-times"></i> Exit FactoLearn Quiz
+                            <i class="fas fa-times"></i> Exit Factorial Quiz
                         </button>
-                        <h2 id="activeQuizTitle">FactoLearn Quiz</h2>
+                        <h2 id="activeQuizTitle">Factorial Quiz</h2>
                         <div class="quiz-timer">
                             <i class="fas fa-clock"></i> <span id="timerDisplay">00:00</span>
                         </div>
@@ -2336,7 +1652,7 @@
                             <span class="question-points" id="questionPoints">10 points</span>
                         </div>
                         
-                        <h3 class="question-text" id="quizQuestionText">Loading FactoLearn question...</h3>
+                        <h3 class="question-text" id="quizQuestionText">Loading factorial question...</h3>
                         
                         <div class="options-grid" id="quizOptionsContainer">
                             <!-- Options will be loaded here -->
@@ -2345,41 +1661,41 @@
                     
                     <div class="quiz-navigation">
                         <button class="nav-btn submit" onclick="submitQuiz()" id="submitQuizBtn" style="display: none;">
-                            Submit FactoLearn Quiz
+                            Submit Factorial Quiz
                         </button>
                     </div>
                 </div>
-    
+
                 <!-- Leaderboard Section -->
                 <div class="leaderboard-container" id="leaderboardContainer">
                     <h2 class="card-title">
-                        <i class="fas fa-chart-bar"></i> FactoLearn Leaderboard
+                        <i class="fas fa-chart-bar"></i> Factorial Leaderboard
                     </h2>
-                    <p class="card-subtitle">Top FactoLearn performers this week</p>
+                    <p class="card-subtitle">Top factorial performers this week</p>
                     
                     <div class="leaderboard-list" id="leaderboardList">
                         <div class="loading-container">
-                            <i class="fas fa-spinner fa-spin"></i> Loading FactoLearn leaderboard...
+                            <i class="fas fa-spinner fa-spin"></i> Loading factorial leaderboard...
                         </div>
                     </div>
                 </div>
             </div>
         </div>
-    
-        <!-- Progress Tracking Dashboard Page - FactoLearn Focused -->
+
+        <!-- Progress Tracking Dashboard Page - DATABASE DRIVEN -->
         <div id="progress-page" class="hidden">
             <header class="header">
                 <div class="logo" id="progressLogo">
-                    <i class="fas fa-chart-line logo-icon"></i>
-                    <div class="logo-text">FactoLearn<span class="logo-accent">Progress</span></div>
+                    <i class="fas fa-cube logo-icon"></i>
+                    <div class="logo-text">Factorial<span class="logo-accent">Progress</span></div>
                 </div>
             </header>
-    
+
             <div class="progress-container">
                 <!-- Summary Stats Card -->
                 <section class="card welcome-card animate-fade-in">
                     <div class="welcome-header">
-                        <h1 class="welcome-title" id="progressWelcomeTitle">Your FactoLearn Learning Progress</h1>
+                        <h1 class="welcome-title" id="progressWelcomeTitle">Your Factorial Learning Progress</h1>
                         <div class="date-display" id="progressDate">Last updated: Today</div>
                     </div>
                     
@@ -2389,7 +1705,7 @@
                                 <i class="fas fa-trophy"></i>
                             </div>
                             <div class="stat-content">
-                                <h3>Overall FactoLearn Progress</h3>
+                                <h3>Overall Factorial Progress</h3>
                                 <div class="stat-value" id="overallProgress">0%</div>
                                 <div class="progress-bar-container mini">
                                     <div class="progress-fill progress-good" id="overallProgressBar" style="width: 0%"></div>
@@ -2402,7 +1718,7 @@
                                 <i class="fas fa-coins"></i>
                             </div>
                             <div class="stat-content">
-                                <h3>Total FactoLearn Points</h3>
+                                <h3>Total Factorial Points</h3>
                                 <div class="stat-value" id="totalPointsProgress">0</div>
                                 <p class="stat-change" id="pointsChange">+0 this week</p>
                             </div>
@@ -2413,7 +1729,7 @@
                                 <i class="fas fa-clock"></i>
                             </div>
                             <div class="stat-content">
-                                <h3>FactoLearn Time Invested</h3>
+                                <h3>Factorial Time Invested</h3>
                                 <div class="stat-value" id="totalTime">0h</div>
                                 <p class="stat-change" id="timeChange">0h this week</p>
                             </div>
@@ -2424,19 +1740,19 @@
                                 <i class="fas fa-award"></i>
                             </div>
                             <div class="stat-content">
-                                <h3>FactoLearn Badges Earned</h3>
+                                <h3>Factorial Badges Earned</h3>
                                 <div class="stat-value" id="totalBadges">0/0</div>
                                 <p class="stat-change" id="badgesChange">0 new this month</p>
                             </div>
                         </div>
                     </div>
                 </section>
-    
+
                 <!-- Progress Charts -->
                 <section class="card full-width-card animate-fade-in" style="animation-delay: 0.1s">
                     <div class="card-header">
                         <h2 class="card-title">
-                            <i class="fas fa-chart-bar"></i> Weekly FactoLearn Trends
+                            <i class="fas fa-chart-bar"></i> Weekly Factorial Trends
                         </h2>
                         <div class="time-period-selector">
                             <select id="timePeriodSelect" class="form-control">
@@ -2450,7 +1766,7 @@
                     
                     <div class="charts-grid">
                         <div class="chart-container">
-                            <h3>Daily FactoLearn Practice Time</h3>
+                            <h3>Daily Factorial Practice Time</h3>
                             <div class="chart" id="practiceTimeChart">
                                 <div class="simple-bar-chart">
                                     <div class="chart-bars" id="practiceTimeBars">
@@ -2464,7 +1780,7 @@
                         </div>
                         
                         <div class="chart-container">
-                            <h3>FactoLearn Accuracy Rate</h3>
+                            <h3>Factorial Accuracy Rate</h3>
                             <div class="chart" id="accuracyChart">
                                 <div class="simple-line-chart">
                                     <div class="chart-line" id="accuracyLine">
@@ -2478,29 +1794,29 @@
                         </div>
                     </div>
                 </section>
-    
+
                 <!-- Topic Progress Breakdown -->
                 <section class="card animate-fade-in" style="animation-delay: 0.2s">
                     <div class="card-header">
                         <h2 class="card-title">
-                            <i class="fas fa-book-open"></i> FactoLearn Topic Progress Breakdown
+                            <i class="fas fa-cube"></i> Factorial Topic Progress Breakdown
                         </h2>
-                        <p class="card-subtitle">Detailed progress for each FactoLearn topic</p>
+                        <p class="card-subtitle">Detailed progress for each factorial topic</p>
                     </div>
                     
                     <div class="topics-progress-detailed" id="topicsProgressDetailed">
                         <div class="loading-container">
                             <i class="fas fa-spinner fa-spin"></i>
-                            <p>Loading FactoLearn topic progress...</p>
+                            <p>Loading factorial topic progress...</p>
                         </div>
                     </div>
                 </section>
-    
+
                 <!-- Performance Analytics -->
                 <section class="card animate-fade-in" style="animation-delay: 0.3s">
                     <div class="card-header">
                         <h2 class="card-title">
-                            <i class="fas fa-chart-line"></i> FactoLearn Performance Analytics
+                            <i class="fas fa-chart-line"></i> Factorial Performance Analytics
                         </h2>
                         <p class="card-subtitle">Your learning efficiency and improvement trends</p>
                     </div>
@@ -2508,56 +1824,56 @@
                     <div class="performance-grid" id="performanceGrid">
                         <div class="loading-container">
                             <i class="fas fa-spinner fa-spin"></i>
-                            <p>Loading FactoLearn performance analytics...</p>
+                            <p>Loading factorial performance analytics...</p>
                         </div>
                     </div>
                     
                     <div class="learning-insights">
-                        <h4><i class="fas fa-lightbulb"></i> FactoLearn Insights</h4>
+                        <h4><i class="fas fa-lightbulb"></i> Factorial Insights</h4>
                         <ul class="insights-list" id="insightsList">
                             <!-- Insights will be loaded dynamically -->
                         </ul>
                     </div>
                 </section>
-    
+
                 <!-- Achievement Timeline -->
                 <section class="card full-width-card animate-fade-in" style="animation-delay: 0.4s">
                     <div class="card-header">
                         <h2 class="card-title">
-                            <i class="fas fa-trophy"></i> FactoLearn Achievement Timeline
+                            <i class="fas fa-trophy"></i> Factorial Achievement Timeline
                         </h2>
-                        <p class="card-subtitle">Your journey and milestones in FactoLearn</p>
+                        <p class="card-subtitle">Your journey and milestones in factorial learning</p>
                     </div>
                     
                     <div class="timeline" id="achievementTimeline">
                         <div class="loading-container">
                             <i class="fas fa-spinner fa-spin"></i> 
-                            <p>Loading FactoLearn achievement timeline...</p>
+                            <p>Loading factorial achievement timeline...</p>
                         </div>
                     </div>
                 </section>
             </div>
         </div>
-    
+
         <!-- Settings Dashboard Page -->
         <div id="settings-page" class="hidden">
             <div class="page-container">
                 <div class="main-header">
-                    <h1><i class="fas fa-square-root-alt"></i> FactoLearn Settings</h1>
+                    <h1><i class="fas fa-cube"></i> FactoLearn Settings</h1>
                 </div>
-    
+
                 <div class="dashboard-container">
                     <!-- Main Content Area -->
                     <div class="main-settings">
                         <!-- General Settings -->
                         <div id="general" class="settings-section active">
                             <div class="section-header">
-                                <h2><i class="fas fa-user"></i> FactoLearn Profile</h2>
-                                <p class="section-subtitle">Manage your FactoLearn profile and preferences</p>
+                                <h2><i class="fas fa-user"></i> Factorial Profile</h2>
+                                <p class="section-subtitle">Manage your factorial profile and preferences</p>
                             </div>
-    
+
                             <div class="settings-card">
-                                <h3><i class="fas fa-user-edit"></i> FactoLearn Profile Information</h3>
+                                <h3><i class="fas fa-user-edit"></i> Factorial Profile Information</h3>
                                 <div class="form-row">
                                     <label class="form-label">Display Name</label>
                                     <input type="text" class="form-control" id="displayName" value="Loading..." placeholder="Enter your display name">
@@ -2568,16 +1884,16 @@
                                 </div>
                             </div>
                         </div>
-    
+
                         <!-- Learning Settings -->
                         <div id="learning" class="settings-section">
                             <div class="section-header">
-                                <h2><i class="fas fa-graduation-cap"></i> FactoLearn Preferences</h2>
-                                <p class="section-subtitle">Customize how you learn in FactoLearn</p>
+                                <h2><i class="fas fa-graduation-cap"></i> Factorial Preferences</h2>
+                                <p class="section-subtitle">Customize how you learn factorial concepts</p>
                             </div>
-    
+
                             <div class="settings-card">
-                                <h3><i class="fas fa-chart-line"></i> FactoLearn Difficulty Level</h3>
+                                <h3><i class="fas fa-chart-line"></i> Factorial Difficulty Level</h3>
                                 <div class="form-row">
                                     <label class="form-label">Adaptive Difficulty</label>
                                     <label class="toggle-switch">
@@ -2597,19 +1913,19 @@
                             </div>
                         </div>
                     </div>
-    
+
                     <!-- Sidebar -->
                     <div class="settings-sidebar">
                         <div class="sidebar-card">
-                            <h3><i class="fas fa-cogs"></i> FactoLearn Settings</h3>
-                            <p class="sidebar-subtitle">Customize your FactoLearn experience</p>
+                            <h3><i class="fas fa-cogs"></i> Factorial Settings</h3>
+                            <p class="sidebar-subtitle">Customize your factorial learning experience</p>
                             
                             <ul class="sidebar-menu">
-                                <li><a href="#" class="active" onclick="showSection('general')"><i class="fas fa-user"></i> FactoLearn Profile</a></li>
-                                <li><a href="#" onclick="showSection('learning')"><i class="fas fa-graduation-cap"></i> FactoLearn Preferences</a></li>
+                                <li><a href="#" class="active" onclick="showSection('general')"><i class="fas fa-user"></i> Factorial Profile</a></li>
+                                <li><a href="#" onclick="showSection('learning')"><i class="fas fa-graduation-cap"></i> Factorial Preferences</a></li>
                             </ul>
                         </div>
-    
+
                         <div class="action-buttons">
                             <button class="btn btn-secondary" onclick="resetSettings()"><i class="fas fa-undo"></i> Reset to Defaults</button>
                             <button class="btn btn-primary" onclick="saveSettings()"><i class="fas fa-save"></i> Save Changes</button>
@@ -2618,17 +1934,17 @@
                 </div>
             </div>
         </div>
-    
+
         <!-- Feedback Dashboard Page -->
         <div id="feedback-page" class="hidden">
             <div class="help-dashboard-container">
-                <div class="help-header factolearn-header">
+                <div class="help-header factolearn-header" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">
                     <div class="header-left">
-                        <h1><i class="fas fa-question-circle"></i> FactoLearn Help & Feedback</h1>
-                        <p>Get help with FactoLearn and send feedback</p>
+                        <h1><i class="fas fa-question-circle"></i> Factorial Help & Feedback</h1>
+                        <p>Get help with factorial concepts and send feedback</p>
                     </div>
                 </div>
-    
+
                 <div class="dashboard-grid">
                     <!-- FAQ Section -->
                     <div class="card">
@@ -2636,58 +1952,58 @@
                             <div class="card-icon icon-faq">
                                 <i class="fas fa-book-open"></i>
                             </div>
-                            <h2>FactoLearn FAQs</h2>
+                            <h2>Factorial FAQs</h2>
                         </div>
                         <div class="card-body">
                             <div class="faq-item">
                                 <div class="faq-question" onclick="toggleFAQ(this)">
-                                    How do I reset my FactoLearn password?
+                                    How do I calculate factorial of a number?
                                     <i class="fas fa-chevron-down"></i>
                                 </div>
                                 <div class="faq-answer">
-                                    <p>To reset your FactoLearn password, go to the login page and click "Forgot Password".</p>
+                                    <p>The factorial of a number n (written as n!) is the product of all positive integers less than or equal to n. For example, 5! = 5 × 4 × 3 × 2 × 1 = 120.</p>
                                 </div>
                             </div>
-    
+
                             <div class="faq-item">
                                 <div class="faq-question" onclick="toggleFAQ(this)">
-                                    How can I track my FactoLearn progress?
+                                    How can I track my factorial progress?
                                     <i class="fas fa-chevron-down"></i>
                                 </div>
                                 <div class="faq-answer">
-                                    <p>Visit the FactoLearn Progress page in your dashboard for detailed analytics.</p>
+                                    <p>Visit the Factorial Progress page in your dashboard for detailed analytics on your factorial learning.</p>
                                 </div>
                             </div>
                         </div>
                     </div>
-    
+
                     <!-- Send Feedback -->
                     <div class="card">
                         <div class="card-header">
                             <div class="card-icon icon-feedback">
                                 <i class="fas fa-comment-alt"></i>
                             </div>
-                            <h2>Send FactoLearn Feedback</h2>
+                            <h2>Send Factorial Feedback</h2>
                         </div>
                         <div class="card-body">
                             <form id="feedbackForm">
                                 <div class="form-group">
                                     <label for="feedbackType">Feedback Type</label>
                                     <select id="feedbackType" class="form-control">
-                                        <option value="suggestion">FactoLearn Suggestion</option>
-                                        <option value="bug">FactoLearn Bug Report</option>
-                                        <option value="praise">FactoLearn Praise</option>
+                                        <option value="suggestion">Factorial Suggestion</option>
+                                        <option value="bug">Factorial Bug Report</option>
+                                        <option value="praise">Factorial Praise</option>
                                     </select>
                                 </div>
-    
+
                                 <div class="form-group">
-                                    <label for="feedbackMessage">Your FactoLearn Feedback</label>
-                                    <textarea id="feedbackMessage" class="form-control" placeholder="Tell us about your FactoLearn experience..."></textarea>
+                                    <label for="feedbackMessage">Your Factorial Feedback</label>
+                                    <textarea id="feedbackMessage" class="form-control" placeholder="Tell us about your factorial learning experience..."></textarea>
                                 </div>
-    
+
                                 <button type="submit" class="btn btn-primary" style="width: 100%; background: #7a0000;">
                                     <i class="fas fa-paper-plane"></i>
-                                    Submit FactoLearn Feedback
+                                    Submit Factorial Feedback
                                 </button>
                             </form>
                         </div>
@@ -2695,127 +2011,131 @@
                 </div>
             </div>
         </div>
-    
-        <!-- Tool Modals Container -->
+
+        <!-- ============================================
+             TOOL MODALS
+             ============================================ -->
         <div id="toolModalsContainer">
             <!-- Calculator Modal -->
             <div id="calculatorModal" class="modal-overlay" style="display: none;">
                 <div class="modal-container">
                     <div class="modal-header" style="background: #7a0000; color: white;">
-                        <h3 style="margin: 0;"><i class="fas fa-calculator"></i> FactoLearn Calculator</h3>
-                        <button class="modal-close" onclick="window.toolManager.closeTool()" style="color: white; background: none; border: none; font-size: 24px; cursor: pointer;">&times;</button>
+                        <h3 style="margin: 0;"><i class="fas fa-calculator"></i> Factorial Calculator</h3>
+                        <button class="modal-close" onclick="window.toolManager.closeTool()" style="color: white;">&times;</button>
                     </div>
                     <div class="modal-body">
                         <div class="calculator-container">
-                            <div id="calcDisplay" class="calculator-display" style="background: #f5f5f5; padding: 15px; text-align: right; font-size: 24px; margin-bottom: 15px; border-radius: 5px;">0</div>
-                            <div id="calcButtons" class="calculator-buttons" style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 5px;"></div>
+                            <div id="calcDisplay" class="calculator-display">0</div>
+                            <div id="calcButtons" class="calculator-buttons"></div>
+                            <div class="calculator-history">
+                                <h4><i class="fas fa-history"></i> History</h4>
+                                <div id="calcHistory"></div>
+                            </div>
                         </div>
                     </div>
                 </div>
             </div>
-    
+
             <!-- Graph Modal -->
             <div id="graphModal" class="modal-overlay" style="display: none;">
                 <div class="modal-container">
                     <div class="modal-header" style="background: #7a0000; color: white;">
-                        <h3 style="margin: 0;"><i class="fas fa-chart-line"></i> FactoLearn Graph Tool</h3>
-                        <button class="modal-close" onclick="window.toolManager.closeTool()" style="color: white; background: none; border: none; font-size: 24px; cursor: pointer;">&times;</button>
+                        <h3 style="margin: 0;"><i class="fas fa-chart-line"></i> Factorial Graph Tool</h3>
+                        <button class="modal-close" onclick="window.toolManager.closeTool()" style="color: white;">&times;</button>
                     </div>
                     <div class="modal-body">
-                        <div class="graph-container">
-                            <canvas id="graphCanvas" width="600" height="400" style="width: 100%; height: auto; border: 1px solid #ddd; border-radius: 5px;"></canvas>
+                        <div class="graph-tool">
+                            <input type="text" id="graphExpression" placeholder="f(x) = " value="factorial(x)">
+                            <div style="display: flex; gap: 10px; margin: 10px 0;">
+                                <button id="plotGraphBtn" class="btn-primary">Plot</button>
+                            </div>
+                            <canvas id="graphCanvas" width="600" height="400"></canvas>
                         </div>
                     </div>
                 </div>
             </div>
-    
+
             <!-- Whiteboard Modal -->
             <div id="whiteboardModal" class="modal-overlay" style="display: none;">
                 <div class="modal-container">
                     <div class="modal-header" style="background: #7a0000; color: white;">
-                        <h3 style="margin: 0;"><i class="fas fa-paint-brush"></i> FactoLearn Whiteboard</h3>
-                        <button class="modal-close" onclick="window.toolManager.closeTool()" style="color: white; background: none; border: none; font-size: 24px; cursor: pointer;">&times;</button>
+                        <h3 style="margin: 0;"><i class="fas fa-paint-brush"></i> Factorial Whiteboard</h3>
+                        <button class="modal-close" onclick="window.toolManager.closeTool()" style="color: white;">&times;</button>
                     </div>
                     <div class="modal-body">
-                        <canvas id="whiteboardCanvas" width="600" height="400" style="width: 100%; height: 300px; border: 1px solid #ddd; border-radius: 5px;"></canvas>
+                        <div class="whiteboard-toolbar">
+                            <button onclick="window.toolManager.tools.whiteboard.setTool('pen')">Pen</button>
+                            <button onclick="window.toolManager.tools.whiteboard.setTool('eraser')">Eraser</button>
+                            <input type="color" id="colorPicker" value="#7a0000">
+                            <button onclick="window.toolManager.tools.whiteboard.clear()">Clear</button>
+                        </div>
+                        <canvas id="whiteboardCanvas" width="600" height="400"></canvas>
                     </div>
                 </div>
             </div>
-    
+
             <!-- Notepad Modal -->
             <div id="notepadModal" class="modal-overlay" style="display: none;">
                 <div class="modal-container">
                     <div class="modal-header" style="background: #7a0000; color: white;">
-                        <h3 style="margin: 0;"><i class="fas fa-sticky-note"></i> FactoLearn Notepad</h3>
-                        <button class="modal-close" onclick="window.toolManager.closeTool()" style="color: white; background: none; border: none; font-size: 24px; cursor: pointer;">&times;</button>
+                        <h3 style="margin: 0;"><i class="fas fa-sticky-note"></i> Factorial Notepad</h3>
+                        <button class="modal-close" onclick="window.toolManager.closeTool()" style="color: white;">&times;</button>
                     </div>
                     <div class="modal-body">
-                        <textarea id="noteContent" rows="10" placeholder="Write your FactoLearn notes here..." style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 5px;"></textarea>
+                        <input type="text" id="noteTitle" placeholder="Note Title">
+                        <textarea id="noteContent" placeholder="Write your factorial notes here..." rows="10"></textarea>
+                        <button onclick="window.toolManager.tools.notepad.save()">Save Note</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Formula Sheet Modal -->
+            <div id="formulaModal" class="modal-overlay" style="display: none;">
+                <div class="modal-container">
+                    <div class="modal-header" style="background: #7a0000; color: white;">
+                        <h3 style="margin: 0;"><i class="fas fa-square-root-alt"></i> Factorial Formula Sheet</h3>
+                        <button class="modal-close" onclick="window.toolManager.closeTool()" style="color: white;">&times;</button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="formula-categories">
+                            <button onclick="window.toolManager.tools.formula.showCategory('factorial')">Factorial</button>
+                            <button onclick="window.toolManager.tools.formula.showCategory('combinations')">Combinations</button>
+                            <button onclick="window.toolManager.tools.formula.showCategory('permutations')">Permutations</button>
+                        </div>
+                        <div id="formulaList"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Timer Modal -->
+            <div id="timerModal" class="modal-overlay" style="display: none;">
+                <div class="modal-container">
+                    <div class="modal-header" style="background: #7a0000; color: white;">
+                        <h3 style="margin: 0;"><i class="fas fa-clock"></i> Factorial Study Timer</h3>
+                        <button class="modal-close" onclick="window.toolManager.closeTool()" style="color: white;">&times;</button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="timer-display" id="timerDisplay">25:00</div>
+                        <div class="timer-controls">
+                            <button id="timerStartBtn">Start</button>
+                            <button id="timerPauseBtn">Pause</button>
+                            <button id="timerResetBtn">Reset</button>
+                        </div>
+                        <div class="timer-presets">
+                            <button id="timer15min">15 min</button>
+                            <button id="timer25min" class="active">25 min</button>
+                            <button id="timer50min">50 min</button>
+                        </div>
                     </div>
                 </div>
             </div>
         </div>
-    
-        <footer class="footer-nav">
-            <div class="footer-nav-content">
-                <a href="#" class="footer-nav-item active" data-page="dashboard">
-                    <i class="fas fa-tachometer-alt"></i>
-                    <span>FactoLearn Home</span>
-                </a>
-                <a href="#" class="footer-nav-item" data-page="practice">
-                    <i class="fas fa-book-open"></i>
-                    <span>FactoLearn Practice</span>
-                </a>
-                <button class="footer-hamburger" id="footerHamburgerBtn">
-                    <i class="fas fa-bars"></i>
-                    <span>Menu</span>
-                </button>
-                <a href="#" class="footer-nav-item" data-page="quiz">
-                    <i class="fas fa-question-circle"></i>
-                    <span>FactoLearn Quiz</span>
-                </a>
-                <a href="#" class="footer-nav-item" data-page="settings">
-                    <i class="fas fa-user"></i>
-                    <span>FactoLearn Profile</span>
-                </a>
-            </div>
-        </footer>
-    
-        <!-- Mobile Menu Overlay -->
-        <div class="mobile-menu-overlay" id="mobileMenuOverlay"></div>
-        <div class="mobile-menu-panel" id="mobileMenuPanel">
-            <div class="mobile-menu-header">
-                <h3>FactoLearn Menu</h3>
-            </div>
-            <div class="mobile-menu-grid">
-                <a href="#" class="mobile-menu-item active" onclick="showDashboard(event)">
-                    <i class="fas fa-tachometer-alt"></i>
-                    <span>FactoLearn Dashboard</span>
-                </a>
-                <a href="#" class="mobile-menu-item" onclick="showPracticeDashboard(event)">
-                    <i class="fas fa-book-open"></i>
-                    <span>FactoLearn Practice</span>
-                </a>
-                <a href="#" class="mobile-menu-item" onclick="showQuizDashboard(event)">
-                    <i class="fas fa-question-circle"></i>
-                    <span>FactoLearn Quiz</span>
-                </a>
-                <a href="#" class="mobile-menu-item" onclick="showProgressPage(event)">
-                    <i class="fas fa-chart-line"></i>
-                    <span>FactoLearn Progress</span>
-                </a>
-                <a href="#" class="mobile-menu-item" onclick="goToModuleDashboard(event)">
-                    <i class="fas fa-graduation-cap"></i>
-                    <span>FactoLearn Lessons</span>
-                </a>
-            </div>
-        </div>
-    
+
         <!-- Quiz Modal -->
         <div class="modal-overlay" id="quizModal">
             <div class="modal-container" style="max-width: 800px;">
                 <div class="modal-header" style="background: #7a0000; color: white;">
-                    <h2><i class="fas fa-question-circle"></i> <span id="quizModalTitle">FactoLearn Quiz</span></h2>
+                    <h2><i class="fas fa-question-circle"></i> <span id="quizModalTitle">Factorial Quiz</span></h2>
                     <button class="modal-close" onclick="closeQuizSystemModal()">&times;</button>
                 </div>
                 
@@ -2824,7 +2144,7 @@
                         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
                             <div>
                                 <span class="quiz-progress" style="background: #f0f0f0; padding: 5px 15px; border-radius: 20px;">
-                                    FactoLearn Question <span id="quizCurrentNum">1</span>/<span id="quizTotalNum">10</span>
+                                    Factorial Question <span id="quizCurrentNum">1</span>/<span id="quizTotalNum">10</span>
                                 </span>
                             </div>
                             <div class="quiz-timer" style="background: #7a0000; color: white; padding: 5px 20px; border-radius: 30px;">
@@ -2832,52 +2152,149 @@
                             </div>
                         </div>
                         
-                        <h3 id="quizQuestionTextModal" style="color: #2c3e50;">Loading FactoLearn question...</h3>
+                        <div id="quizProgressDotsModal" style="display: flex; gap: 8px; margin-bottom: 20px;"></div>
                         
-                        <div id="quizOptionsGridModal" style="margin: 20px 0;">
-                            <!-- Options will be loaded here -->
-                        </div>
+                        <h3 id="quizQuestionTextModal" style="color: #2c3e50;">Loading factorial question...</h3>
+                        
+                        <div id="quizOptionsGridModal" style="margin: 20px 0;"></div>
                         
                         <div style="display: flex; justify-content: flex-end; gap: 10px;">
                             <button class="btn-secondary" onclick="closeQuizSystemModal()">
                                 <i class="fas fa-times"></i> Cancel
                             </button>
                             <button class="btn-primary" id="submitQuizBtn" onclick="submitQuizSystem()" style="background: #7a0000;">
-                                <i class="fas fa-paper-plane"></i> Submit FactoLearn Quiz
+                                <i class="fas fa-paper-plane"></i> Submit Factorial Quiz
                             </button>
                         </div>
                     </div>
                 </div>
+
+                <div id="quizResultsContainer" style="display: none;">
+                    <div class="modal-body" style="padding: 30px;">
+                        <div id="quizResultsContent"></div>
+                    </div>
+                </div>
             </div>
         </div>
-    
+
         <!-- Forgot Password Modal -->
         <div id="forgotPasswordModal" class="modal-overlay">
             <div class="modal-container" style="max-width: 450px;">
                 <div class="modal-header" style="background: #7a0000; color: white;">
-                    <h3 style="margin: 0;"><i class="fas fa-key"></i> FactoLearn Password Reset</h3>
-                    <button class="modal-close" onclick="closeForgotPasswordModal()" style="color: white;">&times;</button>
+                    <h3><i class="fas fa-key"></i> Factorial Password Reset</h3>
+                    <button class="modal-close" onclick="closeForgotPasswordModal()">&times;</button>
                 </div>
                 
-                <div class="modal-body" style="padding: 25px;">
+                <div class="modal-body">
                     <div id="forgotStep1">
-                        <p style="margin-bottom: 20px;">Enter your email to reset your FactoLearn password.</p>
-                        
-                        <div style="margin-bottom: 20px;">
-                            <input type="email" id="resetEmail" class="form-control" 
-                                   placeholder="your@email.com" 
-                                   style="width: 100%; padding: 12px;">
-                        </div>
-                        
-                        <div style="display: flex; gap: 10px; justify-content: flex-end;">
+                        <p>Enter your email to reset your factorial account password.</p>
+                        <input type="email" id="resetEmail" class="form-control" placeholder="your@email.com">
+                        <div style="display: flex; gap: 10px; margin-top: 20px;">
                             <button class="btn-secondary" onclick="closeForgotPasswordModal()">Cancel</button>
                             <button class="btn-primary" onclick="requestPasswordReset()" style="background: #7a0000;">Send Reset Link</button>
+                        </div>
+                    </div>
+                    
+                    <div id="forgotStep2" style="display: none;">
+                        <div style="text-align: center;">
+                            <i class="fas fa-check-circle" style="font-size: 48px; color: #27ae60;"></i>
+                            <h3>Reset Link Sent!</h3>
+                            <p>Check your email for the password reset link.</p>
+                            <button class="btn-primary" onclick="closeForgotPasswordModal()" style="background: #7a0000;">OK</button>
                         </div>
                     </div>
                 </div>
             </div>
         </div>
-    
-        <script src="factolearn.js"></script>
-    </body>
+
+        <!-- Reset Password Modal -->
+        <div id="resetPasswordModal" class="modal-overlay">
+            <div class="modal-container" style="max-width: 450px;">
+                <div class="modal-header" style="background: #7a0000; color: white;">
+                    <h3><i class="fas fa-lock"></i> Create New Factorial Password</h3>
+                    <button class="modal-close" onclick="closeResetPasswordModal()">&times;</button>
+                </div>
+                
+                <div class="modal-body">
+                    <input type="password" id="newPassword" class="form-control" placeholder="New password">
+                    <input type="password" id="confirmNewPassword" class="form-control" placeholder="Confirm password" style="margin-top: 10px;">
+                    <div id="resetError" class="error-message" style="display: none;"></div>
+                    <div style="display: flex; gap: 10px; margin-top: 20px;">
+                        <button class="btn-secondary" onclick="closeResetPasswordModal()">Cancel</button>
+                        <button class="btn-primary" onclick="submitPasswordReset()" style="background: #7a0000;">Reset Password</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Footer Navigation -->
+    <footer class="footer-nav">
+        <div class="footer-nav-content">
+            <a href="#" class="footer-nav-item active" data-page="factolearn-dashboard">
+                <i class="fas fa-cube"></i>
+                <span>FactoLearn</span>
+            </a>
+            <a href="#" class="footer-nav-item" data-page="practice">
+                <i class="fas fa-book-open"></i>
+                <span>Practice</span>
+            </a>
+            <button class="footer-hamburger" id="footerHamburgerBtn">
+                <i class="fas fa-bars"></i>
+                <span>Menu</span>
+            </button>
+            <a href="#" class="footer-nav-item" data-page="quiz">
+                <i class="fas fa-question-circle"></i>
+                <span>Quiz</span>
+            </a>
+            <a href="#" class="footer-nav-item" data-page="settings">
+                <i class="fas fa-user"></i>
+                <span>Profile</span>
+            </a>
+        </div>
+    </footer>
+
+    <!-- Mobile Menu Overlay -->
+    <div class="mobile-menu-overlay" id="mobileMenuOverlay"></div>
+    <div class="mobile-menu-panel" id="mobileMenuPanel">
+        <div class="mobile-menu-header">
+            <h3>FactoLearn Menu</h3>
+        </div>
+        <div class="mobile-menu-grid">
+            <a href="#" class="mobile-menu-item active" onclick="showFactoLearnDashboard(event)">
+                <i class="fas fa-cube"></i>
+                <span>FactoLearn</span>
+            </a>
+            <a href="#" class="mobile-menu-item" onclick="showPracticeDashboard(event)">
+                <i class="fas fa-book-open"></i>
+                <span>Practice</span>
+            </a>
+            <a href="#" class="mobile-menu-item" onclick="showQuizDashboard(event)">
+                <i class="fas fa-question-circle"></i>
+                <span>Quiz</span>
+            </a>
+            <a href="#" class="mobile-menu-item" onclick="showProgressPage(event)">
+                <i class="fas fa-chart-line"></i>
+                <span>Progress</span>
+            </a>
+            <a href="#" class="mobile-menu-item" onclick="goToModuleDashboard(event)">
+                <i class="fas fa-graduation-cap"></i>
+                <span>Lessons</span>
+            </a>
+            <a href="#" class="mobile-menu-item" onclick="showSettingsPage(event)">
+                <i class="fas fa-cog"></i>
+                <span>Settings</span>
+            </a>
+            <a href="#" class="mobile-menu-item" onclick="showFeedbackPage(event)">
+                <i class="fas fa-comments"></i>
+                <span>Feedback</span>
+            </a>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="factolearn.js"></script>
+    <script src="lesson-tools-fix.js"></script>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+</body>
 </html>
