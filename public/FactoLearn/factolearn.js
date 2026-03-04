@@ -6431,22 +6431,22 @@ async function loadProgressDashboardData() {
             totalLessonsCount
         ] = await Promise.allSettled([
             // 1. Get PolyLearn lessons progress
-            fetch(`/api/progress/lessons?lesson_id=${POLYLEARN_LESSON_ID}`, {
+            fetch(`/api/progress/lessons?lesson_id=${FACTORIAL_LESSON_ID}`, {
                 headers: { 'Authorization': `Bearer ${token}` }
             }).then(res => res.json()).catch(() => ({ success: false })),
             
             // 2. Get PolyLearn practice stats
-            fetch(`/api/progress/practice-attempts?lesson_id=${POLYLEARN_LESSON_ID}`, {
+            fetch(`/api/progress/practice-attempts?lesson_id=${FACTORIAL_LESSON_ID}`, {
                 headers: { 'Authorization': `Bearer ${token}` }
             }).then(res => res.json()).catch(() => ({ success: false })),
             
             // 3. Get PolyLearn quiz stats
-            fetch(`/api/quiz/user/attempts?lesson_id=${POLYLEARN_LESSON_ID}`, {
+            fetch(`/api/quiz/user/attempts?lesson_id=${FACTORIAL_LESSON_ID}`, {
                 headers: { 'Authorization': `Bearer ${token}` }
             }).then(res => res.json()).catch(() => ({ success: false })),
             
             // 4. Get total PolyLearn lessons
-            fetch(`/api/lessons-db/complete?lesson_id=${POLYLEARN_LESSON_ID}`, {
+            fetch(`/api/lessons-db/complete?lesson_id=${FACTORIAL_LESSON_ID}`, {
                 headers: { 'Authorization': `Bearer ${token}` }
             }).then(res => res.json()).catch(() => ({ success: false }))
         ]);
@@ -6815,7 +6815,7 @@ async function updateProgressSummaryCards() {
         
         try {
             // ✅ Get total PolyLearn practice exercises (lesson_id=2)
-            console.log(`📡 Fetching total exercises count for lesson ${POLYLEARN_LESSON_ID}...`);
+            console.log(`📡 Fetching total exercises count for lesson ${FACTORIAL_LESSON_ID}...`);
             const totalExercisesResponse = await fetch(`/api/practice/exercises/count?lesson_id=${FACTORIAL_LESSON_ID}`, {
                 headers: { 'Authorization': `Bearer ${token}` }
             });
@@ -6838,7 +6838,7 @@ async function updateProgressSummaryCards() {
             }
             
             // ✅ Get PolyLearn practice attempts (lesson_id=3)
-            console.log(`📡 Fetching practice attempts for lesson ${POLYLEARN_LESSON_ID}...`);
+            console.log(`📡 Fetching practice attempts for lesson ${FACTORIAL_LESSON_ID}...`);
             const practiceResponse = await fetch(`/api/progress/practice-attempts?lesson_id=${FACTORIAL_LESSON_ID}`, {
                 headers: { 'Authorization': `Bearer ${token}` }
             });
