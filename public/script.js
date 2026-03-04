@@ -29082,47 +29082,6 @@ function showSection(sectionId) {
 // RESET SETTINGS TO DEFAULTS
 // ============================================
 
-/**
- * Reset settings to defaults
- */
-async function resetSettings() {
-    console.log('🔄 Resetting settings to defaults');
-    
-    if (!confirm('Are you sure you want to reset all settings to default values?')) return;
-    
-    const token = localStorage.getItem('authToken') || authToken;
-    
-    try {
-        // Call database to reset
-        if (token) {
-            await fetch(`/api/user/reset-settings`, {
-                method: 'POST',
-                headers: {
-                    'Authorization': `Bearer ${token}`,
-                    'Content-Type': 'application/json'
-                }
-            });
-        }
-        
-        // Reset form fields
-        resetFormFields();
-        
-        // Clear localStorage
-        localStorage.removeItem('userPreferences');
-        localStorage.removeItem('notificationSettings');
-        localStorage.removeItem('privacySettings');
-        localStorage.removeItem('displaySettings');
-        
-        showNotification('Settings reset to defaults', 'success');
-        
-    } catch (error) {
-        console.error('Error resetting settings:', error);
-        
-        // Reset locally even if database fails
-        resetFormFields();
-        showNotification('Settings reset locally', 'info');
-    }
-}
 
 /**
  * Reset form fields to defaults
