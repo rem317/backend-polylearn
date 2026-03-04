@@ -23088,3 +23088,251 @@ function initHamburgerMenu() {
 })();
 
 console.log('✅ Emergency fixes applied!');
+
+// ============================================
+// 🚨 EMERGENCY AUTH FIX - REAL DATA FROM DATABASE
+// ============================================
+(function fixAuthForRealData() {
+    console.log('🔧 FIXING AUTHENTICATION FOR REAL DATA...');
+    
+    // 1. Get auth token from localStorage
+    const token = localStorage.getItem('authToken');
+    const userJson = localStorage.getItem('mathhub_user');
+    
+    console.log('🔍 Current auth status:', { 
+        hasToken: !!token, 
+        hasUser: !!userJson 
+    });
+    
+    if (!token || !userJson) {
+        console.log('❌ NO AUTHENTICATION FOUND!');
+        console.log('📢 Please login first at the login page.');
+        
+        // Show login message
+        const dashboard = document.getElementById('dashboard-page');
+        if (dashboard) {
+            dashboard.innerHTML = `
+                <div style="max-width: 500px; margin: 50px auto; text-align: center; padding: 40px; background: white; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.15);">
+                    <i class="fas fa-lock" style="font-size: 80px; color: #7a0000; margin-bottom: 20px;"></i>
+                    <h2 style="color: #2c3e50; margin-bottom: 15px;">Authentication Required</h2>
+                    <p style="color: #666; margin-bottom: 25px; line-height: 1.6;">
+                        You need to login to access real data from the database.<br>
+                        Please login with your credentials.
+                    </p>
+                    <button onclick="window.location.href='/login'" style="background: #7a0000; color: white; border: none; padding: 12px 30px; border-radius: 5px; font-size: 16px; cursor: pointer; margin-right: 10px;">
+                        <i class="fas fa-sign-in-alt"></i> Go to Login
+                    </button>
+                    <button onclick="useDemoData()" style="background: #3498db; color: white; border: none; padding: 12px 30px; border-radius: 5px; font-size: 16px; cursor: pointer;">
+                        <i class="fas fa-flask"></i> Use Demo Data
+                    </button>
+                </div>
+            `;
+            dashboard.classList.remove('hidden');
+        }
+        
+        // Add demo data function
+        window.useDemoData = function() {
+            console.log('📦 Using demo data...');
+            location.reload();
+        };
+        
+        return;
+    }
+    
+    // 2. Try to verify token
+    try {
+        const user = JSON.parse(userJson);
+        console.log('✅ User authenticated:', user.username);
+        console.log('🔑 Token:', token.substring(0, 20) + '...');
+        
+        // 3. FORCE ALL FETCH REQUESTS TO USE THE TOKEN
+        const originalFetch = window.fetch;
+        window.fetch = function(url, options = {}) {
+            // Add auth header to all requests
+            if (!options.headers) options.headers = {};
+            options.headers['Authorization'] = `Bearer ${token}`;
+            options.headers['Content-Type'] = 'application/json';
+            options.headers['Accept'] = 'application/json';
+            
+            // Add credentials
+            options.credentials = 'include';
+            
+            // For debugging
+            if (typeof url === 'string' && url.includes('/api/')) {
+                console.log(`📡 Fetching: ${url.split('?')[0]}`);
+            }
+            
+            return originalFetch(url, options).then(async response => {
+                // If 401/403, try to refresh token or show error
+                if (response.status === 401) {
+                    console.error(`❌ Auth failed for ${url.split('?')[0]}`);
+                    
+                    // Try once more with token from localStorage (maybe it changed)
+                    const freshToken = localStorage.getItem('authToken');
+                    if (freshToken && freshToken !== token) {
+                        console.log('🔄 Retrying with fresh token...');
+                        options.headers['Authorization'] = `Bearer ${freshToken}`;
+                        return originalFetch(url, options);
+                    }
+                }
+                return response;
+            });
+        };
+        
+        console.log('✅ Auth fix applied - all requests will use token');
+        
+    } catch (error) {
+        console.error('❌ Error parsing user data:', error);
+        localStorage.removeItem('authToken');
+        localStorage.removeItem('mathhub_user');
+    }
+})();
+
+// ============================================
+// 🚨 FIX FOR 403/401 ERRORS - RETRY WITH TOKEN
+// ============================================
+window.retryWithAuth = async function(url, options = {}) {
+    const token = localStorage.getItem('authToken');
+    if (!token) {
+        console.error('❌ No token available');
+        return null;
+    }
+    
+    if (!options.headers) options.headers = {};
+    options.headers['Authorization'] = `Bearer ${token}`;
+    
+    try {
+        const response = await fetch(url, options);
+        if (response.ok) {
+            return await response.json();
+        } else {
+            console.error(`❌ ${response.status} for ${url.split('?')[0]}`);
+            return null;
+        }
+    } catch (error) {
+        console.error('❌ Fetch error:', error);
+        return null;
+    }
+};
+
+// ============================================
+// 🚨 DEBUG: Check what's in your database
+// ============================================
+window.checkDatabase = async function() {
+    console.log('🔍 CHECKING DATABASE CONNECTION...');
+    
+    const token = localStorage.getItem('authToken');
+    if (!token) {
+        console.error('❌ No token found. Please login first.');
+        return;
+    }
+    
+    const endpoints = [
+        { name: 'Lessons', url: '/api/lessons-db/complete?lesson_id=3' },
+        { name: 'Practice Exercises', url: '/api/practice/exercises/count?lesson_id=3' },
+        { name: 'User Progress', url: '/api/progress/lessons?lesson_id=3' },
+        { name: 'Quiz Categories', url: '/api/quiz/categories?lesson_id=3' }
+    ];
+    
+    for (const ep of endpoints) {
+        try {
+            console.log(`\n📡 Fetching ${ep.name}...`);
+            const response = await fetch(ep.url, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            
+            console.log(`Status: ${response.status} ${response.statusText}`);
+            
+            if (response.ok) {
+                const data = await response.json();
+                console.log(`✅ Success:`, data);
+            } else {
+                console.log(`❌ Failed: ${response.status}`);
+            }
+        } catch (error) {
+            console.error(`❌ Error:`, error.message);
+        }
+    }
+};
+
+// ============================================
+// 🚨 LOGIN HELPER
+// ============================================
+window.quickLogin = async function(email, password) {
+    try {
+        const response = await fetch('/api/auth/login', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email, password })
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            localStorage.setItem('authToken', data.token);
+            localStorage.setItem('mathhub_user', JSON.stringify(data.user));
+            console.log('✅ Login successful!');
+            console.log('👤 User:', data.user.username);
+            console.log('🔄 Reloading page...');
+            location.reload();
+        } else {
+            console.error('❌ Login failed:', data.message);
+        }
+    } catch (error) {
+        console.error('❌ Login error:', error);
+    }
+};
+
+// ============================================
+// 🚨 FORCE SHOW DASHBOARD WITH AUTH CHECK
+// ============================================
+(function forceShowDashboard() {
+    console.log('🚨 Forcing dashboard to show...');
+    
+    // Wait for DOM
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', showDashboard);
+    } else {
+        showDashboard();
+    }
+    
+    function showDashboard() {
+        const token = localStorage.getItem('authToken');
+        const userJson = localStorage.getItem('mathhub_user');
+        
+        // Hide all pages
+        document.querySelectorAll('[id$="-page"]').forEach(page => {
+            page.classList.add('hidden');
+        });
+        
+        // Show dashboard
+        const dashboard = document.getElementById('dashboard-page');
+        if (dashboard) {
+            dashboard.classList.remove('hidden');
+            console.log('✅ Dashboard is visible');
+            
+            // Update welcome message
+            if (userJson) {
+                try {
+                    const user = JSON.parse(userJson);
+                    const welcome = document.getElementById('dashboardWelcomeTitle');
+                    if (welcome) {
+                        welcome.textContent = `Welcome back, ${user.full_name || user.username}!`;
+                    }
+                } catch (e) {}
+            }
+            
+            // Show auth status
+            const status = document.getElementById('userAchievementBadge');
+            if (status) {
+                if (token) {
+                    status.innerHTML = '<i class="fas fa-check-circle" style="color: #27ae60;"></i> Authenticated';
+                } else {
+                    status.innerHTML = '<i class="fas fa-exclamation-triangle" style="color: #f39c12;"></i> Not logged in';
+                }
+            }
+        }
+    }
+})();
+
+console.log('✅ Auth fixes applied!');
