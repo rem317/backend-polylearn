@@ -5995,7 +5995,7 @@ function createQuickModuleModal() {
         });
     }
 }
-// ===== SAVE QUICK MODULE =====
+// ===== FIXED: SAVE QUICK MODULE WITH PROPER REFRESH =====
 async function saveQuickModule() {
     console.log("💾 Saving quick module...");
     
@@ -6062,26 +6062,58 @@ async function saveQuickModule() {
             // Close module modal
             closeQuickModuleModal();
             
-            // Refresh structure from server
+            // ===== REFRESH MODULES FROM SERVER =====
             try {
+                console.log("🔄 Refreshing modules from server...");
+                
                 const structureResponse = await fetch(`/api/admin/structure`, {
                     headers: { 'Authorization': `Bearer ${token}` }
                 });
-                const structureResult = await structureResponse.json();
                 
-                if (structureResult.success) {
-                    window.quickModules = structureResult.structure.modules || [];
-                    window.quickLessons = structureResult.structure.lessons || [];
-                    window.quickTopics = structureResult.structure.topics || [];
-                    console.log("✅ Structure refreshed, modules:", window.quickModules.length);
+                if (structureResponse.ok) {
+                    const structureResult = await structureResponse.json();
+                    
+                    if (structureResult.success) {
+                        // Update global modules
+                        window.quickModules = structureResult.structure.modules || [];
+                        window.quickLessons = structureResult.structure.lessons || [];
+                        window.quickTopics = structureResult.structure.topics || [];
+                        
+                        console.log(`✅ Modules refreshed: ${window.quickModules.length} total modules`);
+                        
+                        // ===== FIX: Update BOTH dropdowns =====
+                        
+                        // 1. Update Create Topic modal dropdown if open
+                        const topicModuleSelect = document.getElementById('quickModuleSelect');
+                        if (topicModuleSelect) {
+                            const topicLessonSelect = document.getElementById('quickLessonSelect');
+                            if (topicLessonSelect && topicLessonSelect.value) {
+                                updateModuleDropdown(topicLessonSelect.value);
+                            }
+                        }
+                        
+                        // 2. Update Create Lesson modal dropdown if open
+                        const lessonModuleSelect = document.getElementById('moduleSelect');
+                        const lessonSelect = document.getElementById('lessonSelect');
+                        
+                        if (lessonModuleSelect && lessonSelect && lessonSelect.value) {
+                            console.log(`🔄 Refreshing lesson module dropdown for lesson ${lessonSelect.value}`);
+                            updateLessonModuleDropdown(lessonSelect.value);
+                        }
+                        
+                        console.log("✅ Both dropdowns refreshed");
+                    }
                 }
             } catch (refreshError) {
                 console.warn("⚠️ Could not refresh structure:", refreshError);
             }
             
-            // Reopen topic modal
+            // Reopen topic modal if it was open
             setTimeout(() => {
-                openQuickTopicModal();
+                const topicModal = document.getElementById('quickTopicModal');
+                if (topicModal && topicModal.style.display === 'flex') {
+                    openQuickTopicModal();
+                }
             }, 500);
             
         } else {
@@ -19696,7 +19728,7 @@ document.addEventListener('change', function(e) {
 });
 
 
-// 1. I-ADD ANG FUNCTION NA ITO
+// ===== ITO ANG GUARANTEED NA LAGING MAY CREATE NEW MODULE =====
 function updateLessonModuleDropdown(lessonId) {
     console.log("🔄 Updating lesson module dropdown for lesson:", lessonId);
     
@@ -19747,16 +19779,16 @@ function updateLessonModuleDropdown(lessonId) {
         moduleSelect.appendChild(separator);
     }
     
-    // ===== CRITICAL: CREATE NEW MODULE OPTION =====
+    // ===== LAGI MAY CREATE NEW MODULE OPTION =====
     const createOption = document.createElement('option');
     createOption.value = 'create';
     createOption.textContent = '➕ Create New Module...';
     createOption.style.color = '#7a0000';
     createOption.style.fontWeight = 'bold';
-    moduleSelect.appendChild(createOption);
+    moduleSelect.appendChild(createOption);  // ← LAGI NANDITO SA DULO
     
     moduleSelect.disabled = false;
-    console.log("✅ Module dropdown ready with 'Create New Module' option");
+    console.log("✅ Lesson module dropdown ready with 'Create New Module'");
 }
 
 
