@@ -6980,172 +6980,166 @@ function updateProgressDashboardUI() {
 }
 
 // ============================================
-// ✅ UPDATED: updateProgressSummaryCards - REAL DATA FROM DATABASE
+// 📊 PROGRESS SUMMARY FUNCTIONS
 // ============================================
 async function updateProgressSummaryCards() {
-    console.log('📊 Updating Factorial progress summary cards with REAL data (lesson_id = 3)...');
+    console.log('📊 Updating PolyLearn progress summary cards (lesson_id = 2)...');
     
     try {
         const token = localStorage.getItem('authToken') || authToken;
-        if (!token) {
-            console.warn('No auth token available');
-            setDefaultProgressValues();
-            return;
-        }
+        if (!token) return;
         
-        // Show loading states
-        showDashboardLoading();
+        const POLYLEARN_LESSON_ID = 2;
         
-        // ===== FETCH ALL DATA FROM DATABASE IN PARALLEL =====
-        const [lessonsData, practiceStats, quizStats] = await Promise.allSettled([
-            // 1. GET LESSONS PROGRESS
-            fetch(`/api/progress/lessons?lesson_id=3`, {
-                headers: { 'Authorization': `Bearer ${token}` }
-            }).then(res => res.json()).catch(err => ({ success: false, error: err })),
-            
-            // 2. GET PRACTICE ATTEMPTS
-            fetch(`/api/progress/practice-attempts?lesson_id=3`, {
-                headers: { 'Authorization': `Bearer ${token}` }
-            }).then(res => res.json()).catch(err => ({ success: false, error: err })),
-            
-            // 3. GET QUIZ STATS
-            fetch(`/api/quiz/user/attempts?lesson_id=3`, {
-                headers: { 'Authorization': `Bearer ${token}` }
-            }).then(res => res.json()).catch(err => ({ success: false, error: err }))
-        ]);
-        
-        // ===== PROCESS LESSONS DATA =====
+        // ===== 1. GET POLYLEARN LESSONS =====
         let lessonsCompleted = 0;
         let totalLessons = 0;
         
-        if (lessonsData.status === 'fulfilled' && lessonsData.value.success) {
-            const progress = lessonsData.value.progress || [];
-            
-            // Get total lessons count from a separate endpoint or from the data
-            const totalLessonsResponse = await fetch(`/api/lessons-db/complete?lesson_id=3`, {
+        try {
+            // Get total lessons count for PolyLearn
+            const totalResponse = await fetch(`/api/lessons-db/complete?lesson_id=${POLYLEARN_LESSON_ID}`, {
                 headers: { 'Authorization': `Bearer ${token}` }
-            }).catch(() => ({ success: false }));
+            });
             
-            if (totalLessonsResponse.ok) {
-                const totalData = await totalLessonsResponse.json();
-                totalLessons = totalData.lessons?.length || 0;
-            } else {
-                // If can't fetch total, use the unique lesson IDs from progress
-                const uniqueLessons = new Set(progress.map(p => p.content_id)).size;
-                totalLessons = Math.max(uniqueLessons, 10); // Fallback to 10
+            if (totalResponse.ok) {
+                const totalData = await totalResponse.json();
+                if (totalData.success && totalData.lessons) {
+                    totalLessons = totalData.lessons.length;
+                    console.log(`📚 Total PolyLearn lessons: ${totalLessons}`);
+                }
             }
             
-            // Count completed lessons
-            lessonsCompleted = progress.filter(p => 
-                p.completion_status === 'completed' || p.status === 'completed'
-            ).length;
+            // Get lessons progress for PolyLearn
+            const lessonsResponse = await fetch(`/api/progress/lessons?lesson_id=${POLYLEARN_LESSON_ID}`, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
             
-            console.log(`✅ Lessons completed from DB: ${lessonsCompleted}/${totalLessons}`);
-        } else {
-            console.warn('⚠️ Could not fetch lessons data');
+            if (lessonsResponse.ok) {
+                const lessonsData = await lessonsResponse.json();
+                if (lessonsData.success && lessonsData.progress) {
+                    lessonsCompleted = lessonsData.progress.filter(p => 
+                        p.completion_status === 'completed' || p.status === 'completed'
+                    ).length;
+                    
+                    console.log(`✅ PolyLearn lessons completed: ${lessonsCompleted}/${totalLessons}`);
+                }
+            }
+        } catch (error) {
+            console.warn('⚠️ Could not fetch PolyLearn lessons:', error.message);
         }
         
-        // ===== PROCESS PRACTICE DATA =====
+        // ===== 2. GET POLYLEARN PRACTICE EXERCISES =====
         let exercisesCompleted = 0;
         let totalExercises = 0;
         
-        if (practiceStats.status === 'fulfilled' && practiceStats.value.success) {
-            const attempts = practiceStats.value.attempts || [];
-            
-            // Get total exercises count
-            const totalExercisesResponse = await fetch(`/api/practice/exercises/count?lesson_id=3`, {
+        try {
+            // Get total PolyLearn practice exercises
+            const totalExercisesResponse = await fetch(`/api/practice/exercises/count?lesson_id=${POLYLEARN_LESSON_ID}`, {
                 headers: { 'Authorization': `Bearer ${token}` }
-            }).catch(() => ({ success: false }));
+            });
             
             if (totalExercisesResponse.ok) {
                 const totalData = await totalExercisesResponse.json();
-                totalExercises = totalData.count || 0;
-            } else {
-                // If can't fetch total, use unique exercise IDs
-                const uniqueExercises = new Set(attempts.map(a => a.exercise_id)).size;
-                totalExercises = Math.max(uniqueExercises, 15); // Fallback to 15
+                if (totalData.success) {
+                    totalExercises = totalData.count || 0;
+                    console.log(`📝 Total PolyLearn practice exercises: ${totalExercises}`);
+                }
             }
             
-            // Count completed exercises (score >= 70 or status completed)
-            exercisesCompleted = attempts.filter(a => 
-                a.completion_status === 'completed' || 
-                a.percentage >= 70 ||
-                a.score >= 70
-            ).length;
-            
-            console.log(`✅ Exercises completed from DB: ${exercisesCompleted}/${totalExercises}`);
-        } else {
-            console.warn('⚠️ Could not fetch practice data');
-        }
-        
-        // ===== PROCESS QUIZ DATA =====
-        let totalQuizPoints = 0;
-        
-        if (quizStats.status === 'fulfilled' && quizStats.value.success) {
-            const attempts = quizStats.value.attempts || [];
-            
-            // Calculate points (10 points per correct answer)
-            attempts.forEach(attempt => {
-                const correctAnswers = attempt.correct_answers || 0;
-                totalQuizPoints += correctAnswers * 10;
+            // Get PolyLearn practice attempts
+            const practiceResponse = await fetch(`/api/progress/practice-attempts?lesson_id=${POLYLEARN_LESSON_ID}`, {
+                headers: { 'Authorization': `Bearer ${token}` }
             });
             
-            console.log(`✅ Quiz points from DB: ${totalQuizPoints}`);
-        } else {
-            console.warn('⚠️ Could not fetch quiz data');
+            if (practiceResponse.ok) {
+                const practiceData = await practiceResponse.json();
+                if (practiceData.success && practiceData.attempts) {
+                    exercisesCompleted = practiceData.attempts.filter(attempt => 
+                        attempt.completion_status === 'completed' || 
+                        attempt.percentage >= 70 ||
+                        attempt.score >= 70
+                    ).length;
+                    
+                    console.log(`✅ PolyLearn completed exercises: ${exercisesCompleted}/${totalExercises}`);
+                }
+            }
+            
+        } catch (error) {
+            console.error('❌ Error fetching practice:', error.message);
         }
         
-        // ===== UPDATE THE UI =====
+        // ===== 3. GET POLYLEARN QUIZ POINTS =====
+        let totalPoints = 0;
+        
+        try {
+            const quizResponse = await fetch(`/api/quiz/user/attempts?lesson_id=${POLYLEARN_LESSON_ID}`, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            
+            if (quizResponse.ok) {
+                const quizData = await quizResponse.json();
+                if (quizData.success && quizData.attempts) {
+                    quizData.attempts.forEach(attempt => {
+                        const correctAnswers = attempt.correct_answers || 0;
+                        totalPoints += correctAnswers * 10;
+                    });
+                    console.log(`✅ PolyLearn quiz points: ${totalPoints}`);
+                }
+            }
+        } catch (error) {
+            console.warn('⚠️ Could not fetch PolyLearn quiz points:', error.message);
+        }
+        
+        // ===== 4. UPDATE THE UI =====
         
         // Update lessons count
-        const lessonsCountEl = document.getElementById('lessonsCount');
-        if (lessonsCountEl) {
-            lessonsCountEl.innerHTML = `${lessonsCompleted}<span class="item-unit">/${totalLessons || 10}</span>`;
+        const lessonsCount = document.getElementById('lessonsCount');
+        if (lessonsCount) {
+            lessonsCount.innerHTML = `${lessonsCompleted}<span class="item-unit">/${totalLessons || 10}</span>`;
         }
         
         // Update exercises count
-        const exercisesCountEl = document.getElementById('exercisesCount');
-        if (exercisesCountEl) {
-            exercisesCountEl.innerHTML = `${exercisesCompleted}<span class="item-unit">/${totalExercises || 15}</span>`;
+        const exercisesCount = document.getElementById('exercisesCount');
+        if (exercisesCount) {
+            exercisesCount.innerHTML = `${exercisesCompleted}<span class="item-unit">/${totalExercises || 15}</span>`;
         }
         
         // Update quiz score
-        const quizScoreEl = document.getElementById('quizScore');
-        if (quizScoreEl) {
-            quizScoreEl.innerHTML = `${totalQuizPoints}<span class="item-unit">points</span>`;
+        const quizScore = document.getElementById('quizScore');
+        if (quizScore) {
+            quizScore.innerHTML = `${totalPoints}<span class="item-unit">points</span>`;
         }
         
-        // Update average time (calculate based on total time spent)
-        const avgTimeEl = document.getElementById('avgTime');
-        if (avgTimeEl) {
-            // Get total time from all activities
-            let totalMinutes = 0;
-            
-            if (practiceStats.status === 'fulfilled' && practiceStats.value.success) {
-                const attempts = practiceStats.value.attempts || [];
-                totalMinutes += attempts.reduce((sum, a) => sum + (a.time_spent_seconds || 0), 0) / 60;
-            }
-            
-            if (quizStats.status === 'fulfilled' && quizStats.value.success) {
-                const attempts = quizStats.value.attempts || [];
-                totalMinutes += attempts.reduce((sum, a) => sum + (a.time_spent_seconds || 0), 0) / 60;
-            }
-            
-            // Calculate daily average (assuming 7 days)
-            const avgDaily = Math.round(totalMinutes / 7) || 5;
-            avgTimeEl.innerHTML = `${avgDaily}<span class="item-unit">min/day</span>`;
+        // Update avg time
+        const avgTime = document.getElementById('avgTime');
+        if (avgTime) {
+            const totalActivities = lessonsCompleted + exercisesCompleted;
+            const avgPerActivity = totalActivities > 0 ? Math.round(5 + (totalActivities * 0.5)) : 5;
+            avgTime.innerHTML = `${avgPerActivity}<span class="item-unit">min/day</span>`;
         }
         
-        // Hide loading
-        hideDashboardLoading();
-        
-        console.log('✅ Progress summary cards updated with REAL database data');
+        console.log('✅ PolyLearn progress summary cards updated');
+        console.log(`   FINAL - Lessons: ${lessonsCompleted}/${totalLessons}, Practice: ${exercisesCompleted}/${totalExercises}, Points: ${totalPoints}`);
         
     } catch (error) {
         console.error('❌ Error updating progress summary cards:', error);
         setDefaultProgressValues();
-        hideDashboardLoading();
     }
+}
+
+// ============================================
+// 📊 DEFAULT PROGRESS VALUES (fallback)
+// ============================================
+function setDefaultProgressValues() {
+    const lessonsCount = document.getElementById('lessonsCount');
+    const exercisesCount = document.getElementById('exercisesCount');
+    const quizScore = document.getElementById('quizScore');
+    const avgTime = document.getElementById('avgTime');
+    
+    if (lessonsCount) lessonsCount.innerHTML = `0<span class="item-unit">/10</span>`;
+    if (exercisesCount) exercisesCount.innerHTML = `0<span class="item-unit">/15</span>`;
+    if (quizScore) quizScore.innerHTML = `0<span class="item-unit">points</span>`;
+    if (avgTime) avgTime.innerHTML = `5<span class="item-unit">min/day</span>`;
 }
 // Palitan ang pangalan:
 window.debugFactorialProgress = async function() {
@@ -7190,22 +7184,165 @@ window.debugFactorialProgress = async function() {
     
     console.log('✅ Debug complete');
 };
-
 // ============================================
-// Fallback function for default values
+// 🚀 LOAD PROGRESS SUMMARY ON PAGE LOAD
 // ============================================
-function setDefaultProgressValues() {
-    const lessonsCount = document.getElementById('lessonsCount');
-    const exercisesCount = document.getElementById('exercisesCount');
-    const quizScore = document.getElementById('quizScore');
-    const avgTime = document.getElementById('avgTime');
+async function loadProgressSummary() {
+    console.log('📊 Loading progress summary...');
     
-    if (lessonsCount) lessonsCount.innerHTML = `0<span class="item-unit">/10</span>`;
-    if (exercisesCount) exercisesCount.innerHTML = `0<span class="item-unit">/15</span>`;
-    if (quizScore) quizScore.innerHTML = `0<span class="item-unit">points</span>`;
-    if (avgTime) avgTime.innerHTML = `5<span class="item-unit">min/day</span>`;
+    // Show loading state
+    const elements = ['lessonsCount', 'exercisesCount', 'quizScore', 'avgTime'];
+    elements.forEach(id => {
+        const el = document.getElementById(id);
+        if (el) {
+            el.setAttribute('data-original', el.innerHTML);
+            el.innerHTML = '<i class="fas fa-spinner fa-spin" style="font-size: 14px;"></i>';
+        }
+    });
+    
+    // Load data
+    await updateProgressSummaryCards();
 }
 
+// ============================================
+// 🧭 NAVIGATION FUNCTIONS FOR MENU
+// ============================================
+function showDashboard(e) {
+    if (e) e.preventDefault();
+    closeMobileMenu();
+    navigateTo('dashboard');
+}
+
+function showPracticeDashboard(e) {
+    if (e) e.preventDefault();
+    closeMobileMenu();
+    navigateTo('practice');
+}
+
+function showQuizDashboard(e) {
+    if (e) e.preventDefault();
+    closeMobileMenu();
+    navigateTo('quizDashboard');
+}
+
+function showProgressPage(e) {
+    if (e) e.preventDefault();
+    closeMobileMenu();
+    navigateTo('progress');
+}
+
+function showFeedbackPage(e) {
+    if (e) e.preventDefault();
+    closeMobileMenu();
+    navigateTo('feedback');
+}
+
+function showSettingsPage(e) {
+    if (e) e.preventDefault();
+    closeMobileMenu();
+    navigateTo('settings');
+}
+
+function goToModuleDashboard(e) {
+    if (e) e.preventDefault();
+    closeMobileMenu();
+    navigateTo('moduleDashboard');
+}
+
+function closeMobileMenu() {
+    const menuOverlay = document.getElementById('mobileMenuOverlay');
+    const menuPanel = document.getElementById('mobileMenuPanel');
+    
+    if (menuOverlay) {
+        menuOverlay.classList.remove('active');
+        menuOverlay.style.display = 'none';
+        menuOverlay.style.opacity = '0';
+    }
+    
+    if (menuPanel) {
+        menuPanel.classList.remove('active');
+        menuPanel.style.right = '-100%';
+    }
+    
+    document.body.classList.remove('modal-open');
+    document.body.style.overflow = '';
+}
+
+// ============================================
+// 🚪 LOGOUT CONFIRMATION
+// ============================================
+function showLogoutConfirmation() {
+    const modalHTML = `
+        <div id="logoutModal" class="modal-overlay" style="display: flex; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); backdrop-filter: blur(5px); z-index: 10000; justify-content: center; align-items: center;">
+            <div style="background: white; max-width: 380px; width: 90%; border-radius: 16px; overflow: hidden; box-shadow: 0 20px 40px rgba(0,0,0,0.4);">
+                <div style="background: #7a0000; color: white; padding: 16px 20px; display: flex; justify-content: space-between; align-items: center;">
+                    <h3 style="margin: 0; font-size: 18px;"><i class="fas fa-sign-out-alt"></i> Confirm Logout</h3>
+                    <button onclick="closeLogoutModal()" style="background: none; border: none; color: white; font-size: 24px; cursor: pointer;">&times;</button>
+                </div>
+                
+                <div style="padding: 25px 20px; text-align: center;">
+                    <div style="width: 70px; height: 70px; border-radius: 50%; background: #fff3cd; margin: 0 auto 15px; display: flex; align-items: center; justify-content: center;">
+                        <i class="fas fa-exclamation-triangle" style="font-size: 35px; color: #856404;"></i>
+                    </div>
+                    
+                    <h4 style="margin: 0 0 8px; font-size: 18px; color: #2c3e50;">Are you sure you want to logout?</h4>
+                    <p style="color: #7f8c8d; margin: 0 0 20px; font-size: 14px;">Your progress is automatically saved.</p>
+                    
+                    <div style="display: flex; gap: 10px; justify-content: center;">
+                        <button onclick="closeLogoutModal()" style="flex: 1; padding: 12px 15px; background: #ecf0f1; color: #2c3e50; border: none; border-radius: 6px; font-size: 14px; font-weight: 600; cursor: pointer;">
+                            <i class="fas fa-times"></i> Cancel
+                        </button>
+                        <button onclick="confirmLogout()" style="flex: 1; padding: 12px 15px; background: #7a0000; color: white; border: none; border-radius: 6px; font-size: 14px; font-weight: 600; cursor: pointer;">
+                            <i class="fas fa-sign-out-alt"></i> Logout
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    document.body.insertAdjacentHTML('beforeend', modalHTML);
+}
+
+function closeLogoutModal() {
+    const modal = document.getElementById('logoutModal');
+    if (modal) modal.remove();
+}
+
+function confirmLogout() {
+    closeLogoutModal();
+    
+    // Clear authentication
+    localStorage.removeItem('authToken');
+    localStorage.removeItem('mathhub_user');
+    localStorage.removeItem('hasSelectedApp');
+    localStorage.removeItem('selectedApp');
+    
+    // Reset app state
+    AppState.currentUser = null;
+    AppState.isAuthenticated = false;
+    authToken = null;
+    
+    // Navigate to login
+    navigateTo('login');
+    
+    showNotification('👋 See you next time!', 'info');
+}
+document.addEventListener('DOMContentLoaded', function() {
+    console.log('📄 DOM loaded - initializing all features');
+    
+    // Initialize hamburger menu
+    initHamburgerMenu();
+    
+    // Update menu user info
+    updateMenuUserInfo();
+    
+    // Load progress summary
+    loadProgressSummary();
+    
+    // Auto-refresh every 30 seconds
+    setInterval(loadProgressSummary, 30000);
+});
 // ============================================
 // ✅ NEW: fetchWeeklyImprovement - Get weekly improvement from database
 // ============================================
@@ -23019,12 +23156,13 @@ window.navigateTo = function(page) {
 };
 
 // ============================================
-// ✅ FIXED: Hamburger Menu - Gumagana na!
+// 🍔 HAMBURGER MENU - FIXED VERSION
 // ============================================
 function initHamburgerMenu() {
     console.log('🍔 Initializing hamburger menu...');
     
     const hamburgerBtn = document.getElementById('footerHamburgerBtn');
+    const closeMenuBtn = document.getElementById('closeMenuBtn');
     const menuOverlay = document.getElementById('mobileMenuOverlay');
     const menuPanel = document.getElementById('mobileMenuPanel');
     
@@ -23046,16 +23184,16 @@ function initHamburgerMenu() {
         console.log('🍔 Hamburger clicked - opening menu');
         
         // FORCE SHOW MENU
+        menuOverlay.classList.add('active');
         menuOverlay.style.display = 'block';
         menuOverlay.style.opacity = '1';
-        menuOverlay.style.visibility = 'visible';
-        menuOverlay.style.zIndex = '10001';
         
-        menuPanel.classList.add('show');
-        menuPanel.style.transform = 'translateX(0)';
+        menuPanel.classList.add('active');
+        menuPanel.style.right = '0';
         menuPanel.style.display = 'block';
         
         // Prevent body scrolling
+        document.body.classList.add('modal-open');
         document.body.style.overflow = 'hidden';
     });
     
@@ -23063,37 +23201,97 @@ function initHamburgerMenu() {
     menuOverlay.addEventListener('click', function() {
         console.log('🍔 Overlay clicked - closing menu');
         
+        menuOverlay.classList.remove('active');
         menuOverlay.style.display = 'none';
         menuOverlay.style.opacity = '0';
-        menuOverlay.style.visibility = 'hidden';
         
-        menuPanel.classList.remove('show');
-        menuPanel.style.transform = 'translateX(100%)';
+        menuPanel.classList.remove('active');
+        menuPanel.style.right = '-100%';
         
         // Restore body scrolling
+        document.body.classList.remove('modal-open');
         document.body.style.overflow = '';
     });
     
-    // CLOSE WHEN CLICKING CLOSE BUTTON (kung meron)
-    const closeBtn = menuPanel.querySelector('.close-menu, .menu-close');
-    if (closeBtn) {
-        closeBtn.addEventListener('click', function() {
+    // CLOSE WHEN CLICKING CLOSE BUTTON
+    if (closeMenuBtn) {
+        closeMenuBtn.addEventListener('click', function() {
+            menuOverlay.classList.remove('active');
             menuOverlay.style.display = 'none';
-            menuPanel.classList.remove('show');
+            menuOverlay.style.opacity = '0';
+            
+            menuPanel.classList.remove('active');
+            menuPanel.style.right = '-100%';
+            
+            document.body.classList.remove('modal-open');
             document.body.style.overflow = '';
         });
     }
     
     // CLOSE WHEN CLICKING MENU LINKS
-    menuPanel.querySelectorAll('a').forEach(link => {
+    menuPanel.querySelectorAll('.menu-item').forEach(link => {
         link.addEventListener('click', function() {
+            menuOverlay.classList.remove('active');
             menuOverlay.style.display = 'none';
-            menuPanel.classList.remove('show');
+            menuOverlay.style.opacity = '0';
+            
+            menuPanel.classList.remove('active');
+            menuPanel.style.right = '-100%';
+            
+            document.body.classList.remove('modal-open');
             document.body.style.overflow = '';
         });
     });
     
     console.log('✅ Hamburger menu initialized and ready!');
+}
+// ============================================
+// 👤 UPDATE MENU USER INFO
+// ============================================
+function updateMenuUserInfo() {
+    const userJson = localStorage.getItem('mathhub_user');
+    if (!userJson) return;
+    
+    try {
+        const user = JSON.parse(userJson);
+        
+        const userNameEl = document.getElementById('menuUserName');
+        const userEmailEl = document.getElementById('menuUserEmail');
+        const userAvatarEl = document.getElementById('menuUserAvatar');
+        
+        const fullName = user.full_name || user.username || 'Student';
+        
+        if (userNameEl) userNameEl.textContent = fullName;
+        if (userEmailEl) userEmailEl.textContent = user.email || 'student@mathhub.com';
+        if (userAvatarEl) userAvatarEl.textContent = fullName.charAt(0).toUpperCase();
+        
+    } catch (e) {
+        console.error('Error updating menu user info:', e);
+    }
+}
+
+// ============================================
+// 🚪 LOGOUT USER (with confirmation)
+// ============================================
+function logoutUser(e) {
+    if (e) {
+        e.preventDefault();
+        e.stopPropagation();
+    }
+    
+    // Close mobile menu first
+    const menuOverlay = document.getElementById('mobileMenuOverlay');
+    const menuPanel = document.getElementById('mobileMenuPanel');
+    
+    if (menuOverlay && menuPanel) {
+        menuOverlay.classList.remove('active');
+        menuPanel.classList.remove('active');
+        document.body.classList.remove('modal-open');
+        document.body.style.overflow = '';
+    }
+    
+    // Show confirmation
+    showLogoutConfirmation();
 }
 // ============================================
 // 🚨 FIX FOR PAGE LOAD
