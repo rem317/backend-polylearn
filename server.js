@@ -4431,6 +4431,7 @@ app.get('/api/admin/lessons', verifyToken, async (req, res) => {
 // ============================================
 // FIXED: CREATE LESSON WITH MODULE_ID, TEACHER_ID, CREATED_BY
 // ============================================
+// ===== FIXED FIRST ENDPOINT - MAY lesson_id NA! =====
 app.post('/api/admin/lessons', 
     verifyToken,
     (req, res, next) => {
@@ -4458,26 +4459,34 @@ app.post('/api/admin/lessons',
         try {
             console.log('📥 ===== ADMIN LESSONS ENDPOINT HIT =====');
             
+            // ===== FIX 1: KUNIN ANG lesson_id MULA SA REQ.BODY =====
             const { 
                 title, 
                 description, 
                 topic_id,
-                module_id,           // ← GET MODULE ID
+                lesson_id,           // ← DAGDAGIN ITO!
+                module_id,
                 content_type, 
                 youtube_url,
                 content_id,
                 is_update = 'false',
-                assigned_teacher_id  // ← GET ASSIGNED TEACHER ID (optional)
+                assigned_teacher_id
             } = req.body;
             
             const videoFile = req.file;
             const isUpdate = is_update === 'true' || is_update === true;
             const userId = req.user.id;
             
+            console.log('📦 Received data:', {
+                title,
+                topic_id,
+                lesson_id,        // ← DAPAT MAY LOG ITO
+                module_id
+            });
+            
             // ===== GET TEACHER ID FROM TEACHERS TABLE =====
             let teacherId = null;
             
-            // Check if user is a teacher (has record in teachers table)
             const [teacher] = await promisePool.execute(
                 'SELECT teacher_id FROM teachers WHERE user_id = ?',
                 [userId]
@@ -4487,7 +4496,6 @@ app.post('/api/admin/lessons',
                 teacherId = teacher[0].teacher_id;
             }
             
-            // If admin assigned a specific teacher, use that instead
             if (assigned_teacher_id) {
                 teacherId = assigned_teacher_id;
             }
@@ -4540,12 +4548,16 @@ app.post('/api/admin/lessons',
                     updateValues.push(topic_id);
                 }
                 
+                if (lesson_id) {  // ← DAGDAGIN ITO SA UPDATE
+                    updateFields.push('lesson_id = ?');
+                    updateValues.push(lesson_id);
+                }
+                
                 if (module_id) {
                     updateFields.push('module_id = ?');
                     updateValues.push(module_id);
                 }
                 
-                // Update teacher_id if specified
                 if (teacherId) {
                     updateFields.push('teacher_id = ?');
                     updateValues.push(teacherId);
@@ -4579,6 +4591,7 @@ app.post('/api/admin/lessons',
                         content_title: title,
                         content_description: description,
                         content_type: content_type,
+                        lesson_id: lesson_id,  // ← DAGDAGIN ITO SA RESPONSE
                         video_filename: videoFilename,
                         content_url: contentUrl,
                         module_id: module_id || null,
@@ -4598,17 +4611,18 @@ app.post('/api/admin/lessons',
             
             const nextOrder = (orderResult[0]?.max_order || 0) + 1;
             
-            // ===== FIXED: INSERT WITH ALL FIELDS =====
+            // ===== FIX 2: DAGDAGIN ANG lesson_id SA INSERT =====
             const [contentResult] = await promisePool.query(`
                 INSERT INTO topic_content_items 
-                (topic_id, module_id, created_by, teacher_id, content_type, content_title, 
+                (lesson_id, topic_id, module_id, created_by, teacher_id, content_type, content_title, 
                  content_description, content_url, content_order, is_active, video_filename)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, TRUE, ?)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, TRUE, ?)
             `, [
+                lesson_id,           // ← DAGDAGIN ITO - NASA UNA!
                 topic_id,
-                module_id || null,          // ← MODULE_ID
-                userId,                      // ← CREATED_BY (user_id)
-                teacherId,                   // ← TEACHER_ID (from teachers table)
+                module_id || null,
+                userId,
+                teacherId,
                 content_type || 'video',
                 title,
                 description || null,
@@ -4620,8 +4634,10 @@ app.post('/api/admin/lessons',
             const newContentId = contentResult.insertId;
             console.log('✅ New lesson created with ID:', newContentId);
             console.log('📝 Recorded with:');
+            console.log(`   - lesson_id: ${lesson_id}`);  // ← DAPAT MAY LOG ITO
+            console.log(`   - topic_id: ${topic_id}`);
             console.log(`   - module_id: ${module_id || 'NULL'}`);
-            console.log(`   - created_by: ${userId} (user_id)`);
+            console.log(`   - created_by: ${userId}`);
             console.log(`   - teacher_id: ${teacherId || 'NULL'}`);
             
             // ===== INSERT INTO VIDEO_UPLOADS =====
@@ -4671,6 +4687,7 @@ app.post('/api/admin/lessons',
                     content_title: title,
                     content_description: description,
                     content_type: content_type,
+                    lesson_id: lesson_id,  // ← DAGDAGIN ITO SA RESPONSE
                     video_filename: videoFilename,
                     content_url: contentUrl,
                     content_order: nextOrder,
@@ -4831,17 +4848,20 @@ app.post('/api/admin/create-permanent-table', authenticateAdmin, async (req, res
 // ============================================
 // ADMIN LESSONS ENDPOINT - CREATE OR UPDATE
 // ============================================
+// ===== FIXED SECOND ENDPOINT - MAY lesson_id NA! =====
 app.post('/api/admin/lessons', upload.fields([
     { name: 'video_file', maxCount: 1 },
     { name: 'pdf_file', maxCount: 1 }
 ]), authenticateAdmin, async (req, res) => {
     try {
+        // ===== FIX 3: KUNIN ANG lesson_id MULA SA REQ.BODY =====
         const { 
             title, 
             description, 
-            topic_id, 
+            topic_id,
+            lesson_id,        // ← DAGDAGIN ITO!
             content_type,
-            content_id,  // ✅ CRITICAL: Kunin ang content_id
+            content_id,
             youtube_url,
             text_content 
         } = req.body;
@@ -4850,9 +4870,10 @@ app.post('/api/admin/lessons', upload.fields([
         
         console.log('📥 Received lesson data:', { 
             title, 
-            topic_id, 
+            topic_id,
+            lesson_id,        // ← DAPAT MAY LOG ITO
             content_type, 
-            content_id,  // Dapat may laman ito
+            content_id,
             hasVideo: !!files?.video_file,
             hasYoutube: !!youtube_url,
             hasPDF: !!files?.pdf_file
@@ -4870,7 +4891,6 @@ app.post('/api/admin/lessons', upload.fields([
         if (content_id) {
             console.log(`🔄 Updating existing lesson with ID: ${content_id}`);
             
-            // Build dynamic SQL based on what's provided
             let updateFields = [];
             let queryParams = [];
             
@@ -4883,36 +4903,35 @@ app.post('/api/admin/lessons', upload.fields([
             updateFields.push('topic_id = ?');
             queryParams.push(topic_id);
             
+            if (lesson_id) {  // ← DAGDAGIN ITO SA UPDATE
+                updateFields.push('lesson_id = ?');
+                queryParams.push(lesson_id);
+            }
+            
             updateFields.push('content_type = ?');
             queryParams.push(content_type);
             
-            // Add video filename if uploaded
             if (files?.video_file) {
                 updateFields.push('video_filename = ?');
                 queryParams.push(files.video_file[0].filename);
                 console.log(`🎬 Updating video_filename: ${files.video_file[0].filename}`);
             }
             
-            // Add YouTube URL if provided
             if (youtube_url && youtube_url.trim() !== '') {
                 updateFields.push('content_url = ?');
                 queryParams.push(youtube_url);
                 console.log(`🔗 Updating content_url: ${youtube_url}`);
             }
             
-            // Add text content if provided
             if (text_content && text_content.trim() !== '') {
                 updateFields.push('text_content = ?');
                 queryParams.push(text_content);
             }
             
-            // Always update updated_at
             updateFields.push('updated_at = NOW()');
             
-            // Add content_id at the end for WHERE clause
             queryParams.push(content_id);
             
-            // Execute update
             const [updateResult] = await pool.execute(`
                 UPDATE topic_content_items 
                 SET ${updateFields.join(', ')}
@@ -4931,8 +4950,10 @@ app.post('/api/admin/lessons', upload.fields([
             // INSERT new lesson
             console.log('➕ Creating new lesson');
             
+            // ===== FIX 4: DAGDAGIN ANG lesson_id SA INSERT =====
             const [insertResult] = await pool.execute(`
                 INSERT INTO topic_content_items (
+                    lesson_id,              // ← DAGDAGIN ITO!
                     content_title,
                     content_description,
                     topic_id,
@@ -4942,8 +4963,9 @@ app.post('/api/admin/lessons', upload.fields([
                     text_content,
                     created_at,
                     updated_at
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, NOW(), NOW())
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())
             `, [
+                lesson_id,                  // ← DAGDAGIN ITO!
                 title,
                 description || '',
                 topic_id,
@@ -4955,7 +4977,7 @@ app.post('/api/admin/lessons', upload.fields([
             
             const newContentId = insertResult.insertId;
             
-            console.log(`✅ New lesson created with ID: ${newContentId}`);
+            console.log(`✅ New lesson created with ID: ${newContentId} with lesson_id: ${lesson_id}`);
             
             res.json({
                 success: true,
