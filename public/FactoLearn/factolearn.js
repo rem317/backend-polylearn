@@ -5115,6 +5115,49 @@ async function updateTopicMastery(topicId, masteryData) {
     }
 }
 
+// ============================================
+// 🚨 EMERGENCY OVERRIDE - Force ALL lesson_id to 3
+// ============================================
+(function forceLessonId3() {
+    console.log('🚨 EMERGENCY: Forcing ALL lesson_id to 3');
+    
+    // Override the global fetch to always add lesson_id=3
+    const originalFetch = window.fetch;
+    window.fetch = function(url, options) {
+        // Only modify API calls that should have lesson_id
+        if (typeof url === 'string' && 
+            (url.includes('/api/progress/') || 
+             url.includes('/api/lessons') || 
+             url.includes('/api/practice/') ||
+             url.includes('/api/quiz/')) && 
+            !url.includes('lesson_id=')) {
+            
+            // Add lesson_id=3 to the URL
+            const separator = url.includes('?') ? '&' : '?';
+            url = `${url}${separator}lesson_id=3`;
+            console.log(`🔧 Forced lesson_id=3: ${url.split('?')[0]}`);
+        }
+        return originalFetch.call(this, url, options);
+    };
+    
+    // Override the constants
+    window.FACTORIAL_LESSON_ID = 3;
+    window.POLYLEARN_LESSON_ID = 3; // Override this too just in case
+    window.MATHEASE_LESSON_ID = 3;
+    
+    // Override getCurrentAppLessonId
+    window.getCurrentAppLessonId = function() {
+        return 3;
+    };
+    
+    // Set localStorage
+    localStorage.setItem('selectedApp', 'factorial');
+    localStorage.setItem('currentLessonFilter', '3');
+    localStorage.setItem('currentLessonId', '3');
+    
+    console.log('✅ Emergency override complete - All API calls will use lesson_id=3');
+})();
+
 // Update module progress
 async function updateModuleProgress(moduleId, progressData) {
     try {
@@ -9613,17 +9656,17 @@ async function startQuizSystem(quizId) {
 // Helper function to manually load PolyLearn quizzes (Category 2)
 // ============================================
 function loadFactorialQuizzes() {
-    console.log('📚 Loading FactoLearn quizzes (Category 2)...');
+    console.log('📚 Loading FactoLearn quizzes (Category 3)...');
     
-    // Find PolyLearn category (ID 2)
-    const factoLearnCategory = QuizState.quizCategories.find(c => c.category_id == 2);
+    // Find PolyLearn category (ID 3)
+    const factoLearnCategory = QuizState.quizCategories.find(c => c.category_id == 3);
     
     if (factoLearnCategory) {
-        loadQuizzesForCategory(2);
+        loadQuizzesForCategory(3);
     } else {
         // If categories not loaded yet, load them first
         loadQuizCategories().then(() => {
-            loadQuizzesForCategory(2);
+            loadQuizzesForCategory(3);
         });
     }
 }
@@ -11225,7 +11268,7 @@ function displayQuizCategories(categories, isHardcoded = false) {
     // STRICT FILTER - lesson_id=2 LANG
     const factoLearnCategories = categories.filter(cat => {
         const catLessonId = cat.lesson_id || cat.lessonId;
-        return catLessonId == 2;
+        return catLessonId == 3;
     });
     
     console.log('🎯 After strict filtering:', factoLearnCategories.length, 'categories');
