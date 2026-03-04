@@ -1,6 +1,5 @@
 // script.js - MathHub Application with Complete Database-Driven Progress Tracking
 // Includes lesson management, practice exercises, quiz system, and full progress integration
-// MODIFIED: Removed loading, login, signup, and app selection pages - Direct to dashboard
 
 // ============================================
 // MATHHUB APPLICATION - JAVASCRIPT
@@ -24,6 +23,60 @@ function getDefaultPracticeStats() {
         recentActivity: []
     };
 }
+
+// ============================================
+// APP FILTERING SYSTEM - Add this near the top of your script.js
+// ============================================
+
+// ============================================
+// APP FILTERING SYSTEM - USING LESSON_ID
+// ============================================
+
+// Map app names to their corresponding LESSON IDs
+const APP_LESSON_MAP = {
+    'mathease': {
+        lessonId: 1,
+        name: 'MathEase'
+    },
+    'polylearn': {
+        lessonId: 2,
+        name: 'PolyLearn'
+    },
+    'factorial': {
+        lessonId: 3,
+        name: 'Factorial'
+    }
+};
+
+// ============================================
+// POLYLEARN CONSTANTS - FORCE LESSON_ID = 2
+// ============================================
+const POLYLEARN_LESSON_ID = 2; // Fixed for PolyLearn only
+
+// Get the current selected app
+function getCurrentApp() {
+    return localStorage.getItem('selectedApp') || 'polylearn';
+}
+
+// Get the lesson ID for the current app
+function getCurrentAppLessonId() {
+    const app = getCurrentApp();
+    return APP_LESSON_MAP[app]?.lessonId || 2; // Default to PolyLearn (ID 2)
+}
+
+// Get the filter parameter for API calls
+function getAppFilterParam() {
+    const app = getCurrentApp();
+    return APP_LESSON_MAP[app]?.filter || 'polylearn';
+}
+
+// Add this to all your fetch calls that need filtering
+function addAppFilterToUrl(url) {
+    const separator = url.includes('?') ? '&' : '?';
+    const filterParam = `app_filter=${getAppFilterParam()}`;
+    return url + separator + filterParam;
+}
+
 
 // ============================================
 // ✅ FIXED: ToolManager with better error handling
@@ -295,6 +348,112 @@ class ToolManager {
         }
     }
 }
+
+// ============================================
+// ✅ NEW: Connect tool buttons specifically for lesson dashboard
+// ============================================
+function connectLessonToolButtons(lesson) {
+    console.log('🔧 Connecting tool buttons for lesson dashboard...');
+    
+    const tools = [
+        { id: 'openCalculator', name: 'calculator', icon: 'fa-calculator' },
+        { id: 'openGraphTools', name: 'graph', icon: 'fa-chart-line' },
+        { id: 'openWhiteboard', name: 'whiteboard', icon: 'fa-paint-brush' },
+        { id: 'openNotepad', name: 'notepad', icon: 'fa-sticky-note' },
+        { id: 'openFormulaSheet', name: 'formula', icon: 'fa-square-root-alt' },
+        { id: 'openTimer', name: 'timer', icon: 'fa-clock' }
+    ];
+    
+    tools.forEach(tool => {
+        const btn = document.getElementById(tool.id);
+        if (!btn) {
+            console.warn(`⚠️ Button not found: ${tool.id}`);
+            return;
+        }
+        
+        // Remove old listeners
+        const newBtn = btn.cloneNode(true);
+        btn.parentNode.replaceChild(newBtn, btn);
+        
+        // Add new click handler
+        newBtn.addEventListener('click', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            
+            console.log(`🎯 Opening ${tool.name} from lesson dashboard`);
+            
+            // Make sure ToolManager exists
+            if (!window.toolManager) {
+                console.log('🔧 Creating new ToolManager...');
+                window.toolManager = new ToolManager();
+            }
+            
+            // Open the tool
+            window.toolManager.openTool(tool.name);
+            
+            // Log activity
+            logUserActivity('tool_used', lesson?.content_id, {
+                tool: tool.name,
+                lesson: lesson?.content_title
+            });
+        });
+        
+        console.log(`✅ Connected ${tool.id}`);
+    });
+    
+    // Also add note-saving capability to notepad
+    const notepadSaveBtn = document.querySelector('#notepadModal .btn-primary');
+    if (notepadSaveBtn && lesson) {
+        const newSaveBtn = notepadSaveBtn.cloneNode(true);
+        notepadSaveBtn.parentNode.replaceChild(newSaveBtn, notepadSaveBtn);
+        
+        newSaveBtn.addEventListener('click', async function(e) {
+            e.preventDefault();
+            
+            const title = document.getElementById('noteTitle')?.value || 'Lesson Note';
+            const content = document.getElementById('noteContent')?.value;
+            
+            if (!content) {
+                showNotification('Please write something before saving', 'error');
+                return;
+            }
+            
+            // Save to database
+            try {
+                const token = localStorage.getItem('authToken') || authToken;
+                const response = await fetch('/api/notes/save', {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        title: title,
+                        content: content,
+                        lesson_id: lesson.content_id
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    showNotification('Note saved to database!', 'success');
+                    
+                    // Clear form
+                    document.getElementById('noteTitle').value = '';
+                    document.getElementById('noteContent').value = '';
+                } else {
+                    showNotification('Failed to save note', 'error');
+                }
+            } catch (error) {
+                console.error('Error saving note:', error);
+                showNotification('Error saving note', 'error');
+            }
+        });
+    }
+}
+
+
 
 // ========================================
 // CALCULATOR TOOL - FIXED VERSION
@@ -1958,12 +2117,18 @@ async function apiRequest(endpoint, options = {}) {
 
 // Application State
 const AppState = {
-    currentUser: null,
-    currentPage: 'dashboard', // Changed from 'loading' to 'dashboard'
-    isAuthenticated: true, // Changed from false to true
-    selectedApp: 'polylearn', // Set default app
+    currentUser: {
+        id: 1,
+        username: 'demo_user',
+        email: 'demo@mathhub.com',
+        full_name: 'Demo Student',
+        role: 'student'
+    },
+    currentPage: 'dashboard',
+    isAuthenticated: true,
+    selectedApp: 'polylearn',
     previousPage: null,
-    hasSelectedApp: true, // Set to true
+    hasSelectedApp: true,
     currentLessonData: null,
     currentVideoData: null
 };
@@ -4090,33 +4255,66 @@ function completeExercise(topicName) {
     // Show success message
     showNotification('Exercise completed! 🎉');
 }
-// Replace the fetchDailyProgress function starting at line 98:
+// ============================================
+// ✅ FIXED: Fetch daily progress - POLYLEARN ONLY
+// ============================================
 async function fetchDailyProgress() {
     try {
-        console.log('📊 Fetching daily progress...');
+        console.log('📊 Fetching PolyLearn daily progress...');
         
-        const data = await apiRequest('/api/progress/daily');
+        const token = localStorage.getItem('authToken') || authToken;
+        if (!token) {
+            console.warn('No auth token available');
+            return getDefaultPolyLearnDailyProgress();
+        }
         
-        if (data.success) {
-            console.log('✅ Daily progress loaded');
-            ProgressState.dailyProgress = data.progress || {};
+        // ✅ GUMAMIT NG FETCH API, HINDI PROMISEPOOL
+        const response = await fetch(`/api/progress/daily?lesson_id=2`, {
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+            }
+        });
+        
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        
+        const data = await response.json();
+        
+        if (data.success && data.progress) {
+            console.log('✅ PolyLearn daily progress loaded:', data.progress);
             
             return {
-                lessons_completed: data.progress?.lessons_completed || 0,
-                exercises_completed: data.progress?.exercises_completed || 0,
-                points_earned: data.progress?.points_earned || 0,
-                time_spent_minutes: data.progress?.time_spent_minutes || 0,
-                streak_days: data.progress?.streak_maintained || 0
+                lessons_completed: data.progress.lessons_completed || 0,
+                exercises_completed: data.progress.exercises_completed || 0,
+                quizzes_completed: data.progress.quizzes_completed || 0,
+                points_earned: data.progress.points_earned || 0,
+                time_spent_minutes: data.progress.time_spent_minutes || 0,
+                streak_days: data.progress.streak_maintained || 0
             };
         } else {
-            return getDefaultProgress();
+            console.warn('No daily progress data');
+            return getDefaultPolyLearnDailyProgress();
         }
+        
     } catch (error) {
-        console.error('Error fetching daily progress:', error);
-        return getDefaultProgress();
+        console.error('❌ Error fetching daily progress:', error);
+        return getDefaultPolyLearnDailyProgress();
     }
 }
 
+// ===== Default progress for PolyLearn =====
+function getDefaultPolyLearnDailyProgress() {
+    return {
+        lessons_completed: 0,
+        exercises_completed: 0,
+        quizzes_completed: 0,
+        points_earned: 0,
+        time_spent_minutes: 0,
+        streak_days: 0
+    };
+}
 
 
 function handleActivityResponse(data) {
@@ -4135,9 +4333,75 @@ function handleActivityResponse(data) {
         return [];
     }
 }
+// Helper function para sa PolyLearn practice stats
+async function fetchPolyLearnPracticeStats(userId) {
+    try {
+        const POLYLEARN_LESSON_ID = 2;
+        const [stats] = await promisePool.query(`
+            SELECT 
+                COUNT(DISTINCT CASE WHEN completion_status = 'completed' THEN exercise_id END) as exercises_completed,
+                COUNT(*) as total_attempts,
+                COALESCE(AVG(score), 0) as average_score,
+                COALESCE(SUM(time_spent_seconds), 0) as total_time_seconds
+            FROM user_practice_progress upp
+            JOIN practice_exercises pe ON upp.exercise_id = pe.exercise_id
+            WHERE upp.user_id = ? AND pe.lesson_id = ?
+        `, [userId, POLYLEARN_LESSON_ID]);
+        
+        return stats[0] || {
+            exercises_completed: 0,
+            total_attempts: 0,
+            average_score: 0,
+            total_time_seconds: 0
+        };
+    } catch (error) {
+        console.error('Error fetching practice stats:', error);
+        return {};
+    }
+}
+
+// Helper function para sa PolyLearn quiz stats
+async function fetchPolyLearnQuizStats(userId) {
+    try {
+        const POLYLEARN_LESSON_ID = 2;
+        const [stats] = await promisePool.query(`
+            SELECT 
+                COUNT(*) as quizzes_completed,
+                COALESCE(SUM(score), 0) as total_points,
+                COALESCE(AVG(score), 0) as avg_score
+            FROM user_quiz_attempts uqa
+            JOIN quizzes q ON uqa.quiz_id = q.quiz_id
+            WHERE uqa.user_id = ? 
+            AND uqa.completion_status = 'completed'
+            AND q.lesson_id = ?
+        `, [userId, POLYLEARN_LESSON_ID]);
+        
+        return stats[0] || {
+            quizzes_completed: 0,
+            total_points: 0,
+            avg_score: 0
+        };
+    } catch (error) {
+        console.error('Error fetching quiz stats:', error);
+        return {};
+    }
+}
+
+function getDefaultPolyLearnProgress() {
+    return {
+        lessons_completed: 0,
+        total_lessons: 10,
+        percentage: 0,
+        total_points: 0,
+        practice_completed: 0,
+        quizzes_completed: 0,
+        total_time_spent_minutes: 0,
+        average_time: 0
+    };
+}
 
 // ============================================
-// ✅ FIXED: fetchCumulativeProgress - FASTER RESPONSE
+// ✅ FIXED: fetchCumulativeProgress - FOR BROWSER
 // ============================================
 async function fetchCumulativeProgress() {
     try {
@@ -4150,57 +4414,69 @@ async function fetchCumulativeProgress() {
         
         console.log('📊 Fetching cumulative progress...');
         
+        // ✅ GUMAMIT NG FETCH, HINDI PROMISEPOOL
         const response = await fetch(`/api/progress/overall`, {
-            headers: { 'Authorization': `Bearer ${token}` }
+            headers: { 
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+            }
         });
         
-        if (response.ok) {
-            const data = await response.json();
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            console.log('✅ Overall progress loaded:', data.overall);
             
-            if (data.success) {
-                console.log('✅ Overall progress loaded:', data.overall);
-                
-                // Convert seconds to minutes
-                const totalSeconds = data.overall.total_time_spent_minutes || 0;
-                const totalMinutes = Math.floor(totalSeconds / 60);
-                
-                // Calculate average time per activity
-                const totalActivities = (data.overall.lessons_completed || 0) + 
-                                       (data.overall.practice_completed || 0) + 
-                                       (data.overall.quizzes_completed || 0);
-                
-                const avgPerActivity = totalActivities > 0 
-                    ? Math.round(totalMinutes / totalActivities) 
-                    : 5;
-                
-                // Calculate weekly improvement
-                const weeklyImprovement = calculateWeeklyImprovement(data.overall);
-                
-                const progress = {
-                    total_lessons_completed: data.overall.lessons_completed || 0,
-                    total_lessons: data.overall.total_lessons || 20,
-                    overall_percentage: data.overall.percentage || 0,
-                    exercises_completed: data.overall.practice_completed || 0,
-                    total_quizzes_completed: data.overall.quizzes_completed || 0,
-                    total_points_earned: data.overall.total_points || 0,
-                    total_time_spent_minutes: totalMinutes,
-                    weekly_time_spent: data.overall.weekly?.minutes || 0,
-                    avg_time_per_activity: avgPerActivity,
-                    weekly_improvement: weeklyImprovement,
-                    total_time_display: formatTime(totalMinutes),
-                    streak_days: data.overall.streak_days || 1,
-                    weekly: data.overall.weekly || { lessons: 0, exercises: 0, quizzes: 0, points: 0, minutes: 0 }
-                };
-                
-                console.log(`📊 Progress loaded - Lessons: ${progress.total_lessons_completed}/${progress.total_lessons}`);
-                
-                ProgressState.cumulativeProgress = progress;
-                
-                // IMMEDIATELY update display
-                updateOverallProgressDisplay(progress);
-                
-                return progress;
-            }
+            // Convert seconds to minutes
+            const totalSeconds = data.overall.total_time_spent_minutes || 0;
+            const totalMinutes = Math.floor(totalSeconds / 60);
+            
+            // Calculate average time per activity
+            const totalActivities = (data.overall.lessons_completed || 0) + 
+                                   (data.overall.practice_completed || 0) + 
+                                   (data.overall.quizzes_completed || 0);
+            
+            const avgPerActivity = totalActivities > 0 
+                ? Math.round(totalMinutes / totalActivities) 
+                : 5;
+            
+            // Calculate weekly improvement
+            const weeklyImprovement = calculateWeeklyImprovement(data.overall);
+            
+            const progress = {
+                total_lessons_completed: data.overall.lessons_completed || 0,
+                total_lessons: data.overall.total_lessons || 20,
+                overall_percentage: data.overall.percentage || 0,
+                exercises_completed: data.overall.practice_completed || 0,
+                total_quizzes_completed: data.overall.quizzes_completed || 0,
+                total_points_earned: data.overall.total_points || 0,
+                total_time_spent_minutes: totalMinutes,
+                weekly_time_spent: data.overall.weekly?.minutes || 0,
+                avg_time_per_activity: avgPerActivity,
+                weekly_improvement: weeklyImprovement,
+                total_time_display: formatTime(totalMinutes),
+                streak_days: data.overall.streak_days || 1,
+                weekly: data.overall.weekly || { 
+                    lessons: 0, 
+                    exercises: 0, 
+                    quizzes: 0, 
+                    points: 0, 
+                    minutes: 0 
+                }
+            };
+            
+            console.log(`📊 Progress loaded - Lessons: ${progress.total_lessons_completed}/${progress.total_lessons}`);
+            
+            ProgressState.cumulativeProgress = progress;
+            
+            // IMMEDIATELY update display
+            updateOverallProgressDisplay(progress);
+            
+            return progress;
         }
         
         return getDefaultProgress();
@@ -4731,8 +5007,9 @@ async function logUserActivity(activityType, relatedId = null, details = {}) {
     }
 }
 
-// Update daily progress
-// ITO ANG BAGONG VERSION - HINDI NA NAG-AADD NG POINTS
+// ============================================
+// ✅ FIXED: Update daily progress - POLYLEARN ONLY
+// ============================================
 async function updateDailyProgress(progressData) {
     try {
         const token = localStorage.getItem('authToken') || authToken;
@@ -4741,33 +5018,27 @@ async function updateDailyProgress(progressData) {
             return false;
         }
         
-        console.log('📊 Updating daily progress (FIXED - NO POINTS)...', progressData);
+        console.log('📊 Updating PolyLearn daily progress...', progressData);
         
-        // TANGGALIN ang points_earned - HINDI NA ISASAMA
+        // ✅ Add lesson_id = 2 for PolyLearn
         const updateData = {
-            // Only include lessons_completed if explicitly provided
             ...(progressData.lessons_completed !== undefined && { 
                 lessons_completed: progressData.lessons_completed 
             }),
-            // Only include exercises_completed if explicitly provided
             ...(progressData.exercises_completed !== undefined && { 
                 exercises_completed: progressData.exercises_completed 
             }),
-            // Only include quizzes_completed if explicitly provided
             ...(progressData.quizzes_completed !== undefined && { 
                 quizzes_completed: progressData.quizzes_completed 
             }),
-            // I-REMOVE ANG points_earned
-            // ...(progressData.points_earned !== undefined && { 
-            //     points_earned: progressData.points_earned 
-            // }),
             ...(progressData.time_spent_minutes !== undefined && { 
                 time_spent_minutes: progressData.time_spent_minutes 
-            })
+            }),
+            lesson_id: 2 // ✅ FORCE POLYLEARN
         };
         
         // If no data to update, return
-        if (Object.keys(updateData).length === 0) {
+        if (Object.keys(updateData).length === 1) { // 1 because lesson_id is always there
             console.log('⚠️ No progress data to update');
             return true;
         }
@@ -4782,27 +5053,23 @@ async function updateDailyProgress(progressData) {
         });
         
         if (!response.ok) {
-            if (response.status === 404) {
-                console.warn('⚠️ Daily progress endpoint not found (404), skipping...');
-                return false;
-            }
-            throw new Error(`Failed to update daily progress: ${response.status}`);
+            throw new Error(`HTTP error! status: ${response.status}`);
         }
         
         const data = await response.json();
         
         if (data.success) {
-            console.log('✅ Daily progress updated (no points)');
+            console.log('✅ PolyLearn daily progress updated');
             return true;
         } else {
             throw new Error(data.message || 'Failed to update daily progress');
         }
+        
     } catch (error) {
-        console.error('Error updating daily progress:', error);
+        console.error('❌ Error updating daily progress:', error);
         return false;
     }
 }
-
 // Update topic mastery
 async function updateTopicMastery(topicId, masteryData) {
     try {
@@ -6067,98 +6334,319 @@ async function getDetailedPracticeStats() {
     }
 }
 
-
 // ============================================
-// ✅ FIXED: loadProgressDashboardData - IMMEDIATE LOADING
+// ✅ FORCE UPDATE UI - DIRECT DOM MANIPULATION
+// ============================================
+function forceUpdateProgressUI(progress) {
+    console.log('🎨 Force updating UI with:', progress);
+    
+    const percentage = progress.overall_percentage || 0;
+    
+    // 1. Update overall progress text
+    const overallProgress = document.getElementById('overallProgress');
+    if (overallProgress) {
+        overallProgress.textContent = percentage + '%';
+        overallProgress.style.transition = 'all 0.3s';
+        overallProgress.style.transform = 'scale(1.1)';
+        overallProgress.style.color = '#7a0000';
+        setTimeout(() => {
+            overallProgress.style.transform = 'scale(1)';
+            overallProgress.style.color = '';
+        }, 300);
+        console.log('✅ Updated overallProgress to:', percentage + '%');
+    } else {
+        console.warn('⚠️ overallProgress element not found');
+    }
+    
+    // 2. Update progress bar
+    const overallProgressBar = document.getElementById('overallProgressBar');
+    if (overallProgressBar) {
+        overallProgressBar.style.width = percentage + '%';
+        overallProgressBar.className = 'progress-fill';
+        if (percentage >= 70) {
+            overallProgressBar.classList.add('progress-good');
+        } else if (percentage >= 40) {
+            overallProgressBar.classList.add('progress-medium');
+        } else {
+            overallProgressBar.classList.add('progress-low');
+        }
+        console.log('✅ Updated progress bar to:', percentage + '%');
+    }
+    
+    // 3. Update total points
+    const totalPointsProgress = document.getElementById('totalPointsProgress');
+    if (totalPointsProgress) {
+        totalPointsProgress.textContent = progress.total_points_earned || 0;
+    }
+    
+    // 4. Update total time
+    const totalTime = document.getElementById('totalTime');
+    if (totalTime) {
+        const totalMinutes = progress.total_time_spent_minutes || 0;
+        let timeDisplay = totalMinutes < 60 
+            ? `${totalMinutes}m` 
+            : `${Math.floor(totalMinutes / 60)}h ${totalMinutes % 60}m`;
+        totalTime.textContent = timeDisplay;
+    }
+    
+    // 5. Update badges
+    const totalBadges = document.getElementById('totalBadges');
+    if (totalBadges) {
+        // Compute badges
+        let badgeCount = 0;
+        if (progress.total_lessons_completed >= 1) badgeCount++;
+        if (progress.total_lessons_completed >= 5) badgeCount++;
+        if (progress.total_lessons_completed >= 10) badgeCount++;
+        if (progress.exercises_completed >= 5) badgeCount++;
+        if (progress.exercises_completed >= 15) badgeCount++;
+        if (progress.total_quizzes_completed >= 1) badgeCount++;
+        
+        totalBadges.textContent = `${badgeCount}/10`;
+    }
+    
+    console.log('✅ UI force updated with', percentage + '%');
+}
+// ============================================
+// ✅ FIXED: Load Progress Dashboard Data - POLYLEARN ONLY (NO ERRORS)
 // ============================================
 async function loadProgressDashboardData() {
-    console.log('📊 Loading progress dashboard data IMMEDIATELY...');
+    console.log('📊 Loading PolyLearn progress dashboard data...');
     
     try {
         // Show loading state
         showProgressDashboardLoading();
         
-        // Load cumulative progress FIRST with await - this is the critical data
-        console.log('📊 Step 1: Loading cumulative progress...');
-        const cumulativeProgress = await fetchCumulativeProgress();
-        
-        console.log('✅ Cumulative progress loaded:', cumulativeProgress);
-        
-        // Force update ng overall progress display AGAD - without waiting for other data
-        if (cumulativeProgress) {
-            updateOverallProgressDisplay(cumulativeProgress);
+        const token = localStorage.getItem('authToken') || authToken;
+        if (!token) {
+            console.error('❌ No auth token');
+            return;
         }
         
-        // Update progress summary cards immediately with what we have
-        updateProgressSummaryCards();
+        const POLYLEARN_LESSON_ID = 2;
         
-        // Load other data in background (para hindi ma-block ang display)
-        Promise.allSettled([
-            fetchDailyProgress().then(data => {
-                ProgressState.dailyProgress = data || {};
-                console.log('✅ Daily progress loaded');
-            }),
-            fetchTopicMastery().then(data => {
-                ProgressState.topicMastery = data || [];
-                updateTopicProgressBreakdown();
-                console.log('✅ Topic mastery loaded');
-            }),
-            fetchPerformanceAnalytics().then(data => {
-                ProgressState.performanceAnalytics = data || {};
-                updatePerformanceAnalytics(data);
-                console.log('✅ Performance analytics loaded');
-            }),
-            fetchAchievementTimeline(10).then(data => {
-                ProgressState.achievementTimeline = data || [];
-                updateAchievementTimeline();
-                console.log('✅ Achievements loaded');
-            }),
-            fetchActivityLog(15).then(data => {
-                ProgressState.activityLog = data || [];
-                updateActivityLog();
-                console.log('✅ Activity log loaded');
-            }),
-            fetchUserBadges().then(data => {
-                ProgressState.userBadges = data || [];
-                // Update badges display
-                const totalBadges = document.getElementById('totalBadges');
-                if (totalBadges) {
-                    totalBadges.textContent = `${data.length}/10`;
-                }
-                const badgesChange = document.getElementById('badgesChange');
-                if (badgesChange) {
-                    badgesChange.textContent = `+${data.length} total badges`;
-                }
-                console.log('✅ Badges loaded');
-            }),
-            fetchAccuracyRate().then(data => {
-                ProgressState.accuracyRate = data || { overall: 0 };
-                console.log('✅ Accuracy rate loaded');
-            })
-        ]).then(() => {
-            console.log('✅ All background data loaded');
-            hideProgressDashboardLoading();
+        // ===== FETCH ALL POLYLEARN DATA =====
+        const [
+            lessonsProgress,
+            practiceStats,
+            quizStats,
+            totalLessonsCount
+        ] = await Promise.allSettled([
+            // 1. Get PolyLearn lessons progress
+            fetch(`/api/progress/lessons?lesson_id=${POLYLEARN_LESSON_ID}`, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            }).then(res => res.json()).catch(() => ({ success: false })),
             
-            // Update again with all data
-            updateProgressSummaryCards();
-            updateOverallProgressDisplay(cumulativeProgress);
-        });
+            // 2. Get PolyLearn practice stats
+            fetch(`/api/progress/practice-attempts?lesson_id=${POLYLEARN_LESSON_ID}`, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            }).then(res => res.json()).catch(() => ({ success: false })),
+            
+            // 3. Get PolyLearn quiz stats
+            fetch(`/api/quiz/user/attempts?lesson_id=${POLYLEARN_LESSON_ID}`, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            }).then(res => res.json()).catch(() => ({ success: false })),
+            
+            // 4. Get total PolyLearn lessons
+            fetch(`/api/lessons-db/complete?lesson_id=${POLYLEARN_LESSON_ID}`, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            }).then(res => res.json()).catch(() => ({ success: false }))
+        ]);
         
-        // Hide loading after main data is shown (not waiting for background)
-        setTimeout(() => {
-            hideProgressDashboardLoading();
-        }, 500);
+        // ===== PROCESS LESSONS DATA =====
+        let lessonsCompleted = 0;
+        let totalLessons = 10;
         
-        // Initialize charts
-        initProgressCharts();
+        if (lessonsProgress.status === 'fulfilled' && lessonsProgress.value?.success) {
+            const progress = lessonsProgress.value.progress || [];
+            lessonsCompleted = progress.filter(p => 
+                p.completion_status === 'completed' || p.status === 'completed'
+            ).length;
+            console.log(`✅ PolyLearn lessons completed: ${lessonsCompleted}`);
+        }
+        
+        if (totalLessonsCount.status === 'fulfilled' && totalLessonsCount.value?.success) {
+            totalLessons = totalLessonsCount.value.lessons?.length || 10;
+        }
+        
+        // ===== PROCESS PRACTICE DATA =====
+        let exercisesCompleted = 0;
+        let totalPracticeSeconds = 0;
+        
+        if (practiceStats.status === 'fulfilled' && practiceStats.value?.success) {
+            const attempts = practiceStats.value.attempts || [];
+            exercisesCompleted = attempts.filter(a => 
+                a.completion_status === 'completed' || a.percentage >= 70
+            ).length;
+            
+            // Calculate total practice time in seconds
+            attempts.forEach(a => {
+                totalPracticeSeconds += a.time_spent_seconds || 0;
+            });
+            
+            console.log(`✅ PolyLearn practice completed: ${exercisesCompleted}`);
+            console.log(`⏱️ Total practice seconds: ${totalPracticeSeconds}`);
+        }
+        
+        // ===== PROCESS QUIZ DATA =====
+        let quizPoints = 0;
+        let quizAttempts = 0;
+        
+        if (quizStats.status === 'fulfilled' && quizStats.value?.success) {
+            const attempts = quizStats.value.attempts || [];
+            quizAttempts = attempts.length;
+            
+            // Calculate points (10 points per correct answer)
+            attempts.forEach(attempt => {
+                const correctAnswers = attempt.correct_answers || 0;
+                quizPoints += correctAnswers * 10;
+            });
+            
+            console.log(`✅ PolyLearn quiz points: ${quizPoints}`);
+        }
+        
+        // ===== CALCULATE OVERALL PROGRESS =====
+        // Base sa lessons lang dapat ang overall progress (0-100%)
+        const overallPercentage = totalLessons > 0 
+            ? Math.round((lessonsCompleted / totalLessons) * 100) 
+            : 0;
+        
+        console.log(`📊 Overall progress: ${overallPercentage}% (${lessonsCompleted}/${totalLessons} lessons)`);
+        
+        // ===== UPDATE OVERALL PROGRESS UI =====
+        const overallProgress = document.getElementById('overallProgress');
+        if (overallProgress) {
+             overallProgress.textContent = overallPercentage + '%';
+         }
+         
+         const progressBar = document.getElementById('overallProgressBar');
+         if (progressBar) {
+             progressBar.style.width = overallPercentage + '%';
+          }
+        
+        if (overallProgress) {
+            overallProgress.textContent = `${overallPercentage}%`;
+            
+            // Add animation
+            overallProgress.style.transition = 'all 0.3s';
+            overallProgress.style.transform = 'scale(1.1)';
+            overallProgress.style.color = '#7a0000';
+            setTimeout(() => {
+                overallProgress.style.transform = 'scale(1)';
+                overallProgress.style.color = '';
+            }, 300);
+        }
+        
+        if (overallProgressBar) {
+            overallProgressBar.style.width = `${overallPercentage}%`;
+            
+            // Set color based on progress
+            overallProgressBar.className = 'progress-fill';
+            if (overallPercentage >= 70) {
+                overallProgressBar.classList.add('progress-good');
+            } else if (overallPercentage >= 40) {
+                overallProgressBar.classList.add('progress-medium');
+            } else {
+                overallProgressBar.classList.add('progress-low');
+            }
+        }
+        
+        // ===== UPDATE TOTAL POINTS =====
+        const totalPointsProgress = document.getElementById('totalPointsProgress');
+        if (totalPointsProgress) {
+            totalPointsProgress.textContent = quizPoints;
+        }
+        
+        const pointsChange = document.getElementById('pointsChange');
+        if (pointsChange) {
+            // Compute points this week
+            const pointsThisWeek = Math.min(quizPoints, 10); // Sample computation
+            pointsChange.textContent = `+${pointsThisWeek} this week`;
+        }
+        
+        // ===== UPDATE TOTAL TIME =====
+        const totalTime = document.getElementById('totalTime');
+        if (totalTime) {
+            // Convert seconds to minutes
+            const totalMinutes = Math.floor(totalPracticeSeconds / 60);
+            
+            // Format display
+            let timeDisplay = '';
+            if (totalMinutes < 60) {
+                timeDisplay = `${totalMinutes}m`;
+            } else {
+                const hours = Math.floor(totalMinutes / 60);
+                const mins = totalMinutes % 60;
+                timeDisplay = `${hours}h ${mins}m`;
+            }
+            
+            totalTime.textContent = timeDisplay;
+            console.log(`⏱️ Display time: ${timeDisplay} (${totalMinutes} minutes)`);
+        }
+        
+        const timeChange = document.getElementById('timeChange');
+        if (timeChange) {
+            // Convert seconds to minutes for active days computation
+            const totalMinutes = Math.floor(totalPracticeSeconds / 60);
+            // Compute active days (1 day = 30 minutes of activity)
+            const activeDays = Math.max(1, Math.min(30, Math.ceil(totalMinutes / 30)));
+            timeChange.textContent = `${activeDays} days active`;
+        }
+        
+        // ===== UPDATE BADGES =====
+        const totalBadges = document.getElementById('totalBadges');
+        if (totalBadges) {
+            // Calculate badges based on achievements
+            let badgeCount = 0;
+            if (lessonsCompleted >= 1) badgeCount++;
+            if (lessonsCompleted >= 5) badgeCount++;
+            if (lessonsCompleted >= 10) badgeCount++;
+            if (exercisesCompleted >= 5) badgeCount++;
+            if (exercisesCompleted >= 15) badgeCount++;
+            if (quizAttempts >= 1) badgeCount++;
+            
+            totalBadges.textContent = `${badgeCount}/10`;
+        }
+        
+        const badgesChange = document.getElementById('badgesChange');
+        if (badgesChange) {
+            const badgesThisMonth = Math.floor(lessonsCompleted / 2) + Math.floor(exercisesCompleted / 5);
+            badgesChange.textContent = `+${badgesThisMonth} this month`;
+        }
+        
+        // Hide loading
+        hideProgressDashboardLoading();
+        
+        console.log('✅ PolyLearn progress dashboard updated');
+        
+        // Store in ProgressState
+        ProgressState.cumulativeProgress = {
+            total_lessons_completed: lessonsCompleted,
+            total_lessons: totalLessons,
+            overall_percentage: overallPercentage,
+            exercises_completed: exercisesCompleted,
+            total_quizzes_completed: quizAttempts,
+            total_points_earned: quizPoints,
+            total_time_spent_minutes: Math.floor(totalPracticeSeconds / 60)
+        };
         
     } catch (error) {
-        console.error('Error loading progress dashboard data:', error);
+        console.error('❌ Error loading progress dashboard:', error);
         hideProgressDashboardLoading();
-        showProgressDashboardError();
+        
+        // Set fallback values
+        const overallProgress = document.getElementById('overallProgress');
+        if (overallProgress) overallProgress.textContent = '0%';
+        
+        const totalPointsProgress = document.getElementById('totalPointsProgress');
+        if (totalPointsProgress) totalPointsProgress.textContent = '0';
+        
+        const totalTime = document.getElementById('totalTime');
+        if (totalTime) totalTime.textContent = '0m';
+        
+        const totalBadges = document.getElementById('totalBadges');
+        if (totalBadges) totalBadges.textContent = '0/10';
     }
 }
-
 // ============================================
 // ✅ FIXED: HIDE PROGRESS DASHBOARD LOADING
 // ============================================
@@ -6261,58 +6749,249 @@ function updateProgressDashboardUI() {
 }
 
 // ============================================
-// ✅ FIXED: updateProgressSummaryCards - WITH AVG TIME
+// ✅ UPDATED: updateProgressSummaryCards - WITH DEBUG LOGS
 // ============================================
 async function updateProgressSummaryCards() {
-    console.log('📊 Updating progress summary cards with database data...');
+    console.log('📊 Updating PolyLearn progress summary cards (lesson_id = 2)...');
     
     try {
         const token = localStorage.getItem('authToken') || authToken;
         if (!token) return;
         
-        const [progressData, practiceStats, totalExercisesCount] = await Promise.all([
-            fetchCumulativeProgress(),
-            fetchPracticeStatistics(),
-            fetchTotalExercisesCount()
-        ]);
+        const POLYLEARN_LESSON_ID = 2;
         
-        console.log('📊 Progress data received:', progressData);
+        // ===== DEBUG: Check database directly =====
+        try {
+            const debugResponse = await fetch(`/api/debug/practice-count`, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            if (debugResponse.ok) {
+                const debugData = await debugResponse.json();
+                console.log('🔍 DEBUG DATA FROM SERVER:', debugData);
+            }
+        } catch (e) {
+            console.log('Debug endpoint not available');
+        }
+        
+        // ===== 1. GET POLYLEARN LESSONS =====
+        let lessonsCompleted = 0;
+        let totalLessons = 0;
+        
+        try {
+            // Get total lessons count for PolyLearn
+            const totalResponse = await fetch(`/api/lessons-db/complete?lesson_id=${POLYLEARN_LESSON_ID}`, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            
+            if (totalResponse.ok) {
+                const totalData = await totalResponse.json();
+                if (totalData.success && totalData.lessons) {
+                    totalLessons = totalData.lessons.length;
+                    console.log(`📚 Total PolyLearn lessons in database: ${totalLessons}`);
+                }
+            }
+            
+            // Get lessons progress for PolyLearn
+            const lessonsResponse = await fetch(`/api/progress/lessons?lesson_id=${POLYLEARN_LESSON_ID}`, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            
+            if (lessonsResponse.ok) {
+                const lessonsData = await lessonsResponse.json();
+                if (lessonsData.success && lessonsData.progress) {
+                    lessonsCompleted = lessonsData.progress.filter(p => 
+                        p.completion_status === 'completed' || p.status === 'completed'
+                    ).length;
+                    
+                    console.log(`✅ PolyLearn lessons completed from DB: ${lessonsCompleted}/${totalLessons}`);
+                }
+            }
+        } catch (error) {
+            console.warn('⚠️ Could not fetch PolyLearn lessons:', error.message);
+        }
+        
+        // ===== 2. GET POLYLEARN PRACTICE EXERCISES =====
+        let exercisesCompleted = 0;
+        let totalExercises = 0;
+        
+        try {
+            // ✅ Get total PolyLearn practice exercises (lesson_id=2)
+            console.log(`📡 Fetching total exercises count for lesson ${POLYLEARN_LESSON_ID}...`);
+            const totalExercisesResponse = await fetch(`/api/practice/exercises/count?lesson_id=${POLYLEARN_LESSON_ID}`, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            
+            if (totalExercisesResponse.ok) {
+                const totalData = await totalExercisesResponse.json();
+                console.log('📥 Total exercises response:', totalData);
+                
+                if (totalData.success) {
+                    totalExercises = totalData.count || 0;
+                    console.log(`📝 TOTAL PolyLearn practice exercises from DB: ${totalExercises}`);
+                    
+                    // Log debug info if available
+                    if (totalData.debug) {
+                        console.log('🔍 Debug info from server:', totalData.debug);
+                    }
+                }
+            } else {
+                console.error('❌ Failed to fetch total exercises count:', totalExercisesResponse.status);
+            }
+            
+            // ✅ Get PolyLearn practice attempts (lesson_id=2)
+            console.log(`📡 Fetching practice attempts for lesson ${POLYLEARN_LESSON_ID}...`);
+            const practiceResponse = await fetch(`/api/progress/practice-attempts?lesson_id=${POLYLEARN_LESSON_ID}`, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            
+            if (practiceResponse.ok) {
+                const practiceData = await practiceResponse.json();
+                console.log('📥 Practice attempts response:', practiceData);
+                
+                if (practiceData.success && practiceData.attempts) {
+                    exercisesCompleted = practiceData.attempts.filter(attempt => 
+                        attempt.completion_status === 'completed' || 
+                        attempt.percentage >= 70 ||
+                        attempt.score >= 70
+                    ).length;
+                    
+                    console.log(`✅ PolyLearn completed exercises from DB: ${exercisesCompleted}/${totalExercises}`);
+                }
+            } else {
+                console.error('❌ Failed to fetch practice attempts:', practiceResponse.status);
+            }
+            
+        } catch (error) {
+            console.error('❌ Error fetching practice from DB:', error);
+        }
+        
+        // ===== 3. GET POLYLEARN QUIZ POINTS =====
+        let totalPoints = 0;
+        
+        try {
+            const quizResponse = await fetch(`/api/quiz/user/attempts?lesson_id=${POLYLEARN_LESSON_ID}`, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            
+            if (quizResponse.ok) {
+                const quizData = await quizResponse.json();
+                if (quizData.success && quizData.attempts) {
+                    quizData.attempts.forEach(attempt => {
+                        const correctAnswers = attempt.correct_answers || 0;
+                        totalPoints += correctAnswers * 10;
+                    });
+                    console.log(`✅ PolyLearn quiz points from DB: ${totalPoints}`);
+                }
+            }
+        } catch (error) {
+            console.warn('⚠️ Could not fetch PolyLearn quiz points:', error.message);
+        }
+        
+        // ===== 4. UPDATE THE UI =====
         
         // Update lessons count
         const lessonsCount = document.getElementById('lessonsCount');
         if (lessonsCount) {
-            const completed = progressData?.total_lessons_completed || 0;
-            const total = progressData?.total_lessons || 20;
-            lessonsCount.innerHTML = `${completed}<span class="item-unit">/${total}</span>`;
+            lessonsCount.innerHTML = `${lessonsCompleted}<span class="item-unit">/${totalLessons}</span>`;
+            console.log(`📊 UI Lessons: ${lessonsCompleted}/${totalLessons}`);
         }
         
         // Update exercises count
         const exercisesCount = document.getElementById('exercisesCount');
         if (exercisesCount) {
-            const exercisesCompleted = practiceStats?.exercises_completed || 
-                                       progressData?.exercises_completed || 0;
-            const totalExercises = totalExercisesCount || 5;
             exercisesCount.innerHTML = `${exercisesCompleted}<span class="item-unit">/${totalExercises}</span>`;
+            console.log(`📊 UI Practice: ${exercisesCompleted}/${totalExercises}`);
         }
         
         // Update quiz score
         const quizScore = document.getElementById('quizScore');
         if (quizScore) {
-            const totalPoints = progressData?.total_points_earned || 0;
             quizScore.innerHTML = `${totalPoints}<span class="item-unit">points</span>`;
+            console.log(`📊 UI Quiz Points: ${totalPoints}`);
         }
         
-        // ✅ UPDATE AVG TIME - Ito ay average time per activity
+        // Update avg time
         const avgTime = document.getElementById('avgTime');
         if (avgTime) {
-            const avgPerActivity = progressData?.avg_time_per_activity || 5;
-            avgTime.innerHTML = `${avgPerActivity}<span class="item-unit">min/activity</span>`;
-            console.log(`✅ Average time updated: ${avgPerActivity} min per activity`);
+            const totalActivities = lessonsCompleted + exercisesCompleted;
+            const avgPerActivity = totalActivities > 0 ? Math.round(5 + (totalActivities * 0.5)) : 5;
+            avgTime.innerHTML = `${avgPerActivity}<span class="item-unit">min/day</span>`;
         }
         
+        console.log('✅ PolyLearn progress summary cards updated successfully');
+        console.log(`   FINAL - Lessons: ${lessonsCompleted}/${totalLessons}, Practice: ${exercisesCompleted}/${totalExercises}, Points: ${totalPoints}`);
+        
     } catch (error) {
-        console.error('❌ Error updating progress summary cards:', error);
+        console.error('❌ Error updating PolyLearn progress summary cards:', error);
     }
+}
+// ============================================
+// DEBUG: Check PolyLearn Progress
+// ============================================
+window.debugPolyLearnProgress = async function() {
+    console.log('🔍 DEBUGGING POLYLEARN PROGRESS...');
+    
+    const token = localStorage.getItem('authToken');
+    const POLYLEARN_LESSON_ID = 2;
+    
+    console.log('📡 Fetching PolyLearn data (lesson_id = 2)...');
+    
+    // Check lessons
+    try {
+        const lessonsRes = await fetch(`/api/progress/lessons?lesson_id=${POLYLEARN_LESSON_ID}`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        const lessonsData = await lessonsRes.json();
+        console.log('📚 PolyLearn Lessons:', lessonsData);
+    } catch (e) {
+        console.log('Lessons error:', e.message);
+    }
+    
+    // Check practice
+    try {
+        const practiceRes = await fetch(`/api/progress/practice-attempts?lesson_id=${POLYLEARN_LESSON_ID}`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        const practiceData = await practiceRes.json();
+        console.log('💪 PolyLearn Practice:', practiceData);
+    } catch (e) {
+        console.log('Practice error:', e.message);
+    }
+    
+    // Check quizzes
+    try {
+        const quizRes = await fetch(`/api/quiz/user/attempts?lesson_id=${POLYLEARN_LESSON_ID}`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        const quizData = await quizRes.json();
+        console.log('🧠 PolyLearn Quizzes:', quizData);
+    } catch (e) {
+        console.log('Quiz error:', e.message);
+    }
+    
+    // Check current UI values
+    console.log('📊 Current UI values:');
+    console.log('- Lessons:', document.getElementById('lessonsCount')?.innerHTML);
+    console.log('- Practice:', document.getElementById('exercisesCount')?.innerHTML);
+    console.log('- Quiz:', document.getElementById('quizScore')?.innerHTML);
+    console.log('- Avg Time:', document.getElementById('avgTime')?.innerHTML);
+    
+    console.log('✅ Debug complete');
+};
+
+// ============================================
+// Fallback function for default values
+// ============================================
+function setDefaultProgressValues() {
+    const lessonsCount = document.getElementById('lessonsCount');
+    const exercisesCount = document.getElementById('exercisesCount');
+    const quizScore = document.getElementById('quizScore');
+    const avgTime = document.getElementById('avgTime');
+    
+    if (lessonsCount) lessonsCount.innerHTML = `0<span class="item-unit">/10</span>`;
+    if (exercisesCount) exercisesCount.innerHTML = `0<span class="item-unit">/15</span>`;
+    if (quizScore) quizScore.innerHTML = `0<span class="item-unit">points</span>`;
+    if (avgTime) avgTime.innerHTML = `5<span class="item-unit">min/day</span>`;
 }
 
 // ============================================
@@ -6883,7 +7562,7 @@ document.addEventListener('DOMContentLoaded', function() {
     // ✅ I-initialize ang progressRefreshInterval
     progressRefreshInterval = null;
     
-    // Initialize app first - MODIFIED to directly show dashboard
+    // Initialize app first
     initApp();
     
     // Add all styles
@@ -6895,6 +7574,8 @@ document.addEventListener('DOMContentLoaded', function() {
     addFeedbackStyles();
     addLessonContentStyles();
     addReviewModalStyles();
+    
+  
     
     // Initialize forgot password link - call it multiple times to ensure it works
     setTimeout(() => {
@@ -7802,40 +8483,120 @@ function initializeTimeTracker() {
 // Also initialize after login
 
 
+// ============================================
+// ✅ UPDATED: fetchPracticeStatistics - PURE DATABASE, FILTERED BY LESSON_ID=2
+// ============================================
 async function fetchPracticeStatistics() {
     try {
-        console.log('📊 Fetching practice statistics...');
-        
-        const data = await apiRequest('/api/progress/practice-attempts');
-        
-        if (data.success && data.attempts) {
-            const attempts = data.attempts;
-            
-            // Count completed exercises
-            const completedExercises = attempts.filter(a => 
-                a.completion_status === 'completed' || 
-                (a.percentage && a.percentage >= 70)
-            ).length;
-            
-            const stats = {
-                exercises_completed: completedExercises,
-                total_attempts: attempts.length,
-                average_score: 85,
-                lessons_completed: 0,
-                total_lessons: 20,
-                lessons_percentage: 0,
-                lessons_display: '0/20'
-            };
-            
-            PracticeState.userPracticeProgress = stats;
-            return stats;
+        const token = localStorage.getItem('authToken') || authToken;
+        if (!token) {
+            console.error('❌ No auth token available');
+            return null;
         }
         
-        return getDefaultPracticeStats();
+        console.log('📊 Fetching PolyLearn practice statistics DIRECTLY FROM DATABASE (lesson_id=2)...');
+        
+        const POLYLEARN_LESSON_ID = 2;
+        
+        // ===== GET ALL PRACTICE STATS FROM DATABASE IN PARALLEL =====
+        const [lessonsData, attemptsData, totalExercisesData] = await Promise.allSettled([
+            // Get lessons progress (lesson_id=2)
+            fetch(`/api/progress/lessons?lesson_id=${POLYLEARN_LESSON_ID}`, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            }).then(res => res.json()).catch(err => ({ success: false, error: err })),
+            
+            // Get practice attempts (lesson_id=2)
+            fetch(`/api/progress/practice-attempts?lesson_id=${POLYLEARN_LESSON_ID}`, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            }).then(res => res.json()).catch(err => ({ success: false, error: err })),
+            
+            // Get total exercises count (lesson_id=2)
+            fetch(`/api/practice/exercises/count?lesson_id=${POLYLEARN_LESSON_ID}`, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            }).then(res => res.json()).catch(err => ({ success: false, error: err }))
+        ]);
+        
+        // ===== PROCESS LESSONS DATA =====
+        let lessonsCompleted = 0;
+        let totalLessons = 0;
+        
+        if (lessonsData.status === 'fulfilled' && lessonsData.value.success) {
+            const progress = lessonsData.value.progress || [];
+            lessonsCompleted = progress.filter(p => 
+                p.completion_status === 'completed' || p.status === 'completed'
+            ).length;
+            console.log(`✅ Lessons completed from DB: ${lessonsCompleted}`);
+        }
+        
+        // ===== PROCESS TOTAL EXERCISES =====
+        let totalExercises = 0;
+        if (totalExercisesData.status === 'fulfilled' && totalExercisesData.value.success) {
+            totalExercises = totalExercisesData.value.count || 0;
+            console.log(`✅ Total exercises from DB: ${totalExercises}`);
+        }
+        
+        // ===== PROCESS PRACTICE ATTEMPTS =====
+        let exercisesCompleted = 0;
+        let totalAttempts = 0;
+        let totalScore = 0;
+        let totalTimeSeconds = 0;
+        let averageScore = 0;
+        
+        if (attemptsData.status === 'fulfilled' && attemptsData.value.success) {
+            const attempts = attemptsData.value.attempts || [];
+            
+            // Count completed exercises
+            exercisesCompleted = attempts.filter(a => 
+                a.completion_status === 'completed' || 
+                a.percentage >= 70 ||
+                a.score >= 70
+            ).length;
+            
+            totalAttempts = attempts.length;
+            
+            // Calculate average score
+            if (totalAttempts > 0) {
+                const totalScoreSum = attempts.reduce((sum, a) => sum + (a.score || 0), 0);
+                averageScore = Math.round(totalScoreSum / totalAttempts);
+            }
+            
+            // Calculate total time
+            totalTimeSeconds = attempts.reduce((sum, a) => sum + (a.time_spent_seconds || 0), 0);
+            
+            console.log(`✅ Exercises completed from DB: ${exercisesCompleted}/${totalExercises}`);
+            console.log(`✅ Total attempts from DB: ${totalAttempts}`);
+            console.log(`✅ Average score from DB: ${averageScore}%`);
+            console.log(`✅ Total time from DB: ${totalTimeSeconds}s`);
+        }
+        
+        // ===== CREATE STATS OBJECT FROM DATABASE =====
+        const stats = {
+            total_exercises_completed: exercisesCompleted,
+            total_attempts: totalAttempts,
+            average_score: averageScore,
+            lessons_completed: lessonsCompleted,
+            exercises_completed: exercisesCompleted,
+            practice_unlocked: true,
+            total_lessons: totalLessons || 3,
+            total_exercises: totalExercises,
+            total_time_minutes: Math.round(totalTimeSeconds / 60),
+            total_time_seconds: totalTimeSeconds,
+            accuracy_rate: averageScore,
+            lessons_display: `${lessonsCompleted}/${totalLessons || 3}`,
+            exercises_display: `${exercisesCompleted}`,
+            lessons_percentage: totalLessons > 0 ? Math.round((lessonsCompleted / totalLessons) * 100) : 0
+        };
+        
+        console.log('✅ FINAL PRACTICE STATISTICS FROM DATABASE:', stats);
+        
+        // Save to PracticeState
+        PracticeState.userPracticeProgress = stats;
+        
+        return stats;
         
     } catch (error) {
-        console.error('❌ Error fetching practice statistics:', error);
-        return getDefaultPracticeStats();
+        console.error('❌ Error fetching practice statistics from database:', error);
+        return null;
     }
 }
 
@@ -8659,7 +9420,7 @@ async function fetchQuizzesForCategory(categoryId) {
             }
         }
         
-        const response = await fetch(`/api/quiz/category/${categoryId}/quizzes`, {
+        const response = await fetch(`/api/quiz/category/${categoryId}/quizzes?lesson_id=2`, {
             headers: {
                 'Authorization': `Bearer ${token}`,
                 'Content-Type': 'application/json'
@@ -9529,26 +10290,16 @@ function connectReviewButtons() {
 
 
 // ============================================
-// CLOSE QUIZ MODAL - BALIK DIN SA DASHBOARD
+// FIXED: Close quiz modal - RETURNS TO QUIZ LIST (SECOND PICTURE)
 // ============================================
 function closeQuizSystemModal() {
-    console.log('🚪 Closing quiz modal - returning to dashboard');
+    console.log('🚪 Closing quiz modal - returning to quiz list');
     
     const modal = document.getElementById('quizModal');
-    const quizContainer = document.getElementById('quizContainer');
-    const resultsContainer = document.getElementById('quizResultsContainer');
     
     if (modal) {
         modal.style.display = 'none';
         document.body.classList.remove('modal-open');
-    }
-    
-    // Reset containers
-    if (quizContainer) {
-        quizContainer.style.display = 'block';
-    }
-    if (resultsContainer) {
-        resultsContainer.style.display = 'none';
     }
     
     // Stop timer
@@ -9557,21 +10308,24 @@ function closeQuizSystemModal() {
         QuizSystem.timerInterval = null;
     }
     
-    // I-SHOW ANG QUIZ DASHBOARD (may categories)
+    // ===== ITO ANG TAMA: Ipakita ang QUIZ LIST (second picture) =====
+    // 1. I-hide ang quiz interface (yung may "Available Quizzes" at "Exit Quiz")
     const quizInterface = document.getElementById('quizInterfaceContainer');
-    const quizCards = document.getElementById('userQuizzesContainer');
-    const badgesContainer = document.getElementById('badgesContainer');
-    const leaderboardContainer = document.getElementById('leaderboardContainer');
-    
     if (quizInterface) {
         quizInterface.classList.add('hidden');
         quizInterface.style.display = 'none';
     }
     
+    // 2. Ipakita ang userQuizzesContainer (second picture - list of quizzes)
+    const quizCards = document.getElementById('userQuizzesContainer');
     if (quizCards) {
         quizCards.classList.remove('hidden');
         quizCards.style.display = 'block';
     }
+    
+    // Keep badges and leaderboard visible
+    const badgesContainer = document.getElementById('badgesContainer');
+    const leaderboardContainer = document.getElementById('leaderboardContainer');
     
     if (badgesContainer) {
         badgesContainer.classList.remove('hidden');
@@ -9583,14 +10337,18 @@ function closeQuizSystemModal() {
         leaderboardContainer.style.display = 'block';
     }
     
-    // I-refresh ang quiz dashboard
-    if (typeof loadQuizCategories === 'function') {
-        setTimeout(() => {
-            loadQuizCategories();
-        }, 100);
-    }
+    // Reset quiz state
+    QuizSystem.currentQuiz = null;
+    QuizSystem.currentAttemptId = null;
+    QuizSystem.questions = [];
+    QuizSystem.currentIndex = 0;
+    QuizSystem.userAnswers = {};
+    QuizSystem.startTime = null;
+    QuizSystem.timeLeft = 0;
+    QuizSystem.stats = { correct: 0, wrong: 0, score: 0 };
+    
+    console.log('✅ Returned to quiz list (second picture)');
 }
-
 
 // Replace the startQuizAttempt function
 // Sa script.js, gamitin itong modified startQuizAttempt
@@ -10207,119 +10965,484 @@ async function loadQuizStatsFromServer() {
 
 
 // ============================================
-// LOAD QUIZ CATEGORIES - UPDATED
+// ✅ FIXED: Load quiz categories from database
 // ============================================
 async function loadQuizCategories() {
+    console.log('📚 Loading quiz categories from database...');
+    
     try {
-        const categories = await fetchQuizCategories();
-        QuizState.quizCategories = categories;
-        
-        const quizzesContainer = document.getElementById('userQuizzesContainer');
-        if (!quizzesContainer) {
-            console.error('Quiz container not found');
-            return;
+        const token = localStorage.getItem('authToken') || authToken;
+        if (!token) {
+            console.warn('No auth token available');
+            return [];
         }
         
-        if (categories.length === 0) {
-            quizzesContainer.innerHTML = `
-                <div class="no-categories">
-                    <i class="fas fa-clipboard-list"></i>
-                    <h3>No quiz categories available</h3>
-                    <p>Check back later for new quizzes!</p>
-                </div>
-            `;
-            return;
-        }
+        const POLYLEARN_LESSON_ID = 2;
         
-        // Display categories as cards
-        let html = '';
-        categories.forEach(category => {
-            html += `
-                <div class="quiz-category-card" data-category-id="${category.category_id}">
-                    <div class="quiz-category-icon" style="background: ${category.color || '#7a0000'}">
-                        <i class="${category.icon || 'fas fa-question-circle'}"></i>
-                    </div>
-                    <div class="quiz-category-info">
-                        <h3 class="quiz-category-title">${category.category_name}</h3>
-                        <p class="quiz-category-desc">${category.description || 'Test your knowledge in this category'}</p>
-                        <div class="quiz-category-stats">
-                            <span class="quiz-category-stat">
-                                <i class="fas fa-question-circle"></i> ${category.quiz_count || 0} Quizzes
-                            </span>
-                        </div>
-                    </div>
-                    <button class="quiz-category-btn" data-category-id="${category.category_id}">
-                        <i class="fas fa-arrow-right"></i>
-                    </button>
-                </div>
-            `;
-        });
-        
-        quizzesContainer.innerHTML = html;
-        
-        // Add event listeners to category buttons
-        document.querySelectorAll('.quiz-category-btn').forEach(button => {
-            button.addEventListener('click', async function(e) {
-                e.stopPropagation();
-                const categoryId = this.getAttribute('data-category-id');
-                await loadQuizzesForCategory(categoryId);
-            });
-        });
-        
-        // Add event listeners to category cards
-        document.querySelectorAll('.quiz-category-card').forEach(card => {
-            card.addEventListener('click', function() {
-                const categoryId = this.getAttribute('data-category-id');
-                document.querySelectorAll('.quiz-category-card').forEach(c => {
-                    c.classList.remove('selected');
-                });
-                this.classList.add('selected');
-                QuizState.selectedCategory = categoryId;
-            });
-        });
-        
-    } catch (error) {
-        console.error('Error loading quiz categories:', error);
+        // Show loading state
         const quizzesContainer = document.getElementById('userQuizzesContainer');
         if (quizzesContainer) {
             quizzesContainer.innerHTML = `
-                <div class="error-message">
-                    <i class="fas fa-exclamation-triangle"></i>
-                    <h3>Failed to load quiz categories</h3>
-                    <p>Please try again later</p>
+                <div class="card" style="padding: 40px; text-align: center;">
+                    <div style="font-size: 40px; color: #7a0000; margin-bottom: 20px;">
+                        <i class="fas fa-spinner fa-spin"></i>
+                    </div>
+                    <p style="color: #666;">Loading PolyLearn categories from database...</p>
                 </div>
             `;
         }
+        
+        // Fetch categories from server with lesson_id filter
+        const response = await fetch(`/api/quiz/categories?lesson_id=${POLYLEARN_LESSON_ID}`, {
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Accept': 'application/json'
+            }
+        });
+        
+        if (!response.ok) {
+            throw new Error(`Failed to fetch categories: ${response.status}`);
+        }
+        
+        const data = await response.json();
+        console.log('📥 Server response:', data);
+        
+        if (data.success && data.categories) {
+            console.log(`✅ Found ${data.categories.length} categories from database`);
+            displayQuizCategories(data.categories, false);
+            return data.categories;
+        } else {
+            console.log('ℹ️ No categories returned from database');
+            displayQuizCategories([], false);
+            return [];
+        }
+        
+    } catch (error) {
+        console.error('❌ Error loading quiz categories:', error);
+        
+        // Show error in container
+        const quizzesContainer = document.getElementById('userQuizzesContainer');
+        if (quizzesContainer) {
+            quizzesContainer.innerHTML = `
+                <div class="card" style="padding: 40px; text-align: center;">
+                    <div style="font-size: 60px; color: #e74c3c; margin-bottom: 20px;">
+                        <i class="fas fa-exclamation-triangle"></i>
+                    </div>
+                    <h3 style="color: #666; margin-bottom: 10px;">Failed to load categories</h3>
+                    <p style="color: #999; margin-bottom: 20px;">${error.message}</p>
+                    <button class="btn-primary" onclick="loadQuizCategories()" style="background: #7a0000; color: white; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer;">
+                        <i class="fas fa-redo"></i> Try Again
+                    </button>
+                </div>
+            `;
+        }
+        
+        return [];
     }
+}
+
+// ============================================
+// 🆘 OFFLINE CATEGORIES - Gumagana kahit walang internet
+// ============================================
+function useOfflineCategories() {
+    console.log('📚 Using offline PolyLearn categories');
+    
+    const offlineCategories = [
+        {
+            category_id: 1,
+            category_name: 'Polynomial Division Basics',
+            description: 'Master the fundamentals of polynomial division',
+            icon: 'fa-divide',
+            color: '#7a0000',
+            quiz_count: 3
+        },
+        {
+            category_id: 2,
+            category_name: 'Synthetic Division',
+            description: 'Learn efficient polynomial division techniques',
+            icon: 'fa-bolt',
+            color: '#27ae60',
+            quiz_count: 2
+        },
+        {
+            category_id: 3,
+            category_name: 'Remainder & Factor Theorems',
+            description: 'Understand key theorems in polynomial algebra',
+            icon: 'fa-calculator',
+            color: '#3498db',
+            quiz_count: 2
+        },
+        {
+            category_id: 4,
+            category_name: 'Long Division Practice',
+            description: 'Step-by-step polynomial long division problems',
+            icon: 'fa-pencil-alt',
+            color: '#f39c12',
+            quiz_count: 3
+        }
+    ];
+    
+    // Show offline indicator
+    const offlineIndicator = document.createElement('div');
+    offlineIndicator.style.cssText = `
+        background: #f39c12;
+        color: white;
+        padding: 8px 15px;
+        border-radius: 5px;
+        margin-bottom: 15px;
+        text-align: center;
+        font-size: 14px;
+    `;
+    offlineIndicator.innerHTML = '<i class="fas fa-wifi-slash"></i> Offline Mode - Using sample data';
+    
+    const quizDashboard = document.getElementById('quiz-dashboard-page');
+    if (quizDashboard) {
+        const existingIndicator = quizDashboard.querySelector('.offline-indicator');
+        if (!existingIndicator) {
+            offlineIndicator.classList.add('offline-indicator');
+            quizDashboard.insertBefore(offlineIndicator, quizDashboard.firstChild);
+        }
+    }
+    
+    // Display the categories
+    displayQuizCategories(offlineCategories);
+    
+    return offlineCategories;
+}
+
+// ============================================
+// 🆘 HARDCODED FALLBACK CATEGORIES FOR POLYLEARN
+// ============================================
+function useHardcodedCategories() {
+    console.log('📚 Using hardcoded PolyLearn categories');
+    
+    const polyLearnCategories = [
+        {
+            category_id: 1,
+            category_name: 'Polynomial Division Basics',
+            description: 'Master the fundamentals of polynomial division',
+            icon: 'fa-divide',
+            color: '#7a0000',
+            quiz_count: 3
+        },
+        {
+            category_id: 2,
+            category_name: 'Synthetic Division',
+            description: 'Learn efficient polynomial division techniques',
+            icon: 'fa-bolt',
+            color: '#27ae60',
+            quiz_count: 2
+        },
+        {
+            category_id: 3,
+            category_name: 'Remainder & Factor Theorems',
+            description: 'Understand key theorems in polynomial algebra',
+            icon: 'fa-calculator',
+            color: '#3498db',
+            quiz_count: 2
+        },
+        {
+            category_id: 4,
+            category_name: 'Long Division Practice',
+            description: 'Step-by-step polynomial long division problems',
+            icon: 'fa-pencil-alt',
+            color: '#f39c12',
+            quiz_count: 3
+        }
+    ];
+    
+    // Store in QuizState
+    if (!window.QuizState) window.QuizState = {};
+    window.QuizState.quizCategories = polyLearnCategories;
+    
+    // Display the categories
+    displayQuizCategories(polyLearnCategories);
+    
+    return polyLearnCategories;
+}
+
+// ============================================
+// 🆘 Ultimate fallback if all else fails
+// ============================================
+function showQuizCategoriesFallback() {
+    console.log('📚 Showing hardcoded fallback categories');
+    
+    const categoriesContainer = document.getElementById('quizCategoriesGrid');
+    if (!categoriesContainer) return;
+    
+    const categories = getHardcodedCategories();
+    
+    // Store in QuizState
+    if (!window.QuizState) window.QuizState = {};
+    window.QuizState.quizCategories = categories;
+    
+    // Display
+    displayQuizCategories(categories);
+}
+
+// Helper function to handle categories response
+function handleCategoriesResponse(data, filterOnClient = false) {
+    console.log('📥 Quiz categories response:', data);
+    
+    const categoriesContainer = document.getElementById('quizCategoriesGrid');
+    if (!categoriesContainer) return [];
+    
+    if (data.success && data.categories) {
+        let categories = data.categories;
+        
+        // Filter on client side if needed
+        if (filterOnClient) {
+            categories = categories.filter(cat => {
+                const catLessonId = cat.lesson_id || cat.lessonId;
+                return catLessonId == POLYLEARN_LESSON_ID;
+            });
+            console.log(`🎯 Filtered to ${categories.length} categories for PolyLearn`);
+        }
+        
+        console.log(`✅ Found ${categories.length} quiz categories for PolyLearn`);
+        
+        // Store in QuizState
+        if (!window.QuizState) window.QuizState = {};
+        window.QuizState.quizCategories = categories;
+        
+        // Display the categories
+        displayQuizCategories(categories);
+        
+        return categories;
+    } else {
+        console.log('ℹ️ No categories returned');
+        displayQuizCategories([]);
+        return [];
+    }
+}
+// ============================================
+// ✅ FIXED: Display quiz categories na parang dashboard card
+// ============================================
+function displayQuizCategories(categories, isHardcoded = false) {
+    console.log('📋 Displaying PolyLearn quiz categories:', categories);
+    
+    const quizzesContainer = document.getElementById('userQuizzesContainer');
+    if (!quizzesContainer) {
+        console.error('❌ userQuizzesContainer not found');
+        return;
+    }
+    
+    // STRICT FILTER - lesson_id=2 LANG
+    const polyLearnCategories = categories.filter(cat => {
+        const catLessonId = cat.lesson_id || cat.lessonId;
+        return catLessonId == 2;
+    });
+    
+    console.log('🎯 After strict filtering:', polyLearnCategories.length, 'categories');
+    
+    // I-clear ang container
+    quizzesContainer.innerHTML = '';
+    
+    if (!polyLearnCategories || polyLearnCategories.length === 0) {
+        quizzesContainer.innerHTML = `
+            <div class="card" style="padding: 40px; text-align: center;">
+                <div style="font-size: 60px; color: #ccc; margin-bottom: 20px;">
+                    <i class="fas fa-folder-open"></i>
+                </div>
+                <h3 style="color: #666; margin-bottom: 10px;">No PolyLearn Categories Available</h3>
+                <p style="color: #999; margin-bottom: 20px;">Check back later for new PolyLearn quizzes!</p>
+                <button class="btn-primary" onclick="loadQuizCategories()" style="background: #7a0000; color: white; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer;">
+                    <i class="fas fa-redo"></i> Refresh
+                </button>
+            </div>
+        `;
+        return;
+    }
+    
+    // Gaya ng ibang dashboard cards - may header at card body
+    let html = `
+        <!-- Categories Card - gaya ng ibang dashboard cards -->
+        <div class="card full-width-card" style="margin-bottom: 20px;">
+            <div class="card-header" style="padding: 20px 25px 0;">
+                <h2 class="card-title" style="display: flex; align-items: center; gap: 10px; font-size: 1.4rem; color: var(--text-color); margin-bottom: 5px;">
+                    <i class="fas fa-folder" style="color: #7a0000;"></i> 
+                    PolyLearn Quiz Categories
+                </h2>
+                <p class="card-subtitle" style="color: var(--text-light); font-size: 0.95rem;">
+                    Select a category to start practicing
+                </p>
+            </div>
+            
+            <div style="padding: 20px 25px 25px;">
+    `;
+    
+    // Add offline indicator kung hardcoded
+    if (isHardcoded) {
+        html += `
+            <div style="background: #f39c12; color: white; padding: 10px 15px; border-radius: 8px; margin-bottom: 20px; display: flex; align-items: center; gap: 10px;">
+                <i class="fas fa-info-circle"></i>
+                <span>Using sample data (offline mode)</span>
+            </div>
+        `;
+    }
+    
+    // Grid ng categories - gaya ng sa ibang grids
+    html += `<div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 20px;">`;
+    
+    polyLearnCategories.forEach(category => {
+        const categoryId = category.category_id || category.id;
+        const categoryName = category.category_name || category.name || 'PolyLearn Quiz';
+        const categoryDesc = category.description || 'Test your PolyLearn knowledge.';
+        const totalQuizzes = category.quiz_count || category.total_quizzes || 3;
+        const categoryColor = category.color || '#7a0000';
+        const categoryIcon = category.icon || 'fa-graduation-cap';
+        
+        // Category card - gaya ng design sa buong app
+        html += `
+            <div class="quiz-category-card" data-category-id="${categoryId}" 
+                 style="cursor: pointer; background: white; border-radius: 12px; overflow: hidden;
+                        box-shadow: 0 4px 12px rgba(0,0,0,0.1); border: 1px solid var(--border-color);
+                        transition: all 0.3s ease; position: relative;">
+                
+                <!-- Colored top bar -->
+                <div style="height: 6px; background: ${categoryColor}; width: 100%;"></div>
+                
+                <div style="padding: 20px;">
+                    <!-- Header with icon and title -->
+                    <div style="display: flex; align-items: center; gap: 15px; margin-bottom: 15px;">
+                        <div style="width: 50px; height: 50px; background: ${categoryColor}20; 
+                                    border-radius: 12px; display: flex; align-items: center; 
+                                    justify-content: center; font-size: 24px; color: ${categoryColor};">
+                            <i class="fas ${categoryIcon}"></i>
+                        </div>
+                        <div style="flex: 1;">
+                            <h3 style="margin: 0 0 5px 0; color: #2c3e50; font-size: 18px; font-weight: 600;">
+                                ${categoryName}
+                            </h3>
+                            <div style="display: flex; align-items: center; gap: 10px;">
+                                <span style="background: ${categoryColor}10; color: ${categoryColor}; 
+                                           padding: 4px 10px; border-radius: 20px; font-size: 12px;">
+                                    <i class="fas fa-graduation-cap"></i> PolyLearn
+                                </span>
+                                <span style="color: #7f8c8d; font-size: 13px;">
+                                    <i class="fas fa-question-circle"></i> ${totalQuizzes} quizzes
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Description -->
+                    <p style="color: #6c757d; font-size: 14px; line-height: 1.5; margin: 0 0 20px 0; min-height: 42px;">
+                        ${categoryDesc}
+                    </p>
+                    
+                    <!-- Action button -->
+                    <button class="quiz-category-btn" data-category-id="${categoryId}" 
+                            style="width: 100%; padding: 12px; background: ${categoryColor}; 
+                                   color: white; border: none; border-radius: 8px; 
+                                   font-weight: 600; cursor: pointer; display: flex;
+                                   align-items: center; justify-content: center; gap: 8px;
+                                   transition: all 0.3s ease;">
+                        <i class="fas fa-play-circle"></i> Browse Quizzes
+                        <i class="fas fa-arrow-right" style="font-size: 14px;"></i>
+                    </button>
+                </div>
+            </div>
+        `;
+    });
+    
+    html += `</div>`; // Close grid
+    html += `</div></div>`; // Close card body and card
+    
+    quizzesContainer.innerHTML = html;
+    
+    // Add event listeners sa buong card (para sa click sa buong card)
+    document.querySelectorAll('.quiz-category-card').forEach(card => {
+        card.addEventListener('click', function(e) {
+            // Kung ang click ay sa button, hayaan ang button mag-handle
+            if (e.target.closest('.quiz-category-btn')) return;
+            
+            const categoryId = this.getAttribute('data-category-id');
+            if (categoryId) {
+                console.log('🎯 Category card clicked:', categoryId);
+                loadQuizzesForCategory(categoryId);
+            }
+        });
+    });
+    
+    // Add event listeners sa button
+    document.querySelectorAll('.quiz-category-btn').forEach(btn => {
+        btn.addEventListener('click', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            const categoryId = this.getAttribute('data-category-id');
+            if (categoryId) {
+                console.log('🎯 Browse button clicked:', categoryId);
+                loadQuizzesForCategory(categoryId);
+            }
+        });
+    });
+}
+
+// ============================================
+// Helper: Get category icon based on name
+// ============================================
+function getCategoryIcon(categoryName) {
+    const name = categoryName.toLowerCase();
+    
+    if (name.includes('polynomial') || name.includes('math')) return 'fa-square-root-alt';
+    if (name.includes('algebra')) return 'fa-superscript';
+    if (name.includes('geometry')) return 'fa-draw-polygon';
+    if (name.includes('calculus')) return 'fa-chart-line';
+    if (name.includes('trigonometry')) return 'fa-ruler-combined';
+    if (name.includes('statistics')) return 'fa-chart-bar';
+    if (name.includes('fraction')) return 'fa-divide';
+    
+    return 'fa-question-circle';
+}
+
+// ============================================
+// Helper: Get category color based on ID
+// ============================================
+function getCategoryColor(categoryId) {
+    const colors = [
+        '#7a0000', // Dark red
+        '#3498db', // Blue
+        '#27ae60', // Green
+        '#f39c12', // Orange
+        '#9b59b6', // Purple
+        '#e74c3c', // Red
+        '#1abc9c', // Turquoise
+        '#34495e'  // Dark blue
+    ];
+    
+    // Use modulo to assign a color based on ID
+    const index = (parseInt(categoryId) - 1) % colors.length;
+    return colors[index] || colors[0];
 }
 
 
 // ============================================
-// LOAD QUIZZES FOR CATEGORY - UPDATED
+// ✅ UPDATED: Load and display quizzes in same container
 // ============================================
 async function loadQuizzesForCategory(categoryId) {
     try {
-        console.log(`📝 Fetching quizzes for category ${categoryId}...`);
+        console.log(`📝 Loading quizzes for category ${categoryId}...`);
         
         const token = localStorage.getItem('authToken') || authToken;
         if (!token) {
-            console.warn('No auth token available');
             showNotification('Please login to view quizzes', 'error');
             return;
         }
         
-        // Show loading
-        const quizOptionsContainer = document.getElementById('quizOptionsContainer');
-        if (quizOptionsContainer) {
-            quizOptionsContainer.innerHTML = `
-                <div style="grid-column: 1/-1; text-align: center; padding: 40px;">
-                    <i class="fas fa-spinner fa-pulse fa-3x" style="color: #7a0000;"></i>
-                    <p style="margin-top: 20px;">Loading quizzes from database...</p>
-                </div>
-            `;
-        }
+        const quizzesContainer = document.getElementById('userQuizzesContainer');
+        if (!quizzesContainer) return;
         
-        const response = await fetch(`/api/quiz/category/${categoryId}/quizzes`, {
+        // Show loading
+        quizzesContainer.innerHTML = `
+            <div style="text-align: center; padding: 40px;">
+                <i class="fas fa-spinner fa-spin" style="font-size: 40px; color: #7a0000;"></i>
+                <p style="margin-top: 15px;">Loading quizzes...</p>
+            </div>
+        `;
+        
+        // Fetch quizzes
+        const response = await fetch(`/api/quiz/category/${categoryId}/quizzes?lesson_id=2`, {
             headers: {
                 'Authorization': `Bearer ${token}`,
                 'Content-Type': 'application/json'
@@ -10331,35 +11454,27 @@ async function loadQuizzesForCategory(categoryId) {
         }
         
         const data = await response.json();
-        console.log('📥 Quiz data:', data);
         
-        if (data.success) {
-            // Find the selected category
-            const selectedCategory = QuizState.quizCategories.find(
-                cat => cat.category_id == categoryId || cat.id == categoryId
-            ) || {
-                category_id: categoryId,
-                category_name: data.category?.name || 'Quizzes'
-            };
-            
-            showQuizInterfaceForCategory(selectedCategory, data.quizzes);
+        if (data.success && data.quizzes) {
+            // Display quizzes
+            displayQuizzesInContainer(data.quizzes, categoryId);
         } else {
             throw new Error(data.message || 'No quizzes returned');
         }
         
     } catch (error) {
         console.error('Error loading quizzes:', error);
-        showNotification('Failed to load quizzes: ' + error.message, 'error');
         
-        const quizOptionsContainer = document.getElementById('quizOptionsContainer');
-        if (quizOptionsContainer) {
-            quizOptionsContainer.innerHTML = `
-                <div style="grid-column: 1/-1; text-align: center; padding: 40px;">
+        // Show error with back button
+        const quizzesContainer = document.getElementById('userQuizzesContainer');
+        if (quizzesContainer) {
+            quizzesContainer.innerHTML = `
+                <div style="text-align: center; padding: 40px;">
                     <i class="fas fa-exclamation-triangle" style="font-size: 48px; color: #e74c3c; margin-bottom: 15px;"></i>
                     <h3>Failed to load quizzes</h3>
                     <p>${error.message}</p>
-                    <button class="btn-primary" onclick="location.reload()">
-                        <i class="fas fa-redo"></i> Refresh
+                    <button class="btn-primary" onclick="goBackToCategories()" style="margin-top: 15px;">
+                        <i class="fas fa-arrow-left"></i> Back to Categories
                     </button>
                 </div>
             `;
@@ -10367,6 +11482,266 @@ async function loadQuizzesForCategory(categoryId) {
     }
 }
 
+// ============================================
+// ✅ FIXED: Display quizzes na parang dashboard card
+// ============================================
+function displayQuizzesInContainer(quizzes, categoryId, isHardcoded = false) {
+    const quizzesContainer = document.getElementById('userQuizzesContainer');
+    if (!quizzesContainer) return;
+    
+    if (!quizzes || quizzes.length === 0) {
+        quizzesContainer.innerHTML = `
+            <div class="card" style="padding: 40px; text-align: center;">
+                <div style="font-size: 60px; color: #ccc; margin-bottom: 20px;">
+                    <i class="fas fa-clipboard-list"></i>
+                </div>
+                <h3 style="color: #666; margin-bottom: 10px;">No Quizzes Available</h3>
+                <p style="color: #999; margin-bottom: 20px;">Check back later for new PolyLearn quizzes!</p>
+                <button class="btn-primary" onclick="goBackToCategories()" style="background: #7a0000; color: white; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer;">
+                    <i class="fas fa-arrow-left"></i> Back to Categories
+                </button>
+            </div>
+        `;
+        return;
+    }
+    
+    // Gaya ng ibang dashboard cards
+    let html = `
+        <!-- Quizzes Card - gaya ng ibang dashboard cards -->
+        <div class="card full-width-card">
+            <div class="card-header" style="padding: 20px 25px 0; display: flex; justify-content: space-between; align-items: center;">
+                <div>
+                    <h2 class="card-title" style="display: flex; align-items: center; gap: 10px; font-size: 1.4rem; color: var(--text-color); margin-bottom: 5px;">
+                        <i class="fas fa-question-circle" style="color: #7a0000;"></i> 
+                        PolyLearn Quizzes
+                    </h2>
+                    <p class="card-subtitle" style="color: var(--text-light); font-size: 0.95rem;">
+                        Test your knowledge with these quizzes
+                    </p>
+                </div>
+                <button class="btn-secondary" onclick="goBackToCategories()" style="padding: 8px 15px; display: flex; align-items: center; gap: 8px;">
+                    <i class="fas fa-arrow-left"></i> Back to Categories
+                </button>
+            </div>
+            
+            <div style="padding: 20px 25px 25px;">
+    `;
+    
+    // Add offline indicator kung hardcoded
+    if (isHardcoded) {
+        html += `
+            <div style="background: #f39c12; color: white; padding: 10px 15px; border-radius: 8px; margin-bottom: 20px; display: flex; align-items: center; gap: 10px;">
+                <i class="fas fa-info-circle"></i>
+                <span>Using sample quiz data</span>
+            </div>
+        `;
+    }
+    
+    // Grid ng quizzes
+    html += `<div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 20px;">`;
+    
+    quizzes.forEach(quiz => {
+        const difficultyColor = 
+            quiz.difficulty === 'easy' ? '#27ae60' : 
+            quiz.difficulty === 'medium' ? '#f39c12' : 
+            quiz.difficulty === 'hard' ? '#e74c3c' : '#3498db';
+        
+        const difficultyLabel = quiz.difficulty || 'medium';
+        
+        // Quiz card - gaya ng design sa buong app
+        html += `
+            <div class="quiz-card" data-quiz-id="${quiz.quiz_id}" 
+                 style="background: white; border-radius: 12px; overflow: hidden;
+                        box-shadow: 0 4px 12px rgba(0,0,0,0.1); border: 1px solid var(--border-color);
+                        transition: all 0.3s ease; cursor: pointer;
+                        display: flex; flex-direction: column;">
+                
+                <!-- Colored top bar with difficulty -->
+                <div style="height: 6px; background: ${difficultyColor}; width: 100%;"></div>
+                
+                <div style="padding: 20px; flex: 1; display: flex; flex-direction: column;">
+                    <!-- Header with title and difficulty badge -->
+                    <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 12px;">
+                        <h3 style="margin: 0; color: #2c3e50; font-size: 18px; font-weight: 600; line-height: 1.3;">
+                            ${quiz.quiz_title || 'PolyLearn Quiz'}
+                        </h3>
+                        <span style="background: ${difficultyColor}; color: white; 
+                                   padding: 4px 10px; border-radius: 20px; font-size: 11px; 
+                                   font-weight: 600; text-transform: uppercase; white-space: nowrap; margin-left: 10px;">
+                            ${difficultyLabel}
+                        </span>
+                    </div>
+                    
+                    <!-- Description -->
+                    <p style="color: #6c757d; font-size: 14px; line-height: 1.5; margin: 0 0 15px 0; min-height: 42px;">
+                        ${quiz.description || 'Test your knowledge with this PolyLearn quiz.'}
+                    </p>
+                    
+                    <!-- Quiz metadata - gaya ng sa progress items -->
+                    <div style="display: flex; gap: 15px; margin-bottom: 20px; padding: 10px 0; border-top: 1px solid #f0f0f0; border-bottom: 1px solid #f0f0f0;">
+                        <div style="display: flex; align-items: center; gap: 5px; color: #7f8c8d; font-size: 13px;">
+                            <i class="fas fa-question-circle" style="color: #3498db;"></i>
+                            <span>${quiz.total_questions || 0} items</span>
+                        </div>
+                        <div style="display: flex; align-items: center; gap: 5px; color: #7f8c8d; font-size: 13px;">
+                            <i class="fas fa-clock" style="color: #e67e22;"></i>
+                            <span>${quiz.duration_minutes || 10} min</span>
+                        </div>
+                        <div style="display: flex; align-items: center; gap: 5px; color: #7f8c8d; font-size: 13px;">
+                            <i class="fas fa-trophy" style="color: #f39c12;"></i>
+                            <span>${quiz.passing_score || 70}% pass</span>
+                        </div>
+                    </div>
+                    
+                    <!-- Action button -->
+                    <button class="start-quiz-btn" data-quiz-id="${quiz.quiz_id}" 
+                            style="width: 100%; padding: 12px; background: #7a0000; 
+                                   color: white; border: none; border-radius: 8px; 
+                                   font-weight: 600; cursor: pointer; display: flex;
+                                   align-items: center; justify-content: center; gap: 8px;
+                                   transition: all 0.3s ease; margin-top: auto;">
+                        <i class="fas fa-play-circle"></i> Start Quiz
+                        <i class="fas fa-arrow-right" style="font-size: 14px;"></i>
+                    </button>
+                </div>
+            </div>
+        `;
+    });
+    
+    html += `</div>`; // Close grid
+    html += `</div></div>`; // Close card body and card
+    
+    quizzesContainer.innerHTML = html;
+    
+    // Add event listeners sa buong quiz card
+    document.querySelectorAll('.quiz-card').forEach(card => {
+        card.addEventListener('click', function(e) {
+            // Kung ang click ay sa button, hayaan ang button mag-handle
+            if (e.target.closest('.start-quiz-btn')) return;
+            
+            const quizId = this.getAttribute('data-quiz-id');
+            if (quizId) {
+                console.log('🎯 Quiz card clicked:', quizId);
+                // Hanapin ang button at i-click
+                const btn = this.querySelector('.start-quiz-btn');
+                if (btn) btn.click();
+            }
+        });
+    });
+    
+    // Add event listeners sa start buttons
+    document.querySelectorAll('.start-quiz-btn').forEach(btn => {
+        btn.addEventListener('click', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            
+            const quizId = this.getAttribute('data-quiz-id');
+            if (quizId) {
+                console.log('🎯 Start quiz button clicked:', quizId);
+                
+                // Show loading state sa button
+                const originalText = this.innerHTML;
+                this.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Loading...';
+                this.disabled = true;
+                
+                // Call the quiz system
+                if (typeof startQuizSystem === 'function') {
+                    startQuizSystem(parseInt(quizId)).finally(() => {
+                        // Reset button kung may error (optional)
+                        setTimeout(() => {
+                            this.innerHTML = originalText;
+                            this.disabled = false;
+                        }, 1000);
+                    });
+                } else {
+                    alert(`Starting Quiz ID: ${quizId}`);
+                    this.innerHTML = originalText;
+                    this.disabled = false;
+                }
+            }
+        });
+    });
+}
+
+// ============================================
+// ✅ Go back to categories - with loading state
+// ============================================
+function goBackToCategories() {
+    console.log('📚 Going back to categories');
+    
+    const quizzesContainer = document.getElementById('userQuizzesContainer');
+    if (quizzesContainer) {
+        // Show loading state
+        quizzesContainer.innerHTML = `
+            <div class="card" style="padding: 40px; text-align: center;">
+                <div style="font-size: 40px; color: #7a0000; margin-bottom: 20px;">
+                    <i class="fas fa-spinner fa-spin"></i>
+                </div>
+                <p style="color: #666;">Loading categories...</p>
+            </div>
+        `;
+        
+        // Reload categories
+        if (typeof loadQuizCategories === 'function') {
+            setTimeout(() => {
+                loadQuizCategories();
+            }, 300);
+        }
+    }
+}
+
+// ============================================
+// DEBUG: Check quiz data in database
+// ============================================
+window.debugQuizData = async function() {
+    console.log('🔍 DEBUGGING QUIZ DATA...');
+    
+    try {
+        const token = localStorage.getItem('authToken') || authToken;
+        
+        // Check categories
+        console.log('📡 Fetching categories...');
+        const catResponse = await fetch('/api/quiz/categories', {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        
+        if (catResponse.ok) {
+            const catData = await catResponse.json();
+            console.log('📊 Categories in database:', catData);
+        } else {
+            console.error('❌ Failed to fetch categories:', catResponse.status);
+        }
+        
+        // Check if there are any quizzes
+        console.log('📡 Fetching all quizzes...');
+        const quizResponse = await fetch('/api/quizzes/available', {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        
+        if (quizResponse.ok) {
+            const quizData = await quizResponse.json();
+            console.log('📊 Quizzes in database:', quizData);
+        } else {
+            console.error('❌ Failed to fetch quizzes:', quizResponse.status);
+        }
+        
+        // Check specific category (1)
+        console.log('📡 Fetching quizzes for category 1...');
+        const cat1Response = await fetch('/api/quiz/category/1/quizzes', {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        
+        if (cat1Response.ok) {
+            const cat1Data = await cat1Response.json();
+            console.log('📊 Quizzes for category 1:', cat1Data);
+        } else {
+            console.error('❌ Failed to fetch category 1 quizzes:', cat1Response.status);
+        }
+        
+    } catch (error) {
+        console.error('❌ Debug error:', error);
+    }
+};
 
 // Add this function:
 async function fetchAllQuizzes() {
@@ -10817,6 +12192,9 @@ function displayLeaderboard(leaderboard) {
 }
 
 
+// ============================================
+// FIXED: initQuizDashboard - With container verification
+// ============================================
 async function initQuizDashboard() {
     console.log('🧠 Initializing quiz dashboard...');
     
@@ -10825,9 +12203,9 @@ async function initQuizDashboard() {
         const container = document.getElementById('userQuizzesContainer');
         if (container) {
             container.innerHTML = `
-                <div class="loading-container">
-                    <i class="fas fa-spinner fa-spin"></i>
-                    <p>Loading quiz categories...</p>
+                <div class="loading-container" style="text-align: center; padding: 40px;">
+                    <i class="fas fa-spinner fa-spin" style="font-size: 40px; color: #7a0000; margin-bottom: 20px;"></i>
+                    <p style="color: #666;">Loading quiz categories...</p>
                 </div>
             `;
         }
@@ -10845,7 +12223,7 @@ async function initQuizDashboard() {
         if (statsElements.time) statsElements.time.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
         if (statsElements.rank) statsElements.rank.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
         
-        // Load all data in parallel for better performance
+        // Load all data in parallel
         const [categories, stats, leaderboard, badges] = await Promise.allSettled([
             loadQuizCategories(),
             loadQuizStatsFromServer(),
@@ -10860,7 +12238,6 @@ async function initQuizDashboard() {
         
         if (stats.status === 'rejected') {
             console.error('❌ Failed to load stats:', stats.reason);
-            // Set default stats
             updateQuizStatsUI({
                 current_score: 0,
                 accuracy: 0,
@@ -10886,14 +12263,10 @@ async function initQuizDashboard() {
         
         console.log('✅ Quiz dashboard initialized successfully');
         
-        // Show success notification
-        showNotification('Quiz dashboard ready!', 'success');
-        
     } catch (error) {
         console.error('❌ Error initializing quiz dashboard:', error);
         showNotification('Failed to initialize quiz dashboard', 'error');
         
-        // Show error in stats
         updateQuizStatsUI({
             current_score: 0,
             accuracy: 0,
@@ -10902,7 +12275,6 @@ async function initQuizDashboard() {
         });
     }
 }
-
 
 
 // ============================================
@@ -10970,16 +12342,18 @@ async function loadUserBadges() {
 
 
 // ============================================
-// FETCH ACCURACY RATE - NEW FUNCTION
+// ✅ FIXED: Fetch accuracy rate - POLYLEARN ONLY
 // ============================================
 async function fetchAccuracyRate() {
     try {
         const token = localStorage.getItem('authToken') || authToken;
         if (!token) return null;
         
-        console.log('📊 Fetching accuracy rate...');
+        console.log('📊 Fetching PolyLearn accuracy rate...');
         
-        const response = await fetch(`/api/progress/accuracy-rate`, {
+        const POLYLEARN_LESSON_ID = 2;
+        
+        const response = await fetch(`/api/progress/accuracy-rate?lesson_id=${POLYLEARN_LESSON_ID}`, {
             headers: { 'Authorization': `Bearer ${token}` }
         });
         
@@ -10988,15 +12362,12 @@ async function fetchAccuracyRate() {
         const data = await response.json();
         
         if (data.success && data.accuracy) {
-            console.log('✅ Accuracy rate loaded:', data.accuracy);
-            
-            // Update UI elements
+            console.log('✅ PolyLearn accuracy rate loaded:', data.accuracy);
             updateAccuracyRateDisplay(data.accuracy);
-            
             return data.accuracy;
-        } else {
-            return null;
         }
+        
+        return null;
     } catch (error) {
         console.error('Error fetching accuracy rate:', error);
         return null;
@@ -12136,7 +13507,9 @@ async function startQuiz(quizId) {
     alert('Quiz feature coming soon!');
 }
 
-// Make sure QuizState is defined (kung wala pa)
+// ============================================
+// QUIZ STATE - Make sure this is defined
+// ============================================
 if (typeof QuizState === 'undefined') {
     window.QuizState = {
         currentQuiz: null,
@@ -12147,9 +13520,13 @@ if (typeof QuizState === 'undefined') {
         startTime: null,
         timerInterval: null,
         timeLeft: 0,
-        totalTime: 0
+        totalTime: 0,
+        stats: { correct: 0, wrong: 0, score: 0 },
+        quizCategories: [],
+        selectedCategory: null
     };
 }
+
 function setupQuizButtons() {
     // Find all "Start Quiz" buttons
     document.querySelectorAll('.quiz-start-btn').forEach(button => {
@@ -14821,10 +16198,8 @@ function addFeedbackStyles() {
 }
 
 // ============================================
-// LESSON MANAGEMENT FUNCTIONS - DATABASE DRIVEN
+// ✅ FIXED: Fetch all lessons - FORCED LESSON_ID = 2
 // ============================================
-
-// Fetch all lessons from database
 async function fetchAllLessons() {
     try {
         const token = localStorage.getItem('authToken') || authToken;
@@ -14833,9 +16208,13 @@ async function fetchAllLessons() {
             return [];
         }
         
-        console.log('📚 Fetching all lessons from database...');
+        const currentLessonId = POLYLEARN_LESSON_ID; // Force to 2
         
-        const response = await fetch(`/api/lessons-db/complete`, {
+        console.log(`📚 Fetching lessons for PolyLearn, lesson ID: ${currentLessonId}`);
+        
+        let endpoint = `/api/lessons-db/complete?lesson_id=${currentLessonId}`;
+        
+        const response = await fetch(endpoint, {
             headers: {
                 'Authorization': `Bearer ${token}`,
                 'Content-Type': 'application/json'
@@ -14849,7 +16228,7 @@ async function fetchAllLessons() {
         const data = await response.json();
         
         if (data.success && data.lessons) {
-            console.log(`✅ Fetched ${data.lessons.length} lessons from database`);
+            console.log(`✅ Fetched ${data.lessons.length} lessons for PolyLearn`);
             return data.lessons;
         } else {
             throw new Error(data.message || 'No lessons returned');
@@ -14858,6 +16237,27 @@ async function fetchAllLessons() {
         console.error('Error fetching lessons:', error);
         return [];
     }
+}
+
+// ============================================
+// Helper: Filter lessons by selected app
+// ============================================
+function filterLessonsByApp(lessons, selectedApp, lessonFilter) {
+    if (!lessons || lessons.length === 0) return [];
+    
+    // First, try to filter by lesson_id if we have a filter
+    if (lessonFilter) {
+        return lessons.filter(lesson => 
+            lesson.lesson_id == lessonFilter || 
+            lesson.lesson_name?.toLowerCase().includes(selectedApp.toLowerCase())
+        );
+    }
+    
+    // If no filter, filter by lesson_name containing the app name
+    return lessons.filter(lesson => {
+        if (!lesson.lesson_name) return false;
+        return lesson.lesson_name.toLowerCase().includes(selectedApp.toLowerCase());
+    });
 }
 
 // Fetch user progress for lessons
@@ -17114,79 +18514,109 @@ async function loadVideoAndContent(lesson) {
 }
 
 // ============================================
-// ✅ FIXED: Initialize module dashboard with specific lesson
+// FIXED: Initialize module dashboard with filtered lesson
 // ============================================
 async function initializeModuleDashboard() {
+    console.log('📚 Initializing module dashboard with filtered lesson...');
+    
     const currentLesson = LessonState.currentLesson;
+    const selectedApp = localStorage.getItem('selectedApp') || 'polylearn';
+    const lessonFilter = localStorage.getItem('currentLessonFilter');
+    
+    console.log(`📱 Selected app: ${selectedApp}, filter: ${lessonFilter}`);
     
     if (!currentLesson) {
-        console.error('No current lesson found');
-        showNotification('No lesson data available', 'error');
-        navigateTo('dashboard');
+        console.log('⚠️ No current lesson found, fetching first lesson from filtered list...');
+        
+        // Show loading state
+        const container = document.querySelector('#module-dashboard-page .container');
+        if (container) {
+            container.innerHTML = `
+                <div style="text-align: center; padding: 50px;">
+                    <i class="fas fa-spinner fa-spin" style="font-size: 40px; color: #7a0000; margin-bottom: 20px;"></i>
+                    <h3>Loading your lesson...</h3>
+                    <p>Please wait while we prepare your ${selectedApp} lesson.</p>
+                </div>
+            `;
+        }
+        
+        // Try to get the first lesson from filtered list
+        const lessons = await fetchAllLessons();
+        
+        if (lessons.length > 0) {
+            console.log(`✅ Found ${lessons.length} lessons for ${selectedApp}`);
+            LessonState.currentLesson = lessons[0];
+            
+            // Update lesson info in state
+            LessonState.currentTopic = lessons[0].topic_id;
+            
+            // Save to localStorage for persistence
+            localStorage.setItem('currentLessonId', lessons[0].content_id);
+            localStorage.setItem('currentTopicId', lessons[0].topic_id);
+            
+            await openLesson(lessons[0].content_id);
+        } else {
+            console.error(`❌ No lessons available for ${selectedApp}`);
+            
+            // Show empty state
+            if (container) {
+                container.innerHTML = `
+                    <div style="text-align: center; padding: 50px; background: white; border-radius: 10px; margin-top: 20px;">
+                        <i class="fas fa-book-open" style="font-size: 60px; color: #ccc; margin-bottom: 20px;"></i>
+                        <h3 style="color: #2c3e50; margin-bottom: 10px;">No Lessons Available</h3>
+                        <p style="color: #7f8c8d; margin-bottom: 20px;">There are no lessons for ${selectedApp} yet.</p>
+                        <button class="btn-primary" onclick="navigateTo('dashboard')">
+                            <i class="fas fa-arrow-left"></i> Back to Dashboard
+                        </button>
+                    </div>
+                `;
+            }
+            
+            showNotification(`No lessons available for ${selectedApp}`, 'error');
+            navigateTo('dashboard');
+        }
         return;
     }
     
     console.log('📖 Initializing module dashboard for lesson:', currentLesson.content_title);
     console.log('📌 Lesson ID:', currentLesson.content_id);
+    console.log('📌 Topic ID:', currentLesson.topic_id);
     
-    // Update UI with lesson data
-    const moduleTitle = document.getElementById('moduleTitle');
-    const moduleLessonTitle = document.getElementById('moduleLessonTitle');
-    const moduleSubtitle = document.getElementById('moduleSubtitle');
-    
-    if (moduleTitle) {
-        moduleTitle.textContent = currentLesson.content_title || 'PolyLearn Lesson';
+    try {
+        // Update UI with lesson data
+        updateLessonUI(currentLesson);
+        
+        // Setup navigation buttons
+        setupModuleNavigationButtons();
+        
+        // Setup complete lesson button
+        setupCompleteLessonButton();
+        
+        // Load video content
+        await loadVideoFromDatabase(currentLesson.content_id);
+        
+        // Load lesson content (text, PDF, etc.)
+        await displayLessonContent();
+        
+        // Check if practice is unlocked for this topic
+        await checkPracticeUnlockedForLesson(currentLesson.topic_id);
+        
+        // Update progress display
+        await updateLessonProgressDisplay(currentLesson.content_id);
+        
+        // Log activity
+        await logUserActivity('lesson_started', currentLesson.content_id, {
+            lesson_title: currentLesson.content_title,
+            app: selectedApp
+        });
+        
+        console.log('✅ Module dashboard initialized successfully');
+        
+    } catch (error) {
+        console.error('❌ Error initializing module dashboard:', error);
+        showNotification('Failed to load lesson content', 'error');
     }
-    
-    if (moduleLessonTitle) {
-        const title = currentLesson.content_title || 'Lesson';
-        moduleLessonTitle.innerHTML = `<i class="fas fa-book"></i> ${title}`;
-    }
-    
-    if (moduleSubtitle) {
-        const subtitle = `${currentLesson.lesson_name || ''} - ${currentLesson.module_name || ''}`;
-        moduleSubtitle.textContent = subtitle;
-    }
-    
-    // Update progress
-    const lessonProgress = currentLesson.progress || {};
-    const percentage = lessonProgress.percentage || 0;
-    const status = lessonProgress.status || 'not_started';
-    
-    const lessonProgressFill = document.getElementById('lessonProgressFill');
-    if (lessonProgressFill) {
-        lessonProgressFill.style.width = `${percentage}%`;
-    }
-    
-    const progressPercentage = document.getElementById('progressPercentage');
-    if (progressPercentage) {
-        progressPercentage.textContent = `${percentage}% Complete`;
-    }
-    
-    // Update complete button based on status
-    const completeLessonBtn = document.getElementById('completeLessonBtn');
-    if (completeLessonBtn) {
-        if (status === 'completed') {
-            completeLessonBtn.disabled = true;
-            completeLessonBtn.innerHTML = '<i class="fas fa-check"></i> Lesson Completed';
-            completeLessonBtn.style.background = '#2ecc71';
-        } else {
-            completeLessonBtn.disabled = false;
-            completeLessonBtn.innerHTML = '<i class="fas fa-check-circle"></i> Mark Lesson Complete';
-            completeLessonBtn.style.background = '';
-        }
-    }
-    
-    // Load the specific video for this lesson
-    await loadVideoFromDatabase(currentLesson.content_id);
-    
-    // Display lesson content
-    addLessonContentStyles();
-    await displayLessonContent();
-    
-    console.log(`✅ Module dashboard initialized for lesson ${currentLesson.content_id}`);
 }
-
 // ============================================
 // FIXED: Initialize Video - ALWAYS uses database
 // ============================================
@@ -17397,16 +18827,10 @@ async function loadPracticeExercises() {
     }
 }
 // ============================================
-// FIXED: submitPracticeAnswer - WITHOUT userCheck
+// ✅ FIXED: Initialize practice page - STRICT LESSON_ID FILTERING
 // ============================================
-// ===== FIXED: Submit practice answers with correct endpoint =====
-// ============================================
-// ✅ FIXED: submitPracticeAnswer - WITH TIME RECORDING
-// ============================================
-
-// Initialize practice page - FIXED VERSION
 async function initPracticePage() {
-    console.log('💪 Initializing practice page with database-driven content...');
+    console.log('💪 Initializing practice page with strict lesson_id filtering...');
     
     // Update date
     const practiceDate = document.getElementById('practiceDate');
@@ -17419,25 +18843,55 @@ async function initPracticePage() {
         });
     }
     
+    // ✅ Get current app's lesson ID
+    const selectedApp = localStorage.getItem('selectedApp') || 'polylearn';
+    const currentLessonId = getCurrentLessonId(); // Kunin ang lesson_id (2 for PolyLearn)
+    
+    console.log(`🎯 Selected app: ${selectedApp}, lesson ID: ${currentLessonId}`);
+    console.log(`🎯 Will ONLY show content with lesson_id = ${currentLessonId}`);
+    
+    // ✅ Store lesson ID in localStorage for other functions
+    localStorage.setItem('currentLessonId', currentLessonId);
+    
     // Reset current topic if needed
     if (!PracticeState.currentTopic) {
-        PracticeState.currentTopic = '1'; // Default to topic 1
+        PracticeState.currentTopic = '1'; // Default to topic 1, but will be filtered by lesson
     }
     
     // ✅ I-LOAD AGAD ANG PRACTICE STATISTICS MULA DATABASE
     await loadPracticeStatistics();
     
-    // Load topics progress
+    // Load topics progress (will be filtered by lesson_id)
     await loadTopicsProgress();
     
-    // Load practice exercises for current topic
+    // Load practice exercises for current topic (with lesson_id filter)
+    console.log(`🎯 Loading exercises for topic: ${PracticeState.currentTopic}`);
     await loadPracticeExercisesForTopic(PracticeState.currentTopic);
     
     // Add practice styles
     addPracticeStyles();
     
-    console.log('✅ Practice page initialized');
+    console.log('✅ Practice page initialized for app: ' + selectedApp + ' (lesson ' + currentLessonId + ')');
 }
+
+// ============================================
+// 🔍 DEBUG: Check what's being filtered
+// ============================================
+window.debugLessonFiltering = function() {
+    console.log('🔍 LESSON FILTERING DEBUG:');
+    console.log('- selectedApp:', localStorage.getItem('selectedApp'));
+    console.log('- currentLessonId:', getCurrentLessonId());
+    console.log('- PracticeState:', PracticeState);
+    
+    // Check all exercises in PracticeState
+    if (PracticeState.exercises) {
+        console.log('- Exercises in state:', PracticeState.exercises.map(ex => ({
+            id: ex.exercise_id,
+            title: ex.title,
+            lesson_id: ex.lesson_id || ex.lessonId
+        })));
+    }
+};
 
 // ============================================
 // DEBUG: Check Database Practice Records
@@ -17476,12 +18930,15 @@ window.checkPracticeRecords = async function() {
 };
 
 // ============================================
-// ✅ FIXED: loadTopicsProgress
+// ✅ FIXED: loadTopicsProgress - FORCED LESSON_ID = 2
 // ============================================
 async function loadTopicsProgress() {
     try {
         const topicsContainer = document.getElementById('topicsContainer');
-        if (!topicsContainer) return;
+        if (!topicsContainer) {
+            console.log('❌ topicsContainer not found');
+            return;
+        }
         
         const token = localStorage.getItem('authToken') || authToken;
         if (!token) {
@@ -17494,59 +18951,124 @@ async function loadTopicsProgress() {
             return;
         }
         
+        console.log('📊 Fetching topics progress...');
+        
+        const currentLessonId = POLYLEARN_LESSON_ID; // Force to 2
+        
+        console.log(`🎯 Loading topics for PolyLearn, forced lesson_id: ${currentLessonId}`);
+        
         const response = await fetch(`/api/topics/progress`, {
             headers: { 'Authorization': `Bearer ${token}` }
         });
         
         if (!response.ok) {
+            console.error(`❌ API returned ${response.status}`);
             topicsContainer.innerHTML = `
                 <div class="error-message">
                     <i class="fas fa-exclamation-triangle"></i>
                     <h3>Failed to load topics</h3>
+                    <p>API returned ${response.status}</p>
                 </div>
             `;
             return;
         }
         
         const data = await response.json();
+        console.log('📥 Topics progress data received:', data);
         
         if (data.success && data.topics) {
-            displayTopics(data.topics);
+            console.log(`✅ Received ${data.topics.length} topics from server`);
             
-            const unlockedCount = data.topics.filter(t => t.practice_unlocked).length;
-            const unlockedCountElement = document.getElementById('unlockedCount');
-            if (unlockedCountElement) {
-                unlockedCountElement.textContent = unlockedCount;
+            // ✅ FORCE FILTER - lesson_id=2 lang
+            const filteredTopics = data.topics.filter(topic => {
+                const topicLessonId = topic.lesson_id || topic.lessonId;
+                return topicLessonId == currentLessonId;
+            });
+            
+            console.log(`🎯 Filtered to ${filteredTopics.length} topics for PolyLearn (lesson ${currentLessonId})`);
+            
+            if (filteredTopics.length > 0) {
+                displayTopics(filteredTopics);
+                
+                const unlockedCount = filteredTopics.filter(t => t.practice_unlocked).length;
+                const unlockedCountElement = document.getElementById('unlockedCount');
+                if (unlockedCountElement) {
+                    unlockedCountElement.textContent = unlockedCount;
+                }
+            } else {
+                topicsContainer.innerHTML = `
+                    <div class="no-topics" style="text-align: center; padding: 40px;">
+                        <i class="fas fa-folder-open" style="font-size: 48px; color: #ccc; margin-bottom: 15px;"></i>
+                        <h3 style="color: #666;">No topics available for PolyLearn</h3>
+                        <p style="color: #999;">Topics with lesson_id = ${currentLessonId} will appear here.</p>
+                        <p style="color: #999; font-size: 12px;">Debug: Received ${data.topics.length} total topics</p>
+                    </div>
+                `;
             }
         } else {
             topicsContainer.innerHTML = `
                 <div class="error-message">
-                    <i class="fas fa-exclamation-triangle"></i>
+                    <i class="fas fa-info-circle"></i>
                     <h3>No topics found</h3>
+                    <p>${data.message || 'No topics available yet'}</p>
                 </div>
             `;
         }
     } catch (error) {
-        console.error('Error loading topics progress:', error);
+        console.error('❌ Error loading topics progress:', error);
         const topicsContainer = document.getElementById('topicsContainer');
         if (topicsContainer) {
             topicsContainer.innerHTML = `
                 <div class="error-message">
                     <i class="fas fa-exclamation-triangle"></i>
                     <h3>Failed to load topics</h3>
+                    <p>${error.message}</p>
+                    <button class="btn-primary" onclick="loadTopicsProgress()" style="margin-top: 15px;">
+                        <i class="fas fa-redo"></i> Try Again
+                    </button>
                 </div>
             `;
         }
     }
 }
 
+// ============================================
+// ✅ HELPER: Get current platform topic ID
+// ============================================
+function getCurrentPlatformTopicId() {
+    const selectedApp = localStorage.getItem('selectedApp') || 'polylearn';
+    return APP_LESSON_MAP[selectedApp]?.lessonId || 2;
+}
+
+// ============================================
+// ✅ HELPER: Validate topic belongs to current app
+// ============================================
+function validateTopicForCurrentApp(topicId) {
+    const expectedTopicId = getCurrentPlatformTopicId();
+    return parseInt(topicId) === expectedTopicId;
+}
 
 
-// Display topics
+// ============================================
+// ✅ FIXED: displayTopics - WITH BETTER DEBUGGING
+// ============================================
 function displayTopics(topics) {
     const topicsContainer = document.getElementById('topicsContainer');
-    if (!topicsContainer || !topics) {
-        topicsContainer.innerHTML = '<p class="no-topics">No topics available</p>';
+    if (!topicsContainer) {
+        console.error('❌ topicsContainer not found in displayTopics');
+        return;
+    }
+    
+    console.log(`📋 Displaying ${topics.length} topics:`, topics);
+    
+    if (!topics || topics.length === 0) {
+        topicsContainer.innerHTML = `
+            <div class="no-topics" style="text-align: center; padding: 40px;">
+                <i class="fas fa-folder-open" style="font-size: 48px; color: #ccc; margin-bottom: 15px;"></i>
+                <h3 style="color: #666;">No topics available</h3>
+                <p style="color: #999;">Complete lessons to unlock topics.</p>
+            </div>
+        `;
         return;
     }
     
@@ -17556,52 +19078,59 @@ function displayTopics(topics) {
         const progressPercentage = topic.lesson_progress_percentage || 0;
         const isPracticeUnlocked = topic.practice_unlocked || false;
         const isPracticeCompleted = topic.practice_completed || false;
+        const isSelected = PracticeState.currentTopic == topic.topic_id;
+        
+        console.log(`Topic card: ${topic.topic_title}, unlocked=${isPracticeUnlocked}, selected=${isSelected}`);
         
         html += `
-            <div class="topic-card ${isPracticeUnlocked ? 'unlocked' : 'locked'} ${isPracticeCompleted ? 'completed' : ''} ${PracticeState.currentTopic == topic.topic_id ? 'selected' : ''}" 
+            <div class="topic-card ${isPracticeUnlocked ? 'unlocked' : 'locked'} ${isPracticeCompleted ? 'completed' : ''} ${isSelected ? 'selected' : ''}" 
                  data-topic-id="${topic.topic_id}"
-                 data-practice-unlocked="${isPracticeUnlocked}">
-                <div class="topic-header">
-                    <h3 class="topic-title">${topic.topic_title}</h3>
+                 data-practice-unlocked="${isPracticeUnlocked}"
+                 style="cursor: pointer; background: white; border-radius: 8px; padding: 15px; margin-bottom: 10px; border: 2px solid ${isSelected ? '#7a0000' : 'transparent'};">
+                 
+                <div class="topic-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                    <h3 class="topic-title" style="margin: 0; font-size: 16px;">${topic.topic_title || 'Topic'}</h3>
                     <div class="topic-status">
                         ${isPracticeCompleted ? 
-                            '<span class="status-completed"><i class="fas fa-check-circle"></i> Completed</span>' :
+                            '<span style="color: #27ae60;"><i class="fas fa-check-circle"></i> Completed</span>' :
                             isPracticeUnlocked ?
-                            '<span class="status-unlocked"><i class="fas fa-unlock"></i> Unlocked</span>' :
-                            '<span class="status-locked"><i class="fas fa-lock"></i> Locked</span>'
+                            '<span style="color: #7a0000;"><i class="fas fa-unlock"></i> Unlocked</span>' :
+                            '<span style="color: #999;"><i class="fas fa-lock"></i> Locked</span>'
                         }
                     </div>
                 </div>
                 
                 <div class="topic-body">
-                    <p>${topic.module_name || 'Module'} - ${topic.topic_title}</p>
+                    <p style="margin: 0 0 10px 0; color: #666; font-size: 14px;">${topic.module_name || 'Module'} - ${topic.topic_title}</p>
                     
-                    <div class="topic-progress">
-                        <div class="progress-info">
+                    <div class="topic-progress" style="margin: 10px 0;">
+                        <div class="progress-info" style="display: flex; justify-content: space-between; font-size: 13px; color: #666; margin-bottom: 5px;">
                             <span>Lessons: ${topic.lessons_completed || 0}/${topic.total_lessons || 0}</span>
                             <span>${progressPercentage}%</span>
                         </div>
-                        <div class="progress-bar">
-                            <div class="progress-fill" style="width: ${progressPercentage}%"></div>
+                        <div class="progress-bar" style="height: 6px; background: #ecf0f1; border-radius: 3px; overflow: hidden;">
+                            <div class="progress-fill" style="height: 100%; width: ${progressPercentage}%; background: #7a0000;"></div>
                         </div>
                     </div>
                     
-                    <div class="topic-practice-info">
+                    <div class="topic-practice-info" style="font-size: 13px; margin-top: 5px;">
                         ${isPracticeCompleted ? 
-                            '<span class="practice-completed"><i class="fas fa-trophy"></i> Practice Completed</span>' :
+                            '<span style="color: #27ae60;"><i class="fas fa-trophy"></i> Practice Completed</span>' :
                             isPracticeUnlocked ?
-                            '<span class="practice-available"><i class="fas fa-pencil-alt"></i> Practice Available</span>' :
-                            `<span class="practice-locked">Complete ${(topic.total_lessons || 0) - (topic.lessons_completed || 0)} more lessons</span>`
+                            '<span style="color: #7a0000;"><i class="fas fa-pencil-alt"></i> Practice Available</span>' :
+                            `<span style="color: #999;">Complete ${(topic.total_lessons || 0) - (topic.lessons_completed || 0)} more lessons</span>`
                         }
                     </div>
                 </div>
                 
-                <div class="topic-actions">
+                <div class="topic-actions" style="margin-top: 15px;">
                     ${isPracticeUnlocked ? 
-                        `<button class="btn-primary practice-topic-btn" data-topic-id="${topic.topic_id}">
+                        `<button class="btn-primary practice-topic-btn" data-topic-id="${topic.topic_id}" 
+                                style="width: 100%; padding: 8px; background: #7a0000; color: white; border: none; border-radius: 5px; cursor: pointer;">
                             <i class="fas fa-play"></i> Start Practice
                         </button>` :
-                        `<button class="btn-secondary" disabled>
+                        `<button class="btn-secondary" disabled 
+                                style="width: 100%; padding: 8px; background: #95a5a6; color: white; border: none; border-radius: 5px;">
                             <i class="fas fa-lock"></i> Complete Lessons First
                         </button>`
                     }
@@ -17610,12 +19139,17 @@ function displayTopics(topics) {
         `;
     });
     
-    topicsContainer.innerHTML = html || '<p class="no-topics">No topics available</p>';
+    topicsContainer.innerHTML = html;
+    console.log('✅ Topics displayed, container HTML length:', html.length);
     
     // Add event listeners to topic cards
     document.querySelectorAll('.topic-card.unlocked').forEach(card => {
-        card.addEventListener('click', function() {
+        card.addEventListener('click', function(e) {
+            // Don't trigger if clicking the button
+            if (e.target.closest('button')) return;
+            
             const topicId = this.getAttribute('data-topic-id');
+            console.log('🎯 Topic card clicked:', topicId);
             selectTopicForPractice(topicId);
         });
     });
@@ -17625,14 +19159,86 @@ function displayTopics(topics) {
         button.addEventListener('click', function(e) {
             e.stopPropagation();
             const topicId = this.getAttribute('data-topic-id');
+            console.log('🎯 Practice button clicked:', topicId);
             selectTopicForPractice(topicId);
         });
     });
 }
 
-// Select topic for practice
+// ============================================
+// 🔍 DEBUG: Check Topics Progress
+// ============================================
+window.debugTopicsProgress = async function() {
+    console.log('🔍 DEBUGGING TOPICS PROGRESS...');
+    
+    try {
+        const token = localStorage.getItem('authToken') || authToken;
+        const selectedApp = localStorage.getItem('selectedApp') || 'polylearn';
+        const currentLessonId = getCurrentLessonId();
+        
+        console.log('Current app:', selectedApp);
+        console.log('Current lesson_id:', currentLessonId);
+        console.log('PracticeState:', PracticeState);
+        
+        // Fetch from server
+        const response = await fetch(`/api/topics/progress`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        
+        if (!response.ok) {
+            console.error('❌ API returned:', response.status);
+            return;
+        }
+        
+        const data = await response.json();
+        console.log('📥 Server response:', data);
+        
+        if (data.success && data.topics) {
+            console.log(`✅ Server returned ${data.topics.length} topics`);
+            
+            // Log each topic's lesson_id
+            data.topics.forEach((topic, index) => {
+                console.log(`Topic ${index + 1}:`, {
+                    id: topic.topic_id,
+                    title: topic.topic_title,
+                    lesson_id: topic.lesson_id || topic.lessonId,
+                    matches: (topic.lesson_id || topic.lessonId) == currentLessonId
+                });
+            });
+            
+            // Filter
+            const filtered = data.topics.filter(t => (t.lesson_id || t.lessonId) == currentLessonId);
+            console.log(`✅ Filtered to ${filtered.length} topics for lesson ${currentLessonId}`);
+        }
+        
+        // Check DOM
+        const container = document.getElementById('topicsContainer');
+        console.log('Topics container exists:', !!container);
+        if (container) {
+            console.log('Topics container HTML length:', container.innerHTML.length);
+            console.log('Topics container content:', container.innerHTML.substring(0, 200) + '...');
+        }
+        
+    } catch (error) {
+        console.error('❌ Debug error:', error);
+    }
+};
+
+// ============================================
+// ✅ FIXED: Select topic for practice - WITH APP VALIDATION
+// ============================================
 async function selectTopicForPractice(topicId) {
     try {
+        // Check if this topic belongs to the current app
+        const selectedApp = localStorage.getItem('selectedApp') || 'polylearn';
+        const expectedTopicId = APP_LESSON_MAP[selectedApp]?.lessonId || 2;
+        
+        if (parseInt(topicId) !== expectedTopicId) {
+            console.log(`⚠️ Topic ${topicId} doesn't match app ${selectedApp} (expected topic ${expectedTopicId})`);
+            showNotification(`This topic belongs to a different app. Please switch apps first.`, 'warning');
+            return;
+        }
+        
         PracticeState.currentTopic = topicId;
         
         // Update UI
@@ -17661,110 +19267,187 @@ async function selectTopicForPractice(topicId) {
     }
 }
 
+
 // ============================================
-// FIXED: Load practice exercises for specific topic - With better error handling
+// ✅ FIXED: Load practice exercises - FORCED LESSON_ID = 2
 // ============================================
 async function loadPracticeExercisesForTopic(topicId) {
     try {
         console.log(`📝 Getting practice exercises for topic ${topicId}`);
         
+        const currentLessonId = POLYLEARN_LESSON_ID; // Force to 2
+        
+        console.log(`🎯 Forced lesson_id: ${currentLessonId} (PolyLearn only)`);
+        
+        // Get the exercise area
         const exerciseArea = document.getElementById('exerciseArea');
-        if (!exerciseArea) {
-            console.error('Exercise area not found');
-            return;
-        }
+        if (!exerciseArea) return;
         
         exerciseArea.innerHTML = `
-            <div class="loading-container">
-                <i class="fas fa-spinner fa-spin"></i>
-                <p>Loading practice exercises from database...</p>
+            <div class="loading-container" style="text-align: center; padding: 30px;">
+                <i class="fas fa-spinner fa-spin" style="font-size: 30px; color: #7a0000;"></i>
+                <p style="margin-top: 10px;">Loading PolyLearn exercises...</p>
             </div>
         `;
         
-        const token = localStorage.getItem('authToken') || authToken;
-        if (!token) {
-            exerciseArea.innerHTML = `
-                <div class="error-message">
-                    <i class="fas fa-exclamation-triangle"></i>
-                    <h3>Please login to access practice exercises</h3>
-                </div>
-            `;
-            return;
+        // ✅ Force lesson_id=2 in API call
+        let endpoint = `/api/practice/topic/${topicId}?lesson_id=${currentLessonId}`;
+        console.log(`📡 Fetching from: ${endpoint}`);
+        
+        const response = await fetch(endpoint, {
+            headers: {
+                'Authorization': `Bearer ${localStorage.getItem('authToken')}`
+            }
+        });
+        
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
         }
         
-        // ✅ FIXED: Use correct endpoint with /api/ prefix
-        try {
-            const response = await fetch(`/api/practice/topic/${topicId}`, {
-                headers: {
-                    'Authorization': `Bearer ${token}`,
-                    'Accept': 'application/json'
-                }
+        const data = await response.json();
+        console.log('📥 Practice data received:', data);
+        
+        if (data.success && data.exercises) {
+            // ✅ STRICT FILTERING - lesson_id=2 lang
+            const filteredExercises = data.exercises.filter(ex => {
+                const exerciseLessonId = ex.lesson_id || ex.lessonId;
+                return exerciseLessonId == currentLessonId;
             });
             
-            const contentType = response.headers.get('content-type');
+            console.log(`✅ Found ${filteredExercises.length} exercises for PolyLearn (lesson ${currentLessonId})`);
             
-            if (response.ok && contentType && contentType.includes('application/json')) {
-                const data = await response.json();
-                if (data.success) {
-                    if (!data.unlocked) {
-                        exerciseArea.innerHTML = createPracticeLockScreen(data);
-                        return;
-                    }
-                    
-                    if (data.exercises && data.exercises.length > 0) {
-                        PracticeState.exercises = data.exercises;
-                        exerciseArea.innerHTML = createPracticeExercisesUI(data);
-                        setupPracticeExerciseInteractions();
-                        return;
-                    }
-                }
-            }
-            
-            console.warn('⚠️ No valid practice data received, using demo data');
-            // Use demo data as fallback
-            const demoExercises = getDemoPracticeExercises(topicId);
-            if (demoExercises && demoExercises.length > 0) {
-                PracticeState.exercises = demoExercises;
-                exerciseArea.innerHTML = createPracticeExercisesUI({
-                    exercises: demoExercises,
-                    progress: { completed: 0, total: demoExercises.length, percentage: 0 },
-                    unlocked: true
-                });
-                setupPracticeExerciseInteractions();
-            }
-            
-        } catch (error) {
-            console.error('❌ Error loading practice exercises:', error);
-            
-            // Use demo data as fallback
-            const demoExercises = getDemoPracticeExercises(topicId);
-            if (demoExercises && demoExercises.length > 0) {
-                PracticeState.exercises = demoExercises;
-                exerciseArea.innerHTML = createPracticeExercisesUI({
-                    exercises: demoExercises,
-                    progress: { completed: 0, total: demoExercises.length, percentage: 0 },
-                    unlocked: true
-                });
-                setupPracticeExerciseInteractions();
-                
-                showNotification('Using demo exercises while connecting to database...', 'info');
+            if (filteredExercises.length > 0) {
+                displayPracticeExercises(filteredExercises);
             } else {
                 exerciseArea.innerHTML = `
-                    <div class="error-message">
-                        <i class="fas fa-exclamation-triangle"></i>
-                        <h3>Failed to load practice exercises</h3>
-                        <p>Error: ${error.message}</p>
-                        <button class="btn-primary" onclick="loadPracticeExercisesForTopic('${PracticeState.currentTopic}')">
-                            <i class="fas fa-redo"></i> Try Again
-                        </button>
+                    <div class="no-exercises" style="text-align: center; padding: 40px;">
+                        <i class="fas fa-pencil-alt" style="font-size: 48px; color: #ccc; margin-bottom: 15px;"></i>
+                        <h3 style="color: #666;">No Practice Exercises for PolyLearn</h3>
+                        <p style="color: #999;">There are no practice exercises available for PolyLearn yet.</p>
                     </div>
                 `;
             }
+        } else {
+            exerciseArea.innerHTML = `
+                <div class="no-exercises" style="text-align: center; padding: 40px;">
+                    <i class="fas fa-pencil-alt" style="font-size: 48px; color: #ccc; margin-bottom: 15px;"></i>
+                    <h3 style="color: #666;">No Practice Exercises</h3>
+                    <p style="color: #999;">There are no practice exercises available for this topic yet.</p>
+                </div>
+            `;
         }
         
     } catch (error) {
-        console.error('❌ Fatal error:', error);
+        console.error('Error loading exercises:', error);
+        const exerciseArea = document.getElementById('exerciseArea');
+        if (exerciseArea) {
+            exerciseArea.innerHTML = `
+                <div class="error-message" style="text-align: center; padding: 40px;">
+                    <i class="fas fa-exclamation-triangle" style="font-size: 48px; color: #e74c3c;"></i>
+                    <h3 style="color: #666;">Failed to load exercises</h3>
+                    <p style="color: #999;">${error.message}</p>
+                    <button class="btn-primary" onclick="location.reload()" style="margin-top: 15px;">
+                        <i class="fas fa-redo"></i> Try Again
+                    </button>
+                </div>
+            `;
+        }
     }
+}
+
+// ============================================
+// ✅ FIXED: Display practice exercises
+// ============================================
+function displayPracticeExercises(exercises) {
+    const exerciseArea = document.getElementById('exerciseArea');
+    if (!exerciseArea) return;
+    
+    if (!exercises || exercises.length === 0) {
+        exerciseArea.innerHTML = `
+            <div class="no-exercises" style="text-align: center; padding: 40px;">
+                <i class="fas fa-pencil-alt" style="font-size: 48px; color: #ccc; margin-bottom: 15px;"></i>
+                <h3 style="color: #666;">No Practice Exercises</h3>
+                <p style="color: #999;">There are no practice exercises available for this topic yet.</p>
+            </div>
+        `;
+        return;
+    }
+    
+    let html = '<div class="exercises-list">';
+    
+    exercises.forEach((exercise, index) => {
+        // Parse content_json if it exists and is a string
+        let questions = [];
+        if (exercise.content_json) {
+            try {
+                const content = typeof exercise.content_json === 'string' 
+                    ? JSON.parse(exercise.content_json) 
+                    : exercise.content_json;
+                questions = content.questions || [];
+            } catch (e) {
+                console.error('Error parsing content_json:', e);
+            }
+        }
+        
+        const userProgress = exercise.user_progress || {};
+        const isCompleted = userProgress.completion_status === 'completed';
+        const difficultyClass = exercise.difficulty || 'medium';
+        
+        html += `
+            <div class="exercise-card ${isCompleted ? 'completed' : ''}" data-exercise-id="${exercise.exercise_id}">
+                <div class="exercise-header">
+                    <h3>Exercise ${index + 1}: ${exercise.title || 'Practice Exercise'}</h3>
+                    <span class="difficulty-badge difficulty-${difficultyClass}">
+                        ${exercise.difficulty || 'medium'}
+                    </span>
+                </div>
+                
+                <div class="exercise-body">
+                    <p>${exercise.description || 'Test your knowledge with this practice exercise.'}</p>
+                    
+                    <div class="exercise-meta">
+                        <span class="meta-item">
+                            <i class="fas fa-star"></i> ${exercise.points || 10} points
+                        </span>
+                        <span class="meta-item">
+                            <i class="fas fa-question-circle"></i> ${questions.length} questions
+                        </span>
+                        <span class="meta-item">
+                            <i class="fas fa-check-circle"></i> ${userProgress.attempts || 0} attempts
+                        </span>
+                    </div>
+                    
+                    ${userProgress.score > 0 ? `
+                        <div class="score-display">
+                            <strong>Best Score:</strong> ${userProgress.score}/${exercise.points || 10}
+                            (${Math.round((userProgress.score / (exercise.points || 10)) * 100)}%)
+                        </div>
+                    ` : ''}
+                </div>
+                
+                <div class="exercise-actions">
+                    ${isCompleted ? `
+                        <button class="btn-secondary review-exercise" data-exercise-id="${exercise.exercise_id}">
+                            <i class="fas fa-redo"></i> Review
+                        </button>
+                        <button class="btn-success" disabled>
+                            <i class="fas fa-check"></i> Completed
+                        </button>
+                    ` : `
+                        <button class="btn-primary start-exercise" data-exercise-id="${exercise.exercise_id}">
+                            <i class="fas fa-play"></i> ${userProgress.status === 'in_progress' ? 'Continue' : 'Start'}
+                        </button>
+                    `}
+                </div>
+            </div>
+        `;
+    });
+    
+    html += '</div>';
+    exerciseArea.innerHTML = html;
+    
+    // Setup event listeners for the exercise buttons
+    setupPracticeExerciseInteractions();
 }
 
 // ============================================
@@ -20458,286 +22141,228 @@ function addProgressStyles() {
 }
 
 // ============================================
-// CORE FUNCTIONS - MODIFIED TO SKIP LOGIN
+// CORE FUNCTIONS
 // ============================================
 
-// Initialize application - MODIFIED TO DIRECTLY SHOW DASHBOARD
+// Initialize application
 function initApp() {
-    console.log('🎮 MathHub Application Initializing - DIRECT TO DASHBOARD MODE');
+    console.log('🎮 MathHub Application Initializing...');
     
-    // Create a demo user automatically
-    createDemoUser();
-    
-    // Hide all pages first
-    const pages = {
-        loading: document.getElementById('loading-page'),
-        login: document.getElementById('login-page'),
-        signup: document.getElementById('signup-page'),
-        landing: document.getElementById('landing-page'),
-        appSelection: document.getElementById('app-selection-page'),
-        dashboard: document.getElementById('dashboard-page'),
-        practice: document.getElementById('practice-exercises-page'),
-        moduleDashboard: document.getElementById('module-dashboard-page'),
-        quizDashboard: document.getElementById('quiz-dashboard-page'),
-        progress: document.getElementById('progress-page'),
-        feedback: document.getElementById('feedback-page'),
-        settings: document.getElementById('settings-page')
-    };
-    
-    // Hide all pages
-    Object.values(pages).forEach(p => {
-        if (p) p.classList.add('hidden');
-    });
-    
-    // Show dashboard directly
-    if (pages.dashboard) {
-        pages.dashboard.classList.remove('hidden');
-        AppState.currentPage = 'dashboard';
-    }
-    
-    // Set up footer navigation
-    showFooterNavigation();
-    
-    // Load initial data
-    setTimeout(() => {
-        loadInitialData();
-        updateDashboard();
-        initTimeTracker();
-    }, 100);
-    
-    console.log('✅ App initialized - Dashboard displayed directly');
-}
-
-// Create a demo user automatically
-function createDemoUser() {
-    console.log('👤 Creating demo user automatically...');
-    
+    // Set default user (bypassing login)
     const demoUser = {
-        id: 999,
-        username: 'demo_student',
+        id: 1,
+        username: 'demo_user',
         email: 'demo@mathhub.com',
         full_name: 'Demo Student',
-        role: 'student',
-        joined_date: new Date().toISOString(),
-        last_login: new Date().toISOString()
+        role: 'student'
     };
     
-    // Create demo token
-    const demoToken = 'demo_token_' + Date.now();
-    
-    // Save to localStorage
-    localStorage.setItem('authToken', demoToken);
-    localStorage.setItem('mathhub_user', JSON.stringify(demoUser));
-    localStorage.setItem('hasSelectedApp', 'true'); // Mark as already selected app
-    
-    // Update app state
     AppState.currentUser = demoUser;
     AppState.isAuthenticated = true;
     AppState.hasSelectedApp = true;
-    authToken = demoToken;
+    AppState.selectedApp = 'polylearn';
     
-    console.log('✅ Demo user created automatically:', demoUser.username);
+    // Set auth token
+    authToken = 'demo_token_' + Date.now();
+    localStorage.setItem('authToken', authToken);
+    localStorage.setItem('mathhub_user', JSON.stringify(demoUser));
+    localStorage.setItem('hasSelectedApp', 'true');
+    localStorage.setItem('selectedApp', 'polylearn');
+    localStorage.setItem('currentLessonFilter', '2');
     
-    // Create some demo progress data
-    createDemoProgress();
-}
-
-// Create demo progress data
-function createDemoProgress() {
-    // Sample progress data
-    const demoProgress = {
-        total_lessons_completed: 3,
-        total_lessons: 20,
-        exercises_completed: 15,
-        total_points_earned: 450,
-        total_time_spent_minutes: 185,
-        streak_days: 7,
-        weekly: {
-            lessons: 2,
-            exercises: 8,
-            points: 120,
-            minutes: 65
-        }
-    };
+    // Initialize hamburger menu
+    initHamburgerMenu();
     
-    ProgressState.cumulativeProgress = demoProgress;
+    // Setup app selection listeners
+    setupAppSelectionListeners();
     
-    // Sample practice stats
-    PracticeState.userPracticeProgress = {
-        lessons_completed: 3,
-        exercises_completed: 15,
-        total_lessons: 20,
-        lessons_percentage: 15,
-        lessons_display: '3/20'
-    };
+    // Navigate directly to dashboard
+    navigateTo('dashboard');
     
-    console.log('✅ Demo progress created');
-}
-
-// Simulate Loading - REMOVED FUNCTIONALITY (kept for compatibility)
-function simulateLoading() {
-    // Do nothing - just navigate to dashboard
-    console.log('⏭️ Skipping loading page - going directly to dashboard');
-    
-    const savedUser = localStorage.getItem('mathhub_user');
-    
-    if (savedUser) {
-        try {
-            const user = JSON.parse(savedUser);
-            AppState.currentUser = user;
-            AppState.isAuthenticated = true;
-            navigateTo('dashboard');
-        } catch (error) {
-            // If error, create new demo user
-            createDemoUser();
-            navigateTo('dashboard');
-        }
-    } else {
-        // Create demo user if none exists
-        createDemoUser();
-        navigateTo('dashboard');
-    }
+    console.log('🎮 MathHub Application Initialized - Direct to Dashboard');
 }
 
 // ============================================
-// NAVIGATION FUNCTIONS - UPDATED TO HANDLE DEMO USER
+// 🚀 NEW: Show/hide loading states
 // ============================================
+function showDashboardLoading() {
+    const elements = [
+        'totalTime',
+        'totalPointsProgress',
+        'overallProgress',
+        'totalBadges',
+        'lessonsCount',
+        'exercisesCount',
+        'quizScore',
+        'avgTime'
+    ];
+    
+    elements.forEach(id => {
+        const el = document.getElementById(id);
+        if (el) {
+            el.setAttribute('data-original', el.innerHTML);
+            el.innerHTML = '<i class="fas fa-spinner fa-spin" style="font-size: 14px;"></i>';
+            el.style.opacity = '0.7';
+        }
+    });
+}
 
-// Navigate to page
-function navigateTo(page) {
-    console.log(`🧭 Navigating from ${AppState.currentPage} to ${page}`);
+function hideDashboardLoading() {
+    const elements = [
+        'totalTime',
+        'totalPointsProgress',
+        'overallProgress',
+        'totalBadges',
+        'lessonsCount',
+        'exercisesCount',
+        'quizScore',
+        'avgTime'
+    ];
     
-    // Always authenticated in demo mode
-    if (!AppState.isAuthenticated) {
-        createDemoUser();
+    elements.forEach(id => {
+        const el = document.getElementById(id);
+        if (el && el.getAttribute('data-original')) {
+            el.innerHTML = el.getAttribute('data-original');
+            el.style.opacity = '1';
+        }
+    });
+}
+
+// ============================================
+// 🚀 NEW: Load all initial data immediately
+// ============================================
+async function loadInitialData() {
+    console.log('📥 Loading all initial data...');
+    
+    try {
+        // Show loading in dashboard elements
+        showDashboardLoading();
+        
+        // Load ALL data in parallel
+        const [
+            cumulativeProgress,
+            dailyProgress,
+            practiceStats,
+            userBadges,
+            accuracyRate,
+            chartData
+        ] = await Promise.allSettled([
+            fetchCumulativeProgress(),
+            fetchDailyProgress(),
+            fetchPracticeStatistics(),
+            fetchUserBadges(),
+            fetchAccuracyRate(),
+            fetchProgressChartData(14)
+        ]);
+        
+        // Process results
+        if (cumulativeProgress.status === 'fulfilled' && cumulativeProgress.value) {
+            console.log('✅ Cumulative progress loaded');
+            updateOverallProgressDisplay(cumulativeProgress.value);
+        }
+        
+        if (dailyProgress.status === 'fulfilled' && dailyProgress.value) {
+            console.log('✅ Daily progress loaded');
+            ProgressState.dailyProgress = dailyProgress.value;
+        }
+        
+        if (practiceStats.status === 'fulfilled' && practiceStats.value) {
+            console.log('✅ Practice stats loaded');
+            PracticeState.userPracticeProgress = practiceStats.value;
+            updatePracticeStatsDisplay();
+        }
+        
+        if (userBadges.status === 'fulfilled' && userBadges.value) {
+            console.log('✅ Badges loaded');
+            updateBadgesDisplay(userBadges.value);
+        }
+        
+        if (accuracyRate.status === 'fulfilled' && accuracyRate.value) {
+            console.log('✅ Accuracy rate loaded');
+            updateAccuracyDisplay(accuracyRate.value);
+        }
+        
+        if (chartData.status === 'fulfilled' && chartData.value) {
+            console.log('✅ Chart data loaded');
+            renderDailyActivityChart(chartData.value);
+        }
+        
+        // Update all displays
+        updateProgressSummaryCards();
+        updateContinueLearningModule();
+        
+        // Initialize time tracker
+        if (!window.activeTimeTracker) {
+            window.activeTimeTracker = new ActiveTimeTracker();
+        }
+        
+        hideDashboardLoading();
+        console.log('✅ All initial data loaded');
+        
+    } catch (error) {
+        console.error('❌ Error loading initial data:', error);
+        hideDashboardLoading();
     }
+}
+
+/// Initialize when page loads
+document.addEventListener('DOMContentLoaded', function() {
+    console.log('📄 DOM fully loaded');
+   
+    addQuizStyles(); // Add quiz styles
+    addProgressStyles(); // Add progress styles
+    addPracticeResultModalStyles();
+    addChartStyles();
+    addSettingsStyles();
+    addFeedbackStyles();
+    addLessonContentStyles();
+    addReviewModalStyles();
     
-    // Define page elements
-    const pages = {
-        loading: document.getElementById('loading-page'),
-        login: document.getElementById('login-page'),
-        signup: document.getElementById('signup-page'),
-        landing: document.getElementById('landing-page'),
-        dashboard: document.getElementById('dashboard-page'),
-        appSelection: document.getElementById('app-selection-page'),
-        practice: document.getElementById('practice-exercises-page'),
-        moduleDashboard: document.getElementById('module-dashboard-page'),
-        quizDashboard: document.getElementById('quiz-dashboard-page'),
-        progress: document.getElementById('progress-page'),
-        feedback: document.getElementById('feedback-page'),
-        settings: document.getElementById('settings-page')
-    };
+    // Initialize app first
+    initApp();
+
+    // Connect tool buttons after a short delay
+    setTimeout(() => {
+        connectToolButtons();
+    }, 500);
     
-    // Hide all pages
-    Object.values(pages).forEach(p => {
-        if (p) p.classList.add('hidden');
+    // Also try again after a longer delay (for dynamically loaded content)
+    setTimeout(() => {
+        connectToolButtons();
+    }, 2000);
+    
+    // Add review modal styles
+    setTimeout(() => {
+        addReviewModalStyles();
+        console.log('✅ Review modal styles added');
+    }, 500);
+    
+    // Connect review buttons
+    setTimeout(() => {
+        connectReviewButtons();
+        console.log('✅ Review buttons connected');
+    }, 1000);
+    
+    // Observe for dynamically added review buttons
+    const reviewObserver = new MutationObserver(function(mutations) {
+        connectReviewButtons();
     });
     
-    // Show target page
-    if (pages[page]) {
-        pages[page].classList.remove('hidden');
-        AppState.currentPage = page;
-        
-        // Update URL hash for browser history
-        window.location.hash = page;
-        
-        // Scroll to top
-        window.scrollTo({ top: 0, behavior: 'instant' });
-    } else {
-        console.error(`❌ Page ${page} not found!`);
-        return;
-    }
+    reviewObserver.observe(document.body, { childList: true, subtree: true });
     
-    // Show/hide navigation based on page type
-    toggleFooterNavigation(page);
-    
-    // Handle page-specific initialization
-    switch(page) {
-        case 'dashboard':
-            if (AppState.currentUser) {
-                // Update user info immediately
-                updateUserInfo();
-                
-                // Load data if not already loaded
-                if (!ProgressState.cumulativeProgress) {
-                    showDashboardLoading();
-                    loadInitialData();
-                } else {
-                    // Just update displays
-                    updateOverallProgressDisplay(ProgressState.cumulativeProgress);
-                    updateProgressSummaryCards();
-                    updateContinueLearningModule();
+    // Also connect when quiz interface becomes visible
+    const quizInterface = document.getElementById('quizInterfaceContainer');
+    if (quizInterface) {
+        const observer = new MutationObserver(function(mutations) {
+            mutations.forEach(function(mutation) {
+                if (mutation.type === 'attributes' && mutation.attributeName === 'class') {
+                    if (!quizInterface.classList.contains('hidden')) {
+                        setTimeout(connectReviewButtons, 500);
+                    }
                 }
-                
-                setupTopNavigation();
-            }
-            break;
-        case 'practice':
-            if (AppState.currentUser) {
-                initPracticePage();
-                setupTopNavigation();
-            }
-            break;
-        case 'moduleDashboard':
-            if (AppState.currentUser) {
-                initModuleDashboard();
-                setupModuleDashboardNavigation();
-                setTimeout(() => {
-                    updateModuleDashboardStats(); // Update module dashboard stats
-                }, 500);
-            }
-            break;
-        case 'quizDashboard':
-            if (AppState.currentUser) {
-                initQuizDashboard();
-                setupQuizNavigation();
-            }
-            break;
-        case 'progress':
-            if (AppState.currentUser) {
-                initProgressDashboard();
-                setupProgressNavigation();
-            }
-            break;
-        case 'feedback':
-            if (AppState.currentUser) {
-                initFeedbackDashboard();
-                setupFeedbackNavigation();
-                addFeedbackStyles();
-            }
-            break;
-        case 'settings':
-            if (AppState.currentUser) {
-                initSettingsDashboard();
-                setupSettingsNavigation();
-            }
-            break;
+            });
+        });
+        
+        observer.observe(quizInterface, { attributes: true });
     }
-    
-    console.log(`✅ Navigation complete. Current page: ${AppState.currentPage}`);
-}
-
-// ============================================
-// ALL OTHER EXISTING FUNCTIONS REMAIN THE SAME
-// (Tool classes, API functions, progress tracking, etc.)
-// ============================================
-
-// [All the existing code from your original script.js continues here...]
-// Including:
-// - Tool classes (Calculator, GraphTool, Whiteboard, etc.)
-// - API request functions
-// - Progress tracking functions
-// - Quiz functions
-// - Practice functions
-// - Feedback functions
-// - Settings functions
-// - All helper functions
-
-// Note: Due to length constraints, the complete script with all existing functions 
-// would be included here. The key modifications are only in:
-// 1. initApp() function
-// 2. Added createDemoUser() function
-// 3. Modified navigateTo() to always consider user authenticated
-// 4. Modified simulateLoading() to skip loading
-
-console.log('✨ MathHub Application Script Loaded - Direct Dashboard Mode');
+});
