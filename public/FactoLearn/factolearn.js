@@ -6980,180 +6980,171 @@ function updateProgressDashboardUI() {
 }
 
 // ============================================
-// ✅ UPDATED: updateProgressSummaryCards - WITH DEBUG LOGS
+// ✅ UPDATED: updateProgressSummaryCards - REAL DATA FROM DATABASE
 // ============================================
 async function updateProgressSummaryCards() {
-    console.log('📊 Updating Factorial progress summary cards (lesson_id = 3)...');
+    console.log('📊 Updating Factorial progress summary cards with REAL data (lesson_id = 3)...');
     
     try {
         const token = localStorage.getItem('authToken') || authToken;
-        if (!token) return;
-        
-
-        
-        // ===== DEBUG: Check database directly =====
-        try {
-            const debugResponse = await fetch(`/api/debug/practice-count`, {
-                headers: { 'Authorization': `Bearer ${token}` }
-            });
-            if (debugResponse.ok) {
-                const debugData = await debugResponse.json();
-                console.log('🔍 DEBUG DATA FROM SERVER:', debugData);
-            }
-        } catch (e) {
-            console.log('Debug endpoint not available');
+        if (!token) {
+            console.warn('No auth token available');
+            setDefaultProgressValues();
+            return;
         }
         
-        // ===== 1. GET FACTOLEARN LESSONS =====
+        // Show loading states
+        showDashboardLoading();
+        
+        // ===== FETCH ALL DATA FROM DATABASE IN PARALLEL =====
+        const [lessonsData, practiceStats, quizStats] = await Promise.allSettled([
+            // 1. GET LESSONS PROGRESS
+            fetch(`/api/progress/lessons?lesson_id=3`, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            }).then(res => res.json()).catch(err => ({ success: false, error: err })),
+            
+            // 2. GET PRACTICE ATTEMPTS
+            fetch(`/api/progress/practice-attempts?lesson_id=3`, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            }).then(res => res.json()).catch(err => ({ success: false, error: err })),
+            
+            // 3. GET QUIZ STATS
+            fetch(`/api/quiz/user/attempts?lesson_id=3`, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            }).then(res => res.json()).catch(err => ({ success: false, error: err }))
+        ]);
+        
+        // ===== PROCESS LESSONS DATA =====
         let lessonsCompleted = 0;
         let totalLessons = 0;
         
-        try {
-            // Get total lessons count for FactoLearn
-            const totalResponse = await fetch(`/api/lessons-db/complete?lesson_id=${FACTORIAL_LESSON_ID}`, {
-                headers: { 'Authorization': `Bearer ${token}` }
-            });
+        if (lessonsData.status === 'fulfilled' && lessonsData.value.success) {
+            const progress = lessonsData.value.progress || [];
             
-            if (totalResponse.ok) {
-                const totalData = await totalResponse.json();
-                if (totalData.success && totalData.lessons) {
-                    totalLessons = totalData.lessons.length;
-                    console.log(`📚 Total Factorial lessons in database: ${totalLessons}`);
-                }
+            // Get total lessons count from a separate endpoint or from the data
+            const totalLessonsResponse = await fetch(`/api/lessons-db/complete?lesson_id=3`, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            }).catch(() => ({ success: false }));
+            
+            if (totalLessonsResponse.ok) {
+                const totalData = await totalLessonsResponse.json();
+                totalLessons = totalData.lessons?.length || 0;
+            } else {
+                // If can't fetch total, use the unique lesson IDs from progress
+                const uniqueLessons = new Set(progress.map(p => p.content_id)).size;
+                totalLessons = Math.max(uniqueLessons, 10); // Fallback to 10
             }
             
-            // Get lessons progress for PolyLearn
-            const lessonsResponse = await fetch(`/api/progress/lessons?lesson_id=${FACTORIAL_LESSON_ID}`, {
-                headers: { 'Authorization': `Bearer ${token}` }
-            });
+            // Count completed lessons
+            lessonsCompleted = progress.filter(p => 
+                p.completion_status === 'completed' || p.status === 'completed'
+            ).length;
             
-            if (lessonsResponse.ok) {
-                const lessonsData = await lessonsResponse.json();
-                if (lessonsData.success && lessonsData.progress) {
-                    lessonsCompleted = lessonsData.progress.filter(p => 
-                        p.completion_status === 'completed' || p.status === 'completed'
-                    ).length;
-                    
-                    console.log(`✅ Factorial lessons completed from DB: ${lessonsCompleted}/${totalLessons}`);
-                }
-            }
-        } catch (error) {
-            console.warn('⚠️ Could not fetch FactoLearn lessons:', error.message);
+            console.log(`✅ Lessons completed from DB: ${lessonsCompleted}/${totalLessons}`);
+        } else {
+            console.warn('⚠️ Could not fetch lessons data');
         }
         
-        // ===== 2. GET POLYLEARN PRACTICE EXERCISES =====
+        // ===== PROCESS PRACTICE DATA =====
         let exercisesCompleted = 0;
         let totalExercises = 0;
         
-        try {
-            // ✅ Get total FactoLearn practice exercises (lesson_id=2)
-            console.log(`📡 Fetching total exercises count for lesson ${FACTORIAL_LESSON_ID}...`);
-            const totalExercisesResponse = await fetch(`/api/practice/exercises/count?lesson_id=${FACTORIAL_LESSON_ID}`, {
+        if (practiceStats.status === 'fulfilled' && practiceStats.value.success) {
+            const attempts = practiceStats.value.attempts || [];
+            
+            // Get total exercises count
+            const totalExercisesResponse = await fetch(`/api/practice/exercises/count?lesson_id=3`, {
                 headers: { 'Authorization': `Bearer ${token}` }
-            });
+            }).catch(() => ({ success: false }));
             
             if (totalExercisesResponse.ok) {
                 const totalData = await totalExercisesResponse.json();
-                console.log('📥 Total exercises response:', totalData);
-                
-                if (totalData.success) {
-                    totalExercises = totalData.count || 0;
-                    console.log(`📝 TOTAL Factorial practice exercises from DB: ${totalExercises}`);
-                    
-                    // Log debug info if available
-                    if (totalData.debug) {
-                        console.log('🔍 Debug info from server:', totalData.debug);
-                    }
-                }
+                totalExercises = totalData.count || 0;
             } else {
-                console.error('❌ Failed to fetch total exercises count:', totalExercisesResponse.status);
+                // If can't fetch total, use unique exercise IDs
+                const uniqueExercises = new Set(attempts.map(a => a.exercise_id)).size;
+                totalExercises = Math.max(uniqueExercises, 15); // Fallback to 15
             }
             
-            // ✅ Get PolyLearn practice attempts (lesson_id=3)
-            console.log(`📡 Fetching practice attempts for lesson ${FACTORIAL_LESSON_ID}...`);
-            const practiceResponse = await fetch(`/api/progress/practice-attempts?lesson_id=${FACTORIAL_LESSON_ID}`, {
-                headers: { 'Authorization': `Bearer ${token}` }
-            });
+            // Count completed exercises (score >= 70 or status completed)
+            exercisesCompleted = attempts.filter(a => 
+                a.completion_status === 'completed' || 
+                a.percentage >= 70 ||
+                a.score >= 70
+            ).length;
             
-            if (practiceResponse.ok) {
-                const practiceData = await practiceResponse.json();
-                console.log('📥 Practice attempts response:', practiceData);
-                
-                if (practiceData.success && practiceData.attempts) {
-                    exercisesCompleted = practiceData.attempts.filter(attempt => 
-                        attempt.completion_status === 'completed' || 
-                        attempt.percentage >= 70 ||
-                        attempt.score >= 70
-                    ).length;
-                    
-                    console.log(`✅ Factorial completed exercises from DB: ${exercisesCompleted}/${totalExercises}`);
-                }
-            } else {
-                console.error('❌ Failed to fetch practice attempts:', practiceResponse.status);
-            }
-            
-        } catch (error) {
-            console.error('❌ Error fetching practice from DB:', error);
+            console.log(`✅ Exercises completed from DB: ${exercisesCompleted}/${totalExercises}`);
+        } else {
+            console.warn('⚠️ Could not fetch practice data');
         }
         
-        // ===== 3. GET POLYLEARN QUIZ POINTS =====
-        let totalPoints = 0;
+        // ===== PROCESS QUIZ DATA =====
+        let totalQuizPoints = 0;
         
-        try {
-            const quizResponse = await fetch(`/api/quiz/user/attempts?lesson_id=${FACTORIAL_LESSON_ID}`, {
-                headers: { 'Authorization': `Bearer ${token}` }
+        if (quizStats.status === 'fulfilled' && quizStats.value.success) {
+            const attempts = quizStats.value.attempts || [];
+            
+            // Calculate points (10 points per correct answer)
+            attempts.forEach(attempt => {
+                const correctAnswers = attempt.correct_answers || 0;
+                totalQuizPoints += correctAnswers * 10;
             });
             
-            if (quizResponse.ok) {
-                const quizData = await quizResponse.json();
-                if (quizData.success && quizData.attempts) {
-                    quizData.attempts.forEach(attempt => {
-                        const correctAnswers = attempt.correct_answers || 0;
-                        totalPoints += correctAnswers * 10;
-                    });
-                    console.log(`✅ Factorial quiz points from DB: ${totalPoints}`);
-                }
-            }
-        } catch (error) {
-            console.warn('⚠️ Could not fetch FactoLearn quiz points:', error.message);
+            console.log(`✅ Quiz points from DB: ${totalQuizPoints}`);
+        } else {
+            console.warn('⚠️ Could not fetch quiz data');
         }
         
-        // ===== 4. UPDATE THE UI =====
+        // ===== UPDATE THE UI =====
         
         // Update lessons count
-        const lessonsCount = document.getElementById('lessonsCount');
-        if (lessonsCount) {
-            lessonsCount.innerHTML = `${lessonsCompleted}<span class="item-unit">/${totalLessons}</span>`;
-            console.log(`📊 UI Lessons: ${lessonsCompleted}/${totalLessons}`);
+        const lessonsCountEl = document.getElementById('lessonsCount');
+        if (lessonsCountEl) {
+            lessonsCountEl.innerHTML = `${lessonsCompleted}<span class="item-unit">/${totalLessons || 10}</span>`;
         }
         
         // Update exercises count
-        const exercisesCount = document.getElementById('exercisesCount');
-        if (exercisesCount) {
-            exercisesCount.innerHTML = `${exercisesCompleted}<span class="item-unit">/${totalExercises}</span>`;
-            console.log(`📊 UI Practice: ${exercisesCompleted}/${totalExercises}`);
+        const exercisesCountEl = document.getElementById('exercisesCount');
+        if (exercisesCountEl) {
+            exercisesCountEl.innerHTML = `${exercisesCompleted}<span class="item-unit">/${totalExercises || 15}</span>`;
         }
         
         // Update quiz score
-        const quizScore = document.getElementById('quizScore');
-        if (quizScore) {
-            quizScore.innerHTML = `${totalPoints}<span class="item-unit">points</span>`;
-            console.log(`📊 UI Quiz Points: ${totalPoints}`);
+        const quizScoreEl = document.getElementById('quizScore');
+        if (quizScoreEl) {
+            quizScoreEl.innerHTML = `${totalQuizPoints}<span class="item-unit">points</span>`;
         }
         
-        // Update avg time
-        const avgTime = document.getElementById('avgTime');
-        if (avgTime) {
-            const totalActivities = lessonsCompleted + exercisesCompleted;
-            const avgPerActivity = totalActivities > 0 ? Math.round(5 + (totalActivities * 0.5)) : 5;
-            avgTime.innerHTML = `${avgPerActivity}<span class="item-unit">min/day</span>`;
+        // Update average time (calculate based on total time spent)
+        const avgTimeEl = document.getElementById('avgTime');
+        if (avgTimeEl) {
+            // Get total time from all activities
+            let totalMinutes = 0;
+            
+            if (practiceStats.status === 'fulfilled' && practiceStats.value.success) {
+                const attempts = practiceStats.value.attempts || [];
+                totalMinutes += attempts.reduce((sum, a) => sum + (a.time_spent_seconds || 0), 0) / 60;
+            }
+            
+            if (quizStats.status === 'fulfilled' && quizStats.value.success) {
+                const attempts = quizStats.value.attempts || [];
+                totalMinutes += attempts.reduce((sum, a) => sum + (a.time_spent_seconds || 0), 0) / 60;
+            }
+            
+            // Calculate daily average (assuming 7 days)
+            const avgDaily = Math.round(totalMinutes / 7) || 5;
+            avgTimeEl.innerHTML = `${avgDaily}<span class="item-unit">min/day</span>`;
         }
         
-        console.log('✅ FactoLearn progress summary cards updated successfully');
-        console.log(`   FINAL - Lessons: ${lessonsCompleted}/${totalLessons}, Practice: ${exercisesCompleted}/${totalExercises}, Points: ${totalPoints}`);
+        // Hide loading
+        hideDashboardLoading();
+        
+        console.log('✅ Progress summary cards updated with REAL database data');
         
     } catch (error) {
-        console.error('❌ Error updating FactoLearn progress summary cards:', error);
+        console.error('❌ Error updating progress summary cards:', error);
+        setDefaultProgressValues();
+        hideDashboardLoading();
     }
 }
 // Palitan ang pangalan:
@@ -23028,7 +23019,7 @@ window.navigateTo = function(page) {
 };
 
 // ============================================
-// 🚨 FIX FOR HAMBURGER MENU
+// ✅ FIXED: Hamburger Menu - Gumagana na!
 // ============================================
 function initHamburgerMenu() {
     console.log('🍔 Initializing hamburger menu...');
@@ -23042,27 +23033,68 @@ function initHamburgerMenu() {
         return;
     }
     
-    // Remove old listeners
+    console.log('✅ Menu elements found');
+    
+    // REMOVE ALL EXISTING EVENT LISTENERS
     const newBtn = hamburgerBtn.cloneNode(true);
     hamburgerBtn.parentNode.replaceChild(newBtn, hamburgerBtn);
     
+    // ADD CLICK EVENT TO NEW BUTTON
     newBtn.addEventListener('click', function(e) {
         e.preventDefault();
         e.stopPropagation();
-        console.log('🍔 Hamburger clicked');
+        console.log('🍔 Hamburger clicked - opening menu');
         
+        // FORCE SHOW MENU
         menuOverlay.style.display = 'block';
+        menuOverlay.style.opacity = '1';
+        menuOverlay.style.visibility = 'visible';
+        menuOverlay.style.zIndex = '10001';
+        
         menuPanel.classList.add('show');
+        menuPanel.style.transform = 'translateX(0)';
+        menuPanel.style.display = 'block';
+        
+        // Prevent body scrolling
+        document.body.style.overflow = 'hidden';
     });
     
+    // CLOSE WHEN CLICKING OVERLAY
     menuOverlay.addEventListener('click', function() {
+        console.log('🍔 Overlay clicked - closing menu');
+        
         menuOverlay.style.display = 'none';
+        menuOverlay.style.opacity = '0';
+        menuOverlay.style.visibility = 'hidden';
+        
         menuPanel.classList.remove('show');
+        menuPanel.style.transform = 'translateX(100%)';
+        
+        // Restore body scrolling
+        document.body.style.overflow = '';
     });
     
-    console.log('✅ Hamburger menu initialized');
+    // CLOSE WHEN CLICKING CLOSE BUTTON (kung meron)
+    const closeBtn = menuPanel.querySelector('.close-menu, .menu-close');
+    if (closeBtn) {
+        closeBtn.addEventListener('click', function() {
+            menuOverlay.style.display = 'none';
+            menuPanel.classList.remove('show');
+            document.body.style.overflow = '';
+        });
+    }
+    
+    // CLOSE WHEN CLICKING MENU LINKS
+    menuPanel.querySelectorAll('a').forEach(link => {
+        link.addEventListener('click', function() {
+            menuOverlay.style.display = 'none';
+            menuPanel.classList.remove('show');
+            document.body.style.overflow = '';
+        });
+    });
+    
+    console.log('✅ Hamburger menu initialized and ready!');
 }
-
 // ============================================
 // 🚨 FIX FOR PAGE LOAD
 // ============================================
