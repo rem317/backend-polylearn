@@ -19565,7 +19565,7 @@ document.addEventListener('DOMContentLoaded', function() {
     }, 500);
 });
 
-// ===== FILTER MODULES BY LESSON - FIXED =====
+// ===== FINAL FIXED: FILTER MODULES BY LESSON =====
 function filterModulesByLesson() {
     console.log("🔍 Filtering modules by lesson...");
     
@@ -19580,31 +19580,32 @@ function filterModulesByLesson() {
     console.log("📋 Selected Lesson ID:", lessonId || "(none)");
     
     // Reset module dropdown
-    moduleSelect.innerHTML = '<option value="">-- Select Module --</option>';
+    moduleSelect.innerHTML = '';
     
-    // If no lesson selected, disable module dropdown
+    // ===== FIX: Kung walang lesson, disable lang =====
     if (!lessonId) {
         console.log("ℹ️ No lesson selected - disabling module dropdown");
+        const option = document.createElement('option');
+        option.value = '';
+        option.textContent = '-- Select Lesson First --';
+        option.disabled = true;
+        option.selected = true;
+        moduleSelect.appendChild(option);
         moduleSelect.disabled = true;
-        
-        // Add option to create module
-        const createOption = document.createElement('option');
-        createOption.value = 'create';
-        createOption.textContent = '➕ Create New Module...';
-        createOption.style.color = '#7a0000';
-        createOption.style.fontWeight = 'bold';
-        moduleSelect.appendChild(createOption);
-        moduleSelect.disabled = false;
         return;
     }
     
     // Make sure we have modules data
     if (!window.quickModules || window.quickModules.length === 0) {
         console.log("⚠️ No modules loaded yet, fetching from server...");
-        moduleSelect.innerHTML = '<option value="">-- Loading modules... --</option>';
+        const loadingOption = document.createElement('option');
+        loadingOption.value = '';
+        loadingOption.textContent = '-- Loading modules... --';
+        loadingOption.disabled = true;
+        loadingOption.selected = true;
+        moduleSelect.appendChild(loadingOption);
         moduleSelect.disabled = true;
         
-        // Try to reload structure
         loadModuleStructure().then(() => {
             setTimeout(() => filterModulesByLesson(), 500);
         });
@@ -19618,6 +19619,15 @@ function filterModulesByLesson() {
     
     console.log(`📦 Found ${filteredModules.length} modules for lesson ID ${lessonId}`);
     
+    // Default option
+    const defaultOption = document.createElement('option');
+    defaultOption.value = '';
+    defaultOption.textContent = '-- Select Module --';
+    defaultOption.disabled = true;
+    defaultOption.selected = true;
+    moduleSelect.appendChild(defaultOption);
+    
+    // Modules from database
     if (filteredModules.length > 0) {
         filteredModules.forEach(module => {
             const option = document.createElement('option');
@@ -19625,22 +19635,119 @@ function filterModulesByLesson() {
             option.textContent = `📦 ${module.name}`;
             moduleSelect.appendChild(option);
         });
-        moduleSelect.disabled = false;
-        console.log("✅ Modules enabled with", filteredModules.length, "options");
-    } else {
-        console.log("ℹ️ No modules found for this lesson");
-        moduleSelect.innerHTML = '<option value="">-- No modules available --</option>';
         
-        // Add create module option
-        const createOption = document.createElement('option');
-        createOption.value = 'create';
-        createOption.textContent = '➕ Create New Module...';
-        createOption.style.color = '#7a0000';
-        createOption.style.fontWeight = 'bold';
-        moduleSelect.appendChild(createOption);
-        moduleSelect.disabled = false;
+        // Add separator
+        const separator = document.createElement('option');
+        separator.disabled = true;
+        separator.textContent = '──────────';
+        moduleSelect.appendChild(separator);
+    } else {
+        // Show message na walang modules
+        const noModuleOption = document.createElement('option');
+        noModuleOption.value = '';
+        noModuleOption.textContent = '-- No modules available --';
+        noModuleOption.disabled = true;
+        moduleSelect.appendChild(noModuleOption);
+        
+        // Add separator
+        const separator = document.createElement('option');
+        separator.disabled = true;
+        separator.textContent = '──────────';
+        moduleSelect.appendChild(separator);
     }
+    
+    // ===== LAGI may Create New Module option =====
+    const createOption = document.createElement('option');
+    createOption.value = 'create';
+    createOption.textContent = '➕ Create New Module...';
+    createOption.style.color = '#7a0000';
+    createOption.style.fontWeight = 'bold';
+    moduleSelect.appendChild(createOption);
+    
+    moduleSelect.disabled = false;
+    console.log("✅ Modules dropdown ready with 'Create New Module'");
 }
+
+// ===== HANDLE "CREATE NEW MODULE" SELECTION =====
+document.addEventListener('change', function(e) {
+    if (e.target.id === 'moduleSelect') {
+        if (e.target.value === 'create') {
+            console.log("📦 Opening create module modal...");
+            openQuickModuleModal();
+            // Reset selection after opening
+            setTimeout(() => {
+                e.target.value = '';
+            }, 100);
+        }
+    }
+});
+
+
+// 1. I-ADD ANG FUNCTION NA ITO
+function updateLessonModuleDropdown(lessonId) {
+    console.log("🔄 Updating lesson module dropdown for lesson:", lessonId);
+    
+    const moduleSelect = document.getElementById('moduleSelect');
+    if (!moduleSelect) return;
+    
+    // Clear dropdown
+    moduleSelect.innerHTML = '';
+    
+    if (!lessonId) {
+        const option = document.createElement('option');
+        option.value = '';
+        option.textContent = '-- Select Lesson First --';
+        option.disabled = true;
+        option.selected = true;
+        moduleSelect.appendChild(option);
+        moduleSelect.disabled = true;
+        return;
+    }
+    
+    // Kunin ang modules para sa napiling lesson
+    const lessonModules = window.quickModules ? 
+        window.quickModules.filter(m => parseInt(m.lesson_id) === parseInt(lessonId)) : [];
+    
+    console.log(`📦 Found ${lessonModules.length} modules for lesson ${lessonId}`);
+    
+    // Default option
+    const defaultOption = document.createElement('option');
+    defaultOption.value = '';
+    defaultOption.textContent = '-- Select Module --';
+    defaultOption.disabled = true;
+    defaultOption.selected = true;
+    moduleSelect.appendChild(defaultOption);
+    
+    // Modules from database
+    if (lessonModules.length > 0) {
+        lessonModules.forEach(module => {
+            const option = document.createElement('option');
+            option.value = module.id;
+            option.textContent = `📦 ${module.name}`;
+            moduleSelect.appendChild(option);
+        });
+        
+        // Add separator
+        const separator = document.createElement('option');
+        separator.disabled = true;
+        separator.textContent = '──────────';
+        moduleSelect.appendChild(separator);
+    }
+    
+    // ===== CRITICAL: CREATE NEW MODULE OPTION =====
+    const createOption = document.createElement('option');
+    createOption.value = 'create';
+    createOption.textContent = '➕ Create New Module...';
+    createOption.style.color = '#7a0000';
+    createOption.style.fontWeight = 'bold';
+    moduleSelect.appendChild(createOption);
+    
+    moduleSelect.disabled = false;
+    console.log("✅ Module dropdown ready with 'Create New Module' option");
+}
+
+
+
 // ===== LOAD TOPICS BY SELECTED SUBJECT =====
 async function loadTopicsBySubject() {
     console.log("📚 Loading topics for selected subject...");
