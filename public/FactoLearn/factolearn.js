@@ -4335,7 +4335,7 @@ function handleActivityResponse(data) {
     }
 }
 // Helper function para sa PolyLearn practice stats
-async function fetchPolyLearnPracticeStats(userId) {
+async function fetchFactorialPracticeStats(userId) {
     try {
 
         const [stats] = await promisePool.query(`
@@ -4347,7 +4347,7 @@ async function fetchPolyLearnPracticeStats(userId) {
             FROM user_practice_progress upp
             JOIN practice_exercises pe ON upp.exercise_id = pe.exercise_id
             WHERE upp.user_id = ? AND pe.lesson_id = ?
-        `, [userId, POLYLEARN_LESSON_ID]);
+        `, [userId, FACTORIAL_LESSON_ID]);
         
         return stats[0] || {
             exercises_completed: 0,
@@ -4362,7 +4362,7 @@ async function fetchPolyLearnPracticeStats(userId) {
 }
 
 // Helper function para sa PolyLearn quiz stats
-async function fetchPolyLearnQuizStats(userId) {
+async function fetchFactorialQuizStats(userId) {
     try {
 
         const [stats] = await promisePool.query(`
@@ -4375,7 +4375,7 @@ async function fetchPolyLearnQuizStats(userId) {
             WHERE uqa.user_id = ? 
             AND uqa.completion_status = 'completed'
             AND q.lesson_id = ?
-        `, [userId, POLYLEARN_LESSON_ID]);
+        `, [userId, FACTORIAL_LESSON_ID]);
         
         return stats[0] || {
             quizzes_completed: 0,
@@ -4388,7 +4388,7 @@ async function fetchPolyLearnQuizStats(userId) {
     }
 }
 
-function getDefaultPolyLearnProgress() {
+function getDefaultFactorialProgress() {
     return {
         lessons_completed: 0,
         total_lessons: 10,
@@ -6462,7 +6462,7 @@ async function loadProgressDashboardData() {
             lessonsCompleted = progress.filter(p => 
                 p.completion_status === 'completed' || p.status === 'completed'
             ).length;
-            console.log(`✅ PolyLearn lessons completed: ${lessonsCompleted}`);
+            console.log(`✅ Factorial lessons completed: ${lessonsCompleted}`);
         }
         
         if (totalLessonsCount.status === 'fulfilled' && totalLessonsCount.value?.success) {
@@ -6484,7 +6484,7 @@ async function loadProgressDashboardData() {
                 totalPracticeSeconds += a.time_spent_seconds || 0;
             });
             
-            console.log(`✅ PolyLearn practice completed: ${exercisesCompleted}`);
+            console.log(`✅ Factorial practice completed: ${exercisesCompleted}`);
             console.log(`⏱️ Total practice seconds: ${totalPracticeSeconds}`);
         }
         
@@ -6502,7 +6502,7 @@ async function loadProgressDashboardData() {
                 quizPoints += correctAnswers * 10;
             });
             
-            console.log(`✅ PolyLearn quiz points: ${quizPoints}`);
+            console.log(`✅ Factorial quiz points: ${quizPoints}`);
         }
         
         // ===== CALCULATE OVERALL PROGRESS =====
@@ -6788,7 +6788,7 @@ async function updateProgressSummaryCards() {
                 const totalData = await totalResponse.json();
                 if (totalData.success && totalData.lessons) {
                     totalLessons = totalData.lessons.length;
-                    console.log(`📚 Total PolyLearn lessons in database: ${totalLessons}`);
+                    console.log(`📚 Total Factorial lessons in database: ${totalLessons}`);
                 }
             }
             
@@ -6804,7 +6804,7 @@ async function updateProgressSummaryCards() {
                         p.completion_status === 'completed' || p.status === 'completed'
                     ).length;
                     
-                    console.log(`✅ PolyLearn lessons completed from DB: ${lessonsCompleted}/${totalLessons}`);
+                    console.log(`✅ Factorial lessons completed from DB: ${lessonsCompleted}/${totalLessons}`);
                 }
             }
         } catch (error) {
@@ -6828,7 +6828,7 @@ async function updateProgressSummaryCards() {
                 
                 if (totalData.success) {
                     totalExercises = totalData.count || 0;
-                    console.log(`📝 TOTAL PolyLearn practice exercises from DB: ${totalExercises}`);
+                    console.log(`📝 TOTAL Factorial practice exercises from DB: ${totalExercises}`);
                     
                     // Log debug info if available
                     if (totalData.debug) {
@@ -6856,7 +6856,7 @@ async function updateProgressSummaryCards() {
                         attempt.score >= 70
                     ).length;
                     
-                    console.log(`✅ PolyLearn completed exercises from DB: ${exercisesCompleted}/${totalExercises}`);
+                    console.log(`✅ Factorial completed exercises from DB: ${exercisesCompleted}/${totalExercises}`);
                 }
             } else {
                 console.error('❌ Failed to fetch practice attempts:', practiceResponse.status);
@@ -6881,7 +6881,7 @@ async function updateProgressSummaryCards() {
                         const correctAnswers = attempt.correct_answers || 0;
                         totalPoints += correctAnswers * 10;
                     });
-                    console.log(`✅ PolyLearn quiz points from DB: ${totalPoints}`);
+                    console.log(`✅ Factorial quiz points from DB: ${totalPoints}`);
                 }
             }
         } catch (error) {
@@ -9606,8 +9606,8 @@ async function startQuizSystem(quizId) {
 // ============================================
 // Helper function to manually load PolyLearn quizzes (Category 2)
 // ============================================
-function loadPolyLearnQuizzes() {
-    console.log('📚 Loading PolyLearn quizzes (Category 2)...');
+function loadFactorialQuizzes() {
+    console.log('📚 Loading FactoLearn quizzes (Category 2)...');
     
     // Find PolyLearn category (ID 2)
     const polyLearnCategory = QuizState.quizCategories.find(c => c.category_id == 2);
@@ -11233,8 +11233,8 @@ function displayQuizCategories(categories, isHardcoded = false) {
                 <div style="font-size: 60px; color: #ccc; margin-bottom: 20px;">
                     <i class="fas fa-folder-open"></i>
                 </div>
-                <h3 style="color: #666; margin-bottom: 10px;">No PolyLearn Categories Available</h3>
-                <p style="color: #999; margin-bottom: 20px;">Check back later for new PolyLearn quizzes!</p>
+                <h3 style="color: #666; margin-bottom: 10px;">No FactoLearn Categories Available</h3>
+                <p style="color: #999; margin-bottom: 20px;">Check back later for new FactoLearn quizzes!</p>
                 <button class="btn-primary" onclick="loadQuizCategories()" style="background: #7a0000; color: white; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer;">
                     <i class="fas fa-redo"></i> Refresh
                 </button>
@@ -18509,7 +18509,7 @@ async function initializeModuleDashboard() {
     console.log('📚 Initializing module dashboard with filtered lesson...');
     
     const currentLesson = LessonState.currentLesson;
-    const selectedApp = localStorage.getItem('selectedApp') || 'polylearn';
+    const selectedApp = localStorage.getItem('selectedApp') || 'factorial';
     const lessonFilter = localStorage.getItem('currentLessonFilter');
     
     console.log(`📱 Selected app: ${selectedApp}, filter: ${lessonFilter}`);
@@ -18833,7 +18833,7 @@ async function initPracticePage() {
     }
     
     // ✅ Get current app's lesson ID
-    const selectedApp = localStorage.getItem('selectedApp') || 'polylearn';
+    const selectedApp = localStorage.getItem('selectedApp') || 'factorial';
     const currentLessonId = getCurrentLessonId(); // Kunin ang lesson_id (2 for PolyLearn)
     
     console.log(`🎯 Selected app: ${selectedApp}, lesson ID: ${currentLessonId}`);
@@ -19025,7 +19025,7 @@ async function loadTopicsProgress() {
 // ✅ HELPER: Get current platform topic ID
 // ============================================
 function getCurrentPlatformTopicId() {
-    const selectedApp = localStorage.getItem('selectedApp') || 'polylearn';
+    const selectedApp = localStorage.getItem('selectedApp') || 'factorial';
     return APP_LESSON_MAP[selectedApp]?.lessonId || 2;
 }
 
@@ -19162,7 +19162,7 @@ window.debugTopicsProgress = async function() {
     
     try {
         const token = localStorage.getItem('authToken') || authToken;
-        const selectedApp = localStorage.getItem('selectedApp') || 'polylearn';
+        const selectedApp = localStorage.getItem('selectedApp') || 'factorial';
         const currentLessonId = getCurrentLessonId();
         
         console.log('Current app:', selectedApp);
@@ -19219,7 +19219,7 @@ window.debugTopicsProgress = async function() {
 async function selectTopicForPractice(topicId) {
     try {
         // Check if this topic belongs to the current app
-        const selectedApp = localStorage.getItem('selectedApp') || 'polylearn';
+        const selectedApp = localStorage.getItem('selectedApp') || 'factorial';
         const expectedTopicId = APP_LESSON_MAP[selectedApp]?.lessonId || 2;
         
         if (parseInt(topicId) !== expectedTopicId) {
