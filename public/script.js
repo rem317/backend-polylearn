@@ -27317,7 +27317,7 @@ async function submitFeedback(feedbackType, feedbackMessage, rating = 0) {
 }
 
 // ============================================
-// ✅ FIXED: Load Feedback History - WITH AUTO REFRESH
+// ✅ IMPROVED: Load Feedback History - REPLACE THE EXISTING FUNCTION
 // ============================================
 async function loadFeedbackHistory(limit = 10) {
     console.log('📋 Loading feedback history...');
@@ -27372,7 +27372,7 @@ async function loadFeedbackHistory(limit = 10) {
                 displayLocalFeedbackHistory();
             } else {
                 historyContainer.innerHTML = `
-                    <div class="no-feedback">
+                    <div class="no-feedback" style="text-align: center; padding: 30px;">
                         <i class="fas fa-comment-slash" style="font-size: 40px; color: #ccc; margin-bottom: 15px;"></i>
                         <h4 style="color: #666; margin-bottom: 10px;">No feedback yet</h4>
                         <p style="color: #999;">Your submitted feedback will appear here</p>
@@ -27394,7 +27394,7 @@ async function loadFeedbackHistory(limit = 10) {
                     <i class="fas fa-exclamation-triangle" style="font-size: 40px; color: #e74c3c; margin-bottom: 15px;"></i>
                     <p style="color: #666; margin-bottom: 10px;">Failed to load feedback history</p>
                     <button onclick="loadFeedbackHistory(10)" 
-                            style="background: #7a0000; color: white; border: none; padding: 8px 15px; border-radius: 5px; cursor: pointer;">
+                            style="background: #7a0000; color: white; border: none; padding: 8px 15px; border-radius: 5px; cursor: pointer; margin-top: 10px;">
                         <i class="fas fa-redo"></i> Retry
                     </button>
                 </div>
@@ -27402,7 +27402,7 @@ async function loadFeedbackHistory(limit = 10) {
         }
     }
 }
-
+           
 // Helper function to handle response - UPDATED
 function handleFeedbackResponse(data, container) {
     if (data.success) {
@@ -27952,86 +27952,6 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 });
 
-// Improved loadFeedbackHistory function with better error handling
-async function loadFeedbackHistory(limit = 10) {
-    try {
-        const token = localStorage.getItem('authToken') || authToken;
-        if (!token) {
-            console.log('User not authenticated, skipping feedback history');
-            return;
-        }
-        
-        const historyContainer = document.getElementById('feedbackHistory');
-        if (!historyContainer) {
-            console.log('Feedback history container not found');
-            return;
-        }
-        
-        // Show loading state
-        historyContainer.innerHTML = `
-            <div class="loading-container">
-                <i class="fas fa-spinner fa-spin"></i>
-                <p>Loading your feedback history...</p>
-            </div>
-        `;
-        
-        console.log('📋 Fetching feedback history...');
-        
-        // Ensure limit is a number
-        const limitValue = parseInt(limit) || 10;
-        
-        const response = await fetch(`/api/feedback/history?limit=${limitValue}`, {
-            headers: {
-                'Authorization': `Bearer ${token}`,
-                'Content-Type': 'application/json'
-            }
-        });
-        
-        if (!response.ok) {
-            // Try without limit parameter if fails
-            console.log('Trying without limit parameter...');
-            const fallbackResponse = await fetch(`/api/feedback/history`, {
-                headers: {
-                    'Authorization': `Bearer ${token}`,
-                    'Content-Type': 'application/json'
-                }
-            });
-            
-            if (!fallbackResponse.ok) {
-                throw new Error(`Failed to fetch: ${fallbackResponse.status}`);
-            }
-            
-            const fallbackData = await fallbackResponse.json();
-            handleFeedbackResponse(fallbackData, historyContainer);
-        } else {
-            const data = await response.json();
-            handleFeedbackResponse(data, historyContainer);
-        }
-        
-    } catch (error) {
-        console.error('Error loading feedback history:', error);
-        const historyContainer = document.getElementById('feedbackHistory');
-        if (historyContainer) {
-            historyContainer.innerHTML = `
-                <div class="error-message">
-                    <i class="fas fa-exclamation-triangle"></i>
-                    <p>Failed to load feedback history: ${error.message}</p>
-                    <button class="btn-primary" onclick="loadFeedbackHistory(10)">
-                        <i class="fas fa-redo"></i> Retry
-                    </button>
-                </div>
-            `;
-            
-            // Add event listener to the retry button
-            const retryBtn = historyContainer.querySelector('.btn-primary');
-            if (retryBtn) {
-                retryBtn.addEventListener('click', function() {
-                    loadFeedbackHistory(10);
-                });
-            }
-        }
-    }
-}
 
 // ============================================
 // FIXED: initSettingsDashboard - With better error handling
