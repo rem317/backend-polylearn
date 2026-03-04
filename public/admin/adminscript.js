@@ -5297,7 +5297,7 @@ if (typeof animateNumber !== 'function') {
 
 // KEEP ONLY ONE VERSION OF THESE FUNCTIONS:
 
-// ===== FIXED: SAVE LESSON TO MYSQL - WITH CORRECT ID HANDLING =====
+// ===== FIXED: SAVE LESSON TO MYSQL WITH CORRECT LESSON ID =====
 async function saveLessonToMySQL() {
     console.log("=== SAVING TO MYSQL DATABASE ===");
     
@@ -5306,17 +5306,17 @@ async function saveLessonToMySQL() {
         const title = document.getElementById('createLessonTitle')?.value.trim();
         const description = document.getElementById('createLessonDescription')?.value.trim();
         
-        // ===== FIX 1: GET LESSON ID (subject) =====
+        // ===== FIX 1: GET LESSON ID from lessonSelect =====
         const lessonSelect = document.getElementById('lessonSelect');
-        const lessonId = lessonSelect?.value;
+        const lesson_id = lessonSelect?.value; // This is the lesson_id (2 for PolyLearn, 1 for MathEase, 3 for FactoLearn)
         
         // ===== FIX 2: GET MODULE ID =====
         const moduleSelect = document.getElementById('moduleSelect');
-        const moduleId = moduleSelect?.value;
+        const module_id = moduleSelect?.value;
         
         // ===== FIX 3: GET TOPIC ID =====
         const topicSelect = document.getElementById('topicSelect');
-        const topicId = topicSelect?.value;
+        const topic_id = topicSelect?.value;
         
         const editId = document.getElementById('editLessonId')?.value || '';
         const isUpdate = editId && editId !== '';
@@ -5326,16 +5326,17 @@ async function saveLessonToMySQL() {
         
         // Get subject name for logging
         let subjectName = '';
-        if (lessonId == 1) subjectName = 'MathEase';
-        else if (lessonId == 2) subjectName = 'PolyLearn';
-        else if (lessonId == 3) subjectName = 'FactoLearn';
+        if (lesson_id == 1) subjectName = 'MathEase';
+        else if (lesson_id == 2) subjectName = 'PolyLearn';
+        else if (lesson_id == 3) subjectName = 'FactoLearn';
         
         console.log('📋 Lesson data:', { 
             title, 
-            lessonId, 
+            description,
+            lesson_id,  // This should have value like 2
             subjectName,
-            moduleId,
-            topicId, 
+            module_id,
+            topic_id, 
             isUpdate, 
             assignedTeacherId 
         });
@@ -5346,12 +5347,13 @@ async function saveLessonToMySQL() {
             return;
         }
         
-        if (!lessonId) {
-            showNotification('error', 'Error', 'Please select a subject (lesson)');
+        if (!lesson_id) {
+            showNotification('error', 'Error', 'Please select a lesson');
+            console.error("❌ No lesson selected - lesson_id is empty");
             return;
         }
         
-        if (!topicId) {
+        if (!topic_id) {
             showNotification('error', 'Error', 'Please select a topic. Click "New Topic" if needed.');
             return;
         }
@@ -5375,29 +5377,32 @@ async function saveLessonToMySQL() {
         
         // ===== CREATE FORMDATA =====
         const formData = new FormData();
+        
+        // Add basic info
         formData.append('title', title);
         formData.append('description', description);
         
-        // ===== FIX 4: ALWAYS SEND topic_id (MOST IMPORTANT) =====
-        if (topicId) {
-            formData.append('topic_id', parseInt(topicId));
-            console.log(`📦 Adding topic_id: ${topicId}`);
+        // ===== FIX 4: ADD LESSON_ID - THIS IS THE SUBJECT =====
+        if (lesson_id) {
+            const numericLessonId = parseInt(lesson_id);
+            formData.append('lesson_id', numericLessonId);
+            console.log(`📦 Adding lesson_id: ${numericLessonId} (${subjectName})`);
         } else {
-            // If no topic, show error again
-            showNotification('error', 'Missing Topic', 'Please select or create a topic first');
+            console.error("❌ lesson_id is still empty - cannot proceed");
+            showNotification('error', 'Error', 'Lesson ID is missing');
             return;
         }
         
-        // ===== FIX 5: SEND lesson_id (subject) =====
-        if (lessonId) {
-            formData.append('lesson_id', parseInt(lessonId));
-            console.log(`📦 Adding lesson_id: ${lessonId} (${subjectName})`);
+        // ===== FIX 5: ADD TOPIC_ID =====
+        if (topic_id) {
+            formData.append('topic_id', parseInt(topic_id));
+            console.log(`📦 Adding topic_id: ${topic_id}`);
         }
         
-        // ===== FIX 6: SEND module_id (optional) =====
-        if (moduleId && moduleId !== '' && moduleId !== 'create') {
-            formData.append('module_id', parseInt(moduleId));
-            console.log(`📦 Adding module_id: ${moduleId}`);
+        // ===== FIX 6: ADD MODULE_ID (if selected and not "create") =====
+        if (module_id && module_id !== '' && module_id !== 'create') {
+            formData.append('module_id', parseInt(module_id));
+            console.log(`📦 Adding module_id: ${module_id}`);
         }
         
         // Add update flag if editing
@@ -5435,6 +5440,16 @@ async function saveLessonToMySQL() {
             return;
         }
         
+        // ===== DEBUG: Log all FormData entries =====
+        console.log("📦 FINAL FORMDATA CONTENTS:");
+        for (let pair of formData.entries()) {
+            if (pair[0] === 'video_file') {
+                console.log(`   ${pair[0]}: [File: ${pair[1].name}]`);
+            } else {
+                console.log(`   ${pair[0]}: ${pair[1]}`);
+            }
+        }
+        
         // ===== SHOW LOADING STATE =====
         const saveBtn = document.querySelector('#createLessonModal .btn-primary');
         const originalText = saveBtn ? saveBtn.innerHTML : 'Save to MySQL';
@@ -5445,14 +5460,6 @@ async function saveLessonToMySQL() {
         
         // ===== SEND TO SERVER =====
         console.log("📡 Sending request to server...");
-        console.log("📦 FormData contents:");
-        for (let pair of formData.entries()) {
-            if (pair[0] === 'video_file') {
-                console.log(`   ${pair[0]}: [File: ${pair[1].name}]`);
-            } else {
-                console.log(`   ${pair[0]}: ${pair[1]}`);
-            }
-        }
         
         const response = await fetch(`/api/admin/lessons`, {
             method: 'POST',
@@ -5469,6 +5476,7 @@ async function saveLessonToMySQL() {
         }
         
         const result = await response.json();
+        console.log("📥 Server response:", result);
         
         if (result.success) {
             let successMessage = isUpdate ? 'Lesson updated successfully!' : 'Lesson created successfully!';
@@ -5480,15 +5488,15 @@ async function saveLessonToMySQL() {
             
             showNotification('success', 'Success!', successMessage);
             
-            console.log('📝 Lesson recorded:');
-            console.log(`   - lesson_id: ${lessonId || 'NULL'}`);
-            console.log(`   - module_id: ${moduleId || 'NULL'}`);
-            console.log(`   - topic_id: ${topicId}`);
+            console.log('📝 Lesson recorded with:');
+            console.log(`   - lesson_id: ${lesson_id} (${subjectName})`);
+            console.log(`   - topic_id: ${topic_id}`);
+            console.log(`   - module_id: ${module_id || 'none'}`);
             
             // Close modal
             closeCreateLessonModal();
             
-            // Reset form completely
+            // Reset form
             resetLessonForm();
             
             // Clear edit ID
@@ -5497,25 +5505,17 @@ async function saveLessonToMySQL() {
             // Refresh lessons lists
             setTimeout(() => {
                 console.log("🔄 Refreshing lessons...");
-                
                 if (document.getElementById('adminLessonsTableBody')) {
                     if (typeof loadAdminLessons === 'function') {
                         loadAdminLessons();
                     }
                 }
-                
-                if (typeof loadMyLessons === 'function') {
-                    loadMyLessons();
-                }
-                
                 if (typeof loadRecentLessons === 'function') {
                     loadRecentLessons();
                 }
-                
                 if (typeof fetchSubjectDataFromDatabase === 'function') {
                     fetchSubjectDataFromDatabase();
                 }
-                
                 console.log("✅ Lessons refreshed");
             }, 500);
             
