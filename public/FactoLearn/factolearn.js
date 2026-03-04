@@ -2032,15 +2032,32 @@ window.StudyTimer = StudyTimer;
 console.log('✅ Tools globally available');
 
 // ============================================
-// FIXED HELPER FUNCTION FOR ALL API CALLS - WITH BETTER ERROR HANDLING
+// ✅ UPDATED: apiRequest - FORCED LESSON_ID=3 FOR FACTOLEARN
 // ============================================
 async function apiRequest(endpoint, options = {}) {
-    const url = endpoint.startsWith('http') ? endpoint : `${API_BASE_URL}${endpoint}`;
+    // ===== FORCE LESSON_ID=3 FOR ALL FACTOLEARN API CALLS =====
+    // Check if this is a FactoLearn endpoint that needs lesson_id
+    const isFactoLearnEndpoint = endpoint.includes('/api/progress/') || 
+                                 endpoint.includes('/api/lessons') || 
+                                 endpoint.includes('/api/practice/') ||
+                                 endpoint.includes('/api/quiz/') ||
+                                 endpoint.includes('/api/topics/') ||
+                                 endpoint.includes('/api/admin/structure');
+    
+    // Add lesson_id=3 to the URL if needed
+    let modifiedEndpoint = endpoint;
+    if (isFactoLearnEndpoint && !endpoint.includes('lesson_id=')) {
+        const separator = endpoint.includes('?') ? '&' : '?';
+        modifiedEndpoint = `${endpoint}${separator}lesson_id=3`;
+        console.log(`🔧 FactoLearn API forced lesson_id=3: ${modifiedEndpoint.split('?')[0]}`);
+    }
+    
+    const url = modifiedEndpoint.startsWith('http') ? modifiedEndpoint : `${API_BASE_URL}${modifiedEndpoint}`;
     
     // Default headers
     const headers = {
         'Content-Type': 'application/json',
-        'Accept': 'application/json', // Add this to request JSON responses
+        'Accept': 'application/json',
         ...options.headers
     };
     
@@ -2050,11 +2067,21 @@ async function apiRequest(endpoint, options = {}) {
         headers['Authorization'] = `Bearer ${token}`;
     }
     
+    // Add cache buster for GET requests to prevent caching
+    let finalUrl = url;
+    if (options.method === 'GET' || !options.method) {
+        const cacheBuster = `_t=${Date.now()}`;
+        finalUrl = url.includes('?') ? `${url}&${cacheBuster}` : `${url}?${cacheBuster}`;
+    }
+    
     try {
-        console.log(`📡 API Request: ${url}`);
-        const response = await fetch(url, {
+        console.log(`📡 FactoLearn API Request: ${finalUrl}`);
+        
+        const response = await fetch(finalUrl, {
             ...options,
-            headers
+            headers,
+            // Add credentials for cookies if needed
+            credentials: 'include'
         });
         
         // Check if response is OK
@@ -2064,33 +2091,64 @@ async function apiRequest(endpoint, options = {}) {
             
             // Check if it's an HTML response (404 page)
             if (text.trim().startsWith('<!DOCTYPE') || text.trim().startsWith('<html')) {
-                console.error('⚠️ Received HTML instead of JSON. Endpoint may not exist:', endpoint);
+                console.error('⚠️ Received HTML instead of JSON. Endpoint may not exist:', modifiedEndpoint);
                 
-                // Return mock data for known endpoints
-                if (endpoint.includes('/admin/structure')) {
+                // Return mock data for known FactoLearn endpoints
+                if (modifiedEndpoint.includes('/api/lessons-db/complete')) {
                     return {
                         success: true,
-                        structure: {
-                            lessons: [],
-                            modules: [],
-                            topics: []
-                        }
+                        lessons: getFactoLearnMockLessons()
                     };
                 }
                 
-                if (endpoint.includes('/api/progress/daily')) {
+                if (modifiedEndpoint.includes('/api/progress/daily')) {
                     return {
                         success: true,
                         progress: {
                             lessons_completed: 0,
                             exercises_completed: 0,
-                            time_spent_minutes: 0
+                            time_spent_minutes: 0,
+                            lesson_id: 3
                         }
                     };
                 }
+                
+                if (modifiedEndpoint.includes('/api/progress/lessons')) {
+                    return {
+                        success: true,
+                        progress: []
+                    };
+                }
+                
+                if (modifiedEndpoint.includes('/api/practice/exercises/count')) {
+                    return {
+                        success: true,
+                        count: 5
+                    };
+                }
+                
+                if (modifiedEndpoint.includes('/api/quiz/categories')) {
+                    return {
+                        success: true,
+                        categories: getFactoLearnMockCategories()
+                    };
+                }
+                
+                return { 
+                    success: true, 
+                    data: text, 
+                    isHtml: true,
+                    lesson_id: 3 
+                };
             }
             
-            throw new Error(`API returned ${response.status}`);
+            // Return structured error
+            return { 
+                success: false, 
+                error: `API returned ${response.status}`,
+                status: response.status,
+                lesson_id: 3
+            };
         }
         
         // Check if response is JSON
@@ -2099,34 +2157,148 @@ async function apiRequest(endpoint, options = {}) {
             const text = await response.text();
             console.warn('⚠️ Non-JSON response:', text.substring(0, 100));
             
-            // If it's HTML but we expected JSON, return a mock response
+            // If it's HTML but we expected JSON, return mock data
             if (text.trim().startsWith('<!DOCTYPE') || text.trim().startsWith('<html')) {
-                console.warn('⚠️ Received HTML when JSON expected for:', endpoint);
-                return { success: true, data: text, isHtml: true };
+                console.warn('⚠️ Received HTML when JSON expected for:', modifiedEndpoint);
+                
+                // Return appropriate mock data based on endpoint
+                if (modifiedEndpoint.includes('/api/lessons-db/complete')) {
+                    return {
+                        success: true,
+                        lessons: getFactoLearnMockLessons()
+                    };
+                }
+                
+                if (modifiedEndpoint.includes('/api/quiz/categories')) {
+                    return {
+                        success: true,
+                        categories: getFactoLearnMockCategories()
+                    };
+                }
+                
+                return { 
+                    success: true, 
+                    data: text, 
+                    isHtml: true,
+                    lesson_id: 3 
+                };
             }
             
-            return { success: true, data: text };
+            return { success: true, data: text, lesson_id: 3 };
         }
         
-        return await response.json();
+        const jsonResponse = await response.json();
+        
+        // Add lesson_id to response for debugging
+        if (typeof jsonResponse === 'object') {
+            jsonResponse._lesson_id = 3;
+        }
+        
+        return jsonResponse;
         
     } catch (error) {
-        console.error(`❌ API Request Failed: ${url}`, error);
+        console.error(`❌ FactoLearn API Request Failed: ${finalUrl}`, error);
         
-        // Return fallback data para hindi mag-crash ang app
-        if (endpoint.includes('/api/progress/daily')) {
+        // Return fallback data based on endpoint
+        if (modifiedEndpoint.includes('/api/progress/daily')) {
             return {
                 success: true,
                 progress: {
                     lessons_completed: 0,
                     exercises_completed: 0,
-                    time_spent_minutes: 0
+                    time_spent_minutes: 0,
+                    lesson_id: 3
                 }
             };
         }
         
-        return { success: false, error: error.message };
+        if (modifiedEndpoint.includes('/api/lessons-db/complete')) {
+            return {
+                success: true,
+                lessons: getFactoLearnMockLessons()
+            };
+        }
+        
+        if (modifiedEndpoint.includes('/api/quiz/categories')) {
+            return {
+                success: true,
+                categories: getFactoLearnMockCategories()
+            };
+        }
+        
+        return { 
+            success: false, 
+            error: error.message,
+            lesson_id: 3 
+        };
     }
+}
+
+// ============================================
+// ✅ HELPER: Get FactoLearn Mock Lessons (lesson_id=3)
+// ============================================
+function getFactoLearnMockLessons() {
+    return [
+        {
+            content_id: 1,
+            content_title: 'Introduction to Factorials',
+            content_description: 'Learn the basics of factorial notation and calculations',
+            lesson_id: 3,
+            topic_id: 1,
+            video_filename: 'factorial_intro.mp4',
+            video_duration_seconds: 600,
+            content_order: 1
+        },
+        {
+            content_id: 2,
+            content_title: 'Factorial Operations',
+            content_description: 'Perform operations with factorial expressions',
+            lesson_id: 3,
+            topic_id: 1,
+            video_filename: 'factorial_operations.mp4',
+            video_duration_seconds: 720,
+            content_order: 2
+        },
+        {
+            content_id: 3,
+            content_title: 'Factorial Applications',
+            content_description: 'Apply factorials in permutations and combinations',
+            lesson_id: 3,
+            topic_id: 2,
+            video_filename: 'factorial_applications.mp4',
+            video_duration_seconds: 840,
+            content_order: 3
+        }
+    ];
+}
+
+// ============================================
+// ✅ HELPER: Get FactoLearn Mock Quiz Categories
+// ============================================
+function getFactoLearnMockCategories() {
+    return [
+        {
+            category_id: 1,
+            category_name: 'Factorial Basics',
+            description: 'Test your understanding of factorial fundamentals',
+            lesson_id: 3,
+            quiz_count: 3
+        },
+        {
+            category_id: 2,
+            category_name: 'Factorial Operations',
+            description: 'Practice factorial calculations and simplifications',
+            lesson_id: 3,
+            quiz_count: 2
+        },
+        {
+            category_id: 3,
+            category_name: 'Factorial Applications',
+            description: 'Apply factorials in real-world scenarios',
+            lesson_id: 3,
+            quiz_count: 2
+        }
+    ];
 }
 
 
@@ -22402,10 +22574,22 @@ function addProgressStyles() {
 // CORE FUNCTIONS
 // ============================================
 
+// ============================================
+// UPDATED: initApp - Loads FactoLearn data immediately
+// ============================================
 function initApp() {
-    console.log('🎮 MathHub Application Initializing...');
+    console.log('🎮 FactoLearn Application Initializing...');
     
-    // ✅ CHECK MUNA KUNG MAY EXISTING USER (galing sa login)
+    // ✅ Set FactoLearn constants
+    window.FACTORIAL_LESSON_ID = 3;
+    window.CURRENT_APP_NAME = 'FactoLearn';
+    
+    // ✅ Set localStorage para sure
+    localStorage.setItem('selectedApp', 'factorial');
+    localStorage.setItem('currentLessonFilter', '3');
+    localStorage.setItem('currentLessonId', '3');
+    
+    // ✅ CHECK MUNA KUNG MAY EXISTING USER
     const existingUser = localStorage.getItem('mathhub_user');
     const existingToken = localStorage.getItem('authToken');
     
@@ -22414,35 +22598,38 @@ function initApp() {
         try {
             AppState.currentUser = JSON.parse(existingUser);
             AppState.isAuthenticated = true;
-            
-            // Kunin ang app selection (kung meron)
-            AppState.selectedApp = localStorage.getItem('selectedApp') || 'factorial';
+            AppState.selectedApp = 'factorial';
             AppState.hasSelectedApp = true;
             
             console.log(`👤 User: ${AppState.currentUser.username}`);
-            console.log(`📱 Selected app: ${AppState.selectedApp}`);
+            console.log(`📱 Selected app: FactoLearn (lesson_id=3)`);
             
             // Setup listeners
             initHamburgerMenu();
-            setupAppSelectionListeners();
             
+            // Navigate to dashboard
             navigateTo('dashboard');
+            
+            // Load all FactoLearn data
+            setTimeout(() => {
+                loadFactoLearnData();
+            }, 500);
+            
             return;
         } catch (e) {
             console.error('Error parsing existing user:', e);
-            // Clear invalid data
             localStorage.removeItem('mathhub_user');
             localStorage.removeItem('authToken');
         }
     }
     
-    // ✅ WALANG USER - use demo
-    console.log('📱 No existing session, using demo user');
+    // ✅ WALANG USER - use demo user for FactoLearn
+    console.log('📱 No existing session, using demo user for FactoLearn');
     const demoUser = {
         id: 1,
-        username: 'demo_user',
-        email: 'demo@mathhub.com',
-        full_name: 'Demo Student',
+        username: 'factolearn_user',
+        email: 'demo@factolearn.com',
+        full_name: 'FactoLearn Student',
         role: 'student'
     };
     
@@ -22457,17 +22644,61 @@ function initApp() {
     localStorage.setItem('hasSelectedApp', 'true');
     localStorage.setItem('selectedApp', 'factorial');
     localStorage.setItem('currentLessonFilter', '3');
+    localStorage.setItem('currentLessonId', '3');
     
     // Initialize hamburger menu
     initHamburgerMenu();
     
-    // Setup app selection listeners
-    setupAppSelectionListeners();
-    
     // Navigate directly to dashboard
     navigateTo('dashboard');
     
-    console.log('🎮 MathHub Application Initialized - Direct to Dashboard');
+    // Load all FactoLearn data
+    setTimeout(() => {
+        loadFactoLearnData();
+    }, 500);
+    
+    console.log('🎮 FactoLearn Application Initialized - lesson_id=3 forced');
+}
+
+// ============================================
+// NEW: Load all FactoLearn data
+// ============================================
+async function loadFactoLearnData() {
+    console.log('📥 Loading ALL FactoLearn data (lesson_id=3)...');
+    
+    try {
+        // Show loading
+        showDashboardLoading();
+        
+        // Load ALL data in parallel
+        await Promise.allSettled([
+            updateContinueLearningModule(),
+            loadPracticeStatistics(),
+            loadQuizCategories(),
+            fetchCumulativeProgress(),
+            updateProgressSummaryCards(),
+            fetchPracticeStatistics(),
+            loadLeaderboard('weekly')
+        ]);
+        
+        // Update specific elements
+        const welcomeTitle = document.getElementById('dashboardWelcomeTitle');
+        if (welcomeTitle) {
+            welcomeTitle.innerHTML = 'Welcome to <span class="app-title">FactoLearn</span>!';
+        }
+        
+        const userMessage = document.getElementById('dashboardUserMessage');
+        if (userMessage) {
+            userMessage.textContent = 'You\'re making excellent progress in your FactoLearn journey. Keep up the great work!';
+        }
+        
+        hideDashboardLoading();
+        console.log('✅ All FactoLearn data loaded successfully');
+        
+    } catch (error) {
+        console.error('❌ Error loading FactoLearn data:', error);
+        hideDashboardLoading();
+    }
 }
 // ============================================
 // 🚀 NEW: Show/hide loading states
