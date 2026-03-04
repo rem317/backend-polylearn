@@ -4125,12 +4125,7 @@ const usersPerPage = 10;
 // Current user to delete
 let UserToDelete = null;
 
-// ===== LESSON DASHBOARD VARIABLES =====
-let lessonData = {
-    polynomial: { lessons: 5, resources: 12, students: 45, progress: 75 },
-    factorial: { lessons: 3, resources: 8, students: 32, progress: 60 },
-    mdas: { lessons: 4, resources: 10, students: 38, progress: 50 }
-};
+
 
 // adminscript.js - DAGDAG SA TAAS
 let lessonDatabase = {
@@ -4833,22 +4828,184 @@ function saveLessonToLocalStorage() {
         showNotification('error', 'Save Failed', 'Error: ' + error.message);
     }
 }
-
-// Function para i-update ang lesson statistics
-function updateLessonStats() {
-    // Count lessons per subject
-    const subjectCounts = {};
-    lessonDatabase.subjects.forEach(subject => {
-        subjectCounts[subject.id] = lessonDatabase.lessons.filter(
-            lesson => lesson.subjectId === subject.id
-        ).length;
-    });
+// ===== ADD THIS FUNCTION - FALLBACK FROM LOCALSTORAGE =====
+function updateLessonStatsFromLocal() {
+    console.log("📂 Using localStorage for lesson stats");
+    
+    // Check kung may lessonDatabase
+    if (!lessonDatabase || !lessonDatabase.lessons) {
+        console.log("No localStorage data, using zeros");
+        // Use zeros if no data
+        document.getElementById('polyLessons').textContent = '0';
+        document.getElementById('polyResources').textContent = '0';
+        document.getElementById('factLessons').textContent = '0';
+        document.getElementById('factResources').textContent = '0';
+        document.getElementById('mdasLessons').textContent = '0';
+        document.getElementById('mdasResources').textContent = '0';
+        
+        document.getElementById('totalLessonsSidebar').textContent = '0';
+        document.getElementById('totalSubjectsSidebar').textContent = '3';
+        document.getElementById('totalStudentsSidebar').textContent = '0';
+        document.getElementById('totalResourcesSidebar').textContent = '0';
+        
+        updateProgressBar('polynomial', 0);
+        updateProgressBar('factorial', 0);
+        updateProgressBar('mdas', 0);
+        return;
+    }
+    
+    // Count lessons per subject from localStorage
+    // Tandaan: subjectId = 1 for PolyLearn, 2 for MathEase, 3 for FactoLearn
+    const polyLessons = lessonDatabase.lessons.filter(l => l.subjectId === 1).length;
+    const mathLessons = lessonDatabase.lessons.filter(l => l.subjectId === 2).length;
+    const factLessons = lessonDatabase.lessons.filter(l => l.subjectId === 3).length;
+    
+    // Count resources (videos, PDFs)
+    const polyResources = lessonDatabase.lessons.filter(l => 
+        l.subjectId === 1 && (l.contentType === 'video' || l.contentType === 'pdf')
+    ).length;
+    
+    const mathResources = lessonDatabase.lessons.filter(l => 
+        l.subjectId === 2 && (l.contentType === 'video' || l.contentType === 'pdf')
+    ).length;
+    
+    const factResources = lessonDatabase.lessons.filter(l => 
+        l.subjectId === 3 && (l.contentType === 'video' || l.contentType === 'pdf')
+    ).length;
     
     // Update subject cards
-    updateSubjectCards(subjectCounts);
+    document.getElementById('polyLessons').textContent = polyLessons;
+    document.getElementById('polyResources').textContent = polyResources;
+    document.getElementById('factLessons').textContent = factLessons;
+    document.getElementById('factResources').textContent = factResources;
+    document.getElementById('mdasLessons').textContent = mathLessons;
+    document.getElementById('mdasResources').textContent = mathResources;
     
-    // Update dashboard stats
-    updateDashboardStats();
+    // Update progress bars (20% per lesson, max 100%)
+    updateProgressBar('polynomial', Math.min(polyLessons * 20, 100));
+    updateProgressBar('factorial', Math.min(factLessons * 20, 100));
+    updateProgressBar('mdas', Math.min(mathLessons * 20, 100));
+    
+    // Update total stats
+    document.getElementById('totalLessonsSidebar').textContent = lessonDatabase.lessons.length;
+    document.getElementById('totalSubjectsSidebar').textContent = '3';
+    
+    // Get students from usersData if available
+    let totalStudents = 45; // default
+    if (window.usersData && usersData.length > 0) {
+        totalStudents = usersData.filter(u => u.role === 'student').length;
+    }
+    document.getElementById('totalStudentsSidebar').textContent = totalStudents;
+    
+    const totalResources = lessonDatabase.lessons.filter(l => 
+        l.contentType === 'video' || l.contentType === 'pdf'
+    ).length;
+    document.getElementById('totalResourcesSidebar').textContent = totalResources;
+    
+    console.log(`✅ Lesson stats from localStorage: Poly=${polyLessons}, Math=${mathLessons}, Fact=${factLessons}`);
+}
+// ===== UPDATED: UPDATE LESSON STATS - NOW ASYNC =====
+async function updateLessonStats() {
+    console.log("📊 Updating lesson stats from database...");
+    
+    try {
+        const token = localStorage.getItem('admin_token') || localStorage.getItem('authToken');
+        
+        if (!token) {
+            console.log('No token, using localStorage');
+            updateLessonStatsFromLocal();
+            return;
+        }
+        
+        const response = await fetch(`/api/admin/lessons`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        
+        if (!response.ok) throw new Error('Failed to fetch lessons');
+        
+        const result = await response.json();
+        
+        if (result.success && result.lessons) {
+            const lessons = result.lessons;
+            
+            // Count lessons per subject
+            let polyCount = 0;
+            let factCount = 0;
+            let mdasCount = 0;
+            let polyResources = 0;
+            let factResources = 0;
+            let mdasResources = 0;
+            
+            lessons.forEach(lesson => {
+                const lessonId = lesson.lesson_id;
+                const lessonName = (lesson.lesson_name || '').toLowerCase();
+                const isResource = lesson.content_type === 'video' || lesson.content_type === 'pdf';
+                
+                if (lessonId === 2 || lessonName.includes('polylearn')) {
+                    polyCount++;
+                    if (isResource) polyResources++;
+                } else if (lessonId === 3 || lessonName.includes('factolearn')) {
+                    factCount++;
+                    if (isResource) factResources++;
+                } else if (lessonId === 1 || lessonName.includes('mathease')) {
+                    mdasCount++;
+                    if (isResource) mdasResources++;
+                }
+            });
+            
+            console.log('📊 Subject counts from database:', {
+                polyCount, factCount, mdasCount
+            });
+            
+            // Update subject cards
+            document.getElementById('polyLessons').textContent = polyCount;
+            document.getElementById('polyResources').textContent = polyResources;
+            document.getElementById('factLessons').textContent = factCount;
+            document.getElementById('factResources').textContent = factResources;
+            document.getElementById('mdasLessons').textContent = mdasCount;
+            document.getElementById('mdasResources').textContent = mdasResources;
+            
+            // Update progress bars (20% per lesson, max 100%)
+            updateProgressBar('polynomial', Math.min(polyCount * 20, 100));
+            updateProgressBar('factorial', Math.min(factCount * 20, 100));
+            updateProgressBar('mdas', Math.min(mdasCount * 20, 100));
+            
+            // Update total stats in sidebar
+            const totalLessons = lessons.length;
+            const totalResources = lessons.filter(l => 
+                l.content_type === 'video' || l.content_type === 'pdf'
+            ).length;
+            
+            // Get total students
+            const studentsResponse = await fetch(`/api/admin/users`, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            
+            let totalStudents = 0;
+            if (studentsResponse.ok) {
+                const studentsData = await studentsResponse.json();
+                if (studentsData.success && studentsData.users) {
+                    totalStudents = studentsData.users.filter(u => 
+                        u.role === 'student'
+                    ).length;
+                }
+            }
+            
+            document.getElementById('totalLessonsSidebar').textContent = totalLessons;
+            document.getElementById('totalSubjectsSidebar').textContent = 3; // MathEase, PolyLearn, FactoLearn
+            document.getElementById('totalStudentsSidebar').textContent = totalStudents;
+            document.getElementById('totalResourcesSidebar').textContent = totalResources;
+            
+            console.log('✅ Lesson stats updated from database');
+            
+        } else {
+            throw new Error('No lessons data');
+        }
+        
+    } catch (error) {
+        console.error('Error updating lesson stats:', error);
+        updateLessonStatsFromLocal();
+    }
 }
 
 function updateSubjectCards(subjectCounts) {
@@ -7804,7 +7961,7 @@ function selectSubject(subject) {
     }, 150);
 }
 
-// ===== UPDATE SUBJECT UI - ADD ACTIVE SUBJECT UPDATE =====
+// ===== UPDATE SUBJECT UI - REMOVE HARDCODED STATS =====
 function updateSubjectUI() {
     document.querySelectorAll('.subject-card').forEach(card => {
         card.classList.toggle('active', card.dataset.subject === currentSubject);
@@ -7828,12 +7985,7 @@ function updateSubjectUI() {
     fadeUpdateElement('welcomeSubjectDesc', subjectDesc);
     fadeUpdateElement('subjectDetailDescription', `You are currently managing ${subjectName} lessons. ${subjectDesc}`);
     
-    updateSubjectInfo(currentSubject);
-    
-    // ===== Refresh active subject data when UI updates =====
-    setTimeout(() => {
-        updateActiveSubjectFromDatabase();
-    }, 100);
+    // DO NOT update stats here - let updateSubjectInfoPanel() handle it
 }
 
 function fadeUpdateElement(elementId, newContent) {
@@ -10704,70 +10856,116 @@ function updateSubjectLessonCount(subject) {
 }
 
 // ===== HELPER FUNCTIONS FOR LESSON DASHBOARD =====
-function updateSubjectInfoPanel() {
+// ===== UPDATED: UPDATE SUBJECT INFO PANEL - USE DATABASE =====
+async function updateSubjectInfoPanel() {
     if (!currentSubject) return;
     
     const subjectName = getSubjectDisplayName(currentSubject);
+    const subjectId = getSubjectIdFromName(currentSubject);
     
     document.getElementById('currentSubjectName').textContent = subjectName;
     document.getElementById('subjectDetailDescription').textContent = `You are currently managing ${subjectName} lessons. ${getSubjectDescription(currentSubject)}`;
     
-    document.getElementById('lessonCount').textContent = lessonData[currentSubject].lessons;
-    document.getElementById('resourceCount').textContent = lessonData[currentSubject].resources;
-    document.getElementById('studentCount').textContent = lessonData[currentSubject].students;
+    // Show loading states
+    document.getElementById('lessonCount').textContent = '...';
+    document.getElementById('resourceCount').textContent = '...';
+    document.getElementById('studentCount').textContent = '...';
     
-    // Update welcome section
-    document.getElementById('welcomeSubjectName').textContent = subjectName;
-    document.getElementById('welcomeLessonCount').textContent = lessonData[currentSubject].lessons;
-    document.getElementById('welcomeResourceCount').textContent = lessonData[currentSubject].resources;
-    document.getElementById('welcomeStudentCount').textContent = lessonData[currentSubject].students;
+    document.getElementById('welcomeLessonCount').textContent = '...';
+    document.getElementById('welcomeResourceCount').textContent = '...';
+    document.getElementById('welcomeStudentCount').textContent = '...';
     
-    // Update sidebar
-    document.getElementById('sidebarSubjectName').textContent = subjectName;
-    document.getElementById('sidebarLessonCount').textContent = lessonData[currentSubject].lessons;
-    document.getElementById('sidebarStudentCount').textContent = lessonData[currentSubject].students;
-    document.getElementById('sidebarProgress').textContent = lessonData[currentSubject].progress + '%';
-}
-
-function updateLessonStats() {
-    // Update subject-specific stats
-    document.getElementById('polyLessons').textContent = lessonData.polynomial.lessons;
-    document.getElementById('polyResources').textContent = lessonData.polynomial.resources;
-    document.getElementById('factLessons').textContent = lessonData.factorial.lessons;
-    document.getElementById('factResources').textContent = lessonData.factorial.resources;
-    document.getElementById('mdasLessons').textContent = lessonData.mdas.lessons;
-    document.getElementById('mdasResources').textContent = lessonData.mdas.resources;
+    document.getElementById('sidebarLessonCount').textContent = '...';
+    document.getElementById('sidebarStudentCount').textContent = '...';
+    document.getElementById('sidebarProgress').textContent = '...';
     
-    // Update progress bars
-    updateProgressBar('polynomial', lessonData.polynomial.progress);
-    updateProgressBar('factorial', lessonData.factorial.progress);
-    updateProgressBar('mdas', lessonData.mdas.progress);
-    
-    // Update total stats in sidebar
-    const totalLessons = Object.values(lessonData).reduce((sum, data) => sum + data.lessons, 0);
-    const totalResources = Object.values(lessonData).reduce((sum, data) => sum + data.resources, 0);
-    const totalStudents = Object.values(lessonData).reduce((sum, data) => sum + data.students, 0);
-    
-    document.getElementById('totalLessonsSidebar').textContent = totalLessons;
-    document.getElementById('totalSubjectsSidebar').textContent = Object.keys(lessonData).length;
-    document.getElementById('totalStudentsSidebar').textContent = totalStudents;
-    document.getElementById('totalResourcesSidebar').textContent = totalResources;
-}
-
-function updateProgressBar(subject, progress) {
-    const card = document.querySelector(`.subject-card[data-subject="${subject}"]`);
-    if (card) {
-        const progressFill = card.querySelector('.progress-fill-small');
-        const progressText = card.querySelector('.progress-label span:last-child');
+    try {
+        const token = localStorage.getItem('admin_token') || localStorage.getItem('authToken');
         
-        if (progressFill) {
-            progressFill.style.width = `${progress}%`;
+        if (!token) {
+            console.log('No token, using fallback');
+            useFallbackData(subjectName);
+            return;
         }
-        if (progressText) {
-            progressText.textContent = `${progress}%`;
+        
+        // Fetch lessons for this subject
+        const lessonsResponse = await fetch(`/api/lessons/by-subject/${subjectId}`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        
+        let lessonsCount = 0;
+        let resourcesCount = 0;
+        
+        if (lessonsResponse.ok) {
+            const lessonsData = await lessonsResponse.json();
+            if (lessonsData.success && lessonsData.lessons) {
+                lessonsCount = lessonsData.lessons.length;
+                resourcesCount = lessonsData.lessons.filter(l => 
+                    l.content_type === 'video' || l.content_type === 'pdf'
+                ).length;
+            }
         }
+        
+        // Fetch students count
+        const usersResponse = await fetch(`/api/admin/users`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        
+        let studentsCount = 0;
+        if (usersResponse.ok) {
+            const usersData = await usersResponse.json();
+            if (usersData.success && usersData.users) {
+                studentsCount = usersData.users.filter(u => 
+                    u.role === 'student'
+                ).length;
+            }
+        }
+        
+        // Calculate progress (example: based on lessons count)
+        const progress = Math.min(100, lessonsCount * 10);
+        
+        // Update ALL elements with real data
+        document.getElementById('lessonCount').textContent = lessonsCount;
+        document.getElementById('resourceCount').textContent = resourcesCount;
+        document.getElementById('studentCount').textContent = studentsCount;
+        
+        document.getElementById('welcomeLessonCount').textContent = lessonsCount;
+        document.getElementById('welcomeResourceCount').textContent = resourcesCount;
+        document.getElementById('welcomeStudentCount').textContent = studentsCount;
+        
+        document.getElementById('sidebarLessonCount').textContent = lessonsCount;
+        document.getElementById('sidebarStudentCount').textContent = studentsCount;
+        document.getElementById('sidebarProgress').textContent = progress + '%';
+        
+        console.log(`✅ Subject info updated: ${lessonsCount} lessons, ${resourcesCount} resources, ${studentsCount} students`);
+        
+    } catch (error) {
+        console.error('Error fetching subject info:', error);
+        useFallbackData(subjectName);
     }
 }
+// ===== FALLBACK FUNCTION =====
+function useFallbackData(subjectName) {
+    // Use lessonDatabase from localStorage as fallback
+    const subjectId = getSubjectIdFromName(currentSubject);
+    const lessonsFromLocal = lessonDatabase.lessons?.filter(l => l.subjectId === subjectId).length || 0;
+    const resourcesFromLocal = lessonsFromLocal; // Same as lessons for now
+    const studentsFromLocal = 45; // Default
+    
+    document.getElementById('lessonCount').textContent = lessonsFromLocal;
+    document.getElementById('resourceCount').textContent = resourcesFromLocal;
+    document.getElementById('studentCount').textContent = studentsFromLocal;
+    
+    document.getElementById('welcomeLessonCount').textContent = lessonsFromLocal;
+    document.getElementById('welcomeResourceCount').textContent = resourcesFromLocal;
+    document.getElementById('welcomeStudentCount').textContent = studentsFromLocal;
+    
+    document.getElementById('sidebarLessonCount').textContent = lessonsFromLocal;
+    document.getElementById('sidebarStudentCount').textContent = studentsFromLocal;
+    document.getElementById('sidebarProgress').textContent = Math.min(100, lessonsFromLocal * 10) + '%';
+}
+
+
 
 function highlightActiveSubject() {
     const cards = document.querySelectorAll('.subject-card');
