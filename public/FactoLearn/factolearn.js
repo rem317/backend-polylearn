@@ -4257,7 +4257,7 @@ function completeExercise(topicName) {
     showNotification('Exercise completed! 🎉');
 }
 // ============================================
-// ✅ FIXED: Fetch daily progress - FACTOLEARN ONLY
+// ✅ FIXED: Fetch daily progress - FORCED LESSON_ID = 3
 // ============================================
 async function fetchDailyProgress() {
     try {
@@ -4268,6 +4268,9 @@ async function fetchDailyProgress() {
             console.warn('No auth token available');
             return getDefaultFactorialDailyProgress();
         }
+        
+        // ✅ FORCE LESSON_ID = 3
+        const FACTORIAL_LESSON_ID = 3;
         
         // ✅ GUMAMIT NG FETCH API, HINDI PROMISEPOOL
         const response = await fetch(`/api/progress/daily?lesson_id=${FACTORIAL_LESSON_ID}`, {
@@ -4284,7 +4287,7 @@ async function fetchDailyProgress() {
         const data = await response.json();
         
         if (data.success && data.progress) {
-            console.log('✅ FactoLearn daily progress loaded:', data.progress);
+            console.log('✅ Factorial daily progress loaded:', data.progress);
             
             return {
                 lessons_completed: data.progress.lessons_completed || 0,
@@ -4305,7 +4308,7 @@ async function fetchDailyProgress() {
     }
 }
 
-// ===== Default progress for FactoLearn =====
+// ===== Default progress for Factorial =====
 function getDefaultFactorialDailyProgress() {
     return {
         lessons_completed: 0,
@@ -8475,7 +8478,7 @@ function initializeTimeTracker() {
 
 
 // ============================================
-// ✅ UPDATED: fetchPracticeStatistics - PURE DATABASE, FILTERED BY LESSON_ID=2
+// ✅ FIXED: fetchPracticeStatistics - FORCED LESSON_ID = 3
 // ============================================
 async function fetchPracticeStatistics() {
     try {
@@ -8485,7 +8488,10 @@ async function fetchPracticeStatistics() {
             return null;
         }
         
-        console.log('📊 Fetching FactoLearn practice statistics DIRECTLY FROM DATABASE (lesson_id=3)...');
+        // ✅ FORCE LESSON_ID = 3 FOR FACTORIAL
+        const FACTORIAL_LESSON_ID = 3;
+        
+        console.log(`📊 Fetching Factorial practice statistics DIRECTLY FROM DATABASE (lesson_id=${FACTORIAL_LESSON_ID})...`);
         
 
         // ===== GET ALL PRACTICE STATS FROM DATABASE IN PARALLEL =====
@@ -12331,17 +12337,19 @@ async function loadUserBadges() {
 
 
 // ============================================
-// ✅ FIXED: Fetch accuracy rate - POLYLEARN ONLY
+// ✅ FIXED: Fetch accuracy rate - FORCED LESSON_ID = 3
 // ============================================
 async function fetchAccuracyRate() {
     try {
         const token = localStorage.getItem('authToken') || authToken;
         if (!token) return null;
         
-        console.log('📊 Fetching Factorial accuracy rate...');
+        // ✅ FORCE LESSON_ID = 3
+        const FACTORIAL_LESSON_ID = 3;
+        
+        console.log(`📊 Fetching Factorial accuracy rate...`);
         
 
-        
         const response = await fetch(`/api/progress/accuracy-rate?lesson_id=${FACTORIAL_LESSON_ID}`, {
             headers: { 'Authorization': `Bearer ${token}` }
         });
@@ -12351,7 +12359,7 @@ async function fetchAccuracyRate() {
         const data = await response.json();
         
         if (data.success && data.accuracy) {
-            console.log('✅ FactoLearn accuracy rate loaded:', data.accuracy);
+            console.log('✅ Factorial accuracy rate loaded:', data.accuracy);
             updateAccuracyRateDisplay(data.accuracy);
             return data.accuracy;
         }
@@ -12362,6 +12370,115 @@ async function fetchAccuracyRate() {
         return null;
     }
 }
+
+// ============================================
+// 🔍 DEBUG: Check only lesson_id=3 data
+// ============================================
+window.debugFactorialData = async function() {
+    console.log('🔍 DEBUGGING LESSON_ID=3 (FACTORIAL) DATA ONLY');
+    console.log('================================================');
+    
+    const token = localStorage.getItem('authToken');
+    
+    if (!token) {
+        console.error('❌ No auth token found');
+        return;
+    }
+    
+    // Force lesson_id=3
+    const LESSON_ID = 3;
+    
+    console.log(`\n📚 FETCHING DATA FOR LESSON_ID = ${LESSON_ID}...\n`);
+    
+    // 1. Check lessons
+    try {
+        const lessonRes = await fetch(`/api/lessons-db/complete?lesson_id=${LESSON_ID}`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        const lessonData = await lessonRes.json();
+        console.log('📋 LESSONS IN DATABASE:');
+        console.log(`- Total lessons: ${lessonData.lessons?.length || 0}`);
+        if (lessonData.lessons) {
+            lessonData.lessons.forEach((l, i) => {
+                console.log(`  ${i+1}. ID: ${l.content_id}, Title: ${l.content_title}`);
+            });
+        }
+    } catch (e) {
+        console.error('Lesson fetch error:', e);
+    }
+    
+    // 2. Check practice exercises
+    try {
+        const practiceRes = await fetch(`/api/practice/exercises/count?lesson_id=${LESSON_ID}`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        const practiceData = await practiceRes.json();
+        console.log('\n💪 PRACTICE EXERCISES:');
+        console.log(`- Total exercises: ${practiceData.count || 0}`);
+    } catch (e) {
+        console.error('Practice fetch error:', e);
+    }
+    
+    // 3. Check practice attempts
+    try {
+        const attemptsRes = await fetch(`/api/progress/practice-attempts?lesson_id=${LESSON_ID}`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        const attemptsData = await attemptsRes.json();
+        console.log('\n📝 PRACTICE ATTEMPTS:');
+        if (attemptsData.success) {
+            console.log(`- Total attempts: ${attemptsData.attempts?.length || 0}`);
+            if (attemptsData.attempts && attemptsData.attempts.length > 0) {
+                attemptsData.attempts.forEach((a, i) => {
+                    console.log(`  ${i+1}. Exercise ID: ${a.exercise_id}, Score: ${a.score}, Status: ${a.status}`);
+                });
+            } else {
+                console.log('  No attempts found');
+            }
+        }
+    } catch (e) {
+        console.error('Attempts fetch error:', e);
+    }
+    
+    // 4. Check quizzes
+    try {
+        const quizRes = await fetch(`/api/quiz/categories?lesson_id=${LESSON_ID}`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        const quizData = await quizRes.json();
+        console.log('\n🧠 QUIZ CATEGORIES:');
+        if (quizData.success && quizData.categories) {
+            console.log(`- Total categories: ${quizData.categories.length}`);
+            quizData.categories.forEach((c, i) => {
+                console.log(`  ${i+1}. ID: ${c.category_id}, Name: ${c.category_name}`);
+            });
+        }
+    } catch (e) {
+        console.error('Quiz fetch error:', e);
+    }
+    
+    // 5. Check user progress
+    try {
+        const progressRes = await fetch(`/api/progress/lessons?lesson_id=${LESSON_ID}`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        const progressData = await progressRes.json();
+        console.log('\n📊 USER PROGRESS:');
+        if (progressData.success && progressData.progress) {
+            console.log(`- Completed lessons: ${progressData.progress.filter(p => p.completion_status === 'completed').length}`);
+        }
+    } catch (e) {
+        console.error('Progress fetch error:', e);
+    }
+    
+    console.log('\n✅ Debug complete for lesson_id=3');
+};
+
+// Run it immediately
+setTimeout(() => {
+    console.log('🔍 Auto-running factorial debug...');
+    debugFactorialData();
+}, 2000);
 
 // ============================================
 // UPDATE ACCURACY RATE DISPLAY
