@@ -70,7 +70,7 @@ function getCurrentAppLessonId() {
 // Get the filter parameter for API calls
 function getAppFilterParam() {
     const app = getCurrentApp();
-    return APP_LESSON_MAP[app]?.filter || 'polylearn';
+    return APP_LESSON_MAP[app]?.filter || 'factolearn';
 }
 
 function addAppFilterToUrl(url) {
@@ -2127,7 +2127,7 @@ const AppState = {
     },
     currentPage: 'dashboard',
     isAuthenticated: true,
-    selectedApp: 'polylearn',
+    selectedApp: 'factorial',
     previousPage: null,
     hasSelectedApp: true,
     currentLessonData: null,
@@ -4257,7 +4257,7 @@ function completeExercise(topicName) {
     showNotification('Exercise completed! 🎉');
 }
 // ============================================
-// ✅ FIXED: Fetch daily progress - POLYLEARN ONLY
+// ✅ FIXED: Fetch daily progress - FACTOLEARN ONLY
 // ============================================
 async function fetchDailyProgress() {
     try {
@@ -4305,7 +4305,7 @@ async function fetchDailyProgress() {
     }
 }
 
-// ===== Default progress for PolyLearn =====
+// ===== Default progress for FactoLearn =====
 function getDefaultFactorialDailyProgress() {
     return {
         lessons_completed: 0,
@@ -4334,7 +4334,7 @@ function handleActivityResponse(data) {
         return [];
     }
 }
-// Helper function para sa PolyLearn practice stats
+// Helper function para sa FactoLearn practice stats
 async function fetchFactorialPracticeStats(userId) {
     try {
 
@@ -4361,7 +4361,7 @@ async function fetchFactorialPracticeStats(userId) {
     }
 }
 
-// Helper function para sa PolyLearn quiz stats
+// Helper function para sa FactoLearn quiz stats
 async function fetchFactorialQuizStats(userId) {
     try {
 
@@ -5009,7 +5009,7 @@ async function logUserActivity(activityType, relatedId = null, details = {}) {
 }
 
 // ============================================
-// ✅ FIXED: Update daily progress - POLYLEARN ONLY
+// ✅ FIXED: Update daily progress - FACTOLEARN ONLY
 // ============================================
 async function updateDailyProgress(progressData) {
     try {
@@ -5019,9 +5019,9 @@ async function updateDailyProgress(progressData) {
             return false;
         }
         
-        console.log('📊 Updating PolyLearn daily progress...', progressData);
+        console.log('📊 Updating FactoLearn daily progress...', progressData);
         
-        // ✅ Add lesson_id = 2 for PolyLearn
+        // ✅ Add lesson_id = 2 for FactoLearn
         const updateData = {
             ...(progressData.lessons_completed !== undefined && { 
                 lessons_completed: progressData.lessons_completed 
@@ -5035,7 +5035,7 @@ async function updateDailyProgress(progressData) {
             ...(progressData.time_spent_minutes !== undefined && { 
                 time_spent_minutes: progressData.time_spent_minutes 
             }),
-           lesson_id: FACTORIAL_LESSON_ID // ✅ FORCE POLYLEARN
+           lesson_id: FACTORIAL_LESSON_ID // ✅ FORCE FACTOLEARN
         };
         
         // If no data to update, return
@@ -5060,7 +5060,7 @@ async function updateDailyProgress(progressData) {
         const data = await response.json();
         
         if (data.success) {
-            console.log('✅ PolyLearn daily progress updated');
+            console.log('✅ FactoLearn daily progress updated');
             return true;
         } else {
             throw new Error(data.message || 'Failed to update daily progress');
@@ -6408,7 +6408,7 @@ function forceUpdateProgressUI(progress) {
     console.log('✅ UI force updated with', percentage + '%');
 }
 // ============================================
-// ✅ FIXED: Load Progress Dashboard Data - POLYLEARN ONLY (NO ERRORS)
+// ✅ FIXED: Load Progress Dashboard Data - FACTOLEARN ONLY (NO ERRORS)
 // ============================================
 async function loadProgressDashboardData() {
     console.log('📊 Loading Factorial progress dashboard data...');
@@ -6425,29 +6425,29 @@ async function loadProgressDashboardData() {
         
 
         
-        // ===== FETCH ALL POLYLEARN DATA =====
+        // ===== FETCH ALL FACTOLEARN DATA =====
         const [
             lessonsProgress,
             practiceStats,
             quizStats,
             totalLessonsCount
         ] = await Promise.allSettled([
-            // 1. Get PolyLearn lessons progress
+            // 1. Get FactoLearn lessons progress
             fetch(`/api/progress/lessons?lesson_id=${FACTORIAL_LESSON_ID}`, {
                 headers: { 'Authorization': `Bearer ${token}` }
             }).then(res => res.json()).catch(() => ({ success: false })),
             
-            // 2. Get PolyLearn practice stats
+            // 2. Get FacttoLearn practice stats
             fetch(`/api/progress/practice-attempts?lesson_id=${FACTORIAL_LESSON_ID}`, {
                 headers: { 'Authorization': `Bearer ${token}` }
             }).then(res => res.json()).catch(() => ({ success: false })),
             
-            // 3. Get PolyLearn quiz stats
+            // 3. Get FactoLearn quiz stats
             fetch(`/api/quiz/user/attempts?lesson_id=${FACTORIAL_LESSON_ID}`, {
                 headers: { 'Authorization': `Bearer ${token}` }
             }).then(res => res.json()).catch(() => ({ success: false })),
             
-            // 4. Get total PolyLearn lessons
+            // 4. Get total FactoLearn lessons
             fetch(`/api/lessons-db/complete?lesson_id=${FACTORIAL_LESSON_ID}`, {
                 headers: { 'Authorization': `Bearer ${token}` }
             }).then(res => res.json()).catch(() => ({ success: false }))
@@ -6617,7 +6617,7 @@ async function loadProgressDashboardData() {
         // Hide loading
         hideProgressDashboardLoading();
         
-        console.log('✅ PolyLearn progress dashboard updated');
+        console.log('✅ FactoLearn progress dashboard updated');
         
         // Store in ProgressState
         ProgressState.cumulativeProgress = {
@@ -6774,12 +6774,12 @@ async function updateProgressSummaryCards() {
             console.log('Debug endpoint not available');
         }
         
-        // ===== 1. GET POLYLEARN LESSONS =====
+        // ===== 1. GET FACTOLEARN LESSONS =====
         let lessonsCompleted = 0;
         let totalLessons = 0;
         
         try {
-            // Get total lessons count for PolyLearn
+            // Get total lessons count for FactoLearn
             const totalResponse = await fetch(`/api/lessons-db/complete?lesson_id=${FACTORIAL_LESSON_ID}`, {
                 headers: { 'Authorization': `Bearer ${token}` }
             });
@@ -6808,7 +6808,7 @@ async function updateProgressSummaryCards() {
                 }
             }
         } catch (error) {
-            console.warn('⚠️ Could not fetch PolyLearn lessons:', error.message);
+            console.warn('⚠️ Could not fetch FactoLearn lessons:', error.message);
         }
         
         // ===== 2. GET POLYLEARN PRACTICE EXERCISES =====
@@ -6816,7 +6816,7 @@ async function updateProgressSummaryCards() {
         let totalExercises = 0;
         
         try {
-            // ✅ Get total PolyLearn practice exercises (lesson_id=2)
+            // ✅ Get total FactoLearn practice exercises (lesson_id=2)
             console.log(`📡 Fetching total exercises count for lesson ${FACTORIAL_LESSON_ID}...`);
             const totalExercisesResponse = await fetch(`/api/practice/exercises/count?lesson_id=${FACTORIAL_LESSON_ID}`, {
                 headers: { 'Authorization': `Bearer ${token}` }
@@ -6885,7 +6885,7 @@ async function updateProgressSummaryCards() {
                 }
             }
         } catch (error) {
-            console.warn('⚠️ Could not fetch PolyLearn quiz points:', error.message);
+            console.warn('⚠️ Could not fetch FactoLearn quiz points:', error.message);
         }
         
         // ===== 4. UPDATE THE UI =====
@@ -6919,11 +6919,11 @@ async function updateProgressSummaryCards() {
             avgTime.innerHTML = `${avgPerActivity}<span class="item-unit">min/day</span>`;
         }
         
-        console.log('✅ PolyLearn progress summary cards updated successfully');
+        console.log('✅ FactoLearn progress summary cards updated successfully');
         console.log(`   FINAL - Lessons: ${lessonsCompleted}/${totalLessons}, Practice: ${exercisesCompleted}/${totalExercises}, Points: ${totalPoints}`);
         
     } catch (error) {
-        console.error('❌ Error updating PolyLearn progress summary cards:', error);
+        console.error('❌ Error updating FactoLearn progress summary cards:', error);
     }
 }
 // Palitan ang pangalan:
@@ -8485,7 +8485,7 @@ async function fetchPracticeStatistics() {
             return null;
         }
         
-        console.log('📊 Fetching PolyLearn practice statistics DIRECTLY FROM DATABASE (lesson_id=3)...');
+        console.log('📊 Fetching FactoLearn practice statistics DIRECTLY FROM DATABASE (lesson_id=3)...');
         
 
         // ===== GET ALL PRACTICE STATS FROM DATABASE IN PARALLEL =====
@@ -9610,9 +9610,9 @@ function loadFactorialQuizzes() {
     console.log('📚 Loading FactoLearn quizzes (Category 2)...');
     
     // Find PolyLearn category (ID 2)
-    const polyLearnCategory = QuizState.quizCategories.find(c => c.category_id == 2);
+    const factoLearnCategory = QuizState.quizCategories.find(c => c.category_id == 2);
     
-    if (polyLearnCategory) {
+    if (factoLearnCategory) {
         loadQuizzesForCategory(2);
     } else {
         // If categories not loaded yet, load them first
@@ -10976,7 +10976,7 @@ async function loadQuizCategories() {
                     <div style="font-size: 40px; color: #7a0000; margin-bottom: 20px;">
                         <i class="fas fa-spinner fa-spin"></i>
                     </div>
-                    <p style="color: #666;">Loading PolyLearn categories from database...</p>
+                    <p style="color: #666;">Loading FactoLearn categories from database...</p>
                 </div>
             `;
         }
@@ -11034,7 +11034,7 @@ async function loadQuizCategories() {
 // 🆘 OFFLINE CATEGORIES - Gumagana kahit walang internet
 // ============================================
 function useOfflineCategories() {
-    console.log('📚 Using offline PolyLearn categories');
+    console.log('📚 Using offline FactoLearn categories');
     
     const offlineCategories = [
         {
@@ -11103,9 +11103,9 @@ function useOfflineCategories() {
 // 🆘 HARDCODED FALLBACK CATEGORIES FOR POLYLEARN
 // ============================================
 function useHardcodedCategories() {
-    console.log('📚 Using hardcoded PolyLearn categories');
+    console.log('📚 Using hardcoded FactoLearn categories');
     
-    const polyLearnCategories = [
+    const factoLearnCategories = [
         {
             category_id: 1,
             category_name: 'Polynomial Division Basics',
@@ -11142,12 +11142,12 @@ function useHardcodedCategories() {
     
     // Store in QuizState
     if (!window.QuizState) window.QuizState = {};
-    window.QuizState.quizCategories = polyLearnCategories;
+    window.QuizState.quizCategories = factoLearnCategories;
     
     // Display the categories
-    displayQuizCategories(polyLearnCategories);
+    displayQuizCategories(factoLearnCategories);
     
-    return polyLearnCategories;
+    return factoLearnCategories;
 }
 
 // ============================================
@@ -11183,12 +11183,12 @@ function handleCategoriesResponse(data, filterOnClient = false) {
         if (filterOnClient) {
             categories = categories.filter(cat => {
                 const catLessonId = cat.lesson_id || cat.lessonId;
-                return catLessonId == POLYLEARN_LESSON_ID;
+                return catLessonId == FACTOLEARN_LESSON_ID;
             });
-            console.log(`🎯 Filtered to ${categories.length} categories for PolyLearn`);
+            console.log(`🎯 Filtered to ${categories.length} categories for FactoLearn`);
         }
         
-        console.log(`✅ Found ${categories.length} quiz categories for PolyLearn`);
+        console.log(`✅ Found ${categories.length} quiz categories for FactoLearn`);
         
         // Store in QuizState
         if (!window.QuizState) window.QuizState = {};
@@ -11208,7 +11208,7 @@ function handleCategoriesResponse(data, filterOnClient = false) {
 // ✅ FIXED: Display quiz categories na parang dashboard card
 // ============================================
 function displayQuizCategories(categories, isHardcoded = false) {
-    console.log('📋 Displaying PolyLearn quiz categories:', categories);
+    console.log('📋 Displaying FactoLearn quiz categories:', categories);
     
     const quizzesContainer = document.getElementById('userQuizzesContainer');
     if (!quizzesContainer) {
@@ -11217,17 +11217,17 @@ function displayQuizCategories(categories, isHardcoded = false) {
     }
     
     // STRICT FILTER - lesson_id=2 LANG
-    const polyLearnCategories = categories.filter(cat => {
+    const factoLearnCategories = categories.filter(cat => {
         const catLessonId = cat.lesson_id || cat.lessonId;
         return catLessonId == 2;
     });
     
-    console.log('🎯 After strict filtering:', polyLearnCategories.length, 'categories');
+    console.log('🎯 After strict filtering:', factoLearnCategories.length, 'categories');
     
     // I-clear ang container
     quizzesContainer.innerHTML = '';
     
-    if (!polyLearnCategories || polyLearnCategories.length === 0) {
+    if (!factoLearnCategories || factoLearnCategories.length === 0) {
         quizzesContainer.innerHTML = `
             <div class="card" style="padding: 40px; text-align: center;">
                 <div style="font-size: 60px; color: #ccc; margin-bottom: 20px;">
@@ -11250,7 +11250,7 @@ function displayQuizCategories(categories, isHardcoded = false) {
             <div class="card-header" style="padding: 20px 25px 0;">
                 <h2 class="card-title" style="display: flex; align-items: center; gap: 10px; font-size: 1.4rem; color: var(--text-color); margin-bottom: 5px;">
                     <i class="fas fa-folder" style="color: #7a0000;"></i> 
-                    PolyLearn Quiz Categories
+                    FactoLearn Quiz Categories
                 </h2>
                 <p class="card-subtitle" style="color: var(--text-light); font-size: 0.95rem;">
                     Select a category to start practicing
@@ -11273,10 +11273,10 @@ function displayQuizCategories(categories, isHardcoded = false) {
     // Grid ng categories - gaya ng sa ibang grids
     html += `<div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 20px;">`;
     
-    polyLearnCategories.forEach(category => {
+    factoLearnCategories.forEach(category => {
         const categoryId = category.category_id || category.id;
-        const categoryName = category.category_name || category.name || 'PolyLearn Quiz';
-        const categoryDesc = category.description || 'Test your PolyLearn knowledge.';
+        const categoryName = category.category_name || category.name || 'FactoLearn Quiz';
+        const categoryDesc = category.description || 'Test your FactoLearn knowledge.';
         const totalQuizzes = category.quiz_count || category.total_quizzes || 3;
         const categoryColor = category.color || '#7a0000';
         const categoryIcon = category.icon || 'fa-graduation-cap';
@@ -11306,7 +11306,7 @@ function displayQuizCategories(categories, isHardcoded = false) {
                             <div style="display: flex; align-items: center; gap: 10px;">
                                 <span style="background: ${categoryColor}10; color: ${categoryColor}; 
                                            padding: 4px 10px; border-radius: 20px; font-size: 12px;">
-                                    <i class="fas fa-graduation-cap"></i> PolyLearn
+                                    <i class="fas fa-graduation-cap"></i> FactoLearn
                                 </span>
                                 <span style="color: #7f8c8d; font-size: 13px;">
                                     <i class="fas fa-question-circle"></i> ${totalQuizzes} quizzes
@@ -11485,7 +11485,7 @@ function displayQuizzesInContainer(quizzes, categoryId, isHardcoded = false) {
                     <i class="fas fa-clipboard-list"></i>
                 </div>
                 <h3 style="color: #666; margin-bottom: 10px;">No Quizzes Available</h3>
-                <p style="color: #999; margin-bottom: 20px;">Check back later for new PolyLearn quizzes!</p>
+                <p style="color: #999; margin-bottom: 20px;">Check back later for new FactoLearn quizzes!</p>
                 <button class="btn-primary" onclick="goBackToCategories()" style="background: #7a0000; color: white; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer;">
                     <i class="fas fa-arrow-left"></i> Back to Categories
                 </button>
@@ -11502,7 +11502,7 @@ function displayQuizzesInContainer(quizzes, categoryId, isHardcoded = false) {
                 <div>
                     <h2 class="card-title" style="display: flex; align-items: center; gap: 10px; font-size: 1.4rem; color: var(--text-color); margin-bottom: 5px;">
                         <i class="fas fa-question-circle" style="color: #7a0000;"></i> 
-                        PolyLearn Quizzes
+                        FactoLearn Quizzes
                     </h2>
                     <p class="card-subtitle" style="color: var(--text-light); font-size: 0.95rem;">
                         Test your knowledge with these quizzes
@@ -11552,7 +11552,7 @@ function displayQuizzesInContainer(quizzes, categoryId, isHardcoded = false) {
                     <!-- Header with title and difficulty badge -->
                     <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 12px;">
                         <h3 style="margin: 0; color: #2c3e50; font-size: 18px; font-weight: 600; line-height: 1.3;">
-                            ${quiz.quiz_title || 'PolyLearn Quiz'}
+                            ${quiz.quiz_title || 'FactoLearn Quiz'}
                         </h3>
                         <span style="background: ${difficultyColor}; color: white; 
                                    padding: 4px 10px; border-radius: 20px; font-size: 11px; 
@@ -11563,7 +11563,7 @@ function displayQuizzesInContainer(quizzes, categoryId, isHardcoded = false) {
                     
                     <!-- Description -->
                     <p style="color: #6c757d; font-size: 14px; line-height: 1.5; margin: 0 0 15px 0; min-height: 42px;">
-                        ${quiz.description || 'Test your knowledge with this PolyLearn quiz.'}
+                        ${quiz.description || 'Test your knowledge with this FactoLearn quiz.'}
                     </p>
                     
                     <!-- Quiz metadata - gaya ng sa progress items -->
@@ -12351,7 +12351,7 @@ async function fetchAccuracyRate() {
         const data = await response.json();
         
         if (data.success && data.accuracy) {
-            console.log('✅ PolyLearn accuracy rate loaded:', data.accuracy);
+            console.log('✅ FactoLearn accuracy rate loaded:', data.accuracy);
             updateAccuracyRateDisplay(data.accuracy);
             return data.accuracy;
         }
@@ -16217,7 +16217,7 @@ async function fetchAllLessons() {
         const data = await response.json();
         
         if (data.success && data.lessons) {
-            console.log(`✅ Fetched ${data.lessons.length} lessons for PolyLearn`);
+            console.log(`✅ Fetched ${data.lessons.length} lessons for FactoLearn`);
             return data.lessons;
         } else {
             throw new Error(data.message || 'No lessons returned');
@@ -18149,7 +18149,7 @@ function updateLessonUI(lesson) {
     // Module title
     const moduleTitle = document.getElementById('moduleTitle');
     if (moduleTitle) {
-        moduleTitle.textContent = lesson.content_title || 'PolyLearn Lesson';
+        moduleTitle.textContent = lesson.content_title || 'FactoLearn Lesson';
     }
     
     // Lesson title in sidebar
@@ -18834,7 +18834,7 @@ async function initPracticePage() {
     
     // ✅ Get current app's lesson ID
     const selectedApp = localStorage.getItem('selectedApp') || 'factorial';
-    const currentLessonId = getCurrentLessonId(); // Kunin ang lesson_id (2 for PolyLearn)
+    const currentLessonId = getCurrentLessonId(); // Kunin ang lesson_id (2 for FactoLearn)
     
     console.log(`🎯 Selected app: ${selectedApp}, lesson ID: ${currentLessonId}`);
     console.log(`🎯 Will ONLY show content with lesson_id = ${currentLessonId}`);
@@ -18988,7 +18988,7 @@ async function loadTopicsProgress() {
                 topicsContainer.innerHTML = `
                     <div class="no-topics" style="text-align: center; padding: 40px;">
                         <i class="fas fa-folder-open" style="font-size: 48px; color: #ccc; margin-bottom: 15px;"></i>
-                        <h3 style="color: #666;">No topics available for PolyLearn</h3>
+                        <h3 style="color: #666;">No topics available for FactoLearn</h3>
                         <p style="color: #999;">Topics with lesson_id = ${currentLessonId} will appear here.</p>
                         <p style="color: #999; font-size: 12px;">Debug: Received ${data.topics.length} total topics</p>
                     </div>
@@ -19275,7 +19275,7 @@ async function loadPracticeExercisesForTopic(topicId) {
         exerciseArea.innerHTML = `
             <div class="loading-container" style="text-align: center; padding: 30px;">
                 <i class="fas fa-spinner fa-spin" style="font-size: 30px; color: #7a0000;"></i>
-                <p style="margin-top: 10px;">Loading PolyLearn exercises...</p>
+                <p style="margin-top: 10px;">Loading FactoLearn exercises...</p>
             </div>
         `;
         
@@ -19311,8 +19311,8 @@ async function loadPracticeExercisesForTopic(topicId) {
                 exerciseArea.innerHTML = `
                     <div class="no-exercises" style="text-align: center; padding: 40px;">
                         <i class="fas fa-pencil-alt" style="font-size: 48px; color: #ccc; margin-bottom: 15px;"></i>
-                        <h3 style="color: #666;">No Practice Exercises for PolyLearn</h3>
-                        <p style="color: #999;">There are no practice exercises available for PolyLearn yet.</p>
+                        <h3 style="color: #666;">No Practice Exercises for FactoLearn</h3>
+                        <p style="color: #999;">There are no practice exercises available for FactoLearn yet.</p>
                     </div>
                 `;
             }
