@@ -23247,7 +23247,8 @@ function setupAppSelectionListeners() {
 }
 
 // ============================================
-// ULTIMATE FIX: Handle app selection with proper folder paths
+// FIXED: Handle app selection with proper folder paths
+// PolyLearn stays in main app, others redirect to folders
 // ============================================
 function handleAppSelection(appName) {
     console.log(`📱 Handling app selection: ${appName}`);
@@ -23259,7 +23260,6 @@ function handleAppSelection(appName) {
     localStorage.setItem('hasSelectedApp', 'true');
     
     // Set the lesson filter based on the selected app
-    // Handle both 'factolearn' and 'factorial' just in case
     let lessonId = 2; // Default to PolyLearn
     
     if (appName === 'mathease') {
@@ -23273,26 +23273,37 @@ function handleAppSelection(appName) {
     localStorage.setItem('currentLessonFilter', lessonId.toString());
     console.log(`🔍 Setting lesson filter: ${lessonId} for ${appName}`);
     
-    // Determine redirect path based on app name
-    let redirectPath = 'index.html'; // Default
-    let notificationMessage = 'Opening PolyLearn...';
-    
-    if (appName === 'mathease') {
-        redirectPath = 'MathEase/mathease.html';
-        notificationMessage = 'Opening MathEase...';
-    } else if (appName === 'factolearn' || appName === 'factorial') {
-        redirectPath = 'FactoLearn/factolearn.html';
-        notificationMessage = 'Opening FactoLearn...';
+    // IMPORTANT: PolyLearn stays in the main app (index.html)
+    // MathEase and FactoLearn redirect to their folders
+    if (appName === 'polylearn') {
+        console.log('🎯 PolyLearn selected - staying in main app');
+        showNotification('Opening PolyLearn...', 'info');
+        
+        // Just navigate to dashboard within the same page
+        navigateTo('dashboard');
+        
+        // Update the dashboard for PolyLearn
+        updateDashboardForPolyLearn();
+    } 
+    else if (appName === 'mathease') {
+        console.log('🎯 MathEase selected - redirecting to MathEase folder');
+        showNotification('Opening MathEase...', 'info');
+        
+        // Redirect to MathEase folder
+        setTimeout(() => {
+            window.location.href = 'MathEase/mathease.html';
+        }, 500);
     }
-    
-    console.log(`🎯 Redirecting to: ${redirectPath}`);
-    showNotification(notificationMessage, 'info');
-    
-    setTimeout(() => {
-        window.location.href = redirectPath;
-    }, 500);
+    else if (appName === 'factolearn' || appName === 'factorial') {
+        console.log('🎯 FactoLearn selected - redirecting to FactoLearn folder');
+        showNotification('Opening FactoLearn...', 'info');
+        
+        // Redirect to FactoLearn folder
+        setTimeout(() => {
+            window.location.href = 'FactoLearn/factolearn.html';
+        }, 500);
+    }
 }
-
 // Initialize app selection page
 async function initAppSelectionPage() {
     console.log('🚀 Initializing app selection page...');
@@ -23670,24 +23681,29 @@ async function updateDashboard() {
     // Update user info
     updateUserInfo();
     
-    // Load all data in parallel
-    await Promise.all([
-        fetchCumulativeProgress(),
-        fetchAccuracyRate(),
-        fetchUserBadges(),
-        updateTodaysLearningStats()
-    ]);
+    // Check which app is selected
+    const selectedApp = localStorage.getItem('selectedApp') || 'polylearn';
     
-    // ✅ CRITICAL: Update progress summary cards with database data
-    await updateProgressSummaryCards();
-    
-    // Update continue learning module
-    await updateContinueLearningModule();
+    if (selectedApp === 'polylearn') {
+        // Load PolyLearn specific data
+        await loadPolyLearnContent();
+    } else {
+        // Load other app data
+        await Promise.all([
+            fetchCumulativeProgress(),
+            fetchAccuracyRate(),
+            fetchUserBadges(),
+            updateTodaysLearningStats()
+        ]);
+        
+        await updateProgressSummaryCards();
+        await updateContinueLearningModule();
+    }
     
     // Check for new badges
     await checkAndAwardBadges();
     
-    console.log('✅ Dashboard updated with database data');
+    console.log(`✅ Dashboard updated for ${selectedApp}`);
 }
 
 // ============================================
@@ -33835,4 +33851,99 @@ console.log('   - emergencyOpenTool("calculator") - Manually open calculator');
 console.log('   - debugTools() - Check tool status');
 console.log('   - fixAllToolButtons() - Re-attach all tool buttons');
 
+// ============================================
+// Update dashboard specifically for PolyLearn
+// ============================================
+function updateDashboardForPolyLearn() {
+    console.log('📊 Updating dashboard for PolyLearn');
+    
+    // Update welcome message
+    const welcomeTitle = document.getElementById('dashboardWelcomeTitle');
+    if (welcomeTitle) {
+        welcomeTitle.textContent = 'Welcome to PolyLearn!';
+    }
+    
+    // Update any app indicators
+    const appBadge = document.querySelector('.app-badge');
+    if (appBadge) {
+        appBadge.textContent = 'PolyLearn';
+    }
+    
+    // Set PolyLearn theme color (maroon)
+    document.documentElement.style.setProperty('--primary-color', '#7a0000');
+    document.documentElement.style.setProperty('--primary-dark', '#5a0000');
+    
+    // Update page title
+    document.title = 'PolyLearn - MathHub';
+    
+    // Load PolyLearn specific content
+    loadPolyLearnContent();
+    
+    // Show notification
+    showNotification('PolyLearn dashboard loaded', 'success');
+}
 
+// ============================================
+// Load PolyLearn specific content
+// ============================================
+async function loadPolyLearnContent() {
+    console.log('📚 Loading PolyLearn content...');
+    
+    // Show loading in continue learning section
+    const continueContainer = document.getElementById('continueLearningContainer');
+    if (continueContainer) {
+        continueContainer.innerHTML = `
+            <div class="loading-container">
+                <i class="fas fa-spinner fa-spin"></i>
+                <p>Loading PolyLearn lessons...</p>
+            </div>
+        `;
+    }
+    
+    try {
+        const token = localStorage.getItem('authToken') || authToken;
+        
+        // Fetch PolyLearn lessons (lesson_id = 2)
+        const response = await fetch('/api/lessons-db/complete?lesson_id=2', {
+            headers: {
+                'Authorization': `Bearer ${token}`
+            }
+        });
+        
+        const data = await response.json();
+        
+        if (data.success && data.lessons) {
+            console.log(`✅ Loaded ${data.lessons.length} PolyLearn lessons`);
+            
+            // Store in LessonState
+            LessonState.lessons = data.lessons;
+            
+            // Update continue learning
+            await updateContinueLearningModule();
+            
+            // Update progress summary
+            await updateProgressSummaryCards();
+        } else {
+            console.warn('No PolyLearn lessons found');
+            if (continueContainer) {
+                continueContainer.innerHTML = `
+                    <div class="no-lessons">
+                        <i class="fas fa-book-open"></i>
+                        <h3>No PolyLearn Lessons Available</h3>
+                        <p>Check back later for new lessons!</p>
+                    </div>
+                `;
+            }
+        }
+    } catch (error) {
+        console.error('Error loading PolyLearn content:', error);
+        if (continueContainer) {
+            continueContainer.innerHTML = `
+                <div class="error-message">
+                    <i class="fas fa-exclamation-triangle"></i>
+                    <p>Failed to load PolyLearn content</p>
+                </div>
+            `;
+        }
+    }
+}
