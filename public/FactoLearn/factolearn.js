@@ -8521,7 +8521,7 @@ function initializeTimeTracker() {
 
 
 // ============================================
-// ✅ FIXED: fetchPracticeStatistics - FORCED LESSON_ID = 3
+// ✅ FIXED: fetchPracticeStatistics - ONLY LESSON_ID = 3
 // ============================================
 async function fetchPracticeStatistics() {
     try {
@@ -8532,11 +8532,8 @@ async function fetchPracticeStatistics() {
         }
         
         // ✅ FORCE LESSON_ID = 3 FOR FACTORIAL
-        const FACTORIAL_LESSON_ID = 3;
+        console.log(`📊 Fetching FactoLearn practice statistics DIRECTLY FROM DATABASE (lesson_id=${FACTORIAL_LESSON_ID})...`);
         
-        console.log(`📊 Fetching Factorial practice statistics DIRECTLY FROM DATABASE (lesson_id=${FACTORIAL_LESSON_ID})...`);
-        
-
         // ===== GET ALL PRACTICE STATS FROM DATABASE IN PARALLEL =====
         const [lessonsData, attemptsData, totalExercisesData] = await Promise.allSettled([
             // Get lessons progress (lesson_id=3)
@@ -11004,10 +11001,10 @@ async function loadQuizStatsFromServer() {
 
 
 // ============================================
-// ✅ FIXED: Load quiz categories from database
+// ✅ FIXED: Load quiz categories - ONLY LESSON_ID = 3
 // ============================================
 async function loadQuizCategories() {
-    console.log('📚 Loading quiz categories from database...');
+    console.log('📚 Loading FactoLearn quiz categories from database...');
     
     try {
         const token = localStorage.getItem('authToken') || authToken;
@@ -11015,7 +11012,6 @@ async function loadQuizCategories() {
             console.warn('No auth token available');
             return [];
         }
-        
         
         // Show loading state
         const quizzesContainer = document.getElementById('userQuizzesContainer');
@@ -11030,8 +11026,8 @@ async function loadQuizCategories() {
             `;
         }
         
-        // Fetch categories from server with lesson_id filter
-        const response = await fetch(`/api/quiz/categories?lesson_id=${FACTORIAL_LESSON_ID}`,{
+        // Fetch categories from server with lesson_id=3 filter
+        const response = await fetch(`/api/quiz/categories?lesson_id=${FACTORIAL_LESSON_ID}`, {
             headers: {
                 'Authorization': `Bearer ${token}`,
                 'Accept': 'application/json'
@@ -11046,12 +11042,34 @@ async function loadQuizCategories() {
         console.log('📥 Server response:', data);
         
         if (data.success && data.categories) {
-            console.log(`✅ Found ${data.categories.length} categories from database`);
-            displayQuizCategories(data.categories, false);
-            return data.categories;
+            // Strict filter - lesson_id=3 only
+            const filteredCategories = data.categories.filter(cat => {
+                const catLessonId = cat.lesson_id || cat.lessonId;
+                return catLessonId == FACTORIAL_LESSON_ID;
+            });
+            
+            console.log(`✅ Found ${filteredCategories.length} FactoLearn categories from database`);
+            
+            if (filteredCategories.length > 0) {
+                displayQuizCategories(filteredCategories, false);
+            } else {
+                console.log('ℹ️ No FactoLearn categories found');
+                if (quizzesContainer) {
+                    quizzesContainer.innerHTML = `
+                        <div class="card" style="padding: 40px; text-align: center;">
+                            <div style="font-size: 60px; color: #ccc; margin-bottom: 20px;">
+                                <i class="fas fa-folder-open"></i>
+                            </div>
+                            <h3 style="color: #666; margin-bottom: 10px;">No FactoLearn Categories Available</h3>
+                            <p style="color: #999; margin-bottom: 20px;">Check back later for new FactoLearn quizzes!</p>
+                        </div>
+                    `;
+                }
+            }
+            
+            return filteredCategories;
         } else {
             console.log('ℹ️ No categories returned from database');
-            displayQuizCategories([], false);
             return [];
         }
         
@@ -11078,7 +11096,6 @@ async function loadQuizCategories() {
         return [];
     }
 }
-
 // ============================================
 // 🆘 OFFLINE CATEGORIES - Gumagana kahit walang internet
 // ============================================
@@ -16347,7 +16364,7 @@ function addFeedbackStyles() {
 }
 
 // ============================================
-// ✅ FIXED: Fetch all lessons - FORCED LESSON_ID = 2
+// ✅ FIXED: Fetch all lessons - ONLY LESSON_ID = 3
 // ============================================
 async function fetchAllLessons() {
     try {
@@ -16357,10 +16374,12 @@ async function fetchAllLessons() {
             return [];
         }
         
-        const currentLessonId = FACTORIAL_LESSON_ID;  // Force to 2
+        // FORCE LESSON_ID = 3 ONLY
+        const currentLessonId = FACTORIAL_LESSON_ID; // Always 3
         
-        console.log(`📚 Fetching lessons for Factorial, lesson ID: ${currentLessonId}`);
+        console.log(`📚 Fetching lessons for FactoLearn ONLY, lesson ID: ${currentLessonId}`);
         
+        // Use the filtered endpoint
         let endpoint = `/api/lessons-db/complete?lesson_id=${currentLessonId}`;
         
         const response = await fetch(endpoint, {
@@ -16377,17 +16396,30 @@ async function fetchAllLessons() {
         const data = await response.json();
         
         if (data.success && data.lessons) {
-            console.log(`✅ Fetched ${data.lessons.length} lessons for FactoLearn`);
-            return data.lessons;
+            // Double-check filter on client side to be absolutely sure
+            const filteredLessons = data.lessons.filter(lesson => {
+                // Check all possible places where lesson_id might be stored
+                const lessonId = lesson.lesson_id || lesson.lessonId || lesson.id;
+                return lessonId == FACTORIAL_LESSON_ID;
+            });
+            
+            console.log(`✅ Found ${filteredLessons.length} FactoLearn lessons (filtered from ${data.lessons.length} total)`);
+            
+            // Log each lesson for verification
+            filteredLessons.forEach((lesson, index) => {
+                console.log(`  Lesson ${index + 1}: ID=${lesson.content_id || lesson.id}, Title=${lesson.content_title || lesson.title}`);
+            });
+            
+            return filteredLessons;
         } else {
-            throw new Error(data.message || 'No lessons returned');
+            console.log('ℹ️ No FactoLearn lessons found');
+            return [];
         }
     } catch (error) {
-        console.error('Error fetching lessons:', error);
+        console.error('Error fetching FactoLearn lessons:', error);
         return [];
     }
 }
-
 // ============================================
 // Helper: Filter lessons by selected app
 // ============================================
@@ -19039,10 +19071,10 @@ async function loadPracticeExercises() {
     }
 }
 // ============================================
-// ✅ FIXED: Initialize practice page - STRICT LESSON_ID FILTERING
+// ✅ FIXED: Initialize practice page - ONLY LESSON_ID = 3
 // ============================================
 async function initPracticePage() {
-    console.log('💪 Initializing practice page with strict lesson_id filtering...');
+    console.log('💪 Initializing practice page with strict lesson_id=3 filtering...');
     
     // Update date
     const practiceDate = document.getElementById('practiceDate');
@@ -19055,12 +19087,10 @@ async function initPracticePage() {
         });
     }
     
-    // ✅ Get current app's lesson ID
-    const selectedApp = localStorage.getItem('selectedApp') || 'factorial';
-    const currentLessonId = getCurrentLessonId(); // Kunin ang lesson_id (2 for FactoLearn)
+    // ✅ Force lesson_id = 3 for FactoLearn
+    const currentLessonId = FACTORIAL_LESSON_ID; // Always 3
     
-    console.log(`🎯 Selected app: ${selectedApp}, lesson ID: ${currentLessonId}`);
-    console.log(`🎯 Will ONLY show content with lesson_id = ${currentLessonId}`);
+    console.log(`🎯 Practice page will ONLY show content with lesson_id = ${currentLessonId} (FactoLearn)`);
     
     // ✅ Store lesson ID in localStorage for other functions
     localStorage.setItem('currentLessonId', currentLessonId);
@@ -19073,17 +19103,17 @@ async function initPracticePage() {
     // ✅ I-LOAD AGAD ANG PRACTICE STATISTICS MULA DATABASE
     await loadPracticeStatistics();
     
-    // Load topics progress (will be filtered by lesson_id)
+    // Load topics progress (will be filtered by lesson_id=3)
     await loadTopicsProgress();
     
-    // Load practice exercises for current topic (with lesson_id filter)
+    // Load practice exercises for current topic (with lesson_id=3 filter)
     console.log(`🎯 Loading exercises for topic: ${PracticeState.currentTopic}`);
     await loadPracticeExercisesForTopic(PracticeState.currentTopic);
     
     // Add practice styles
     addPracticeStyles();
     
-    console.log('✅ Practice page initialized for app: ' + selectedApp + ' (lesson ' + currentLessonId + ')');
+    console.log('✅ Practice page initialized for FactoLearn (lesson ' + currentLessonId + ')');
 }
 
 // ============================================
@@ -19142,7 +19172,7 @@ window.checkPracticeRecords = async function() {
 };
 
 // ============================================
-// ✅ FIXED: loadTopicsProgress - FORCED LESSON_ID = 3
+// ✅ FIXED: loadTopicsProgress - ONLY LESSON_ID = 3
 // ============================================
 async function loadTopicsProgress() {
     try {
@@ -19163,13 +19193,13 @@ async function loadTopicsProgress() {
             return;
         }
         
-        console.log('📊 Fetching topics progress...');
+        console.log('📊 Fetching topics progress for FactoLearn ONLY...');
         
-       const currentLessonId = FACTORIAL_LESSON_ID; // Force to 2
+        const currentLessonId = FACTORIAL_LESSON_ID; // Always 3
         
-        console.log(`🎯 Loading topics for Factorial, lesson_id: ${currentLessonId}`);
+        console.log(`🎯 Loading topics for FactoLearn, lesson_id: ${currentLessonId}`);
         
-        const response = await fetch(`/api/topics/progress`, {
+        const response = await fetch(`/api/topics/progress?lesson_id=${currentLessonId}`, {
             headers: { 'Authorization': `Bearer ${token}` }
         });
         
@@ -19191,13 +19221,22 @@ async function loadTopicsProgress() {
         if (data.success && data.topics) {
             console.log(`✅ Received ${data.topics.length} topics from server`);
             
-            // ✅ FORCE FILTER - lesson_id=3 lang
+            // ✅ STRICT FILTER - lesson_id=3 LANG
             const filteredTopics = data.topics.filter(topic => {
                 const topicLessonId = topic.lesson_id || topic.lessonId;
-                return topicLessonId == currentLessonId;
+                return topicLessonId == FACTORIAL_LESSON_ID;
             });
             
-            console.log(`🎯 Filtered to ${filteredTopics.length} topics for FactoLearn (lesson ${currentLessonId})`);
+            console.log(`🎯 Filtered to ${filteredTopics.length} topics for FactoLearn (lesson ${FACTORIAL_LESSON_ID})`);
+            
+            // Log what was filtered out (for debugging)
+            const filteredOut = data.topics.filter(t => (t.lesson_id || t.lessonId) != FACTORIAL_LESSON_ID);
+            if (filteredOut.length > 0) {
+                console.log(`🚫 Filtered OUT ${filteredOut.length} topics from other apps:`);
+                filteredOut.forEach(t => {
+                    console.log(`   - Topic ID: ${t.topic_id}, Lesson ID: ${t.lesson_id || t.lessonId}, Name: ${t.topic_title}`);
+                });
+            }
             
             if (filteredTopics.length > 0) {
                 displayTopics(filteredTopics);
@@ -19212,7 +19251,7 @@ async function loadTopicsProgress() {
                     <div class="no-topics" style="text-align: center; padding: 40px;">
                         <i class="fas fa-folder-open" style="font-size: 48px; color: #ccc; margin-bottom: 15px;"></i>
                         <h3 style="color: #666;">No topics available for FactoLearn</h3>
-                        <p style="color: #999;">Topics with lesson_id = ${currentLessonId} will appear here.</p>
+                        <p style="color: #999;">Topics with lesson_id = ${FACTORIAL_LESSON_ID} will appear here.</p>
                         <p style="color: #999; font-size: 12px;">Debug: Received ${data.topics.length} total topics</p>
                     </div>
                 `;
@@ -19481,15 +19520,16 @@ async function selectTopicForPractice(topicId) {
 
 
 // ============================================
-// ✅ FIXED: Load practice exercises - FORCED LESSON_ID = 2
+// ✅ FIXED: Load practice exercises - ONLY LESSON_ID = 3
 // ============================================
 async function loadPracticeExercisesForTopic(topicId) {
     try {
         console.log(`📝 Getting practice exercises for topic ${topicId}`);
         
-        const currentLessonId = FACTORIAL_LESSON_ID; // Force to 2
+        // FORCE LESSON_ID = 3
+        const currentLessonId = FACTORIAL_LESSON_ID; // Always 3
         
-        console.log(`🎯 Loading exercises for Factorial, lesson_id: ${currentLessonId}`);
+        console.log(`🎯 Loading exercises for FactoLearn, lesson_id: ${currentLessonId}`);
         
         // Get the exercise area
         const exerciseArea = document.getElementById('exerciseArea');
@@ -19502,7 +19542,7 @@ async function loadPracticeExercisesForTopic(topicId) {
             </div>
         `;
         
-        // ✅ Force lesson_id=2 in API call
+        // ✅ Force lesson_id=3 in API call
         let endpoint = `/api/practice/topic/${topicId}?lesson_id=${currentLessonId}`;
         console.log(`📡 Fetching from: ${endpoint}`);
         
@@ -19520,13 +19560,22 @@ async function loadPracticeExercisesForTopic(topicId) {
         console.log('📥 Practice data received:', data);
         
         if (data.success && data.exercises) {
-            // ✅ STRICT FILTERING - lesson_id=2 lang
+            // ✅ STRICT FILTERING - lesson_id=3 lang
             const filteredExercises = data.exercises.filter(ex => {
                 const exerciseLessonId = ex.lesson_id || ex.lessonId;
-                return exerciseLessonId == currentLessonId;
+                return exerciseLessonId == FACTORIAL_LESSON_ID;
             });
             
-            console.log(`✅ Found ${filteredExercises.length} exercises for Factorial`);
+            console.log(`✅ Found ${filteredExercises.length} exercises for FactoLearn`);
+            
+            // Log what was filtered out
+            const filteredOut = data.exercises.filter(ex => (ex.lesson_id || ex.lessonId) != FACTORIAL_LESSON_ID);
+            if (filteredOut.length > 0) {
+                console.log(`🚫 Filtered OUT ${filteredOut.length} exercises from other apps:`);
+                filteredOut.forEach(ex => {
+                    console.log(`   - Exercise ID: ${ex.exercise_id}, Lesson ID: ${ex.lesson_id || ex.lessonId}, Title: ${ex.title}`);
+                });
+            }
             
             if (filteredExercises.length > 0) {
                 displayPracticeExercises(filteredExercises);
@@ -19566,7 +19615,6 @@ async function loadPracticeExercisesForTopic(topicId) {
         }
     }
 }
-
 // ============================================
 // ✅ FIXED: Display practice exercises
 // ============================================
