@@ -10,19 +10,7 @@ let authToken = localStorage.getItem('authToken') || null;
 const API_BASE_URL = window.location.origin;
 
 
-// Define default practice statistics function
-function getDefaultPracticeStats() {
-    return {
-        totalSessions: 0,
-        totalQuestions: 0,
-        correctAnswers: 0,
-        averageScore: 0,
-        studyTime: 0,
-        weakAreas: [],
-        strongAreas: [],
-        recentActivity: []
-    };
-}
+
 
 // ============================================
 // APP FILTERING SYSTEM - Add this near the top of your script.js
@@ -5821,8 +5809,8 @@ async function fetchPracticeStatistics(topicId = null) {
         let totalLessons = 3; // Default
         
         try {
-            // ✅ FIX: Add /api/ prefix
-            const progressResponse = await fetch(`/api/progress/lessons`, {
+            // ✅ FIXED: Use correct endpoint for completed lessons
+            const progressResponse = await fetch(`/api/progress/lessons-completed`, {
                 headers: {
                     'Authorization': `Bearer ${token}`,
                     'Content-Type': 'application/json'
@@ -5833,17 +5821,29 @@ async function fetchPracticeStatistics(topicId = null) {
             const contentType = progressResponse.headers.get('content-type');
             if (contentType && contentType.includes('application/json') && progressResponse.ok) {
                 const progressData = await progressResponse.json();
-                if (progressData.success && progressData.progress) {
-                    // Count completed lessons
-                    lessonsCompleted = progressData.progress.filter(p => 
-                        p.completion_status === 'completed' || p.status === 'completed'
-                    ).length;
-                    
+                if (progressData.success) {
+                    lessonsCompleted = progressData.completed || 0;
                     console.log(`✅ Found ${lessonsCompleted} completed lessons`);
                 }
             } else {
-                console.log('⚠️ Using default lesson count');
-                lessonsCompleted = 0;
+                console.log('⚠️ Using fallback for lessons');
+                // Try alternative endpoint
+                try {
+                    const altResponse = await fetch(`/api/progress/lessons`, {
+                        headers: { 'Authorization': `Bearer ${token}` }
+                    });
+                    
+                    if (altResponse.ok) {
+                        const altData = await altResponse.json();
+                        if (altData.success && altData.progress) {
+                            lessonsCompleted = altData.progress.filter(p => 
+                                p.completion_status === 'completed' || p.status === 'completed'
+                            ).length;
+                        }
+                    }
+                } catch (e) {
+                    console.log('Alternative lessons endpoint also failed');
+                }
             }
             
             // Get total lessons count
@@ -5875,44 +5875,66 @@ async function fetchPracticeStatistics(topicId = null) {
         let totalTimeSeconds = 0;
         
         try {
-            // ✅ FIX: Add /api/ prefix
-            const attemptsResponse = await fetch(`/api/progress/practice-attempts`, {
-                headers: {
-                    'Authorization': `Bearer ${token}`,
-                    'Content-Type': 'application/json'
-                }
-            });
+            // Try multiple endpoints for practice attempts
+            const endpoints = [
+                `/api/progress/practice-attempts`,
+                `/api/practice/attempts`,
+                `/api/user/practice-stats`
+            ];
             
-            const contentType = attemptsResponse.headers.get('content-type');
-            if (contentType && contentType.includes('application/json') && attemptsResponse.ok) {
-                const attemptsData = await attemptsResponse.json();
-                if (attemptsData.success && attemptsData.attempts) {
-                    const attempts = attemptsData.attempts;
+            for (const endpoint of endpoints) {
+                try {
+                    const attemptsResponse = await fetch(endpoint, {
+                        headers: {
+                            'Authorization': `Bearer ${token}`,
+                            'Content-Type': 'application/json'
+                        }
+                    });
                     
-                    // Count COMPLETED exercises
-                    const completedExercises = attempts.filter(a => 
-                        a.completion_status === 'completed' || 
-                        a.score > 0 || 
-                        a.status === 'completed' ||
-                        a.percentage >= 70
-                    );
-                    
-                    exercisesCompleted = completedExercises.length;
-                    totalAttempts = attempts.length;
-                    
-                    // Compute average score
-                    if (totalAttempts > 0) {
-                        const totalScoreSum = attempts.reduce((sum, a) => sum + (a.score || 0), 0);
-                        totalScore = Math.round(totalScoreSum / totalAttempts);
+                    const contentType = attemptsResponse.headers.get('content-type');
+                    if (contentType && contentType.includes('application/json') && attemptsResponse.ok) {
+                        const attemptsData = await attemptsResponse.json();
+                        
+                        // Handle different response formats
+                        let attempts = [];
+                        if (attemptsData.success && attemptsData.attempts) {
+                            attempts = attemptsData.attempts;
+                        } else if (attemptsData.success && attemptsData.data) {
+                            attempts = attemptsData.data;
+                        } else if (Array.isArray(attemptsData)) {
+                            attempts = attemptsData;
+                        }
+                        
+                        if (attempts.length > 0) {
+                            // Count COMPLETED exercises
+                            const completedExercises = attempts.filter(a => 
+                                a.completion_status === 'completed' || 
+                                a.status === 'completed' ||
+                                a.score > 0 ||
+                                (a.percentage && a.percentage >= 70)
+                            );
+                            
+                            exercisesCompleted = completedExercises.length;
+                            totalAttempts = attempts.length;
+                            
+                            // Compute average score
+                            if (totalAttempts > 0) {
+                                const totalScoreSum = attempts.reduce((sum, a) => sum + (a.score || 0), 0);
+                                totalScore = Math.round(totalScoreSum / totalAttempts);
+                            }
+                            
+                            // Calculate total time spent
+                            totalTimeSeconds = attempts.reduce((sum, a) => sum + (a.time_spent_seconds || 0), 0);
+                            
+                            console.log(`✅ Found ${exercisesCompleted} completed exercises from ${endpoint}`);
+                            break; // Success, exit loop
+                        }
                     }
-                    
-                    // Calculate total time spent
-                    totalTimeSeconds = attempts.reduce((sum, a) => sum + (a.time_spent_seconds || 0), 0);
-                    
-                    console.log(`✅ Found ${exercisesCompleted} completed exercises out of ${totalAttempts} attempts`);
-                    console.log(`⏱️ Total practice time: ${totalTimeSeconds} seconds`);
+                } catch (e) {
+                    console.log(`⚠️ Endpoint ${endpoint} failed:`, e.message);
                 }
             }
+            
         } catch (attemptsError) {
             console.warn('⚠️ Could not fetch practice attempts:', attemptsError.message);
         }
@@ -5945,6 +5967,27 @@ async function fetchPracticeStatistics(topicId = null) {
         console.error('❌ Error fetching practice statistics:', error);
         return getDefaultPracticeStats();
     }
+}
+
+// ============================================
+// Helper: Default practice stats
+// ============================================
+function getDefaultPracticeStats() {
+    return {
+        total_exercises_completed: 0,
+        total_attempts: 0,
+        average_score: 0,
+        lessons_completed: 0,
+        exercises_completed: 0,
+        practice_unlocked: true,
+        total_lessons: 3,
+        total_time_minutes: 0,
+        total_time_seconds: 0,
+        accuracy_rate: 0,
+        lessons_display: '0/3',
+        exercises_display: '0',
+        lessons_percentage: 0
+    };
 }
 
 // Get quiz category progress
