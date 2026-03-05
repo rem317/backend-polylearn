@@ -1,5 +1,4 @@
 
-
 // script.js - MathHub Application with Complete Database-Driven Progress Tracking
 // Includes lesson management, practice exercises, quiz system, and full progress integration
 
@@ -7409,12 +7408,8 @@ const ProgressCache = {
     promise: null, // For deduplication
     TTL: 30000 // 30 seconds cache
 };
-// ============================================
-// ✅ FIXED: loadProgressSummary with validation
-// ============================================
-
 async function loadProgressSummary() {
-    console.log('📊 Loading progress summary...');
+    console.log('📊 Loading REAL progress data (lesson_id=3) - 1 sec max...');
     
     const elements = {
         lessons: document.getElementById('lessonsCount'),
@@ -7422,19 +7417,6 @@ async function loadProgressSummary() {
         quizScore: document.getElementById('quizScore'),
         avgTime: document.getElementById('avgTime')
     };
-    
-    // ✅ Check if elements exist
-    const missingElements = [];
-    for (const [key, el] of Object.entries(elements)) {
-        if (!el) {
-            missingElements.push(key);
-        }
-    }
-    
-    if (missingElements.length > 0) {
-        console.warn('⚠️ Missing elements:', missingElements);
-        // Continue anyway, but don't try to update them
-    }
     
     // Store original content
     const originalContent = {};
@@ -7483,6 +7465,7 @@ async function loadProgressSummary() {
         }
     }
 }
+
 // ============================================
 // 📡 PARALLEL DATA FETCHING - OPTIMIZED
 // ============================================
@@ -14527,24 +14510,13 @@ function showErrorInResults(error) {
     }
 }
 
-// ============================================
-// 🎯 START NEW QUIZ
-// ============================================
-
+// ✅ Function for new quiz
 function startNewQuiz() {
-    const quizId = QuizSystem?.currentQuiz;
-    if (quizId) {
-        closeQuizSystemModal();
-        setTimeout(() => {
-            if (typeof startQuizSystem === 'function') {
-                startQuizSystem(quizId);
-            }
-        }, 300);
-    }
-}
-
-// Make sure it's globally available
-window.startNewQuiz = startNewQuiz;
+    const quizId = QuizSystem.quizId;
+    closeQuizSystemModal();
+    setTimeout(() => {
+        startQuizSystem(quizId);
+    }, 300);
 }
 
 // ============================================
@@ -19663,26 +19635,10 @@ function updateLessonUI(lesson) {
 }
 
 // ============================================
-// ✅ FIXED: updateProgressDisplay with validation
+// HELPER: Update progress display
 // ============================================
-
 async function updateProgressDisplay(lesson) {
-    console.log('📊 updateProgressDisplay called with:', lesson);
-    
-    // ✅ SAFETY CHECK 1: Check if lesson exists
-    if (!lesson) {
-        console.error('❌ No lesson data provided to updateProgressDisplay');
-        return;
-    }
-    
-    // ✅ SAFETY CHECK 2: Check if content_id exists
-    if (!lesson.content_id) {
-        console.error('❌ Lesson has no content_id:', lesson);
-        return;
-    }
-    
     const contentId = lesson.content_id;
-    console.log(`📊 Updating progress display for lesson ID: ${contentId}`);
     
     // Get progress from state or server
     let percentage = 0;
@@ -19728,8 +19684,6 @@ async function updateProgressDisplay(lesson) {
     if (!LessonState.userProgress[contentId]) LessonState.userProgress[contentId] = {};
     LessonState.userProgress[contentId].percentage = percentage;
     LessonState.userProgress[contentId].status = status;
-    
-    console.log(`✅ Progress display updated: ${percentage}%`);
 }
 
 // ============================================
@@ -25419,7 +25373,18 @@ function addSettingsStyles() {
     document.head.appendChild(style);
     console.log('✅ Settings styles added');
 }
-
+function initSettingsDashboard() {
+    console.log('⚙️ Initializing settings dashboard...');
+    
+    // Load user settings
+    loadUserSettings();
+    
+    // Setup section navigation
+    setupSettingsNavigation();
+    
+    // Setup form listeners
+    setupSettingsForms();
+}
 
 
 function loadUserSettings() {
@@ -25834,255 +25799,5 @@ setTimeout(() => {
 }, 1000);
 
 
-// ============================================
-// ⚙️ INITIALIZE SETTINGS DASHBOARD
-// ============================================
 
-function initSettingsDashboard() {
-    console.log('⚙️ Initializing settings dashboard...');
-    
-    // Load user settings from localStorage
-    loadUserSettings();
-    
-    // Setup navigation (sidebar menu clicks)
-    setupSettingsNavigation();
-    
-    // Setup form buttons (save/reset)
-    setupSettingsForms();
-    
-    // Show general section by default
-    showSettingsSection('general');
-    
-    console.log('✅ Settings dashboard initialized');
-}
 
-// Auto-initialize kapag nag-load ang page
-document.addEventListener('DOMContentLoaded', function() {
-    // Check if settings page is visible
-    const settingsPage = document.getElementById('settings-page');
-    
-    if (settingsPage && !settingsPage.classList.contains('hidden')) {
-        initSettingsDashboard();
-    }
-    
-    // Observe for when settings page becomes visible
-    if (settingsPage) {
-        const observer = new MutationObserver(function(mutations) {
-            mutations.forEach(function(mutation) {
-                if (mutation.type === 'attributes' && mutation.attributeName === 'class') {
-                    if (!settingsPage.classList.contains('hidden')) {
-                        console.log('⚙️ Settings page became visible');
-                        initSettingsDashboard();
-                    }
-                }
-            });
-        });
-        
-        observer.observe(settingsPage, { attributes: true });
-    }
-});
-
-// ============================================
-// ✅ GENERATE QUIZ RESULTS HTML
-// ============================================
-
-function generateResultsHTML(data) {
-    const { 
-        score, 
-        correctCount, 
-        wrongCount, 
-        totalQuestions, 
-        timeSpentSeconds, 
-        attemptId,
-        pointsEarned 
-    } = data;
-    
-    const minutes = Math.floor(timeSpentSeconds / 60);
-    const seconds = timeSpentSeconds % 60;
-    const timeFormatted = `${minutes}:${seconds.toString().padStart(2, '0')}`;
-    
-    // Determine icon and color based on score
-    let icon = 'fa-smile';
-    let iconColor = '#27ae60';
-    let bgColor = '#d4edda';
-    let message = 'Great job!';
-    
-    if (score >= 90) {
-        icon = 'fa-crown';
-        iconColor = '#f1c40f';
-        bgColor = '#fff3cd';
-        message = '🏆 Excellent! You\'re a math wizard!';
-    } else if (score >= 75) {
-        icon = 'fa-star';
-        iconColor = '#f39c12';
-        bgColor = '#fff4e0';
-        message = '🌟 Great job! You\'re doing well!';
-    } else if (score >= 50) {
-        icon = 'fa-smile';
-        iconColor = '#3498db';
-        bgColor = '#e8f4fd';
-        message = '💪 Good effort! Keep practicing!';
-    } else {
-        icon = 'fa-book';
-        iconColor = '#e74c3c';
-        bgColor = '#fee9e7';
-        message = '📚 Don\'t give up! Practice makes perfect!';
-    }
-    
-    return `
-        <div style="text-align: center; max-width: 500px; margin: 0 auto;">
-            <!-- Icon -->
-            <div style="
-                width: 80px;
-                height: 80px;
-                background: ${iconColor}20;
-                border-radius: 50%;
-                display: flex;
-                align-items: center;
-                justify-content: center;
-                margin: 0 auto 20px;
-                border: 3px solid ${iconColor};
-            ">
-                <i class="fas ${icon}" style="font-size: 40px; color: ${iconColor};"></i>
-            </div>
-            
-            <!-- Title -->
-            <h2 style="color: #2c3e50; margin-bottom: 10px; font-size: 28px;">Quiz Completed!</h2>
-            
-            <!-- Score Circle -->
-            <div style="position: relative; width: 150px; height: 150px; margin: 20px auto;">
-                <svg viewBox="0 0 36 36" style="width: 150px; height: 150px;">
-                    <path d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" 
-                          fill="none" stroke="#e0e0e0" stroke-width="3"></path>
-                    <path d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" 
-                          fill="none" stroke="${iconColor}" stroke-width="3" 
-                          stroke-dasharray="${score}, 100" stroke-linecap="round"></path>
-                </svg>
-                <div style="
-                    position: absolute;
-                    top: 50%;
-                    left: 50%;
-                    transform: translate(-50%, -50%);
-                    font-size: 36px;
-                    font-weight: bold;
-                    color: ${iconColor};
-                ">
-                    ${score}%
-                </div>
-            </div>
-            
-            <!-- Message -->
-            <div style="
-                background: ${bgColor};
-                padding: 12px 15px;
-                border-radius: 8px;
-                margin: 15px 0;
-                font-size: 16px;
-                color: #2c3e50;
-                border-left: 4px solid ${iconColor};
-                text-align: left;
-            ">
-                <i class="fas fa-quote-left" style="color: ${iconColor}; margin-right: 8px;"></i>
-                ${message}
-            </div>
-            
-            <!-- Results Grid -->
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 20px 0;">
-                <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); 
-                            padding: 15px; border-radius: 10px; color: white;">
-                    <div style="font-size: 28px; font-weight: bold;">${correctCount}</div>
-                    <div style="font-size: 12px;">Correct</div>
-                </div>
-                <div style="background: linear-gradient(135deg, #e74c3c 0%, #c0392b 100%); 
-                            padding: 15px; border-radius: 10px; color: white;">
-                    <div style="font-size: 28px; font-weight: bold;">${wrongCount}</div>
-                    <div style="font-size: 12px;">Wrong</div>
-                </div>
-                <div style="background: linear-gradient(135deg, #3498db 0%, #2980b9 100%); 
-                            padding: 15px; border-radius: 10px; color: white;">
-                    <div style="font-size: 28px; font-weight: bold;">${totalQuestions}</div>
-                    <div style="font-size: 12px;">Total</div>
-                </div>
-                <div style="background: linear-gradient(135deg, #f39c12 0%, #e67e22 100%); 
-                            padding: 15px; border-radius: 10px; color: white;">
-                    <div style="font-size: 28px; font-weight: bold;">${timeFormatted}</div>
-                    <div style="font-size: 12px;">Time</div>
-                </div>
-            </div>
-            
-            <!-- Points and Attempt ID -->
-            <div style="background: #f8f9fa; padding: 15px; border-radius: 10px; margin: 15px 0;">
-                <div style="display: flex; justify-content: space-between; align-items: center;">
-                    <div>
-                        <div style="font-size: 20px; font-weight: bold; color: #7a0000;">
-                            +${pointsEarned || correctCount * 10}
-                        </div>
-                        <div style="font-size: 12px; color: #666;">Points Earned</div>
-                    </div>
-                    <div style="text-align: right;">
-                        <div style="font-size: 16px; font-weight: bold; color: #34495e;">#${attemptId}</div>
-                        <div style="font-size: 12px; color: #666;">Attempt ID</div>
-                    </div>
-                </div>
-            </div>
-            
-            <!-- Action Buttons -->
-            <div style="display: flex; gap: 10px; justify-content: center; margin-top: 20px;">
-                <button onclick="closeQuizSystemModal()" style="
-                    padding: 10px 20px;
-                    border: 2px solid #7a0000;
-                    background: white;
-                    color: #7a0000;
-                    border-radius: 6px;
-                    font-size: 14px;
-                    font-weight: bold;
-                    cursor: pointer;
-                ">
-                    <i class="fas fa-times"></i> Close
-                </button>
-                <button onclick="window.location.href='/'+window.location.pathname.split('/')[1]" style="
-                    padding: 10px 20px;
-                    background: #3498db;
-                    color: white;
-                    border: none;
-                    border-radius: 6px;
-                    font-size: 14px;
-                    font-weight: bold;
-                    cursor: pointer;
-                ">
-                    <i class="fas fa-tachometer-alt"></i> Dashboard
-                </button>
-                <button onclick="startNewQuiz()" style="
-                    padding: 10px 20px;
-                    background: #7a0000;
-                    color: white;
-                    border: none;
-                    border-radius: 6px;
-                    font-size: 14px;
-                    font-weight: bold;
-                    cursor: pointer;
-                ">
-                    <i class="fas fa-redo"></i> New
-                </button>
-            </div>
-        </div>
-    `;
-}
-// ============================================
-// ATTACH SETTINGS FUNCTIONS TO WINDOW OBJECT
-// ============================================
-
-// Make all settings functions globally available
-window.loadUserSettings = loadUserSettings;
-window.setupSettingsNavigation = setupSettingsNavigation;
-window.showSettingsSection = showSettingsSection;
-window.setupSettingsForms = setupSettingsForms;
-window.saveSettings = saveSettings;
-window.getSelectedTheme = getSelectedTheme;
-window.resetSettings = resetSettings;
-window.viewProfile = viewProfile;
-
-// Also add showSection for backward compatibility
-window.showSection = showSettingsSection;
-
-console.log('✅ Settings functions attached to window object');
