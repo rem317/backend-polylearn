@@ -6396,7 +6396,213 @@ async function initProgressDashboard() {
     }
 }
 
+// ============================================
+// PROGRESS DASHBOARD LOADING FUNCTIONS
+// ============================================
 
+function showProgressDashboardLoading() {
+    console.log('⏳ Showing progress dashboard loading state...');
+    
+    const elements = [
+        'overallProgress',
+        'totalPointsProgress',
+        'totalTime',
+        'totalBadges',
+        'pointsChange',
+        'timeChange',
+        'badgesChange'
+    ];
+    
+    elements.forEach(id => {
+        const el = document.getElementById(id);
+        if (el) {
+            // Store original content
+            if (!el.hasAttribute('data-original')) {
+                el.setAttribute('data-original', el.innerHTML);
+            }
+            el.innerHTML = '<i class="fas fa-spinner fa-spin" style="font-size: 14px;"></i>';
+            el.style.opacity = '0.7';
+        }
+    });
+    
+    // Show loading sa charts
+    const chartContainers = document.querySelectorAll('.chart-container');
+    chartContainers.forEach(container => {
+        const chart = container.querySelector('.chart-bars, .chart-line');
+        if (chart) {
+            chart.style.opacity = '0.5';
+            chart.style.pointerEvents = 'none';
+        }
+    });
+}
+
+function hideProgressDashboardLoading() {
+    console.log('✅ Hiding progress dashboard loading state...');
+    
+    const elements = [
+        'overallProgress',
+        'totalPointsProgress',
+        'totalTime',
+        'totalBadges',
+        'pointsChange',
+        'timeChange',
+        'badgesChange'
+    ];
+    
+    elements.forEach(id => {
+        const el = document.getElementById(id);
+        if (el && el.hasAttribute('data-original')) {
+            el.innerHTML = el.getAttribute('data-original');
+            el.style.opacity = '1';
+        }
+    });
+    
+    // Restore charts
+    const chartContainers = document.querySelectorAll('.chart-container');
+    chartContainers.forEach(container => {
+        const chart = container.querySelector('.chart-bars, .chart-line');
+        if (chart) {
+            chart.style.opacity = '1';
+            chart.style.pointerEvents = 'auto';
+        }
+    });
+}
+// ============================================
+// PROGRESS CHART FUNCTIONS
+// ============================================
+
+async function initProgressCharts() {
+    console.log('📊 Initializing progress charts...');
+    
+    try {
+        // Load chart data
+        const chartData = await fetchProgressChartData(14);
+        
+        if (chartData) {
+            renderPracticeTimeChart(chartData.practiceTime);
+            renderAccuracyChart(chartData.accuracy);
+        }
+        
+        console.log('✅ Progress charts initialized');
+    } catch (error) {
+        console.error('❌ Error initializing charts:', error);
+    }
+}
+
+async function fetchProgressChartData(days = 14) {
+    try {
+        const token = localStorage.getItem('authToken');
+        if (!token) return null;
+        
+        const response = await fetch(`/api/progress/chart-data?days=${days}`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        
+        if (!response.ok) return null;
+        
+        const data = await response.json();
+        return data;
+        
+    } catch (error) {
+        console.error('Error fetching chart data:', error);
+        return null;
+    }
+}
+
+function renderPracticeTimeChart(data) {
+    const barsContainer = document.getElementById('practiceTimeBars');
+    const labelsContainer = document.getElementById('practiceTimeLabels');
+    
+    if (!barsContainer || !labelsContainer || !data || !data.length) {
+        // Create sample data if none exists
+        createSampleChartData();
+        return;
+    }
+    
+    const maxValue = Math.max(...data.map(d => d.value)) || 60;
+    
+    let barsHTML = '';
+    let labelsHTML = '';
+    
+    data.forEach(item => {
+        const height = (item.value / maxValue) * 100;
+        barsHTML += `<div class="chart-bar" style="height: ${height}%;" data-value="${item.value}m"></div>`;
+        labelsHTML += `<div class="chart-label">${item.label}</div>`;
+    });
+    
+    barsContainer.innerHTML = barsHTML;
+    labelsContainer.innerHTML = labelsHTML;
+}
+
+function renderAccuracyChart(data) {
+    const lineContainer = document.getElementById('accuracyLine');
+    const labelsContainer = document.getElementById('accuracyLabels');
+    
+    if (!lineContainer || !labelsContainer || !data || !data.length) return;
+    
+    const maxValue = 100; // Accuracy is percentage
+    
+    let pointsHTML = '';
+    let labelsHTML = '';
+    
+    data.forEach((item, index) => {
+        const left = (index / (data.length - 1)) * 100;
+        const bottom = (item.value / maxValue) * 100;
+        
+        pointsHTML += `<div class="chart-point" style="left: ${left}%; bottom: ${bottom}%;" data-value="${item.value}%"></div>`;
+        labelsHTML += `<div class="chart-label">${item.label}</div>`;
+    });
+    
+    lineContainer.innerHTML = pointsHTML;
+    labelsContainer.innerHTML = labelsHTML;
+}
+
+function createSampleChartData() {
+    console.log('📊 Creating sample chart data...');
+    
+    // Sample practice time data (last 7 days)
+    const days = ['M', 'T', 'W', 'Th', 'F', 'Sa', 'Su'];
+    const practiceTimes = [25, 40, 15, 60, 45, 30, 55];
+    
+    const barsContainer = document.getElementById('practiceTimeBars');
+    const labelsContainer = document.getElementById('practiceTimeLabels');
+    
+    if (barsContainer && labelsContainer) {
+        const maxTime = Math.max(...practiceTimes);
+        
+        let barsHTML = '';
+        let labelsHTML = '';
+        
+        practiceTimes.forEach((time, i) => {
+            const height = (time / maxTime) * 100;
+            barsHTML += `<div class="chart-bar" style="height: ${height}%;" data-value="${time}m"></div>`;
+            labelsHTML += `<div class="chart-label">${days[i]}</div>`;
+        });
+        
+        barsContainer.innerHTML = barsHTML;
+        labelsContainer.innerHTML = labelsHTML;
+    }
+    
+    // Sample accuracy data
+    const accuracyData = [65, 72, 68, 85, 78, 82, 90];
+    
+    const lineContainer = document.getElementById('accuracyLine');
+    const accuracyLabels = document.getElementById('accuracyLabels');
+    
+    if (lineContainer && accuracyLabels) {
+        let pointsHTML = '';
+        let labelsHTML = '';
+        
+        accuracyData.forEach((value, i) => {
+            const left = (i / (accuracyData.length - 1)) * 100;
+            pointsHTML += `<div class="chart-point" style="left: ${left}%; bottom: ${value}%;" data-value="${value}%"></div>`;
+            labelsHTML += `<div class="chart-label">${days[i]}</div>`;
+        });
+        
+        lineContainer.innerHTML = pointsHTML;
+        accuracyLabels.innerHTML = labelsHTML;
+    }
+}
 // ============================================
 // CHECK AND AWARD BADGES AUTOMATICALLY
 // ============================================
