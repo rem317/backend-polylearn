@@ -1,4 +1,5 @@
 
+
 // script.js - MathHub Application with Complete Database-Driven Progress Tracking
 // Includes lesson management, practice exercises, quiz system, and full progress integration
 
@@ -6500,10 +6501,7 @@ async function updateDashboardWidgets(widgetConfig) {
 }
 
 // ============================================
-// INITIALIZE PROGRESS DASHBOARD - UPDATED
-// ============================================
-// ============================================
-// INITIALIZE PROGRESS DASHBOARD - UPDATED
+// INITIALIZE PROGRESS DASHBOARD - FIXED VERSION
 // ============================================
 async function initProgressDashboard() {
     console.log('📈 Initializing progress dashboard with database integration...');
@@ -6515,32 +6513,36 @@ async function initProgressDashboard() {
         // Load all progress data
         await updateProgressDashboardFromDatabase();
         
-        // Load topic mastery for detailed breakdown
-        await fetchTopicMastery();
-        
-        // Load achievements
-        await fetchAchievementTimeline(10);
-        
-        // Load activity log
-        await fetchActivityLog(15);
-        
         // Initialize charts
         await initProgressCharts();
         
-        // ✅ SIGURADUHING may value ang progressRefreshInterval bago gamitin
-        if (typeof progressRefreshInterval !== 'undefined') {
-            // Start auto-refresh (every 60 seconds)
-            startProgressAutoRefresh(60);
-        } else {
-            console.error('❌ progressRefreshInterval is not defined!');
-            // Fallback: initialize it first
-            progressRefreshInterval = null;
-            startProgressAutoRefresh(60);
+        // ✅ FIX: Check if progressRefreshInterval exists
+        if (typeof progressRefreshInterval === 'undefined') {
+            window.progressRefreshInterval = null;
         }
+        
+        // Start auto-refresh (every 60 seconds)
+        startProgressAutoRefresh(60);
         
         console.log('✅ Progress dashboard initialized with database integration');
     } catch (error) {
-        console.error('Error initializing progress dashboard:', error);
+        console.error('❌ Error initializing progress dashboard:', error);
+        hideProgressDashboardLoading();
+        
+        // Show error message in dashboard
+        const container = document.querySelector('#progress-page .container');
+        if (container) {
+            container.innerHTML = `
+                <div class="error-message" style="text-align: center; padding: 40px;">
+                    <i class="fas fa-exclamation-triangle" style="font-size: 48px; color: #e74c3c; margin-bottom: 20px;"></i>
+                    <h3 style="color: #2c3e50; margin-bottom: 10px;">Failed to load progress data</h3>
+                    <p style="color: #7f8c8d;">Please try refreshing the page.</p>
+                    <button onclick="location.reload()" class="btn-primary" style="margin-top: 20px;">
+                        <i class="fas fa-redo"></i> Refresh Page
+                    </button>
+                </div>
+            `;
+        }
     }
 }
 
@@ -8015,15 +8017,23 @@ function closeMobileMenu() {
 }
 
 // ============================================
-// 🚪 LOGOUT CONFIRMATION
+// 🚪 LOGOUT CONFIRMATION - FIXED VERSION
 // ============================================
 function showLogoutConfirmation() {
+    console.log('🔓 Showing logout confirmation');
+    
+    // Remove any existing logout modal first
+    const existingModal = document.getElementById('logoutModal');
+    if (existingModal) {
+        existingModal.remove();
+    }
+    
     const modalHTML = `
-        <div id="logoutModal" class="modal-overlay" style="display: flex; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); backdrop-filter: blur(5px); z-index: 10000; justify-content: center; align-items: center;">
-            <div style="background: white; max-width: 380px; width: 90%; border-radius: 16px; overflow: hidden; box-shadow: 0 20px 40px rgba(0,0,0,0.4);">
+        <div id="logoutModal" class="modal-overlay" style="display: flex; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); backdrop-filter: blur(5px); z-index: 2147483647; justify-content: center; align-items: center;">
+            <div style="background: white; max-width: 380px; width: 90%; border-radius: 16px; overflow: hidden; box-shadow: 0 20px 40px rgba(0,0,0,0.4); animation: fadeIn 0.3s ease;">
                 <div style="background: #7a0000; color: white; padding: 16px 20px; display: flex; justify-content: space-between; align-items: center;">
                     <h3 style="margin: 0; font-size: 18px;"><i class="fas fa-sign-out-alt"></i> Confirm Logout</h3>
-                    <button onclick="closeLogoutModal()" style="background: none; border: none; color: white; font-size: 24px; cursor: pointer;">&times;</button>
+                    <button onclick="closeLogoutModal()" style="background: none; border: none; color: white; font-size: 24px; cursor: pointer; line-height: 1;">&times;</button>
                 </div>
                 
                 <div style="padding: 25px 20px; text-align: center;">
@@ -8035,10 +8045,10 @@ function showLogoutConfirmation() {
                     <p style="color: #7f8c8d; margin: 0 0 20px; font-size: 14px;">Your progress is automatically saved.</p>
                     
                     <div style="display: flex; gap: 10px; justify-content: center;">
-                        <button onclick="closeLogoutModal()" style="flex: 1; padding: 12px 15px; background: #ecf0f1; color: #2c3e50; border: none; border-radius: 6px; font-size: 14px; font-weight: 600; cursor: pointer;">
+                        <button onclick="closeLogoutModal()" style="flex: 1; padding: 12px 15px; background: #ecf0f1; color: #2c3e50; border: none; border-radius: 6px; font-size: 14px; font-weight: 600; cursor: pointer; transition: all 0.3s;">
                             <i class="fas fa-times"></i> Cancel
                         </button>
-                        <button onclick="confirmLogout()" style="flex: 1; padding: 12px 15px; background: #7a0000; color: white; border: none; border-radius: 6px; font-size: 14px; font-weight: 600; cursor: pointer;">
+                        <button onclick="confirmLogout()" style="flex: 1; padding: 12px 15px; background: #7a0000; color: white; border: none; border-radius: 6px; font-size: 14px; font-weight: 600; cursor: pointer; transition: all 0.3s;">
                             <i class="fas fa-sign-out-alt"></i> Logout
                         </button>
                     </div>
@@ -8048,32 +8058,122 @@ function showLogoutConfirmation() {
     `;
     
     document.body.insertAdjacentHTML('beforeend', modalHTML);
+    
+    // Add animation keyframes if they don't exist
+    if (!document.querySelector('#logout-animation')) {
+        const style = document.createElement('style');
+        style.id = 'logout-animation';
+        style.textContent = `
+            @keyframes fadeIn {
+                from { opacity: 0; transform: translateY(-20px); }
+                to { opacity: 1; transform: translateY(0); }
+            }
+        `;
+        document.head.appendChild(style);
+    }
 }
 
 function closeLogoutModal() {
+    console.log('🔒 Closing logout modal');
     const modal = document.getElementById('logoutModal');
-    if (modal) modal.remove();
+    if (modal) {
+        modal.style.animation = 'fadeOut 0.2s ease';
+        setTimeout(() => {
+            modal.remove();
+        }, 200);
+    }
 }
 
 function confirmLogout() {
+    console.log('🚪 Confirming logout');
+    
+    // Close the modal first
     closeLogoutModal();
     
-    // Clear authentication
+    // Show loading notification
+    showNotification('info', 'Logging out...', 'Please wait');
+    
+    // Clear ALL authentication data
     localStorage.removeItem('authToken');
     localStorage.removeItem('mathhub_user');
     localStorage.removeItem('hasSelectedApp');
     localStorage.removeItem('selectedApp');
+    localStorage.removeItem('currentLessonFilter');
+    localStorage.removeItem('currentLessonId');
+    localStorage.removeItem('user_settings');
+    localStorage.removeItem('admin_token');
+    localStorage.removeItem('admin_user');
+    localStorage.removeItem('user_role');
+    localStorage.removeItem('admin_session');
+    localStorage.removeItem('token');
     
     // Reset app state
-    AppState.currentUser = null;
-    AppState.isAuthenticated = false;
+    if (window.AppState) {
+        AppState.currentUser = null;
+        AppState.isAuthenticated = false;
+        AppState.selectedApp = null;
+        AppState.hasSelectedApp = false;
+    }
+    
+    // Clear global variables
     authToken = null;
     
-    // Navigate to login
-    navigateTo('login');
+    // Stop any active timers
+    if (window.activeTimeTracker && typeof window.activeTimeTracker.cleanup === 'function') {
+        window.activeTimeTracker.cleanup();
+    }
+    window.activeTimeTracker = null;
     
-    showNotification('👋 See you next time!', 'info');
+    // Clear any intervals
+    if (window.progressRefreshInterval) {
+        clearInterval(window.progressRefreshInterval);
+        window.progressRefreshInterval = null;
+    }
+    
+    if (window.quizStatsInterval) {
+        clearInterval(window.quizStatsInterval);
+        window.quizStatsInterval = null;
+    }
+    
+    // Navigate to login page
+    setTimeout(() => {
+        navigateTo('login');
+        showNotification('success', 'Logged Out', '👋 See you next time!');
+    }, 300);
 }
+
+// Also fix the logoutUser function that might be called from the menu
+function logoutUser(e) {
+    if (e) {
+        e.preventDefault();
+        e.stopPropagation();
+    }
+    
+    console.log('🚪 Logout requested');
+    
+    // Close mobile menu if open
+    const menuOverlay = document.getElementById('mobileMenuOverlay');
+    const menuPanel = document.getElementById('mobileMenuPanel');
+    
+    if (menuOverlay && menuPanel) {
+        menuOverlay.classList.remove('active');
+        menuPanel.classList.remove('active');
+        menuOverlay.style.display = 'none';
+        menuPanel.style.right = '-100%';
+        document.body.classList.remove('modal-open');
+        document.body.style.overflow = '';
+    }
+    
+    // Show confirmation
+    showLogoutConfirmation();
+}
+
+// Make sure functions are globally available
+window.showLogoutConfirmation = showLogoutConfirmation;
+window.closeLogoutModal = closeLogoutModal;
+window.confirmLogout = confirmLogout;
+window.logoutUser = logoutUser;
+
 document.addEventListener('DOMContentLoaded', function() {
     console.log('📄 DOM loaded - initializing all features');
     
@@ -18001,9 +18101,8 @@ async function updateContinueLearningModule() {
     }
 }
 // ============================================
-// PROGRESS DASHBOARD DATABASE FUNCTIONS
+// ✅ FIX: Add missing function to update progress dashboard
 // ============================================
-
 async function updateProgressDashboardFromDatabase() {
     console.log('📊 Updating progress dashboard from database...');
     
@@ -18011,7 +18110,14 @@ async function updateProgressDashboardFromDatabase() {
         // Show loading
         showProgressDashboardLoading();
         
-        // Fetch all progress data
+        const token = localStorage.getItem('authToken') || authToken;
+        if (!token) {
+            console.error('❌ No auth token available');
+            hideProgressDashboardLoading();
+            return;
+        }
+        
+        // Fetch all progress data in parallel
         const [cumulative, daily, topics, achievements] = await Promise.allSettled([
             fetchCumulativeProgress(),
             fetchDailyProgress(),
@@ -18022,6 +18128,8 @@ async function updateProgressDashboardFromDatabase() {
         // Update overall progress
         if (cumulative.status === 'fulfilled' && cumulative.value) {
             updateOverallProgressDisplay(cumulative.value);
+        } else {
+            console.warn('Cumulative progress fetch failed');
         }
         
         // Update daily stats
@@ -18029,9 +18137,13 @@ async function updateProgressDashboardFromDatabase() {
             updateDailyStats(daily.value);
         }
         
-        // Update topics progress
+        // ✅ FIX: Handle topics safely (check if it's an array)
         if (topics.status === 'fulfilled' && topics.value) {
-            updateTopicsProgressDetailed(topics.value);
+            // Ensure topics is an array
+            const topicsArray = Array.isArray(topics.value) ? topics.value : [];
+            updateTopicsProgressDetailed(topicsArray);
+        } else {
+            console.warn('Topics progress fetch failed');
         }
         
         // Update achievements
@@ -18041,6 +18153,9 @@ async function updateProgressDashboardFromDatabase() {
         
         // Update charts
         await updateProgressCharts();
+        
+        // Fetch activity log
+        await fetchActivityLog(15);
         
         // Hide loading
         hideProgressDashboardLoading();
@@ -18052,7 +18167,12 @@ async function updateProgressDashboardFromDatabase() {
         hideProgressDashboardLoading();
     }
 }
+// ============================================
+// ✅ FIX: Update daily stats function
+// ============================================
 function updateDailyStats(dailyData) {
+    if (!dailyData) return;
+    
     // Update daily stats in the UI
     const pointsChange = document.getElementById('pointsChange');
     const timeChange = document.getElementById('timeChange');
@@ -18072,15 +18192,50 @@ function updateDailyStats(dailyData) {
     }
 }
 
+// ============================================
+// ✅ FIX: Add missing progress refresh interval
+// ============================================
+let progressRefreshInterval = null;
+
+function startProgressAutoRefresh(intervalSeconds = 60) {
+    // Clear existing interval
+    if (progressRefreshInterval) {
+        clearInterval(progressRefreshInterval);
+        progressRefreshInterval = null;
+    }
+    
+    console.log(`🔄 Starting progress auto-refresh every ${intervalSeconds} seconds`);
+    
+    progressRefreshInterval = setInterval(async () => {
+        // Check if progress page is visible
+        const progressPage = document.getElementById('progress-page');
+        if (progressPage && !progressPage.classList.contains('hidden')) {
+            console.log('🔄 Auto-refreshing progress dashboard...');
+            await updateProgressDashboardFromDatabase();
+        }
+    }, intervalSeconds * 1000);
+}
+
+function stopProgressAutoRefresh() {
+    if (progressRefreshInterval) {
+        clearInterval(progressRefreshInterval);
+        progressRefreshInterval = null;
+        console.log('⏹️ Progress auto-refresh stopped');
+    }
+}
+// ============================================
+// ✅ FIX: Safe version of updateTopicsProgressDetailed
+// ============================================
 function updateTopicsProgressDetailed(topics) {
     const container = document.getElementById('topicsProgressDetailed');
     if (!container) return;
     
-    if (!topics || topics.length === 0) {
+    // ✅ FIX: Ensure topics is an array
+    if (!topics || !Array.isArray(topics) || topics.length === 0) {
         container.innerHTML = `
-            <div class="no-data-message">
-                <i class="fas fa-chart-pie"></i>
-                <p>No topic progress data available</p>
+            <div class="no-data-message" style="text-align: center; padding: 20px;">
+                <i class="fas fa-chart-pie" style="font-size: 40px; color: #ccc; margin-bottom: 10px;"></i>
+                <p style="color: #666;">No topic progress data available</p>
             </div>
         `;
         return;
@@ -18092,22 +18247,22 @@ function updateTopicsProgressDetailed(topics) {
         const accuracy = topic.accuracy_rate || 0;
         
         html += `
-            <div class="topic-progress-item">
-                <div class="topic-info">
-                    <i class="fas fa-book topic-icon"></i>
+            <div class="topic-progress-item" style="margin-bottom: 15px; padding: 15px; background: #f8f9fa; border-radius: 8px;">
+                <div class="topic-info" style="display: flex; align-items: center; gap: 10px; margin-bottom: 10px;">
+                    <i class="fas fa-book topic-icon" style="color: #7a0000;"></i>
                     <div>
-                        <h4>${topic.topic_name || 'Topic'}</h4>
-                        <p>${topic.module_name || 'Module'}</p>
+                        <h4 style="margin: 0; font-size: 16px;">${topic.topic_name || 'Topic'}</h4>
+                        <p style="margin: 5px 0 0 0; font-size: 13px; color: #666;">${topic.module_name || 'Module'}</p>
                     </div>
                 </div>
                 <div class="topic-progress-data">
-                    <div class="progress-percentage">${progress}%</div>
-                    <div class="topic-stats">
-                        <span class="stat"><i class="fas fa-check-circle"></i> ${accuracy}% accuracy</span>
-                        <span class="stat"><i class="fas fa-clock"></i> ${topic.time_spent || 0} min</span>
+                    <div class="progress-percentage" style="font-size: 18px; font-weight: bold; color: #7a0000; margin-bottom: 5px;">${progress}%</div>
+                    <div class="topic-stats" style="display: flex; gap: 15px; font-size: 13px; color: #666; margin-bottom: 8px;">
+                        <span><i class="fas fa-check-circle"></i> ${accuracy}% accuracy</span>
+                        <span><i class="fas fa-clock"></i> ${topic.time_spent || 0} min</span>
                     </div>
-                    <div class="progress-bar-container">
-                        <div class="progress-fill" style="width: ${progress}%"></div>
+                    <div class="progress-bar-container" style="height: 6px; background: #ecf0f1; border-radius: 3px; overflow: hidden;">
+                        <div class="progress-fill" style="height: 100%; width: ${progress}%; background: #7a0000;"></div>
                     </div>
                 </div>
             </div>
@@ -18116,6 +18271,7 @@ function updateTopicsProgressDetailed(topics) {
     
     container.innerHTML = html;
 }
+
 
 async function updateProgressCharts() {
     console.log('📊 Updating progress charts...');
@@ -19990,21 +20146,35 @@ function setupPracticeButtons() {
 }
 
 // ============================================
-// HELPER: Setup complete lesson button
+// FIXED: Setup complete lesson button
 // ============================================
 function setupCompleteLessonButton() {
-    const completeBtn = document.getElementById('completeLessonBtn');
-    if (!completeBtn) return;
+    console.log('🔘 Setting up complete lesson button...');
     
+    const completeBtn = document.getElementById('completeLessonBtn');
+    if (!completeBtn) {
+        console.warn('⚠️ Complete lesson button not found');
+        return;
+    }
+    
+    // Remove any existing listeners by cloning
     const newCompleteBtn = completeBtn.cloneNode(true);
     completeBtn.parentNode.replaceChild(newCompleteBtn, completeBtn);
     
-    // Check initial status
+    // Reset button to default state (not disabled)
+    newCompleteBtn.disabled = false;
+    newCompleteBtn.innerHTML = '<i class="fas fa-check-circle"></i> Mark Lesson Complete';
+    newCompleteBtn.classList.remove('btn-success');
+    newCompleteBtn.classList.add('btn-primary');
+    
+    // Check initial status (but don't disable if not completed)
     const contentId = LessonState.currentLesson?.content_id;
     if (contentId && LessonState.userProgress?.[contentId]?.status === 'completed') {
         newCompleteBtn.disabled = true;
-        newCompleteBtn.innerHTML = '<i class="fas fa-check"></i> Lesson Completed';
-        newCompleteBtn.style.background = '#2ecc71';
+        newCompleteBtn.innerHTML = '<i class="fas fa-check-double"></i> Lesson Already Completed';
+        newCompleteBtn.classList.remove('btn-primary');
+        newCompleteBtn.classList.add('btn-success');
+        console.log('✅ Lesson already marked as completed');
     }
     
     let isProcessing = false;
@@ -20015,10 +20185,11 @@ function setupCompleteLessonButton() {
         
         const contentId = LessonState.currentLesson?.content_id;
         if (!contentId) {
-            showNotification('Cannot identify lesson', 'error');
+            showNotification('Error', 'Cannot identify lesson', 'error');
             return;
         }
         
+        // Prevent double-clicking
         if (isProcessing) {
             console.log('⚠️ Already processing, please wait...');
             return;
@@ -20026,28 +20197,32 @@ function setupCompleteLessonButton() {
         
         isProcessing = true;
         const originalText = newCompleteBtn.innerHTML;
-        const originalDisabled = newCompleteBtn.disabled;
         
+        // Show loading state
         newCompleteBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Saving...';
         newCompleteBtn.disabled = true;
         
         try {
-            // Check if already completed
+            // Check if already completed (double-check)
             if (LessonState.userProgress?.[contentId]?.status === 'completed') {
-                showNotification('Lesson already completed!', 'info');
-                newCompleteBtn.innerHTML = '<i class="fas fa-check"></i> Already Completed';
-                newCompleteBtn.style.background = '#2ecc71';
+                showNotification('Info', 'Lesson already completed!', 'info');
+                newCompleteBtn.innerHTML = '<i class="fas fa-check-double"></i> Already Completed';
+                newCompleteBtn.classList.remove('btn-primary');
+                newCompleteBtn.classList.add('btn-success');
                 return;
             }
             
-            // Calculate time spent
-            let timeSpentSeconds = 300;
+            // Calculate time spent watching video
+            let timeSpentSeconds = 300; // Default 5 minutes
             const videoElement = document.getElementById('lessonVideo');
             if (videoElement && videoElement.duration) {
-                timeSpentSeconds = Math.floor(videoElement.currentTime || videoElement.duration);
+                // Use current time if video is playing, otherwise use duration
+                timeSpentSeconds = Math.floor(videoElement.currentTime || videoElement.duration || 300);
             }
             
-            // Update progress
+            console.log(`⏱️ Time spent: ${timeSpentSeconds} seconds`);
+            
+            // Update progress in database
             const success = await updateLessonProgress(contentId, {
                 completion_status: 'completed',
                 percentage: 100,
@@ -20055,10 +20230,13 @@ function setupCompleteLessonButton() {
             });
             
             if (success) {
-                newCompleteBtn.innerHTML = '<i class="fas fa-check"></i> Lesson Completed';
-                newCompleteBtn.style.background = '#2ecc71';
+                // Update button to completed state
+                newCompleteBtn.innerHTML = '<i class="fas fa-check-double"></i> Lesson Completed!';
+                newCompleteBtn.classList.remove('btn-primary');
+                newCompleteBtn.classList.add('btn-success');
+                newCompleteBtn.disabled = true;
                 
-                showNotification('🎉 Lesson marked as complete!', 'success');
+                showNotification('Success', '🎉 Lesson marked as complete!', 'success');
                 
                 // Update local state
                 if (!LessonState.userProgress) LessonState.userProgress = {};
@@ -20066,27 +20244,51 @@ function setupCompleteLessonButton() {
                 LessonState.userProgress[contentId].status = 'completed';
                 LessonState.userProgress[contentId].percentage = 100;
                 
-                // Clear watch time
+                // Clear any watch time tracking
                 localStorage.removeItem(`video_watch_time_video_${contentId}`);
                 
                 // Update daily progress
-                await updateDailyProgress({ lessons_completed: 1 });
+                await updateDailyProgress({ 
+                    lessons_completed: 1,
+                    time_spent_minutes: Math.floor(timeSpentSeconds / 60)
+                });
                 
-                // Update dashboard
+                // Update dashboard statistics
                 setTimeout(() => {
-                    updateProgressSummaryCards();
-                    if (AppState.currentPage === 'dashboard') {
+                    if (typeof updateProgressSummaryCards === 'function') {
+                        updateProgressSummaryCards();
+                    }
+                    if (AppState.currentPage === 'dashboard' && typeof updateContinueLearningModule === 'function') {
                         updateContinueLearningModule();
                     }
+                    
+                    // Check if practice should be unlocked
+                    const topicId = LessonState.currentLesson?.topic_id;
+                    if (topicId) {
+                        checkPracticeUnlocked(topicId).then(unlocked => {
+                            if (unlocked) {
+                                showNotification('Success', 'Practice exercises are now unlocked!', 'success');
+                                // Add practice button to lesson content
+                                if (typeof addPracticeButtonToLesson === 'function') {
+                                    addPracticeButtonToLesson();
+                                }
+                            }
+                        });
+                    }
                 }, 1000);
+                
             } else {
-                throw new Error('Failed to save completion');
+                throw new Error('Failed to save completion to database');
             }
+            
         } catch (error) {
-            console.error('Error:', error);
-            showNotification('Error: ' + error.message, 'error');
+            console.error('❌ Error marking lesson complete:', error);
+            showNotification('Error', error.message || 'Failed to mark lesson as complete', 'error');
+            
+            // Restore button to original state
             newCompleteBtn.innerHTML = originalText;
-            newCompleteBtn.disabled = originalDisabled;
+            newCompleteBtn.disabled = false;
+            
         } finally {
             setTimeout(() => {
                 isProcessing = false;
@@ -20094,9 +20296,52 @@ function setupCompleteLessonButton() {
         }
     });
     
-    console.log('✅ Complete button setup complete');
+    console.log('✅ Complete lesson button setup complete');
 }
 
+// ============================================
+// ✅ FIX: Add missing fetchActivityLog function
+// ============================================
+async function fetchActivityLog(limit = 15) {
+    try {
+        const token = localStorage.getItem('authToken') || authToken;
+        if (!token) {
+            console.warn('No auth token available');
+            return [];
+        }
+        
+        console.log(`📋 Fetching activity log (limit: ${limit})...`);
+        
+        const response = await fetch(`/api/progress/activity-log?limit=${limit}`, {
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+            }
+        });
+        
+        if (!response.ok) {
+            if (response.status === 404) {
+                console.log('Activity log endpoint not found');
+                return [];
+            }
+            throw new Error(`Failed to fetch activity log: ${response.status}`);
+        }
+        
+        const data = await response.json();
+        
+        if (data.success && data.activities) {
+            console.log(`✅ Fetched ${data.activities.length} activities`);
+            ProgressState.activityLog = data.activities;
+            return data.activities;
+        } else {
+            console.warn('No activities returned');
+            return [];
+        }
+    } catch (error) {
+        console.error('Error fetching activity log:', error.message);
+        return [];
+    }
+}
 // ============================================
 // HELPER: Load video and content
 // ============================================
@@ -24373,29 +24618,8 @@ function updateMenuUserInfo() {
     }
 }
 
-// ============================================
-// 🚪 LOGOUT USER (with confirmation)
-// ============================================
-function logoutUser(e) {
-    if (e) {
-        e.preventDefault();
-        e.stopPropagation();
-    }
-    
-    // Close mobile menu first
-    const menuOverlay = document.getElementById('mobileMenuOverlay');
-    const menuPanel = document.getElementById('mobileMenuPanel');
-    
-    if (menuOverlay && menuPanel) {
-        menuOverlay.classList.remove('active');
-        menuPanel.classList.remove('active');
-        document.body.classList.remove('modal-open');
-        document.body.style.overflow = '';
-    }
-    
-    // Show confirmation
-    showLogoutConfirmation();
-}
+
+
 // ============================================
 // 🚨 FIX FOR PAGE LOAD
 // ============================================
