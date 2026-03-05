@@ -6341,17 +6341,47 @@ input:checked + .toggle-slider:before {
 }
 
 .faq-answer {
-    padding: 0 20px;
-    max-height: 0;
-    overflow: hidden;
-    transition: max-height 0.3s ease;
-    font-size: 0.9rem;
-    color: var(--text-light);
+    display: none; /* Tama ito - dapat hidden by default */
+    padding: 15px 20px;
+    background: #f8f9fa;
+    border-radius: 0 0 8px 8px;
+    margin-top: 0;
+    border-top: 1px solid #eee;
+    line-height: 1.6;
+}
+
+.faq-answer[style*="display: block"] {
+    display: block !important;
+}
+
+.faq-item .faq-answer {
+    display: none; /* Reinforce na hidden by default */
 }
 
 .faq-answer.open {
     padding: 15px 20px;
     max-height: 500px;
+}
+
+.faq-item.active .faq-answer {
+    display: block !important;
+}
+
+.faq-question .fas.fa-chevron-down {
+    transition: transform 0.3s ease;
+}
+
+.faq-question.active .fas.fa-chevron-down {
+    transform: rotate(180deg);
+}
+
+/* Para masiguradong hindi nakatago ang answer dahil sa parent containers */
+.faq-item {
+    overflow: visible !important;
+}
+
+.faq-item .card-body {
+    overflow: visible !important;
 }
 
 .feedback-form-group {
