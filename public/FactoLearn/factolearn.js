@@ -25836,4 +25836,21 @@ document.addEventListener('DOMContentLoaded', function() {
         observer.observe(settingsPage, { attributes: true });
     }
 });
+// ============================================
+// ATTACH SETTINGS FUNCTIONS TO WINDOW OBJECT
+// ============================================
 
+// Make all settings functions globally available
+window.loadUserSettings = loadUserSettings;
+window.setupSettingsNavigation = setupSettingsNavigation;
+window.showSettingsSection = showSettingsSection;
+window.setupSettingsForms = setupSettingsForms;
+window.saveSettings = saveSettings;
+window.getSelectedTheme = getSelectedTheme;
+window.resetSettings = resetSettings;
+window.viewProfile = viewProfile;
+
+// Also add showSection for backward compatibility
+window.showSection = showSettingsSection;
+
+console.log('✅ Settings functions attached to window object');
