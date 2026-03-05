@@ -21274,14 +21274,6 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Also load when navigation happens
     const originalNavigateTo = window.navigateTo;
-    window.navigateTo = function(page) {
-        originalNavigateTo(page);
-        if (page === 'practice') {
-            setTimeout(() => {
-                loadPracticeStatistics();
-            }, 300);
-        }
-    };
 });
 // Submit practice answers to server
 // ============================================
