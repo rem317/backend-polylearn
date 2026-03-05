@@ -25374,18 +25374,7 @@ function addSettingsStyles() {
     document.head.appendChild(style);
     console.log('✅ Settings styles added');
 }
-function initSettingsDashboard() {
-    console.log('⚙️ Initializing settings dashboard...');
-    
-    // Load user settings
-    loadUserSettings();
-    
-    // Setup section navigation
-    setupSettingsNavigation();
-    
-    // Setup form listeners
-    setupSettingsForms();
-}
+
 
 
 function loadUserSettings() {
@@ -25800,5 +25789,51 @@ setTimeout(() => {
 }, 1000);
 
 
+// ============================================
+// ⚙️ INITIALIZE SETTINGS DASHBOARD
+// ============================================
 
+function initSettingsDashboard() {
+    console.log('⚙️ Initializing settings dashboard...');
+    
+    // Load user settings from localStorage
+    loadUserSettings();
+    
+    // Setup navigation (sidebar menu clicks)
+    setupSettingsNavigation();
+    
+    // Setup form buttons (save/reset)
+    setupSettingsForms();
+    
+    // Show general section by default
+    showSettingsSection('general');
+    
+    console.log('✅ Settings dashboard initialized');
+}
+
+// Auto-initialize kapag nag-load ang page
+document.addEventListener('DOMContentLoaded', function() {
+    // Check if settings page is visible
+    const settingsPage = document.getElementById('settings-page');
+    
+    if (settingsPage && !settingsPage.classList.contains('hidden')) {
+        initSettingsDashboard();
+    }
+    
+    // Observe for when settings page becomes visible
+    if (settingsPage) {
+        const observer = new MutationObserver(function(mutations) {
+            mutations.forEach(function(mutation) {
+                if (mutation.type === 'attributes' && mutation.attributeName === 'class') {
+                    if (!settingsPage.classList.contains('hidden')) {
+                        console.log('⚙️ Settings page became visible');
+                        initSettingsDashboard();
+                    }
+                }
+            });
+        });
+        
+        observer.observe(settingsPage, { attributes: true });
+    }
+});
 
