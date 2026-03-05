@@ -34,7 +34,7 @@ function getDefaultPracticeStats() {
 // ============================================
 
 const APP_LESSON_MAP = {
-    'factorial': {
+    'mathease': {
         lessonId: 1,
         name: 'factorial'
     },
@@ -53,7 +53,7 @@ const APP_LESSON_MAP = {
 // ============================================
 const FACTORIAL_LESSON_ID = 3; // Fixed for factorial app
 const POLYLEARN_LESSON_ID = 2; // ← IDAGDAG ITO
-const FACTORIAL_LESSON_ID = 1;  // ← IDAGDAG ITO
+const MATHEASE_LESSON_ID = 1;  // ← IDAGDAG ITO
 
 // Para madaling gamitin
 const CURRENT_LESSON_ID = 3; // factorial only
@@ -90,7 +90,7 @@ function getAppFilterParam() {
 
 function addAppFilterToUrl(url) {
     const separator = url.includes('?') ? '&' : '?';
-    // FORCE factorial: Laging lesson_id=1
+    // FORCE factorial: Laging lesson_id=3
     return `${url}${separator}lesson_id=${FACTORIAL_LESSON_ID}`;
 }
 
@@ -2033,10 +2033,10 @@ window.StudyTimer = StudyTimer;
 console.log('✅ Tools globally available');
 
 // ============================================
-// ✅ UPDATED: apiRequest - FORCED lesson_id=1 FOR FACTOLEARN
+// ✅ UPDATED: apiRequest - FORCED lesson_id=3 FOR FACTOLEARN
 // ============================================
 async function apiRequest(endpoint, options = {}) {
-    // ===== FORCE lesson_id=1 FOR ALL FACTOLEARN API CALLS =====
+    // ===== FORCE lesson_id=3 FOR ALL FACTOLEARN API CALLS =====
     // Check if this is a FactoLearn endpoint that needs lesson_id
     const isFactoLearnEndpoint = endpoint.includes('/api/progress/') || 
                                  endpoint.includes('/api/lessons') || 
@@ -2045,12 +2045,12 @@ async function apiRequest(endpoint, options = {}) {
                                  endpoint.includes('/api/topics/') ||
                                  endpoint.includes('/api/admin/structure');
     
-    // Add lesson_id=1 to the URL if needed
+    // Add lesson_id=3 to the URL if needed
     let modifiedEndpoint = endpoint;
     if (isFactoLearnEndpoint && !endpoint.includes('lesson_id=')) {
         const separator = endpoint.includes('?') ? '&' : '?';
-        modifiedEndpoint = `${endpoint}${separator}lesson_id=1`;
-        console.log(`🔧 FactoLearn API forced lesson_id=1: ${modifiedEndpoint.split('?')[0]}`);
+        modifiedEndpoint = `${endpoint}${separator}lesson_id=3`;
+        console.log(`🔧 FactoLearn API forced lesson_id=3: ${modifiedEndpoint.split('?')[0]}`);
     }
     
     const url = modifiedEndpoint.startsWith('http') ? modifiedEndpoint : `${API_BASE_URL}${modifiedEndpoint}`;
@@ -2236,7 +2236,7 @@ async function apiRequest(endpoint, options = {}) {
 }
 
 // ============================================
-// ✅ EXPANDED: Get FactoLearn Mock Lessons (lesson_id=1)
+// ✅ EXPANDED: Get FactoLearn Mock Lessons (lesson_id=3)
 // ============================================
 function getFactoLearnMockLessons() {
     return [
@@ -5457,7 +5457,7 @@ async function updateTopicMastery(topicId, masteryData) {
 (function forceLessonId3() {
     console.log('🚨 EMERGENCY: Forcing ALL lesson_id to 3');
     
-    // Override the global fetch to always add lesson_id=1
+    // Override the global fetch to always add lesson_id=3
     const originalFetch = window.fetch;
     window.fetch = function(url, options) {
         // Only modify API calls that should have lesson_id
@@ -5468,10 +5468,10 @@ async function updateTopicMastery(topicId, masteryData) {
              url.includes('/api/quiz/')) && 
             !url.includes('lesson_id=')) {
             
-            // Add lesson_id=1 to the URL
+            // Add lesson_id=3 to the URL
             const separator = url.includes('?') ? '&' : '?';
-            url = `${url}${separator}lesson_id=1`;
-            console.log(`🔧 Forced lesson_id=1: ${url.split('?')[0]}`);
+            url = `${url}${separator}lesson_id=3`;
+            console.log(`🔧 Forced lesson_id=3: ${url.split('?')[0]}`);
         }
         return originalFetch.call(this, url, options);
     };
@@ -5489,7 +5489,7 @@ async function updateTopicMastery(topicId, masteryData) {
     localStorage.setItem('currentLessonFilter', '3');
     localStorage.setItem('currentLessonId', '3');
     
-    console.log('✅ Emergency override complete - All API calls will use lesson_id=1');
+    console.log('✅ Emergency override complete - All API calls will use lesson_id=3');
 })();
 
 // Update module progress
@@ -7336,7 +7336,7 @@ function updateProgressDashboardUI() {
 }
 
 // ============================================
-// 📊 PROGRESS SUMMARY FUNCTIONS - FACTOREADY (lesson_id=1)
+// 📊 PROGRESS SUMMARY FUNCTIONS - FACTOREADY (lesson_id=3)
 // ============================================
 
 async function updateProgressSummaryCards() {
@@ -7558,7 +7558,7 @@ const ProgressCache = {
     TTL: 30000 // 30 seconds cache
 };
 async function loadProgressSummary() {
-    console.log('📊 Loading REAL progress data (lesson_id=1) - 1 sec max...');
+    console.log('📊 Loading REAL progress data (lesson_id=3) - 1 sec max...');
     
     const elements = {
         lessons: document.getElementById('lessonsCount'),
@@ -9594,17 +9594,17 @@ async function fetchPracticeStatistics() {
         
         // ===== GET ALL PRACTICE STATS FROM DATABASE IN PARALLEL =====
         const [lessonsData, attemptsData, totalExercisesData] = await Promise.allSettled([
-            // Get lessons progress (lesson_id=1)
+            // Get lessons progress (lesson_id=3)
             fetch(`/api/progress/lessons?lesson_id=${FACTORIAL_LESSON_ID}`, {
                 headers: { 'Authorization': `Bearer ${token}` }
             }).then(res => res.json()).catch(err => ({ success: false, error: err })),
             
-            // Get practice attempts (lesson_id=1)
+            // Get practice attempts (lesson_id=3)
              fetch(`/api/progress/practice-attempts?lesson_id=${FACTORIAL_LESSON_ID}`, {
                 headers: { 'Authorization': `Bearer ${token}` }
             }).then(res => res.json()).catch(err => ({ success: false, error: err })),
             
-            // Get total exercises count (lesson_id=1)
+            // Get total exercises count (lesson_id=3)
             fetch(`/api/practice/exercises/count?lesson_id=${FACTORIAL_LESSON_ID}`, {
                 headers: { 'Authorization': `Bearer ${token}` }
             }).then(res => res.json()).catch(err => ({ success: false, error: err }))
@@ -12588,7 +12588,7 @@ async function loadQuizzesForCategory(categoryId) {
         `;
         
         // Fetch quizzes
-        const response = await fetch(`/api/quiz/category/${categoryId}/quizzes?lesson_id=1`, {
+        const response = await fetch(`/api/quiz/category/${categoryId}/quizzes?lesson_id=3`, {
             headers: {
                 'Authorization': `Bearer ${token}`,
                 'Content-Type': 'application/json'
@@ -13523,10 +13523,10 @@ async function fetchAccuracyRate() {
 }
 
 // ============================================
-// 🔍 DEBUG: Check only lesson_id=1 data
+// 🔍 DEBUG: Check only lesson_id=3 data
 // ============================================
 window.debugfactorialData = async function() {
-    console.log('🔍 DEBUGGING lesson_id=1 (factorial) DATA ONLY');
+    console.log('🔍 DEBUGGING lesson_id=3 (factorial) DATA ONLY');
     console.log('================================================');
     
     const token = localStorage.getItem('authToken');
@@ -13536,7 +13536,7 @@ window.debugfactorialData = async function() {
         return;
     }
     
-    // Force lesson_id=1
+    // Force lesson_id=3
     const LESSON_ID = 3;
     
     console.log(`\n📚 FETCHING DATA FOR LESSON_ID = ${LESSON_ID}...\n`);
@@ -13622,7 +13622,7 @@ window.debugfactorialData = async function() {
         console.error('Progress fetch error:', e);
     }
     
-    console.log('\n✅ Debug complete for lesson_id=1');
+    console.log('\n✅ Debug complete for lesson_id=3');
 };
 
 // Run it immediately
@@ -19461,11 +19461,11 @@ window.debugLessonId3 = async function() {
     // 1. Check lesson data
     console.log('\n📚 CHECKING LESSON DATA:');
     try {
-        const lessonRes = await fetch('/api/lessons-db/complete?lesson_id=1', {
+        const lessonRes = await fetch('/api/lessons-db/complete?lesson_id=3', {
             headers: { 'Authorization': `Bearer ${token}` }
         });
         const lessonData = await lessonRes.json();
-        console.log('Lessons for lesson_id=1:', lessonData);
+        console.log('Lessons for lesson_id=3:', lessonData);
     } catch (e) {
         console.error('Lesson fetch error:', e);
     }
@@ -19473,7 +19473,7 @@ window.debugLessonId3 = async function() {
     // 2. Check practice exercises
     console.log('\n💪 CHECKING PRACTICE EXERCISES:');
     try {
-        const practiceRes = await fetch('/api/practice/exercises/count?lesson_id=1', {
+        const practiceRes = await fetch('/api/practice/exercises/count?lesson_id=3', {
             headers: { 'Authorization': `Bearer ${token}` }
         });
         const practiceData = await practiceRes.json();
@@ -19485,11 +19485,11 @@ window.debugLessonId3 = async function() {
     // 3. Check user progress
     console.log('\n📊 CHECKING USER PROGRESS:');
     try {
-        const progressRes = await fetch('/api/progress/lessons?lesson_id=1', {
+        const progressRes = await fetch('/api/progress/lessons?lesson_id=3', {
             headers: { 'Authorization': `Bearer ${token}` }
         });
         const progressData = await progressRes.json();
-        console.log('User progress for lesson_id=1:', progressData);
+        console.log('User progress for lesson_id=3:', progressData);
     } catch (e) {
         console.error('Progress fetch error:', e);
     }
@@ -19497,11 +19497,11 @@ window.debugLessonId3 = async function() {
     // 4. Check quizzes
     console.log('\n🧠 CHECKING QUIZZES:');
     try {
-        const quizRes = await fetch('/api/quiz/categories?lesson_id=1', {
+        const quizRes = await fetch('/api/quiz/categories?lesson_id=3', {
             headers: { 'Authorization': `Bearer ${token}` }
         });
         const quizData = await quizRes.json();
-        console.log('Quiz categories for lesson_id=1:', quizData);
+        console.log('Quiz categories for lesson_id=3:', quizData);
     } catch (e) {
         console.error('Quiz fetch error:', e);
     }
@@ -20428,7 +20428,7 @@ async function loadPracticeExercises() {
 // ✅ FIXED: Initialize practice page - ONLY LESSON_ID = 3
 // ============================================
 async function initPracticePage() {
-    console.log('💪 Initializing practice page with strict lesson_id=1 filtering...');
+    console.log('💪 Initializing practice page with strict lesson_id=3 filtering...');
     
     // Update date
     const practiceDate = document.getElementById('practiceDate');
@@ -20457,10 +20457,10 @@ async function initPracticePage() {
     // ✅ I-LOAD AGAD ANG PRACTICE STATISTICS MULA DATABASE
     await loadPracticeStatistics();
     
-    // Load topics progress (will be filtered by lesson_id=1)
+    // Load topics progress (will be filtered by lesson_id=3)
     await loadTopicsProgress();
     
-    // Load practice exercises for current topic (with lesson_id=1 filter)
+    // Load practice exercises for current topic (with lesson_id=3 filter)
     console.log(`🎯 Loading exercises for topic: ${PracticeState.currentTopic}`);
     await loadPracticeExercisesForTopic(PracticeState.currentTopic);
     
@@ -20575,7 +20575,7 @@ async function loadTopicsProgress() {
         if (data.success && data.topics) {
             console.log(`✅ Received ${data.topics.length} topics from server`);
             
-            // ✅ STRICT FILTER - lesson_id=1 LANG
+            // ✅ STRICT FILTER - lesson_id=3 LANG
             const filteredTopics = data.topics.filter(topic => {
                 const topicLessonId = topic.lesson_id || topic.lessonId;
                 return topicLessonId == FACTORIAL_LESSON_ID;
@@ -20896,7 +20896,7 @@ async function loadPracticeExercisesForTopic(topicId) {
             </div>
         `;
         
-        // ✅ Force lesson_id=1 in API call
+        // ✅ Force lesson_id=3 in API call
         let endpoint = `/api/practice/topic/${topicId}?lesson_id=${currentLessonId}`;
         console.log(`📡 Fetching from: ${endpoint}`);
         
@@ -20914,7 +20914,7 @@ async function loadPracticeExercisesForTopic(topicId) {
         console.log('📥 Practice data received:', data);
         
         if (data.success && data.exercises) {
-            // ✅ STRICT FILTERING - lesson_id=1 lang
+            // ✅ STRICT FILTERING - lesson_id=3 lang
             const filteredExercises = data.exercises.filter(ex => {
                 const exerciseLessonId = ex.lesson_id || ex.lessonId;
                 return exerciseLessonId == FACTORIAL_LESSON_ID;
@@ -23778,7 +23778,7 @@ function initApp() {
             AppState.hasSelectedApp = true;
             
             console.log(`👤 User: ${AppState.currentUser.username}`);
-            console.log(`📱 Selected app: FactoLearn (lesson_id=1)`);
+            console.log(`📱 Selected app: FactoLearn (lesson_id=3)`);
             
             // Setup listeners
             initHamburgerMenu();
@@ -23833,14 +23833,14 @@ function initApp() {
         loadFactoLearnData();
     }, 500);
     
-    console.log('🎮 FactoLearn Application Initialized - lesson_id=1 forced');
+    console.log('🎮 FactoLearn Application Initialized - lesson_id=3 forced');
 }
 
 // ============================================
 // NEW: Load all FactoLearn data
 // ============================================
 async function loadFactoLearnData() {
-    console.log('📥 Loading ALL FactoLearn data (lesson_id=1)...');
+    console.log('📥 Loading ALL FactoLearn data (lesson_id=3)...');
     
     try {
         // Show loading
@@ -24561,10 +24561,10 @@ window.checkDatabase = async function() {
     }
     
     const endpoints = [
-        { name: 'Lessons', url: '/api/lessons-db/complete?lesson_id=1' },
-        { name: 'Practice Exercises', url: '/api/practice/exercises/count?lesson_id=1' },
-        { name: 'User Progress', url: '/api/progress/lessons?lesson_id=1' },
-        { name: 'Quiz Categories', url: '/api/quiz/categories?lesson_id=1' }
+        { name: 'Lessons', url: '/api/lessons-db/complete?lesson_id=3' },
+        { name: 'Practice Exercises', url: '/api/practice/exercises/count?lesson_id=3' },
+        { name: 'User Progress', url: '/api/progress/lessons?lesson_id=3' },
+        { name: 'Quiz Categories', url: '/api/quiz/categories?lesson_id=3' }
     ];
     
     for (const ep of endpoints) {
