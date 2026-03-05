@@ -16887,7 +16887,7 @@ function updateNavigationButtons(adjacent) {
             prevLessonBtn.innerHTML = `<i class="fas fa-arrow-left"></i> Previous: ${adjacent.previous.title}`;
         } else {
             prevLessonBtn.disabled = true;
-            prevLessonBtn.innerHTML = `<i class="fas fa-arrow-left"></i> No Previous Lesson`;
+            prevLessonBtn.innerHTML = `<i class="fas fa-arrow-left"></i> Previous`;
         }
     }
     
@@ -16897,7 +16897,7 @@ function updateNavigationButtons(adjacent) {
             nextLessonBtn.innerHTML = `Next: ${adjacent.next.title} <i class="fas fa-arrow-right"></i>`;
         } else {
             nextLessonBtn.disabled = true;
-            nextLessonBtn.innerHTML = `No Next Lesson <i class="fas fa-arrow-right"></i>`;
+            nextLessonBtn.innerHTML = `Next <i class="fas fa-arrow-right"></i>`;
         }
     }
 }
@@ -17272,9 +17272,6 @@ function convertMarkdownToHTML(text) {
             <div class="lesson-interactive">
                 <button class="btn-secondary" id="showMoreExamples">
                     <i class="fas fa-plus-circle"></i> Show More Examples
-                </button>
-                <button class="btn-secondary" id="practiceProblems">
-                    <i class="fas fa-pencil-alt"></i> Practice Problems
                 </button>
                 <button class="btn-secondary" id="downloadNotes">
                     <i class="fas fa-download"></i> Download Notes
@@ -18509,8 +18506,8 @@ function setupNavigationButtons() {
             console.log('✅ Previous button enabled');
         } else {
             newPrevBtn.disabled = true;
-            newPrevBtn.innerHTML = `<i class="fas fa-arrow-left"></i> No Previous Lesson`;
-            console.log('ℹ️ No previous lesson available');
+            newPrevBtn.innerHTML = `<i class="fas fa-arrow-left"></i> Previous`;
+            console.log('ℹ️previous');
         }
     }
     
@@ -18539,8 +18536,8 @@ function setupNavigationButtons() {
             console.log('✅ Next button enabled');
         } else {
             newNextBtn.disabled = true;
-            newNextBtn.innerHTML = `No Next Lesson <i class="fas fa-arrow-right"></i>`;
-            console.log('ℹ️ No next lesson available');
+            newNextBtn.innerHTML = `Next<i class="fas fa-arrow-right"></i>`;
+            console.log('ℹ️next');
         }
     }
     
