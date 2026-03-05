@@ -608,7 +608,7 @@ class Calculator {
             const token = localStorage.getItem('authToken') || authToken;
             if (!token) return;
 
-            await fetch(`/calculator/save`, {
+            await fetch(`/api/calculator/save`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
