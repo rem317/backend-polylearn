@@ -50,14 +50,14 @@ const APP_LESSON_MAP = {
 };
 
 // ============================================
-// FACTORIAL CONSTANTS - FORCE LESSON_ID = 3
+// FACTORIAL CONSTANTS - FORCE LESSON_ID = 1
 // ============================================
 const FACTORIAL_LESSON_ID = 3; // Fixed for Factorial app
 const POLYLEARN_LESSON_ID = 2; // ← IDAGDAG ITO
 const MATHEASE_LESSON_ID = 1;  // ← IDAGDAG ITO
 
 // Para madaling gamitin
-const CURRENT_LESSON_ID = 3; // Factorial only
+const CURRENT_LESSON_ID = 1; // Factorial only
 const CURRENT_APP_NAME = 'FactoPermCombi';
 
 function getCurrentApp() {
@@ -91,7 +91,7 @@ function getAppFilterParam() {
 
 function addAppFilterToUrl(url) {
     const separator = url.includes('?') ? '&' : '?';
-    // FORCE FACTORIAL: Laging lesson_id=3
+    // FORCE FACTORIAL: Laging lesson_id=1
     return `${url}${separator}lesson_id=${FACTORIAL_LESSON_ID}`;
 }
 
@@ -2140,7 +2140,7 @@ async function apiRequest(endpoint, options = {}) {
                     success: true, 
                     data: text, 
                     isHtml: true,
-                    lesson_id: 3 
+                    lesson_id: 1
                 };
             }
             
@@ -2149,7 +2149,7 @@ async function apiRequest(endpoint, options = {}) {
                 success: false, 
                 error: `API returned ${response.status}`,
                 status: response.status,
-                lesson_id: 3
+                lesson_id: 1
             };
         }
         
@@ -2182,18 +2182,18 @@ async function apiRequest(endpoint, options = {}) {
                     success: true, 
                     data: text, 
                     isHtml: true,
-                    lesson_id: 3 
+                    lesson_id: 1
                 };
             }
             
-            return { success: true, data: text, lesson_id: 3 };
+            return { success: true, data: text, lesson_id: 1 };
         }
         
         const jsonResponse = await response.json();
         
         // Add lesson_id to response for debugging
         if (typeof jsonResponse === 'object') {
-            jsonResponse._lesson_id = 3;
+            jsonResponse._lesson_id = 1;
         }
         
         return jsonResponse;
@@ -2231,7 +2231,7 @@ async function apiRequest(endpoint, options = {}) {
         return { 
             success: false, 
             error: error.message,
-            lesson_id: 3 
+            lesson_id: 1
         };
     }
 }
@@ -2245,7 +2245,7 @@ function getFactoLearnMockLessons() {
             content_id: 1,
             content_title: 'Introduction to Factorials',
             content_description: 'Learn the basics of factorial notation and calculations',
-            lesson_id: 3,
+            lesson_id: 1,
             topic_id: 1,
             video_filename: 'factorial_intro.mp4',
             video_duration_seconds: 600,
@@ -2255,7 +2255,7 @@ function getFactoLearnMockLessons() {
             content_id: 2,
             content_title: 'Factorial Operations',
             content_description: 'Perform operations with factorial expressions',
-            lesson_id: 3,
+            lesson_id: 1,
             topic_id: 1,
             video_filename: 'factorial_operations.mp4',
             video_duration_seconds: 720,
@@ -2265,11 +2265,11 @@ function getFactoLearnMockLessons() {
             content_id: 3,
             content_title: 'Factorial Applications',
             content_description: 'Apply factorials in permutations and combinations',
-            lesson_id: 3,
+            lesson_id: 1,
             topic_id: 2,
             video_filename: 'factorial_applications.mp4',
             video_duration_seconds: 840,
-            content_order: 3
+            content_order: 1
         }
     ];
 }
@@ -2283,21 +2283,21 @@ function getFactoLearnMockCategories() {
             category_id: 1,
             category_name: 'Factorial Basics',
             description: 'Test your understanding of factorial fundamentals',
-            lesson_id: 3,
-            quiz_count: 3
+            lesson_id: 1,
+            quiz_count: 1
         },
         {
             category_id: 2,
             category_name: 'Factorial Operations',
             description: 'Practice factorial calculations and simplifications',
-            lesson_id: 3,
+            lesson_id: 1,
             quiz_count: 2
         },
         {
-            category_id: 3,
+            category_id: 1,
             category_name: 'Factorial Applications',
             description: 'Apply factorials in real-world scenarios',
-            lesson_id: 3,
+            lesson_id: 1,
             quiz_count: 2
         }
     ];
@@ -4458,7 +4458,7 @@ async function fetchDailyProgress() {
         }
         
         // ✅ FORCE LESSON_ID = 3
-        const FACTORIAL_LESSON_ID = 3;
+        const FACTORIAL_LESSON_ID = 1;
         
         // ✅ GUMAMIT NG FETCH API, HINDI PROMISEPOOL
         const response = await fetch(`/api/progress/daily?lesson_id=${FACTORIAL_LESSON_ID}`, {
@@ -5322,14 +5322,14 @@ async function updateTopicMastery(topicId, masteryData) {
             
             // Add lesson_id=3 to the URL
             const separator = url.includes('?') ? '&' : '?';
-            url = `${url}${separator}lesson_id=3`;
+            url = `${url}${separator}lesson_id=1`;
             console.log(`🔧 Forced lesson_id=3: ${url.split('?')[0]}`);
         }
         return originalFetch.call(this, url, options);
     };
     
     // Override the constants
-    window.FACTORIAL_LESSON_ID = 3;
+    window.FACTORIAL_LESSON_ID = 1;
     
     // Override getCurrentAppLessonId
     window.getCurrentAppLessonId = function() {
@@ -7188,11 +7188,11 @@ function updateProgressDashboardUI() {
 }
 
 // ============================================
-// 📊 PROGRESS SUMMARY FUNCTIONS - FACTOREADY (LESSON_ID=3)
+// 📊 PROGRESS SUMMARY FUNCTIONS - FACTOREADY (LESSON_ID=1)
 // ============================================
 
 async function updateProgressSummaryCards() {
-    console.log('📊 Updating FactoLearn progress summary cards (lesson_id = 3)...');
+    console.log('📊 Updating FactoLearn progress summary cards (lesson_id = 1)...');
     
     try {
         const token = localStorage.getItem('authToken') || authToken;
@@ -7202,7 +7202,7 @@ async function updateProgressSummaryCards() {
             return;
         }
         
-        const FACTOLEARN_LESSON_ID = 3; // FIXED to 3
+        const FACTOLEARN_LESSON_ID = 1; // FIXED to 3
         
         // ===== 1. GET LESSONS =====
         let lessonsCompleted = 0;
@@ -7410,7 +7410,7 @@ const ProgressCache = {
     TTL: 30000 // 30 seconds cache
 };
 async function loadProgressSummary() {
-    console.log('📊 Loading REAL progress data (lesson_id=3) - 1 sec max...');
+    console.log('📊 Loading REAL progress data (lesson_id=1) - 1 sec max...');
     
     const elements = {
         lessons: document.getElementById('lessonsCount'),
@@ -7475,7 +7475,7 @@ async function fetchAllProgressDataParallel(signal) {
     const token = localStorage.getItem('authToken');
     if (!token) return null;
     
-    const LESSON_ID = 3; // Fixed for FactoLearn
+    const LESSON_ID = 1; // Fixed for FactoLearn
     
     // Create all fetch promises
     const promises = {
@@ -7568,7 +7568,7 @@ function cacheProgressData(data) {
         const cacheEntry = {
             data: data,
             timestamp: Date.now(),
-            lesson_id: 3
+            lesson_id: 1
         };
         localStorage.setItem('factolearn_progress', JSON.stringify(cacheEntry));
         ProgressCache.data = data;
@@ -7595,7 +7595,7 @@ function getCachedProgress() {
             const age = Date.now() - timestamp;
             
             // Only use if less than 30 seconds old AND correct lesson
-            if (age < 30000 && lesson_id === 3) {
+            if (age < 30000 && lesson_id === 1) {
                 // Update memory cache
                 ProgressCache.data = data;
                 ProgressCache.timestamp = timestamp;
@@ -7613,7 +7613,7 @@ function getStaleCache() {
         if (cached) {
             const { data, lesson_id } = JSON.parse(cached);
             // Use any cache if lesson_id is correct
-            if (lesson_id === 3) {
+            if (lesson_id === 1) {
                 return data;
             }
         }
@@ -9431,7 +9431,7 @@ function initializeTimeTracker() {
 
 
 // ============================================
-// ✅ FIXED: fetchPracticeStatistics - ONLY LESSON_ID = 3
+// ✅ FIXED: fetchPracticeStatistics - ONLY LESSON_ID = 1
 // ============================================
 async function fetchPracticeStatistics() {
     try {
@@ -9441,22 +9441,22 @@ async function fetchPracticeStatistics() {
             return null;
         }
         
-        // ✅ FORCE LESSON_ID = 3 FOR FACTORIAL
+        // ✅ FORCE LESSON_ID = 1 FOR FACTORIAL
         console.log(`📊 Fetching FactoLearn practice statistics DIRECTLY FROM DATABASE (lesson_id=${FACTORIAL_LESSON_ID})...`);
         
         // ===== GET ALL PRACTICE STATS FROM DATABASE IN PARALLEL =====
         const [lessonsData, attemptsData, totalExercisesData] = await Promise.allSettled([
-            // Get lessons progress (lesson_id=3)
+            // Get lessons progress (lesson_id=1)
             fetch(`/api/progress/lessons?lesson_id=${FACTORIAL_LESSON_ID}`, {
                 headers: { 'Authorization': `Bearer ${token}` }
             }).then(res => res.json()).catch(err => ({ success: false, error: err })),
             
-            // Get practice attempts (lesson_id=3)
+            // Get practice attempts (lesson_id=1)
              fetch(`/api/progress/practice-attempts?lesson_id=${FACTORIAL_LESSON_ID}`, {
                 headers: { 'Authorization': `Bearer ${token}` }
             }).then(res => res.json()).catch(err => ({ success: false, error: err })),
             
-            // Get total exercises count (lesson_id=3)
+            // Get total exercises count (lesson_id=1)
             fetch(`/api/practice/exercises/count?lesson_id=${FACTORIAL_LESSON_ID}`, {
                 headers: { 'Authorization': `Bearer ${token}` }
             }).then(res => res.json()).catch(err => ({ success: false, error: err }))
@@ -11977,7 +11977,7 @@ async function loadQuizCategories() {
             return [];
         }
         
-        const POLYLEARN_LESSON_ID = 3;
+        const POLYLEARN_LESSON_ID = 1;
         
         // Show loading state
         const quizzesContainer = document.getElementById('userQuizzesContainer');
@@ -12229,7 +12229,7 @@ function displayQuizCategories(categories, isHardcoded = false) {
     // STRICT FILTER - lesson_id=2 LANG
     const polyLearnCategories = categories.filter(cat => {
         const catLessonId = cat.lesson_id || cat.lessonId;
-        return catLessonId == 3;
+        return catLessonId == 1;
     });
     
     console.log('🎯 After strict filtering:', polyLearnCategories.length, 'categories');
@@ -12440,7 +12440,7 @@ async function loadQuizzesForCategory(categoryId) {
         `;
         
         // Fetch quizzes
-        const response = await fetch(`/api/quiz/category/${categoryId}/quizzes?lesson_id=3`, {
+        const response = await fetch(`/api/quiz/category/${categoryId}/quizzes?lesson_id=1`, {
             headers: {
                 'Authorization': `Bearer ${token}`,
                 'Content-Type': 'application/json'
@@ -13340,15 +13340,15 @@ async function loadUserBadges() {
 
 
 // ============================================
-// ✅ FIXED: Fetch accuracy rate - FORCED LESSON_ID = 3
+// ✅ FIXED: Fetch accuracy rate - FORCED LESSON_ID = 1
 // ============================================
 async function fetchAccuracyRate() {
     try {
         const token = localStorage.getItem('authToken') || authToken;
         if (!token) return null;
         
-        // ✅ FORCE LESSON_ID = 3
-        const FACTORIAL_LESSON_ID = 3;
+        // ✅ FORCE LESSON_ID = 1
+        const FACTORIAL_LESSON_ID = 1;
         
         console.log(`📊 Fetching Factorial accuracy rate...`);
         
@@ -13375,10 +13375,10 @@ async function fetchAccuracyRate() {
 }
 
 // ============================================
-// 🔍 DEBUG: Check only lesson_id=3 data
+// 🔍 DEBUG: Check only lesson_id=1 data
 // ============================================
 window.debugFactorialData = async function() {
-    console.log('🔍 DEBUGGING LESSON_ID=3 (FACTORIAL) DATA ONLY');
+    console.log('🔍 DEBUGGING LESSON_ID=1 (FACTORIAL) DATA ONLY');
     console.log('================================================');
     
     const token = localStorage.getItem('authToken');
@@ -13388,8 +13388,8 @@ window.debugFactorialData = async function() {
         return;
     }
     
-    // Force lesson_id=3
-    const LESSON_ID = 3;
+    // Force lesson_id=1
+    const LESSON_ID = 1;
     
     console.log(`\n📚 FETCHING DATA FOR LESSON_ID = ${LESSON_ID}...\n`);
     
@@ -13474,7 +13474,7 @@ window.debugFactorialData = async function() {
         console.error('Progress fetch error:', e);
     }
     
-    console.log('\n✅ Debug complete for lesson_id=3');
+    console.log('\n✅ Debug complete for lesson_id=1');
 };
 
 // Run it immediately
@@ -17443,7 +17443,7 @@ function addFeedbackStyles() {
 }
 
 // ============================================
-// ✅ FIXED: Fetch all lessons - ONLY LESSON_ID = 3
+// ✅ FIXED: Fetch all lessons - ONLY LESSON_ID = 1
 // ============================================
 async function fetchAllLessons() {
     try {
@@ -17453,7 +17453,7 @@ async function fetchAllLessons() {
             return [];
         }
         
-        // FORCE LESSON_ID = 3 ONLY
+        // FORCE LESSON_ID = 1 ONLY
         const currentLessonId = FACTORIAL_LESSON_ID; // Always 3
         
         console.log(`📚 Fetching lessons for FactoLearn ONLY, lesson ID: ${currentLessonId}`);
@@ -19304,7 +19304,7 @@ async function loadVideoFromDatabase(contentId = null) {
 
 // Add this at the end of your script.js file
 window.debugLessonId3 = async function() {
-    console.log('🔍 DEBUGGING LESSON ID 3 (Factorial)');
+    console.log('🔍 DEBUGGING LESSON ID 1 (Factorial)');
     console.log('=====================================');
     
     const token = localStorage.getItem('authToken');
@@ -19317,11 +19317,11 @@ window.debugLessonId3 = async function() {
     // 1. Check lesson data
     console.log('\n📚 CHECKING LESSON DATA:');
     try {
-        const lessonRes = await fetch('/api/lessons-db/complete?lesson_id=3', {
+        const lessonRes = await fetch('/api/lessons-db/complete?lesson_id=1', {
             headers: { 'Authorization': `Bearer ${token}` }
         });
         const lessonData = await lessonRes.json();
-        console.log('Lessons for lesson_id=3:', lessonData);
+        console.log('Lessons for lesson_id=1:', lessonData);
     } catch (e) {
         console.error('Lesson fetch error:', e);
     }
@@ -19329,7 +19329,7 @@ window.debugLessonId3 = async function() {
     // 2. Check practice exercises
     console.log('\n💪 CHECKING PRACTICE EXERCISES:');
     try {
-        const practiceRes = await fetch('/api/practice/exercises/count?lesson_id=3', {
+        const practiceRes = await fetch('/api/practice/exercises/count?lesson_id=1', {
             headers: { 'Authorization': `Bearer ${token}` }
         });
         const practiceData = await practiceRes.json();
@@ -19341,11 +19341,11 @@ window.debugLessonId3 = async function() {
     // 3. Check user progress
     console.log('\n📊 CHECKING USER PROGRESS:');
     try {
-        const progressRes = await fetch('/api/progress/lessons?lesson_id=3', {
+        const progressRes = await fetch('/api/progress/lessons?lesson_id=1', {
             headers: { 'Authorization': `Bearer ${token}` }
         });
         const progressData = await progressRes.json();
-        console.log('User progress for lesson_id=3:', progressData);
+        console.log('User progress for lesson_id=1:', progressData);
     } catch (e) {
         console.error('Progress fetch error:', e);
     }
@@ -19353,11 +19353,11 @@ window.debugLessonId3 = async function() {
     // 4. Check quizzes
     console.log('\n🧠 CHECKING QUIZZES:');
     try {
-        const quizRes = await fetch('/api/quiz/categories?lesson_id=3', {
+        const quizRes = await fetch('/api/quiz/categories?lesson_id=1', {
             headers: { 'Authorization': `Bearer ${token}` }
         });
         const quizData = await quizRes.json();
-        console.log('Quiz categories for lesson_id=3:', quizData);
+        console.log('Quiz categories for lesson_id=1:', quizData);
     } catch (e) {
         console.error('Quiz fetch error:', e);
     }
@@ -20281,10 +20281,10 @@ async function loadPracticeExercises() {
     }
 }
 // ============================================
-// ✅ FIXED: Initialize practice page - ONLY LESSON_ID = 3
+// ✅ FIXED: Initialize practice page - ONLY LESSON_ID = 1
 // ============================================
 async function initPracticePage() {
-    console.log('💪 Initializing practice page with strict lesson_id=3 filtering...');
+    console.log('💪 Initializing practice page with strict lesson_id=1 filtering...');
     
     // Update date
     const practiceDate = document.getElementById('practiceDate');
@@ -20297,7 +20297,7 @@ async function initPracticePage() {
         });
     }
     
-    // ✅ Force lesson_id = 3 for FactoLearn
+    // ✅ Force lesson_id = 1 for FactoLearn
     const currentLessonId = FACTORIAL_LESSON_ID; // Always 3
     
     console.log(`🎯 Practice page will ONLY show content with lesson_id = ${currentLessonId} (FactoLearn)`);
@@ -20313,10 +20313,10 @@ async function initPracticePage() {
     // ✅ I-LOAD AGAD ANG PRACTICE STATISTICS MULA DATABASE
     await loadPracticeStatistics();
     
-    // Load topics progress (will be filtered by lesson_id=3)
+    // Load topics progress (will be filtered by lesson_id=1)
     await loadTopicsProgress();
     
-    // Load practice exercises for current topic (with lesson_id=3 filter)
+    // Load practice exercises for current topic (with lesson_id=1 filter)
     console.log(`🎯 Loading exercises for topic: ${PracticeState.currentTopic}`);
     await loadPracticeExercisesForTopic(PracticeState.currentTopic);
     
@@ -20382,7 +20382,7 @@ window.checkPracticeRecords = async function() {
 };
 
 // ============================================
-// ✅ FIXED: loadTopicsProgress - ONLY LESSON_ID = 3
+// ✅ FIXED: loadTopicsProgress - ONLY LESSON_ID = 1
 // ============================================
 async function loadTopicsProgress() {
     try {
@@ -20431,7 +20431,7 @@ async function loadTopicsProgress() {
         if (data.success && data.topics) {
             console.log(`✅ Received ${data.topics.length} topics from server`);
             
-            // ✅ STRICT FILTER - lesson_id=3 LANG
+            // ✅ STRICT FILTER - lesson_id=1 LANG
             const filteredTopics = data.topics.filter(topic => {
                 const topicLessonId = topic.lesson_id || topic.lessonId;
                 return topicLessonId == FACTORIAL_LESSON_ID;
@@ -20730,13 +20730,13 @@ async function selectTopicForPractice(topicId) {
 
 
 // ============================================
-// ✅ FIXED: Load practice exercises - ONLY LESSON_ID = 3
+// ✅ FIXED: Load practice exercises - ONLY LESSON_ID = 1
 // ============================================
 async function loadPracticeExercisesForTopic(topicId) {
     try {
         console.log(`📝 Getting practice exercises for topic ${topicId}`);
         
-        // FORCE LESSON_ID = 3
+        // FORCE LESSON_ID = 1
         const currentLessonId = FACTORIAL_LESSON_ID; // Always 3
         
         console.log(`🎯 Loading exercises for FactoLearn, lesson_id: ${currentLessonId}`);
@@ -20752,7 +20752,7 @@ async function loadPracticeExercisesForTopic(topicId) {
             </div>
         `;
         
-        // ✅ Force lesson_id=3 in API call
+        // ✅ Force lesson_id=1 in API call
         let endpoint = `/api/practice/topic/${topicId}?lesson_id=${currentLessonId}`;
         console.log(`📡 Fetching from: ${endpoint}`);
         
@@ -20770,7 +20770,7 @@ async function loadPracticeExercisesForTopic(topicId) {
         console.log('📥 Practice data received:', data);
         
         if (data.success && data.exercises) {
-            // ✅ STRICT FILTERING - lesson_id=3 lang
+            // ✅ STRICT FILTERING - lesson_id=1 lang
             const filteredExercises = data.exercises.filter(ex => {
                 const exerciseLessonId = ex.lesson_id || ex.lessonId;
                 return exerciseLessonId == FACTORIAL_LESSON_ID;
@@ -23613,7 +23613,7 @@ function initApp() {
     console.log('🎮 FactoLearn Application Initializing...');
     
     // ✅ Set FactoLearn constants
-    window.FACTORIAL_LESSON_ID = 3;
+    window.FACTORIAL_LESSON_ID = 1;
     window.CURRENT_APP_NAME = 'FactoLearn';
     
     // ✅ Set localStorage para sure
@@ -23634,7 +23634,7 @@ function initApp() {
             AppState.hasSelectedApp = true;
             
             console.log(`👤 User: ${AppState.currentUser.username}`);
-            console.log(`📱 Selected app: FactoLearn (lesson_id=3)`);
+            console.log(`📱 Selected app: FactoLearn (lesson_id=1)`);
             
             // Setup listeners
             initHamburgerMenu();
@@ -23689,14 +23689,14 @@ function initApp() {
         loadFactoLearnData();
     }, 500);
     
-    console.log('🎮 FactoLearn Application Initialized - lesson_id=3 forced');
+    console.log('🎮 FactoLearn Application Initialized - lesson_id=1 forced');
 }
 
 // ============================================
 // NEW: Load all FactoLearn data
 // ============================================
 async function loadFactoLearnData() {
-    console.log('📥 Loading ALL FactoLearn data (lesson_id=3)...');
+    console.log('📥 Loading ALL FactoLearn data (lesson_id=1)...');
     
     try {
         // Show loading
@@ -24417,10 +24417,10 @@ window.checkDatabase = async function() {
     }
     
     const endpoints = [
-        { name: 'Lessons', url: '/api/lessons-db/complete?lesson_id=3' },
-        { name: 'Practice Exercises', url: '/api/practice/exercises/count?lesson_id=3' },
-        { name: 'User Progress', url: '/api/progress/lessons?lesson_id=3' },
-        { name: 'Quiz Categories', url: '/api/quiz/categories?lesson_id=3' }
+        { name: 'Lessons', url: '/api/lessons-db/complete?lesson_id=1' },
+        { name: 'Practice Exercises', url: '/api/practice/exercises/count?lesson_id=1' },
+        { name: 'User Progress', url: '/api/progress/lessons?lesson_id=1' },
+        { name: 'Quiz Categories', url: '/api/quiz/categories?lesson_id=1' }
     ];
     
     for (const ep of endpoints) {
