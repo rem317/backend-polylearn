@@ -25836,6 +25836,79 @@ document.addEventListener('DOMContentLoaded', function() {
         observer.observe(settingsPage, { attributes: true });
     }
 });
+
+// ============================================
+// 🚨 ULTIMATE FIX - showSection with proper targeting
+// ============================================
+
+function showSection(sectionId) {
+    console.log(`🎯 showSection called with: ${sectionId}`);
+    
+    // Get ALL elements with class 'settings-section'
+    const sections = document.querySelectorAll('.settings-section');
+    console.log(`Found ${sections.length} settings sections`);
+    
+    if (sections.length === 0) {
+        console.error('❌ No settings sections found!');
+        return;
+    }
+    
+    // Log current state before change
+    console.log('Current state:');
+    sections.forEach(s => {
+        console.log(`- ${s.id}: display=${window.getComputedStyle(s).display}, active=${s.classList.contains('active')}`);
+    });
+    
+    // Hide ALL settings sections
+    sections.forEach(section => {
+        section.classList.remove('active');
+        section.style.display = 'none';
+        console.log(`✅ Hidden: ${section.id}`);
+    });
+    
+    // Show selected section
+    const targetSection = document.getElementById(sectionId);
+    if (targetSection) {
+        targetSection.classList.add('active');
+        targetSection.style.display = 'block';
+        console.log(`✅ Showing: ${sectionId}`);
+        
+        // Log after change
+        console.log('After change:');
+        sections.forEach(s => {
+            console.log(`- ${s.id}: display=${window.getComputedStyle(s).display}, active=${s.classList.contains('active')}`);
+        });
+    } else {
+        console.error(`❌ Section "${sectionId}" not found!`);
+        
+        // Try to find by any means
+        const possibleSection = Array.from(sections).find(s => 
+            s.id.toLowerCase() === sectionId.toLowerCase()
+        );
+        
+        if (possibleSection) {
+            console.log(`✅ Found with different case: ${possibleSection.id}`);
+            possibleSection.classList.add('active');
+            possibleSection.style.display = 'block';
+        }
+    }
+    
+    // Update active state sa sidebar menu
+    const menuLinks = document.querySelectorAll('.sidebar-menu a');
+    menuLinks.forEach(link => {
+        link.classList.remove('active');
+        const href = link.getAttribute('href');
+        if (href === `#${sectionId}`) {
+            link.classList.add('active');
+        }
+    });
+}
+
+// Alias for compatibility
+window.showSettingsSection = showSection;
+window.showSection = showSection;
+
+console.log('✅ showSection function updated with proper targeting');
 // ============================================
 // ATTACH SETTINGS FUNCTIONS TO WINDOW OBJECT
 // ============================================
