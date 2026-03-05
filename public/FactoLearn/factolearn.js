@@ -7205,66 +7205,105 @@ async function loadProgressSummary() {
 }
 
 // ============================================
-// 🧭 NAVIGATION FUNCTIONS FOR MENU
+// 🧭 NAVIGATION FUNCTIONS - FIXED VERSION
 // ============================================
-function showDashboard(e) {
-    if (e) e.preventDefault();
+
+// Show Dashboard
+window.showDashboard = function(e) {
+    if (e) {
+        e.preventDefault();
+        e.stopPropagation();
+    }
+    console.log('🏠 Navigating to Dashboard');
     closeMobileMenu();
     navigateTo('dashboard');
-}
+};
 
-function showPracticeDashboard(e) {
-    if (e) e.preventDefault();
+// Show Practice Dashboard
+window.showPracticeDashboard = function(e) {
+    if (e) {
+        e.preventDefault();
+        e.stopPropagation();
+    }
+    console.log('💪 Navigating to Practice');
     closeMobileMenu();
     navigateTo('practice');
-}
+};
 
-function showQuizDashboard(e) {
-    if (e) e.preventDefault();
+// Show Quiz Dashboard
+window.showQuizDashboard = function(e) {
+    if (e) {
+        e.preventDefault();
+        e.stopPropagation();
+    }
+    console.log('🧠 Navigating to Quiz');
     closeMobileMenu();
     navigateTo('quizDashboard');
-}
+};
 
-function showProgressPage(e) {
-    if (e) e.preventDefault();
+// Show Progress Page
+window.showProgressPage = function(e) {
+    if (e) {
+        e.preventDefault();
+        e.stopPropagation();
+    }
+    console.log('📊 Navigating to Progress');
     closeMobileMenu();
     navigateTo('progress');
-}
+};
 
-function showFeedbackPage(e) {
-    if (e) e.preventDefault();
+// Show Feedback Page
+window.showFeedbackPage = function(e) {
+    if (e) {
+        e.preventDefault();
+        e.stopPropagation();
+    }
+    console.log('💬 Navigating to Feedback');
     closeMobileMenu();
     navigateTo('feedback');
-}
+};
 
-function showSettingsPage(e) {
-    if (e) e.preventDefault();
+// Show Settings Page
+window.showSettingsPage = function(e) {
+    if (e) {
+        e.preventDefault();
+        e.stopPropagation();
+    }
+    console.log('⚙️ Navigating to Settings');
     closeMobileMenu();
     navigateTo('settings');
-}
+};
 
-function goToModuleDashboard(e) {
-    if (e) e.preventDefault();
+// Go to Module Dashboard (Lessons)
+window.goToModuleDashboard = function(e) {
+    if (e) {
+        e.preventDefault();
+        e.stopPropagation();
+    }
+    console.log('📚 Navigating to Lessons');
     closeMobileMenu();
-    navigateTo('moduleDashboard');
-}
+    
+    // If there's a continue learning lesson, open it
+    if (LessonState.continueLearningLesson) {
+        openLesson(LessonState.continueLearningLesson.content_id);
+    } else if (LessonState.lessons.length > 0) {
+        openLesson(LessonState.lessons[0].content_id);
+    } else {
+        navigateTo('moduleDashboard');
+    }
+};
 
+// Close mobile menu helper
 function closeMobileMenu() {
-    const menuOverlay = document.getElementById('mobileMenuOverlay');
-    const menuPanel = document.getElementById('mobileMenuPanel');
+    const overlay = document.getElementById('mobileMenuOverlay');
+    const panel = document.getElementById('mobileMenuPanel');
     
-    if (menuOverlay) {
-        menuOverlay.classList.remove('active');
-        menuOverlay.style.display = 'none';
-        menuOverlay.style.opacity = '0';
+    if (overlay) {
+        overlay.classList.remove('active');
     }
-    
-    if (menuPanel) {
-        menuPanel.classList.remove('active');
-        menuPanel.style.right = '-100%';
+    if (panel) {
+        panel.classList.remove('active');
     }
-    
-    document.body.classList.remove('modal-open');
     document.body.style.overflow = '';
 }
 
@@ -23164,42 +23203,71 @@ window.showDashboardManually = function() {
 };
 
 // ============================================
-// 🚨 FIX FOR NAVIGATE FUNCTION
+// 🧭 NAVIGATE TO PAGE - FIXED VERSION
 // ============================================
 window.navigateTo = function(page) {
     console.log(`🧭 Navigating to: ${page}`);
     
-    // Map page names to element IDs
-    const pageMap = {
-        'dashboard': 'dashboard-page',
-        'moduleDashboard': 'module-dashboard-page',
-        'practice': 'practice-exercises-page',
-        'quiz': 'quiz-dashboard-page',
-        'progress': 'progress-page',
-        'settings': 'settings-page',
-        'feedback': 'feedback-page'
+    // Define page elements - Tiyaking tama ang mga ID
+    const pages = {
+        'dashboard': document.getElementById('dashboard-page'),
+        'practice': document.getElementById('practice-exercises-page'),
+        'quizDashboard': document.getElementById('quiz-dashboard-page'),
+        'progress': document.getElementById('progress-page'),
+        'feedback': document.getElementById('feedback-page'),
+        'settings': document.getElementById('settings-page'),
+        'moduleDashboard': document.getElementById('module-dashboard-page'),
+        'appSelection': document.getElementById('app-selection-page'),
+        'login': document.getElementById('login-page'),
+        'signup': document.getElementById('signup-page'),
+        'loading': document.getElementById('loading-page'),
+        'landing': document.getElementById('landing-page')
     };
     
-    const targetId = pageMap[page];
-    if (!targetId) {
-        console.error(`❌ Unknown page: ${page}`);
+    // Check if page exists
+    if (!pages[page]) {
+        console.error(`❌ Page "${page}" not found!`);
         return;
     }
     
     // Hide all pages
-    document.querySelectorAll('[id$="-page"]').forEach(page => {
-        page.classList.add('hidden');
+    Object.values(pages).forEach(p => {
+        if (p) p.classList.add('hidden');
     });
     
     // Show target page
-    const targetPage = document.getElementById(targetId);
-    if (targetPage) {
-        targetPage.classList.remove('hidden');
+    pages[page].classList.remove('hidden');
+    
+    // Update current page in AppState
+    if (window.AppState) {
         AppState.currentPage = page;
-        console.log(`✅ Showing page: ${targetId}`);
-    } else {
-        console.error(`❌ Page not found: ${targetId}`);
     }
+    
+    // Scroll to top
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+    
+    console.log(`✅ Navigated to ${page}`);
+    
+    // Initialize page-specific content
+    setTimeout(() => {
+        switch(page) {
+            case 'practice':
+                if (typeof initPracticePage === 'function') initPracticePage();
+                break;
+            case 'quizDashboard':
+                if (typeof initQuizDashboard === 'function') initQuizDashboard();
+                break;
+            case 'progress':
+                if (typeof initProgressDashboard === 'function') initProgressDashboard();
+                break;
+            case 'feedback':
+                if (typeof initFeedbackDashboard === 'function') initFeedbackDashboard();
+                break;
+            case 'settings':
+                if (typeof initSettingsDashboard === 'function') initSettingsDashboard();
+                break;
+        }
+    }, 100);
 };
 
 // ============================================
