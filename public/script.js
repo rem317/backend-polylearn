@@ -14666,7 +14666,7 @@ function getWeeklyFeedbackData() {
 
 
 // ============================================
-// ✅ FIXED: Save feedback locally
+// 💾 SAVE FEEDBACK LOCALLY (FALLBACK)
 // ============================================
 function saveFeedbackLocally(feedbackData) {
     try {
@@ -14700,7 +14700,6 @@ function saveFeedbackLocally(feedbackData) {
         console.error('Failed to save feedback locally:', e);
     }
 }
-
 
 
 // ============================================
@@ -14766,6 +14765,14 @@ function displayLocalFeedbackHistory() {
     } catch (e) {
         console.error('Error displaying local feedback:', e);
     }
+}
+
+// Helper function to escape HTML
+function escapeHtml(text) {
+    if (!text) return '';
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
 }
 
 
@@ -27178,7 +27185,19 @@ function setupFeedbackForm() {
         submitBtn.disabled = true;
         
         try {
-            const token = localStorage.getItem('authToken');
+            const token = localStorage.getItem('authToken') || authToken;
+            
+            // Prepare feedback data
+            const feedbackData = {
+                feedback_type: feedbackType || 'general',
+                feedback_message: feedbackMessage,
+                rating: rating,
+                user_id: userId,
+                page_url: window.location.href,
+                user_agent: navigator.userAgent
+            };
+            
+            console.log('📤 Sending feedback to server:', feedbackData);
             
             const response = await fetch('/api/feedback/submit', {
                 method: 'POST',
@@ -27186,14 +27205,7 @@ function setupFeedbackForm() {
                     'Content-Type': 'application/json',
                     ...(token && { 'Authorization': `Bearer ${token}` })
                 },
-                body: JSON.stringify({
-                    feedback_type: feedbackType,
-                    feedback_message: feedbackMessage,
-                    rating: rating,
-                    user_id: userId,
-                    page_url: window.location.href,
-                    user_agent: navigator.userAgent
-                })
+                body: JSON.stringify(feedbackData)
             });
             
             const responseText = await response.text();
@@ -27243,14 +27255,66 @@ function setupFeedbackForm() {
                 }
                 
             } else {
-                // Server returned error
-                console.error('❌ Server error:', data);
-                showNotification('error', 'Error', data.message || 'Failed to submit feedback');
+                // Server returned error - try to save locally as fallback
+                console.log('⚠️ Server submission failed, saving locally...');
+                
+                // Save locally
+                saveFeedbackLocally(feedbackData);
+                
+                // Show success message for local save
+                if (feedbackSuccess) {
+                    feedbackSuccess.style.display = 'block';
+                    feedbackSuccess.innerHTML = `
+                        <i class="fas fa-check-circle"></i> 
+                        Thank you! Your feedback has been saved locally.
+                    `;
+                    setTimeout(() => {
+                        feedbackSuccess.style.display = 'none';
+                    }, 3000);
+                }
+                
+                // Reset form
+                newForm.reset();
+                
+                // Reset rating stars
+                const stars = document.querySelectorAll('.star');
+                stars.forEach(star => {
+                    star.classList.remove('active');
+                    star.innerHTML = '☆';
+                });
+                document.getElementById('ratingValue').value = 0;
+                
+                showNotification('success', 'Thank You!', 'Your feedback has been saved locally!');
+                
+                // Show local feedback history
+                displayLocalFeedbackHistory();
             }
             
         } catch (error) {
-            console.error('❌ Error:', error);
-            showNotification('error', 'Error', 'Failed to submit feedback. Please try again.');
+            console.error('❌ Error submitting feedback:', error);
+            
+            // Try to save locally
+            saveFeedbackLocally({
+                feedback_type: feedbackType,
+                feedback_message: feedbackMessage,
+                rating: rating,
+                user_id: userId,
+                page_url: window.location.href,
+                user_agent: navigator.userAgent
+            });
+            
+            showNotification('success', 'Thank You!', 'Your feedback has been saved locally!');
+            
+            // Reset form
+            newForm.reset();
+            
+            // Reset rating stars
+            const stars = document.querySelectorAll('.star');
+            stars.forEach(star => {
+                star.classList.remove('active');
+                star.innerHTML = '☆';
+            });
+            document.getElementById('ratingValue').value = 0;
             
         } finally {
             // Restore button
@@ -27261,7 +27325,6 @@ function setupFeedbackForm() {
     
     console.log('✅ Feedback form handler attached (FIXED)');
 }
-
 
 
 // In your script.js, around line 9400
