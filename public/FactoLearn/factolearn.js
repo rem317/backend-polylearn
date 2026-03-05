@@ -2236,7 +2236,7 @@ async function apiRequest(endpoint, options = {}) {
 }
 
 // ============================================
-// ✅ HELPER: Get FactoLearn Mock Lessons (lesson_id=3)
+// ✅ EXPANDED: Get FactoLearn Mock Lessons (lesson_id=3)
 // ============================================
 function getFactoLearnMockLessons() {
     return [
@@ -2269,6 +2269,77 @@ function getFactoLearnMockLessons() {
             video_filename: 'factorial_applications.mp4',
             video_duration_seconds: 840,
             content_order: 3
+        },
+        // ===== ADD MORE LESSONS =====
+        {
+            content_id: 4,
+            content_title: 'Permutation Fundamentals',
+            content_description: 'Learn the basics of permutations and the permutation formula',
+            lesson_id: 3,
+            topic_id: 3,
+            video_filename: 'permutation_fundamentals.mp4',
+            video_duration_seconds: 900,
+            content_order: 4
+        },
+        {
+            content_id: 5,
+            content_title: 'Combination Concepts',
+            content_description: 'Master combination problems and the combination formula',
+            lesson_id: 3,
+            topic_id: 4,
+            video_filename: 'combination_concepts.mp4',
+            video_duration_seconds: 960,
+            content_order: 5
+        },
+        {
+            content_id: 6,
+            content_title: 'Factorial Factors - Complete Video Tutorial',
+            content_description: 'Advanced factorial operations and problem-solving techniques',
+            lesson_id: 3,
+            topic_id: 2,
+            video_filename: 'factorial_factors.mp4',
+            video_duration_seconds: 1200,
+            content_order: 6
+        },
+        {
+            content_id: 7,
+            content_title: 'Advanced Permutation Problems',
+            content_description: 'Tackle complex permutation problems with repetitions and constraints',
+            lesson_id: 3,
+            topic_id: 3,
+            video_filename: 'advanced_permutation.mp4',
+            video_duration_seconds: 1080,
+            content_order: 7
+        },
+        {
+            content_id: 8,
+            content_title: 'Combination Applications',
+            content_description: 'Apply combinations to probability and real-world scenarios',
+            lesson_id: 3,
+            topic_id: 4,
+            video_filename: 'combination_applications.mp4',
+            video_duration_seconds: 1140,
+            content_order: 8
+        },
+        {
+            content_id: 9,
+            content_title: 'Factorial & Permutation Review',
+            content_description: 'Comprehensive review of factorial and permutation concepts',
+            lesson_id: 3,
+            topic_id: 3,
+            video_filename: 'review_part1.mp4',
+            video_duration_seconds: 1320,
+            content_order: 9
+        },
+        {
+            content_id: 10,
+            content_title: 'Combination & Mixed Problems',
+            content_description: 'Practice mixed problems involving factorials, permutations and combinations',
+            lesson_id: 3,
+            topic_id: 4,
+            video_filename: 'mixed_problems.mp4',
+            video_duration_seconds: 1500,
+            content_order: 10
         }
     ];
 }
