@@ -10400,5 +10400,59 @@ code {
 }
 
 /* ============================================
+   URGENT FIX - REMOVE ALL FIXED HEIGHTS
+   ============================================ */
+
+/* Remove fixed heights from all containers */
+.dashboard-container,
+.practice-container,
+.quiz-container,
+.progress-container,
+.settings-container,
+.help-dashboard-container,
+.page-container,
+.main-content,
+.sidebar,
+.card-container,
+.content-area {
+    height: auto !important;
+    min-height: 0 !important;
+    max-height: none !important;
+}
+
+/* Specifically target the containers from your console output */
+.dashboard-container,
+.practice-container,
+.quiz-container,
+.progress-container {
+    height: auto !important;
+    min-height: 0 !important;
+}
+
+/* I-ensure na ang mga card ay hindi rin may fixed height */
+.card,
+.progress-card,
+.settings-card,
+.help-dashboard-card,
+.welcome-card,
+.stat-card,
+.topic-card,
+.quiz-card {
+    height: auto !important;
+    min-height: 0 !important;
+}
+
+/* I-fix ang page containers */
+#dashboard-page,
+#practice-exercises-page,
+#quiz-dashboard-page,
+#progress-page,
+#settings-page,
+#feedback-page {
+    height: auto !important;
+    min-height: 100vh !important;
+    overflow-y: auto !important;
+}   
+/* ============================================
    END OF CSS
    ============================================ */
