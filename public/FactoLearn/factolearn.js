@@ -1579,6 +1579,9 @@ document.addEventListener('DOMContentLoaded', function() {
             
             console.log('🎨 Opening whiteboard');
             
+            // Disable app scrolling
+            disableAppScroll();
+            
             const modal = document.getElementById('whiteboardModal');
             
             if (modal) {
@@ -24822,3 +24825,77 @@ setTimeout(() => {
     addFeedbackStyles();
     console.log('✅ All missing styles added!');
 }, 1000);
+
+
+
+// ============================================
+// 🚫 SCROLL CONTROL - Prevent app scrolling when modals are open
+// ============================================
+
+function disableAppScroll() {
+    // Get current scroll position
+    const scrollY = window.scrollY;
+    
+    // Save scroll position to restore later
+    document.body.setAttribute('data-scroll-position', scrollY);
+    
+    // Disable scrolling
+    document.body.style.position = 'fixed';
+    document.body.style.top = `-${scrollY}px`;
+    document.body.style.left = '0';
+    document.body.style.right = '0';
+    document.body.style.overflow = 'hidden';
+    document.body.style.width = '100%';
+    
+    console.log('🚫 App scrolling disabled');
+}
+
+function enableAppScroll() {
+    // Restore scroll position
+    const scrollY = document.body.getAttribute('data-scroll-position');
+    
+    // Re-enable scrolling
+    document.body.style.position = '';
+    document.body.style.top = '';
+    document.body.style.left = '';
+    document.body.style.right = '';
+    document.body.style.overflow = '';
+    document.body.style.width = '';
+    
+    // Restore scroll position
+    if (scrollY) {
+        window.scrollTo(0, parseInt(scrollY));
+    }
+    
+    console.log('✅ App scrolling enabled');
+}
+
+// ============================================
+// 🎯 OVERRIDE TOOLMANAGER OPEN/CLOSE METHODS
+// ============================================
+
+// Store original methods
+const originalToolManagerOpen = ToolManager.prototype.openTool;
+const originalToolManagerClose = ToolManager.prototype.closeTool;
+
+// Override openTool method
+ToolManager.prototype.openTool = function(toolName) {
+    console.log(`🔧 Opening tool: ${toolName}`);
+    
+    // Disable app scrolling
+    disableAppScroll();
+    
+    // Call original method
+    originalToolManagerOpen.call(this, toolName);
+};
+
+// Override closeTool method
+ToolManager.prototype.closeTool = function() {
+    console.log('🔧 Closing current tool');
+    
+    // Enable app scrolling
+    enableAppScroll();
+    
+    // Call original method
+    originalToolManagerClose.call(this);
+};
