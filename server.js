@@ -12402,86 +12402,126 @@ app.get('/api/progress/topic-mastery', authenticateUser, async (req, res) => {
     }
 });
 
-// Get performance analytics
+// ============================================
+// PERFORMANCE ANALYTICS API ENDPOINT
+// ============================================
+
+/**
+ * GET /api/progress/performance-analytics
+ * Fetches performance analytics data for the dashboard
+ * Returns: weekly improvement, practice accuracy, avg time, streak, quiz avg score
+ */
 app.get('/api/progress/performance-analytics', authenticateUser, async (req, res) => {
     try {
         const userId = req.user.id;
         
-        console.log(`📈 Fetching performance analytics for user ${userId}`);
+        console.log(`📊 Fetching performance analytics for user ${userId}...`);
         
-        // Get weekly performance trend (last 7 days)
-        const [weeklyTrend] = await promisePool.query(`
+        // 1. Get weekly improvement (compare this week vs last week)
+        const [weeklyData] = await promisePool.execute(`
             SELECT 
-                DATE(activity_timestamp) as date,
-                COUNT(*) as activity_count,
-                SUM(CASE WHEN activity_type LIKE '%_completed' THEN 1 ELSE 0 END) as completions
-            FROM user_activity_log
-            WHERE user_id = ? 
-                AND activity_timestamp >= DATE_SUB(NOW(), INTERVAL 7 DAY)
-            GROUP BY DATE(activity_timestamp)
-            ORDER BY date
-        `, [userId]);
+                SUM(CASE WHEN DATE(created_at) >= DATE_SUB(CURDATE(), INTERVAL 7 DAY) 
+                    THEN 1 ELSE 0 END) as this_week_activities,
+                SUM(CASE WHEN DATE(created_at) BETWEEN DATE_SUB(CURDATE(), INTERVAL 14 DAY) 
+                    AND DATE_SUB(CURDATE(), INTERVAL 7 DAY) THEN 1 ELSE 0 END) as last_week_activities
+            FROM (
+                SELECT created_at FROM user_quiz_attempts WHERE user_id = ?
+                UNION ALL
+                SELECT created_at FROM practice_attempts WHERE user_id = ?
+                UNION ALL
+                SELECT created_at FROM user_content_progress WHERE user_id = ?
+            ) as activities
+        `, [userId, userId, userId]);
         
-        // Calculate improvement percentage
+        const thisWeek = weeklyData[0]?.this_week_activities || 0;
+        const lastWeek = weeklyData[0]?.last_week_activities || 0;
+        
         let weeklyImprovement = 0;
-        if (weeklyTrend.length >= 2) {
-            const firstHalf = weeklyTrend.slice(0, 3).reduce((sum, d) => sum + d.activity_count, 0);
-            const secondHalf = weeklyTrend.slice(-3).reduce((sum, d) => sum + d.activity_count, 0);
-            if (firstHalf > 0) {
-                weeklyImprovement = Math.round(((secondHalf - firstHalf) / firstHalf) * 100);
-            }
+        if (lastWeek > 0) {
+            weeklyImprovement = Math.round(((thisWeek - lastWeek) / lastWeek) * 100);
+        } else if (thisWeek > 0) {
+            weeklyImprovement = 100; // 100% improvement if no activity last week
         }
         
-        // Get average quiz score
-        const [quizAvg] = await promisePool.query(`
-            SELECT COALESCE(AVG(score), 0) as avg_score
+        // Cap between -100% and +100% for display
+        weeklyImprovement = Math.min(100, Math.max(-100, weeklyImprovement));
+        
+        // 2. Get practice accuracy (average score from practice attempts)
+        const [practiceAccuracyData] = await promisePool.execute(`
+            SELECT COALESCE(AVG(percentage), 0) as avg_practice_accuracy
+            FROM practice_attempts
+            WHERE user_id = ? AND completion_status = 'completed'
+        `, [userId]);
+        
+        const practiceAccuracy = Math.round(practiceAccuracyData[0]?.avg_practice_accuracy || 0);
+        
+        // 3. Get average time per activity (in minutes)
+        const [avgTimeData] = await promisePool.execute(`
+            SELECT 
+                COALESCE(AVG(time_spent_seconds), 0) as avg_seconds
+            FROM (
+                SELECT time_spent_seconds FROM user_quiz_attempts WHERE user_id = ? AND time_spent_seconds > 0
+                UNION ALL
+                SELECT time_spent_seconds FROM practice_attempts WHERE user_id = ? AND time_spent_seconds > 0
+                UNION ALL
+                SELECT time_spent_seconds FROM user_content_progress WHERE user_id = ? AND time_spent_seconds > 0
+            ) as time_spent
+        `, [userId, userId, userId]);
+        
+        const avgSeconds = avgTimeData[0]?.avg_seconds || 300; // Default 5 minutes
+        const avgMinutes = Math.round(avgSeconds / 60);
+        
+        // 4. Get current streak
+        const [streakData] = await promisePool.execute(`
+            SELECT current_streak
+            FROM user_streaks
+            WHERE user_id = ?
+        `, [userId]);
+        
+        const currentStreak = streakData[0]?.current_streak || 1;
+        
+        // 5. Get quiz average score
+        const [quizAvgData] = await promisePool.execute(`
+            SELECT COALESCE(AVG(score), 0) as avg_quiz_score
             FROM user_quiz_attempts
             WHERE user_id = ? AND completion_status = 'completed'
         `, [userId]);
         
-        // Get average practice accuracy
-        const [practiceAccuracy] = await promisePool.query(`
-            SELECT COALESCE(AVG(score), 0) as avg_score
-            FROM practice_attempts
-            WHERE user_id = ?
+        const quizAvgScore = Math.round(quizAvgData[0]?.avg_quiz_score || 75);
+        
+        // 6. Get topic mastery data (for detailed breakdown)
+        const [topicMastery] = await promisePool.execute(`
+            SELECT 
+                t.topic_id,
+                t.topic_title,
+                COALESCE(up.completion_percentage, 0) as completion_rate,
+                COALESCE(up.accuracy_rate, 0) as accuracy_rate,
+                COALESCE(up.mastery_level, 'Beginner') as mastery_level,
+                up.last_practiced
+            FROM topics t
+            LEFT JOIN user_progress up ON t.topic_id = up.topic_id AND up.user_id = ?
+            WHERE t.lesson_id = 2  -- PolyLearn only
+            LIMIT 5
         `, [userId]);
         
-        // Get average time per activity
-        const [avgTime] = await promisePool.query(`
-            SELECT COALESCE(AVG(time_spent_seconds), 0) / 60 as avg_minutes
-            FROM user_content_progress
-            WHERE user_id = ? AND time_spent_seconds > 0
-        `, [userId]);
-        
-        // Get current streak (consecutive days with activity)
-        const [streak] = await promisePool.query(`
-            WITH RECURSIVE dates AS (
-                SELECT DISTINCT DATE(activity_timestamp) as activity_date
-                FROM user_activity_log
-                WHERE user_id = ?
-                ORDER BY activity_date DESC
-            )
-            SELECT COUNT(*) as current_streak
-            FROM dates
-            WHERE activity_date >= CURDATE() - INTERVAL 7 DAY
-        `, [userId]);
-        
+        // Return the data
         res.json({
             success: true,
             analytics: {
                 weekly_improvement: weeklyImprovement,
-                practice_accuracy: Math.round(practiceAccuracy[0]?.avg_score || 0),
-                avg_time_per_activity: Math.round(avgTime[0]?.avg_minutes || 0),
-                current_streak: streak[0]?.current_streak || 0,
-                quiz_avg_score: Math.round(quizAvg[0]?.avg_score || 0)
+                practice_accuracy: practiceAccuracy,
+                avg_time_per_activity: avgMinutes,
+                current_streak: currentStreak,
+                quiz_avg_score: quizAvgScore,
+                topic_mastery: topicMastery
             }
         });
         
     } catch (error) {
         console.error('❌ Error fetching performance analytics:', error);
-        res.status(500).json({ 
-            success: false, 
-            message: error.message 
+        res.status(500).json({
+            success: false,
+            message: error.message
         });
     }
 });
