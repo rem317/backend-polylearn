@@ -39,7 +39,7 @@ const APP_LESSON_MAP = {
         lessonId: 1,
         name: 'MathEase'
     },
-    'factorial': {
+    'mathease': {
         lessonId: 3,
         name: 'FactoPermCombi'  // Ito na ang gagamitin
     },
@@ -50,29 +50,29 @@ const APP_LESSON_MAP = {
 };
 
 // ============================================
-// FACTORIAL CONSTANTS - FORCE LESSON_ID = 1
+// mathease CONSTANTS - FORCE LESSON_ID = 1
 // ============================================
-const FACTORIAL_LESSON_ID = 3; // Fixed for Factorial app
+const factolearn_LESSON_ID = 3; // Fixed for mathease app
 const POLYLEARN_LESSON_ID = 2; // ← IDAGDAG ITO
 const MATHEASE_LESSON_ID = 1;  // ← IDAGDAG ITO
 
 // Para madaling gamitin
-const CURRENT_LESSON_ID = 1; // Factorial only
+const CURRENT_LESSON_ID = 1; // mathease only
 const CURRENT_APP_NAME = 'FactoPermCombi';
 
 function getCurrentApp() {
-    return localStorage.getItem('selectedApp') || 'factorial'; // Factorial na ang default
+    return localStorage.getItem('selectedApp') || 'mathease'; // mathease na ang default
 }
 
 function getCurrentAppLessonId() {
     // Kunin ang app selection ng user
-    const selectedApp = localStorage.getItem('selectedApp') || 'factorial';
+    const selectedApp = localStorage.getItem('selectedApp') || 'mathease';
     
     // Return appropriate lesson_id based on selected app
     const appMap = {
         'mathease': 1,
         'polylearn': 2,
-        'factorial': 3
+        'mathease': 3
     };
     
     return appMap[selectedApp] || 1;
@@ -91,8 +91,8 @@ function getAppFilterParam() {
 
 function addAppFilterToUrl(url) {
     const separator = url.includes('?') ? '&' : '?';
-    // FORCE FACTORIAL: Laging lesson_id=1
-    return `${url}${separator}lesson_id=${FACTORIAL_LESSON_ID}`;
+    // FORCE mathease: Laging lesson_id=1
+    return `${url}${separator}lesson_id=${MATHEASE_LESSON_ID}`;
 }
 
 // ============================================
@@ -2243,31 +2243,31 @@ function getMockLessons() {
     return [
         {
             content_id: 1,
-            content_title: 'Introduction to Factorials',
-            content_description: 'Learn the basics of factorial notation and calculations',
+            content_title: 'Introduction to matheases',
+            content_description: 'Learn the basics of mathease notation and calculations',
             lesson_id: 1,
             topic_id: 1,
-            video_filename: 'factorial_intro.mp4',
+            video_filename: 'mathease_intro.mp4',
             video_duration_seconds: 600,
             content_order: 1
         },
         {
             content_id: 2,
-            content_title: 'Factorial Operations',
-            content_description: 'Perform operations with factorial expressions',
+            content_title: 'mathease Operations',
+            content_description: 'Perform operations with mathease expressions',
             lesson_id: 1,
             topic_id: 1,
-            video_filename: 'factorial_operations.mp4',
+            video_filename: 'mathease_operations.mp4',
             video_duration_seconds: 720,
             content_order: 2
         },
         {
             content_id: 1,
-            content_title: 'Factorial Applications',
-            content_description: 'Apply factorials in permutations and combinations',
+            content_title: 'mathease Applications',
+            content_description: 'Apply matheases in permutations and combinations',
             lesson_id: 1,
             topic_id: 2,
-            video_filename: 'factorial_applications.mp4',
+            video_filename: 'mathease_applications.mp4',
             video_duration_seconds: 840,
             content_order: 1
         }
@@ -2281,22 +2281,22 @@ function getMockCategories() {
     return [
         {
             category_id: 1,
-            category_name: 'Factorial Basics',
-            description: 'Test your understanding of factorial fundamentals',
+            category_name: 'mathease Basics',
+            description: 'Test your understanding of mathease fundamentals',
             lesson_id: 1,
             quiz_count: 1
         },
         {
             category_id: 2,
-            category_name: 'Factorial Operations',
-            description: 'Practice factorial calculations and simplifications',
+            category_name: 'mathease Operations',
+            description: 'Practice mathease calculations and simplifications',
             lesson_id: 1,
             quiz_count: 2
         },
         {
             category_id: 1,
-            category_name: 'Factorial Applications',
-            description: 'Apply factorials in real-world scenarios',
+            category_name: 'mathease Applications',
+            description: 'Apply matheases in real-world scenarios',
             lesson_id: 1,
             quiz_count: 2
         }
@@ -2315,7 +2315,7 @@ const AppState = {
     },
     currentPage: 'dashboard',
     isAuthenticated: true,
-    selectedApp: 'factorial',
+    selectedApp: 'mathease',
     previousPage: null,
     hasSelectedApp: true,
     currentLessonData: null,
@@ -3220,7 +3220,7 @@ function openQuickTopicModal() {
                             <i class="fas fa-heading"></i> Topic Title <span style="color: red;">*</span>
                         </label>
                         <input type="text" id="quickTopicTitle" class="form-control" 
-                               placeholder="e.g., What is a Factorial,Permutation and Combination?" style="width: 100%; padding: 10px;">
+                               placeholder="e.g., What is a mathease,Permutation and Combination?" style="width: 100%; padding: 10px;">
                     </div>
                     <div style="margin-bottom: 20px;">
                         <label style="display: block; margin-bottom: 8px; font-weight: 600;">
@@ -4449,19 +4449,19 @@ function completeExercise(topicName) {
 // ============================================
 async function fetchDailyProgress() {
     try {
-        console.log('📊 Fetching Factorial daily progress...');
+        console.log('📊 Fetching mathease daily progress...');
         
         const token = localStorage.getItem('authToken') || authToken;
         if (!token) {
             console.warn('No auth token available');
-            return getDefaultFactorialDailyProgress();
+            return getDefaultmatheaseDailyProgress();
         }
         
         // ✅ FORCE LESSON_ID = 1
-        const FACTORIAL_LESSON_ID = 1;
+        const MATHEASE_LESSON_ID = 1;
         
         // ✅ GUMAMIT NG FETCH API, HINDI PROMISEPOOL
-        const response = await fetch(`/api/progress/daily?lesson_id=${FACTORIAL_LESSON_ID}`, {
+        const response = await fetch(`/api/progress/daily?lesson_id=${MATHEASE_LESSON_ID}`, {
             headers: {
                 'Authorization': `Bearer ${token}`,
                 'Content-Type': 'application/json'
@@ -4475,7 +4475,7 @@ async function fetchDailyProgress() {
         const data = await response.json();
         
         if (data.success && data.progress) {
-            console.log('✅ Factorial daily progress loaded:', data.progress);
+            console.log('✅ mathease daily progress loaded:', data.progress);
             
             return {
                 lessons_completed: data.progress.lessons_completed || 0,
@@ -4487,17 +4487,17 @@ async function fetchDailyProgress() {
             };
         } else {
             console.warn('No daily progress data');
-            return getDefaultFactorialDailyProgress();
+            return getDefaultmatheaseDailyProgress();
         }
         
     } catch (error) {
         console.error('❌ Error fetching daily progress:', error);
-        return getDefaultFactorialDailyProgress();
+        return getDefaultmatheaseDailyProgress();
     }
 }
 
-// ===== Default progress for Factorial =====
-function getDefaultFactorialDailyProgress() {
+// ===== Default progress for mathease =====
+function getDefaultmatheaseDailyProgress() {
     return {
         lessons_completed: 0,
         exercises_completed: 0,
@@ -4526,7 +4526,7 @@ function handleActivityResponse(data) {
     }
 }
 // Helper function para sa  practice stats
-async function fetchFactorialPracticeStats(userId) {
+async function fetchmatheasePracticeStats(userId) {
     try {
 
         const [stats] = await promisePool.query(`
@@ -4538,7 +4538,7 @@ async function fetchFactorialPracticeStats(userId) {
             FROM user_practice_progress upp
             JOIN practice_exercises pe ON upp.exercise_id = pe.exercise_id
             WHERE upp.user_id = ? AND pe.lesson_id = ?
-        `, [userId, FACTORIAL_LESSON_ID]);
+        `, [userId, MATHEASE_LESSON_ID]);
         
         return stats[0] || {
             exercises_completed: 0,
@@ -4553,7 +4553,7 @@ async function fetchFactorialPracticeStats(userId) {
 }
 
 // Helper function para sa  quiz stats
-async function fetchFactorialQuizStats(userId) {
+async function fetchmatheaseQuizStats(userId) {
     try {
 
         const [stats] = await promisePool.query(`
@@ -4566,7 +4566,7 @@ async function fetchFactorialQuizStats(userId) {
             WHERE uqa.user_id = ? 
             AND uqa.completion_status = 'completed'
             AND q.lesson_id = ?
-        `, [userId, FACTORIAL_LESSON_ID]);
+        `, [userId, MATHEASE_LESSON_ID]);
         
         return stats[0] || {
             quizzes_completed: 0,
@@ -4579,7 +4579,7 @@ async function fetchFactorialQuizStats(userId) {
     }
 }
 
-function getDefaultFactorialProgress() {
+function getDefaultmatheaseProgress() {
     return {
         lessons_completed: 0,
         total_lessons: 10,
@@ -5226,7 +5226,7 @@ async function updateDailyProgress(progressData) {
             ...(progressData.time_spent_minutes !== undefined && { 
                 time_spent_minutes: progressData.time_spent_minutes 
             }),
-           lesson_id: FACTORIAL_LESSON_ID // ✅ FORCE 
+           lesson_id: MATHEASE_LESSON_ID // ✅ FORCE 
         };
         
         // If no data to update, return
@@ -5329,7 +5329,7 @@ async function updateTopicMastery(topicId, masteryData) {
     };
     
     // Override the constants
-    window.FACTORIAL_LESSON_ID = 1;
+    window.MATHEASE_LESSON_ID = 1;
     
     // Override getCurrentAppLessonId
     window.getCurrentAppLessonId = function() {
@@ -5337,7 +5337,7 @@ async function updateTopicMastery(topicId, masteryData) {
     };
     
     // Set localStorage
-    localStorage.setItem('selectedApp', 'factorial');
+    localStorage.setItem('selectedApp', 'mathease');
     localStorage.setItem('currentLessonFilter', '1');
     localStorage.setItem('currentLessonId', '1');
     
@@ -6849,7 +6849,7 @@ function forceUpdateProgressUI(progress) {
 // ✅ FIXED: Load Progress Dashboard Data -  ONLY (NO ERRORS)
 // ============================================
 async function loadProgressDashboardData() {
-    console.log('📊 Loading Factorial progress dashboard data...');
+    console.log('📊 Loading mathease progress dashboard data...');
     
     try {
         // Show loading state
@@ -6871,22 +6871,22 @@ async function loadProgressDashboardData() {
             totalLessonsCount
         ] = await Promise.allSettled([
             // 1. Get  lessons progress
-            fetch(`/api/progress/lessons?lesson_id=${FACTORIAL_LESSON_ID}`, {
+            fetch(`/api/progress/lessons?lesson_id=${MATHEASE_LESSON_ID}`, {
                 headers: { 'Authorization': `Bearer ${token}` }
             }).then(res => res.json()).catch(() => ({ success: false })),
             
             // 2. Get FacttoLearn practice stats
-            fetch(`/api/progress/practice-attempts?lesson_id=${FACTORIAL_LESSON_ID}`, {
+            fetch(`/api/progress/practice-attempts?lesson_id=${MATHEASE_LESSON_ID}`, {
                 headers: { 'Authorization': `Bearer ${token}` }
             }).then(res => res.json()).catch(() => ({ success: false })),
             
             // 3. Get  quiz stats
-            fetch(`/api/quiz/user/attempts?lesson_id=${FACTORIAL_LESSON_ID}`, {
+            fetch(`/api/quiz/user/attempts?lesson_id=${MATHEASE_LESSON_ID}`, {
                 headers: { 'Authorization': `Bearer ${token}` }
             }).then(res => res.json()).catch(() => ({ success: false })),
             
             // 4. Get total  lessons
-            fetch(`/api/lessons-db/complete?lesson_id=${FACTORIAL_LESSON_ID}`, {
+            fetch(`/api/lessons-db/complete?lesson_id=${MATHEASE_LESSON_ID}`, {
                 headers: { 'Authorization': `Bearer ${token}` }
             }).then(res => res.json()).catch(() => ({ success: false }))
         ]);
@@ -6900,7 +6900,7 @@ async function loadProgressDashboardData() {
             lessonsCompleted = progress.filter(p => 
                 p.completion_status === 'completed' || p.status === 'completed'
             ).length;
-            console.log(`✅ Factorial lessons completed: ${lessonsCompleted}`);
+            console.log(`✅ mathease lessons completed: ${lessonsCompleted}`);
         }
         
         if (totalLessonsCount.status === 'fulfilled' && totalLessonsCount.value?.success) {
@@ -6922,7 +6922,7 @@ async function loadProgressDashboardData() {
                 totalPracticeSeconds += a.time_spent_seconds || 0;
             });
             
-            console.log(`✅ Factorial practice completed: ${exercisesCompleted}`);
+            console.log(`✅ mathease practice completed: ${exercisesCompleted}`);
             console.log(`⏱️ Total practice seconds: ${totalPracticeSeconds}`);
         }
         
@@ -6940,7 +6940,7 @@ async function loadProgressDashboardData() {
                 quizPoints += correctAnswers * 10;
             });
             
-            console.log(`✅ Factorial quiz points: ${quizPoints}`);
+            console.log(`✅ mathease quiz points: ${quizPoints}`);
         }
         
         // ===== CALCULATE OVERALL PROGRESS =====
@@ -7359,42 +7359,42 @@ function setDefaultProgressValues() {
     if (avgTime) avgTime.innerHTML = `5<span class="item-unit">min/day</span>`;
 }
 // Palitan ang pangalan:
-window.debugFactorialProgress = async function() {
-    console.log('🔍 DEBUGGING FACTORIAL PROGRESS...');
+window.debugmatheaseProgress = async function() {
+    console.log('🔍 DEBUGGING mathease PROGRESS...');
     
     const token = localStorage.getItem('authToken');
     
-    console.log(`📡 Fetching Factorial data (lesson_id = ${FACTORIAL_LESSON_ID})...`);
+    console.log(`📡 Fetching mathease data (lesson_id = ${MATHEASE_LESSON_ID})...`);
     
     // Check lessons
     try {
-        const lessonsRes = await fetch(`/api/progress/lessons?lesson_id=${FACTORIAL_LESSON_ID}`, {
+        const lessonsRes = await fetch(`/api/progress/lessons?lesson_id=${MATHEASE_LESSON_ID}`, {
             headers: { 'Authorization': `Bearer ${token}` }
         });
         const lessonsData = await lessonsRes.json();
-        console.log('📚 Factorial Lessons:', lessonsData);
+        console.log('📚 mathease Lessons:', lessonsData);
     } catch (e) {
         console.log('Lessons error:', e.message);
     }
     
     // Check practice
     try {
-        const practiceRes = await fetch(`/api/progress/practice-attempts?lesson_id=${FACTORIAL_LESSON_ID}`, {
+        const practiceRes = await fetch(`/api/progress/practice-attempts?lesson_id=${MATHEASE_LESSON_ID}`, {
             headers: { 'Authorization': `Bearer ${token}` }
         });
         const practiceData = await practiceRes.json();
-        console.log('💪 Factorial Practice:', practiceData);
+        console.log('💪 mathease Practice:', practiceData);
     } catch (e) {
         console.log('Practice error:', e.message);
     }
     
     // Check quizzes
     try {
-        const quizRes = await fetch(`/api/quiz/user/attempts?lesson_id=${FACTORIAL_LESSON_ID}`, {
+        const quizRes = await fetch(`/api/quiz/user/attempts?lesson_id=${MATHEASE_LESSON_ID}`, {
             headers: { 'Authorization': `Bearer ${token}` }
         });
         const quizData = await quizRes.json();
-        console.log('🧠 Factorial Quizzes:', quizData);
+        console.log('🧠 mathease Quizzes:', quizData);
     } catch (e) {
         console.log('Quiz error:', e.message);
     }
@@ -9441,23 +9441,23 @@ async function fetchPracticeStatistics() {
             return null;
         }
         
-        // ✅ FORCE LESSON_ID = 1 FOR FACTORIAL
-        console.log(`📊 Fetching  practice statistics DIRECTLY FROM DATABASE (lesson_id=${FACTORIAL_LESSON_ID})...`);
+        // ✅ FORCE LESSON_ID = 1 FOR mathease
+        console.log(`📊 Fetching  practice statistics DIRECTLY FROM DATABASE (lesson_id=${MATHEASE_LESSON_ID})...`);
         
         // ===== GET ALL PRACTICE STATS FROM DATABASE IN PARALLEL =====
         const [lessonsData, attemptsData, totalExercisesData] = await Promise.allSettled([
             // Get lessons progress (lesson_id=1)
-            fetch(`/api/progress/lessons?lesson_id=${FACTORIAL_LESSON_ID}`, {
+            fetch(`/api/progress/lessons?lesson_id=${MATHEASE_LESSON_ID}`, {
                 headers: { 'Authorization': `Bearer ${token}` }
             }).then(res => res.json()).catch(err => ({ success: false, error: err })),
             
             // Get practice attempts (lesson_id=1)
-             fetch(`/api/progress/practice-attempts?lesson_id=${FACTORIAL_LESSON_ID}`, {
+             fetch(`/api/progress/practice-attempts?lesson_id=${MATHEASE_LESSON_ID}`, {
                 headers: { 'Authorization': `Bearer ${token}` }
             }).then(res => res.json()).catch(err => ({ success: false, error: err })),
             
             // Get total exercises count (lesson_id=1)
-            fetch(`/api/practice/exercises/count?lesson_id=${FACTORIAL_LESSON_ID}`, {
+            fetch(`/api/practice/exercises/count?lesson_id=${MATHEASE_LESSON_ID}`, {
                 headers: { 'Authorization': `Bearer ${token}` }
             }).then(res => res.json()).catch(err => ({ success: false, error: err }))
         ]);
@@ -10366,7 +10366,7 @@ async function fetchQuizzesForCategory(categoryId) {
             }
         }
         
-        const response = await fetch(`/api/quiz/category/${categoryId}/quizzes?lesson_id=${FACTORIAL_LESSON_ID}`, {
+        const response = await fetch(`/api/quiz/category/${categoryId}/quizzes?lesson_id=${MATHEASE_LESSON_ID}`, {
             headers: {
                 'Authorization': `Bearer ${token}`,
                 'Content-Type': 'application/json'
@@ -10562,7 +10562,7 @@ async function startQuizSystem(quizId) {
 // ============================================
 // Helper function to manually load PolyLearn quizzes (Category 2)
 // ============================================
-function loadFactorialQuizzes() {
+function loadmatheaseQuizzes() {
     console.log('📚 Loading FactoPermCombi quizzes (Category 1)...');
     
     // Find PolyLearn category (ID 3)
@@ -13348,12 +13348,12 @@ async function fetchAccuracyRate() {
         if (!token) return null;
         
         // ✅ FORCE LESSON_ID = 1
-        const FACTORIAL_LESSON_ID = 1;
+        const MATHEASE_LESSON_ID = 1;
         
-        console.log(`📊 Fetching Factorial accuracy rate...`);
+        console.log(`📊 Fetching mathease accuracy rate...`);
         
 
-        const response = await fetch(`/api/progress/accuracy-rate?lesson_id=${FACTORIAL_LESSON_ID}`, {
+        const response = await fetch(`/api/progress/accuracy-rate?lesson_id=${MATHEASE_LESSON_ID}`, {
             headers: { 'Authorization': `Bearer ${token}` }
         });
         
@@ -13362,7 +13362,7 @@ async function fetchAccuracyRate() {
         const data = await response.json();
         
         if (data.success && data.accuracy) {
-            console.log('✅ Factorial accuracy rate loaded:', data.accuracy);
+            console.log('✅ mathease accuracy rate loaded:', data.accuracy);
             updateAccuracyRateDisplay(data.accuracy);
             return data.accuracy;
         }
@@ -13377,8 +13377,8 @@ async function fetchAccuracyRate() {
 // ============================================
 // 🔍 DEBUG: Check only lesson_id=1 data
 // ============================================
-window.debugFactorialData = async function() {
-    console.log('🔍 DEBUGGING LESSON_ID=1 (FACTORIAL) DATA ONLY');
+window.debugmatheaseData = async function() {
+    console.log('🔍 DEBUGGING LESSON_ID=1 (mathease) DATA ONLY');
     console.log('================================================');
     
     const token = localStorage.getItem('authToken');
@@ -13479,8 +13479,8 @@ window.debugFactorialData = async function() {
 
 // Run it immediately
 setTimeout(() => {
-    console.log('🔍 Auto-running factorial debug...');
-    debugFactorialData();
+    console.log('🔍 Auto-running mathease debug...');
+    debugmatheaseData();
 }, 2000);
 
 // ============================================
@@ -17454,7 +17454,7 @@ async function fetchAllLessons() {
         }
         
         // FORCE LESSON_ID = 1 ONLY
-        const currentLessonId = FACTORIAL_LESSON_ID; // Always 3
+        const currentLessonId = MATHEASE_LESSON_ID; // Always 3
         
         console.log(`📚 Fetching lessons for  ONLY, lesson ID: ${currentLessonId}`);
         
@@ -17479,7 +17479,7 @@ async function fetchAllLessons() {
             const filteredLessons = data.lessons.filter(lesson => {
                 // Check all possible places where lesson_id might be stored
                 const lessonId = lesson.lesson_id || lesson.lessonId || lesson.id;
-                return lessonId == FACTORIAL_LESSON_ID;
+                return lessonId == MATHEASE_LESSON_ID;
             });
             
             console.log(`✅ Found ${filteredLessons.length}  lessons (filtered from ${data.lessons.length} total)`);
@@ -19304,7 +19304,7 @@ async function loadVideoFromDatabase(contentId = null) {
 
 // Add this at the end of your script.js file
 window.debugLessonId3 = async function() {
-    console.log('🔍 DEBUGGING LESSON ID 1 (Factorial)');
+    console.log('🔍 DEBUGGING LESSON ID 1 (mathease)');
     console.log('=====================================');
     
     const token = localStorage.getItem('authToken');
@@ -19974,7 +19974,7 @@ async function initializeModuleDashboard() {
     console.log('📚 Initializing module dashboard with filtered lesson...');
     
     const currentLesson = LessonState.currentLesson;
-    const selectedApp = localStorage.getItem('selectedApp') || 'factorial';
+    const selectedApp = localStorage.getItem('selectedApp') || 'mathease';
     const lessonFilter = localStorage.getItem('currentLessonFilter');
     
     console.log(`📱 Selected app: ${selectedApp}, filter: ${lessonFilter}`);
@@ -20298,7 +20298,7 @@ async function initPracticePage() {
     }
     
     // ✅ Force lesson_id = 1 for 
-    const currentLessonId = FACTORIAL_LESSON_ID; // Always 3
+    const currentLessonId = MATHEASE_LESSON_ID; // Always 3
     
     console.log(`🎯 Practice page will ONLY show content with lesson_id = ${currentLessonId} ()`);
     
@@ -20405,7 +20405,7 @@ async function loadTopicsProgress() {
         
         console.log('📊 Fetching topics progress for  ONLY...');
         
-        const currentLessonId = FACTORIAL_LESSON_ID; // Always 3
+        const currentLessonId = MATHEASE_LESSON_ID; // Always 3
         
         console.log(`🎯 Loading topics for , lesson_id: ${currentLessonId}`);
         
@@ -20434,13 +20434,13 @@ async function loadTopicsProgress() {
             // ✅ STRICT FILTER - lesson_id=1 LANG
             const filteredTopics = data.topics.filter(topic => {
                 const topicLessonId = topic.lesson_id || topic.lessonId;
-                return topicLessonId == FACTORIAL_LESSON_ID;
+                return topicLessonId == MATHEASE_LESSON_ID;
             });
             
-            console.log(`🎯 Filtered to ${filteredTopics.length} topics for  (lesson ${FACTORIAL_LESSON_ID})`);
+            console.log(`🎯 Filtered to ${filteredTopics.length} topics for  (lesson ${MATHEASE_LESSON_ID})`);
             
             // Log what was filtered out (for debugging)
-            const filteredOut = data.topics.filter(t => (t.lesson_id || t.lessonId) != FACTORIAL_LESSON_ID);
+            const filteredOut = data.topics.filter(t => (t.lesson_id || t.lessonId) != MATHEASE_LESSON_ID);
             if (filteredOut.length > 0) {
                 console.log(`🚫 Filtered OUT ${filteredOut.length} topics from other apps:`);
                 filteredOut.forEach(t => {
@@ -20461,7 +20461,7 @@ async function loadTopicsProgress() {
                     <div class="no-topics" style="text-align: center; padding: 40px;">
                         <i class="fas fa-folder-open" style="font-size: 48px; color: #ccc; margin-bottom: 15px;"></i>
                         <h3 style="color: #666;">No topics available for </h3>
-                        <p style="color: #999;">Topics with lesson_id = ${FACTORIAL_LESSON_ID} will appear here.</p>
+                        <p style="color: #999;">Topics with lesson_id = ${MATHEASE_LESSON_ID} will appear here.</p>
                         <p style="color: #999; font-size: 12px;">Debug: Received ${data.topics.length} total topics</p>
                     </div>
                 `;
@@ -20497,7 +20497,7 @@ async function loadTopicsProgress() {
 // ✅ HELPER: Get current platform topic ID
 // ============================================
 function getCurrentPlatformTopicId() {
-    const selectedApp = localStorage.getItem('selectedApp') || 'factorial';
+    const selectedApp = localStorage.getItem('selectedApp') || 'mathease';
     return APP_LESSON_MAP[selectedApp]?.lessonId || 2;
 }
 
@@ -20634,7 +20634,7 @@ window.debugTopicsProgress = async function() {
     
     try {
         const token = localStorage.getItem('authToken') || authToken;
-        const selectedApp = localStorage.getItem('selectedApp') || 'factorial';
+        const selectedApp = localStorage.getItem('selectedApp') || 'mathease';
         const currentLessonId = getCurrentLessonId();
         
         console.log('Current app:', selectedApp);
@@ -20691,7 +20691,7 @@ window.debugTopicsProgress = async function() {
 async function selectTopicForPractice(topicId) {
     try {
         // Check if this topic belongs to the current app
-        const selectedApp = localStorage.getItem('selectedApp') || 'factorial';
+        const selectedApp = localStorage.getItem('selectedApp') || 'mathease';
         const expectedTopicId = APP_LESSON_MAP[selectedApp]?.lessonId || 2;
         
         if (parseInt(topicId) !== expectedTopicId) {
@@ -20737,7 +20737,7 @@ async function loadPracticeExercisesForTopic(topicId) {
         console.log(`📝 Getting practice exercises for topic ${topicId}`);
         
         // FORCE LESSON_ID = 1
-        const currentLessonId = FACTORIAL_LESSON_ID; // Always 3
+        const currentLessonId = MATHEASE_LESSON_ID; // Always 3
         
         console.log(`🎯 Loading exercises for , lesson_id: ${currentLessonId}`);
         
@@ -20773,13 +20773,13 @@ async function loadPracticeExercisesForTopic(topicId) {
             // ✅ STRICT FILTERING - lesson_id=1 lang
             const filteredExercises = data.exercises.filter(ex => {
                 const exerciseLessonId = ex.lesson_id || ex.lessonId;
-                return exerciseLessonId == FACTORIAL_LESSON_ID;
+                return exerciseLessonId == MATHEASE_LESSON_ID;
             });
             
             console.log(`✅ Found ${filteredExercises.length} exercises for `);
             
             // Log what was filtered out
-            const filteredOut = data.exercises.filter(ex => (ex.lesson_id || ex.lessonId) != FACTORIAL_LESSON_ID);
+            const filteredOut = data.exercises.filter(ex => (ex.lesson_id || ex.lessonId) != MATHEASE_LESSON_ID);
             if (filteredOut.length > 0) {
                 console.log(`🚫 Filtered OUT ${filteredOut.length} exercises from other apps:`);
                 filteredOut.forEach(ex => {
@@ -23613,11 +23613,11 @@ function initApp() {
     console.log('🎮  Application Initializing...');
     
     // ✅ Set  constants
-    window.FACTORIAL_LESSON_ID = 1;
+    window.MATHEASE_LESSON_ID = 1;
     window.CURRENT_APP_NAME = '';
     
     // ✅ Set localStorage para sure
-    localStorage.setItem('selectedApp', 'factorial');
+    localStorage.setItem('selectedApp', 'mathease');
     localStorage.setItem('currentLessonFilter', '3');
     localStorage.setItem('currentLessonId', '3');
     
@@ -23630,7 +23630,7 @@ function initApp() {
         try {
             AppState.currentUser = JSON.parse(existingUser);
             AppState.isAuthenticated = true;
-            AppState.selectedApp = 'factorial';
+            AppState.selectedApp = 'mathease';
             AppState.hasSelectedApp = true;
             
             console.log(`👤 User: ${AppState.currentUser.username}`);
@@ -23668,13 +23668,13 @@ function initApp() {
     AppState.currentUser = demoUser;
     AppState.isAuthenticated = true;
     AppState.hasSelectedApp = true;
-    AppState.selectedApp = 'factorial';
+    AppState.selectedApp = 'mathease';
     
     authToken = 'demo_token_' + Date.now();
     localStorage.setItem('authToken', authToken);
     localStorage.setItem('mathhub_user', JSON.stringify(demoUser));
     localStorage.setItem('hasSelectedApp', 'true');
-    localStorage.setItem('selectedApp', 'factorial');
+    localStorage.setItem('selectedApp', 'mathease');
     localStorage.setItem('currentLessonFilter', '3');
     localStorage.setItem('currentLessonId', '3');
     
