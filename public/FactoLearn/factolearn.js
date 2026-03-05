@@ -23735,96 +23735,122 @@ window.navigateTo = function(page) {
         }
     }, 100);
 };
+// ============================================
+// 🍔 MOBILE MENU - FIXED SCROLLING VERSION
+// ============================================
 
-// ============================================
-// 🍔 HAMBURGER MENU - FIXED VERSION
-// ============================================
+let lastScrollPosition = 0;
+
+function openMobileMenu() {
+    console.log('🍔 Opening mobile menu');
+    
+    const overlay = document.getElementById('mobileMenuOverlay');
+    const panel = document.getElementById('mobileMenuPanel');
+    
+    if (!overlay || !panel) return;
+    
+    // Save current scroll position
+    lastScrollPosition = window.scrollY;
+    
+    // Show menu
+    overlay.classList.add('active');
+    overlay.style.display = 'block';
+    overlay.style.opacity = '1';
+    
+    panel.classList.add('active');
+    panel.style.right = '0';
+    panel.style.display = 'block';
+    
+    // LOCK scrolling sa MAIN PAGE LANG
+    document.body.classList.add('menu-open');
+    document.body.style.overflow = 'hidden';
+    document.body.style.position = 'relative'; // Hindi fixed para hindi mag-reset ang scroll
+}
+
+function closeMobileMenu() {
+    console.log('🍔 Closing mobile menu');
+    
+    const overlay = document.getElementById('mobileMenuOverlay');
+    const panel = document.getElementById('mobileMenuPanel');
+    
+    if (!overlay || !panel) return;
+    
+    // Hide menu
+    overlay.classList.remove('active');
+    overlay.style.display = 'none';
+    overlay.style.opacity = '0';
+    
+    panel.classList.remove('active');
+    panel.style.right = '-100%';
+    
+    // RESTORE scrolling sa main page
+    document.body.classList.remove('menu-open');
+    document.body.style.overflow = '';
+    document.body.style.position = '';
+    
+    // Restore scroll position (kung kailangan)
+    window.scrollTo({
+        top: lastScrollPosition,
+        behavior: 'auto' // 'smooth' pwede rin pero minsan may bug
+    });
+}
+
 function initHamburgerMenu() {
     console.log('🍔 Initializing hamburger menu...');
     
     const hamburgerBtn = document.getElementById('footerHamburgerBtn');
-    const closeMenuBtn = document.getElementById('closeMenuBtn');
     const menuOverlay = document.getElementById('mobileMenuOverlay');
     const menuPanel = document.getElementById('mobileMenuPanel');
+    const closeBtn = document.querySelector('.close-menu-btn');
     
     if (!hamburgerBtn || !menuOverlay || !menuPanel) {
         console.warn('⚠️ Menu elements not found');
         return;
     }
     
-    console.log('✅ Menu elements found');
-    
-    // REMOVE ALL EXISTING EVENT LISTENERS
+    // Remove existing listeners
     const newBtn = hamburgerBtn.cloneNode(true);
     hamburgerBtn.parentNode.replaceChild(newBtn, hamburgerBtn);
     
-    // ADD CLICK EVENT TO NEW BUTTON
+    // Open menu
     newBtn.addEventListener('click', function(e) {
         e.preventDefault();
         e.stopPropagation();
-        console.log('🍔 Hamburger clicked - opening menu');
-        
-        // FORCE SHOW MENU
-        menuOverlay.classList.add('active');
-        menuOverlay.style.display = 'block';
-        menuOverlay.style.opacity = '1';
-        
-        menuPanel.classList.add('active');
-        menuPanel.style.right = '0';
-        menuPanel.style.display = 'block';
-        
-        // Prevent body scrolling
-        document.body.classList.add('modal-open');
-        document.body.style.overflow = 'hidden';
+        openMobileMenu();
     });
     
-    // CLOSE WHEN CLICKING OVERLAY
-    menuOverlay.addEventListener('click', function() {
-        console.log('🍔 Overlay clicked - closing menu');
-        
-        menuOverlay.classList.remove('active');
-        menuOverlay.style.display = 'none';
-        menuOverlay.style.opacity = '0';
-        
-        menuPanel.classList.remove('active');
-        menuPanel.style.right = '-100%';
-        
-        // Restore body scrolling
-        document.body.classList.remove('modal-open');
-        document.body.style.overflow = '';
-    });
+    // Close when clicking overlay
+    menuOverlay.addEventListener('click', closeMobileMenu);
     
-    // CLOSE WHEN CLICKING CLOSE BUTTON
-    if (closeMenuBtn) {
-        closeMenuBtn.addEventListener('click', function() {
-            menuOverlay.classList.remove('active');
-            menuOverlay.style.display = 'none';
-            menuOverlay.style.opacity = '0';
-            
-            menuPanel.classList.remove('active');
-            menuPanel.style.right = '-100%';
-            
-            document.body.classList.remove('modal-open');
-            document.body.style.overflow = '';
-        });
+    // Close when clicking close button
+    if (closeBtn) {
+        const newCloseBtn = closeBtn.cloneNode(true);
+        closeBtn.parentNode.replaceChild(newCloseBtn, closeBtn);
+        newCloseBtn.addEventListener('click', closeMobileMenu);
     }
     
-    // CLOSE WHEN CLICKING MENU LINKS
-    menuPanel.querySelectorAll('.menu-item').forEach(link => {
-        link.addEventListener('click', function() {
-            menuOverlay.classList.remove('active');
-            menuOverlay.style.display = 'none';
-            menuOverlay.style.opacity = '0';
-            
-            menuPanel.classList.remove('active');
-            menuPanel.style.right = '-100%';
-            
-            document.body.classList.remove('modal-open');
-            document.body.style.overflow = '';
+    // Close when clicking menu links
+    menuPanel.querySelectorAll('.mobile-menu-item').forEach(link => {
+        const newLink = link.cloneNode(true);
+        link.parentNode.replaceChild(newLink, link);
+        
+        newLink.addEventListener('click', function(e) {
+            // Don't close if it's logout (may confirmation)
+            if (this.getAttribute('onclick')?.includes('showLogoutConfirmation')) {
+                return;
+            }
+            closeMobileMenu();
         });
     });
     
-    console.log('✅ Hamburger menu initialized and ready!');
+    // Handle escape key
+    document.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape' && menuOverlay.classList.contains('active')) {
+            closeMobileMenu();
+        }
+    });
+    
+    console.log('✅ Hamburger menu initialized');
 }
 // ============================================
 // 👤 UPDATE MENU USER INFO
