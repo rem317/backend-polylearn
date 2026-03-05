@@ -14662,19 +14662,6 @@ function getWeeklyFeedbackData() {
 }
 
 
-// ============================================
-// PREVENT SPECIFIC FORM SUBMISSIONS ONLY
-// ============================================
-document.addEventListener('submit', function(e) {
-    // Only prevent forms with class "prevent-submit"
-    if (e.target.classList.contains('prevent-submit')) {
-        e.preventDefault();
-        e.stopPropagation();
-        console.log('🚫 Form submission prevented');
-        return false;
-    }
-}, true);
-
 
 
 
