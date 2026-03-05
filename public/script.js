@@ -32103,90 +32103,315 @@ function updateTopicProgressBreakdown() {
 }
 
 // ============================================
-// FETCH PERFORMANCE ANALYTICS
+// FETCH PERFORMANCE ANALYTICS FROM DATABASE
 // ============================================
 async function fetchPerformanceAnalytics() {
     try {
         const token = localStorage.getItem('authToken') || authToken;
-        if (!token) return null;
+        if (!token) {
+            console.warn('No auth token available');
+            return getDefaultPerformanceAnalytics();
+        }
         
-        console.log('📈 Fetching performance analytics...');
+        console.log('📈 Fetching performance analytics from database...');
         
-        const response = await fetch(`/api/progress/performance-analytics`, {
-            headers: { 'Authorization': `Bearer ${token}` }
+        // Show loading state
+        const performanceGrid = document.getElementById('performanceGrid');
+        if (performanceGrid) {
+            performanceGrid.innerHTML = `
+                <div style="grid-column: 1/-1; text-align: center; padding: 40px;">
+                    <i class="fas fa-spinner fa-spin" style="font-size: 30px; color: #7a0000;"></i>
+                    <p style="margin-top: 15px;">Loading performance data...</p>
+                </div>
+            `;
+        }
+        
+        const response = await fetch('/api/progress/performance-analytics', {
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+            }
         });
         
-        if (!response.ok) return null;
+        // Check if response is JSON
+        const contentType = response.headers.get('content-type');
+        if (!contentType || !contentType.includes('application/json')) {
+            console.warn('⚠️ Non-JSON response from server');
+            return getDefaultPerformanceAnalytics();
+        }
+        
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
         
         const data = await response.json();
         
         if (data.success && data.analytics) {
             console.log('✅ Performance analytics loaded:', data.analytics);
             
-            // Update UI
+            // Store in state
+            if (!ProgressState.performanceAnalytics) {
+                ProgressState.performanceAnalytics = {};
+            }
+            ProgressState.performanceAnalytics = data.analytics;
+            
+            // Update the UI
             updatePerformanceAnalytics(data.analytics);
+            
+            // Update topic mastery breakdown
+            if (data.analytics.topic_mastery) {
+                updateTopicMasteryBreakdown(data.analytics.topic_mastery);
+            }
             
             return data.analytics;
         } else {
-            return null;
+            console.warn('No analytics data returned');
+            return getDefaultPerformanceAnalytics();
         }
+        
     } catch (error) {
-        console.error('Error fetching performance analytics:', error);
-        return null;
+        console.error('❌ Error fetching performance analytics:', error);
+        return getDefaultPerformanceAnalytics();
     }
+}
+
+// ============================================
+// UPDATE TOPIC MASTERY BREAKDOWN
+// ============================================
+function updateTopicMasteryBreakdown(topics) {
+    const container = document.getElementById('topicsProgressDetailed');
+    if (!container) return;
+    
+    if (!topics || topics.length === 0) {
+        container.innerHTML = `
+            <div style="text-align: center; padding: 30px; background: #f8f9fa; border-radius: 8px;">
+                <i class="fas fa-chart-pie" style="font-size: 40px; color: #7a0000; margin-bottom: 15px;"></i>
+                <h4 style="color: #2c3e50; margin-bottom: 10px;">No Topic Data Available</h4>
+                <p style="color: #7f8c8d;">Complete lessons to see your topic progress.</p>
+            </div>
+        `;
+        return;
+    }
+    
+    let html = '<div style="margin-top: 20px;">';
+    html += '<h4 style="color: #2c3e50; margin-bottom: 15px;"><i class="fas fa-graduation-cap"></i> Topic Mastery</h4>';
+    
+    topics.forEach((topic, index) => {
+        const progress = topic.completion_rate || 0;
+        const accuracy = topic.accuracy_rate || 0;
+        
+        // Determine mastery level and color
+        let masteryLevel = topic.mastery_level || 'Beginner';
+        let masteryColor = '#95a5a6'; // Gray
+        let masteryIcon = 'fa-seedling';
+        
+        if (accuracy >= 80 && progress >= 80) {
+            masteryLevel = 'Expert';
+            masteryColor = '#f39c12';
+            masteryIcon = 'fa-crown';
+        } else if (accuracy >= 70 && progress >= 70) {
+            masteryLevel = 'Advanced';
+            masteryColor = '#9b59b6';
+            masteryIcon = 'fa-star';
+        } else if (accuracy >= 60 && progress >= 50) {
+            masteryLevel = 'Intermediate';
+            masteryColor = '#3498db';
+            masteryIcon = 'fa-chart-line';
+        }
+        
+        html += `
+            <div style="background: #f8f9fa; border-radius: 8px; padding: 15px; margin-bottom: 15px; 
+                        border-left: 4px solid ${masteryColor};">
+                
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                    <div style="display: flex; align-items: center; gap: 8px;">
+                        <i class="fas ${masteryIcon}" style="color: ${masteryColor};"></i>
+                        <h5 style="margin: 0; color: #2c3e50;">${topic.topic_title || `Topic ${index + 1}`}</h5>
+                    </div>
+                    <span style="background: ${masteryColor}; color: white; padding: 3px 10px; border-radius: 15px; font-size: 11px;">
+                        ${masteryLevel}
+                    </span>
+                </div>
+                
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+                    <!-- Completion Progress -->
+                    <div>
+                        <div style="display: flex; justify-content: space-between; font-size: 12px; color: #666; margin-bottom: 5px;">
+                            <span>Completion</span>
+                            <span>${progress}%</span>
+                        </div>
+                        <div style="height: 6px; background: #ecf0f1; border-radius: 3px; overflow: hidden;">
+                            <div style="height: 100%; width: ${progress}%; background: #7a0000; border-radius: 3px;"></div>
+                        </div>
+                    </div>
+                    
+                    <!-- Accuracy Progress -->
+                    <div>
+                        <div style="display: flex; justify-content: space-between; font-size: 12px; color: #666; margin-bottom: 5px;">
+                            <span>Accuracy</span>
+                            <span>${accuracy}%</span>
+                        </div>
+                        <div style="height: 6px; background: #ecf0f1; border-radius: 3px; overflow: hidden;">
+                            <div style="height: 100%; width: ${accuracy}%; background: #27ae60; border-radius: 3px;"></div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div style="font-size: 11px; color: #7f8c8d; margin-top: 10px;">
+                    <i class="fas fa-clock"></i> 
+                    Last practiced: ${topic.last_practiced ? formatTimeAgo(topic.last_practiced) : 'Not started'}
+                </div>
+            </div>
+        `;
+    });
+    
+    html += '</div>';
+    container.innerHTML = html;
+}
+
+// Helper function to format time ago
+function formatTimeAgo(dateString) {
+    if (!dateString) return 'Never';
+    
+    const date = new Date(dateString);
+    const now = new Date();
+    const diffMs = now - date;
+    const diffMins = Math.floor(diffMs / 60000);
+    const diffHours = Math.floor(diffMs / 3600000);
+    const diffDays = Math.floor(diffMs / 86400000);
+    
+    if (diffMins < 1) return 'Just now';
+    if (diffMins < 60) return `${diffMins} min ago`;
+    if (diffHours < 24) return `${diffHours} hour${diffHours > 1 ? 's' : ''} ago`;
+    if (diffDays === 1) return 'Yesterday';
+    if (diffDays < 7) return `${diffDays} days ago`;
+    
+    return date.toLocaleDateString();
+}
+
+// ============================================
+// DEFAULT ANALYTICS (fallback)
+// ============================================
+function getDefaultPerformanceAnalytics() {
+    return {
+        weekly_improvement: 5,
+        practice_accuracy: 85,
+        avg_time_per_activity: 5,
+        current_streak: 1,
+        quiz_avg_score: 75,
+        topic_mastery: []
+    };
 }
 
 
 // ============================================
-// ✅ FIXED: updatePerformanceAnalytics - WITH REAL DATA
+// UPDATE PERFORMANCE ANALYTICS UI
 // ============================================
-function updatePerformanceAnalytics(progressData) {
+function updatePerformanceAnalytics(analytics) {
     const container = document.getElementById('performanceGrid');
     if (!container) return;
     
-    // Use real data from progress
-    const data = {
-        weekly_improvement: progressData?.weekly_improvement || 5,
-        practice_accuracy: progressData?.practice_accuracy || 85,
-        avg_time_per_activity: progressData?.avg_time_per_activity || 5,
-        current_streak: progressData?.streak_days || 1,
-        quiz_avg_score: progressData?.quiz_avg_score || 75
+    const data = analytics || ProgressState.performanceAnalytics || getDefaultPerformanceAnalytics();
+    
+    // Determine colors based on values
+    const getImprovementColor = (value) => {
+        if (value > 10) return 'linear-gradient(135deg, #27ae60 0%, #2ecc71 100%)'; // Green
+        if (value > 0) return 'linear-gradient(135deg, #f39c12 0%, #f1c40f 100%)'; // Orange
+        return 'linear-gradient(135deg, #e74c3c 0%, #c0392b 100%)'; // Red
+    };
+    
+    const getAccuracyColor = (value) => {
+        if (value >= 80) return 'linear-gradient(135deg, #27ae60 0%, #2ecc71 100%)'; // Green
+        if (value >= 60) return 'linear-gradient(135deg, #f39c12 0%, #f1c40f 100%)'; // Orange
+        return 'linear-gradient(135deg, #e74c3c 0%, #c0392b 100%)'; // Red
     };
     
     container.innerHTML = `
-        <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 15px;">
+        <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 15px; margin-bottom: 20px;">
+            
             <!-- Weekly Improvement Card -->
-            <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); 
-                        padding: 20px; border-radius: 10px; color: white;">
-                <i class="fas fa-chart-line" style="font-size: 24px; margin-bottom: 10px;"></i>
+            <div style="background: ${getImprovementColor(data.weekly_improvement)}; 
+                        padding: 20px; border-radius: 12px; color: white;
+                        box-shadow: 0 10px 20px rgba(0,0,0,0.1);
+                        transition: transform 0.3s ease;"
+                 onmouseover="this.style.transform='translateY(-5px)'"
+                 onmouseout="this.style.transform='translateY(0)'">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                    <i class="fas fa-chart-line" style="font-size: 24px; opacity: 0.9;"></i>
+                    <span style="background: rgba(255,255,255,0.2); padding: 5px 10px; border-radius: 20px; font-size: 12px;">
+                        Weekly
+                    </span>
+                </div>
                 <h4 style="margin: 5px 0; font-size: 14px; opacity: 0.9;">Weekly Improvement</h4>
-                <p style="font-size: 28px; font-weight: bold; margin: 5px 0;">
+                <p style="font-size: 32px; font-weight: bold; margin: 5px 0;">
                     ${data.weekly_improvement > 0 ? '+' : ''}${data.weekly_improvement}%
+                </p>
+                <p style="font-size: 12px; opacity: 0.8; margin: 0;">
+                    ${data.weekly_improvement > 0 ? '↑ Better than last week' : 
+                      data.weekly_improvement < 0 ? '↓ Need more practice' : 'Same as last week'}
                 </p>
             </div>
             
             <!-- Practice Accuracy Card -->
-            <div style="background: linear-gradient(135deg, #f39c12 0%, #e67e22 100%); 
-                        padding: 20px; border-radius: 10px; color: white;">
-                <i class="fas fa-bullseye" style="font-size: 24px; margin-bottom: 10px;"></i>
+            <div style="background: ${getAccuracyColor(data.practice_accuracy)}; 
+                        padding: 20px; border-radius: 12px; color: white;
+                        box-shadow: 0 10px 20px rgba(0,0,0,0.1);
+                        transition: transform 0.3s ease;"
+                 onmouseover="this.style.transform='translateY(-5px)'"
+                 onmouseout="this.style.transform='translateY(0)'">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                    <i class="fas fa-bullseye" style="font-size: 24px; opacity: 0.9;"></i>
+                    <span style="background: rgba(255,255,255,0.2); padding: 5px 10px; border-radius: 20px; font-size: 12px;">
+                        Accuracy
+                    </span>
+                </div>
                 <h4 style="margin: 5px 0; font-size: 14px; opacity: 0.9;">Practice Accuracy</h4>
-                <p style="font-size: 28px; font-weight: bold; margin: 5px 0;">${data.practice_accuracy}%</p>
+                <p style="font-size: 32px; font-weight: bold; margin: 5px 0;">${data.practice_accuracy}%</p>
+                <p style="font-size: 12px; opacity: 0.8; margin: 0;">
+                    ${data.practice_accuracy >= 80 ? '🎯 Excellent!' : 
+                      data.practice_accuracy >= 60 ? '📚 Keep practicing' : '💪 More practice needed'}
+                </p>
             </div>
             
             <!-- Avg. Time/Activity Card -->
             <div style="background: linear-gradient(135deg, #3498db 0%, #2980b9 100%); 
-                        padding: 20px; border-radius: 10px; color: white;">
-                <i class="fas fa-clock" style="font-size: 24px; margin-bottom: 10px;"></i>
+                        padding: 20px; border-radius: 12px; color: white;
+                        box-shadow: 0 10px 20px rgba(0,0,0,0.1);
+                        transition: transform 0.3s ease;"
+                 onmouseover="this.style.transform='translateY(-5px)'"
+                 onmouseout="this.style.transform='translateY(0)'">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                    <i class="fas fa-clock" style="font-size: 24px; opacity: 0.9;"></i>
+                    <span style="background: rgba(255,255,255,0.2); padding: 5px 10px; border-radius: 20px; font-size: 12px;">
+                        Average
+                    </span>
+                </div>
                 <h4 style="margin: 5px 0; font-size: 14px; opacity: 0.9;">Avg. Time/Activity</h4>
-                <p style="font-size: 28px; font-weight: bold; margin: 5px 0;">${data.avg_time_per_activity} min</p>
+                <p style="font-size: 32px; font-weight: bold; margin: 5px 0;">${data.avg_time_per_activity} min</p>
+                <p style="font-size: 12px; opacity: 0.8; margin: 0;">
+                    ${data.avg_time_per_activity <= 5 ? '⚡ Efficient learner' : '📖 Taking your time'}
+                </p>
             </div>
             
             <!-- Current Streak Card -->
             <div style="background: linear-gradient(135deg, #e74c3c 0%, #c0392b 100%); 
-                        padding: 20px; border-radius: 10px; color: white;">
-                <i class="fas fa-fire" style="font-size: 24px; margin-bottom: 10px;"></i>
+                        padding: 20px; border-radius: 12px; color: white;
+                        box-shadow: 0 10px 20px rgba(0,0,0,0.1);
+                        transition: transform 0.3s ease;"
+                 onmouseover="this.style.transform='translateY(-5px)'"
+                 onmouseout="this.style.transform='translateY(0)'">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                    <i class="fas fa-fire" style="font-size: 24px; opacity: 0.9;"></i>
+                    <span style="background: rgba(255,255,255,0.2); padding: 5px 10px; border-radius: 20px; font-size: 12px;">
+                        Streak
+                    </span>
+                </div>
                 <h4 style="margin: 5px 0; font-size: 14px; opacity: 0.9;">Current Streak</h4>
-                <p style="font-size: 28px; font-weight: bold; margin: 5px 0;">${data.current_streak} days</p>
+                <p style="font-size: 32px; font-weight: bold; margin: 5px 0;">${data.current_streak} days</p>
+                <p style="font-size: 12px; opacity: 0.8; margin: 0;">
+                    ${data.current_streak >= 7 ? '🔥 On fire!' : 
+                      data.current_streak >= 3 ? '📅 Good momentum' : '🌱 Just starting'}
+                </p>
             </div>
         </div>
     `;
