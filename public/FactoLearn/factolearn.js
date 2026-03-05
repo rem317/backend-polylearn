@@ -41,7 +41,7 @@ const APP_LESSON_MAP = {
     },
     'factorial': {
         lessonId: 3,
-        name: 'Factorial'  // Ito na ang gagamitin
+        name: 'FactoPermCombi'  // Ito na ang gagamitin
     },
     'polylearn': {
         lessonId: 2,
@@ -58,7 +58,7 @@ const MATHEASE_LESSON_ID = 1;  // ← IDAGDAG ITO
 
 // Para madaling gamitin
 const CURRENT_LESSON_ID = 3; // Factorial only
-const CURRENT_APP_NAME = 'Factorial';
+const CURRENT_APP_NAME = 'FactoPermCombi';
 
 function getCurrentApp() {
     return localStorage.getItem('selectedApp') || 'factorial'; // Factorial na ang default
@@ -227,7 +227,7 @@ class ToolManager {
                     </div>
                     <div class="modal-body">
                         <div class="formula-categories">
-                            <button onclick="window.toolManager.tools.formula.showCategory('polynomial')">Polynomial</button>
+                            <button onclick="window.toolManager.tools.formula.showCategory('polynomial')">FactoPermCombi</button>
                             <button onclick="window.toolManager.tools.formula.showCategory('algebra')">Algebra</button>
                             <button onclick="window.toolManager.tools.formula.showCategory('calculus')">Calculus</button>
                         </div>
@@ -2936,7 +2936,7 @@ function openQuickLessonModal() {
                             <i class="fas fa-heading"></i> Lesson Name <span style="color: red;">*</span>
                         </label>
                         <input type="text" id="quickLessonName" class="form-control" 
-                               placeholder="e.g., Polynomial Functions" style="width: 100%; padding: 10px;">
+                               placeholder="e.g., FactoPermCombi" style="width: 100%; padding: 10px;">
                     </div>
                     <div style="margin-bottom: 20px;">
                         <label style="display: block; margin-bottom: 8px; font-weight: 600;">
@@ -3054,7 +3054,7 @@ function openQuickModuleModal() {
                             <i class="fas fa-tag"></i> Module Name <span style="color: red;">*</span>
                         </label>
                         <input type="text" id="quickModuleName" class="form-control" 
-                               placeholder="e.g., Introduction to Polynomials" style="width: 100%; padding: 10px;">
+                               placeholder="e.g., Introduction to FactoPermCombi" style="width: 100%; padding: 10px;">
                     </div>
                     <div style="margin-bottom: 20px;">
                         <label style="display: block; margin-bottom: 8px; font-weight: 600;">
@@ -3220,7 +3220,7 @@ function openQuickTopicModal() {
                             <i class="fas fa-heading"></i> Topic Title <span style="color: red;">*</span>
                         </label>
                         <input type="text" id="quickTopicTitle" class="form-control" 
-                               placeholder="e.g., What is a Polynomial?" style="width: 100%; padding: 10px;">
+                               placeholder="e.g., What is a Factorial,Permutation and Combination?" style="width: 100%; padding: 10px;">
                     </div>
                     <div style="margin-bottom: 20px;">
                         <label style="display: block; margin-bottom: 8px; font-weight: 600;">
@@ -4289,7 +4289,7 @@ async function loadVideoLesson(lessonId) {
                 videoSrc = lesson.content_url;
             } else {
                 // Default video
-                videoSrc = '/videos/quarter1-polynomial-equations.mp4';
+                videoSrc = '/videos/quarter1-FactoPermCombi-equations.mp4';
             }
             
             // Create video element
@@ -10563,7 +10563,7 @@ async function startQuizSystem(quizId) {
 // Helper function to manually load PolyLearn quizzes (Category 2)
 // ============================================
 function loadFactorialQuizzes() {
-    console.log('📚 Loading FactoLearn quizzes (Category 3)...');
+    console.log('📚 Loading FactoPermCombi quizzes (Category 3)...');
     
     // Find PolyLearn category (ID 3)
     const factoLearnCategory = QuizState.quizCategories.find(c => c.category_id == 3);
@@ -11987,7 +11987,7 @@ async function loadQuizCategories() {
                     <div style="font-size: 40px; color: #7a0000; margin-bottom: 20px;">
                         <i class="fas fa-spinner fa-spin"></i>
                     </div>
-                    <p style="color: #666;">Loading PolyLearn categories from database...</p>
+                    <p style="color: #666;">Loading FactoPermCombi categories from database...</p>
                 </div>
             `;
         }
@@ -12218,7 +12218,7 @@ function handleCategoriesResponse(data, filterOnClient = false) {
 // ✅ FIXED: Display quiz categories na parang dashboard card
 // ============================================
 function displayQuizCategories(categories, isHardcoded = false) {
-    console.log('📋 Displaying PolyLearn quiz categories:', categories);
+    console.log('📋 Displaying FactoPermCombi quiz categories:', categories);
     
     const quizzesContainer = document.getElementById('userQuizzesContainer');
     if (!quizzesContainer) {
@@ -12243,8 +12243,8 @@ function displayQuizCategories(categories, isHardcoded = false) {
                 <div style="font-size: 60px; color: #ccc; margin-bottom: 20px;">
                     <i class="fas fa-folder-open"></i>
                 </div>
-                <h3 style="color: #666; margin-bottom: 10px;">No PolyLearn Categories Available</h3>
-                <p style="color: #999; margin-bottom: 20px;">Check back later for new PolyLearn quizzes!</p>
+                <h3 style="color: #666; margin-bottom: 10px;">No FactoPermCombi Categories Available</h3>
+                <p style="color: #999; margin-bottom: 20px;">Check back later for new FactoPermCombi quizzes!</p>
                 <button class="btn-primary" onclick="loadQuizCategories()" style="background: #7a0000; color: white; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer;">
                     <i class="fas fa-redo"></i> Refresh
                 </button>
@@ -12260,7 +12260,7 @@ function displayQuizCategories(categories, isHardcoded = false) {
             <div class="card-header" style="padding: 20px 25px 0;">
                 <h2 class="card-title" style="display: flex; align-items: center; gap: 10px; font-size: 1.4rem; color: var(--text-color); margin-bottom: 5px;">
                     <i class="fas fa-folder" style="color: #7a0000;"></i> 
-                    PolyLearn Quiz Categories
+                    FactoPermCombi Quiz Categories
                 </h2>
                 <p class="card-subtitle" style="color: var(--text-light); font-size: 0.95rem;">
                     Select a category to start practicing
@@ -12285,8 +12285,8 @@ function displayQuizCategories(categories, isHardcoded = false) {
     
     polyLearnCategories.forEach(category => {
         const categoryId = category.category_id || category.id;
-        const categoryName = category.category_name || category.name || 'PolyLearn Quiz';
-        const categoryDesc = category.description || 'Test your PolyLearn knowledge.';
+        const categoryName = category.category_name || category.name || 'FactoPermCombi Quiz';
+        const categoryDesc = category.description || 'Test your FactoPermCombi knowledge.';
         const totalQuizzes = category.quiz_count || category.total_quizzes || 3;
         const categoryColor = category.color || '#7a0000';
         const categoryIcon = category.icon || 'fa-graduation-cap';
@@ -12316,7 +12316,7 @@ function displayQuizCategories(categories, isHardcoded = false) {
                             <div style="display: flex; align-items: center; gap: 10px;">
                                 <span style="background: ${categoryColor}10; color: ${categoryColor}; 
                                            padding: 4px 10px; border-radius: 20px; font-size: 12px;">
-                                    <i class="fas fa-graduation-cap"></i> PolyLearn
+                                    <i class="fas fa-graduation-cap"></i> FactoPermCombi
                                 </span>
                                 <span style="color: #7f8c8d; font-size: 13px;">
                                     <i class="fas fa-question-circle"></i> ${totalQuizzes} quizzes
@@ -18482,6 +18482,7 @@ function generateDefaultLessonContent(lesson) {
                 This lesson covers polynomial division methods including long division and synthetic division. 
                 These techniques are essential for simplifying complex polynomial expressions and solving equations.
             </p>
+         
             
             <h2 class="lesson-subtitle">Learning Objectives</h2>
             <ol class="lesson-list">
