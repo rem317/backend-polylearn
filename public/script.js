@@ -27344,7 +27344,9 @@ function setupFeedbackForm() {
 }
 
 
-// In your script.js, around line 9400
+// ============================================
+// ✅ FIXED: submitFeedback para sa Railway
+// ============================================
 async function submitFeedback(feedbackType, feedbackMessage, rating = 0) {
     try {
         const token = localStorage.getItem('authToken') || authToken;
@@ -27362,19 +27364,22 @@ async function submitFeedback(feedbackType, feedbackMessage, rating = 0) {
             }
         }
         
-        // Prepare feedback data
+        // Prepare COMPLETE feedback data
         const feedbackData = {
-            feedback_type: feedbackType || 'general',  // ← Must match server expected field
-            feedback_message: feedbackMessage,         // ← Must match server expected field
+            feedback_type: feedbackType || 'general',
+            feedback_message: feedbackMessage,
             rating: rating,
             user_id: userId,
             page_url: window.location.href,
             user_agent: navigator.userAgent
         };
         
-        console.log('📤 Submitting feedback:', feedbackData);
+        console.log('📤 Submitting feedback to Railway:', feedbackData);
         
-        const response = await fetch('/api/feedback/submit', {
+        // Use hardcoded URL or ensure API_BASE_URL is correct
+        const url = 'http://localhost:5000/api/feedback/submit';
+        
+        const response = await fetch(url, {
             method: 'POST',
             headers: {
                 'Authorization': `Bearer ${token}`,
@@ -27383,31 +27388,34 @@ async function submitFeedback(feedbackType, feedbackMessage, rating = 0) {
             body: JSON.stringify(feedbackData)
         });
         
-        const responseText = await response.text();
-        console.log('📥 Raw response:', responseText);
-        
-        let data;
-        try {
-            data = JSON.parse(responseText);
-        } catch (e) {
-            console.error('Failed to parse JSON:', responseText);
-            data = { success: false, message: 'Invalid server response' };
+        // Check if response is JSON
+        const contentType = response.headers.get('content-type');
+        if (!contentType || !contentType.includes('application/json')) {
+            const text = await response.text();
+            console.error('❌ Non-JSON response:', text);
+            throw new Error('Server returned non-JSON response');
         }
         
-        if (response.ok && data.success) {
-            console.log('✅ Feedback saved to database! ID:', data.feedback_id);
+        if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(errorData.message || `HTTP ${response.status}`);
+        }
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            console.log('✅ Feedback submitted successfully. ID:', data.feedback_id);
             return true;
         } else {
-            console.error('❌ Server error:', data);
-            return false;
+            throw new Error(data.message || 'Failed to submit feedback');
         }
         
     } catch (error) {
-        console.error('❌ Error:', error);
+        console.error('❌ Error submitting feedback:', error);
+        showNotification('Failed to submit feedback: ' + error.message, 'error');
         return false;
     }
 }
-
 // ============================================
 // ✅ FIXED: Load feedback history - WITH PROPER ERROR HANDLING
 // ============================================
