@@ -11097,20 +11097,20 @@ app.post('/api/practice/:exerciseId/start', authenticateUser, async (req, res) =
         });
     }
 });
-// ===== FIXED: Submit practice exercise - ENSURE attempts are saved =====
+// ============================================
+// SUBMIT PRACTICE ANSWERS - REPLACE EXISTING ENDPOINT
+// ============================================
 app.post('/api/practice/:exerciseId/submit', authenticateUser, async (req, res) => {
     try {
-        const { exerciseId } = req.params;
         const userId = req.user.id;
+        const exerciseId = req.params.exerciseId;
         const { answers, time_spent_seconds } = req.body;
         
-        console.log(`📤 Submitting practice exercise ${exerciseId} for user ${userId}`);
+        console.log(`📝 Submitting practice exercise ${exerciseId} for user ${userId}`);
         
-        // Get exercise details
-        const [exercises] = await promisePool.query(`
-            SELECT exercise_id, title, content_json, points, topic_id
-            FROM practice_exercises 
-            WHERE exercise_id = ? AND is_active = 1
+        // Get exercise from database
+        const [exercises] = await promisePool.execute(`
+            SELECT * FROM practice_exercises WHERE exercise_id = ?
         `, [exerciseId]);
         
         if (exercises.length === 0) {
@@ -11121,151 +11121,96 @@ app.post('/api/practice/:exerciseId/submit', authenticateUser, async (req, res) 
         }
         
         const exercise = exercises[0];
-        const topicId = exercise.topic_id;
         
-        // Parse content_json
-        let content;
-        try {
-            content = typeof exercise.content_json === 'string' 
-                ? JSON.parse(exercise.content_json) 
-                : exercise.content_json;
-        } catch (e) {
-            content = { questions: [] };
-        }
+        // Check answers against correct answers
+        const results = checkPracticeAnswers(answers, exercise);
         
-        // Calculate score
-        let correctCount = 0;
-        const totalQuestions = content.questions?.length || 0;
-        
-        content.questions?.forEach((question, index) => {
-            const userAnswer = answers[`q${index}`];
-            if (!userAnswer) return;
-            
-            // Find correct option index
-            let correctOptionIndex = -1;
-            if (question.options && Array.isArray(question.options)) {
-                question.options.forEach((opt, optIndex) => {
-                    if (opt.correct === true) correctOptionIndex = optIndex;
-                });
-            }
-            
-            if (userAnswer == correctOptionIndex) correctCount++;
-        });
-        
-        const percentage = totalQuestions > 0 
-            ? Math.round((correctCount / totalQuestions) * 100) 
-            : 0;
-        
-        const maxPoints = exercise.points || (totalQuestions * 10);
-        const pointsEarned = Math.round((percentage / 100) * maxPoints);
-        const passed = percentage >= 70;
-        
-        console.log(`📊 Results: ${correctCount}/${totalQuestions} correct = ${percentage}%`);
-        
-        // ===== ENSURE practice_attempts table exists =====
-        const [tables] = await promisePool.query("SHOW TABLES LIKE 'practice_attempts'");
-        
-        if (tables.length === 0) {
-            await promisePool.query(`
-                CREATE TABLE IF NOT EXISTS practice_attempts (
-                    attempt_id INT AUTO_INCREMENT PRIMARY KEY,
-                    user_id INT NOT NULL,
-                    exercise_id INT NOT NULL,
-                    topic_id INT,
-                    answers JSON,
-                    score INT DEFAULT 0,
-                    max_score INT DEFAULT 0,
-                    percentage INT DEFAULT 0,
-                    time_spent_seconds INT DEFAULT 0,
-                    completion_status ENUM('in_progress', 'completed', 'failed') DEFAULT 'in_progress',
-                    attempt_number INT DEFAULT 1,
-                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                    completed_at TIMESTAMP NULL,
-                    FOREIGN KEY (user_id) REFERENCES users(user_id) ON DELETE CASCADE,
-                    FOREIGN KEY (exercise_id) REFERENCES practice_exercises(exercise_id) ON DELETE CASCADE,
-                    INDEX idx_user_exercise (user_id, exercise_id)
-                )
-            `);
-            console.log('✅ Created practice_attempts table');
-        }
+        console.log('✅ Answer checking results:', results);
         
         // Get attempt number
-        const [attemptCount] = await promisePool.query(`
-            SELECT COUNT(*) as count FROM practice_attempts 
+        const [attempts] = await promisePool.execute(`
+            SELECT COUNT(*) as attempt_count 
+            FROM practice_attempts 
             WHERE user_id = ? AND exercise_id = ?
         `, [userId, exerciseId]);
         
-        const attemptNumber = (attemptCount[0]?.count || 0) + 1;
+        const attemptNumber = (attempts[0]?.attempt_count || 0) + 1;
         
-        // ===== INSERT ATTEMPT =====
-        const [result] = await promisePool.query(`
-            INSERT INTO practice_attempts 
-            (user_id, exercise_id, topic_id, answers, score, max_score, 
-             percentage, time_spent_seconds, completion_status, attempt_number, completed_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())
+        // Insert practice attempt
+        const [result] = await promisePool.execute(`
+            INSERT INTO practice_attempts (
+                user_id, exercise_id, score, max_score, percentage, 
+                correct_answers, total_questions, answers, answers_json,
+                completion_status, attempt_number, time_spent_seconds, 
+                completed_at, created_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'completed', ?, ?, NOW(), NOW())
         `, [
-            userId,
-            exerciseId,
-            topicId,
+            userId, 
+            exerciseId, 
+            results.correct * 10, // 10 points per correct answer
+            exercise.points || 150,
+            results.score,
+            results.correct,
+            results.total,
             JSON.stringify(answers),
-            pointsEarned,
-            maxPoints,
-            percentage,
-            time_spent_seconds || 0,
-            passed ? 'completed' : 'failed',
-            attemptNumber
+            JSON.stringify(results.details),
+            attemptNumber,
+            time_spent_seconds || 0
         ]);
         
-        console.log(`✅ Practice attempt saved! ID: ${result.insertId}`);
+        const attemptId = result.insertId;
         
-        // Update user_practice_progress (optional)
-        await promisePool.query(`
-            INSERT INTO user_practice_progress 
-            (user_id, exercise_id, completion_status, score, attempts, time_spent_seconds, completed_at)
-            VALUES (?, ?, ?, ?, 1, ?, NOW())
+        // Update user_practice_progress
+        await promisePool.execute(`
+            INSERT INTO user_practice_progress (
+                user_id, exercise_id, completion_status, score, attempts, 
+                time_spent_seconds, last_attempted, completed_at
+            ) VALUES (?, ?, 'completed', ?, ?, ?, NOW(), NOW())
             ON DUPLICATE KEY UPDATE
-                completion_status = VALUES(completion_status),
+                completion_status = 'completed',
                 score = VALUES(score),
                 attempts = attempts + 1,
                 time_spent_seconds = time_spent_seconds + VALUES(time_spent_seconds),
+                last_attempted = NOW(),
                 completed_at = NOW()
         `, [
-            userId,
-            exerciseId,
-            passed ? 'completed' : 'in_progress',
-            percentage,
+            userId, 
+            exerciseId, 
+            results.score, 
             time_spent_seconds || 0
         ]);
         
         // Update daily progress
-        const today = new Date().toISOString().split('T')[0];
-        await promisePool.query(`
-            INSERT INTO daily_progress (user_id, progress_date, exercises_completed, points_earned)
-            VALUES (?, ?, 1, ?)
+        await promisePool.execute(`
+            INSERT INTO daily_progress (user_id, progress_date, exercises_completed, total_time_minutes)
+            VALUES (?, CURDATE(), 1, ?)
             ON DUPLICATE KEY UPDATE
                 exercises_completed = exercises_completed + 1,
-                points_earned = points_earned + ?
-        `, [userId, today, pointsEarned, pointsEarned]);
+                total_time_minutes = total_time_minutes + VALUES(total_time_minutes)
+        `, [userId, Math.round((time_spent_seconds || 0) / 60)]);
+        
+        // Update cumulative progress
+        await promisePool.execute(`
+            INSERT INTO cumulative_progress (user_id, total_exercises_completed, total_time_spent_minutes)
+            VALUES (?, 1, ?)
+            ON DUPLICATE KEY UPDATE
+                total_exercises_completed = total_exercises_completed + 1,
+                total_time_spent_minutes = total_time_spent_minutes + VALUES(total_time_spent_minutes)
+        `, [userId, Math.round((time_spent_seconds || 0) / 60)]);
         
         res.json({
             success: true,
-            completed: passed,
-            score: pointsEarned,
-            max_score: maxPoints,
-            percentage: percentage,
-            correct: correctCount,
-            total: totalQuestions,
-            points_earned: pointsEarned,
-            attempt_id: result.insertId,
-            message: passed ? '🎉 Great job!' : '💪 Keep practicing!'
+            attempt_id: attemptId,
+            results: results,
+            points_earned: results.correct * 10,
+            message: 'Practice submitted successfully'
         });
         
     } catch (error) {
         console.error('❌ Error submitting practice:', error);
-        res.status(500).json({ 
-            success: false, 
-            message: 'Failed to submit practice',
-            error: error.message 
+        res.status(500).json({
+            success: false,
+            message: error.message
         });
     }
 });
@@ -16884,7 +16829,92 @@ function getTypeColor(type) {
 // ✅ END OF TEACHER ROUTES
 // ============================================
 
-
+// ============================================
+// CHECK PRACTICE ANSWERS FUNCTION
+// ============================================
+function checkPracticeAnswers(userAnswers, exercise) {
+    try {
+        // Parse exercise content
+        const content = typeof exercise.content_json === 'string' 
+            ? JSON.parse(exercise.content_json) 
+            : exercise.content_json;
+        
+        const questions = content.questions || [];
+        const results = {
+            correct: 0,
+            wrong: 0,
+            total: questions.length,
+            score: 0,
+            details: []
+        };
+        
+        // Check each answer
+        questions.forEach((q, index) => {
+            const questionId = q.id || index + 1;
+            const userAnswer = userAnswers[`q${index}`] || userAnswers[questionId];
+            
+            // Find correct option
+            const correctOption = q.options.find(opt => opt.is_correct === true);
+            
+            // Check if answer is correct
+            let isCorrect = false;
+            let selectedOptionText = '';
+            
+            if (correctOption && userAnswer) {
+                // Try to find the selected option
+                const selectedOption = q.options.find(opt => 
+                    opt.option_id == userAnswer || 
+                    opt.option_text == userAnswer ||
+                    opt.id == userAnswer
+                );
+                
+                if (selectedOption) {
+                    selectedOptionText = selectedOption.option_text;
+                    isCorrect = selectedOption.is_correct === true;
+                }
+            }
+            
+            // Update counts
+            if (isCorrect) {
+                results.correct++;
+            } else {
+                results.wrong++;
+            }
+            
+            // Store details
+            results.details.push({
+                question_id: questionId,
+                question_text: q.question,
+                user_answer: userAnswer,
+                user_answer_text: selectedOptionText,
+                correct_answer: correctOption ? correctOption.option_text : null,
+                correct_option_id: correctOption ? correctOption.option_id : null,
+                is_correct: isCorrect,
+                explanation: q.explanation || ''
+            });
+        });
+        
+        // Calculate score percentage
+        results.score = results.total > 0 
+            ? Math.round((results.correct / results.total) * 100) 
+            : 0;
+        
+        results.passed = results.score >= 70; // 70% passing
+        
+        return results;
+        
+    } catch (error) {
+        console.error('Error checking practice answers:', error);
+        return {
+            correct: 0,
+            wrong: userAnswers ? Object.keys(userAnswers).length : 0,
+            total: 0,
+            score: 0,
+            passed: false,
+            error: error.message
+        };
+    }
+}
 
 
 
