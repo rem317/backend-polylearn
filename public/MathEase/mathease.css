@@ -7672,7 +7672,7 @@ textarea.feedback-form-control {
 #app-selection-page .polylearn .app-icon {
     background: linear-gradient(135deg, #ff7e5f, #feb47b);
 }
-#app-selection-page .factolearn .app-icon {
+#app-selection-page .mathease .app-icon {
     background: var(--success-gradient);
 }
 #app-selection-page .quizhub .app-icon {
@@ -7720,7 +7720,7 @@ textarea.feedback-form-control {
     font-weight: bold;
     background-color: rgba(196, 30, 58, 0.08);
 }
-#app-selection-page .factolearn .app-equation {
+#app-selection-page .mathease .app-equation {
     font-size: 1.4rem;
     color: var(--success);
 }
