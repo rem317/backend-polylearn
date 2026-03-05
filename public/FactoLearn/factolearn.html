@@ -3343,6 +3343,10 @@
     <div class="mobile-menu-overlay" id="mobileMenuOverlay"></div>
     <div class="mobile-menu-panel" id="mobileMenuPanel">
         <div class="mobile-menu-header">
+            <h3><i class="fas fa-bars"></i> Menu</h3>
+            <button class="close-menu-btn" onclick="closeMobileMenu()">
+                <i class="fas fa-times"></i>
+            </button>
         </div>
         <div class="mobile-menu-grid">
             <a href="#" class="mobile-menu-item active" onclick="showDashboard(event)">
@@ -3373,13 +3377,12 @@
                 <i class="fas fa-graduation-cap"></i>
                 <span>Lessons</span>
             </a>
-            <a href="#" class="mobile-menu-item" onclick="showLogoutConfirmation()">
+            <a href="#" class="mobile-menu-item logout-item" onclick="showLogoutConfirmation()">
                 <i class="fas fa-sign-out-alt"></i>
                 <span>Logout</span>
             </a>
         </div>
     </div>
-
     <!-- Quiz Modal -->
     <div class="modal-overlay" id="quizModal">
         <div class="modal-container" style="max-width: 800px;">
