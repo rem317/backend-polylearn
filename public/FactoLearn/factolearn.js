@@ -8019,252 +8019,208 @@ function closeMobileMenu() {
     document.body.style.overflow = '';
 }
 
-// Update the logout modal button to use the correct function
+// ============================================
+// 🚪 COMPLETE LOGOUT CONFIRMATION
+// ============================================
+
+// Show logout confirmation
 function showLogoutConfirmation() {
-    console.log('🔓 Showing logout confirmation');
+    console.log('🚪 Showing logout confirmation');
     
-    // Remove any existing logout modal first
-    const existingModal = document.getElementById('logoutModal');
-    if (existingModal) {
-        existingModal.remove();
+    const modal = document.getElementById('logoutModal');
+    if (!modal) {
+        createLogoutModal();
+        return;
     }
     
+    modal.style.display = 'flex';
+    document.body.classList.add('modal-open');
+}
+
+// Close modal
+function closeLogoutModal() {
+    const modal = document.getElementById('logoutModal');
+    if (modal) {
+        modal.style.display = 'none';
+        document.body.classList.remove('modal-open');
+    }
+}
+
+// Confirm logout
+function confirmLogout() {
+    console.log('✅ Logout confirmed');
+    closeLogoutModal();
+    showNotification('👋 See you next time!', 'info');
+    setTimeout(logoutAndRedirect, 500);
+}
+
+// Create modal if missing
+function createLogoutModal() {
+    const modalHTML = `...`; // (use the HTML from Step 2)
+    document.body.insertAdjacentHTML('beforeend', modalHTML);
+    setTimeout(showLogoutConfirmation, 100);
+}
+
+// Make available globally
+window.showLogoutConfirmation = showLogoutConfirmation;
+window.closeLogoutModal = closeLogoutModal;
+window.confirmLogout = confirmLogout;
+
+// Close logout modal
+function closeLogoutModal() {
+    console.log('🚪 Closing logout modal');
+    const modal = document.getElementById('logoutModal');
+    if (modal) {
+        modal.style.display = 'none';
+        document.body.classList.remove('modal-open');
+    }
+}
+
+// Confirm logout - actual logout
+function confirmLogout() {
+    console.log('✅ Logout confirmed');
+    
+    closeLogoutModal();
+    showNotification('👋 See you next time!', 'info');
+    
+    setTimeout(() => {
+        logoutAndRedirect();
+    }, 500);
+}
+
+// Create modal if not exists (fallback)
+function createLogoutModal() {
     const modalHTML = `
-        <div id="logoutModal" class="modal-overlay" style="display: flex; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); backdrop-filter: blur(5px); z-index: 2147483647; justify-content: center; align-items: center;">
-            <div style="background: white; max-width: 380px; width: 90%; border-radius: 16px; overflow: hidden; box-shadow: 0 20px 40px rgba(0,0,0,0.4); animation: fadeIn 0.3s ease;">
-                <div style="background: #7a0000; color: white; padding: 16px 20px; display: flex; justify-content: space-between; align-items: center;">
-                    <h3 style="margin: 0; font-size: 18px;"><i class="fas fa-sign-out-alt"></i> Confirm Logout</h3>
-                    <button onclick="closeLogoutModal()" style="background: none; border: none; color: white; font-size: 24px; cursor: pointer; line-height: 1;">&times;</button>
+        <div id="logoutModal" class="modal-overlay" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); backdrop-filter: blur(5px); -webkit-backdrop-filter: blur(5px); z-index: 10000; justify-content: center; align-items: center; animation: fadeIn 0.3s ease; padding: 15px;">
+            
+            <!-- Modal Container - Admin style -->
+            <div style="background: white; max-width: 380px; width: 100%; border-radius: 16px; overflow: hidden; box-shadow: 0 20px 40px -12px rgba(0,0,0,0.4);">
+                
+                <!-- Modal Header - Gaya ng admin -->
+                <div style="background: #b90404; color: white; padding: 16px 20px; display: flex; justify-content: space-between; align-items: center;">
+                    <h3 style="margin: 0; font-size: 18px; font-weight: 600; display: flex; align-items: center; gap: 10px;">
+                        <i class="fas fa-sign-out-alt"></i> 
+                        Confirm Logout
+                    </h3>
+                    <button onclick="closeLogoutModal()" style="background: none; border: none; color: white; font-size: 24px; cursor: pointer; line-height: 1; padding: 0; width: 30px; height: 30px; display: flex; align-items: center; justify-content: center;">&times;</button>
                 </div>
                 
-                <div style="padding: 25px 20px; text-align: center;">
+                <!-- Modal Body - Gaya ng admin -->
+                <div style="padding: 25px 20px; text-align: center; background: white;">
+                    
+                    <!-- Warning Icon - Gaya ng admin -->
                     <div style="width: 70px; height: 70px; border-radius: 50%; background: #fff3cd; margin: 0 auto 15px; display: flex; align-items: center; justify-content: center;">
                         <i class="fas fa-exclamation-triangle" style="font-size: 35px; color: #856404;"></i>
                     </div>
                     
-                    <h4 style="margin: 0 0 8px; font-size: 18px; color: #2c3e50;">Are you sure you want to logout?</h4>
-                    <p style="color: #7f8c8d; margin: 0 0 20px; font-size: 14px;">Your progress is automatically saved.</p>
+                    <!-- Title - Gaya ng admin -->
+                    <h4 style="margin: 0 0 8px; font-size: 18px; font-weight: 600; color: #2c3e50;">
+                        Are you sure you want to logout?
+                    </h4>
                     
+                    <!-- Message - Gaya ng admin -->
+                    <p style="color: #7f8c8d; margin: 0 0 20px; font-size: 14px; line-height: 1.5;">
+                        You are about to log out from your MathHub Student account. 
+                        Your progress is automatically saved.
+                    </p>
+                    
+                    <!-- Details Section - Gaya ng admin -->
+                    <div style="background: #f8f9fa; border-radius: 8px; padding: 15px; margin: 0 0 20px; text-align: left;">
+                        
+                        <!-- Account Info -->
+                        <p style="margin: 8px 0; color: #2c3e50; font-size: 14px; display: flex; align-items: center; gap: 10px;">
+                            <i class="fas fa-user" style="width: 18px; color: #7a0000;"></i>
+                            <strong style="min-width: 80px;">Account:</strong> 
+                            <span id="confirmationAccountEmail" style="color: #34495e;">student@mathhub.com</span>
+                        </p>
+                        
+                        <!-- Session Time -->
+                        <p style="margin: 8px 0; color: #2c3e50; font-size: 14px; display: flex; align-items: center; gap: 10px;">
+                            <i class="fas fa-clock" style="width: 18px; color: #7a0000;"></i>
+                            <strong style="min-width: 80px;">Session:</strong> 
+                            <span id="confirmationSessionTime" style="color: #34495e;">Just now</span>
+                        </p>
+                        
+                        <!-- Student Level -->
+                        <p style="margin: 8px 0; color: #2c3e50; font-size: 14px; display: flex; align-items: center; gap: 10px;">
+                            <i class="fas fa-graduation-cap" style="width: 18px; color: #7a0000;"></i>
+                            <strong style="min-width: 80px;">Level:</strong> 
+                            <span id="studentLevel" style="color: #34495e;">Beginner</span>
+                        </p>
+                    </div>
+                    
+                    <!-- Action Buttons - Gaya ng admin -->
                     <div style="display: flex; gap: 10px; justify-content: center;">
-                        <button onclick="closeLogoutModal()" style="flex: 1; padding: 12px 15px; background: #ecf0f1; color: #2c3e50; border: none; border-radius: 6px; font-size: 14px; font-weight: 600; cursor: pointer; transition: all 0.3s;">
-                            <i class="fas fa-times"></i> Cancel
+                        
+                        <!-- Cancel Button -->
+                        <button onclick="closeLogoutModal()" style="flex: 1; padding: 12px 15px; background: #ecf0f1; color: #2c3e50; border: none; border-radius: 6px; font-size: 14px; font-weight: 600; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px; transition: all 0.3s;">
+                            <i class="fas fa-times"></i>
+                            Cancel
                         </button>
-                        <button onclick="redirectToMathHubLogin()" style="flex: 1; padding: 12px 15px; background: #7a0000; color: white; border: none; border-radius: 6px; font-size: 14px; font-weight: 600; cursor: pointer; transition: all 0.3s;">
-                            <i class="fas fa-sign-out-alt"></i> Logout
+                        
+                        <!-- Logout Button -->
+                        <button onclick="confirmLogout()" style="flex: 1; padding: 12px 15px; background: #7a0000; color: white; border: none; border-radius: 6px; font-size: 14px; font-weight: 600; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px; transition: all 0.3s;">
+                            <i class="fas fa-sign-out-alt"></i>
+                            Logout
                         </button>
                     </div>
                 </div>
             </div>
         </div>
+        
+        <!-- Animation Keyframes -->
+        <style>
+            @keyframes fadeIn {
+                from { opacity: 0; }
+                to { opacity: 1; }
+            }
+            
+            /* Hover effects */
+            #logoutModal button {
+                transition: all 0.3s ease;
+            }
+            
+            #logoutModal button:hover {
+                transform: translateY(-2px);
+                box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+            }
+            
+            #logoutModal .btn-logout:hover {
+                background: #5a0000 !important;
+                box-shadow: 0 5px 15px rgba(122, 0, 0, 0.3);
+            }
+            
+            /* Mobile optimization */
+            @media (max-width: 480px) {
+                #logoutModal .modal-container {
+                    max-width: 320px;
+                }
+                
+                #logoutModal .confirmation-details p {
+                    font-size: 13px;
+                }
+                
+                #logoutModal .confirmation-details strong {
+                    min-width: 70px;
+                }
+                
+                #logoutModal button {
+                    padding: 10px 12px;
+                    font-size: 13px;
+                }
+            }
+        </style>
     `;
     
     document.body.insertAdjacentHTML('beforeend', modalHTML);
-    
-    // Add animation keyframes if they don't exist
-    if (!document.querySelector('#logout-animation')) {
-        const style = document.createElement('style');
-        style.id = 'logout-animation';
-        style.textContent = `
-            @keyframes fadeIn {
-                from { opacity: 0; transform: translateY(-20px); }
-                to { opacity: 1; transform: translateY(0); }
-            }
-            @keyframes fadeOut {
-                from { opacity: 1; transform: translateY(0); }
-                to { opacity: 0; transform: translateY(-20px); }
-            }
-        `;
-        document.head.appendChild(style);
-    }
+    console.log('✅ Logout modal created');
+    showLogoutConfirmation(); // Try again
 }
 
-function closeLogoutModal() {
-    console.log('🔒 Closing logout modal');
-    const modal = document.getElementById('logoutModal');
-    if (modal) {
-        modal.style.animation = 'fadeOut 0.2s ease';
-        setTimeout(() => {
-            modal.remove();
-        }, 200);
-    }
-}
-
-function redirectToMathHubLogin() {
-    console.log('🚪 Redirecting to MathHub login page');
-    
-    // Close the modal
-    closeLogoutModal();
-    
-    // Show notification
-    showNotification('info', 'Logging out...', 'Redirecting to MathHub login');
-    
-    // Clear ALL authentication data
-    localStorage.clear();
-    
-    // Redirect to MathHub login
-    setTimeout(() => {
-        window.location.href = 'https://mathhub.com/login';
-    }, 500);
-}
-
-// Make sure all functions are globally available
-window.confirmLogout = redirectToMathHubLogin; // Override the old function
-window.redirectToMathHubLogin = redirectToMathHubLogin;
-window.logoutUser = function(e) {
-    if (e) {
-        e.preventDefault();
-        e.stopPropagation();
-    }
-    showLogoutConfirmation();
-};
-// ============================================
-// 🚪 LOGOUT CONFIRMATION - FIXED WITH CORRECT REDIRECT
-// ============================================
-function confirmLogout() {
-    console.log('🚪 Confirming logout');
-    
-    // Close the modal first
-    closeLogoutModal();
-    
-    // Show loading notification
-    showNotification('info', 'Logging out...', 'Please wait');
-    
-    // Clear ALL authentication data
-    localStorage.removeItem('authToken');
-    localStorage.removeItem('mathhub_user');
-    localStorage.removeItem('hasSelectedApp');
-    localStorage.removeItem('selectedApp');
-    localStorage.removeItem('currentLessonFilter');
-    localStorage.removeItem('currentLessonId');
-    localStorage.removeItem('user_settings');
-    localStorage.removeItem('admin_token');
-    localStorage.removeItem('admin_user');
-    localStorage.removeItem('user_role');
-    localStorage.removeItem('admin_session');
-    localStorage.removeItem('token');
-    localStorage.removeItem('factolearn_progress');
-    localStorage.removeItem('mathProgress');
-    localStorage.removeItem('active_time_tracker');
-    
-    // Reset app state
-    if (window.AppState) {
-        AppState.currentUser = null;
-        AppState.isAuthenticated = false;
-        AppState.selectedApp = null;
-        AppState.hasSelectedApp = false;
-    }
-    
-    // Clear global variables
-    authToken = null;
-    
-    // Stop any active timers
-    if (window.activeTimeTracker && typeof window.activeTimeTracker.cleanup === 'function') {
-        window.activeTimeTracker.cleanup();
-    }
-    window.activeTimeTracker = null;
-    
-    // Clear any intervals
-    if (window.progressRefreshInterval) {
-        clearInterval(window.progressRefreshInterval);
-        window.progressRefreshInterval = null;
-    }
-    
-    if (window.quizStatsInterval) {
-        clearInterval(window.quizStatsInterval);
-        window.quizStatsInterval = null;
-    }
-    
-    // REDIRECT TO MATHHUB LOGIN PAGE
-    setTimeout(() => {
-        // Try multiple methods to redirect to login
-        
-        // Method 1: Use window.location.href (most reliable)
-        window.location.href = 'https://mathhub.com/login';
-        
-        // Method 2: If you're on a subdomain or same domain
-        // window.location.href = '/login';
-        
-        // Method 3: If you want to redirect to the main MathHub site
-        // window.location.href = 'https://www.mathhub.com/login';
-        
-        console.log('🔄 Redirecting to MathHub login page...');
-    }, 500);
-}
-
-// Alternative version if you want to use navigateTo but need to fix the page first
-function confirmLogoutWithNavigate() {
-    console.log('🚪 Confirming logout with navigateTo');
-    
-    // Close the modal first
-    closeLogoutModal();
-    
-    // Show loading notification
-    showNotification('info', 'Logging out...', 'Please wait');
-    
-    // Clear ALL authentication data
-    localStorage.clear(); // Clear everything for a clean logout
-    
-    // Reset app state
-    if (window.AppState) {
-        AppState.currentUser = null;
-        AppState.isAuthenticated = false;
-        AppState.selectedApp = null;
-        AppState.hasSelectedApp = false;
-    }
-    
-    // Clear global variables
-    authToken = null;
-    
-    // Stop any active timers
-    if (window.activeTimeTracker) {
-        window.activeTimeTracker = null;
-    }
-    
-    // Navigate to login - FIRST CHECK IF LOGIN PAGE EXISTS
-    setTimeout(() => {
-        // Check if login page element exists
-        const loginPage = document.getElementById('login-page');
-        
-        if (loginPage) {
-            // If login page exists in the same app, use navigateTo
-            navigateTo('login');
-        } else {
-            // If login page doesn't exist, redirect to external login
-            window.location.href = 'https://mathhub.com/login';
-        }
-    }, 500);
-}
-// Also fix the logoutUser function that might be called from the menu
-function logoutUser(e) {
-    if (e) {
-        e.preventDefault();
-        e.stopPropagation();
-    }
-    
-    console.log('🚪 Logout requested');
-    
-    // Close mobile menu if open
-    const menuOverlay = document.getElementById('mobileMenuOverlay');
-    const menuPanel = document.getElementById('mobileMenuPanel');
-    
-    if (menuOverlay && menuPanel) {
-        menuOverlay.classList.remove('active');
-        menuPanel.classList.remove('active');
-        menuOverlay.style.display = 'none';
-        menuPanel.style.right = '-100%';
-        document.body.classList.remove('modal-open');
-        document.body.style.overflow = '';
-    }
-    
-    // Show confirmation
-    showLogoutConfirmation();
-}
-
-// Make sure functions are globally available
+// Make functions globally available
 window.showLogoutConfirmation = showLogoutConfirmation;
 window.closeLogoutModal = closeLogoutModal;
 window.confirmLogout = confirmLogout;
-window.logoutUser = logoutUser;
 
 document.addEventListener('DOMContentLoaded', function() {
     console.log('📄 DOM loaded - initializing all features');
