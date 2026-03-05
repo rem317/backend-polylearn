@@ -15289,7 +15289,143 @@ async function loadFeedbackData() {
         showNoFeedbackMessage('Cannot connect to database');
     }
 }
+function setupFeedbackForm() {
+    console.log('📝 Setting up feedback form...');
+    
+    const form = document.getElementById('feedbackForm');
+    if (!form) {
+        console.warn('Feedback form not found');
+        return;
+    }
+    
+    // Remove existing listeners
+    const newForm = form.cloneNode(true);
+    form.parentNode.replaceChild(newForm, form);
+    
+    newForm.addEventListener('submit', async function(e) {
+        e.preventDefault();
+        e.stopPropagation();
+        
+        console.log('📤 Submitting feedback...');
+        
+        // Get form values
+        const feedbackType = document.getElementById('feedbackType')?.value || 'general';
+        const feedbackMessage = document.getElementById('feedbackMessage')?.value;
+        const rating = document.getElementById('ratingValue')?.value || 0;
+        
+        if (!feedbackMessage) {
+            showNotification('error', 'Error', 'Please enter your feedback');
+            return;
+        }
+        
+        // Show loading
+        const submitBtn = newForm.querySelector('button[type="submit"]');
+        const originalText = submitBtn.innerHTML;
+        submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Sending...';
+        submitBtn.disabled = true;
+        
+        try {
+            // Save to database
+            const result = await saveFeedbackToDatabase({
+                type: feedbackType,
+                message: feedbackMessage,
+                rating: parseInt(rating)
+            });
+            
+            if (result.success) {
+                // Show success message
+                const successMsg = document.getElementById('feedbackSuccess');
+                if (successMsg) {
+                    successMsg.style.display = 'flex';
+                    setTimeout(() => {
+                        successMsg.style.display = 'none';
+                    }, 5000);
+                }
+                
+                // Reset form
+                newForm.reset();
+                resetRatingStars();
+                
+                showNotification('success', 'Thank You!', 'Your feedback has been sent.');
+            } else {
+                throw new Error(result.message || 'Failed to save feedback');
+            }
+            
+        } catch (error) {
+            console.error('Error submitting feedback:', error);
+            showNotification('error', 'Error', error.message);
+        } finally {
+            submitBtn.innerHTML = originalText;
+            submitBtn.disabled = false;
+        }
+    });
+    
+    console.log('✅ Feedback form setup complete');
+}
+async function saveFeedbackToDatabase(feedbackData) {
+    try {
+        const token = localStorage.getItem('authToken');
+        if (!token) {
+            throw new Error('Not authenticated');
+        }
+        
+        const response = await fetch('/api/feedback/submit', {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(feedbackData)
+        });
+        
+        const data = await response.json();
+        return data;
+        
+    } catch (error) {
+        console.error('Error saving feedback:', error);
+        
+        // Fallback to local storage
+        return saveFeedbackLocally(feedbackData);
+    }
+}
+function resetRatingStars() {
+    const stars = document.querySelectorAll('.star');
+    stars.forEach(star => {
+        star.classList.remove('active');
+        star.innerHTML = '☆';
+    });
+    const ratingValue = document.getElementById('ratingValue');
+    if (ratingValue) ratingValue.value = '0';
+}
+function toggleFAQ(element) {
+    const answer = element.nextElementSibling;
+    const icon = element.querySelector('i.fa-chevron-down');
+    
+    if (answer.classList.contains('open')) {
+        answer.classList.remove('open');
+        icon.style.transform = 'rotate(0deg)';
+    } else {
+        answer.classList.add('open');
+        icon.style.transform = 'rotate(180deg)';
+    }
+}
 
+function rate(value) {
+    const stars = document.querySelectorAll('.star');
+    const ratingValue = document.getElementById('ratingValue');
+    
+    stars.forEach((star, index) => {
+        if (index < value) {
+            star.classList.add('active');
+            star.innerHTML = '★';
+        } else {
+            star.classList.remove('active');
+            star.innerHTML = '☆';
+        }
+    });
+    
+    if (ratingValue) ratingValue.value = value;
+}
 // ===== Helper: Update feedback charts with real data =====
 function updateFeedbackChartsWithRealData() {
     if (!feedbackData) return;
@@ -17365,6 +17501,136 @@ async function updateContinueLearningModule() {
         `;
     }
 }
+// ============================================
+// PROGRESS DASHBOARD DATABASE FUNCTIONS
+// ============================================
+
+async function updateProgressDashboardFromDatabase() {
+    console.log('📊 Updating progress dashboard from database...');
+    
+    try {
+        // Show loading
+        showProgressDashboardLoading();
+        
+        // Fetch all progress data
+        const [cumulative, daily, topics, achievements] = await Promise.allSettled([
+            fetchCumulativeProgress(),
+            fetchDailyProgress(),
+            fetchTopicMastery(),
+            fetchAchievementTimeline(10)
+        ]);
+        
+        // Update overall progress
+        if (cumulative.status === 'fulfilled' && cumulative.value) {
+            updateOverallProgressDisplay(cumulative.value);
+        }
+        
+        // Update daily stats
+        if (daily.status === 'fulfilled' && daily.value) {
+            updateDailyStats(daily.value);
+        }
+        
+        // Update topics progress
+        if (topics.status === 'fulfilled' && topics.value) {
+            updateTopicsProgressDetailed(topics.value);
+        }
+        
+        // Update achievements
+        if (achievements.status === 'fulfilled' && achievements.value) {
+            updateAchievementTimeline();
+        }
+        
+        // Update charts
+        await updateProgressCharts();
+        
+        // Hide loading
+        hideProgressDashboardLoading();
+        
+        console.log('✅ Progress dashboard updated from database');
+        
+    } catch (error) {
+        console.error('❌ Error updating progress dashboard:', error);
+        hideProgressDashboardLoading();
+    }
+}
+function updateDailyStats(dailyData) {
+    // Update daily stats in the UI
+    const pointsChange = document.getElementById('pointsChange');
+    const timeChange = document.getElementById('timeChange');
+    const badgesChange = document.getElementById('badgesChange');
+    
+    if (pointsChange) {
+        pointsChange.textContent = `+${dailyData.points_earned || 0} today`;
+    }
+    
+    if (timeChange) {
+        const minutes = dailyData.time_spent_minutes || 0;
+        timeChange.textContent = `${minutes} min today`;
+    }
+    
+    if (badgesChange) {
+        badgesChange.textContent = `+${dailyData.badges_earned || 0} today`;
+    }
+}
+
+function updateTopicsProgressDetailed(topics) {
+    const container = document.getElementById('topicsProgressDetailed');
+    if (!container) return;
+    
+    if (!topics || topics.length === 0) {
+        container.innerHTML = `
+            <div class="no-data-message">
+                <i class="fas fa-chart-pie"></i>
+                <p>No topic progress data available</p>
+            </div>
+        `;
+        return;
+    }
+    
+    let html = '';
+    topics.forEach(topic => {
+        const progress = topic.progress_percentage || 0;
+        const accuracy = topic.accuracy_rate || 0;
+        
+        html += `
+            <div class="topic-progress-item">
+                <div class="topic-info">
+                    <i class="fas fa-book topic-icon"></i>
+                    <div>
+                        <h4>${topic.topic_name || 'Topic'}</h4>
+                        <p>${topic.module_name || 'Module'}</p>
+                    </div>
+                </div>
+                <div class="topic-progress-data">
+                    <div class="progress-percentage">${progress}%</div>
+                    <div class="topic-stats">
+                        <span class="stat"><i class="fas fa-check-circle"></i> ${accuracy}% accuracy</span>
+                        <span class="stat"><i class="fas fa-clock"></i> ${topic.time_spent || 0} min</span>
+                    </div>
+                    <div class="progress-bar-container">
+                        <div class="progress-fill" style="width: ${progress}%"></div>
+                    </div>
+                </div>
+            </div>
+        `;
+    });
+    
+    container.innerHTML = html;
+}
+
+async function updateProgressCharts() {
+    console.log('📊 Updating progress charts...');
+    
+    const chartData = await fetchProgressChartData(14);
+    
+    if (chartData) {
+        renderPracticeTimeChart(chartData.practiceTime);
+        renderAccuracyChart(chartData.accuracy);
+    } else {
+        createSampleChartData();
+    }
+}
+
 
 // ============================================
 // FIXED: openLesson function - RAILWAY VERSION
@@ -24738,7 +25004,138 @@ function addSettingsStyles() {
     document.head.appendChild(style);
     console.log('✅ Settings styles added');
 }
+function initSettingsDashboard() {
+    console.log('⚙️ Initializing settings dashboard...');
+    
+    // Load user settings
+    loadUserSettings();
+    
+    // Setup section navigation
+    setupSettingsNavigation();
+    
+    // Setup form listeners
+    setupSettingsForms();
+}
 
+function loadUserSettings() {
+    console.log('📥 Loading user settings...');
+    
+    const userJson = localStorage.getItem('mathhub_user');
+    if (userJson) {
+        try {
+            const user = JSON.parse(userJson);
+            
+            const displayName = document.getElementById('displayName');
+            const userEmail = document.getElementById('userEmail');
+            const profilePreview = document.getElementById('profilePreview');
+            
+            if (displayName) displayName.value = user.full_name || user.username || '';
+            if (userEmail) userEmail.value = user.email || '';
+            
+            if (profilePreview) {
+                profilePreview.innerHTML = `<i class="fas fa-user-circle"></i>`;
+            }
+            
+        } catch (e) {
+            console.error('Error loading user:', e);
+        }
+    }
+}
+
+function setupSettingsNavigation() {
+    const menuItems = document.querySelectorAll('.sidebar-menu a');
+    
+    menuItems.forEach(item => {
+        item.addEventListener('click', function(e) {
+            e.preventDefault();
+            
+            // Remove active class from all
+            menuItems.forEach(i => i.classList.remove('active'));
+            
+            // Add active to clicked
+            this.classList.add('active');
+            
+            // Get section id from href
+            const sectionId = this.getAttribute('href').substring(1);
+            showSettingsSection(sectionId);
+        });
+    });
+}
+function showSettingsSection(sectionId) {
+    // Hide all sections
+    document.querySelectorAll('.settings-section').forEach(section => {
+        section.classList.remove('active');
+    });
+    
+    // Show selected section
+    const targetSection = document.getElementById(sectionId);
+    if (targetSection) {
+        targetSection.classList.add('active');
+    }
+}
+
+function setupSettingsForms() {
+    // Save settings button
+    const saveBtn = document.querySelector('.action-buttons .btn-primary');
+    if (saveBtn) {
+        saveBtn.addEventListener('click', saveSettings);
+    }
+    
+    // Reset settings button
+    const resetBtn = document.querySelector('.action-buttons .btn-secondary');
+    if (resetBtn) {
+        resetBtn.addEventListener('click', resetSettings);
+    }
+}
+
+function saveSettings() {
+    console.log('💾 Saving settings...');
+    
+    // Get all form values
+    const settings = {
+        displayName: document.getElementById('displayName')?.value,
+        language: document.getElementById('interfaceLanguage')?.value,
+        municipality: document.getElementById('batangas-municipalities')?.value,
+        timezone: document.getElementById('timeZone')?.value,
+        adaptiveDifficulty: document.getElementById('adaptiveDifficulty')?.checked,
+        preferredDifficulty: document.getElementById('preferredDifficulty')?.value,
+        showSolutions: document.getElementById('showSolutions')?.checked,
+        twoFactorAuth: document.getElementById('twoFactorAuth')?.checked,
+        profileVisibility: document.getElementById('profileVisibility')?.value,
+        dataSharing: document.getElementById('dataSharing')?.checked,
+        weeklyReport: document.getElementById('weeklyReport')?.checked,
+        practiceReminders: document.getElementById('practiceReminders')?.checked,
+        theme: getSelectedTheme(),
+        fontSize: document.getElementById('fontSize')?.value
+    };
+    
+    // Save to localStorage
+    localStorage.setItem('user_settings', JSON.stringify(settings));
+    
+    showNotification('success', 'Settings Saved', 'Your preferences have been updated.');
+}
+
+function getSelectedTheme() {
+    const themeLight = document.getElementById('themeLight');
+    const themeDark = document.getElementById('themeDark');
+    const themeAuto = document.getElementById('themeAuto');
+    
+    if (themeLight?.checked) return 'light';
+    if (themeDark?.checked) return 'dark';
+    if (themeAuto?.checked) return 'auto';
+    return 'light';
+}
+
+function resetSettings() {
+    if (confirm('Reset all settings to default?')) {
+        localStorage.removeItem('user_settings');
+        location.reload();
+    }
+}
+
+function viewProfile() {
+    window.open('/profile', '_blank');
+}
 // ============================================
 // ✅ ADD MISSING FEEDBACK STYLES FUNCTION
 // ============================================
