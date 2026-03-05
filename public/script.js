@@ -1181,6 +1181,72 @@ class GraphTool {
     }
 }
 
+
+// ============================================
+// FAQ DROPDOWN TOGGLE FUNCTION
+// ============================================
+
+/**
+ * Toggles the FAQ answer visibility when a question is clicked.
+ * It slides the answer open/closed and rotates the chevron icon.
+ */
+function toggleFAQ(element) {
+    // Find the parent FAQ item container
+    const faqItem = element.closest('.faq-item');
+    if (!faqItem) return;
+
+    // Find the answer div within this FAQ item
+    const answer = faqItem.querySelector('.faq-answer');
+    // Find the chevron icon within the clicked question
+    const chevron = element.querySelector('.fas.fa-chevron-down');
+
+    // --- Toggle the answer visibility ---
+    if (answer.style.display === 'block' || answer.style.display === '') {
+        // If it's open or default, close it
+        answer.style.display = 'none';
+        // Rotate the chevron back to original position (pointing down)
+        if (chevron) {
+            chevron.style.transform = 'rotate(0deg)';
+        }
+    } else {
+        // If it's closed, open it
+        answer.style.display = 'block';
+        // Rotate the chevron to point up
+        if (chevron) {
+            chevron.style.transform = 'rotate(180deg)';
+        }
+    }
+
+    // Optional: Add a smooth transition effect
+    // You might also want to add this CSS to your stylesheet for smoother animation:
+    // .faq-answer {
+    //     transition: all 0.3s ease-in-out;
+    // }
+    // .faq-question .fas {
+    //     transition: transform 0.3s ease;
+    // }
+}
+
+// Optional: Para mas maayos ang animation at para hindi na kailanganin ang inline onclick,
+// puwede mo ring i-setup ang event listeners sa JavaScript sa halip na gamitin ang
+// 'onclick' attribute sa HTML.
+
+// Kung gusto mong tanggalin ang 'onclick="toggleFAQ(this)"' sa HTML at gamitin ito,
+// i-uncomment ang code sa ibaba at tanggalin ang 'onclick' attribute sa iyong HTML.
+
+/*
+document.addEventListener('DOMContentLoaded', function() {
+    // Kunin ang lahat ng FAQ question elements
+    const faqQuestions = document.querySelectorAll('.faq-question');
+
+    faqQuestions.forEach(question => {
+        question.addEventListener('click', function() {
+            toggleFAQ(this);
+        });
+    });
+});
+*/
+
 // ========================================
 // WHITEBOARD TOOL - MOBILE FIXED VERSION
 // ========================================
