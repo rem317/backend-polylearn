@@ -8586,133 +8586,224 @@ function initializeTimeTracker() {
 
 
 // ============================================
-// ✅ FIXED: fetchPracticeStatistics - DATABASE ONLY
+// ✅ FIXED: fetchPracticeStatistics - WITH BETTER ERROR HANDLING
 // ============================================
 async function fetchPracticeStatistics() {
     try {
-        const practiceStats = document.getElementById('practiceStats');
-        if (!practiceStats) {
-            console.log('Practice stats element not found');
-            return null;
-        }
-        
-        console.log('📊 Loading practice statistics from database...');
-        
-        practiceStats.innerHTML = `
-            <div class="loading-container" style="grid-column: 1/-1; text-align: center; padding: 20px;">
-                <i class="fas fa-spinner fa-spin" style="font-size: 24px; color: #7a0000;"></i>
-                <p style="margin-top: 10px;">Loading statistics from database...</p>
-            </div>
-        `;
-        
         const token = localStorage.getItem('authToken') || authToken;
         if (!token) {
-            throw new Error('No authentication token');
+            console.warn('No auth token available');
+            return getDefaultPracticeStats();
         }
         
-        const POLYLEARN_LESSON_ID = 2;
+        console.log('📊 Fetching practice statistics FROM DATABASE...');
         
-        // Get lessons progress
-        const lessonsResponse = await fetch(`/api/progress/lessons?lesson_id=${POLYLEARN_LESSON_ID}`, {
-            headers: { 'Authorization': `Bearer ${token}` }
-        });
-        
-        if (!lessonsResponse.ok) {
-            throw new Error(`Lessons API returned ${lessonsResponse.status}`);
-        }
-        
-        const contentType = lessonsResponse.headers.get('content-type');
-        if (!contentType || !contentType.includes('application/json')) {
-            throw new Error('Lessons API returned non-JSON response');
-        }
-        
-        const lessonsData = await lessonsResponse.json();
-        
-        // Get practice attempts
-        const practiceResponse = await fetch(`/api/progress/practice-attempts?lesson_id=${POLYLEARN_LESSON_ID}`, {
-            headers: { 'Authorization': `Bearer ${token}` }
-        });
-        
-        if (!practiceResponse.ok) {
-            throw new Error(`Practice API returned ${practiceResponse.status}`);
-        }
-        
-        const practiceContentType = practiceResponse.headers.get('content-type');
-        if (!practiceContentType || !practiceContentType.includes('application/json')) {
-            throw new Error('Practice API returned non-JSON response');
-        }
-        
-        const practiceData = await practiceResponse.json();
-        
-        // Calculate statistics
-        let lessonsCompleted = 0;
-        if (lessonsData.success && lessonsData.progress) {
-            lessonsCompleted = lessonsData.progress.filter(p => 
-                p.completion_status === 'completed'
-            ).length;
-        }
-        
-        let exercisesCompleted = 0;
-        if (practiceData.success && practiceData.attempts) {
-            exercisesCompleted = practiceData.attempts.filter(a => 
-                a.completion_status === 'completed' || a.percentage >= 70
-            ).length;
-        }
-        
-        const stats = {
-            lessons_completed: lessonsCompleted,
-            exercises_completed: exercisesCompleted,
-            total_lessons: 3,
-            total_exercises: 5,
-            average_score: 0,
-            total_time_seconds: 0
-        };
-        
-        // Calculate average score if there are attempts
-        if (practiceData.success && practiceData.attempts && practiceData.attempts.length > 0) {
-            const totalScore = practiceData.attempts.reduce((sum, a) => sum + (a.score || 0), 0);
-            stats.average_score = Math.round(totalScore / practiceData.attempts.length);
-            stats.total_time_seconds = practiceData.attempts.reduce((sum, a) => sum + (a.time_spent_seconds || 0), 0);
-        }
-        
-        console.log('✅ Statistics from database:', stats);
-        
-        // Update UI
-        practiceStats.innerHTML = `
-            <div class="stat-card">
-                <div class="stat-value">${stats.lessons_completed}</div>
-                <div class="stat-label">LESSONS COMPLETED</div>
-                <div class="stat-subtext">out of ${stats.total_lessons}</div>
-            </div>
-            <div class="stat-card">
-                <div class="stat-value">${stats.exercises_completed}</div>
-                <div class="stat-label">EXERCISES COMPLETED</div>
-                <div class="stat-subtext">total completed</div>
-            </div>
-        `;
-        
-        return stats;
-        
-    } catch (error) {
-        console.error('❌ Error fetching practice statistics:', error);
-        
+        // Get the practice stats element
         const practiceStats = document.getElementById('practiceStats');
+        
+        // Show loading state in stats area
         if (practiceStats) {
             practiceStats.innerHTML = `
-                <div class="error-message" style="grid-column: 1/-1; text-align: center; padding: 20px;">
-                    <i class="fas fa-exclamation-triangle" style="font-size: 24px; color: #e74c3c; margin-bottom: 10px;"></i>
-                    <p style="color: #666;">Failed to load statistics: ${error.message}</p>
-                    <button class="btn-primary" onclick="fetchPracticeStatistics()" style="margin-top: 10px; padding: 5px 15px;">
-                        <i class="fas fa-redo"></i> Retry
-                    </button>
+                <div class="loading-container" style="grid-column: 1/-1; text-align: center; padding: 20px;">
+                    <i class="fas fa-spinner fa-spin" style="font-size: 24px; color: #7a0000;"></i>
+                    <p style="margin-top: 10px;">Loading statistics from database...</p>
                 </div>
             `;
         }
         
-        return null;
+        const POLYLEARN_LESSON_ID = 2;
+        
+        // ===== STEP 1: GET LESSONS COMPLETED =====
+        let lessonsCompleted = 0;
+        let totalLessons = 3; // Default
+        
+        try {
+            const progressResponse = await fetch(`/api/progress/lessons?lesson_id=${POLYLEARN_LESSON_ID}`, {
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json'
+                }
+            });
+            
+            // Check if response is OK and is JSON
+            if (progressResponse.ok) {
+                const contentType = progressResponse.headers.get('content-type');
+                if (contentType && contentType.includes('application/json')) {
+                    const progressData = await progressResponse.json();
+                    if (progressData.success && progressData.progress) {
+                        lessonsCompleted = progressData.progress.filter(p => 
+                            p.completion_status === 'completed' || p.status === 'completed'
+                        ).length;
+                        console.log(`✅ Found ${lessonsCompleted} completed lessons`);
+                    }
+                }
+            } else {
+                console.warn(`⚠️ Lessons endpoint returned ${progressResponse.status}`);
+            }
+            
+            // Get total lessons count (try multiple endpoints)
+            try {
+                const totalResponse = await fetch(`/api/lessons-db/complete?lesson_id=${POLYLEARN_LESSON_ID}`, {
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Accept': 'application/json'
+                    }
+                });
+                
+                if (totalResponse.ok) {
+                    const contentType = totalResponse.headers.get('content-type');
+                    if (contentType && contentType.includes('application/json')) {
+                        const totalData = await totalResponse.json();
+                        if (totalData.success && totalData.lessons) {
+                            totalLessons = totalData.lessons.length;
+                            console.log(`📚 Total lessons: ${totalLessons}`);
+                        }
+                    }
+                }
+            } catch (e) {
+                console.warn('Could not fetch total lessons:', e.message);
+            }
+            
+        } catch (lessonsError) {
+            console.warn('⚠️ Could not fetch lessons:', lessonsError.message);
+        }
+        
+        // ===== STEP 2: GET PRACTICE ATTEMPTS =====
+        let exercisesCompleted = 0;
+        let totalAttempts = 0;
+        let totalScore = 0;
+        let totalTimeSeconds = 0;
+        
+        try {
+            const attemptsResponse = await fetch(`/api/progress/practice-attempts?lesson_id=${POLYLEARN_LESSON_ID}`, {
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Accept': 'application/json'
+                }
+            });
+            
+            if (attemptsResponse.ok) {
+                const contentType = attemptsResponse.headers.get('content-type');
+                if (contentType && contentType.includes('application/json')) {
+                    const attemptsData = await attemptsResponse.json();
+                    
+                    if (attemptsData.success && attemptsData.attempts) {
+                        const attempts = attemptsData.attempts;
+                        
+                        // Count COMPLETED exercises
+                        exercisesCompleted = attempts.filter(a => 
+                            a.completion_status === 'completed' || 
+                            a.status === 'completed' ||
+                            (a.percentage && a.percentage >= 70)
+                        ).length;
+                        
+                        totalAttempts = attempts.length;
+                        
+                        // Compute average score
+                        if (totalAttempts > 0) {
+                            const totalScoreSum = attempts.reduce((sum, a) => sum + (a.score || 0), 0);
+                            totalScore = Math.round(totalScoreSum / totalAttempts);
+                        }
+                        
+                        // Calculate total time spent
+                        totalTimeSeconds = attempts.reduce((sum, a) => sum + (a.time_spent_seconds || 0), 0);
+                        
+                        console.log(`✅ Found ${exercisesCompleted} completed exercises`);
+                    }
+                }
+            } else {
+                console.warn(`⚠️ Practice attempts endpoint returned ${attemptsResponse.status}`);
+            }
+            
+        } catch (attemptsError) {
+            console.warn('⚠️ Could not fetch practice attempts:', attemptsError.message);
+        }
+        
+        // ===== CREATE STATS OBJECT =====
+        const stats = {
+            total_exercises_completed: exercisesCompleted,
+            total_attempts: totalAttempts,
+            average_score: totalScore,
+            lessons_completed: lessonsCompleted,
+            exercises_completed: exercisesCompleted,
+            practice_unlocked: true,
+            total_lessons: totalLessons,
+            total_time_minutes: Math.round(totalTimeSeconds / 60),
+            total_time_seconds: totalTimeSeconds,
+            accuracy_rate: totalScore,
+            lessons_display: `${lessonsCompleted}/${totalLessons}`,
+            exercises_display: `${exercisesCompleted}`,
+            lessons_percentage: totalLessons > 0 ? Math.round((lessonsCompleted / totalLessons) * 100) : 0
+        };
+        
+        console.log('✅ FINAL PRACTICE STATISTICS:', stats);
+        
+        // Save to PracticeState
+        PracticeState.userPracticeProgress = stats;
+        
+        // Update the UI
+        if (practiceStats) {
+            practiceStats.innerHTML = `
+                <div class="stat-card">
+                    <div class="stat-value">${lessonsCompleted}</div>
+                    <div class="stat-label">LESSONS COMPLETED</div>
+                    <div class="stat-subtext">out of ${totalLessons}</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value">${exercisesCompleted}</div>
+                    <div class="stat-label">EXERCISES COMPLETED</div>
+                    <div class="stat-subtext">total completed</div>
+                </div>
+            `;
+        }
+        
+        return stats;
+        
+    } catch (error) {
+        console.error('❌ Error in fetchPracticeStatistics:', error);
+        
+        // Show error but don't break
+        const practiceStats = document.getElementById('practiceStats');
+        if (practiceStats) {
+            practiceStats.innerHTML = `
+                <div class="stat-card">
+                    <div class="stat-value">0</div>
+                    <div class="stat-label">LESSONS COMPLETED</div>
+                    <div class="stat-subtext">out of 3</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value">0</div>
+                    <div class="stat-label">EXERCISES COMPLETED</div>
+                    <div class="stat-subtext">total completed</div>
+                </div>
+            `;
+        }
+        
+        return getDefaultPracticeStats();
     }
 }
 
+// ============================================
+// Helper: Default practice stats
+// ============================================
+function getDefaultPracticeStats() {
+    return {
+        total_exercises_completed: 0,
+        total_attempts: 0,
+        average_score: 0,
+        lessons_completed: 0,
+        exercises_completed: 0,
+        practice_unlocked: true,
+        total_lessons: 3,
+        total_time_minutes: 0,
+        total_time_seconds: 0,
+        accuracy_rate: 0,
+        lessons_display: '0/3',
+        exercises_display: '0',
+        lessons_percentage: 0
+    };
+}
 // Update learning goals section
 function updateLearningGoalsSection() {
     const goalsContainer = document.getElementById('goalsContainer');
@@ -18951,10 +19042,10 @@ async function loadPracticeExercises() {
     }
 }
 // ============================================
-// ✅ FIXED: initPracticePage - NO FALLBACKS
+// ✅ FIXED: initPracticePage - WITH BETTER ERROR HANDLING
 // ============================================
 async function initPracticePage() {
-    console.log('💪 Initializing practice page - DATABASE ONLY, NO FALLBACKS');
+    console.log('💪 Initializing practice page - DATABASE ONLY');
     
     // Update date
     const practiceDate = document.getElementById('practiceDate');
@@ -18990,37 +19081,68 @@ async function initPracticePage() {
             `;
         }
         
-        // Load ALL data in parallel
+        // Load ALL data in parallel with error handling for each
         const [statsResult, topicsResult] = await Promise.allSettled([
             fetchPracticeStatistics(),
             loadTopicsProgress()
         ]);
         
-        // Check statistics
-        if (statsResult.status === 'rejected' || (statsResult.value && !statsResult.value.success)) {
-            console.error('❌ Failed to load practice statistics from database');
+        // Check statistics - BUT DON'T THROW ERROR
+        if (statsResult.status === 'rejected') {
+            console.error('❌ Failed to load practice statistics:', statsResult.reason);
+            // Show default stats
+            const practiceStats = document.getElementById('practiceStats');
+            if (practiceStats) {
+                practiceStats.innerHTML = `
+                    <div class="stat-card">
+                        <div class="stat-value">0</div>
+                        <div class="stat-label">LESSONS COMPLETED</div>
+                        <div class="stat-subtext">out of 3</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value">0</div>
+                        <div class="stat-label">EXERCISES COMPLETED</div>
+                        <div class="stat-subtext">total completed</div>
+                    </div>
+                `;
+            }
         }
         
-        // Check topics
+        // Check topics - BUT DON'T THROW ERROR
         if (topicsResult.status === 'rejected') {
-            console.error('❌ Failed to load topics from database');
+            console.error('❌ Failed to load topics:', topicsResult.reason);
         }
         
-        // Load practice exercises for current topic
-        await loadPracticeExercisesForTopic(PracticeState.currentTopic);
+        // Load practice exercises for current topic (with error handling)
+        try {
+            await loadPracticeExercisesForTopic(PracticeState.currentTopic);
+        } catch (exerciseError) {
+            console.error('❌ Failed to load exercises:', exerciseError);
+            const exerciseArea = document.getElementById('exerciseArea');
+            if (exerciseArea) {
+                exerciseArea.innerHTML = `
+                    <div class="error-message" style="text-align: center; padding: 40px;">
+                        <i class="fas fa-exclamation-triangle" style="font-size: 48px; color: #e74c3c;"></i>
+                        <h3 style="color: #666;">No Exercises Available</h3>
+                        <p style="color: #999;">There are no practice exercises in the database.</p>
+                    </div>
+                `;
+            }
+        }
         
     } catch (error) {
-        console.error('❌ Error initializing practice page:', error);
+        console.error('❌ Error in initPracticePage:', error);
         
+        // Show fallback UI
         const exerciseArea = document.getElementById('exerciseArea');
         if (exerciseArea) {
             exerciseArea.innerHTML = `
                 <div class="error-message" style="text-align: center; padding: 40px;">
-                    <i class="fas fa-exclamation-triangle" style="font-size: 60px; color: #e74c3c; margin-bottom: 20px;"></i>
-                    <h3 style="color: #2c3e50; margin-bottom: 10px;">Failed to Load Practice Data</h3>
-                    <p style="color: #7f8c8d; margin-bottom: 20px;">${error.message}</p>
-                    <button class="btn-primary" onclick="initPracticePage()" style="padding: 12px 25px;">
-                        <i class="fas fa-redo"></i> Try Again
+                    <i class="fas fa-exclamation-triangle" style="font-size: 48px; color: #e74c3c;"></i>
+                    <h3 style="color: #666;">Connection Error</h3>
+                    <p style="color: #999;">Unable to connect to database.</p>
+                    <button class="btn-primary" onclick="initPracticePage()" style="margin-top: 15px;">
+                        <i class="fas fa-redo"></i> Retry
                     </button>
                 </div>
             `;
@@ -19030,7 +19152,6 @@ async function initPracticePage() {
     addPracticeStyles();
     console.log('✅ Practice page initialization complete');
 }
-
 // ============================================
 // 🔍 DEBUG: Check what's being filtered
 // ============================================
