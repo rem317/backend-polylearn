@@ -708,7 +708,7 @@ window.saveNote = function() {
 };
 
 // ============================================
-// FORMULA SHEET
+// FORMULA SHEET - TAMANG VERSION (ISANG FUNCTION LANG)
 // ============================================
 const formulas = {
     polynomial: [
@@ -733,22 +733,8 @@ const formulas = {
     ]
 };
 
+// ISANG FUNCTION LANG ITO - WALANG DUPLICATE
 window.showFormulaCategory = function(category) {
-    const listEl = document.getElementById('formulaList');
-    if (!listEl) return;
-    
-    const categoryFormulas = formulas[category] || formulas.polynomial;
-    
-    listEl.innerHTML = categoryFormulas.map(function(f) {
-        return `
-            <div class="formula-item">
-                <div class="formula-name">${f.name}</div>
-                <div class="formula-expression">${f.formula}</div>
-            </div>
-        `;
-    }).join('');
-    
-    window.showFormulaCategory = function(category) {
     const listEl = document.getElementById('formulaList');
     if (!listEl) return;
     
@@ -773,7 +759,7 @@ window.showFormulaCategory = function(category) {
 };
 
 // ============================================
-// STUDY TIMER
+// STUDY TIMER - FIXED VERSION
 // ============================================
 class StudyTimer {
     constructor() {
@@ -826,20 +812,27 @@ class StudyTimer {
     }
     
     setTime(minutes) {
-    this.pause();
-    this.initialTime = minutes * 60;
-    this.timeLeft = this.initialTime;
-    this.updateDisplay();
-    
-    document.querySelectorAll('.timer-presets button').forEach(function(btn) {
-        btn.classList.remove('active');
-    });
-    
-    // I-check kung may event
-    if (event && event.target) {
-        event.target.classList.add('active');
+        this.pause();
+        this.initialTime = minutes * 60;
+        this.timeLeft = this.initialTime;
+        this.updateDisplay();
+        
+        document.querySelectorAll('.timer-presets button').forEach(function(btn) {
+            btn.classList.remove('active');
+        });
+        
+        // I-check kung may event
+        if (window.event && window.event.target) {
+            window.event.target.classList.add('active');
+        } else {
+            // Kung walang event, hanapin ang button based sa minutes
+            document.querySelectorAll('.timer-presets button').forEach(function(btn) {
+                if (btn.textContent.includes(minutes)) {
+                    btn.classList.add('active');
+                }
+            });
+        }
     }
-}
     
     complete() {
         this.pause();
@@ -998,200 +991,66 @@ document.addEventListener('DOMContentLoaded', function() {
     
     console.log('✅ MathEase Lesson 1 Ready!');
 });
+
 // ============================================
-// 🚀 PERMANENT DASHBOARD FIX - Auto-show on load
+// 🚀 PERMANENT DASHBOARD FIX
 // ============================================
-(function permanentDashboardFix() {
-    console.log('🔧 Applying permanent dashboard fix...');
+(function() {
+    console.log('🔧 Applying dashboard fix...');
     
-    // Function to force show dashboard
     function forceShowDashboard() {
         const dashboard = document.getElementById('dashboard-page');
-        if (!dashboard) {
-            console.warn('Dashboard page not found yet, retrying...');
-            return false;
-        }
+        if (!dashboard) return false;
         
-        // Hide ALL possible pages
-        const allPossiblePages = [
-            'dashboard-page', 'practice-exercises-page', 'quiz-dashboard-page',
-            'progress-page', 'feedback-page', 'settings-page', 'module-dashboard-page',
-            'app-selection-page', 'login-page', 'signup-page', 'loading-page',
-            'landing-page'
-        ];
+        dashboard.classList.remove('hidden');
+        dashboard.style.display = 'block';
+        dashboard.style.visibility = 'visible';
+        dashboard.style.opacity = '1';
         
-        allPossiblePages.forEach(pageId => {
-            const page = document.getElementById(pageId);
+        // Hide other pages
+        const pages = ['practice-exercises-page', 'quiz-dashboard-page', 'progress-page', 
+                      'feedback-page', 'settings-page', 'module-dashboard-page'];
+        
+        pages.forEach(id => {
+            const page = document.getElementById(id);
             if (page) {
                 page.classList.add('hidden');
                 page.style.display = 'none';
-                page.style.visibility = 'hidden';
-                page.style.opacity = '0';
             }
         });
         
-        // Force show dashboard with highest priority
-        dashboard.classList.remove('hidden');
-        dashboard.style.cssText = `
-            display: block !important;
-            visibility: visible !important;
-            opacity: 1 !important;
-            position: relative !important;
-            z-index: 1000 !important;
-        `;
-        
-        // Remove any inline styles that might hide it
-        dashboard.style.removeProperty('display');
-        dashboard.style.removeProperty('visibility');
-        dashboard.style.removeProperty('opacity');
-        
-        console.log('✅ Dashboard permanently shown!');
         return true;
     }
     
-    // Run immediately
+    // Run multiple times
     forceShowDashboard();
     
-    // Run after DOM is fully loaded
-    if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', forceShowDashboard);
-    } else {
-        forceShowDashboard();
-    }
-    
-    // Run after everything is loaded
+    document.addEventListener('DOMContentLoaded', forceShowDashboard);
     window.addEventListener('load', forceShowDashboard);
     
-    // Run repeatedly until it works (max 10 attempts)
     let attempts = 0;
     const interval = setInterval(function() {
         attempts++;
-        const success = forceShowDashboard();
-        
-        if (success || attempts >= 10) {
+        if (forceShowDashboard() || attempts > 10) {
             clearInterval(interval);
-            if (success) {
-                console.log(`✅ Dashboard fixed after ${attempts} attempts`);
-            } else {
-                console.warn('⚠️ Could not find dashboard after 10 attempts');
-            }
+            console.log('✅ Dashboard fixed');
         }
-    }, 500); // Check every 500ms
-    
-    // Fix for navigation function
-    if (typeof window.navigateTo === 'function') {
-        const originalNavigate = window.navigateTo;
-        window.navigateTo = function(page) {
-            console.log(`🧭 Navigating to: ${page}`);
-            
-            // Call original function
-            originalNavigate(page);
-            
-            // Ensure dashboard shows properly when navigated to
-            if (page === 'dashboard') {
-                setTimeout(forceShowDashboard, 100);
-            }
-        };
-    }
-    
-    // Add mutation observer to watch for changes
-    const observer = new MutationObserver(function(mutations) {
-        mutations.forEach(function(mutation) {
-            if (mutation.type === 'attributes' || mutation.type === 'childList') {
-                const dashboard = document.getElementById('dashboard-page');
-                if (dashboard && dashboard.classList.contains('hidden')) {
-                    console.log('🔄 Dashboard was hidden, forcing show...');
-                    forceShowDashboard();
-                }
-            }
-        });
-    });
-    
-    // Start observing
-    const dashboard = document.getElementById('dashboard-page');
-    if (dashboard) {
-        observer.observe(dashboard, { 
-            attributes: true, 
-            attributeFilter: ['class', 'style'] 
-        });
-    }
-    
-    // Also observe body for any class changes
-    observer.observe(document.body, { 
-        attributes: true,
-        attributeFilter: ['class']
-    });
-    
+    }, 500);
 })();
 
 // ============================================
-// 🛡️ BACKUP PROTECTION - Run every 2 seconds
+// 🛡️ BACKUP PROTECTION
 // ============================================
 setInterval(function() {
     const dashboard = document.getElementById('dashboard-page');
     if (dashboard && dashboard.classList.contains('hidden')) {
-        console.log('⚠️ Backup protection: Dashboard was hidden, showing again...');
         dashboard.classList.remove('hidden');
         dashboard.style.display = 'block';
         dashboard.style.visibility = 'visible';
         dashboard.style.opacity = '1';
     }
 }, 2000);
-// ============================================
-// 🚀 QUICK FIX - Idagdag sa dulo ng script
-// ============================================
 
-// Fix para sa showFormulaCategory error
-window.showFormulaCategory = function(category) {
-    const listEl = document.getElementById('formulaList');
-    if (!listEl) return;
-    
-    const categoryFormulas = formulas[category] || formulas.polynomial;
-    
-    listEl.innerHTML = categoryFormulas.map(function(f) {
-        return `
-            <div class="formula-item">
-                <div class="formula-name">${f.name}</div>
-                <div class="formula-expression">${f.formula}</div>
-            </div>
-        `;
-    }).join('');
-    
-    // I-FIX ITO - tanggalin ang event.target
-    document.querySelectorAll('.formula-categories button').forEach(function(btn) {
-        btn.classList.remove('active');
-        // Gamitin ang category parameter imbes na event.target
-        if (btn.textContent.toLowerCase() === category) {
-            btn.classList.add('active');
-        }
-    });
-};
-
-// Permanent dashboard fix
-(function() {
-    function showDashboard() {
-        const dashboard = document.getElementById('dashboard-page');
-        if (dashboard) {
-            dashboard.classList.remove('hidden');
-            dashboard.style.display = 'block';
-            return true;
-        }
-        return false;
-    }
-    
-    // Run agad
-    showDashboard();
-    
-    // Run pag nag-load ang page
-    document.addEventListener('DOMContentLoaded', showDashboard);
-    window.addEventListener('load', showDashboard);
-    
-    // Run every second hanggang mag-appear
-    let attempts = 0;
-    const interval = setInterval(() => {
-        attempts++;
-        if (showDashboard() || attempts > 10) {
-            clearInterval(interval);
-        }
-    }, 500);
-})();
+// ============================================
+// ✅ END OF FILE - WALA NANG CODE PAGKATAPOS NITO
+// ============================================
