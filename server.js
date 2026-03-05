@@ -2864,7 +2864,7 @@ app.get('/api/feedback/stats', authenticateAdmin, async (req, res) => {
 });
 
 // ============================================
-// GET FEEDBACK HISTORY
+// ✅ FIXED: GET FEEDBACK HISTORY
 // ============================================
 app.get('/api/feedback/history', authenticateToken, async (req, res) => {
     try {
@@ -2880,9 +2880,10 @@ app.get('/api/feedback/history', authenticateToken, async (req, res) => {
 
         console.log(`📋 Fetching feedback history for user ${userId}`);
 
-        const [feedback] = await pool.execute(`
+        // ✅ FIX: MySQL2 returns [rows, fields]
+        const [rows] = await pool.execute(`
             SELECT 
-                feedback_id,
+                feedback_id as id,
                 feedback_type,
                 feedback_message,
                 rating,
@@ -2895,21 +2896,33 @@ app.get('/api/feedback/history', authenticateToken, async (req, res) => {
             LIMIT ?
         `, [userId, limit]);
 
+        // ✅ Check kung array ang rows
+        if (!Array.isArray(rows)) {
+            console.error('❌ Rows is not an array:', rows);
+            return res.json({
+                success: true,
+                count: 0,
+                feedback: []
+            });
+        }
+
+        console.log(`✅ Found ${rows.length} feedback entries`);
+
         res.json({
             success: true,
-            count: feedback.length,
-            feedback: feedback
+            count: rows.length,
+            feedback: rows  // rows na mismo ang array
         });
 
     } catch (error) {
         console.error('❌ Error fetching feedback history:', error);
         res.status(500).json({
             success: false,
-            message: error.message
+            message: error.message,
+            stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
         });
     }
 });
-
 // ============================================
 // OPTIONAL AUTHENTICATION MIDDLEWARE
 // ============================================
