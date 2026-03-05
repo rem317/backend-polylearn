@@ -18884,7 +18884,331 @@ function setupBackButton() {
     
     console.log('✅ Back button setup complete');
 }
+// ============================================
+// 🎯 FIXED FOOTER NAVIGATION - ALWAYS CLICKABLE
+// ============================================
 
+function fixFooterNavigation() {
+    console.log('🔧 Fixing footer navigation');
+    
+    // Force footer to be clickable
+    const footer = document.querySelector('.footer, .bottom-nav, .app-footer, nav.bottom');
+    if (footer) {
+        footer.style.pointerEvents = 'auto';
+        footer.style.position = 'relative';
+        footer.style.zIndex = '9999';
+    }
+    
+    // Fix all footer buttons
+    const buttons = [
+        { selector: '[onclick="showDashboard()"], [data-page="dashboard"], .home-btn, #homeBtn', action: 'dashboard' },
+        { selector: '[onclick="showPracticeDashboard()"], [data-page="practice"], .practice-btn, #practiceBtn', action: 'practice' },
+        { selector: '[onclick="showQuizDashboard()"], [data-page="quiz"], .quiz-btn, #quizBtn', action: 'quiz' },
+        { selector: '[onclick="showProfile()"], [data-page="profile"], .profile-btn, #profileBtn', action: 'profile' }
+    ];
+    
+    buttons.forEach(item => {
+        document.querySelectorAll(item.selector).forEach(btn => {
+            // Remove any existing listeners
+            const newBtn = btn.cloneNode(true);
+            btn.parentNode.replaceChild(newBtn, btn);
+            
+            // Add click handler
+            newBtn.addEventListener('click', function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                console.log(`🎯 Navigating to: ${item.action}`);
+                
+                // Close any open modals first
+                if (isModalOpen && window.toolManager) {
+                    window.toolManager.closeTool();
+                }
+                
+                // Close menu if open
+                const menuOverlay = document.getElementById('mobileMenuOverlay');
+                if (menuOverlay && menuOverlay.classList.contains('active')) {
+                    menuOverlay.classList.remove('active');
+                    menuOverlay.style.display = 'none';
+                    document.getElementById('mobileMenuPanel')?.classList.remove('active');
+                }
+                
+                // Enable scroll before navigation
+                enableAppScroll();
+                
+                // Navigate
+                if (item.action === 'dashboard') navigateTo('dashboard');
+                else if (item.action === 'practice') navigateTo('practice');
+                else if (item.action === 'quiz') navigateTo('quizDashboard');
+                else if (item.action === 'profile') navigateTo('profile');
+            });
+            
+            // Ensure button is clickable
+            newBtn.style.pointerEvents = 'auto';
+            newBtn.style.cursor = 'pointer';
+        });
+    });
+}
+// ============================================
+// 📜 FIX DASHBOARD SCROLLING
+// ============================================
+
+function fixDashboardScrolling() {
+    console.log('📜 Fixing dashboard scrolling');
+    
+    // Target all dashboard pages
+    const dashboards = [
+        'dashboard-page',
+        'module-dashboard-page',
+        'practice-exercises-page',
+        'quiz-dashboard-page',
+        'progress-page',
+        'settings-page',
+        'feedback-page'
+    ];
+    
+    dashboards.forEach(id => {
+        const page = document.getElementById(id);
+        if (page) {
+            // Make page scrollable
+            page.style.overflowY = 'auto';
+            page.style.overflowX = 'hidden';
+            page.style.height = 'auto';
+            page.style.minHeight = '100vh';
+            page.style.maxHeight = 'none';
+            page.style.webkitOverflowScrolling = 'touch';
+            
+            // Ensure content is visible
+            const container = page.querySelector('.container');
+            if (container) {
+                container.style.height = 'auto';
+                container.style.minHeight = '100%';
+                container.style.paddingBottom = '80px'; // Space for footer
+            }
+        }
+    });
+    
+    // Fix specific containers
+    const scrollableContainers = [
+        '.recent-activity',
+        '.goals-container',
+        '.topics-container',
+        '.exercises-list',
+        '.quiz-categories-grid',
+        '.badges-grid',
+        '.leaderboard-list',
+        '.feedback-list'
+    ];
+    
+    scrollableContainers.forEach(selector => {
+        document.querySelectorAll(selector).forEach(el => {
+            el.style.overflowY = 'auto';
+            el.style.maxHeight = '400px';
+            el.style.webkitOverflowScrolling = 'touch';
+            el.style.paddingRight = '10px';
+        });
+    });
+}
+
+// ============================================
+// 🎯 CSS FIXES
+// ============================================
+
+const fixCSS = document.createElement('style');
+fixCSS.textContent = `
+    /* Make all pages scrollable */
+    [id$="-page"] {
+        overflow-y: auto !important;
+        overflow-x: hidden !important;
+        height: auto !important;
+        min-height: 100vh !important;
+        -webkit-overflow-scrolling: touch !important;
+    }
+    
+    /* Ensure containers are scrollable */
+    .container {
+        height: auto !important;
+        min-height: 100% !important;
+        padding-bottom: 80px !important;
+    }
+    
+    /* Scrollable containers */
+    .recent-activity,
+    .goals-container,
+    .topics-container,
+    .exercises-list,
+    .quiz-categories-grid,
+    .badges-grid,
+    .leaderboard-list,
+    .feedback-list,
+    .module-lessons,
+    .practice-exercises {
+        overflow-y: auto !important;
+        max-height: 400px !important;
+        -webkit-overflow-scrolling: touch !important;
+        padding-right: 10px !important;
+    }
+    
+    /* Footer always clickable */
+    .footer, .bottom-nav, .app-footer, nav.bottom,
+    .footer button, .bottom-nav button, .app-footer button {
+        pointer-events: auto !important;
+        position: relative !important;
+        z-index: 10000 !important;
+        cursor: pointer !important;
+    }
+    
+    /* Modal handling */
+    .modal-overlay {
+        pointer-events: auto;
+        z-index: 9999;
+    }
+    
+    body.modal-open {
+        overflow: hidden;
+    }
+    
+    /* Ensure buttons are clickable */
+    button, a, [role="button"], .btn {
+        cursor: pointer !important;
+    }
+    
+    /* Hamburger menu toggle */
+    #mobileMenuOverlay {
+        transition: opacity 0.3s ease;
+    }
+    
+    #mobileMenuPanel {
+        transition: right 0.3s ease;
+    }
+    
+    #mobileMenuOverlay.active {
+        display: block !important;
+        opacity: 1 !important;
+    }
+    
+    #mobileMenuPanel.active {
+        display: block !important;
+        right: 0 !important;
+    }
+`;
+document.head.appendChild(fixCSS);
+
+// ============================================
+// 🚀 INITIALIZE EVERYTHING
+// ============================================
+
+document.addEventListener('DOMContentLoaded', function() {
+    console.log('📄 Initializing all fixes');
+    
+    // Initialize hamburger menu
+    setTimeout(initHamburgerMenu, 100);
+    
+    // Fix footer navigation
+    setTimeout(fixFooterNavigation, 200);
+    setTimeout(fixFooterNavigation, 500);
+    setTimeout(fixFooterNavigation, 1000);
+    
+    // Fix dashboard scrolling
+    setTimeout(fixDashboardScrolling, 300);
+    
+    // Setup close handlers
+    setTimeout(setupCloseHandlers, 400);
+    
+    // Watch for DOM changes
+    const observer = new MutationObserver(function() {
+        fixFooterNavigation();
+        fixDashboardScrolling();
+        setupCloseHandlers();
+    });
+    
+    observer.observe(document.body, { childList: true, subtree: true });
+    
+    console.log('✅ All fixes initialized');
+});
+
+// Emergency reset function
+window.resetApp = function() {
+    console.log('🔄 Emergency reset');
+    
+    // Reset all body styles
+    document.body.style = '';
+    document.body.classList.remove('modal-open');
+    
+    // Hide all modals
+    document.querySelectorAll('.modal-overlay').forEach(m => m.remove());
+    
+    // Reset menu
+    const menuOverlay = document.getElementById('mobileMenuOverlay');
+    const menuPanel = document.getElementById('mobileMenuPanel');
+    if (menuOverlay) {
+        menuOverlay.classList.remove('active');
+        menuOverlay.style.display = 'none';
+    }
+    if (menuPanel) {
+        menuPanel.classList.remove('active');
+        menuPanel.style.display = 'none';
+    }
+    
+    // Reinitialize
+    initHamburgerMenu();
+    fixFooterNavigation();
+    fixDashboardScrolling();
+    
+    console.log('✅ App reset complete');
+};
+// ============================================
+// 🎯 OVERRIDE TOOLMANAGER
+// ============================================
+
+if (window.ToolManager) {
+    const originalOpen = ToolManager.prototype.openTool;
+    const originalClose = ToolManager.prototype.closeTool;
+    
+    ToolManager.prototype.openTool = function(toolName) {
+        console.log(`🔧 Opening ${toolName}`);
+        disableAppScroll();
+        return originalOpen.call(this, toolName);
+    };
+    
+    ToolManager.prototype.closeTool = function() {
+        console.log('🔧 Closing tool');
+        const result = originalClose.call(this);
+        enableAppScroll();
+        return result;
+    };
+}
+
+// ============================================
+// 🎯 CLOSE HANDLERS
+// ============================================
+
+function setupCloseHandlers() {
+    // Close buttons
+    document.querySelectorAll('.modal-close, .modal-header button').forEach(btn => {
+        btn.addEventListener('click', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            
+            const modal = this.closest('.modal-overlay');
+            if (modal) {
+                modal.style.display = 'none';
+                modal.classList.remove('active');
+                enableAppScroll();
+            }
+        });
+    });
+    
+    // Click on overlay
+    document.querySelectorAll('.modal-overlay').forEach(overlay => {
+        overlay.addEventListener('click', function(e) {
+            if (e.target === this) {
+                this.style.display = 'none';
+                this.classList.remove('active');
+                enableAppScroll();
+            }
+        });
+    });
+}
 // ============================================
 // HELPER: Setup navigation buttons (PREV/NEXT) - UPDATED
 // ============================================
@@ -23274,10 +23598,11 @@ window.navigateTo = function(page) {
 };
 
 // ============================================
-// 🍔 HAMBURGER MENU - FIXED VERSION
+// 🍔 FIXED HAMBURGER MENU - Toggle on/off
 // ============================================
+
 function initHamburgerMenu() {
-    console.log('🍔 Initializing hamburger menu...');
+    console.log('🍔 Initializing hamburger menu with toggle...');
     
     const hamburgerBtn = document.getElementById('footerHamburgerBtn');
     const closeMenuBtn = document.getElementById('closeMenuBtn');
@@ -23289,80 +23614,62 @@ function initHamburgerMenu() {
         return;
     }
     
-    console.log('✅ Menu elements found');
-    
-    // REMOVE ALL EXISTING EVENT LISTENERS
+    // Remove all existing listeners
     const newBtn = hamburgerBtn.cloneNode(true);
     hamburgerBtn.parentNode.replaceChild(newBtn, hamburgerBtn);
     
-    // ADD CLICK EVENT TO NEW BUTTON
+    // Toggle function
+    function toggleMenu() {
+        console.log('🍔 Toggling menu');
+        
+        if (menuOverlay.classList.contains('active')) {
+            // Close menu
+            menuOverlay.classList.remove('active');
+            menuPanel.classList.remove('active');
+            menuOverlay.style.display = 'none';
+            menuPanel.style.display = 'none';
+            document.body.classList.remove('modal-open');
+            document.body.style.overflow = '';
+        } else {
+            // Open menu
+            menuOverlay.classList.add('active');
+            menuPanel.classList.add('active');
+            menuOverlay.style.display = 'block';
+            menuPanel.style.display = 'block';
+            document.body.classList.add('modal-open');
+            document.body.style.overflow = 'hidden';
+        }
+    }
+    
+    // Add click handler to hamburger button
     newBtn.addEventListener('click', function(e) {
         e.preventDefault();
         e.stopPropagation();
-        console.log('🍔 Hamburger clicked - opening menu');
-        
-        // FORCE SHOW MENU
-        menuOverlay.classList.add('active');
-        menuOverlay.style.display = 'block';
-        menuOverlay.style.opacity = '1';
-        
-        menuPanel.classList.add('active');
-        menuPanel.style.right = '0';
-        menuPanel.style.display = 'block';
-        
-        // Prevent body scrolling
-        document.body.classList.add('modal-open');
-        document.body.style.overflow = 'hidden';
+        toggleMenu();
     });
     
-    // CLOSE WHEN CLICKING OVERLAY
-    menuOverlay.addEventListener('click', function() {
-        console.log('🍔 Overlay clicked - closing menu');
-        
-        menuOverlay.classList.remove('active');
-        menuOverlay.style.display = 'none';
-        menuOverlay.style.opacity = '0';
-        
-        menuPanel.classList.remove('active');
-        menuPanel.style.right = '-100%';
-        
-        // Restore body scrolling
-        document.body.classList.remove('modal-open');
-        document.body.style.overflow = '';
+    // Close when clicking overlay
+    menuOverlay.addEventListener('click', function(e) {
+        if (e.target === menuOverlay) {
+            toggleMenu();
+        }
     });
     
-    // CLOSE WHEN CLICKING CLOSE BUTTON
+    // Close button
     if (closeMenuBtn) {
-        closeMenuBtn.addEventListener('click', function() {
-            menuOverlay.classList.remove('active');
-            menuOverlay.style.display = 'none';
-            menuOverlay.style.opacity = '0';
-            
-            menuPanel.classList.remove('active');
-            menuPanel.style.right = '-100%';
-            
-            document.body.classList.remove('modal-open');
-            document.body.style.overflow = '';
+        const newCloseBtn = closeMenuBtn.cloneNode(true);
+        closeMenuBtn.parentNode.replaceChild(newCloseBtn, closeMenuBtn);
+        
+        newCloseBtn.addEventListener('click', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            toggleMenu();
         });
     }
     
-    // CLOSE WHEN CLICKING MENU LINKS
-    menuPanel.querySelectorAll('.menu-item').forEach(link => {
-        link.addEventListener('click', function() {
-            menuOverlay.classList.remove('active');
-            menuOverlay.style.display = 'none';
-            menuOverlay.style.opacity = '0';
-            
-            menuPanel.classList.remove('active');
-            menuPanel.style.right = '-100%';
-            
-            document.body.classList.remove('modal-open');
-            document.body.style.overflow = '';
-        });
-    });
-    
-    console.log('✅ Hamburger menu initialized and ready!');
+    console.log('✅ Hamburger menu initialized with toggle');
 }
+
 // ============================================
 // 👤 UPDATE MENU USER INFO
 // ============================================
@@ -24829,45 +25136,54 @@ setTimeout(() => {
 
 
 // ============================================
-// 🚫 SCROLL CONTROL - Prevent app scrolling when modals are open
+// 🚫 COMPLETE SCROLL CONTROL REWRITE
 // ============================================
 
+let isModalOpen = false;
+
 function disableAppScroll() {
-    // Get current scroll position
-    const scrollY = window.scrollY;
+    if (isModalOpen) return;
+    isModalOpen = true;
     
-    // Save scroll position to restore later
+    console.log('🚫 Disabling app scroll');
+    
+    // Save scroll position
+    const scrollY = window.scrollY;
     document.body.setAttribute('data-scroll-position', scrollY);
     
-    // Disable scrolling
+    // Apply styles to BODY only
     document.body.style.position = 'fixed';
     document.body.style.top = `-${scrollY}px`;
     document.body.style.left = '0';
     document.body.style.right = '0';
-    document.body.style.overflow = 'hidden';
     document.body.style.width = '100%';
+    document.body.style.overflow = 'hidden';
     
-    console.log('🚫 App scrolling disabled');
+    document.body.classList.add('modal-open');
 }
 
 function enableAppScroll() {
-    // Restore scroll position
-    const scrollY = document.body.getAttribute('data-scroll-position');
+    if (!isModalOpen) return;
+    isModalOpen = false;
     
-    // Re-enable scrolling
+    console.log('✅ Enabling app scroll');
+    
+    // Reset body styles
     document.body.style.position = '';
     document.body.style.top = '';
     document.body.style.left = '';
     document.body.style.right = '';
-    document.body.style.overflow = '';
     document.body.style.width = '';
+    document.body.style.overflow = '';
+    
+    document.body.classList.remove('modal-open');
     
     // Restore scroll position
+    const scrollY = document.body.getAttribute('data-scroll-position');
     if (scrollY) {
         window.scrollTo(0, parseInt(scrollY));
+        document.body.removeAttribute('data-scroll-position');
     }
-    
-    console.log('✅ App scrolling enabled');
 }
 
 // ============================================
