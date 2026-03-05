@@ -1,4 +1,4 @@
-// MathEase Lesson ID 1 - Complete JavaScript
+// MathEase Lesson 1 - Complete JavaScript
 // Introduction to Polynomials
 
 // ============================================
@@ -8,8 +8,23 @@ const LESSON_ID = 1;
 const LESSON_TITLE = 'Introduction to Polynomials';
 const VIDEO_DURATION = 600; // 10 minutes in seconds
 
+// API Base URL
+const API_BASE_URL = 'https://backend-matheastest-production.up.railway.app';
+
 // ============================================
-// PROGRESS TRACKING
+// APP STATE
+// ============================================
+let authToken = localStorage.getItem('authToken') || null;
+
+const AppState = {
+    currentUser: null,
+    currentPage: 'loading',
+    isAuthenticated: false,
+    previousPage: null
+};
+
+// ============================================
+// LESSON PROGRESS TRACKING
 // ============================================
 let lessonProgress = {
     percentage: 0,
@@ -55,9 +70,13 @@ function updateProgressDisplay() {
     if (completeBtn) {
         if (lessonProgress.completed) {
             completeBtn.innerHTML = '<i class="fas fa-check"></i> Lesson Completed';
+            completeBtn.classList.remove('btn-primary');
+            completeBtn.classList.add('btn-success');
             completeBtn.disabled = true;
         } else {
-            completeBtn.innerHTML = '<i class="fas fa-check-double"></i> Complete Lesson';
+            completeBtn.innerHTML = '<i class="fas fa-check-circle"></i> Mark Lesson Complete';
+            completeBtn.classList.remove('btn-success');
+            completeBtn.classList.add('btn-primary');
             completeBtn.disabled = false;
         }
     }
@@ -94,6 +113,12 @@ function initVideoPlayer() {
         
         currentTimeSpan.textContent = `${currentMin}:${currentSec.toString().padStart(2,'0')}`;
         durationSpan.textContent = `${durationMin}:${durationSec.toString().padStart(2,'0')}`;
+        
+        // Update video time display in header
+        const videoTime = document.getElementById('videoTime');
+        if (videoTime) {
+            videoTime.textContent = `${currentMin}:${currentSec.toString().padStart(2,'0')} / ${durationMin}:${durationSec.toString().padStart(2,'0')}`;
+        }
         
         // Update progress bar
         const percentage = (current / duration) * 100;
@@ -144,6 +169,7 @@ function openToolModal(modalId) {
     const modal = document.getElementById(modalId);
     if (modal) {
         modal.classList.add('active');
+        modal.style.display = 'flex';
         document.body.style.overflow = 'hidden';
     }
 }
@@ -153,6 +179,7 @@ window.closeToolModal = function(modalId) {
     const modal = document.getElementById(modalId);
     if (modal) {
         modal.classList.remove('active');
+        modal.style.display = 'none';
         document.body.style.overflow = '';
     }
 };
@@ -161,6 +188,7 @@ window.closeToolModal = function(modalId) {
 window.addEventListener('click', function(e) {
     if (e.target.classList.contains('modal-overlay')) {
         e.target.classList.remove('active');
+        e.target.style.display = 'none';
         document.body.style.overflow = '';
     }
 });
@@ -170,6 +198,7 @@ document.addEventListener('keydown', function(e) {
     if (e.key === 'Escape') {
         document.querySelectorAll('.modal-overlay.active').forEach(function(modal) {
             modal.classList.remove('active');
+            modal.style.display = 'none';
         });
         document.body.style.overflow = '';
     }
@@ -185,18 +214,20 @@ class Calculator {
         this.expression = '';
     }
     
-    init() {
+    onOpen() {
+        this.display = '0';
+        this.expression = '';
         this.renderButtons();
         this.loadHistory();
     }
     
     renderButtons() {
         const buttons = [
-            ['C', '⌫', '÷', '×'],
-            ['7', '8', '9', '-'],
-            ['4', '5', '6', '+'],
-            ['1', '2', '3', '='],
-            ['00', '0', '.', '%']
+            ['C', '⌫', '%', '÷'],
+            ['7', '8', '9', '×'],
+            ['4', '5', '6', '-'],
+            ['1', '2', '3', '+'],
+            ['00', '0', '.', '=']
         ];
         
         const buttonsHtml = buttons.map(function(row) {
@@ -205,6 +236,7 @@ class Calculator {
                 if (['+', '-', '×', '÷', '%'].includes(btn)) className += ' operator';
                 if (btn === '=') className += ' equals';
                 if (btn === 'C') className += ' clear';
+                if (btn === '⌫') className += ' backspace';
                 return `<button class="${className}" data-value="${btn}">${btn}</button>`;
             }).join('');
         }).join('');
@@ -213,12 +245,14 @@ class Calculator {
         if (container) {
             container.innerHTML = buttonsHtml;
             
-            container.querySelectorAll('button').forEach(function(btn) {
-                btn.addEventListener('click', function() {
+            container.querySelectorAll('button').forEach((btn) => {
+                btn.addEventListener('click', () => {
                     this.handleButton(btn.getAttribute('data-value'));
-                }.bind(this));
-            }.bind(this));
+                });
+            });
         }
+        
+        this.updateDisplay();
     }
     
     handleButton(value) {
@@ -260,7 +294,6 @@ class Calculator {
             
             const result = eval(expr);
             
-            // Add to history
             this.history.unshift({
                 expression: this.display,
                 result: result,
@@ -278,11 +311,11 @@ class Calculator {
             
         } catch (e) {
             this.display = 'Error';
-            setTimeout(function() {
+            setTimeout(() => {
                 this.display = '0';
                 this.expression = '';
                 this.updateDisplay();
-            }.bind(this), 1000);
+            }, 1000);
         }
     }
     
@@ -335,14 +368,16 @@ class GraphTool {
         this.expression = 'x^2 - 2x + 1';
     }
     
-    init() {
-        this.canvas = document.getElementById('graphCanvas');
-        if (!this.canvas) return;
-        
-        this.ctx = this.canvas.getContext('2d');
-        this.drawGrid();
-        this.plotFunction();
-        this.setupListeners();
+    onOpen() {
+        setTimeout(() => {
+            this.canvas = document.getElementById('graphCanvas');
+            if (this.canvas) {
+                this.ctx = this.canvas.getContext('2d');
+                this.drawGrid();
+                this.plotFunction();
+                this.setupListeners();
+            }
+        }, 100);
     }
     
     setupListeners() {
@@ -350,10 +385,10 @@ class GraphTool {
         const exprInput = document.getElementById('graphExpression');
         
         if (plotBtn) {
-            plotBtn.addEventListener('click', function() {
+            plotBtn.addEventListener('click', () => {
                 this.expression = exprInput?.value || 'x^2 - 2x + 1';
                 this.plotFunction();
-            }.bind(this));
+            });
         }
     }
     
@@ -387,13 +422,11 @@ class GraphTool {
         this.ctx.strokeStyle = '#2c3e50';
         this.ctx.lineWidth = 2;
         
-        // X-axis
         this.ctx.beginPath();
         this.ctx.moveTo(0, h/2);
         this.ctx.lineTo(w, h/2);
         this.ctx.stroke();
         
-        // Y-axis
         this.ctx.beginPath();
         this.ctx.moveTo(w/2, 0);
         this.ctx.lineTo(w/2, h);
@@ -411,12 +444,11 @@ class GraphTool {
         try {
             let expr = this.expression.replace(/\^/g, '**');
             
-            // Generate points
             const points = [];
             const steps = 100;
             
             for (let i = 0; i <= steps; i++) {
-                const x = (i / steps) * 6 - 3; // -3 to 3
+                const x = (i / steps) * 6 - 3;
                 const y = this.evaluateFunction(x, expr);
                 
                 if (isFinite(y)) {
@@ -426,13 +458,12 @@ class GraphTool {
                 }
             }
             
-            // Draw function
-            this.ctx.strokeStyle = '#667eea';
+            this.ctx.strokeStyle = '#7a0000';
             this.ctx.lineWidth = 3;
             this.ctx.beginPath();
             
             let first = true;
-            points.forEach(function(point) {
+            points.forEach((point) => {
                 if (point.y >= 0 && point.y <= h) {
                     if (first) {
                         this.ctx.moveTo(point.x, point.y);
@@ -443,11 +474,10 @@ class GraphTool {
                 } else {
                     first = true;
                 }
-            }.bind(this));
+            });
             
             this.ctx.stroke();
             
-            // Find and display roots
             this.findRoots(expr);
             
         } catch (e) {
@@ -471,7 +501,6 @@ class GraphTool {
         let xIntercepts = [];
         let yIntercept = null;
         
-        // Find y-intercept (x=0)
         try {
             const yAtZero = this.evaluateFunction(0, expr);
             if (isFinite(yAtZero)) {
@@ -479,23 +508,14 @@ class GraphTool {
             }
         } catch (e) {}
         
-        // Find x-intercepts (where y=0)
         for (let x = -5; x <= 5; x += 0.1) {
             try {
                 const y = this.evaluateFunction(x, expr);
-                const yNext = this.evaluateFunction(x + 0.1, expr);
                 
                 if (Math.abs(y) < 0.1) {
                     const roundedX = Math.round(x * 100) / 100;
                     if (!xIntercepts.includes(roundedX) && Math.abs(roundedX) <= 5) {
                         xIntercepts.push(roundedX);
-                    }
-                } else if (y * yNext < 0) {
-                    // Root between x and x+0.1
-                    const root = x - y * (0.1) / (yNext - y);
-                    const roundedRoot = Math.round(root * 100) / 100;
-                    if (!xIntercepts.includes(roundedRoot) && Math.abs(roundedRoot) <= 5) {
-                        xIntercepts.push(roundedRoot);
                     }
                 }
             } catch (e) {}
@@ -505,7 +525,7 @@ class GraphTool {
         
         if (xIntercepts.length > 0) {
             html += '<div class="roots-section"><h4>X-Intercepts:</h4><ul>';
-            xIntercepts.sort(function(a,b) { return a - b; }).forEach(function(root) {
+            xIntercepts.sort((a,b) => a - b).forEach((root) => {
                 html += `<li>x = ${root}</li>`;
             });
             html += '</ul></div>';
@@ -522,244 +542,285 @@ class GraphTool {
 // ============================================
 // WHITEBOARD TOOL
 // ============================================
-let whiteboard = {
-    canvas: null,
-    ctx: null,
-    drawing: false,
-    tool: 'pen',
-    color: '#667eea',
-    lastX: 0,
-    lastY: 0
-};
-
-function initWhiteboard() {
-    whiteboard.canvas = document.getElementById('whiteboardCanvas');
-    if (!whiteboard.canvas) return;
+class Whiteboard {
+    constructor() {
+        this.canvas = null;
+        this.ctx = null;
+        this.drawing = false;
+        this.tool = 'pen';
+        this.color = '#7a0000';
+        this.lastX = 0;
+        this.lastY = 0;
+    }
     
-    whiteboard.ctx = whiteboard.canvas.getContext('2d');
-    whiteboard.ctx.strokeStyle = whiteboard.color;
-    whiteboard.ctx.lineWidth = 2;
-    whiteboard.ctx.lineCap = 'round';
-    whiteboard.ctx.lineJoin = 'round';
-    
-    // Clear canvas
-    whiteboard.ctx.fillStyle = '#ffffff';
-    whiteboard.ctx.fillRect(0, 0, whiteboard.canvas.width, whiteboard.canvas.height);
-    
-    // Mouse events
-    whiteboard.canvas.addEventListener('mousedown', startDrawing);
-    whiteboard.canvas.addEventListener('mousemove', draw);
-    whiteboard.canvas.addEventListener('mouseup', stopDrawing);
-    whiteboard.canvas.addEventListener('mouseout', stopDrawing);
-    
-    // Touch events for mobile
-    whiteboard.canvas.addEventListener('touchstart', handleTouchStart, { passive: false });
-    whiteboard.canvas.addEventListener('touchmove', handleTouchMove, { passive: false });
-    whiteboard.canvas.addEventListener('touchend', handleTouchEnd, { passive: false });
-    
-    // Color picker
-    const colorPicker = document.getElementById('colorPicker');
-    if (colorPicker) {
-        colorPicker.addEventListener('input', function(e) {
-            whiteboard.color = e.target.value;
-            if (whiteboard.ctx && whiteboard.tool === 'pen') {
-                whiteboard.ctx.strokeStyle = whiteboard.color;
+    onOpen() {
+        setTimeout(() => {
+            this.canvas = document.getElementById('whiteboardCanvas');
+            if (this.canvas) {
+                this.setupCanvas();
+                this.setupEventListeners();
             }
-        });
-    }
-}
-
-function startDrawing(e) {
-    e.preventDefault();
-    whiteboard.drawing = true;
-    
-    const rect = whiteboard.canvas.getBoundingClientRect();
-    whiteboard.lastX = e.clientX - rect.left;
-    whiteboard.lastY = e.clientY - rect.top;
-    
-    whiteboard.ctx.beginPath();
-    whiteboard.ctx.moveTo(whiteboard.lastX, whiteboard.lastY);
-}
-
-function draw(e) {
-    e.preventDefault();
-    if (!whiteboard.drawing) return;
-    
-    const rect = whiteboard.canvas.getBoundingClientRect();
-    const currentX = e.clientX - rect.left;
-    const currentY = e.clientY - rect.top;
-    
-    if (whiteboard.tool === 'pen') {
-        whiteboard.ctx.lineTo(currentX, currentY);
-        whiteboard.ctx.stroke();
-    } else if (whiteboard.tool === 'eraser') {
-        whiteboard.ctx.save();
-        whiteboard.ctx.strokeStyle = '#ffffff';
-        whiteboard.ctx.lineWidth = 20;
-        whiteboard.ctx.lineTo(currentX, currentY);
-        whiteboard.ctx.stroke();
-        whiteboard.ctx.restore();
+        }, 100);
     }
     
-    whiteboard.lastX = currentX;
-    whiteboard.lastY = currentY;
-}
-
-function stopDrawing() {
-    whiteboard.drawing = false;
-    whiteboard.ctx.closePath();
-}
-
-function handleTouchStart(e) {
-    e.preventDefault();
-    whiteboard.drawing = true;
-    
-    const touch = e.touches[0];
-    const rect = whiteboard.canvas.getBoundingClientRect();
-    whiteboard.lastX = touch.clientX - rect.left;
-    whiteboard.lastY = touch.clientY - rect.top;
-    
-    whiteboard.ctx.beginPath();
-    whiteboard.ctx.moveTo(whiteboard.lastX, whiteboard.lastY);
-}
-
-function handleTouchMove(e) {
-    e.preventDefault();
-    if (!whiteboard.drawing) return;
-    
-    const touch = e.touches[0];
-    const rect = whiteboard.canvas.getBoundingClientRect();
-    const currentX = touch.clientX - rect.left;
-    const currentY = touch.clientY - rect.top;
-    
-    if (whiteboard.tool === 'pen') {
-        whiteboard.ctx.lineTo(currentX, currentY);
-        whiteboard.ctx.stroke();
-    } else if (whiteboard.tool === 'eraser') {
-        whiteboard.ctx.save();
-        whiteboard.ctx.strokeStyle = '#ffffff';
-        whiteboard.ctx.lineWidth = 20;
-        whiteboard.ctx.lineTo(currentX, currentY);
-        whiteboard.ctx.stroke();
-        whiteboard.ctx.restore();
+    setupCanvas() {
+        this.ctx = this.canvas.getContext('2d');
+        this.ctx.strokeStyle = this.color;
+        this.ctx.lineWidth = 2;
+        this.ctx.lineCap = 'round';
+        this.ctx.lineJoin = 'round';
+        
+        this.ctx.fillStyle = '#ffffff';
+        this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
     }
     
-    whiteboard.lastX = currentX;
-    whiteboard.lastY = currentY;
-}
-
-function handleTouchEnd(e) {
-    e.preventDefault();
-    whiteboard.drawing = false;
-    whiteboard.ctx.closePath();
-}
-
-window.setWhiteboardTool = function(tool) {
-    whiteboard.tool = tool;
-    if (tool === 'pen') {
-        whiteboard.ctx.strokeStyle = whiteboard.color;
-        whiteboard.ctx.lineWidth = 2;
-    } else {
-        whiteboard.ctx.strokeStyle = '#ffffff';
-        whiteboard.ctx.lineWidth = 20;
+    setupEventListeners() {
+        this.canvas.addEventListener('mousedown', this.startDrawing.bind(this));
+        this.canvas.addEventListener('mousemove', this.draw.bind(this));
+        this.canvas.addEventListener('mouseup', this.stopDrawing.bind(this));
+        this.canvas.addEventListener('mouseout', this.stopDrawing.bind(this));
+        
+        this.canvas.addEventListener('touchstart', this.handleTouchStart.bind(this), { passive: false });
+        this.canvas.addEventListener('touchmove', this.handleTouchMove.bind(this), { passive: false });
+        this.canvas.addEventListener('touchend', this.handleTouchEnd.bind(this), { passive: false });
+        
+        const colorPicker = document.getElementById('colorPicker');
+        if (colorPicker) {
+            colorPicker.addEventListener('input', (e) => {
+                this.color = e.target.value;
+                if (this.tool === 'pen') {
+                    this.ctx.strokeStyle = this.color;
+                }
+            });
+        }
     }
-};
-
-window.clearWhiteboard = function() {
-    if (whiteboard.ctx && whiteboard.canvas) {
-        whiteboard.ctx.fillStyle = '#ffffff';
-        whiteboard.ctx.fillRect(0, 0, whiteboard.canvas.width, whiteboard.canvas.height);
-        whiteboard.ctx.strokeStyle = whiteboard.color;
-        whiteboard.ctx.lineWidth = 2;
+    
+    startDrawing(e) {
+        e.preventDefault();
+        this.drawing = true;
+        
+        const rect = this.canvas.getBoundingClientRect();
+        this.lastX = e.clientX - rect.left;
+        this.lastY = e.clientY - rect.top;
+        
+        this.ctx.beginPath();
+        this.ctx.moveTo(this.lastX, this.lastY);
     }
-};
+    
+    draw(e) {
+        e.preventDefault();
+        if (!this.drawing) return;
+        
+        const rect = this.canvas.getBoundingClientRect();
+        const currentX = e.clientX - rect.left;
+        const currentY = e.clientY - rect.top;
+        
+        if (this.tool === 'pen') {
+            this.ctx.lineTo(currentX, currentY);
+            this.ctx.stroke();
+        } else if (this.tool === 'eraser') {
+            this.ctx.save();
+            this.ctx.strokeStyle = '#ffffff';
+            this.ctx.lineWidth = 20;
+            this.ctx.lineTo(currentX, currentY);
+            this.ctx.stroke();
+            this.ctx.restore();
+        }
+        
+        this.lastX = currentX;
+        this.lastY = currentY;
+    }
+    
+    stopDrawing() {
+        this.drawing = false;
+        this.ctx.closePath();
+    }
+    
+    handleTouchStart(e) {
+        e.preventDefault();
+        this.drawing = true;
+        
+        const touch = e.touches[0];
+        const rect = this.canvas.getBoundingClientRect();
+        this.lastX = touch.clientX - rect.left;
+        this.lastY = touch.clientY - rect.top;
+        
+        this.ctx.beginPath();
+        this.ctx.moveTo(this.lastX, this.lastY);
+    }
+    
+    handleTouchMove(e) {
+        e.preventDefault();
+        if (!this.drawing) return;
+        
+        const touch = e.touches[0];
+        const rect = this.canvas.getBoundingClientRect();
+        const currentX = touch.clientX - rect.left;
+        const currentY = touch.clientY - rect.top;
+        
+        if (this.tool === 'pen') {
+            this.ctx.lineTo(currentX, currentY);
+            this.ctx.stroke();
+        } else if (this.tool === 'eraser') {
+            this.ctx.save();
+            this.ctx.strokeStyle = '#ffffff';
+            this.ctx.lineWidth = 20;
+            this.ctx.lineTo(currentX, currentY);
+            this.ctx.stroke();
+            this.ctx.restore();
+        }
+        
+        this.lastX = currentX;
+        this.lastY = currentY;
+    }
+    
+    handleTouchEnd(e) {
+        e.preventDefault();
+        this.drawing = false;
+        this.ctx.closePath();
+    }
+    
+    setTool(tool) {
+        this.tool = tool;
+        if (tool === 'pen') {
+            this.ctx.strokeStyle = this.color;
+            this.ctx.lineWidth = 2;
+        } else {
+            this.ctx.strokeStyle = '#ffffff';
+            this.ctx.lineWidth = 20;
+        }
+    }
+    
+    clear() {
+        if (!this.ctx) return;
+        this.ctx.fillStyle = '#ffffff';
+        this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+        this.ctx.strokeStyle = this.color;
+        this.ctx.lineWidth = 2;
+    }
+}
 
 // ============================================
 // NOTEPAD TOOL
 // ============================================
-window.saveNote = function() {
-    const title = document.getElementById('noteTitle')?.value || 'Untitled';
-    const content = document.getElementById('noteContent')?.value;
-    
-    if (!content) {
-        alert('Please write something before saving');
-        return;
+class Notepad {
+    constructor() {
+        this.notes = JSON.parse(localStorage.getItem('notes') || '[]');
     }
     
-    const note = {
-        id: Date.now(),
-        title: title,
-        content: content,
-        lessonId: LESSON_ID,
-        timestamp: new Date().toISOString()
-    };
+    onOpen() {
+        const notes = JSON.parse(localStorage.getItem('notes') || '[]');
+        if (notes.length > 0) {
+            document.getElementById('noteTitle').value = notes[0].title || 'Polynomial Notes';
+            document.getElementById('noteContent').value = notes[0].content || '';
+        }
+    }
     
-    const notes = JSON.parse(localStorage.getItem('lesson_notes') || '[]');
-    notes.unshift(note);
+    save() {
+        const title = document.getElementById('noteTitle').value || 'Untitled';
+        const content = document.getElementById('noteContent').value;
+        
+        if (!content) {
+            alert('Please write something before saving');
+            return;
+        }
+        
+        const note = {
+            id: Date.now(),
+            title: title,
+            content: content,
+            lessonId: LESSON_ID,
+            timestamp: new Date().toISOString()
+        };
+        
+        const notes = JSON.parse(localStorage.getItem('notes') || '[]');
+        notes.unshift(note);
+        
+        if (notes.length > 10) notes.pop();
+        
+        localStorage.setItem('notes', JSON.stringify(notes));
+        
+        showNotification('Note saved successfully!', 'success');
+    }
     
-    if (notes.length > 10) notes.pop();
-    
-    localStorage.setItem('lesson_notes', JSON.stringify(notes));
-    
-    showNotification('Note saved successfully!', 'success');
-    
-    document.getElementById('noteContent').value = '';
-    document.getElementById('noteTitle').value = 'Polynomial Notes';
-};
+    clear() {
+        document.getElementById('noteContent').value = '';
+        document.getElementById('noteTitle').value = 'Polynomial Notes';
+    }
+}
 
 // ============================================
-// FORMULA SHEET - TAMANG VERSION (ISANG FUNCTION LANG)
+// FORMULA SHEET TOOL
 // ============================================
-const formulas = {
-    polynomial: [
-        { name: 'Quadratic Formula', formula: 'x = (-b ± √(b² - 4ac)) / 2a' },
-        { name: 'Synthetic Division', formula: 'P(x) ÷ (x - r) = Q(x) + R/(x - r)' },
-        { name: 'Factor Theorem', formula: 'If P(r) = 0, then (x - r) is a factor' },
-        { name: 'Remainder Theorem', formula: 'P(r) = remainder when P(x) ÷ (x - r)' },
-        { name: 'Degree of Polynomial', formula: 'deg(P(x)) = highest exponent' },
-        { name: 'FOIL Method', formula: '(a + b)(c + d) = ac + ad + bc + bd' }
-    ],
-    algebra: [
-        { name: 'FOIL Method', formula: '(a + b)(c + d) = ac + ad + bc + bd' },
-        { name: 'Perfect Square', formula: '(a + b)² = a² + 2ab + b²' },
-        { name: 'Difference of Squares', formula: 'a² - b² = (a - b)(a + b)' }
-    ],
-    quadratic: [
-        { name: 'Quadratic Formula', formula: 'x = (-b ± √(b² - 4ac)) / 2a' },
-        { name: 'Discriminant', formula: 'Δ = b² - 4ac' },
-        { name: 'Sum of Roots', formula: 'x₁ + x₂ = -b/a' },
-        { name: 'Product of Roots', formula: 'x₁ × x₂ = c/a' },
-        { name: 'Vertex Formula', formula: 'x = -b/(2a), y = f(-b/(2a))' }
-    ]
-};
-
-// ISANG FUNCTION LANG ITO - WALANG DUPLICATE
-window.showFormulaCategory = function(category) {
-    const listEl = document.getElementById('formulaList');
-    if (!listEl) return;
+class FormulaSheet {
+    constructor() {
+        this.formulas = {
+            polynomial: [
+                { name: 'Quadratic Formula', formula: 'x = (-b ± √(b² - 4ac)) / 2a' },
+                { name: 'Synthetic Division', formula: 'P(x) ÷ (x - r) = Q(x) + R/(x - r)' },
+                { name: 'Factor Theorem', formula: 'If P(r) = 0, then (x - r) is a factor' },
+                { name: 'Remainder Theorem', formula: 'P(r) = remainder when P(x) ÷ (x - r)' },
+                { name: 'Degree of Polynomial', formula: 'deg(P(x)) = highest exponent' },
+                { name: 'FOIL Method', formula: '(a + b)(c + d) = ac + ad + bc + bd' }
+            ],
+            algebra: [
+                { name: 'FOIL Method', formula: '(a + b)(c + d) = ac + ad + bc + bd' },
+                { name: 'Perfect Square', formula: '(a + b)² = a² + 2ab + b²' },
+                { name: 'Difference of Squares', formula: 'a² - b² = (a - b)(a + b)' }
+            ],
+            quadratic: [
+                { name: 'Quadratic Formula', formula: 'x = (-b ± √(b² - 4ac)) / 2a' },
+                { name: 'Discriminant', formula: 'Δ = b² - 4ac' },
+                { name: 'Sum of Roots', formula: 'x₁ + x₂ = -b/a' },
+                { name: 'Product of Roots', formula: 'x₁ × x₂ = c/a' }
+            ]
+        };
+    }
     
-    const categoryFormulas = formulas[category] || formulas.polynomial;
+    onOpen() {
+        this.showCategory('polynomial');
+        this.setupCategoryButtons();
+    }
     
-    listEl.innerHTML = categoryFormulas.map(function(f) {
-        return `
+    setupCategoryButtons() {
+        const categoryBtns = document.querySelectorAll('.formula-category-btn');
+        
+        categoryBtns.forEach(btn => {
+            const newBtn = btn.cloneNode(true);
+            btn.parentNode.replaceChild(newBtn, btn);
+            
+            newBtn.addEventListener('click', (e) => {
+                e.preventDefault();
+                
+                const category = newBtn.textContent.toLowerCase();
+                
+                this.showCategory(category);
+                
+                document.querySelectorAll('.formula-category-btn').forEach(b => {
+                    b.classList.remove('active');
+                });
+                newBtn.classList.add('active');
+            });
+        });
+    }
+    
+    showCategory(category) {
+        const listEl = document.getElementById('formulaList');
+        if (!listEl) return;
+        
+        const categoryFormulas = this.formulas[category] || this.formulas.polynomial;
+        
+        listEl.innerHTML = categoryFormulas.map(f => `
             <div class="formula-item">
                 <div class="formula-name">${f.name}</div>
                 <div class="formula-expression">${f.formula}</div>
             </div>
-        `;
-    }).join('');
-    
-    // I-update ang active button
-    document.querySelectorAll('.formula-categories button').forEach(function(btn) {
-        btn.classList.remove('active');
-        if (btn.textContent.toLowerCase() === category) {
-            btn.classList.add('active');
-        }
-    });
-};
+        `).join('');
+    }
+}
 
 // ============================================
-// STUDY TIMER - FIXED VERSION
+// STUDY TIMER TOOL
 // ============================================
 class StudyTimer {
     constructor() {
@@ -767,26 +828,41 @@ class StudyTimer {
         this.initialTime = 25 * 60;
         this.timerId = null;
         this.isRunning = false;
+        this.timerElement = null;
     }
     
-    init() {
+    onOpen() {
+        this.timeLeft = this.initialTime;
+        this.isRunning = false;
+        
+        if (this.timerId) {
+            clearInterval(this.timerId);
+            this.timerId = null;
+        }
+        
+        this.findTimerElement();
         this.updateDisplay();
         this.setupListeners();
     }
     
+    findTimerElement() {
+        this.timerElement = document.getElementById('timerDisplay');
+        if (!this.timerElement) {
+            this.timerElement = document.querySelector('.timer-display');
+        }
+        return this.timerElement;
+    }
+    
     setupListeners() {
-        document.getElementById('timerStartBtn')?.addEventListener('click', this.start.bind(this));
-        document.getElementById('timerPauseBtn')?.addEventListener('click', this.pause.bind(this));
-        document.getElementById('timerResetBtn')?.addEventListener('click', this.reset.bind(this));
-        document.getElementById('timer15min')?.addEventListener('click', this.setTime.bind(this, 15));
-        document.getElementById('timer25min')?.addEventListener('click', this.setTime.bind(this, 25));
-        document.getElementById('timer50min')?.addEventListener('click', this.setTime.bind(this, 50));
+        document.getElementById('timerStartBtn')?.addEventListener('click', () => this.start());
+        document.getElementById('timerPauseBtn')?.addEventListener('click', () => this.pause());
+        document.getElementById('timerResetBtn')?.addEventListener('click', () => this.reset());
     }
     
     start() {
         if (!this.isRunning && this.timeLeft > 0) {
             this.isRunning = true;
-            this.timerId = setInterval(function() {
+            this.timerId = setInterval(() => {
                 if (this.timeLeft > 0) {
                     this.timeLeft--;
                     this.updateDisplay();
@@ -794,7 +870,7 @@ class StudyTimer {
                         this.complete();
                     }
                 }
-            }.bind(this), 1000);
+            }, 1000);
         }
     }
     
@@ -817,21 +893,12 @@ class StudyTimer {
         this.timeLeft = this.initialTime;
         this.updateDisplay();
         
-        document.querySelectorAll('.timer-presets button').forEach(function(btn) {
+        document.querySelectorAll('.timer-preset').forEach(btn => {
             btn.classList.remove('active');
+            if (btn.textContent.includes(minutes)) {
+                btn.classList.add('active');
+            }
         });
-        
-        // I-check kung may event
-        if (window.event && window.event.target) {
-            window.event.target.classList.add('active');
-        } else {
-            // Kung walang event, hanapin ang button based sa minutes
-            document.querySelectorAll('.timer-presets button').forEach(function(btn) {
-                if (btn.textContent.includes(minutes)) {
-                    btn.classList.add('active');
-                }
-            });
-        }
     }
     
     complete() {
@@ -841,13 +908,135 @@ class StudyTimer {
     }
     
     updateDisplay() {
-        const timerEl = document.getElementById('timerDisplay');
-        if (!timerEl) return;
+        if (!this.timerElement) this.findTimerElement();
+        if (!this.timerElement) return;
         
         const minutes = Math.floor(this.timeLeft / 60);
         const seconds = this.timeLeft % 60;
-        timerEl.textContent = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+        this.timerElement.textContent = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
     }
+}
+
+// ============================================
+// TOOL MANAGER
+// ============================================
+class ToolManager {
+    constructor() {
+        this.tools = {};
+        this.currentTool = null;
+        this.init();
+    }
+    
+    init() {
+        this.initializeTools();
+    }
+    
+    initializeTools() {
+        this.tools = {
+            calculator: new Calculator(),
+            graph: new GraphTool(),
+            whiteboard: new Whiteboard(),
+            notepad: new Notepad(),
+            formula: new FormulaSheet(),
+            timer: new StudyTimer()
+        };
+    }
+    
+    openTool(toolName) {
+        this.closeTool();
+        
+        const modal = document.getElementById(`${toolName}Modal`);
+        if (modal) {
+            modal.style.display = 'flex';
+            modal.classList.add('active');
+            this.currentTool = toolName;
+            
+            if (this.tools[toolName] && typeof this.tools[toolName].onOpen === 'function') {
+                setTimeout(() => {
+                    try {
+                        this.tools[toolName].onOpen();
+                    } catch (e) {
+                        console.error(`Error opening ${toolName}:`, e);
+                    }
+                }, 100);
+            }
+            return true;
+        }
+        return false;
+    }
+    
+    closeTool() {
+        document.querySelectorAll('.modal-overlay').forEach(modal => {
+            modal.style.display = 'none';
+            modal.classList.remove('active');
+        });
+        this.currentTool = null;
+    }
+    
+    startTimer() {
+        if (this.tools.timer) this.tools.timer.start();
+    }
+    
+    pauseTimer() {
+        if (this.tools.timer) this.tools.timer.pause();
+    }
+    
+    resetTimer() {
+        if (this.tools.timer) this.tools.timer.reset();
+    }
+}
+
+// Create global tool manager
+window.toolManager = new ToolManager();
+
+// Make tools globally available
+window.Calculator = Calculator;
+window.GraphTool = GraphTool;
+window.Whiteboard = Whiteboard;
+window.Notepad = Notepad;
+window.FormulaSheet = FormulaSheet;
+window.StudyTimer = StudyTimer;
+
+// ============================================
+// TOOL BUTTON CONNECTION
+// ============================================
+function connectToolButtons() {
+    const tools = [
+        { id: 'openCalculator', name: 'calculator' },
+        { id: 'openGraphTools', name: 'graph' },
+        { id: 'openNotepad', name: 'notepad' },
+        { id: 'openFormulaSheet', name: 'formula' },
+        { id: 'openWhiteboard', name: 'whiteboard' },
+        { id: 'openTimer', name: 'timer' }
+    ];
+    
+    tools.forEach(tool => {
+        const btn = document.getElementById(tool.id);
+        if (btn) {
+            const newBtn = btn.cloneNode(true);
+            btn.parentNode.replaceChild(newBtn, btn);
+            
+            newBtn.addEventListener('click', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                window.toolManager.openTool(tool.name);
+            });
+        }
+    });
+    
+    document.querySelectorAll('[data-tool]').forEach(btn => {
+        const toolName = btn.getAttribute('data-tool');
+        if (toolName) {
+            const newBtn = btn.cloneNode(true);
+            btn.parentNode.replaceChild(newBtn, btn);
+            
+            newBtn.addEventListener('click', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                window.toolManager.openTool(toolName);
+            });
+        }
+    });
 }
 
 // ============================================
@@ -872,15 +1061,109 @@ function showNotification(message, type = 'info') {
     `;
     
     const icon = type === 'success' ? 'fa-check-circle' : 
-                type === 'error' ? 'fa-exclamation-circle' : 'fa-info-circle';
+                 type === 'error' ? 'fa-exclamation-circle' : 'fa-info-circle';
     
     notification.innerHTML = `<i class="fas ${icon}"></i> ${message}`;
     document.body.appendChild(notification);
     
-    setTimeout(function() {
+    setTimeout(() => {
         notification.style.animation = 'slideOut 0.3s ease';
-        setTimeout(function() { notification.remove(); }, 300);
+        setTimeout(() => notification.remove(), 300);
     }, 3000);
+}
+
+// Add animations
+const style = document.createElement('style');
+style.textContent = `
+    @keyframes slideIn {
+        from { transform: translateX(100%); opacity: 0; }
+        to { transform: translateX(0); opacity: 1; }
+    }
+    @keyframes slideOut {
+        from { transform: translateX(0); opacity: 1; }
+        to { transform: translateX(100%); opacity: 0; }
+    }
+`;
+document.head.appendChild(style);
+
+// ============================================
+// HAMBURGER MENU
+// ============================================
+function initHamburgerMenu() {
+    const hamburgerBtn = document.getElementById('footerHamburgerBtn');
+    const closeMenuBtn = document.getElementById('closeMenuBtn');
+    const menuOverlay = document.getElementById('mobileMenuOverlay');
+    const menuPanel = document.getElementById('mobileMenuPanel');
+    
+    if (!hamburgerBtn || !menuOverlay || !menuPanel) return;
+    
+    const newBtn = hamburgerBtn.cloneNode(true);
+    hamburgerBtn.parentNode.replaceChild(newBtn, hamburgerBtn);
+    
+    newBtn.addEventListener('click', function(e) {
+        e.preventDefault();
+        e.stopPropagation();
+        
+        menuOverlay.classList.add('active');
+        menuPanel.classList.add('active');
+        document.body.style.overflow = 'hidden';
+    });
+    
+    if (closeMenuBtn) {
+        closeMenuBtn.addEventListener('click', function() {
+            menuOverlay.classList.remove('active');
+            menuPanel.classList.remove('active');
+            document.body.style.overflow = '';
+        });
+    }
+    
+    menuOverlay.addEventListener('click', function() {
+        menuOverlay.classList.remove('active');
+        menuPanel.classList.remove('active');
+        document.body.style.overflow = '';
+    });
+    
+    menuPanel.querySelectorAll('.mobile-menu-item').forEach(link => {
+        link.addEventListener('click', function() {
+            menuOverlay.classList.remove('active');
+            menuPanel.classList.remove('active');
+            document.body.style.overflow = '';
+        });
+    });
+}
+
+// ============================================
+// COMPLETE LESSON BUTTON
+// ============================================
+function setupCompleteLessonButton() {
+    const completeBtn = document.getElementById('completeLessonBtn');
+    if (!completeBtn) return;
+    
+    const newBtn = completeBtn.cloneNode(true);
+    completeBtn.parentNode.replaceChild(newBtn, completeBtn);
+    
+    newBtn.addEventListener('click', function(e) {
+        e.preventDefault();
+        e.stopPropagation();
+        
+        if (lessonProgress.completed) {
+            showNotification('Lesson already completed!', 'info');
+            return;
+        }
+        
+        lessonProgress.completed = true;
+        lessonProgress.percentage = 100;
+        lessonProgress.currentTime = VIDEO_DURATION;
+        
+        saveProgress();
+        updateProgressDisplay();
+        
+        showNotification('🎉 Congratulations! Lesson completed!', 'success');
+        
+        setTimeout(() => {
+            document.getElementById('nextLessonBtn').disabled = false;
+        }, 500);
+    });
 }
 
 // ============================================
@@ -895,162 +1178,138 @@ document.addEventListener('DOMContentLoaded', function() {
     // Initialize video player
     initVideoPlayer();
     
-    // Initialize tools
-    const calculator = new Calculator();
-    const graphTool = new GraphTool();
-    const studyTimer = new StudyTimer();
+    // Initialize hamburger menu
+    initHamburgerMenu();
     
-    // Setup tool buttons
-    document.getElementById('openCalculator').addEventListener('click', function() {
-        openToolModal('calculatorModal');
-        setTimeout(function() { calculator.init(); }, 100);
+    // Setup complete lesson button
+    setupCompleteLessonButton();
+    
+    // Connect tool buttons
+    setTimeout(connectToolButtons, 500);
+    setTimeout(connectToolButtons, 1000);
+    
+    // Force show lesson dashboard
+    setTimeout(() => {
+        document.getElementById('loading-page')?.classList.add('hidden');
+        document.getElementById('lesson-dashboard-page')?.classList.remove('hidden');
+    }, 2000);
+    
+    // Skip loading button
+    document.getElementById('skipLoading')?.addEventListener('click', function() {
+        document.getElementById('loading-page')?.classList.add('hidden');
+        document.getElementById('lesson-dashboard-page')?.classList.remove('hidden');
     });
-    
-    document.getElementById('openGraphTools').addEventListener('click', function() {
-        openToolModal('graphModal');
-        setTimeout(function() { graphTool.init(); }, 200);
-    });
-    
-    document.getElementById('openWhiteboard').addEventListener('click', function() {
-        openToolModal('whiteboardModal');
-        setTimeout(initWhiteboard, 200);
-    });
-    
-    document.getElementById('openNotepad').addEventListener('click', function() {
-        openToolModal('notepadModal');
-        // Load last note if exists
-        const notes = JSON.parse(localStorage.getItem('lesson_notes') || '[]');
-        if (notes.length > 0) {
-            document.getElementById('noteTitle').value = notes[0].title;
-            document.getElementById('noteContent').value = notes[0].content;
-        }
-    });
-    
-    document.getElementById('openFormulaSheet').addEventListener('click', function() {
-        openToolModal('formulaModal');
-        setTimeout(function() { showFormulaCategory('polynomial'); }, 100);
-    });
-    
-    document.getElementById('openTimer').addEventListener('click', function() {
-        openToolModal('timerModal');
-        setTimeout(function() { studyTimer.init(); }, 100);
-    });
-    
-    // Complete lesson button
-    document.getElementById('completeLessonBtn').addEventListener('click', function() {
-        if (!lessonProgress.completed) {
-            lessonProgress.completed = true;
-            lessonProgress.percentage = 100;
-            lessonProgress.currentTime = VIDEO_DURATION;
-            
-            saveProgress();
-            updateProgressDisplay();
-            
-            showNotification('🎉 Congratulations! Lesson completed!', 'success');
-            
-            // Unlock next lesson (simulated)
-            setTimeout(function() {
-                document.getElementById('nextLessonBtn').disabled = false;
-            }, 500);
-        }
-    });
-    
-    // Navigation buttons
-    document.getElementById('nextLessonBtn').addEventListener('click', function() {
-        showNotification('Lesson 2 coming soon!', 'info');
-    });
-    
-    // Show initial formula category
-    setTimeout(function() { showFormulaCategory('polynomial'); }, 500);
-    
-    // Add animation styles
-    const style = document.createElement('style');
-    style.textContent = `
-        @keyframes slideIn {
-            from {
-                transform: translateX(100%);
-                opacity: 0;
-            }
-            to {
-                transform: translateX(0);
-                opacity: 1;
-            }
-        }
-        @keyframes slideOut {
-            from {
-                transform: translateX(0);
-                opacity: 1;
-            }
-            to {
-                transform: translateX(100%);
-                opacity: 0;
-            }
-        }
-    `;
-    document.head.appendChild(style);
     
     console.log('✅ MathEase Lesson 1 Ready!');
 });
 
 // ============================================
-// 🚀 PERMANENT DASHBOARD FIX
+// NAVIGATION FUNCTIONS
 // ============================================
-(function() {
-    console.log('🔧 Applying dashboard fix...');
-    
-    function forceShowDashboard() {
-        const dashboard = document.getElementById('dashboard-page');
-        if (!dashboard) return false;
-        
-        dashboard.classList.remove('hidden');
-        dashboard.style.display = 'block';
-        dashboard.style.visibility = 'visible';
-        dashboard.style.opacity = '1';
-        
-        // Hide other pages
-        const pages = ['practice-exercises-page', 'quiz-dashboard-page', 'progress-page', 
-                      'feedback-page', 'settings-page', 'module-dashboard-page'];
-        
-        pages.forEach(id => {
-            const page = document.getElementById(id);
-            if (page) {
-                page.classList.add('hidden');
-                page.style.display = 'none';
-            }
-        });
-        
-        return true;
-    }
-    
-    // Run multiple times
-    forceShowDashboard();
-    
-    document.addEventListener('DOMContentLoaded', forceShowDashboard);
-    window.addEventListener('load', forceShowDashboard);
-    
-    let attempts = 0;
-    const interval = setInterval(function() {
-        attempts++;
-        if (forceShowDashboard() || attempts > 10) {
-            clearInterval(interval);
-            console.log('✅ Dashboard fixed');
-        }
-    }, 500);
-})();
+window.showDashboard = function(e) {
+    if (e) e.preventDefault();
+    console.log('🏠 Showing lesson dashboard');
+};
+
+window.showPracticeDashboard = function(e) {
+    if (e) e.preventDefault();
+    showNotification('Practice coming soon!', 'info');
+};
+
+window.showProgressPage = function(e) {
+    if (e) e.preventDefault();
+    showNotification('Progress tracking coming soon!', 'info');
+};
+
+window.showFeedbackPage = function(e) {
+    if (e) e.preventDefault();
+    showNotification('Feedback coming soon!', 'info');
+};
+
+window.showSettingsPage = function(e) {
+    if (e) e.preventDefault();
+    showNotification('Settings coming soon!', 'info');
+};
 
 // ============================================
-// 🛡️ BACKUP PROTECTION
+// LOGOUT FUNCTIONS
 // ============================================
-setInterval(function() {
-    const dashboard = document.getElementById('dashboard-page');
-    if (dashboard && dashboard.classList.contains('hidden')) {
-        dashboard.classList.remove('hidden');
-        dashboard.style.display = 'block';
-        dashboard.style.visibility = 'visible';
-        dashboard.style.opacity = '1';
-    }
-}, 2000);
+window.showLogoutConfirmation = function() {
+    document.getElementById('logoutModal')?.classList.add('active');
+    document.getElementById('logoutModal').style.display = 'flex';
+};
+
+window.closeLogoutModal = function() {
+    document.getElementById('logoutModal')?.classList.remove('active');
+    document.getElementById('logoutModal').style.display = 'none';
+};
+
+window.confirmLogout = function() {
+    closeLogoutModal();
+    showNotification('👋 See you next time!', 'info');
+    setTimeout(() => {
+        window.location.reload();
+    }, 1000);
+};
 
 // ============================================
-// ✅ END OF FILE
+// FORGOT PASSWORD FUNCTIONS
 // ============================================
+window.showForgotPasswordModal = function() {
+    document.getElementById('forgotPasswordModal')?.classList.add('active');
+    document.getElementById('forgotPasswordModal').style.display = 'flex';
+    
+    document.getElementById('forgotStep1').style.display = 'block';
+    document.getElementById('forgotStep2').style.display = 'none';
+};
+
+window.closeForgotPasswordModal = function() {
+    document.getElementById('forgotPasswordModal')?.classList.remove('active');
+    document.getElementById('forgotPasswordModal').style.display = 'none';
+};
+
+window.requestPasswordReset = function() {
+    const email = document.getElementById('resetEmail').value;
+    if (!email) {
+        document.getElementById('forgotError').style.display = 'block';
+        document.getElementById('forgotError').textContent = 'Please enter your email';
+        return;
+    }
+    
+    document.getElementById('forgotStep1').style.display = 'none';
+    document.getElementById('forgotStep2').style.display = 'block';
+    document.getElementById('resetEmailDisplay').textContent = `Email: ${email}`;
+    document.getElementById('resetLinkDisplay').textContent = `https://mathease.com/reset?token=${Date.now()}`;
+};
+
+window.copyResetLink = function() {
+    const link = document.getElementById('resetLinkDisplay').textContent;
+    navigator.clipboard.writeText(link);
+    showNotification('Reset link copied!', 'success');
+};
+
+// ============================================
+// LOGIN/SIGNUP SWITCH
+// ============================================
+document.getElementById('switchToSignup')?.addEventListener('click', function(e) {
+    e.preventDefault();
+    document.getElementById('login-page').classList.add('hidden');
+    document.getElementById('signup-page').classList.remove('hidden');
+});
+
+document.getElementById('switchToLogin')?.addEventListener('click', function(e) {
+    e.preventDefault();
+    document.getElementById('signup-page').classList.add('hidden');
+    document.getElementById('login-page').classList.remove('hidden');
+});
+
+// Forgot password link
+document.getElementById('forgotPasswordLink')?.addEventListener('click', function(e) {
+    e.preventDefault();
+    showForgotPasswordModal();
+});
+
+// ============================================
+// END OF FILE
+// ============================================
+console.log('✨ MathEase Lesson 1 Script Loaded');
