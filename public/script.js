@@ -14703,7 +14703,7 @@ function saveFeedbackLocally(feedbackData) {
 
 
 // ============================================
-// DISPLAY LOCAL FEEDBACK HISTORY
+// ✅ ENHANCED: Display local feedback history
 // ============================================
 function displayLocalFeedbackHistory() {
     const historyContainer = document.getElementById('feedbackHistory');
@@ -14712,26 +14712,37 @@ function displayLocalFeedbackHistory() {
     try {
         const localFeedback = JSON.parse(localStorage.getItem('local_feedback') || '[]');
         
-        if (localFeedback.length === 0) {
-            // Try to load from server first
-            loadFeedbackHistory(10);
+        if (!localFeedback || !Array.isArray(localFeedback) || localFeedback.length === 0) {
+            historyContainer.innerHTML = `
+                <div class="no-feedback">
+                    <i class="fas fa-comment-slash"></i>
+                    <h4>No feedback submitted yet</h4>
+                    <p>Your submitted feedback will appear here</p>
+                </div>
+            `;
             return;
         }
         
         let html = '<div class="feedback-history-list">';
         
         // Sort by date (newest first)
-        localFeedback.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+        localFeedback.sort((a, b) => {
+            const dateA = a.created_at ? new Date(a.created_at) : new Date(0);
+            const dateB = b.created_at ? new Date(b.created_at) : new Date(0);
+            return dateB - dateA;
+        });
         
         localFeedback.slice(0, 10).forEach(item => {
-            const date = new Date(item.created_at || Date.now());
-            const formattedDate = date.toLocaleDateString('en-US', { 
+            if (!item) return;
+            
+            const date = item.created_at ? new Date(item.created_at) : new Date();
+            const formattedDate = !isNaN(date) ? date.toLocaleDateString('en-US', { 
                 month: 'short', 
                 day: 'numeric', 
                 year: 'numeric',
                 hour: '2-digit',
                 minute: '2-digit'
-            });
+            }) : 'Unknown date';
             
             const ratingStars = '★'.repeat(item.rating || 0) + '☆'.repeat(5 - (item.rating || 0));
             
@@ -14764,6 +14775,12 @@ function displayLocalFeedbackHistory() {
         
     } catch (e) {
         console.error('Error displaying local feedback:', e);
+        historyContainer.innerHTML = `
+            <div class="error-message">
+                <i class="fas fa-exclamation-triangle"></i>
+                <p>Error loading feedback history</p>
+            </div>
+        `;
     }
 }
 
@@ -27391,7 +27408,9 @@ async function submitFeedback(feedbackType, feedbackMessage, rating = 0) {
     }
 }
 
-// Load feedback history - UPDATED TO ONLY UPDATE FEEDBACK SECTION
+// ============================================
+// ✅ FIXED: Load feedback history - WITH PROPER ERROR HANDLING
+// ============================================
 async function loadFeedbackHistory(limit = 10) {
     try {
         const token = localStorage.getItem('authToken') || authToken;
@@ -27416,10 +27435,7 @@ async function loadFeedbackHistory(limit = 10) {
         
         console.log('📋 Fetching feedback history...');
         
-        // Ensure limit is a number
-        const limitValue = parseInt(limit) || 10;
-        
-        const response = await fetch(`/api/feedback/history?limit=${limitValue}`, {
+        const response = await fetch(`/api/feedback/history?limit=${limit}`, {
             headers: {
                 'Authorization': `Bearer ${token}`,
                 'Content-Type': 'application/json'
@@ -27427,50 +27443,38 @@ async function loadFeedbackHistory(limit = 10) {
         });
         
         if (!response.ok) {
-            // Try without limit parameter if fails
-            console.log('Trying without limit parameter...');
-            const fallbackResponse = await fetch(`/api/feedback/history`, {
-                headers: {
-                    'Authorization': `Bearer ${token}`,
-                    'Content-Type': 'application/json'
-                }
-            });
-            
-            if (!fallbackResponse.ok) {
-                throw new Error(`Failed to fetch: ${fallbackResponse.status}`);
+            // If server error, show local feedback only
+            console.log('⚠️ Server error, showing local feedback only');
+            displayLocalFeedbackHistory();
+            return;
+        }
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            // Check if data.feedback exists and is an array
+            if (data.feedback && Array.isArray(data.feedback)) {
+                displayFeedbackHistory(data.feedback);
+            } else {
+                console.log('No feedback array in response, showing local only');
+                displayLocalFeedbackHistory();
             }
-            
-            const fallbackData = await fallbackResponse.json();
-            handleFeedbackResponse(fallbackData, historyContainer);
         } else {
-            const data = await response.json();
-            handleFeedbackResponse(data, historyContainer);
+            console.log('Server returned error:', data.message);
+            displayLocalFeedbackHistory();
         }
         
     } catch (error) {
         console.error('Error loading feedback history:', error);
+        
+        // Show local feedback as fallback
         const historyContainer = document.getElementById('feedbackHistory');
         if (historyContainer) {
-            historyContainer.innerHTML = `
-                <div class="error-message">
-                    <i class="fas fa-exclamation-triangle"></i>
-                    <p>Failed to load feedback history: ${error.message}</p>
-                    <button class="btn-primary" onclick="loadFeedbackHistory(10)">
-                        <i class="fas fa-redo"></i> Retry
-                    </button>
-                </div>
-            `;
-            
-            // Add event listener to the retry button
-            const retryBtn = historyContainer.querySelector('.btn-primary');
-            if (retryBtn) {
-                retryBtn.addEventListener('click', function() {
-                    loadFeedbackHistory(10);
-                });
-            }
+            displayLocalFeedbackHistory();
         }
     }
 }
+
 // Helper function to handle response - UPDATED
 function handleFeedbackResponse(data, container) {
     if (data.success) {
@@ -27494,27 +27498,38 @@ function handleFeedbackResponse(data, container) {
         `;
     }
 }
-// Display feedback history
+// ============================================
+// ✅ FIXED: Display feedback history - SAFE VERSION
+// ============================================
 function displayFeedbackHistory(feedbackItems) {
     const historyContainer = document.getElementById('feedbackHistory');
     
     if (!historyContainer) return;
     
+    // SAFETY CHECK: Ensure feedbackItems is an array
+    if (!feedbackItems || !Array.isArray(feedbackItems) || feedbackItems.length === 0) {
+        // If no server feedback, show local
+        displayLocalFeedbackHistory();
+        return;
+    }
+    
     let html = '<div class="feedback-history-list">';
     
     feedbackItems.forEach(item => {
-        const date = new Date(item.created_at || item.date || Date.now());
-        const formattedDate = date.toLocaleDateString('en-US', { 
+        // SAFETY CHECK: Ensure item has required properties
+        if (!item) return;
+        
+        const date = item.created_at ? new Date(item.created_at) : new Date();
+        const formattedDate = !isNaN(date) ? date.toLocaleDateString('en-US', { 
             month: 'short', 
             day: 'numeric', 
             year: 'numeric',
             hour: '2-digit',
             minute: '2-digit'
-        });
+        }) : 'Unknown date';
         
         const ratingStars = '★'.repeat(item.rating || 0) + '☆'.repeat(5 - (item.rating || 0));
         const statusClass = item.status || 'pending';
-        const isLocal = !item.id || item.id > 1000000; // Local IDs are timestamps
         
         html += `
             <div class="feedback-history-item status-${statusClass}">
@@ -27522,7 +27537,6 @@ function displayFeedbackHistory(feedbackItems) {
                     <div>
                         <span class="feedback-type-badge">${item.feedback_type || 'feedback'}</span>
                         <span class="feedback-status-badge status-${statusClass}">${statusClass}</span>
-                        ${isLocal ? '<span class="local-badge">(Saved locally)</span>' : ''}
                     </div>
                     <span class="feedback-date">${formattedDate}</span>
                 </div>
@@ -27552,6 +27566,7 @@ function displayFeedbackHistory(feedbackItems) {
     html += '</div>';
     historyContainer.innerHTML = html;
 }
+
 // Helper function to escape HTML
 function escapeHtml(text) {
     if (!text) return '';
@@ -27982,86 +27997,6 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 });
 
-// Improved loadFeedbackHistory function with better error handling
-async function loadFeedbackHistory(limit = 10) {
-    try {
-        const token = localStorage.getItem('authToken') || authToken;
-        if (!token) {
-            console.log('User not authenticated, skipping feedback history');
-            return;
-        }
-        
-        const historyContainer = document.getElementById('feedbackHistory');
-        if (!historyContainer) {
-            console.log('Feedback history container not found');
-            return;
-        }
-        
-        // Show loading state
-        historyContainer.innerHTML = `
-            <div class="loading-container">
-                <i class="fas fa-spinner fa-spin"></i>
-                <p>Loading your feedback history...</p>
-            </div>
-        `;
-        
-        console.log('📋 Fetching feedback history...');
-        
-        // Ensure limit is a number
-        const limitValue = parseInt(limit) || 10;
-        
-        const response = await fetch(`/api/feedback/history?limit=${limitValue}`, {
-            headers: {
-                'Authorization': `Bearer ${token}`,
-                'Content-Type': 'application/json'
-            }
-        });
-        
-        if (!response.ok) {
-            // Try without limit parameter if fails
-            console.log('Trying without limit parameter...');
-            const fallbackResponse = await fetch(`/api/feedback/history`, {
-                headers: {
-                    'Authorization': `Bearer ${token}`,
-                    'Content-Type': 'application/json'
-                }
-            });
-            
-            if (!fallbackResponse.ok) {
-                throw new Error(`Failed to fetch: ${fallbackResponse.status}`);
-            }
-            
-            const fallbackData = await fallbackResponse.json();
-            handleFeedbackResponse(fallbackData, historyContainer);
-        } else {
-            const data = await response.json();
-            handleFeedbackResponse(data, historyContainer);
-        }
-        
-    } catch (error) {
-        console.error('Error loading feedback history:', error);
-        const historyContainer = document.getElementById('feedbackHistory');
-        if (historyContainer) {
-            historyContainer.innerHTML = `
-                <div class="error-message">
-                    <i class="fas fa-exclamation-triangle"></i>
-                    <p>Failed to load feedback history: ${error.message}</p>
-                    <button class="btn-primary" onclick="loadFeedbackHistory(10)">
-                        <i class="fas fa-redo"></i> Retry
-                    </button>
-                </div>
-            `;
-            
-            // Add event listener to the retry button
-            const retryBtn = historyContainer.querySelector('.btn-primary');
-            if (retryBtn) {
-                retryBtn.addEventListener('click', function() {
-                    loadFeedbackHistory(10);
-                });
-            }
-        }
-    }
-}
 
 // ============================================
 // FIXED: initSettingsDashboard - With better error handling
