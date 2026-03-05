@@ -25009,6 +25009,184 @@ function initSettingsDashboard() {
     setupSettingsForms();
 }
 
+// ============================================
+// ⚙️ SETTINGS PAGE FUNCTIONS
+// ============================================
+
+// Show different sections in settings page
+function showSection(sectionId) {
+    console.log(`⚙️ Showing settings section: ${sectionId}`);
+    
+    // Hide all settings sections
+    document.querySelectorAll('.settings-section').forEach(section => {
+        section.classList.remove('active');
+    });
+    
+    // Show selected section
+    const targetSection = document.getElementById(sectionId);
+    if (targetSection) {
+        targetSection.classList.add('active');
+    } else {
+        console.error(`❌ Settings section not found: ${sectionId}`);
+    }
+    
+    // Update active state sa sidebar menu
+    document.querySelectorAll('.sidebar-menu a').forEach(link => {
+        link.classList.remove('active');
+        if (link.getAttribute('href') === `#${sectionId}`) {
+            link.classList.add('active');
+        }
+    });
+}
+
+// Reset settings to default
+function resetSettings() {
+    if (confirm('Are you sure you want to reset all settings to default?')) {
+        console.log('⚙️ Resetting settings to default...');
+        
+        // Reset form values to default
+        document.getElementById('adaptiveDifficulty')?.checked = true;
+        document.getElementById('preferredDifficulty')?.value = 'Intermediate';
+        document.getElementById('showSolutions')?.checked = true;
+        document.getElementById('themeLight')?.checked = true;
+        document.getElementById('fontSize')?.value = 'Medium';
+        document.getElementById('weeklyReport')?.checked = true;
+        document.getElementById('practiceReminders')?.checked = true;
+        
+        // Remove saved settings from localStorage
+        localStorage.removeItem('user_settings');
+        
+        showNotification('success', 'Settings Reset', 'All settings have been reset to default.');
+    }
+}
+
+// Save all settings
+function saveSettings() {
+    console.log('💾 Saving settings...');
+    
+    // Collect all settings values
+    const settings = {
+        // General
+        displayName: document.getElementById('displayName')?.value,
+        email: document.getElementById('userEmail')?.value,
+        language: document.getElementById('interfaceLanguage')?.value,
+        municipality: document.getElementById('batangas-municipalities')?.value,
+        timezone: document.getElementById('timeZone')?.value,
+        
+        // Learning
+        adaptiveDifficulty: document.getElementById('adaptiveDifficulty')?.checked,
+        preferredDifficulty: document.getElementById('preferredDifficulty')?.value,
+        showSolutions: document.getElementById('showSolutions')?.checked,
+        
+        // Privacy
+        twoFactorAuth: document.getElementById('twoFactorAuth')?.checked,
+        profileVisibility: document.getElementById('profileVisibility')?.value,
+        dataSharing: document.getElementById('dataSharing')?.checked,
+        
+        // Notifications
+        weeklyReport: document.getElementById('weeklyReport')?.checked,
+        featureAnnouncements: document.getElementById('featureAnnouncements')?.checked,
+        practiceReminders: document.getElementById('practiceReminders')?.checked,
+        achievementAlerts: document.getElementById('achievementAlerts')?.checked,
+        
+        // Display
+        theme: getSelectedTheme(),
+        mathSymbolStyle: document.getElementById('mathSymbolStyle')?.value,
+        highContrast: document.getElementById('highContrast')?.checked,
+        fontSize: document.getElementById('fontSize')?.value
+    };
+    
+    // Save to localStorage
+    localStorage.setItem('user_settings', JSON.stringify(settings));
+    
+    // Apply theme if changed
+    applyTheme(settings.theme);
+    
+    showNotification('success', 'Settings Saved', 'Your preferences have been updated successfully.');
+}
+
+// Get selected theme
+function getSelectedTheme() {
+    if (document.getElementById('themeLight')?.checked) return 'light';
+    if (document.getElementById('themeDark')?.checked) return 'dark';
+    if (document.getElementById('themeAuto')?.checked) return 'auto';
+    return 'light';
+}
+
+// Apply theme to body
+function applyTheme(theme) {
+    if (theme === 'dark') {
+        document.body.classList.add('dark-theme');
+    } else if (theme === 'light') {
+        document.body.classList.remove('dark-theme');
+    } else if (theme === 'auto') {
+        // Check system preference
+        if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+            document.body.classList.add('dark-theme');
+        } else {
+            document.body.classList.remove('dark-theme');
+        }
+    }
+}
+
+// View user profile
+function viewProfile() {
+    console.log('👤 Viewing profile...');
+    // You can implement profile view modal or navigate to profile page
+    showNotification('info', 'Profile', 'Profile view coming soon!');
+}
+
+// Initialize settings page
+function initSettingsDashboard() {
+    console.log('⚙️ Initializing settings dashboard...');
+    
+    // Load saved settings from localStorage
+    loadSavedSettings();
+    
+    // Show general section by default
+    showSection('general');
+}
+
+// Load saved settings from localStorage
+function loadSavedSettings() {
+    try {
+        const saved = localStorage.getItem('user_settings');
+        if (saved) {
+            const settings = JSON.parse(saved);
+            
+            // Apply settings to form
+            if (settings.displayName) document.getElementById('displayName').value = settings.displayName;
+            if (settings.language) document.getElementById('interfaceLanguage').value = settings.language;
+            if (settings.municipality) document.getElementById('batangas-municipalities').value = settings.municipality;
+            if (settings.timezone) document.getElementById('timeZone').value = settings.timezone;
+            
+            // Checkboxes
+            if (settings.adaptiveDifficulty !== undefined) 
+                document.getElementById('adaptiveDifficulty').checked = settings.adaptiveDifficulty;
+            if (settings.showSolutions !== undefined) 
+                document.getElementById('showSolutions').checked = settings.showSolutions;
+            if (settings.twoFactorAuth !== undefined) 
+                document.getElementById('twoFactorAuth').checked = settings.twoFactorAuth;
+            if (settings.dataSharing !== undefined) 
+                document.getElementById('dataSharing').checked = settings.dataSharing;
+            if (settings.weeklyReport !== undefined) 
+                document.getElementById('weeklyReport').checked = settings.weeklyReport;
+            if (settings.practiceReminders !== undefined) 
+                document.getElementById('practiceReminders').checked = settings.practiceReminders;
+            
+            // Theme
+            if (settings.theme === 'light') document.getElementById('themeLight').checked = true;
+            if (settings.theme === 'dark') document.getElementById('themeDark').checked = true;
+            if (settings.theme === 'auto') document.getElementById('themeAuto').checked = true;
+            
+            if (settings.fontSize) document.getElementById('fontSize').value = settings.fontSize;
+            
+            console.log('✅ Saved settings loaded');
+        }
+    } catch (error) {
+        console.error('Error loading saved settings:', error);
+    }
+}
 function loadUserSettings() {
     console.log('📥 Loading user settings...');
     
