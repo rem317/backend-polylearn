@@ -78,15 +78,15 @@ function getCurrentAppLessonId() {
     return appMap[selectedApp] || 3;
 }
 
-// Example API call - lahat ng user ay makakakita ng FactoLearn data
-// kung naka-select sila ng FactoLearn
+// Example API call - lahat ng user ay makakakita ng mathease data
+// kung naka-select sila ng mathease
 fetch(`/api/topics/progress?lesson_id=${getCurrentAppLessonId()}`, {
     headers: { 'Authorization': `Bearer ${authToken}` }
 })
 // Get the filter parameter for API calls
 function getAppFilterParam() {
     const app = getCurrentApp();
-    return APP_LESSON_MAP[app]?.filter || 'factolearn';
+    return APP_LESSON_MAP[app]?.filter || 'mathease';
 }
 
 function addAppFilterToUrl(url) {
@@ -2034,12 +2034,12 @@ window.StudyTimer = StudyTimer;
 console.log('✅ Tools globally available');
 
 // ============================================
-// ✅ UPDATED: apiRequest - FORCED LESSON_ID=3 FOR FACTOLEARN
+// ✅ UPDATED: apiRequest - FORCED LESSON_ID=3 FOR mathease
 // ============================================
 async function apiRequest(endpoint, options = {}) {
-    // ===== FORCE LESSON_ID=3 FOR ALL FACTOLEARN API CALLS =====
-    // Check if this is a FactoLearn endpoint that needs lesson_id
-    const isFactoLearnEndpoint = endpoint.includes('/api/progress/') || 
+    // ===== FORCE LESSON_ID=3 FOR ALL mathease API CALLS =====
+    // Check if this is a mathease endpoint that needs lesson_id
+    const ismatheaseEndpoint = endpoint.includes('/api/progress/') || 
                                  endpoint.includes('/api/lessons') || 
                                  endpoint.includes('/api/practice/') ||
                                  endpoint.includes('/api/quiz/') ||
@@ -2048,10 +2048,10 @@ async function apiRequest(endpoint, options = {}) {
     
     // Add lesson_id=3 to the URL if needed
     let modifiedEndpoint = endpoint;
-    if (isFactoLearnEndpoint && !endpoint.includes('lesson_id=')) {
+    if (ismatheaseEndpoint && !endpoint.includes('lesson_id=')) {
         const separator = endpoint.includes('?') ? '&' : '?';
         modifiedEndpoint = `${endpoint}${separator}lesson_id=3`;
-        console.log(`🔧 FactoLearn API forced lesson_id=3: ${modifiedEndpoint.split('?')[0]}`);
+        console.log(`🔧 mathease API forced lesson_id=3: ${modifiedEndpoint.split('?')[0]}`);
     }
     
     const url = modifiedEndpoint.startsWith('http') ? modifiedEndpoint : `${API_BASE_URL}${modifiedEndpoint}`;
@@ -2077,7 +2077,7 @@ async function apiRequest(endpoint, options = {}) {
     }
     
     try {
-        console.log(`📡 FactoLearn API Request: ${finalUrl}`);
+        console.log(`📡 mathease API Request: ${finalUrl}`);
         
         const response = await fetch(finalUrl, {
             ...options,
@@ -2095,11 +2095,11 @@ async function apiRequest(endpoint, options = {}) {
             if (text.trim().startsWith('<!DOCTYPE') || text.trim().startsWith('<html')) {
                 console.error('⚠️ Received HTML instead of JSON. Endpoint may not exist:', modifiedEndpoint);
                 
-                // Return mock data for known FactoLearn endpoints
+                // Return mock data for known mathease endpoints
                 if (modifiedEndpoint.includes('/api/lessons-db/complete')) {
                     return {
                         success: true,
-                        lessons: getFactoLearnMockLessons()
+                        lessons: getmatheaseMockLessons()
                     };
                 }
                 
@@ -2132,7 +2132,7 @@ async function apiRequest(endpoint, options = {}) {
                 if (modifiedEndpoint.includes('/api/quiz/categories')) {
                     return {
                         success: true,
-                        categories: getFactoLearnMockCategories()
+                        categories: getmatheaseMockCategories()
                     };
                 }
                 
@@ -2167,14 +2167,14 @@ async function apiRequest(endpoint, options = {}) {
                 if (modifiedEndpoint.includes('/api/lessons-db/complete')) {
                     return {
                         success: true,
-                        lessons: getFactoLearnMockLessons()
+                        lessons: getmatheaseMockLessons()
                     };
                 }
                 
                 if (modifiedEndpoint.includes('/api/quiz/categories')) {
                     return {
                         success: true,
-                        categories: getFactoLearnMockCategories()
+                        categories: getmatheaseMockCategories()
                     };
                 }
                 
@@ -2199,7 +2199,7 @@ async function apiRequest(endpoint, options = {}) {
         return jsonResponse;
         
     } catch (error) {
-        console.error(`❌ FactoLearn API Request Failed: ${finalUrl}`, error);
+        console.error(`❌ mathease API Request Failed: ${finalUrl}`, error);
         
         // Return fallback data based on endpoint
         if (modifiedEndpoint.includes('/api/progress/daily')) {
@@ -2217,14 +2217,14 @@ async function apiRequest(endpoint, options = {}) {
         if (modifiedEndpoint.includes('/api/lessons-db/complete')) {
             return {
                 success: true,
-                lessons: getFactoLearnMockLessons()
+                lessons: getmatheaseMockLessons()
             };
         }
         
         if (modifiedEndpoint.includes('/api/quiz/categories')) {
             return {
                 success: true,
-                categories: getFactoLearnMockCategories()
+                categories: getmatheaseMockCategories()
             };
         }
         
@@ -2237,9 +2237,9 @@ async function apiRequest(endpoint, options = {}) {
 }
 
 // ============================================
-// ✅ HELPER: Get FactoLearn Mock Lessons (lesson_id=3)
+// ✅ HELPER: Get mathease Mock Lessons (lesson_id=3)
 // ============================================
-function getFactoLearnMockLessons() {
+function getmatheaseMockLessons() {
     return [
         {
             content_id: 1,
@@ -2275,9 +2275,9 @@ function getFactoLearnMockLessons() {
 }
 
 // ============================================
-// ✅ HELPER: Get FactoLearn Mock Quiz Categories
+// ✅ HELPER: Get mathease Mock Quiz Categories
 // ============================================
-function getFactoLearnMockCategories() {
+function getmatheaseMockCategories() {
     return [
         {
             category_id: 1,
@@ -4525,7 +4525,7 @@ function handleActivityResponse(data) {
         return [];
     }
 }
-// Helper function para sa FactoLearn practice stats
+// Helper function para sa mathease practice stats
 async function fetchFactorialPracticeStats(userId) {
     try {
 
@@ -4552,7 +4552,7 @@ async function fetchFactorialPracticeStats(userId) {
     }
 }
 
-// Helper function para sa FactoLearn quiz stats
+// Helper function para sa mathease quiz stats
 async function fetchFactorialQuizStats(userId) {
     try {
 
@@ -5200,7 +5200,7 @@ async function logUserActivity(activityType, relatedId = null, details = {}) {
 }
 
 // ============================================
-// ✅ FIXED: Update daily progress - FACTOLEARN ONLY
+// ✅ FIXED: Update daily progress - mathease ONLY
 // ============================================
 async function updateDailyProgress(progressData) {
     try {
@@ -5210,9 +5210,9 @@ async function updateDailyProgress(progressData) {
             return false;
         }
         
-        console.log('📊 Updating FactoLearn daily progress...', progressData);
+        console.log('📊 Updating mathease daily progress...', progressData);
         
-        // ✅ Add lesson_id = 2 for FactoLearn
+        // ✅ Add lesson_id = 2 for mathease
         const updateData = {
             ...(progressData.lessons_completed !== undefined && { 
                 lessons_completed: progressData.lessons_completed 
@@ -5226,7 +5226,7 @@ async function updateDailyProgress(progressData) {
             ...(progressData.time_spent_minutes !== undefined && { 
                 time_spent_minutes: progressData.time_spent_minutes 
             }),
-           lesson_id: FACTORIAL_LESSON_ID // ✅ FORCE FACTOLEARN
+           lesson_id: FACTORIAL_LESSON_ID // ✅ FORCE mathease
         };
         
         // If no data to update, return
@@ -5251,7 +5251,7 @@ async function updateDailyProgress(progressData) {
         const data = await response.json();
         
         if (data.success) {
-            console.log('✅ FactoLearn daily progress updated');
+            console.log('✅ mathease daily progress updated');
             return true;
         } else {
             throw new Error(data.message || 'Failed to update daily progress');
@@ -6846,7 +6846,7 @@ function forceUpdateProgressUI(progress) {
     console.log('✅ UI force updated with', percentage + '%');
 }
 // ============================================
-// ✅ FIXED: Load Progress Dashboard Data - FACTOLEARN ONLY (NO ERRORS)
+// ✅ FIXED: Load Progress Dashboard Data - mathease ONLY (NO ERRORS)
 // ============================================
 async function loadProgressDashboardData() {
     console.log('📊 Loading Factorial progress dashboard data...');
@@ -6863,14 +6863,14 @@ async function loadProgressDashboardData() {
         
 
         
-        // ===== FETCH ALL FACTOLEARN DATA =====
+        // ===== FETCH ALL mathease DATA =====
         const [
             lessonsProgress,
             practiceStats,
             quizStats,
             totalLessonsCount
         ] = await Promise.allSettled([
-            // 1. Get FactoLearn lessons progress
+            // 1. Get mathease lessons progress
             fetch(`/api/progress/lessons?lesson_id=${FACTORIAL_LESSON_ID}`, {
                 headers: { 'Authorization': `Bearer ${token}` }
             }).then(res => res.json()).catch(() => ({ success: false })),
@@ -6880,12 +6880,12 @@ async function loadProgressDashboardData() {
                 headers: { 'Authorization': `Bearer ${token}` }
             }).then(res => res.json()).catch(() => ({ success: false })),
             
-            // 3. Get FactoLearn quiz stats
+            // 3. Get mathease quiz stats
             fetch(`/api/quiz/user/attempts?lesson_id=${FACTORIAL_LESSON_ID}`, {
                 headers: { 'Authorization': `Bearer ${token}` }
             }).then(res => res.json()).catch(() => ({ success: false })),
             
-            // 4. Get total FactoLearn lessons
+            // 4. Get total mathease lessons
             fetch(`/api/lessons-db/complete?lesson_id=${FACTORIAL_LESSON_ID}`, {
                 headers: { 'Authorization': `Bearer ${token}` }
             }).then(res => res.json()).catch(() => ({ success: false }))
@@ -7055,7 +7055,7 @@ async function loadProgressDashboardData() {
         // Hide loading
         hideProgressDashboardLoading();
         
-        console.log('✅ FactoLearn progress dashboard updated');
+        console.log('✅ mathease progress dashboard updated');
         
         // Store in ProgressState
         ProgressState.cumulativeProgress = {
@@ -8991,7 +8991,7 @@ async function fetchPracticeStatistics() {
         }
         
         // ✅ FORCE LESSON_ID = 3 FOR FACTORIAL
-        console.log(`📊 Fetching FactoLearn practice statistics DIRECTLY FROM DATABASE (lesson_id=${FACTORIAL_LESSON_ID})...`);
+        console.log(`📊 Fetching mathease practice statistics DIRECTLY FROM DATABASE (lesson_id=${FACTORIAL_LESSON_ID})...`);
         
         // ===== GET ALL PRACTICE STATS FROM DATABASE IN PARALLEL =====
         const [lessonsData, attemptsData, totalExercisesData] = await Promise.allSettled([
@@ -10112,12 +10112,12 @@ async function startQuizSystem(quizId) {
 // Helper function to manually load PolyLearn quizzes (Category 2)
 // ============================================
 function loadFactorialQuizzes() {
-    console.log('📚 Loading FactoLearn quizzes (Category 3)...');
+    console.log('📚 Loading mathease quizzes (Category 3)...');
     
     // Find PolyLearn category (ID 3)
-    const factoLearnCategory = QuizState.quizCategories.find(c => c.category_id == 3);
+    const matheaseCategory = QuizState.quizCategories.find(c => c.category_id == 3);
     
-    if (factoLearnCategory) {
+    if (matheaseCategory) {
         loadQuizzesForCategory(3);
     } else {
         // If categories not loaded yet, load them first
@@ -11593,7 +11593,7 @@ async function loadQuizCategories() {
 // 🆘 OFFLINE CATEGORIES - Gumagana kahit walang internet
 // ============================================
 function useOfflineCategories() {
-    console.log('📚 Using offline FactoLearn categories');
+    console.log('📚 Using offline mathease categories');
     
     const offlineCategories = [
         {
@@ -11662,9 +11662,9 @@ function useOfflineCategories() {
 // 🆘 HARDCODED FALLBACK CATEGORIES FOR POLYLEARN
 // ============================================
 function useHardcodedCategories() {
-    console.log('📚 Using hardcoded FactoLearn categories');
+    console.log('📚 Using hardcoded mathease categories');
     
-    const factoLearnCategories = [
+    const matheaseCategories = [
         {
             category_id: 1,
             category_name: 'Polynomial Division Basics',
@@ -11701,12 +11701,12 @@ function useHardcodedCategories() {
     
     // Store in QuizState
     if (!window.QuizState) window.QuizState = {};
-    window.QuizState.quizCategories = factoLearnCategories;
+    window.QuizState.quizCategories = matheaseCategories;
     
     // Display the categories
-    displayQuizCategories(factoLearnCategories);
+    displayQuizCategories(matheaseCategories);
     
-    return factoLearnCategories;
+    return matheaseCategories;
 }
 
 // ============================================
@@ -11742,12 +11742,12 @@ function handleCategoriesResponse(data, filterOnClient = false) {
         if (filterOnClient) {
             categories = categories.filter(cat => {
                 const catLessonId = cat.lesson_id || cat.lessonId;
-                return catLessonId == FACTOLEARN_LESSON_ID;
+                return catLessonId == mathease_LESSON_ID;
             });
-            console.log(`🎯 Filtered to ${categories.length} categories for FactoLearn`);
+            console.log(`🎯 Filtered to ${categories.length} categories for mathease`);
         }
         
-        console.log(`✅ Found ${categories.length} quiz categories for FactoLearn`);
+        console.log(`✅ Found ${categories.length} quiz categories for mathease`);
         
         // Store in QuizState
         if (!window.QuizState) window.QuizState = {};
@@ -12043,7 +12043,7 @@ function displayQuizzesInContainer(quizzes, categoryId, isHardcoded = false) {
                     <i class="fas fa-clipboard-list"></i>
                 </div>
                 <h3 style="color: #666; margin-bottom: 10px;">No Quizzes Available</h3>
-                <p style="color: #999; margin-bottom: 20px;">Check back later for new FactoLearn quizzes!</p>
+                <p style="color: #999; margin-bottom: 20px;">Check back later for new mathease quizzes!</p>
                 <button class="btn-primary" onclick="goBackToCategories()" style="background: #7a0000; color: white; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer;">
                     <i class="fas fa-arrow-left"></i> Back to Categories
                 </button>
@@ -12060,7 +12060,7 @@ function displayQuizzesInContainer(quizzes, categoryId, isHardcoded = false) {
                 <div>
                     <h2 class="card-title" style="display: flex; align-items: center; gap: 10px; font-size: 1.4rem; color: var(--text-color); margin-bottom: 5px;">
                         <i class="fas fa-question-circle" style="color: #7a0000;"></i> 
-                        FactoLearn Quizzes
+                        mathease Quizzes
                     </h2>
                     <p class="card-subtitle" style="color: var(--text-light); font-size: 0.95rem;">
                         Test your knowledge with these quizzes
@@ -12110,7 +12110,7 @@ function displayQuizzesInContainer(quizzes, categoryId, isHardcoded = false) {
                     <!-- Header with title and difficulty badge -->
                     <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 12px;">
                         <h3 style="margin: 0; color: #2c3e50; font-size: 18px; font-weight: 600; line-height: 1.3;">
-                            ${quiz.quiz_title || 'FactoLearn Quiz'}
+                            ${quiz.quiz_title || 'mathease Quiz'}
                         </h3>
                         <span style="background: ${difficultyColor}; color: white; 
                                    padding: 4px 10px; border-radius: 20px; font-size: 11px; 
@@ -12121,7 +12121,7 @@ function displayQuizzesInContainer(quizzes, categoryId, isHardcoded = false) {
                     
                     <!-- Description -->
                     <p style="color: #6c757d; font-size: 14px; line-height: 1.5; margin: 0 0 15px 0; min-height: 42px;">
-                        ${quiz.description || 'Test your knowledge with this FactoLearn quiz.'}
+                        ${quiz.description || 'Test your knowledge with this mathease quiz.'}
                     </p>
                     
                     <!-- Quiz metadata - gaya ng sa progress items -->
@@ -16869,7 +16869,7 @@ async function fetchAllLessons() {
         // FORCE LESSON_ID = 3 ONLY
         const currentLessonId = FACTORIAL_LESSON_ID; // Always 3
         
-        console.log(`📚 Fetching lessons for FactoLearn ONLY, lesson ID: ${currentLessonId}`);
+        console.log(`📚 Fetching lessons for mathease ONLY, lesson ID: ${currentLessonId}`);
         
         // Use the filtered endpoint
         let endpoint = `/api/lessons-db/complete?lesson_id=${currentLessonId}`;
@@ -16895,7 +16895,7 @@ async function fetchAllLessons() {
                 return lessonId == FACTORIAL_LESSON_ID;
             });
             
-            console.log(`✅ Found ${filteredLessons.length} FactoLearn lessons (filtered from ${data.lessons.length} total)`);
+            console.log(`✅ Found ${filteredLessons.length} mathease lessons (filtered from ${data.lessons.length} total)`);
             
             // Log each lesson for verification
             filteredLessons.forEach((lesson, index) => {
@@ -16904,11 +16904,11 @@ async function fetchAllLessons() {
             
             return filteredLessons;
         } else {
-            console.log('ℹ️ No FactoLearn lessons found');
+            console.log('ℹ️ No mathease lessons found');
             return [];
         }
     } catch (error) {
-        console.error('Error fetching FactoLearn lessons:', error);
+        console.error('Error fetching mathease lessons:', error);
         return [];
     }
 }
@@ -18782,7 +18782,7 @@ function updateLessonUI(lesson) {
     // Module title
     const moduleTitle = document.getElementById('moduleTitle');
     if (moduleTitle) {
-        moduleTitle.textContent = lesson.content_title || 'FactoLearn Lesson';
+        moduleTitle.textContent = lesson.content_title || 'mathease Lesson';
     }
     
     // Lesson title in sidebar
@@ -19465,10 +19465,10 @@ async function initPracticePage() {
         });
     }
     
-    // ✅ Force lesson_id = 3 for FactoLearn
+    // ✅ Force lesson_id = 3 for mathease
     const currentLessonId = FACTORIAL_LESSON_ID; // Always 3
     
-    console.log(`🎯 Practice page will ONLY show content with lesson_id = ${currentLessonId} (FactoLearn)`);
+    console.log(`🎯 Practice page will ONLY show content with lesson_id = ${currentLessonId} (mathease)`);
     
     // ✅ Store lesson ID in localStorage for other functions
     localStorage.setItem('currentLessonId', currentLessonId);
@@ -19491,7 +19491,7 @@ async function initPracticePage() {
     // Add practice styles
     addPracticeStyles();
     
-    console.log('✅ Practice page initialized for FactoLearn (lesson ' + currentLessonId + ')');
+    console.log('✅ Practice page initialized for mathease (lesson ' + currentLessonId + ')');
 }
 
 // ============================================
@@ -19571,11 +19571,11 @@ async function loadTopicsProgress() {
             return;
         }
         
-        console.log('📊 Fetching topics progress for FactoLearn ONLY...');
+        console.log('📊 Fetching topics progress for mathease ONLY...');
         
         const currentLessonId = FACTORIAL_LESSON_ID; // Always 3
         
-        console.log(`🎯 Loading topics for FactoLearn, lesson_id: ${currentLessonId}`);
+        console.log(`🎯 Loading topics for mathease, lesson_id: ${currentLessonId}`);
         
         const response = await fetch(`/api/topics/progress?lesson_id=${currentLessonId}`, {
             headers: { 'Authorization': `Bearer ${token}` }
@@ -19605,7 +19605,7 @@ async function loadTopicsProgress() {
                 return topicLessonId == FACTORIAL_LESSON_ID;
             });
             
-            console.log(`🎯 Filtered to ${filteredTopics.length} topics for FactoLearn (lesson ${FACTORIAL_LESSON_ID})`);
+            console.log(`🎯 Filtered to ${filteredTopics.length} topics for mathease (lesson ${FACTORIAL_LESSON_ID})`);
             
             // Log what was filtered out (for debugging)
             const filteredOut = data.topics.filter(t => (t.lesson_id || t.lessonId) != FACTORIAL_LESSON_ID);
@@ -19628,7 +19628,7 @@ async function loadTopicsProgress() {
                 topicsContainer.innerHTML = `
                     <div class="no-topics" style="text-align: center; padding: 40px;">
                         <i class="fas fa-folder-open" style="font-size: 48px; color: #ccc; margin-bottom: 15px;"></i>
-                        <h3 style="color: #666;">No topics available for FactoLearn</h3>
+                        <h3 style="color: #666;">No topics available for mathease</h3>
                         <p style="color: #999;">Topics with lesson_id = ${FACTORIAL_LESSON_ID} will appear here.</p>
                         <p style="color: #999; font-size: 12px;">Debug: Received ${data.topics.length} total topics</p>
                     </div>
@@ -19907,7 +19907,7 @@ async function loadPracticeExercisesForTopic(topicId) {
         // FORCE LESSON_ID = 3
         const currentLessonId = FACTORIAL_LESSON_ID; // Always 3
         
-        console.log(`🎯 Loading exercises for FactoLearn, lesson_id: ${currentLessonId}`);
+        console.log(`🎯 Loading exercises for mathease, lesson_id: ${currentLessonId}`);
         
         // Get the exercise area
         const exerciseArea = document.getElementById('exerciseArea');
@@ -19916,7 +19916,7 @@ async function loadPracticeExercisesForTopic(topicId) {
         exerciseArea.innerHTML = `
             <div class="loading-container" style="text-align: center; padding: 30px;">
                 <i class="fas fa-spinner fa-spin" style="font-size: 30px; color: #7a0000;"></i>
-                <p style="margin-top: 10px;">Loading FactoLearn exercises...</p>
+                <p style="margin-top: 10px;">Loading mathease exercises...</p>
             </div>
         `;
         
@@ -19944,7 +19944,7 @@ async function loadPracticeExercisesForTopic(topicId) {
                 return exerciseLessonId == FACTORIAL_LESSON_ID;
             });
             
-            console.log(`✅ Found ${filteredExercises.length} exercises for FactoLearn`);
+            console.log(`✅ Found ${filteredExercises.length} exercises for mathease`);
             
             // Log what was filtered out
             const filteredOut = data.exercises.filter(ex => (ex.lesson_id || ex.lessonId) != FACTORIAL_LESSON_ID);
@@ -19961,8 +19961,8 @@ async function loadPracticeExercisesForTopic(topicId) {
                 exerciseArea.innerHTML = `
                     <div class="no-exercises" style="text-align: center; padding: 40px;">
                         <i class="fas fa-pencil-alt" style="font-size: 48px; color: #ccc; margin-bottom: 15px;"></i>
-                        <h3 style="color: #666;">No Practice Exercises for FactoLearn</h3>
-                        <p style="color: #999;">There are no practice exercises available for FactoLearn yet.</p>
+                        <h3 style="color: #666;">No Practice Exercises for mathease</h3>
+                        <p style="color: #999;">There are no practice exercises available for mathease yet.</p>
                     </div>
                 `;
             }
@@ -22812,14 +22812,14 @@ function addProgressStyles() {
 // ============================================
 
 // ============================================
-// UPDATED: initApp - Loads FactoLearn data immediately
+// UPDATED: initApp - Loads mathease data immediately
 // ============================================
 function initApp() {
-    console.log('🎮 FactoLearn Application Initializing...');
+    console.log('🎮 mathease Application Initializing...');
     
-    // Set FactoLearn constants
+    // Set mathease constants
     window.FACTORIAL_LESSON_ID = 3;
-    window.CURRENT_APP_NAME = 'FactoLearn';
+    window.CURRENT_APP_NAME = 'mathease';
     
     // Set localStorage
     localStorage.setItem('selectedApp', 'factorial');
@@ -22861,9 +22861,9 @@ function initApp() {
     console.log('📱 Creating demo user');
     const demoUser = {
         id: 1,
-        username: 'factolearn_user',
-        email: 'demo@factolearn.com',
-        full_name: 'FactoLearn Student',
+        username: 'mathease_user',
+        email: 'demo@mathease.com',
+        full_name: 'mathease Student',
         role: 'student'
     };
     
@@ -22891,7 +22891,7 @@ function initApp() {
         loadDashboardData();
     }, 500);
     
-    console.log('🎮 FactoLearn Application Initialized');
+    console.log('🎮 mathease Application Initialized');
 }
 async function loadDashboardData() {
     console.log('📊 Loading dashboard data...');
@@ -22937,10 +22937,10 @@ async function loadDashboardData() {
 }
 
 // ============================================
-// NEW: Load all FactoLearn data
+// NEW: Load all mathease data
 // ============================================
-async function loadFactoLearnData() {
-    console.log('📥 Loading ALL FactoLearn data (lesson_id=3)...');
+async function loadmatheaseData() {
+    console.log('📥 Loading ALL mathease data (lesson_id=3)...');
     
     try {
         // Show loading
@@ -22960,19 +22960,19 @@ async function loadFactoLearnData() {
         // Update specific elements
         const welcomeTitle = document.getElementById('dashboardWelcomeTitle');
         if (welcomeTitle) {
-            welcomeTitle.innerHTML = 'Welcome to <span class="app-title">FactoLearn</span>!';
+            welcomeTitle.innerHTML = 'Welcome to <span class="app-title">mathease</span>!';
         }
         
         const userMessage = document.getElementById('dashboardUserMessage');
         if (userMessage) {
-            userMessage.textContent = 'You\'re making excellent progress in your FactoLearn journey. Keep up the great work!';
+            userMessage.textContent = 'You\'re making excellent progress in your mathease journey. Keep up the great work!';
         }
         
         hideDashboardLoading();
-        console.log('✅ All FactoLearn data loaded successfully');
+        console.log('✅ All mathease data loaded successfully');
         
     } catch (error) {
-        console.error('❌ Error loading FactoLearn data:', error);
+        console.error('❌ Error loading mathease data:', error);
         hideDashboardLoading();
     }
 }
@@ -23184,7 +23184,7 @@ document.addEventListener('DOMContentLoaded', function() {
             'quizScore': '250<span class="item-unit">points</span>',
             'avgTime': '25<span class="item-unit">min/day</span>',
             'dashboardWelcomeTitle': 'Welcome back, Student!',
-            'dashboardUserName': 'Welcome to <span>FactoLearn!</span>',
+            'dashboardUserName': 'Welcome to <span>mathease!</span>',
             'currentDate': new Date().toLocaleDateString('en-US', { 
                 weekday: 'long', 
                 year: 'numeric', 
