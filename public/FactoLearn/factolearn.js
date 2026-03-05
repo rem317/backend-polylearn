@@ -2525,6 +2525,84 @@ function clearAdminTokens() {
 // Run sync immediately
 syncMathHubAdminAuth();
 
+
+// ============================================
+// ✅ CHECK LESSON COMPLETION STATUS
+// ============================================
+
+async function checkLessonCompletionStatus() {
+    console.log('🔍 Checking lesson completion status...');
+    
+    try {
+        const currentLesson = LessonState.currentLesson;
+        if (!currentLesson) {
+            console.log('⚠️ No current lesson found');
+            return;
+        }
+        
+        const contentId = currentLesson.content_id;
+        const completeBtn = document.getElementById('completeLessonBtn');
+        
+        if (!completeBtn) {
+            console.log('⚠️ Complete lesson button not found');
+            return;
+        }
+        
+        // Get progress from state or server
+        let isCompleted = false;
+        let percentage = 0;
+        
+        if (LessonState.userProgress && LessonState.userProgress[contentId]) {
+            isCompleted = LessonState.userProgress[contentId].status === 'completed';
+            percentage = LessonState.userProgress[contentId].percentage || 0;
+        } else {
+            // Try to fetch from server
+            try {
+                const token = localStorage.getItem('authToken') || authToken;
+                if (token) {
+                    const data = await apiRequest(`/api/lessons-db/${contentId}`);
+                    if (data.success && data.lesson && data.lesson.progress) {
+                        isCompleted = data.lesson.progress.status === 'completed' || 
+                                     data.lesson.progress.completion_status === 'completed';
+                        percentage = data.lesson.progress.percentage || 0;
+                        
+                        // Save to state
+                        if (!LessonState.userProgress) LessonState.userProgress = {};
+                        LessonState.userProgress[contentId] = data.lesson.progress;
+                    }
+                }
+            } catch (error) {
+                console.log('Could not fetch progress:', error);
+            }
+        }
+        
+        // Update button based on status
+        if (isCompleted) {
+            completeBtn.innerHTML = '<i class="fas fa-check-double"></i> Lesson Completed!';
+            completeBtn.classList.remove('btn-primary');
+            completeBtn.classList.add('btn-success');
+            completeBtn.disabled = true;
+            console.log('✅ Lesson already completed');
+        } else {
+            completeBtn.innerHTML = '<i class="fas fa-check-circle"></i> Mark Lesson Complete';
+            completeBtn.classList.remove('btn-success');
+            completeBtn.classList.add('btn-primary');
+            completeBtn.disabled = false;
+            
+            // If percentage is high, change button text
+            if (percentage >= 90) {
+                completeBtn.innerHTML = '<i class="fas fa-check-circle"></i> Complete Lesson (90%+)';
+            } else if (percentage > 0) {
+                completeBtn.innerHTML = `<i class="fas fa-check-circle"></i> Mark Complete (${percentage}%)`;
+            }
+        }
+        
+        console.log(`✅ Completion status checked: ${isCompleted ? 'COMPLETED' : 'NOT COMPLETED'} (${percentage}%)`);
+        
+    } catch (error) {
+        console.error('❌ Error checking completion status:', error);
+    }
+}
 // ============================================
 // [NEW] STRUCTURE MANAGEMENT - GENERAL MODULE SYSTEM
 // ============================================
@@ -18058,12 +18136,22 @@ async function updateProgressCharts() {
 // ============================================
 async function openLesson(lessonId) {
     try {
-        console.log('📖 Opening lesson on Railway:', lessonId);
+        console.log('📖 Opening lesson:', lessonId);
         
-        // Show loading
+        if (!lessonId) {
+            console.error('❌ No lesson ID provided');
+            return;
+        }
+        
+        lessonId = parseInt(lessonId);
+        localStorage.setItem('currentLessonId', lessonId.toString());
+        
+        const url = new URL(window.location);
+        url.searchParams.set('lessonId', lessonId);
+        window.history.pushState({}, '', url);
+        
         showNotification('Loading lesson...', 'info');
         
-        // Fetch lesson details
         const response = await fetch(`/api/lessons-db/${lessonId}`, {
             headers: {
                 'Authorization': `Bearer ${localStorage.getItem('authToken')}`
@@ -18082,40 +18170,26 @@ async function openLesson(lessonId) {
         
         const lesson = data.lesson;
         console.log('✅ Lesson loaded:', lesson.content_title);
-        console.log('📋 Adjacent lessons from server:', lesson.adjacent);
         
         LessonState.currentLesson = lesson;
         LessonState.currentTopic = lesson.topic_id || 1;
         
-        // Log activity
         await logUserActivity('lesson_started', lessonId, {
             lesson_title: lesson.content_title
         });
         
-        // Update URL without reload
-        const url = new URL(window.location);
-        url.searchParams.set('lessonId', lessonId);
-        window.history.pushState({}, '', url);
-        
-        // Navigate to module dashboard
         navigateTo('moduleDashboard');
         
-        // Wait for page to load then update everything
         setTimeout(async () => {
-            // Setup navigation buttons
+            updateLessonUI(lesson);
             setupNavigationButtons();
-            
-            // Load video
             await loadVideoFromDatabase(lessonId);
-            
-            // Update complete button
-            await checkLessonCompletionStatus();
-            
-            console.log('✅ Lesson fully loaded on Railway');
+            await checkLessonCompletionStatus();  // ← Tawagin dito
+            console.log('✅ Lesson fully loaded');
         }, 500);
         
     } catch (error) {
-        console.error('Error opening lesson on Railway:', error);
+        console.error('Error opening lesson:', error);
         showNotification('Error loading lesson: ' + error.message, 'error');
     }
 }
