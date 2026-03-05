@@ -7191,147 +7191,47 @@ function updateProgressDashboardUI() {
 // 📊 PROGRESS SUMMARY FUNCTIONS
 // ============================================
 async function updateProgressSummaryCards() {
-    console.log('📊 Updating PolyLearn progress summary cards (lesson_id = 2)...');
+    console.log('📊 Updating progress summary cards...');
     
+    // Set default values muna
+    const lessonsCount = document.getElementById('lessonsCount');
+    if (lessonsCount) {
+        lessonsCount.innerHTML = `3<span class="item-unit">/10</span>`;
+    }
+    
+    const exercisesCount = document.getElementById('exercisesCount');
+    if (exercisesCount) {
+        exercisesCount.innerHTML = `15<span class="item-unit">/20</span>`;
+    }
+    
+    const quizScore = document.getElementById('quizScore');
+    if (quizScore) {
+        quizScore.innerHTML = `250<span class="item-unit">points</span>`;
+    }
+    
+    const avgTime = document.getElementById('avgTime');
+    if (avgTime) {
+        avgTime.innerHTML = `25<span class="item-unit">min/day</span>`;
+    }
+    
+    // Try to fetch from server (but don't wait too long)
     try {
-        const token = localStorage.getItem('authToken') || authToken;
-        if (!token) return;
-        
-        const POLYLEARN_LESSON_ID = 2;
-        
-        // ===== 1. GET POLYLEARN LESSONS =====
-        let lessonsCompleted = 0;
-        let totalLessons = 0;
-        
-        try {
-            // Get total lessons count for PolyLearn
-            const totalResponse = await fetch(`/api/lessons-db/complete?lesson_id=${POLYLEARN_LESSON_ID}`, {
+        const token = localStorage.getItem('authToken');
+        if (token) {
+            // Fetch in background, don't await
+            fetch(`/api/progress/lessons?lesson_id=3`, {
                 headers: { 'Authorization': `Bearer ${token}` }
-            });
-            
-            if (totalResponse.ok) {
-                const totalData = await totalResponse.json();
-                if (totalData.success && totalData.lessons) {
-                    totalLessons = totalData.lessons.length;
-                    console.log(`📚 Total PolyLearn lessons: ${totalLessons}`);
+            }).then(res => res.json()).then(data => {
+                if (data.success && data.progress) {
+                    const completed = data.progress.filter(p => p.completion_status === 'completed').length;
+                    if (lessonsCount) {
+                        lessonsCount.innerHTML = `${completed}<span class="item-unit">/10</span>`;
+                    }
                 }
-            }
-            
-            // Get lessons progress for PolyLearn
-            const lessonsResponse = await fetch(`/api/progress/lessons?lesson_id=${POLYLEARN_LESSON_ID}`, {
-                headers: { 'Authorization': `Bearer ${token}` }
-            });
-            
-            if (lessonsResponse.ok) {
-                const lessonsData = await lessonsResponse.json();
-                if (lessonsData.success && lessonsData.progress) {
-                    lessonsCompleted = lessonsData.progress.filter(p => 
-                        p.completion_status === 'completed' || p.status === 'completed'
-                    ).length;
-                    
-                    console.log(`✅ PolyLearn lessons completed: ${lessonsCompleted}/${totalLessons}`);
-                }
-            }
-        } catch (error) {
-            console.warn('⚠️ Could not fetch PolyLearn lessons:', error.message);
+            }).catch(err => console.log('Background fetch error:', err));
         }
-        
-        // ===== 2. GET POLYLEARN PRACTICE EXERCISES =====
-        let exercisesCompleted = 0;
-        let totalExercises = 0;
-        
-        try {
-            // Get total PolyLearn practice exercises
-            const totalExercisesResponse = await fetch(`/api/practice/exercises/count?lesson_id=${POLYLEARN_LESSON_ID}`, {
-                headers: { 'Authorization': `Bearer ${token}` }
-            });
-            
-            if (totalExercisesResponse.ok) {
-                const totalData = await totalExercisesResponse.json();
-                if (totalData.success) {
-                    totalExercises = totalData.count || 0;
-                    console.log(`📝 Total PolyLearn practice exercises: ${totalExercises}`);
-                }
-            }
-            
-            // Get PolyLearn practice attempts
-            const practiceResponse = await fetch(`/api/progress/practice-attempts?lesson_id=${POLYLEARN_LESSON_ID}`, {
-                headers: { 'Authorization': `Bearer ${token}` }
-            });
-            
-            if (practiceResponse.ok) {
-                const practiceData = await practiceResponse.json();
-                if (practiceData.success && practiceData.attempts) {
-                    exercisesCompleted = practiceData.attempts.filter(attempt => 
-                        attempt.completion_status === 'completed' || 
-                        attempt.percentage >= 70 ||
-                        attempt.score >= 70
-                    ).length;
-                    
-                    console.log(`✅ PolyLearn completed exercises: ${exercisesCompleted}/${totalExercises}`);
-                }
-            }
-            
-        } catch (error) {
-            console.error('❌ Error fetching practice:', error.message);
-        }
-        
-        // ===== 3. GET POLYLEARN QUIZ POINTS =====
-        let totalPoints = 0;
-        
-        try {
-            const quizResponse = await fetch(`/api/quiz/user/attempts?lesson_id=${POLYLEARN_LESSON_ID}`, {
-                headers: { 'Authorization': `Bearer ${token}` }
-            });
-            
-            if (quizResponse.ok) {
-                const quizData = await quizResponse.json();
-                if (quizData.success && quizData.attempts) {
-                    quizData.attempts.forEach(attempt => {
-                        const correctAnswers = attempt.correct_answers || 0;
-                        totalPoints += correctAnswers * 10;
-                    });
-                    console.log(`✅ PolyLearn quiz points: ${totalPoints}`);
-                }
-            }
-        } catch (error) {
-            console.warn('⚠️ Could not fetch PolyLearn quiz points:', error.message);
-        }
-        
-        // ===== 4. UPDATE THE UI =====
-        
-        // Update lessons count
-        const lessonsCount = document.getElementById('lessonsCount');
-        if (lessonsCount) {
-            lessonsCount.innerHTML = `${lessonsCompleted}<span class="item-unit">/${totalLessons || 10}</span>`;
-        }
-        
-        // Update exercises count
-        const exercisesCount = document.getElementById('exercisesCount');
-        if (exercisesCount) {
-            exercisesCount.innerHTML = `${exercisesCompleted}<span class="item-unit">/${totalExercises || 15}</span>`;
-        }
-        
-        // Update quiz score
-        const quizScore = document.getElementById('quizScore');
-        if (quizScore) {
-            quizScore.innerHTML = `${totalPoints}<span class="item-unit">points</span>`;
-        }
-        
-        // Update avg time
-        const avgTime = document.getElementById('avgTime');
-        if (avgTime) {
-            const totalActivities = lessonsCompleted + exercisesCompleted;
-            const avgPerActivity = totalActivities > 0 ? Math.round(5 + (totalActivities * 0.5)) : 5;
-            avgTime.innerHTML = `${avgPerActivity}<span class="item-unit">min/day</span>`;
-        }
-        
-        console.log('✅ PolyLearn progress summary cards updated');
-        console.log(`   FINAL - Lessons: ${lessonsCompleted}/${totalLessons}, Practice: ${exercisesCompleted}/${totalExercises}, Points: ${totalPoints}`);
-        
-    } catch (error) {
-        console.error('❌ Error updating progress summary cards:', error);
-        setDefaultProgressValues();
+    } catch (e) {
+        console.log('Background fetch failed:', e);
     }
 }
 
@@ -17208,161 +17108,47 @@ async function loadRecentLessons(container, lessons, progress) {
 
 // Update continue learning module in home dashboard
 async function updateContinueLearningModule() {
-    try {
-        const container = document.getElementById('continueLearningContainer');
-        if (!container) {
-            console.error('Continue learning container not found');
-            return;
-        }
+    const container = document.getElementById('continueLearningContainer');
+    if (!container) return;
+    
+    // Show sample data muna
+    container.innerHTML = `
+        <div class="module-header">
+            <h3 class="module-title">
+                <i class="fas fa-cube"></i> 
+                Module 1: Introduction to Factorials
+            </h3>
+            <span class="module-status status-in-progress">In Progress</span>
+        </div>
         
-        container.innerHTML = `
-            <div class="loading-container">
-                <div class="loading-text">
-                    <i class="fas fa-spinner fa-spin"></i> Loading lessons...
-                </div>
+        <p style="color: var(--text-light); margin-bottom: 15px;">
+            Learn the basics of factorial notation and calculations.
+        </p>
+        
+        <div class="module-progress">
+            <div class="progress-label">
+                <span>Progress</span>
+                <span>45%</span>
             </div>
-        `;
-        
-        // Fetch lessons and progress
-        const [lessons, progress] = await Promise.all([
-            fetchAllLessons(),
-            fetchUserLessonProgress()
-        ]);
-        
-        if (lessons.length === 0) {
-            container.innerHTML = `
-                <div class="no-lessons">
-                    <i class="fas fa-book"></i>
-                    <h3>No lessons available</h3>
-                    <p>Check back later for new lessons!</p>
-                </div>
-            `;
-            return;
-        }
-        
-        // Store in global state
-        LessonState.lessons = lessons;
-        LessonState.userProgress = progress;
-        
-        // Get continue learning lesson
-        const continueLesson = getContinueLearningLesson(lessons, progress);
-        LessonState.continueLearningLesson = continueLesson;
-        
-        if (!continueLesson) {
-            container.innerHTML = `
-                <div class="no-lessons">
-                    <i class="fas fa-trophy"></i>
-                    <h3>All Lessons Completed!</h3>
-                    <p>Great job! You've completed all available lessons.</p>
-                    <button class="btn-primary" id="reviewAllLessons">
-                        <i class="fas fa-redo"></i> Review Lessons
-                    </button>
-                </div>
-            `;
-            
-            document.getElementById('reviewAllLessons')?.addEventListener('click', () => {
-                navigateTo('moduleDashboard');
-            });
-            
-            return;
-        }
-        
-        // Calculate progress percentage
-        const lessonProgress = progress[continueLesson.content_id] || {};
-        const percentage = lessonProgress.percentage || 0;
-        const status = lessonProgress.status || 'not_started';
-        
-        // Get topic ID for this lesson
-        const topicId = continueLesson.topic_id || 1;
-        LessonState.currentTopic = topicId;
-        
-        // Check if practice is unlocked for this topic
-        let practiceUnlocked = false;
-        let practiceAvailable = false;
-        
-        if (percentage >= 80) {
-            practiceUnlocked = await checkPracticeUnlocked(topicId);
-            practiceAvailable = true;
-        }
-        
-        // Render continue learning module
-        container.innerHTML = `
-            <div class="module-header">
-                <h3 class="module-title">
-                    <i class="fas fa-cube"></i> 
-                    ${continueLesson.module_name || 'Module'}: ${continueLesson.topic_title || 'Topic'}
-                </h3>
-                <span class="module-status status-${status}">
-                    ${status === 'completed' ? 'Completed' : 
-                      status === 'in_progress' ? 'In Progress' : 'Start Learning'}
-                </span>
+            <div class="progress-bar-container">
+                <div class="progress-fill" style="width: 45%"></div>
             </div>
-            
-            <p style="color: var(--text-light); margin-bottom: 15px;">
-                ${continueLesson.content_title || 'Continue your learning journey.'}
-            </p>
-            
-            <div class="module-progress">
-                <div class="progress-label">
-                    <span>Progress</span>
-                    <span>${percentage}%</span>
-                </div>
-                <div class="progress-bar-container">
-                    <div class="progress-fill" style="width: ${percentage}%"></div>
-                </div>
-            </div>
-            
-            <div class="module-lessons" id="recentLessonsList">
-                <!-- Recent lessons will be loaded here -->
-            </div>
-            
-            <div style="text-align: center; margin-top: 20px;">
-                <button class="btn-primary" id="continueLessonBtn" data-lesson-id="${continueLesson.content_id}">
-                    <i class="fas fa-play"></i> ${status === 'not_started' ? 'Start Lesson' : 
-                     status === 'in_progress' ? 'Continue Lesson' : 'Review Lesson'}
-                </button>
-                ${practiceAvailable ? `
-                    <button class="btn-success ${practiceUnlocked ? '' : 'disabled'}" 
-                            id="practiceTopicBtn" 
-                            style="margin-left: 10px;" 
-                            data-topic-id="${topicId}"
-                            ${practiceUnlocked ? '' : 'disabled'}>
-                        <i class="fas fa-pencil-alt"></i> 
-                        ${practiceUnlocked ? 'Practice Now' : 'Practice Locked'}
-                    </button>
-                ` : ''}
-            </div>
-        `;
+        </div>
         
-        // Load recent lessons
-        await loadRecentLessons(container.querySelector('#recentLessonsList'), lessons, progress);
-        
-        // Setup continue button
-        document.getElementById('continueLessonBtn')?.addEventListener('click', function() {
-            const lessonId = this.getAttribute('data-lesson-id');
-            openLesson(lessonId);
+        <div style="text-align: center; margin-top: 20px;">
+            <button class="btn-primary" id="continueLessonBtn">
+                <i class="fas fa-play"></i> Continue Lesson
+            </button>
+        </div>
+    `;
+    
+    // Add event listener
+    const btn = document.getElementById('continueLessonBtn');
+    if (btn) {
+        btn.addEventListener('click', () => {
+            console.log('Continue lesson clicked');
+            // You can implement lesson navigation here
         });
-        
-        // Setup practice button
-        const practiceBtn = document.getElementById('practiceTopicBtn');
-        if (practiceBtn) {
-            practiceBtn.addEventListener('click', function() {
-                const topicId = this.getAttribute('data-topic-id');
-                openPracticeForTopic(topicId);
-            });
-        }
-        
-        console.log('✅ Continue learning module updated');
-        
-    } catch (error) {
-        console.error('Error updating continue learning module:', error);
-        container.innerHTML = `
-            <div class="error-message">
-                <i class="fas fa-exclamation-triangle"></i>
-                <h3>Failed to load lessons</h3>
-                <p>Please try again later</p>
-            </div>
-        `;
     }
 }
 
@@ -21009,14 +20795,43 @@ document.addEventListener('DOMContentLoaded', function() {
     // Also load when navigation happens
     const originalNavigateTo = window.navigateTo;
     window.navigateTo = function(page) {
-        originalNavigateTo(page);
-        if (page === 'practice') {
-            setTimeout(() => {
-                loadPracticeStatistics();
-            }, 300);
-        }
+    console.log(`🧭 Navigating to: ${page}`);
+    
+    // Define page elements
+    const pages = {
+        'dashboard': document.getElementById('dashboard-page'),
+        'practice': document.getElementById('practice-exercises-page'),
+        'quizDashboard': document.getElementById('quiz-dashboard-page'),
+        'progress': document.getElementById('progress-page'),
+        'feedback': document.getElementById('feedback-page'),
+        'settings': document.getElementById('settings-page'),
+        'moduleDashboard': document.getElementById('module-dashboard-page')
     };
-});
+    
+    // Check if page exists
+    if (!pages[page]) {
+        console.error(`❌ Page "${page}" not found!`);
+        return;
+    }
+    
+    // Hide all pages
+    Object.values(pages).forEach(p => {
+        if (p) p.classList.add('hidden');
+    });
+    
+    // Show target page
+    pages[page].classList.remove('hidden');
+    
+    // Update current page
+    if (window.AppState) {
+        AppState.currentPage = page;
+    }
+    
+    // Scroll to top
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+    
+    console.log(`✅ Navigated to ${page}`);
+};
 // Submit practice answers to server
 // ============================================
 // ✅ ENHANCED: Submit Practice Answers to Server
@@ -23002,16 +22817,16 @@ function addProgressStyles() {
 function initApp() {
     console.log('🎮 FactoLearn Application Initializing...');
     
-    // ✅ Set FactoLearn constants
+    // Set FactoLearn constants
     window.FACTORIAL_LESSON_ID = 3;
     window.CURRENT_APP_NAME = 'FactoLearn';
     
-    // ✅ Set localStorage para sure
+    // Set localStorage
     localStorage.setItem('selectedApp', 'factorial');
     localStorage.setItem('currentLessonFilter', '3');
     localStorage.setItem('currentLessonId', '3');
     
-    // ✅ CHECK MUNA KUNG MAY EXISTING USER
+    // Check if user exists
     const existingUser = localStorage.getItem('mathhub_user');
     const existingToken = localStorage.getItem('authToken');
     
@@ -23024,29 +22839,26 @@ function initApp() {
             AppState.hasSelectedApp = true;
             
             console.log(`👤 User: ${AppState.currentUser.username}`);
-            console.log(`📱 Selected app: FactoLearn (lesson_id=3)`);
             
-            // Setup listeners
+            // Setup menu
             initHamburgerMenu();
             
             // Navigate to dashboard
             navigateTo('dashboard');
             
-            // Load all FactoLearn data
+            // Load data AFTER navigation
             setTimeout(() => {
-                loadFactoLearnData();
+                loadDashboardData();
             }, 500);
             
             return;
         } catch (e) {
-            console.error('Error parsing existing user:', e);
-            localStorage.removeItem('mathhub_user');
-            localStorage.removeItem('authToken');
+            console.error('Error parsing user:', e);
         }
     }
     
-    // ✅ WALANG USER - use demo user for FactoLearn
-    console.log('📱 No existing session, using demo user for FactoLearn');
+    // No user - create demo user
+    console.log('📱 Creating demo user');
     const demoUser = {
         id: 1,
         username: 'factolearn_user',
@@ -23068,18 +22880,60 @@ function initApp() {
     localStorage.setItem('currentLessonFilter', '3');
     localStorage.setItem('currentLessonId', '3');
     
-    // Initialize hamburger menu
+    // Initialize menu
     initHamburgerMenu();
     
-    // Navigate directly to dashboard
+    // Navigate to dashboard
     navigateTo('dashboard');
     
-    // Load all FactoLearn data
+    // Load data
     setTimeout(() => {
-        loadFactoLearnData();
+        loadDashboardData();
     }, 500);
     
-    console.log('🎮 FactoLearn Application Initialized - lesson_id=3 forced');
+    console.log('🎮 FactoLearn Application Initialized');
+}
+async function loadDashboardData() {
+    console.log('📊 Loading dashboard data...');
+    
+    try {
+        // Update date
+        const dateElement = document.getElementById('currentDate');
+        if (dateElement) {
+            const now = new Date();
+            dateElement.textContent = now.toLocaleDateString('en-US', { 
+                weekday: 'long', 
+                year: 'numeric', 
+                month: 'long', 
+                day: 'numeric' 
+            });
+        }
+        
+        // Update user info
+        const user = AppState.currentUser;
+        if (user) {
+            const userNameElement = document.getElementById('dashboardUserName');
+            if (userNameElement) {
+                userNameElement.innerHTML = `Welcome back <span>${user.full_name || user.username}!</span>`;
+            }
+            
+            const userInitial = document.getElementById('userInitial');
+            if (userInitial) {
+                userInitial.textContent = (user.full_name || user.username).charAt(0).toUpperCase();
+            }
+        }
+        
+        // Load progress data
+        await updateProgressSummaryCards();
+        
+        // Load continue learning module
+        await updateContinueLearningModule();
+        
+        console.log('✅ Dashboard data loaded');
+        
+    } catch (error) {
+        console.error('❌ Error loading dashboard data:', error);
+    }
 }
 
 // ============================================
@@ -23307,43 +23161,7 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 });
 
-// ============================================
-// 🚀 EMERGENCY FIX - FORCE SHOW DASHBOARD
-// ============================================
-(function forceShowDashboard() {
-    console.log('🚨 EMERGENCY FIX: Forcing dashboard to show...');
-    
-    // Wait for DOM to be ready
-    if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', showDashboard);
-    } else {
-        showDashboard();
-    }
-    
-    function showDashboard() {
-        console.log('📊 Showing dashboard page...');
-        
-        // Hide all pages first
-        const pages = [
-            'dashboard-page',
-            'module-dashboard-page',
-            'practice-exercises-page',
-            'quiz-dashboard-page',
-            'progress-page',
-            'settings-page',
-            'feedback-page'
-        ];
-        
-        pages.forEach(id => {
-            const page = document.getElementById(id);
-            if (page) {
-                page.classList.add('hidden');
-                console.log(`✅ Hidden: ${id}`);
-            } else {
-                console.warn(`⚠️ Page not found: ${id}`);
-            }
-        });
-        
+
         // Show dashboard page
         const dashboard = document.getElementById('dashboard-page');
         if (dashboard) {
