@@ -14663,14 +14663,14 @@ function getWeeklyFeedbackData() {
 
 
 // ============================================
-// 🚨 GLOBAL FORM PREVENTION
+// PREVENT SPECIFIC FORM SUBMISSIONS ONLY
 // ============================================
 document.addEventListener('submit', function(e) {
-    // Check if it's the feedback form
-    if (e.target.id === 'feedbackForm' || e.target.closest('#feedbackForm')) {
+    // Only prevent forms with class "prevent-submit"
+    if (e.target.classList.contains('prevent-submit')) {
         e.preventDefault();
         e.stopPropagation();
-        console.log('🚫 Global form submission prevented');
+        console.log('🚫 Form submission prevented');
         return false;
     }
 }, true);
