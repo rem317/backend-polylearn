@@ -168,7 +168,7 @@ window.addEventListener('click', function(e) {
 // Close with Escape key
 document.addEventListener('keydown', function(e) {
     if (e.key === 'Escape') {
-        document.querySelectorAll('.modal-overlay.active').forEach(modal => {
+        document.querySelectorAll('.modal-overlay.active').forEach(function(modal) {
             modal.classList.remove('active');
         });
         document.body.style.overflow = '';
@@ -199,25 +199,25 @@ class Calculator {
             ['00', '0', '.', '%']
         ];
         
-        const buttonsHtml = buttons.map(row => 
-            row.map(btn => {
+        const buttonsHtml = buttons.map(function(row) {
+            return row.map(function(btn) {
                 let className = 'calc-btn';
                 if (['+', '-', '×', '÷', '%'].includes(btn)) className += ' operator';
                 if (btn === '=') className += ' equals';
                 if (btn === 'C') className += ' clear';
                 return `<button class="${className}" data-value="${btn}">${btn}</button>`;
-            }).join('')
-        ).join('');
+            }).join('');
+        }).join('');
         
         const container = document.getElementById('calcButtons');
         if (container) {
             container.innerHTML = buttonsHtml;
             
-            container.querySelectorAll('button').forEach(btn => {
-                btn.addEventListener('click', () => {
+            container.querySelectorAll('button').forEach(function(btn) {
+                btn.addEventListener('click', function() {
                     this.handleButton(btn.getAttribute('data-value'));
-                });
-            });
+                }.bind(this));
+            }.bind(this));
         }
     }
     
@@ -278,11 +278,11 @@ class Calculator {
             
         } catch (e) {
             this.display = 'Error';
-            setTimeout(() => {
+            setTimeout(function() {
                 this.display = '0';
                 this.expression = '';
                 this.updateDisplay();
-            }, 1000);
+            }.bind(this), 1000);
         }
     }
     
@@ -300,12 +300,14 @@ class Calculator {
             return;
         }
         
-        historyEl.innerHTML = this.history.map(item => `
-            <div class="history-item">
-                <span>${item.expression}</span>
-                <span style="font-weight: bold;">= ${item.result}</span>
-            </div>
-        `).join('');
+        historyEl.innerHTML = this.history.map(function(item) {
+            return `
+                <div class="history-item">
+                    <span>${item.expression}</span>
+                    <span style="font-weight: bold;">= ${item.result}</span>
+                </div>
+            `;
+        }).join('');
     }
     
     loadHistory() {
@@ -348,10 +350,10 @@ class GraphTool {
         const exprInput = document.getElementById('graphExpression');
         
         if (plotBtn) {
-            plotBtn.addEventListener('click', () => {
+            plotBtn.addEventListener('click', function() {
                 this.expression = exprInput?.value || 'x^2 - 2x + 1';
                 this.plotFunction();
-            });
+            }.bind(this));
         }
     }
     
@@ -430,7 +432,7 @@ class GraphTool {
             this.ctx.beginPath();
             
             let first = true;
-            points.forEach(point => {
+            points.forEach(function(point) {
                 if (point.y >= 0 && point.y <= h) {
                     if (first) {
                         this.ctx.moveTo(point.x, point.y);
@@ -441,7 +443,7 @@ class GraphTool {
                 } else {
                     first = true;
                 }
-            });
+            }.bind(this));
             
             this.ctx.stroke();
             
@@ -455,7 +457,7 @@ class GraphTool {
     
     evaluateFunction(x, expr) {
         try {
-            const fn = new Function('x', `return ${expr}`);
+            const fn = new Function('x', 'return ' + expr);
             return fn(x);
         } catch (e) {
             return 0;
@@ -503,7 +505,7 @@ class GraphTool {
         
         if (xIntercepts.length > 0) {
             html += '<div class="roots-section"><h4>X-Intercepts:</h4><ul>';
-            xIntercepts.sort((a,b) => a - b).forEach(root => {
+            xIntercepts.sort(function(a,b) { return a - b; }).forEach(function(root) {
                 html += `<li>x = ${root}</li>`;
             });
             html += '</ul></div>';
@@ -737,14 +739,16 @@ window.showFormulaCategory = function(category) {
     
     const categoryFormulas = formulas[category] || formulas.polynomial;
     
-    listEl.innerHTML = categoryFormulas.map(f => `
-        <div class="formula-item">
-            <div class="formula-name">${f.name}</div>
-            <div class="formula-expression">${f.formula}</div>
-        </div>
-    `).join('');
+    listEl.innerHTML = categoryFormulas.map(function(f) {
+        return `
+            <div class="formula-item">
+                <div class="formula-name">${f.name}</div>
+                <div class="formula-expression">${f.formula}</div>
+            </div>
+        `;
+    }).join('');
     
-    document.querySelectorAll('.formula-categories button').forEach(btn => {
+    document.querySelectorAll('.formula-categories button').forEach(function(btn) {
         btn.classList.remove('active');
     });
     event.target.classList.add('active');
@@ -767,18 +771,18 @@ class StudyTimer {
     }
     
     setupListeners() {
-        document.getElementById('timerStartBtn')?.addEventListener('click', () => this.start());
-        document.getElementById('timerPauseBtn')?.addEventListener('click', () => this.pause());
-        document.getElementById('timerResetBtn')?.addEventListener('click', () => this.reset());
-        document.getElementById('timer15min')?.addEventListener('click', () => this.setTime(15));
-        document.getElementById('timer25min')?.addEventListener('click', () => this.setTime(25));
-        document.getElementById('timer50min')?.addEventListener('click', () => this.setTime(50));
+        document.getElementById('timerStartBtn')?.addEventListener('click', this.start.bind(this));
+        document.getElementById('timerPauseBtn')?.addEventListener('click', this.pause.bind(this));
+        document.getElementById('timerResetBtn')?.addEventListener('click', this.reset.bind(this));
+        document.getElementById('timer15min')?.addEventListener('click', this.setTime.bind(this, 15));
+        document.getElementById('timer25min')?.addEventListener('click', this.setTime.bind(this, 25));
+        document.getElementById('timer50min')?.addEventListener('click', this.setTime.bind(this, 50));
     }
     
     start() {
         if (!this.isRunning && this.timeLeft > 0) {
             this.isRunning = true;
-            this.timerId = setInterval(() => {
+            this.timerId = setInterval(function() {
                 if (this.timeLeft > 0) {
                     this.timeLeft--;
                     this.updateDisplay();
@@ -786,7 +790,7 @@ class StudyTimer {
                         this.complete();
                     }
                 }
-            }, 1000);
+            }.bind(this), 1000);
         }
     }
     
@@ -809,7 +813,7 @@ class StudyTimer {
         this.timeLeft = this.initialTime;
         this.updateDisplay();
         
-        document.querySelectorAll('.timer-presets button').forEach(btn => {
+        document.querySelectorAll('.timer-presets button').forEach(function(btn) {
             btn.classList.remove('active');
         });
         event.target.classList.add('active');
@@ -858,9 +862,9 @@ function showNotification(message, type = 'info') {
     notification.innerHTML = `<i class="fas ${icon}"></i> ${message}`;
     document.body.appendChild(notification);
     
-    setTimeout(() => {
+    setTimeout(function() {
         notification.style.animation = 'slideOut 0.3s ease';
-        setTimeout(() => notification.remove(), 300);
+        setTimeout(function() { notification.remove(); }, 300);
     }, 3000);
 }
 
@@ -882,22 +886,22 @@ document.addEventListener('DOMContentLoaded', function() {
     const studyTimer = new StudyTimer();
     
     // Setup tool buttons
-    document.getElementById('openCalculator').addEventListener('click', () => {
+    document.getElementById('openCalculator').addEventListener('click', function() {
         openToolModal('calculatorModal');
-        setTimeout(() => calculator.init(), 100);
+        setTimeout(function() { calculator.init(); }, 100);
     });
     
-    document.getElementById('openGraphTools').addEventListener('click', () => {
+    document.getElementById('openGraphTools').addEventListener('click', function() {
         openToolModal('graphModal');
-        setTimeout(() => graphTool.init(), 200);
+        setTimeout(function() { graphTool.init(); }, 200);
     });
     
-    document.getElementById('openWhiteboard').addEventListener('click', () => {
+    document.getElementById('openWhiteboard').addEventListener('click', function() {
         openToolModal('whiteboardModal');
         setTimeout(initWhiteboard, 200);
     });
     
-    document.getElementById('openNotepad').addEventListener('click', () => {
+    document.getElementById('openNotepad').addEventListener('click', function() {
         openToolModal('notepadModal');
         // Load last note if exists
         const notes = JSON.parse(localStorage.getItem('lesson_notes') || '[]');
@@ -907,14 +911,14 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
     
-    document.getElementById('openFormulaSheet').addEventListener('click', () => {
+    document.getElementById('openFormulaSheet').addEventListener('click', function() {
         openToolModal('formulaModal');
-        setTimeout(() => showFormulaCategory('polynomial'), 100);
+        setTimeout(function() { showFormulaCategory('polynomial'); }, 100);
     });
     
-    document.getElementById('openTimer').addEventListener('click', () => {
+    document.getElementById('openTimer').addEventListener('click', function() {
         openToolModal('timerModal');
-        setTimeout(() => studyTimer.init(), 100);
+        setTimeout(function() { studyTimer.init(); }, 100);
     });
     
     // Complete lesson button
@@ -930,7 +934,7 @@ document.addEventListener('DOMContentLoaded', function() {
             showNotification('🎉 Congratulations! Lesson completed!', 'success');
             
             // Unlock next lesson (simulated)
-            setTimeout(() => {
+            setTimeout(function() {
                 document.getElementById('nextLessonBtn').disabled = false;
             }, 500);
         }
@@ -942,7 +946,7 @@ document.addEventListener('DOMContentLoaded', function() {
     });
     
     // Show initial formula category
-    setTimeout(() => showFormulaCategory('polynomial'), 500);
+    setTimeout(function() { showFormulaCategory('polynomial'); }, 500);
     
     // Add animation styles
     const style = document.createElement('style');
