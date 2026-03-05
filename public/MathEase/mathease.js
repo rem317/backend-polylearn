@@ -748,10 +748,28 @@ window.showFormulaCategory = function(category) {
         `;
     }).join('');
     
+    window.showFormulaCategory = function(category) {
+    const listEl = document.getElementById('formulaList');
+    if (!listEl) return;
+    
+    const categoryFormulas = formulas[category] || formulas.polynomial;
+    
+    listEl.innerHTML = categoryFormulas.map(function(f) {
+        return `
+            <div class="formula-item">
+                <div class="formula-name">${f.name}</div>
+                <div class="formula-expression">${f.formula}</div>
+            </div>
+        `;
+    }).join('');
+    
+    // I-update ang active button
     document.querySelectorAll('.formula-categories button').forEach(function(btn) {
         btn.classList.remove('active');
+        if (btn.textContent.toLowerCase() === category) {
+            btn.classList.add('active');
+        }
     });
-    event.target.classList.add('active');
 };
 
 // ============================================
@@ -808,16 +826,20 @@ class StudyTimer {
     }
     
     setTime(minutes) {
-        this.pause();
-        this.initialTime = minutes * 60;
-        this.timeLeft = this.initialTime;
-        this.updateDisplay();
-        
-        document.querySelectorAll('.timer-presets button').forEach(function(btn) {
-            btn.classList.remove('active');
-        });
+    this.pause();
+    this.initialTime = minutes * 60;
+    this.timeLeft = this.initialTime;
+    this.updateDisplay();
+    
+    document.querySelectorAll('.timer-presets button').forEach(function(btn) {
+        btn.classList.remove('active');
+    });
+    
+    // I-check kung may event
+    if (event && event.target) {
         event.target.classList.add('active');
     }
+}
     
     complete() {
         this.pause();
@@ -1115,3 +1137,61 @@ setInterval(function() {
         dashboard.style.opacity = '1';
     }
 }, 2000);
+// ============================================
+// 🚀 QUICK FIX - Idagdag sa dulo ng script
+// ============================================
+
+// Fix para sa showFormulaCategory error
+window.showFormulaCategory = function(category) {
+    const listEl = document.getElementById('formulaList');
+    if (!listEl) return;
+    
+    const categoryFormulas = formulas[category] || formulas.polynomial;
+    
+    listEl.innerHTML = categoryFormulas.map(function(f) {
+        return `
+            <div class="formula-item">
+                <div class="formula-name">${f.name}</div>
+                <div class="formula-expression">${f.formula}</div>
+            </div>
+        `;
+    }).join('');
+    
+    // I-FIX ITO - tanggalin ang event.target
+    document.querySelectorAll('.formula-categories button').forEach(function(btn) {
+        btn.classList.remove('active');
+        // Gamitin ang category parameter imbes na event.target
+        if (btn.textContent.toLowerCase() === category) {
+            btn.classList.add('active');
+        }
+    });
+};
+
+// Permanent dashboard fix
+(function() {
+    function showDashboard() {
+        const dashboard = document.getElementById('dashboard-page');
+        if (dashboard) {
+            dashboard.classList.remove('hidden');
+            dashboard.style.display = 'block';
+            return true;
+        }
+        return false;
+    }
+    
+    // Run agad
+    showDashboard();
+    
+    // Run pag nag-load ang page
+    document.addEventListener('DOMContentLoaded', showDashboard);
+    window.addEventListener('load', showDashboard);
+    
+    // Run every second hanggang mag-appear
+    let attempts = 0;
+    const interval = setInterval(() => {
+        attempts++;
+        if (showDashboard() || attempts > 10) {
+            clearInterval(interval);
+        }
+    }, 500);
+})();
