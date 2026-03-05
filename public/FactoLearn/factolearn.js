@@ -14233,15 +14233,15 @@ async function submitQuizSystem() {
             resultsContainer.style.display = 'block';
             
             // ✅ I-display ang results
-            resultsContainer.innerHTML = generateResultsHTML({
-                score,
-                correctCount,
-                wrongCount,
-                totalQuestions,
-                timeSpentSeconds,
-                attemptId: QuizSystem.currentAttemptId,
-                pointsEarned
-            });
+            displayQuizResults(resultsContainer, {
+                 score: score,
+                 correctCount: correctCount,
+                 wrongCount: wrongCount,
+                 totalQuestions: totalQuestions,
+                 timeSpentSeconds: timeSpentSeconds,
+                 attemptId: QuizSystem.currentAttemptId,
+                 pointsEarned: pointsEarned
+             });
         }
         
         // ===== ✅ CRITICAL: AUTO-REFRESH QUIZ STATS =====
