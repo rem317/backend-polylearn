@@ -976,3 +976,142 @@ document.addEventListener('DOMContentLoaded', function() {
     
     console.log('✅ MathEase Lesson 1 Ready!');
 });
+// ============================================
+// 🚀 PERMANENT DASHBOARD FIX - Auto-show on load
+// ============================================
+(function permanentDashboardFix() {
+    console.log('🔧 Applying permanent dashboard fix...');
+    
+    // Function to force show dashboard
+    function forceShowDashboard() {
+        const dashboard = document.getElementById('dashboard-page');
+        if (!dashboard) {
+            console.warn('Dashboard page not found yet, retrying...');
+            return false;
+        }
+        
+        // Hide ALL possible pages
+        const allPossiblePages = [
+            'dashboard-page', 'practice-exercises-page', 'quiz-dashboard-page',
+            'progress-page', 'feedback-page', 'settings-page', 'module-dashboard-page',
+            'app-selection-page', 'login-page', 'signup-page', 'loading-page',
+            'landing-page'
+        ];
+        
+        allPossiblePages.forEach(pageId => {
+            const page = document.getElementById(pageId);
+            if (page) {
+                page.classList.add('hidden');
+                page.style.display = 'none';
+                page.style.visibility = 'hidden';
+                page.style.opacity = '0';
+            }
+        });
+        
+        // Force show dashboard with highest priority
+        dashboard.classList.remove('hidden');
+        dashboard.style.cssText = `
+            display: block !important;
+            visibility: visible !important;
+            opacity: 1 !important;
+            position: relative !important;
+            z-index: 1000 !important;
+        `;
+        
+        // Remove any inline styles that might hide it
+        dashboard.style.removeProperty('display');
+        dashboard.style.removeProperty('visibility');
+        dashboard.style.removeProperty('opacity');
+        
+        console.log('✅ Dashboard permanently shown!');
+        return true;
+    }
+    
+    // Run immediately
+    forceShowDashboard();
+    
+    // Run after DOM is fully loaded
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', forceShowDashboard);
+    } else {
+        forceShowDashboard();
+    }
+    
+    // Run after everything is loaded
+    window.addEventListener('load', forceShowDashboard);
+    
+    // Run repeatedly until it works (max 10 attempts)
+    let attempts = 0;
+    const interval = setInterval(function() {
+        attempts++;
+        const success = forceShowDashboard();
+        
+        if (success || attempts >= 10) {
+            clearInterval(interval);
+            if (success) {
+                console.log(`✅ Dashboard fixed after ${attempts} attempts`);
+            } else {
+                console.warn('⚠️ Could not find dashboard after 10 attempts');
+            }
+        }
+    }, 500); // Check every 500ms
+    
+    // Fix for navigation function
+    if (typeof window.navigateTo === 'function') {
+        const originalNavigate = window.navigateTo;
+        window.navigateTo = function(page) {
+            console.log(`🧭 Navigating to: ${page}`);
+            
+            // Call original function
+            originalNavigate(page);
+            
+            // Ensure dashboard shows properly when navigated to
+            if (page === 'dashboard') {
+                setTimeout(forceShowDashboard, 100);
+            }
+        };
+    }
+    
+    // Add mutation observer to watch for changes
+    const observer = new MutationObserver(function(mutations) {
+        mutations.forEach(function(mutation) {
+            if (mutation.type === 'attributes' || mutation.type === 'childList') {
+                const dashboard = document.getElementById('dashboard-page');
+                if (dashboard && dashboard.classList.contains('hidden')) {
+                    console.log('🔄 Dashboard was hidden, forcing show...');
+                    forceShowDashboard();
+                }
+            }
+        });
+    });
+    
+    // Start observing
+    const dashboard = document.getElementById('dashboard-page');
+    if (dashboard) {
+        observer.observe(dashboard, { 
+            attributes: true, 
+            attributeFilter: ['class', 'style'] 
+        });
+    }
+    
+    // Also observe body for any class changes
+    observer.observe(document.body, { 
+        attributes: true,
+        attributeFilter: ['class']
+    });
+    
+})();
+
+// ============================================
+// 🛡️ BACKUP PROTECTION - Run every 2 seconds
+// ============================================
+setInterval(function() {
+    const dashboard = document.getElementById('dashboard-page');
+    if (dashboard && dashboard.classList.contains('hidden')) {
+        console.log('⚠️ Backup protection: Dashboard was hidden, showing again...');
+        dashboard.classList.remove('hidden');
+        dashboard.style.display = 'block';
+        dashboard.style.visibility = 'visible';
+        dashboard.style.opacity = '1';
+    }
+}, 2000);
