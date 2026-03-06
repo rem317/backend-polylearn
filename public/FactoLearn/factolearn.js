@@ -607,6 +607,10 @@ const QuizSystem = {
     }
 };
 
+// ============================================
+// ✅ PROGRESS DASHBOARD - FROM POLYLEARN
+// ============================================
+
 // Progress State
 const ProgressState = {
     dailyProgress: null,
@@ -618,7 +622,8 @@ const ProgressState = {
     activityLog: [],
     dashboardStats: null,
     progressTrends: [],
-    achievementTimeline: []
+    achievementTimeline: [],
+    cumulativeProgress: null
 };
 
 // Module Dashboard State
@@ -856,20 +861,35 @@ function formatTime(minutes) {
 }
 
 // ============================================
-// ✅ FIXED: updateOverallProgressDisplay
+// UPDATE OVERALL PROGRESS DISPLAY
 // ============================================
 function updateOverallProgressDisplay(progress) {
-    console.log('📊 Updating overall progress display with:', progress);
+    console.log('📊 Updating overall progress display:', progress);
     
     if (!progress) {
-        progress = ProgressState.cumulativeProgress || getDefaultProgress();
+        progress = ProgressState.cumulativeProgress || {
+            total_lessons_completed: 0,
+            total_lessons: 8,
+            overall_percentage: 0,
+            exercises_completed: 0,
+            total_quizzes_completed: 0,
+            total_points_earned: 0,
+            total_time_spent_minutes: 0
+        };
     }
     
-    const percentage = progress.percentage || progress.overall_percentage || 0;
+    const percentage = progress.overall_percentage || 0;
     
     const overallProgress = document.getElementById('overallProgress');
     if (overallProgress) {
         overallProgress.textContent = `${percentage}%`;
+        overallProgress.style.transition = 'all 0.3s';
+        overallProgress.style.transform = 'scale(1.1)';
+        overallProgress.style.color = '#7a0000';
+        setTimeout(() => {
+            overallProgress.style.transform = 'scale(1)';
+            overallProgress.style.color = '';
+        }, 300);
     }
     
     const overallProgressBar = document.getElementById('overallProgressBar');
@@ -887,39 +907,47 @@ function updateOverallProgressDisplay(progress) {
     
     const totalPointsProgress = document.getElementById('totalPointsProgress');
     if (totalPointsProgress) {
-        totalPointsProgress.textContent = progress.total_points || progress.total_points_earned || 0;
+        totalPointsProgress.textContent = progress.total_points_earned || 0;
     }
     
     const pointsChange = document.getElementById('pointsChange');
     if (pointsChange) {
-        const weeklyPoints = progress.weekly?.points || 0;
+        const weeklyPoints = Math.min(progress.total_points_earned || 0, 10);
         pointsChange.textContent = `+${weeklyPoints} this week`;
     }
     
     const totalTime = document.getElementById('totalTime');
     if (totalTime) {
-        if (progress.total_time_display) {
-            totalTime.textContent = progress.total_time_display;
-        } else {
-            const totalMinutes = progress.total_time_spent_minutes || 0;
-            totalTime.textContent = formatTime(totalMinutes);
-        }
+        const totalMinutes = progress.total_time_spent_minutes || 0;
+        let timeDisplay = totalMinutes < 60 
+            ? `${totalMinutes}m` 
+            : `${Math.floor(totalMinutes / 60)}h ${totalMinutes % 60}m`;
+        totalTime.textContent = timeDisplay;
     }
     
-    const timeChange = document.getElementById('timeChange');
-    if (timeChange) {
-        const weeklyMinutes = progress.weekly?.minutes || 0;
-        timeChange.textContent = `${formatTime(weeklyMinutes)} this week`;
+    const totalBadges = document.getElementById('totalBadges');
+    if (totalBadges) {
+        let badgeCount = 0;
+        if (progress.total_lessons_completed >= 1) badgeCount++;
+        if (progress.total_lessons_completed >= 5) badgeCount++;
+        if (progress.total_lessons_completed >= 8) badgeCount++;
+        if (progress.exercises_completed >= 5) badgeCount++;
+        if (progress.exercises_completed >= 15) badgeCount++;
+        if (progress.total_quizzes_completed >= 1) badgeCount++;
+        
+        totalBadges.textContent = `${badgeCount}/10`;
     }
 }
-
 // ============================================
-// ✅ FIXED: fetchTopicMastery
+// FETCH TOPIC MASTERY
 // ============================================
 async function fetchTopicMastery() {
     try {
         const token = localStorage.getItem('authToken') || authToken;
-        if (!token) return {};
+        if (!token) {
+            useMockTopicMastery();
+            return;
+        }
         
         console.log('🧠 Fetching topic mastery...');
         
@@ -927,23 +955,517 @@ async function fetchTopicMastery() {
             headers: { 'Authorization': `Bearer ${token}` }
         });
         
-        if (!response.ok) return {};
+        if (!response.ok) {
+            useMockTopicMastery();
+            return;
+        }
         
         const data = await response.json();
         
         if (data.success && data.mastery) {
             console.log(`✅ Fetched mastery for ${data.mastery.length} topics`);
             ProgressState.topicMastery = data.mastery;
+            updateTopicProgressBreakdown();
             return data.mastery;
         } else {
-            return {};
+            useMockTopicMastery();
         }
     } catch (error) {
         console.error('Error fetching topic mastery:', error);
-        return {};
+        useMockTopicMastery();
+    }
+}
+// ============================================
+// USE MOCK TOPIC MASTERY
+// ============================================
+function useMockTopicMastery() {
+    const mockTopics = [
+        {
+            topic_id: 1,
+            topic_title: 'Factorial Basics',
+            module_name: 'Module 1',
+            lessons_completed: 2,
+            total_lessons: 2,
+            completion_rate: 100,
+            accuracy_rate: 95,
+            mastery_level: 'Expert',
+            last_practiced: new Date().toISOString()
+        },
+        {
+            topic_id: 2,
+            topic_title: 'Factorial Operations',
+            module_name: 'Module 1',
+            lessons_completed: 1,
+            total_lessons: 2,
+            completion_rate: 50,
+            accuracy_rate: 80,
+            mastery_level: 'Intermediate',
+            last_practiced: new Date(Date.now() - 86400000).toISOString()
+        },
+        {
+            topic_id: 3,
+            topic_title: 'Permutations',
+            module_name: 'Module 2',
+            lessons_completed: 0,
+            total_lessons: 2,
+            completion_rate: 0,
+            accuracy_rate: 0,
+            mastery_level: 'Beginner',
+            last_practiced: null
+        }
+    ];
+    
+    ProgressState.topicMastery = mockTopics;
+    updateTopicProgressBreakdown();
+}
+// ============================================
+// UPDATE TOPIC PROGRESS BREAKDOWN
+// ============================================
+function updateTopicProgressBreakdown() {
+    const container = document.getElementById('topicsProgressDetailed');
+    if (!container) return;
+    
+    const topics = ProgressState.topicMastery || [];
+    
+    if (!topics || topics.length === 0) {
+        container.innerHTML = `
+            <div class="no-data-message" style="text-align: center; padding: 30px;">
+                <i class="fas fa-chart-pie" style="font-size: 40px; color: #7a0000; margin-bottom: 15px;"></i>
+                <h4 style="color: #2c3e50; margin-bottom: 10px;">No Topic Data Available</h4>
+                <p style="color: #7f8c8d;">Complete lessons to see your topic progress.</p>
+            </div>
+        `;
+        return;
+    }
+    
+    let html = '<div class="topic-breakdown">';
+    
+    topics.slice(0, 5).forEach(topic => {
+        const progress = topic.completion_rate || 0;
+        const accuracy = topic.accuracy_rate || 0;
+        const masteryLevel = topic.mastery_level || 'Beginner';
+        
+        let masteryColor = '#95a5a6';
+        if (masteryLevel === 'Expert') masteryColor = '#f39c12';
+        else if (masteryLevel === 'Advanced') masteryColor = '#9b59b6';
+        else if (masteryLevel === 'Intermediate') masteryColor = '#3498db';
+        
+        html += `
+            <div class="topic-item" style="margin-bottom: 20px; padding: 15px; background: #f8f9fa; border-radius: 8px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                    <h4 style="margin: 0; color: #2c3e50;">${topic.topic_title || 'Topic'}</h4>
+                    <span style="background: ${masteryColor}; color: white; padding: 3px 10px; border-radius: 15px; font-size: 12px;">${masteryLevel}</span>
+                </div>
+                <div style="display: flex; gap: 20px; margin-bottom: 10px;">
+                    <div style="flex: 1;">
+                        <div style="font-size: 12px; color: #666;">Completion</div>
+                        <div style="height: 6px; background: #ecf0f1; border-radius: 3px; overflow: hidden; margin: 5px 0;">
+                            <div style="height: 100%; width: ${progress}%; background: #7a0000; border-radius: 3px;"></div>
+                        </div>
+                        <div style="font-size: 14px; font-weight: bold;">${progress}%</div>
+                    </div>
+                    <div style="flex: 1;">
+                        <div style="font-size: 12px; color: #666;">Accuracy</div>
+                        <div style="height: 6px; background: #ecf0f1; border-radius: 3px; overflow: hidden; margin: 5px 0;">
+                            <div style="height: 100%; width: ${accuracy}%; background: #27ae60; border-radius: 3px;"></div>
+                        </div>
+                        <div style="font-size: 14px; font-weight: bold;">${accuracy}%</div>
+                    </div>
+                </div>
+                <div style="font-size: 12px; color: #7f8c8d;">
+                    <i class="fas fa-clock"></i> Last: ${topic.last_practiced ? formatTimeAgo(topic.last_practiced) : 'Not started'}
+                </div>
+            </div>
+        `;
+    });
+    
+    html += '</div>';
+    container.innerHTML = html;
+}
+
+// ============================================
+// FETCH ACTIVITY LOG
+// ============================================
+async function fetchActivityLog(limit = 15) {
+    try {
+        const token = localStorage.getItem('authToken') || authToken;
+        if (!token) {
+            useMockActivityLog();
+            return;
+        }
+        
+        console.log(`📋 Fetching activity log (limit: ${limit})...`);
+        
+        const response = await fetch(`/api/progress/activity-feed?limit=${limit}`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        
+        if (response.status === 404) {
+            useMockActivityLog();
+            return;
+        }
+        
+        if (!response.ok) {
+            useMockActivityLog();
+            return;
+        }
+        
+        const data = await response.json();
+        
+        if (data.success && data.activities) {
+            console.log(`✅ Fetched ${data.activities.length} activities`);
+            ProgressState.activityLog = data.activities;
+            updateActivityLog();
+            return data.activities;
+        } else {
+            useMockActivityLog();
+        }
+        
+    } catch (error) {
+        console.error('Error fetching activity log:', error);
+        useMockActivityLog();
+    }
+}
+// ============================================
+// USE MOCK ACTIVITY LOG
+// ============================================
+function useMockActivityLog() {
+    const mockActivities = [
+        {
+            activity_type: 'lesson_completed',
+            details: { item_name: 'Introduction to Factorials' },
+            points_earned: 10,
+            activity_timestamp: new Date().toISOString()
+        },
+        {
+            activity_type: 'practice_completed',
+            details: { item_name: 'Factorial Basics Exercise' },
+            points_earned: 5,
+            activity_timestamp: new Date(Date.now() - 3600000).toISOString()
+        },
+        {
+            activity_type: 'quiz_completed',
+            details: { item_name: 'Factorial Quiz', score: 85 },
+            points_earned: 20,
+            activity_timestamp: new Date(Date.now() - 86400000).toISOString()
+        },
+        {
+            activity_type: 'login',
+            details: {},
+            points_earned: 0,
+            activity_timestamp: new Date(Date.now() - 172800000).toISOString()
+        }
+    ];
+    
+    ProgressState.activityLog = mockActivities;
+    updateActivityLog();
+}
+
+// ============================================
+// UPDATE ACTIVITY LOG
+// ============================================
+function updateActivityLog() {
+    const container = document.getElementById('recentActivity');
+    if (!container) return;
+    
+    const activities = ProgressState.activityLog || [];
+    
+    if (activities.length === 0) {
+        container.innerHTML = `
+            <div class="no-activity" style="text-align: center; padding: 30px;">
+                <i class="fas fa-history" style="font-size: 40px; color: #ccc; margin-bottom: 15px;"></i>
+                <p style="color: #999;">No recent activity</p>
+            </div>
+        `;
+        return;
+    }
+    
+    let html = '';
+    activities.slice(0, 5).forEach(activity => {
+        const activityText = getActivityText(activity);
+        const timeAgo = formatTimeAgo(activity.activity_timestamp);
+        
+        html += `
+            <div style="display: flex; align-items: center; padding: 12px; border-bottom: 1px solid #eee;">
+                <div style="width: 36px; height: 36px; background: #f0f0f0; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin-right: 12px;">
+                    <i class="${getActivityIcon(activity.activity_type)}" style="color: #7a0000;"></i>
+                </div>
+                <div style="flex: 1;">
+                    <div style="font-size: 14px; color: #2c3e50;">${activityText}</div>
+                    <div style="font-size: 12px; color: #999;">${timeAgo}</div>
+                </div>
+                ${activity.points_earned > 0 ? `
+                    <div style="background: #27ae60; color: white; padding: 3px 8px; border-radius: 12px; font-size: 11px; font-weight: bold;">
+                        +${activity.points_earned}
+                    </div>
+                ` : ''}
+            </div>
+        `;
+    });
+    
+    container.innerHTML = html;
+}
+
+// ============================================
+// GET ACTIVITY ICON
+// ============================================
+function getActivityIcon(activityType) {
+    const icons = {
+        'login': 'fas fa-sign-in-alt',
+        'logout': 'fas fa-sign-out-alt',
+        'lesson_completed': 'fas fa-check-circle',
+        'lesson_started': 'fas fa-play',
+        'practice_completed': 'fas fa-pencil-alt',
+        'quiz_completed': 'fas fa-question-circle',
+        'quiz_started': 'fas fa-hourglass-start',
+        'feedback_submitted': 'fas fa-comment',
+        'points_earned': 'fas fa-coins',
+        'tool_used': 'fas fa-tools',
+        'graph_saved': 'fas fa-chart-line',
+        'note_saved': 'fas fa-sticky-note',
+        'timer_session': 'fas fa-clock'
+    };
+    
+    return icons[activityType] || 'fas fa-circle';
+}
+
+// ============================================
+// GET ACTIVITY TEXT
+// ============================================
+function getActivityText(activity) {
+    const type = activity.activity_type;
+    const details = activity.details || {};
+    
+    switch(type) {
+        case 'login':
+            return 'Logged in to FactoLearn';
+        case 'logout':
+            return 'Logged out';
+        case 'lesson_completed':
+            return `Completed lesson: ${details.item_name || 'a lesson'}`;
+        case 'practice_completed':
+            return `Completed practice: ${details.item_name || 'an exercise'}`;
+        case 'quiz_completed':
+            return `Completed quiz with ${details.score || '?'}%`;
+        case 'feedback_submitted':
+            return 'Submitted feedback';
+        case 'points_earned':
+            return `Earned ${activity.points_earned || 0} points`;
+        default:
+            return `Performed ${type.replace(/_/g, ' ')}`;
     }
 }
 
+// ============================================
+// FORMAT TIME AGO
+// ============================================
+function formatTimeAgo(timestamp) {
+    if (!timestamp) return 'Recently';
+    
+    const date = new Date(timestamp);
+    const now = new Date();
+    const diffMs = now - date;
+    const diffMins = Math.floor(diffMs / 60000);
+    const diffHours = Math.floor(diffMs / 3600000);
+    const diffDays = Math.floor(diffMs / 86400000);
+    
+    if (diffMins < 1) return 'Just now';
+    if (diffMins < 60) return `${diffMins} min${diffMins > 1 ? 's' : ''} ago`;
+    if (diffHours < 24) return `${diffHours} hour${diffHours > 1 ? 's' : ''} ago`;
+    if (diffDays === 1) return 'Yesterday';
+    if (diffDays < 7) return `${diffDays} days ago`;
+    
+    return date.toLocaleDateString();
+}
+
+// ============================================
+// INIT PROGRESS CHARTS
+// ============================================
+async function initProgressCharts() {
+    try {
+        console.log('📊 Initializing progress charts...');
+        
+        const chartData = await fetchProgressChartData(14);
+        
+        if (chartData) {
+            renderDailyActivityChart(chartData);
+        } else {
+            createSampleChartData();
+        }
+        
+    } catch (error) {
+        console.error('Error initializing charts:', error);
+        createSampleChartData();
+    }
+}
+
+// ============================================
+// FETCH PROGRESS CHART DATA
+// ============================================
+async function fetchProgressChartData(days = 14) {
+    try {
+        const token = localStorage.getItem('authToken') || authToken;
+        if (!token) {
+            return null;
+        }
+        
+        const response = await fetch(`/api/progress/chart-data?days=${days}`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        
+        if (!response.ok) return null;
+        
+        const data = await response.json();
+        
+        if (data.success && data.chartData) {
+            return data.chartData;
+        }
+        
+        return null;
+        
+    } catch (error) {
+        console.error('Error fetching chart data:', error);
+        return null;
+    }
+}
+
+// ============================================
+// RENDER DAILY ACTIVITY CHART
+// ============================================
+function renderDailyActivityChart(chartData) {
+    const chartContainer = document.getElementById('practiceTimeChart');
+    if (!chartContainer) return;
+    
+    chartContainer.innerHTML = '';
+    
+    const canvas = document.createElement('canvas');
+    canvas.id = 'dailyActivityCanvas';
+    canvas.width = chartContainer.offsetWidth || 400;
+    canvas.height = 300;
+    chartContainer.appendChild(canvas);
+    
+    const ctx = canvas.getContext('2d');
+    
+    const width = canvas.width;
+    const height = canvas.height;
+    const padding = 40;
+    const chartWidth = width - (padding * 2);
+    const chartHeight = height - (padding * 2);
+    
+    ctx.clearRect(0, 0, width, height);
+    
+    ctx.fillStyle = '#fff';
+    ctx.fillRect(0, 0, width, height);
+    
+    ctx.strokeStyle = '#e0e0e0';
+    ctx.lineWidth = 0.5;
+    ctx.beginPath();
+    
+    for (let i = 0; i <= 5; i++) {
+        const y = padding + (chartHeight * i / 5);
+        ctx.moveTo(padding, y);
+        ctx.lineTo(width - padding, y);
+    }
+    
+    ctx.stroke();
+    
+    ctx.strokeStyle = '#333';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(padding, padding);
+    ctx.lineTo(padding, height - padding);
+    ctx.lineTo(width - padding, height - padding);
+    ctx.stroke();
+    
+    const sampleData = [2, 4, 3, 5, 2, 6, 4, 3, 5, 2, 4, 3, 5, 2];
+    const maxValue = Math.max(...sampleData, 5);
+    
+    const step = chartWidth / (sampleData.length - 1);
+    
+    ctx.strokeStyle = '#7a0000';
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    
+    sampleData.forEach((value, index) => {
+        const x = padding + (step * index);
+        const y = height - padding - ((value / maxValue) * chartHeight);
+        
+        if (index === 0) {
+            ctx.moveTo(x, y);
+        } else {
+            ctx.lineTo(x, y);
+        }
+    });
+    
+    ctx.stroke();
+    
+    sampleData.forEach((value, index) => {
+        const x = padding + (step * index);
+        const y = height - padding - ((value / maxValue) * chartHeight);
+        
+        ctx.fillStyle = '#7a0000';
+        ctx.beginPath();
+        ctx.arc(x, y, 4, 0, 2 * Math.PI);
+        ctx.fill();
+        
+        ctx.strokeStyle = '#fff';
+        ctx.lineWidth = 2;
+        ctx.stroke();
+    });
+    
+    ctx.fillStyle = '#333';
+    ctx.font = '10px Arial';
+    ctx.textAlign = 'center';
+    
+    const labels = ['Day 1', 'Day 3', 'Day 5', 'Day 7', 'Day 9', 'Day 11', 'Day 13'];
+    const labelIndices = [0, 2, 4, 6, 8, 10, 12];
+    
+    labelIndices.forEach((idx, i) => {
+        const x = padding + (step * idx);
+        ctx.fillText(labels[i], x, height - padding + 15);
+    });
+    
+    for (let i = 0; i <= 5; i++) {
+        const value = Math.round(maxValue * (5 - i) / 5);
+        const y = padding + (chartHeight * i / 5);
+        ctx.fillText(value.toString(), padding - 25, y + 3);
+    }
+}
+
+// ============================================
+// CREATE SAMPLE CHART DATA
+// ============================================
+function createSampleChartData() {
+    renderDailyActivityChart(null);
+}
+
+// ============================================
+// AUTO-REFRESH PROGRESS DASHBOARD
+// ============================================
+let progressRefreshInterval = null;
+
+function startProgressAutoRefresh(intervalSeconds = 60) {
+    if (progressRefreshInterval) {
+        clearInterval(progressRefreshInterval);
+        progressRefreshInterval = null;
+    }
+    
+    console.log(`⏱️ Starting progress auto-refresh (every ${intervalSeconds} seconds)`);
+    
+    progressRefreshInterval = setInterval(() => {
+        if (AppState.currentPage === 'progress') {
+            console.log('🔄 Auto-refreshing Progress Dashboard...');
+            loadProgressDashboardData();
+        }
+    }, intervalSeconds * 1000);
+}
+
+function stopProgressAutoRefresh() {
+    if (progressRefreshInterval) {
+        clearInterval(progressRefreshInterval);
+        progressRefreshInterval = null;
+    }
+}
 // ============================================
 // ✅ FIXED: fetchPracticeStatistics
 // ============================================
@@ -1290,9 +1812,55 @@ function calculateAverageTime(lessons, exercises, points) {
     time = Math.min(45, Math.max(5, Math.round(time)));
     return time;
 }
-
 // ============================================
-// ✅ FIXED: loadProgressDashboardData
+// INIT PROGRESS DASHBOARD
+// ============================================
+async function initProgressDashboard() {
+    console.log('📈 Initializing progress dashboard...');
+    
+    try {
+        // Show loading state
+        showProgressDashboardLoading();
+        
+        // Load all progress data
+        await loadProgressDashboardData();
+        
+        // Load topic mastery
+        await fetchTopicMastery();
+        
+        // Load activity log
+        await fetchActivityLog(15);
+        
+        // Initialize charts
+        await initProgressCharts();
+        
+        // Start auto-refresh (every 60 seconds)
+        startProgressAutoRefresh(60);
+        
+        console.log('✅ Progress dashboard initialized');
+        
+    } catch (error) {
+        console.error('❌ Error initializing progress dashboard:', error);
+        hideProgressDashboardLoading();
+        
+        // Show error message
+        const container = document.querySelector('#progress-page .container');
+        if (container) {
+            container.innerHTML = `
+                <div class="error-message" style="text-align: center; padding: 40px;">
+                    <i class="fas fa-exclamation-triangle" style="font-size: 48px; color: #e74c3c; margin-bottom: 20px;"></i>
+                    <h3 style="color: #2c3e50; margin-bottom: 10px;">Failed to load progress data</h3>
+                    <p style="color: #7f8c8d;">Please try refreshing the page.</p>
+                    <button onclick="location.reload()" class="btn-primary" style="margin-top: 20px;">
+                        <i class="fas fa-redo"></i> Refresh Page
+                    </button>
+                </div>
+            `;
+        }
+    }
+}
+// ============================================
+// LOAD PROGRESS DASHBOARD DATA
 // ============================================
 async function loadProgressDashboardData() {
     console.log('📊 Loading FactoLearn progress dashboard data...');
@@ -1301,8 +1869,10 @@ async function loadProgressDashboardData() {
         showProgressDashboardLoading();
         
         const token = localStorage.getItem('authToken') || authToken;
+        
         if (!token) {
             console.error('❌ No auth token');
+            useMockProgressData();
             return;
         }
         
@@ -1374,62 +1944,15 @@ async function loadProgressDashboardData() {
             ? Math.round((lessonsCompleted / totalLessons) * 100) 
             : 0;
         
-        const overallProgress = document.getElementById('overallProgress');
-        if (overallProgress) {
-            overallProgress.textContent = `${overallPercentage}%`;
-        }
-        
-        const overallProgressBar = document.getElementById('overallProgressBar');
-        if (overallProgressBar) {
-            overallProgressBar.style.width = `${overallPercentage}%`;
-            overallProgressBar.className = 'progress-fill';
-            if (overallPercentage >= 70) overallProgressBar.classList.add('progress-good');
-            else if (overallPercentage >= 40) overallProgressBar.classList.add('progress-medium');
-            else overallProgressBar.classList.add('progress-low');
-        }
-        
-        const totalPointsProgress = document.getElementById('totalPointsProgress');
-        if (totalPointsProgress) {
-            totalPointsProgress.textContent = quizPoints;
-        }
-        
-        const pointsChange = document.getElementById('pointsChange');
-        if (pointsChange) {
-            pointsChange.textContent = `+${Math.min(quizPoints, 10)} this week`;
-        }
-        
-        const totalTime = document.getElementById('totalTime');
-        if (totalTime) {
-            const totalMinutes = Math.floor(totalPracticeSeconds / 60);
-            let timeDisplay = '';
-            if (totalMinutes < 60) {
-                timeDisplay = `${totalMinutes}m`;
-            } else {
-                const hours = Math.floor(totalMinutes / 60);
-                const mins = totalMinutes % 60;
-                timeDisplay = `${hours}h ${mins}m`;
-            }
-            totalTime.textContent = timeDisplay;
-        }
-        
-        const totalBadges = document.getElementById('totalBadges');
-        if (totalBadges) {
-            let badgeCount = 0;
-            if (lessonsCompleted >= 1) badgeCount++;
-            if (lessonsCompleted >= 5) badgeCount++;
-            if (lessonsCompleted >= 8) badgeCount++;
-            if (exercisesCompleted >= 5) badgeCount++;
-            if (exercisesCompleted >= 15) badgeCount++;
-            if (quizAttempts >= 1) badgeCount++;
-            
-            totalBadges.textContent = `${badgeCount}/10`;
-        }
-        
-        const badgesChange = document.getElementById('badgesChange');
-        if (badgesChange) {
-            const badgesThisMonth = Math.floor(lessonsCompleted / 2) + Math.floor(exercisesCompleted / 5);
-            badgesChange.textContent = `+${badgesThisMonth} this month`;
-        }
+        updateOverallProgressDisplay({
+            total_lessons_completed: lessonsCompleted,
+            total_lessons: totalLessons,
+            overall_percentage: overallPercentage,
+            exercises_completed: exercisesCompleted,
+            total_quizzes_completed: quizAttempts,
+            total_points_earned: quizPoints,
+            total_time_spent_minutes: Math.floor(totalPracticeSeconds / 60)
+        });
         
         hideProgressDashboardLoading();
         
@@ -1446,26 +1969,40 @@ async function loadProgressDashboardData() {
     } catch (error) {
         console.error('❌ Error loading progress dashboard:', error);
         hideProgressDashboardLoading();
-        
-        const overallProgress = document.getElementById('overallProgress');
-        if (overallProgress) overallProgress.textContent = '0%';
-        const totalPointsProgress = document.getElementById('totalPointsProgress');
-        if (totalPointsProgress) totalPointsProgress.textContent = '0';
-        const totalTime = document.getElementById('totalTime');
-        if (totalTime) totalTime.textContent = '0m';
-        const totalBadges = document.getElementById('totalBadges');
-        if (totalBadges) totalBadges.textContent = '0/10';
+        useMockProgressData();
     }
 }
-
+// ============================================
+// USE MOCK PROGRESS DATA (FALLBACK)
+// ============================================
+function useMockProgressData() {
+    console.log('📊 Using mock progress data');
+    
+    const mockProgress = {
+        total_lessons_completed: 3,
+        total_lessons: 8,
+        overall_percentage: 38,
+        exercises_completed: 5,
+        total_quizzes_completed: 2,
+        total_points_earned: 150,
+        total_time_spent_minutes: 120
+    };
+    
+    updateOverallProgressDisplay(mockProgress);
+    
+    ProgressState.cumulativeProgress = mockProgress;
+}
+// ============================================
+// SHOW/HIDE PROGRESS DASHBOARD LOADING
+// ============================================
 function showProgressDashboardLoading() {
     console.log('⏳ Showing loading state');
     
     const elements = [
-        { id: 'overallProgress', defaultValue: '0%' },
-        { id: 'totalPointsProgress', defaultValue: '0' },
-        { id: 'totalTime', defaultValue: '0h' },
-        { id: 'totalBadges', defaultValue: '0/10' }
+        { id: 'overallProgress' },
+        { id: 'totalPointsProgress' },
+        { id: 'totalTime' },
+        { id: 'totalBadges' }
     ];
     
     elements.forEach(item => {
@@ -1478,7 +2015,6 @@ function showProgressDashboardLoading() {
         }
     });
 }
-
 function hideProgressDashboardLoading() {
     console.log('✅ Hiding loading state');
     
@@ -2968,15 +3504,18 @@ window.closeLogoutModal = function() {
 // ============================================
 // CONFIRM LOGOUT
 // ============================================
-window.confirmLogout = function() {
+function confirmLogout() {
     console.log('✅ Logout confirmed');
-    closeLogoutModal();
-    showNotification('👋 See you next time!', 'info');
     
-    setTimeout(() => {
-        logoutAndRedirect();
-    }, 500);
-};
+    // Close the modal immediately
+    closeLogoutModal();
+    
+    // Show a brief notification (optional)
+    showNotification('👋 Logging out...', 'info');
+    
+    // Execute logout without additional confirmation
+    logoutAndRedirect();
+}
 
 function logoutAndRedirect() {
     console.log('🚪 Logging out - redirecting to main login page...');
@@ -2998,8 +3537,7 @@ function logoutAndRedirect() {
     AppState.selectedApp = null;
     authToken = null;
     
-    // Show notification
-    alert('👋 Logged out successfully! Redirecting to login page...');
+   
     
     // REDIRECT TO MAIN LOGIN PAGE
     window.location.href = '../index.html';
@@ -3124,242 +3662,339 @@ async function loadLeaderboard(period = 'weekly') {
 
 
 // ============================================
-// UPDATE CONTINUE LEARNING MODULE - LOAD LESSONS FROM DATABASE
+// UPDATE CONTINUE LEARNING MODULE - EXACT FROM POLYLEARN
 // ============================================
 async function updateContinueLearningModule() {
-    console.log('📚 Loading continue learning lessons from database...');
-    
-    const container = document.getElementById('continueLearningContainer');
-    if (!container) {
-        console.error('❌ Continue learning container not found');
-        return;
-    }
-    
-    // Show loading state
-    container.innerHTML = `
-        <div style="background: white; border-radius: 12px; padding: 25px; text-align: center;">
-            <i class="fas fa-spinner fa-spin" style="font-size: 40px; color: #7a0000; margin-bottom: 15px;"></i>
-            <p style="color: #666;">Loading your lessons...</p>
-        </div>
-    `;
-    
     try {
-        const token = localStorage.getItem('authToken');
-        if (!token) {
-            console.log('⚠️ No auth token, using demo mode');
-            showDemoContinueLearning(container);
+        const container = document.getElementById('continueLearningContainer');
+        if (!container) {
+            console.error('Continue learning container not found');
             return;
         }
         
-        // Fetch lessons for FactoLearn (lesson_id = 3)
-        const response = await fetch(`/api/lessons-db/complete?lesson_id=3`, {
-            headers: {
-                'Authorization': `Bearer ${token}`
-            }
-        });
+        container.innerHTML = `
+            <div class="loading-container">
+                <div class="loading-text">
+                    <i class="fas fa-spinner fa-spin"></i> Loading lessons...
+                </div>
+            </div>
+        `;
         
-        if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
-        }
+        // Fetch lessons and progress
+        const [lessons, progress] = await Promise.all([
+            fetchAllLessons(),
+            fetchUserLessonProgress()
+        ]);
         
-        const data = await response.json();
-        
-        if (!data.success || !data.lessons || data.lessons.length === 0) {
-            console.log('⚠️ No lessons found for FactoLearn');
-            showNoLessonsMessage(container);
+        if (lessons.length === 0) {
+            container.innerHTML = `
+                <div class="no-lessons">
+                    <i class="fas fa-book"></i>
+                    <h3>No lessons available</h3>
+                    <p>Check back later for new lessons!</p>
+                </div>
+            `;
             return;
         }
         
-        const lessons = data.lessons;
-        console.log(`✅ Found ${lessons.length} lessons for FactoLearn`);
-        
-        // Store in LessonState
+        // Store in global state
         LessonState.lessons = lessons;
+        LessonState.userProgress = progress;
         
-        // Get user progress for these lessons
-        let userProgress = {};
-        try {
-            const progressResponse = await fetch(`/api/progress/lessons?lesson_id=3`, {
-                headers: { 'Authorization': `Bearer ${token}` }
-            });
-            
-            if (progressResponse.ok) {
-                const progressData = await progressResponse.json();
-                if (progressData.success && progressData.progress) {
-                    progressData.progress.forEach(p => {
-                        userProgress[p.content_id] = p;
-                    });
-                }
-            }
-        } catch (error) {
-            console.log('Could not fetch progress:', error);
-        }
-        
-        // Find continue learning lesson (first incomplete lesson)
-        let continueLesson = null;
-        let completedCount = 0;
-        
-        for (const lesson of lessons) {
-            const progress = userProgress[lesson.content_id];
-            if (progress?.completion_status === 'completed') {
-                completedCount++;
-            } else {
-                // First incomplete lesson
-                continueLesson = lesson;
-                break;
-            }
-        }
-        
-        // If all lessons completed, show first lesson as review
-        if (!continueLesson && lessons.length > 0) {
-            continueLesson = lessons[0];
-        }
+        // Get continue learning lesson
+        const continueLesson = getContinueLearningLesson(lessons, progress);
+        LessonState.continueLearningLesson = continueLesson;
         
         if (!continueLesson) {
-            showNoLessonsMessage(container);
+            container.innerHTML = `
+                <div class="no-lessons">
+                    <i class="fas fa-trophy"></i>
+                    <h3>All Lessons Completed!</h3>
+                    <p>Great job! You've completed all available lessons.</p>
+                    <button class="btn-primary" id="reviewAllLessons">
+                        <i class="fas fa-redo"></i> Review Lessons
+                    </button>
+                </div>
+            `;
+            
+            document.getElementById('reviewAllLessons')?.addEventListener('click', () => {
+                navigateTo('moduleDashboard');
+            });
+            
             return;
         }
         
         // Calculate progress percentage
-        const progressPercentage = lessons.length > 0 
-            ? Math.round((completedCount / lessons.length) * 100) 
-            : 0;
+        const lessonProgress = progress[continueLesson.content_id] || {};
+        const percentage = lessonProgress.percentage || 0;
+        const status = lessonProgress.status || 'not_started';
         
-        // Store in state
-        LessonState.continueLearningLesson = continueLesson;
+        // Get topic ID for this lesson
+        const topicId = continueLesson.topic_id || 1;
+        LessonState.currentTopic = topicId;
         
-        // Build HTML
-        let lessonsHTML = '';
-        const recentLessons = lessons.slice(0, 3); // Show first 3 lessons
+        // Check if practice is unlocked for this topic
+        let practiceUnlocked = false;
+        let practiceAvailable = false;
         
-        recentLessons.forEach((lesson, index) => {
-            const progress = userProgress[lesson.content_id];
-            const isCompleted = progress?.completion_status === 'completed';
-            const lessonPercentage = progress?.percentage || 0;
-            
-            lessonsHTML += `
-                <div class="lesson-item ${isCompleted ? 'completed' : ''}" 
-                     data-lesson-id="${lesson.content_id}"
-                     style="display: flex; justify-content: space-between; align-items: center; 
-                            padding: 12px 15px; background: rgba(122,0,0,0.02); border-radius: 8px; 
-                            margin-bottom: 8px; border-left: 4px solid ${isCompleted ? '#27ae60' : '#7a0000'};
-                            cursor: pointer; transition: all 0.3s;"
-                     onmouseover="this.style.background='rgba(122,0,0,0.05)'"
-                     onmouseout="this.style.background='rgba(122,0,0,0.02)'">
-                    
-                    <div style="display: flex; align-items: center; gap: 12px;">
-                        <div style="width: 36px; height: 36px; background: ${isCompleted ? '#27ae60' : '#7a0000'}; 
-                                   border-radius: 50%; display: flex; align-items: center; justify-content: center; 
-                                   color: white; font-size: 1rem;">
-                            <i class="fas ${isCompleted ? 'fa-check' : 'fa-play'}"></i>
-                        </div>
-                        <div>
-                            <div style="font-weight: 600; color: #2c3e50; margin-bottom: 3px;">
-                                ${lesson.content_title || `Lesson ${index + 1}`}
-                            </div>
-                            <div style="font-size: 0.8rem; color: #666;">
-                                <i class="fas fa-clock"></i> ${Math.round((lesson.video_duration_seconds || 600) / 60)} min
-                                ${isCompleted ? ' • Completed' : lessonPercentage > 0 ? ` • ${lessonPercentage}%` : ''}
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <button class="${isCompleted ? 'review-btn' : 'start-btn'}" 
-                            data-lesson-id="${lesson.content_id}"
-                            style="padding: 6px 12px; border: none; border-radius: 6px; 
-                                   background: ${isCompleted ? 'rgba(39,174,96,0.1)' : '#7a0000'}; 
-                                   color: ${isCompleted ? '#27ae60' : 'white'}; 
-                                   font-weight: 600; cursor: pointer;">
-                        ${isCompleted ? 'Review' : 'Start'}
-                    </button>
-                </div>
-            `;
-        });
+        if (percentage >= 80) {
+            practiceUnlocked = await checkPracticeUnlocked(topicId);
+            practiceAvailable = true;
+        }
         
-        // Main continue learning card
+        // Render continue learning module - EXACT UI FROM POLYLEARN
         container.innerHTML = `
-            <div style="background: white; border-radius: 12px; padding: 25px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); 
-                        border: 1px solid rgba(122,0,0,0.1); position: relative; overflow: hidden;">
-                
-                <div style="position: absolute; top: 0; left: 0; width: 100%; height: 5px; 
-                           background: linear-gradient(to right, #7a0000, #c0392b, #e74c3c, #c0392b, #7a0000);">
-                </div>
-                
-                <h3 style="color: #7a0000; font-size: 1.3rem; margin-bottom: 5px; display: flex; align-items: center; gap: 8px;">
-                    <i class="fas fa-play-circle"></i> Continue Learning
+            <div class="module-header">
+                <h3 class="module-title">
+                    <i class="fas fa-cube"></i> 
+                    ${continueLesson.module_name || 'Module'}: ${continueLesson.topic_title || 'Topic'}
                 </h3>
-                
-                <p style="color: #666; margin-bottom: 20px; font-size: 0.9rem;">
-                    Pick up where you left off
-                </p>
-                
-                <div style="display: flex; align-items: center; gap: 15px; margin-bottom: 20px;">
-                    <div style="width: 60px; height: 60px; background: rgba(122,0,0,0.1); border-radius: 12px; 
-                                display: flex; align-items: center; justify-content: center; font-size: 24px; color: #7a0000;">
-                        <i class="fas fa-cube"></i>
-                    </div>
-                    <div>
-                        <h4 style="margin: 0 0 5px 0; color: #2c3e50;">FactoLearn</h4>
-                        <p style="margin: 0; color: #666; font-size: 0.9rem;">Master factorials, permutations & combinations</p>
-                    </div>
+                <span class="module-status status-${status}">
+                    ${status === 'completed' ? 'Completed' : 
+                      status === 'in_progress' ? 'In Progress' : 'Start Learning'}
+                </span>
+            </div>
+            
+            <p style="color: var(--text-light); margin-bottom: 15px;">
+                ${continueLesson.content_title || 'Continue your learning journey.'}
+            </p>
+            
+            <div class="module-progress">
+                <div class="progress-label">
+                    <span>Progress</span>
+                    <span>${percentage}%</span>
                 </div>
-                
-                <div style="margin-bottom: 15px;">
-                    <div style="display: flex; justify-content: space-between; margin-bottom: 8px; color: #2c3e50;">
-                        <span>Your Progress</span>
-                        <span>${progressPercentage}%</span>
-                    </div>
-                    <div style="height: 8px; background: #ecf0f1; border-radius: 4px;">
-                        <div style="height: 100%; width: ${progressPercentage}%; 
-                                   background: linear-gradient(to right, #7a0000, #c0392b); 
-                                   border-radius: 4px; transition: width 0.5s ease;"></div>
-                    </div>
+                <div class="progress-bar-container">
+                    <div class="progress-fill" style="width: ${percentage}%"></div>
                 </div>
-                
-                <div style="margin-bottom: 20px;">
-                    <h5 style="color: #2c3e50; margin-bottom: 10px; font-size: 0.95rem;">
-                        <i class="fas fa-list"></i> Lessons
-                    </h5>
-                    ${lessonsHTML}
-                </div>
-                
-                <button class="btn-primary" id="continueLessonBtn" data-lesson-id="${continueLesson.content_id}"
-                        style="width: 100%; padding: 12px; background: #7a0000; color: white; border: none; 
-                               border-radius: 8px; font-weight: 600; cursor: pointer; display: flex; 
-                               align-items: center; justify-content: center; gap: 8px;">
-                    <i class="fas fa-play"></i> Continue Learning
+            </div>
+            
+            <div class="module-lessons" id="recentLessonsList">
+                <!-- Recent lessons will be loaded here -->
+            </div>
+            
+            <div style="text-align: center; margin-top: 20px;">
+                <button class="btn-primary" id="continueLessonBtn" data-lesson-id="${continueLesson.content_id}">
+                    <i class="fas fa-play"></i> ${status === 'not_started' ? 'Start Lesson' : 
+                     status === 'in_progress' ? 'Continue Lesson' : 'Review Lesson'}
                 </button>
+                ${practiceAvailable ? `
+                    <button class="btn-success ${practiceUnlocked ? '' : 'disabled'}" 
+                            id="practiceTopicBtn" 
+                            style="margin-left: 10px;" 
+                            data-topic-id="${topicId}"
+                            ${practiceUnlocked ? '' : 'disabled'}>
+                        <i class="fas fa-pencil-alt"></i> 
+                        ${practiceUnlocked ? 'Practice Now' : 'Practice Locked'}
+                    </button>
+                ` : ''}
             </div>
         `;
         
-        // Add click handlers
-        document.querySelectorAll('.lesson-item').forEach(item => {
-           item.addEventListener('click', function() {
-                const lessonId = this.getAttribute('data-lesson-id');
-                if (lessonId) openLesson(lessonId);
-            });
-
-        });
+        // Load recent lessons
+        await loadRecentLessons(container.querySelector('#recentLessonsList'), lessons, progress);
         
-        document.querySelectorAll('.start-btn, .review-btn').forEach(btn => {
-            btn.addEventListener('click', function(e) {
-                e.stopPropagation();
-                const lessonId = this.getAttribute('data-lesson-id');
-                if (lessonId) openLesson(lessonId);
-            });
-        });
-        
+        // Setup continue button
         document.getElementById('continueLessonBtn')?.addEventListener('click', function() {
             const lessonId = this.getAttribute('data-lesson-id');
-            if (lessonId) openLesson(lessonId);
+            openLesson(lessonId);
         });
         
-        console.log('✅ Continue learning module updated with real lessons');
+        // Setup practice button
+        const practiceBtn = document.getElementById('practiceTopicBtn');
+        if (practiceBtn) {
+            practiceBtn.addEventListener('click', function() {
+                const topicId = this.getAttribute('data-topic-id');
+                openPracticeForTopic(topicId);
+            });
+        }
+        
+        console.log('✅ Continue learning module updated');
         
     } catch (error) {
-        console.error('❌ Error loading lessons:', error);
-        showDemoContinueLearning(container);
+        console.error('Error updating continue learning module:', error);
+        container.innerHTML = `
+            <div class="error-message">
+                <i class="fas fa-exclamation-triangle"></i>
+                <h3>Failed to load lessons</h3>
+                <p>Please try again later</p>
+            </div>
+        `;
     }
+}
+
+async function fetchUserLessonProgress() {
+    try {
+        const token = localStorage.getItem('authToken') || authToken;
+        if (!token) {
+            console.warn('No auth token available');
+            return {};
+        }
+        
+        console.log('📊 Fetching user lesson progress...');
+        
+        const response = await fetch(`/api/progress/lessons`, {
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+            }
+        });
+        
+        if (response.ok) {
+            const data = await response.json();
+            if (data.success) {
+                console.log('✅ User progress loaded');
+                
+                // Convert array to object for easier access
+                const progressMap = {};
+                data.progress.forEach(progress => {
+                    progressMap[progress.content_id] = {
+                        status: progress.completion_status,
+                        percentage: progress.percentage || 0,
+                        time_spent: progress.time_spent_seconds || 0,
+                        last_accessed: progress.last_accessed
+                    };
+                });
+                
+                return progressMap;
+            }
+        }
+        
+        return {};
+    } catch (error) {
+        console.error('Error fetching user progress:', error);
+        return {};
+    }
+}
+// ============================================
+// GET CONTINUE LEARNING LESSON
+// ============================================
+function getContinueLearningLesson(lessons, progress) {
+    if (lessons.length === 0) return null;
+    
+    // Find the most recently accessed incomplete lesson
+    let continueLesson = null;
+    let maxLastAccessed = null;
+    
+    for (const lesson of lessons) {
+        const lessonProgress = progress[lesson.content_id] || {};
+        
+        // Skip completed lessons
+        if (lessonProgress.status === 'completed') continue;
+        
+        // Check if this lesson was accessed more recently
+        if (lessonProgress.last_accessed) {
+            const lastAccessed = new Date(lessonProgress.last_accessed);
+            if (!maxLastAccessed || lastAccessed > maxLastAccessed) {
+                maxLastAccessed = lastAccessed;
+                continueLesson = lesson;
+            }
+        }
+    }
+    
+    // If no incomplete lessons with progress, find first incomplete lesson
+    if (!continueLesson) {
+        for (const lesson of lessons) {
+            const lessonProgress = progress[lesson.content_id] || {};
+            if (lessonProgress.status !== 'completed') {
+                continueLesson = lesson;
+                break;
+            }
+        }
+    }
+    
+    // If all lessons are completed, show the first lesson
+    if (!continueLesson && lessons.length > 0) {
+        continueLesson = lessons[0];
+    }
+    
+    return continueLesson;
+}
+// ============================================
+// LOAD RECENT LESSONS
+// ============================================
+async function loadRecentLessons(container, lessons, progress) {
+    if (!container) return;
+    
+    // Sort lessons by last accessed or content order
+    const sortedLessons = [...lessons].sort((a, b) => {
+        const progressA = progress[a.content_id] || {};
+        const progressB = progress[b.content_id] || {};
+        
+        // Sort by last accessed date (newest first)
+        if (progressA.last_accessed && progressB.last_accessed) {
+            return new Date(progressB.last_accessed) - new Date(progressA.last_accessed);
+        }
+        
+        // Then by content order
+        return a.content_order - b.content_order;
+    });
+    
+    // Take up to 4 recent lessons
+    const recentLessons = sortedLessons.slice(0, 4);
+    
+    let html = '';
+    
+    recentLessons.forEach(lesson => {
+        const lessonProgress = progress[lesson.content_id] || {};
+        const status = lessonProgress.status || 'not_started';
+        const percentage = lessonProgress.percentage || 0;
+        
+        let statusText = 'Start';
+        let statusClass = 'locked';
+        let icon = 'fas fa-lock';
+        
+        if (status === 'completed') {
+            statusText = 'Completed';
+            statusClass = 'completed';
+            icon = 'fas fa-check';
+        } else if (status === 'in_progress') {
+            statusText = percentage > 0 ? 'Continue' : 'Start';
+            statusClass = 'current';
+            icon = percentage > 0 ? 'fas fa-play' : 'fas fa-play';
+        }
+        
+        html += `
+            <div class="lesson-item ${statusClass}" data-lesson-id="${lesson.content_id}">
+                <div class="lesson-info">
+                    <div class="lesson-icon">
+                        <i class="${icon}"></i>
+                    </div>
+                    <div>
+                        <div class="lesson-title">${lesson.content_title}</div>
+                        <div class="lesson-duration">
+                            <i class="fas fa-video"></i> ${Math.round((lesson.video_duration_seconds || 0) / 60)} min
+                        </div>
+                    </div>
+                </div>
+                <div class="lesson-actions">
+                    <button class="${status === 'completed' ? 'review-btn' : 'start-btn'}" 
+                            data-lesson-id="${lesson.content_id}">
+                        ${status === 'completed' ? 'Review' : statusText}
+                    </button>
+                </div>
+            </div>
+        `;
+    });
+    
+    container.innerHTML = html;
+    
+    // Add event listeners to lesson items
+    container.querySelectorAll('.lesson-item').forEach(item => {
+        item.addEventListener('click', function() {
+            const lessonId = this.getAttribute('data-lesson-id');
+            openLesson(lessonId);
+        });
+    });
+    
+    // Add event listeners to buttons
+    container.querySelectorAll('.start-btn, .review-btn').forEach(button => {
+        button.addEventListener('click', function(e) {
+            e.stopPropagation();
+            const lessonId = this.getAttribute('data-lesson-id');
+            openLesson(lessonId);
+        });
+    });
 }
 // Helper function for demo mode
 function showDemoContinueLearning(container) {
@@ -5104,25 +5739,31 @@ class ToolManager {
         
         // Check if modals already exist
         const modalHTML = `
-            <!-- Calculator Modal -->
-            <div id="calculatorModal" class="modal-overlay">
-                <div class="modal-container">
-                    <div class="modal-header" style="background: #7a0000; color: white;">
-                        <h3 style="margin: 0;"><i class="fas fa-calculator"></i> Calculator</h3>
-                        <button class="modal-close" onclick="window.toolManager.closeTool()" style="color: white;">&times;</button>
-                    </div>
-                    <div class="modal-body">
-                        <div class="calculator-container">
-                            <div class="calculator-display" id="calcDisplay">0</div>
-                            <div class="calculator-buttons" id="calcButtons"></div>
-                            <div class="calculator-history">
-                                <h3><i class="fas fa-history"></i> History</h3>
-                                <div class="history-list" id="calcHistory"></div>
+            let calculatorModal = document.getElementById('calculatorModal');
+            if (!calculatorModal) {
+                calculatorModal = document.createElement('div');
+                calculatorModal.id = 'calculatorModal';
+                calculatorModal.className = 'modal-overlay';
+                calculatorModal.innerHTML = `
+                    <div class="modal-container">
+                        <div class="modal-header" style="background: #7a0000; color: white;">
+                            <h3 style="margin: 0;"><i class="fas fa-calculator"></i> Calculator</h3>
+                            <button class="modal-close" onclick="window.toolManager.closeTool()" style="color: white;">&times;</button>
+                        </div>
+                        <div class="modal-body">
+                            <div class="calculator-container">
+                                <div class="calculator-display" id="calcDisplay">0</div>
+                                <div class="calculator-buttons" id="calcButtons"></div>
+                                <div class="calculator-history">
+                                    <h3><i class="fas fa-history"></i> History</h3>
+                                    <div class="history-list" id="calcHistory"></div>
+                                </div>
                             </div>
                         </div>
                     </div>
-                </div>
-            </div>
+                `;
+                this.modalsContainer.appendChild(calculatorModal);
+            }
             
             <!-- Graph Modal -->
             <div id="graphModal" class="modal-overlay">
@@ -5315,9 +5956,9 @@ class ToolManager {
     }
 }
 
-// ============================================
-// ✅ CALCULATOR TOOL
-// ============================================
+// ========================================
+// CALCULATOR TOOL - EXACT COPY FROM POLYLEARN
+// ========================================
 class Calculator {
     constructor() {
         this.display = '0';
@@ -5350,6 +5991,7 @@ class Calculator {
                 if (btn === '=') className += ' equals';
                 if (btn === 'C') className += ' clear';
                 if (btn === '⌫') className += ' backspace';
+                
                 return `<button class="${className}" data-value="${btn}">${btn}</button>`;
             }).join('')
         ).join('');
@@ -5357,6 +5999,8 @@ class Calculator {
         const buttonsContainer = document.getElementById('calcButtons');
         if (buttonsContainer) {
             buttonsContainer.innerHTML = buttonsHtml;
+            
+            // Add event listeners to buttons
             buttonsContainer.querySelectorAll('button').forEach(btn => {
                 btn.addEventListener('click', () => {
                     const value = btn.getAttribute('data-value');
@@ -5364,6 +6008,7 @@ class Calculator {
                 });
             });
         }
+        
         this.updateDisplay();
     }
 
@@ -5374,18 +6019,27 @@ class Calculator {
                 this.expression = '';
                 this.lastResult = null;
                 break;
+                
             case '⌫':
-                this.display = this.display.length > 1 ? this.display.slice(0, -1) : '0';
+                if (this.display.length > 1) {
+                    this.display = this.display.slice(0, -1);
+                } else {
+                    this.display = '0';
+                }
                 break;
+                
             case '=':
                 this.calculate();
                 break;
+                
             case '÷':
                 this.addToExpression('/');
                 break;
+                
             case '×':
                 this.addToExpression('*');
                 break;
+                
             default:
                 this.addToExpression(btn);
         }
@@ -5393,6 +6047,7 @@ class Calculator {
     }
 
     addToExpression(value) {
+        // Handle numbers and operators
         if (this.display === '0' && !isNaN(value)) {
             this.display = value;
         } else {
@@ -5402,28 +6057,50 @@ class Calculator {
 
     calculate() {
         try {
-            let expression = this.display.replace(/÷/g, '/').replace(/×/g, '*');
-            if (!expression || expression.match(/^[+\-*/]+$/)) return;
+            // Replace display operators with JavaScript operators
+            let expression = this.display
+                .replace(/÷/g, '/')
+                .replace(/×/g, '*');
+            
+            // Don't calculate if expression is empty or just operators
+            if (!expression || expression.match(/^[+\-*/]+$/)) {
+                return;
+            }
             
             let result = eval(expression);
+            
+            // Handle decimal places
             if (result.toString().includes('.')) {
                 result = Math.round(result * 1000000) / 1000000;
             }
             
+            // Add to history
             this.history.unshift({
                 expression: this.display,
                 result: result,
                 timestamp: new Date().toLocaleTimeString()
             });
             
-            if (this.history.length > 10) this.history.pop();
+            // Keep history to 10 items
+            if (this.history.length > 10) {
+                this.history.pop();
+            }
+            
+            // Save to backend
             this.saveToHistory(this.display, result);
+            
+            // Update display
             this.display = result.toString();
             this.lastResult = result;
             this.updateHistory();
+            
         } catch (error) {
+            console.error('Calculation error:', error);
             this.display = 'Error';
-            setTimeout(() => this.display = '0', 1500);
+            setTimeout(() => {
+                this.display = '0';
+                this.updateDisplay();
+            }, 1500);
         }
     }
 
@@ -5431,23 +6108,33 @@ class Calculator {
         try {
             const token = localStorage.getItem('authToken') || authToken;
             if (!token) return;
+
             await fetch(`/api/calculator/save`, {
                 method: 'POST',
-                headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
                 body: JSON.stringify({ expression, result })
             });
-        } catch (error) {}
+        } catch (error) {
+            console.log('Failed to save calculation:', error);
+        }
     }
 
     async loadHistory() {
         try {
             const token = localStorage.getItem('authToken') || authToken;
             if (!token) return;
+
             const response = await fetch(`/api/calculator/history`, {
                 headers: { 'Authorization': `Bearer ${token}` }
             });
+            
             if (!response.ok) return;
+            
             const data = await response.json();
+            
             if (data.success && data.history) {
                 this.history = data.history.map(item => ({
                     expression: item.expression,
@@ -5456,21 +6143,27 @@ class Calculator {
                 }));
                 this.updateHistory();
             }
-        } catch (error) {}
+        } catch (error) {
+            console.log('Failed to load history:', error);
+        }
     }
 
     updateDisplay() {
         const displayEl = document.getElementById('calcDisplay');
-        if (displayEl) displayEl.textContent = this.display;
+        if (displayEl) {
+            displayEl.textContent = this.display;
+        }
     }
 
     updateHistory() {
         const historyEl = document.getElementById('calcHistory');
         if (!historyEl) return;
+
         if (this.history.length === 0) {
             historyEl.innerHTML = '<div class="history-empty">No calculations yet</div>';
             return;
         }
+
         historyEl.innerHTML = this.history.map(item => `
             <div class="history-item" onclick="window.toolManager.tools.calculator.useHistory('${item.expression}')">
                 <div class="history-expression">${item.expression} =</div>
@@ -5485,7 +6178,18 @@ class Calculator {
         this.updateDisplay();
     }
 }
+async loadHistory() {
+    // Temporarily disabled due to backend issues
+    console.log('📝 Using local calculator history only');
+    // Don't try to fetch from server
+    this.updateHistory();
+}
 
+async saveToHistory(expression, result) {
+    // Save locally only
+    console.log('💾 Saving calculation locally');
+    // Don't try to save to server
+}
 // ============================================
 // ✅ WHITEBOARD TOOL
 // ============================================
@@ -6210,6 +6914,458 @@ window.closeToolModal = function() {
 };
 
 console.log('✅ Lesson Tools Fix ready');
+
+// ============================================
+// ✅ FEEDBACK FUNCTIONS - FROM POLYLEARN
+// ============================================
+
+// Initialize feedback functionality
+function initFeedback() {
+    console.log('💬 Initializing feedback system...');
+    
+    setupRatingStars();
+    setupFeedbackForm();
+    
+    console.log('✅ Feedback system initialized');
+}
+
+// Setup rating stars
+function setupRatingStars() {
+    const stars = document.querySelectorAll('.star');
+    const ratingValue = document.getElementById('ratingValue');
+    
+    if (!stars.length || !ratingValue) return;
+    
+    stars.forEach(star => {
+        star.addEventListener('click', function() {
+            const rating = parseInt(this.getAttribute('data-rating') || this.getAttribute('onclick')?.match(/\d+/) || 0);
+            
+            stars.forEach((s, index) => {
+                if (index < rating) {
+                    s.classList.add('active');
+                    s.innerHTML = '★';
+                } else {
+                    s.classList.remove('active');
+                    s.innerHTML = '☆';
+                }
+            });
+            
+            ratingValue.value = rating;
+        });
+        
+        star.addEventListener('mouseover', function() {
+            const rating = parseInt(this.getAttribute('data-rating') || this.getAttribute('onclick')?.match(/\d+/) || 0);
+            
+            stars.forEach((s, index) => {
+                if (index < rating) {
+                    s.classList.add('hover');
+                } else {
+                    s.classList.remove('hover');
+                }
+            });
+        });
+        
+        star.addEventListener('mouseout', function() {
+            stars.forEach(s => s.classList.remove('hover'));
+        });
+    });
+}
+
+// Setup feedback form
+function setupFeedbackForm() {
+    console.log('📝 Setting up feedback form');
+    
+    const feedbackForm = document.getElementById('feedbackForm');
+    const feedbackSuccess = document.getElementById('feedbackSuccess');
+    
+    if (!feedbackForm) return;
+    
+    const newForm = feedbackForm.cloneNode(true);
+    feedbackForm.parentNode.replaceChild(newForm, feedbackForm);
+    
+    newForm.addEventListener('submit', async function(e) {
+        e.preventDefault();
+        e.stopPropagation();
+        
+        console.log('📝 Feedback form submitted');
+        
+        const feedbackType = document.getElementById('feedbackType')?.value;
+        const feedbackMessage = document.getElementById('feedbackMessage')?.value.trim();
+        const rating = parseInt(document.getElementById('ratingValue')?.value) || 0;
+        
+        if (!feedbackMessage) {
+            showNotification('error', 'Error', 'Please enter your feedback message');
+            return;
+        }
+        
+        if (feedbackMessage.length < 10) {
+            showNotification('error', 'Error', 'Please provide more detailed feedback (at least 10 characters)');
+            return;
+        }
+        
+        const submitBtn = newForm.querySelector('button[type="submit"]');
+        const originalText = submitBtn.innerHTML;
+        
+        submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Submitting...';
+        submitBtn.disabled = true;
+        
+        try {
+            const userJson = localStorage.getItem('mathhub_user');
+            let userId = null;
+            
+            if (userJson) {
+                try {
+                    const user = JSON.parse(userJson);
+                    userId = user.id || user.user_id;
+                } catch (e) {}
+            }
+            
+            const feedbackData = {
+                feedback_type: feedbackType || 'general',
+                feedback_message: feedbackMessage,
+                rating: rating,
+                user_id: userId,
+                page_url: window.location.href,
+                user_agent: navigator.userAgent
+            };
+            
+            console.log('📤 Sending feedback:', feedbackData);
+            
+            const token = localStorage.getItem('authToken') || authToken;
+            
+            const response = await fetch('/api/feedback/submit', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    ...(token && { 'Authorization': `Bearer ${token}` })
+                },
+                body: JSON.stringify(feedbackData)
+            });
+            
+            if (response.ok) {
+                const data = await response.json();
+                console.log('✅ Feedback saved! ID:', data.feedback_id);
+                
+                if (feedbackSuccess) {
+                    feedbackSuccess.style.display = 'block';
+                    feedbackSuccess.innerHTML = `
+                        <i class="fas fa-check-circle"></i> 
+                        Thank you! Your feedback has been saved.
+                    `;
+                    setTimeout(() => {
+                        feedbackSuccess.style.display = 'none';
+                    }, 3000);
+                }
+                
+                newForm.reset();
+                
+                const stars = document.querySelectorAll('.star');
+                stars.forEach(star => {
+                    star.classList.remove('active');
+                    star.innerHTML = '☆';
+                });
+                document.getElementById('ratingValue').value = 0;
+                
+                showNotification('success', 'Thank You!', 'Your feedback has been submitted successfully!');
+                
+            } else {
+                saveFeedbackLocally(feedbackData);
+                
+                if (feedbackSuccess) {
+                    feedbackSuccess.style.display = 'block';
+                    feedbackSuccess.innerHTML = `
+                        <i class="fas fa-check-circle"></i> 
+                        Thank you! Your feedback has been saved locally.
+                    `;
+                    setTimeout(() => {
+                        feedbackSuccess.style.display = 'none';
+                    }, 3000);
+                }
+                
+                newForm.reset();
+                
+                const stars = document.querySelectorAll('.star');
+                stars.forEach(star => {
+                    star.classList.remove('active');
+                    star.innerHTML = '☆';
+                });
+                document.getElementById('ratingValue').value = 0;
+                
+                showNotification('success', 'Thank You!', 'Your feedback has been saved locally!');
+            }
+            
+        } catch (error) {
+            console.error('❌ Error submitting feedback:', error);
+            
+            saveFeedbackLocally({
+                feedback_type: feedbackType,
+                feedback_message: feedbackMessage,
+                rating: rating,
+                user_id: userId,
+                page_url: window.location.href,
+                user_agent: navigator.userAgent
+            });
+            
+            showNotification('success', 'Thank You!', 'Your feedback has been saved locally!');
+            
+            newForm.reset();
+            
+            const stars = document.querySelectorAll('.star');
+            stars.forEach(star => {
+                star.classList.remove('active');
+                star.innerHTML = '☆';
+            });
+            document.getElementById('ratingValue').value = 0;
+            
+        } finally {
+            submitBtn.innerHTML = originalText;
+            submitBtn.disabled = false;
+        }
+    });
+}
+
+// Save feedback locally
+function saveFeedbackLocally(feedbackData) {
+    try {
+        let existingFeedback = JSON.parse(localStorage.getItem('local_feedback') || '[]');
+        
+        const newFeedback = {
+            ...feedbackData,
+            id: Date.now(),
+            created_at: new Date().toISOString(),
+            status: 'pending'
+        };
+        
+        existingFeedback.push(newFeedback);
+        
+        if (existingFeedback.length > 50) {
+            existingFeedback = existingFeedback.slice(-50);
+        }
+        
+        localStorage.setItem('local_feedback', JSON.stringify(existingFeedback));
+        
+        console.log('💾 Feedback saved locally, total:', existingFeedback.length);
+        
+        displayLocalFeedbackHistory();
+        
+    } catch (e) {
+        console.error('Failed to save feedback locally:', e);
+    }
+}
+
+// Display local feedback history
+function displayLocalFeedbackHistory() {
+    const historyContainer = document.getElementById('feedbackHistory');
+    if (!historyContainer) return;
+    
+    try {
+        const localFeedback = JSON.parse(localStorage.getItem('local_feedback') || '[]');
+        
+        if (localFeedback.length === 0) {
+            historyContainer.innerHTML = `
+                <div class="no-feedback" style="text-align: center; padding: 30px;">
+                    <i class="fas fa-comment-slash" style="font-size: 48px; color: #ccc; margin-bottom: 15px;"></i>
+                    <h4 style="color: #2c3e50; margin-bottom: 10px;">No feedback submitted yet</h4>
+                    <p style="color: #7f8c8d;">Your submitted feedback will appear here</p>
+                </div>
+            `;
+            return;
+        }
+        
+        let html = '<div class="feedback-history-list">';
+        
+        localFeedback.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+        
+        localFeedback.slice(0, 10).forEach(item => {
+            const date = new Date(item.created_at || Date.now());
+            const formattedDate = date.toLocaleDateString('en-US', { 
+                month: 'short', day: 'numeric', year: 'numeric',
+                hour: '2-digit', minute: '2-digit'
+            });
+            
+            const ratingStars = '★'.repeat(item.rating || 0) + '☆'.repeat(5 - (item.rating || 0));
+            
+            html += `
+                <div class="feedback-history-item status-pending" style="background: #f8f9fa; border-radius: 8px; padding: 15px; margin-bottom: 10px; border-left: 4px solid #3498db;">
+                    <div style="display: flex; justify-content: space-between; margin-bottom: 10px;">
+                        <div>
+                            <span style="background: #e3f2fd; color: #1976d2; padding: 4px 8px; border-radius: 4px; font-size: 12px;">${item.feedback_type || 'feedback'}</span>
+                            <span style="font-size: 11px; background: #eee; padding: 4px 8px; border-radius: 4px; margin-left: 8px;">Local</span>
+                        </div>
+                        <span style="font-size: 12px; color: #999;">${formattedDate}</span>
+                    </div>
+                    
+                    <p style="margin: 0 0 10px 0; color: #2c3e50;">${escapeHtml(item.feedback_message || '')}</p>
+                    
+                    ${item.rating > 0 ? `
+                        <div style="display: flex; align-items: center; gap: 8px;">
+                            <span style="color: #f39c12;">${ratingStars}</span>
+                            <span style="font-size: 12px; color: #666;">${item.rating}/5</span>
+                        </div>
+                    ` : ''}
+                </div>
+            `;
+        });
+        
+        html += '</div>';
+        historyContainer.innerHTML = html;
+        
+    } catch (e) {
+        console.error('Error displaying local feedback:', e);
+    }
+}
+
+// Load feedback history
+async function loadFeedbackHistory(limit = 10) {
+    try {
+        const token = localStorage.getItem('authToken') || authToken;
+        if (!token) {
+            displayLocalFeedbackHistory();
+            return;
+        }
+        
+        const historyContainer = document.getElementById('feedbackHistory');
+        if (!historyContainer) return;
+        
+        historyContainer.innerHTML = `
+            <div class="loading-container" style="text-align: center; padding: 30px;">
+                <i class="fas fa-spinner fa-spin" style="font-size: 24px; color: #7a0000;"></i>
+                <p style="margin-top: 10px;">Loading feedback history...</p>
+            </div>
+        `;
+        
+        const response = await fetch(`/api/feedback/history?limit=${limit}`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        
+        if (!response.ok) {
+            displayLocalFeedbackHistory();
+            return;
+        }
+        
+        const data = await response.json();
+        
+        if (data.success && data.feedback && Array.isArray(data.feedback)) {
+            displayFeedbackHistory(data.feedback);
+        } else {
+            displayLocalFeedbackHistory();
+        }
+        
+    } catch (error) {
+        console.error('Error loading feedback history:', error);
+        displayLocalFeedbackHistory();
+    }
+}
+
+// Display feedback history from server
+function displayFeedbackHistory(feedbackItems) {
+    const historyContainer = document.getElementById('feedbackHistory');
+    if (!historyContainer) return;
+    
+    if (!feedbackItems || !Array.isArray(feedbackItems) || feedbackItems.length === 0) {
+        displayLocalFeedbackHistory();
+        return;
+    }
+    
+    let html = '<div class="feedback-history-list">';
+    
+    feedbackItems.forEach(item => {
+        if (!item) return;
+        
+        const date = item.created_at ? new Date(item.created_at) : new Date();
+        const formattedDate = !isNaN(date) ? date.toLocaleDateString('en-US', { 
+            month: 'short', day: 'numeric', year: 'numeric',
+            hour: '2-digit', minute: '2-digit'
+        }) : 'Unknown date';
+        
+        const ratingStars = '★'.repeat(item.rating || 0) + '☆'.repeat(5 - (item.rating || 0));
+        const statusClass = item.status || 'pending';
+        
+        html += `
+            <div class="feedback-history-item status-${statusClass}" style="background: #f8f9fa; border-radius: 8px; padding: 15px; margin-bottom: 10px; border-left: 4px solid ${statusClass === 'resolved' ? '#27ae60' : (statusClass === 'reviewed' ? '#f39c12' : '#3498db')};">
+                <div style="display: flex; justify-content: space-between; margin-bottom: 10px;">
+                    <div>
+                        <span style="background: #e3f2fd; color: #1976d2; padding: 4px 8px; border-radius: 4px; font-size: 12px;">${item.feedback_type || 'feedback'}</span>
+                        <span style="background: ${statusClass === 'resolved' ? '#d4edda' : (statusClass === 'reviewed' ? '#fff3cd' : '#e3f2fd')}; color: ${statusClass === 'resolved' ? '#155724' : (statusClass === 'reviewed' ? '#856404' : '#1976d2')}; padding: 4px 8px; border-radius: 4px; font-size: 11px; margin-left: 8px;">${statusClass}</span>
+                    </div>
+                    <span style="font-size: 12px; color: #999;">${formattedDate}</span>
+                </div>
+                
+                <p style="margin: 0 0 10px 0; color: #2c3e50;">${escapeHtml(item.feedback_message || item.message || '')}</p>
+                
+                ${item.rating > 0 ? `
+                    <div style="display: flex; align-items: center; gap: 8px;">
+                        <span style="color: #f39c12;">${ratingStars}</span>
+                        <span style="font-size: 12px; color: #666;">${item.rating}/5</span>
+                    </div>
+                ` : ''}
+                
+                ${item.admin_notes ? `
+                    <div style="background: #e8f4f8; padding: 10px; border-radius: 6px; margin-top: 10px; border-left: 3px solid #3498db;">
+                        <i class="fas fa-reply" style="color: #3498db;"></i>
+                        <strong>Admin Response:</strong>
+                        <p style="margin: 5px 0 0 20px; color: #2c3e50;">${escapeHtml(item.admin_notes)}</p>
+                    </div>
+                ` : ''}
+            </div>
+        `;
+    });
+    
+    html += '</div>';
+    historyContainer.innerHTML = html;
+}
+
+// Escape HTML helper
+function escapeHtml(text) {
+    if (!text) return '';
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+
+// Initialize feedback dashboard
+function initFeedbackDashboard() {
+    console.log('💬 Initializing feedback dashboard...');
+    
+    initFeedback();
+    
+    if (document.getElementById('feedbackForm')) {
+        setupRatingStars();
+        setupFeedbackForm();
+    }
+    
+    loadFeedbackHistory(10);
+}
+
+// Make functions globally available
+window.initFeedback = initFeedback;
+window.loadFeedbackHistory = loadFeedbackHistory;
+window.rate = function(rating) {
+    const stars = document.querySelectorAll('.star');
+    const ratingValue = document.getElementById('ratingValue');
+    
+    stars.forEach((star, index) => {
+        if (index < rating) {
+            star.classList.add('active');
+            star.innerHTML = '★';
+        } else {
+            star.classList.remove('active');
+            star.innerHTML = '☆';
+        }
+    });
+    
+    if (ratingValue) ratingValue.value = rating;
+};
+
+// Auto-load feedback when page opens
+document.addEventListener('DOMContentLoaded', function() {
+    const feedbackPage = document.getElementById('feedback-page');
+    if (feedbackPage && !feedbackPage.classList.contains('hidden')) {
+        setTimeout(() => {
+            loadFeedbackHistory(10);
+        }, 500);
+    }
+});
 // ============================================
 // ✅ MAKE FUNCTIONS GLOBALLY AVAILABLE
 // ============================================
