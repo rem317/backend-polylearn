@@ -9785,5 +9785,459 @@ body.dark-theme .timer-preset {
 }
 
 /* ============================================
+   GLOBAL PADDING ADJUSTMENT - 8px ONLY
+   ============================================ */
+
+/* Main body container padding */
+body {
+    padding: 8px !important;
+    padding-bottom: 60px !important; /* Keep space for footer */
+}
+
+/* All page containers */
+#loading-page,
+#login-page,
+#signup-page,
+#app-selection-page,
+#dashboard-page,
+#module-dashboard-page,
+#practice-exercises-page,
+#quiz-dashboard-page,
+#progress-page,
+#settings-page,
+#feedback-page {
+    padding: 8px !important;
+}
+
+/* Main containers */
+.container,
+.dashboard-container,
+.practice-container,
+.quiz-container,
+.progress-container,
+.settings-container,
+.help-dashboard-container {
+    padding: 8px !important;
+    margin: 0 auto !important;
+    max-width: calc(100% - 16px) !important; /* Account for 8px padding on both sides */
+}
+
+/* Card containers */
+.card,
+.progress-card,
+.settings-card,
+.help-dashboard-card,
+.sidebar-card,
+.welcome-card,
+.progress-welcome-card {
+    padding: 8px !important;
+    margin-bottom: 12px !important;
+}
+
+/* Card header */
+.card-header,
+.progress-card-header,
+.settings-card-header,
+.help-dashboard-card-header {
+    padding: 8px 8px 0 8px !important;
+    margin-bottom: 8px !important;
+}
+
+/* Card content */
+.card-content,
+.lesson-content,
+.practice-content,
+.quiz-content,
+.progress-content,
+.settings-content,
+.feedback-content {
+    padding: 8px !important;
+}
+
+/* Form sections */
+.form-section,
+.welcome-section {
+    padding: 8px !important;
+}
+
+/* Form groups */
+.form-group {
+    margin-bottom: 12px !important;
+    padding: 0 8px !important;
+}
+
+/* Form controls */
+.form-control {
+    padding: 10px 12px !important; /* Slightly larger for better UX */
+}
+
+/* Input with icon */
+.input-with-icon i {
+    right: 12px !important;
+}
+
+.form-control {
+    padding: 10px 35px 10px 12px !important;
+}
+
+/* Buttons container */
+.action-buttons {
+    padding: 8px !important;
+    margin-top: 15px !important;
+}
+
+/* Progress items */
+.progress-item,
+.progress-dashboard-item,
+.stat-item,
+.goal-item {
+    padding: 8px !important;
+    margin-bottom: 8px !important;
+}
+
+/* Topic cards */
+.topic-card {
+    padding: 8px !important;
+}
+
+/* Quiz cards */
+.quiz-stat-card,
+.quiz-category-card {
+    padding: 8px !important;
+}
+
+/* Tool containers */
+.toolbox-container,
+.quick-tools-container,
+.learning-tools-container,
+.progress-learning-tool {
+    padding: 8px !important;
+    margin: 8px 0 !important;
+}
+
+/* Tool items */
+.tool-item,
+.quick-tool-item,
+.learning-tool-item,
+.tool-item-compact {
+    padding: 8px !important;
+}
+
+/* Tool icons */
+.tool-icon,
+.quick-tool-icon,
+.tool-icon-large {
+    margin-bottom: 5px !important;
+}
+
+/* Module containers */
+#module-page-container .card,
+#module-page-container .progress-learning-tool {
+    padding: 8px !important;
+}
+
+#module-page-container .card-header {
+    padding: 8px 8px 0 8px !important;
+    margin-bottom: 8px !important;
+}
+
+#module-page-container .lesson-content {
+    padding: 8px !important;
+}
+
+/* Media containers */
+.media-container {
+    margin-bottom: 8px !important;
+}
+
+.media-header {
+    padding: 6px 8px !important;
+}
+
+.video-info {
+    padding: 4px 8px !important;
+}
+
+/* Step containers */
+.step-container {
+    margin-bottom: 8px !important;
+}
+
+.step-title {
+    margin-bottom: 5px !important;
+    padding-bottom: 3px !important;
+}
+
+.step-content {
+    padding-left: 5px !important;
+}
+
+/* Math example */
+.math-example {
+    padding: 8px !important;
+    margin: 5px 0 !important;
+}
+
+/* Divider */
+[style*="height: 1px;"] {
+    margin: 8px 0 !important;
+}
+
+/* Navigation */
+.lesson-navigation {
+    margin-top: 8px !important;
+    padding-top: 5px !important;
+    gap: 5px !important;
+}
+
+.lesson-nav-btn,
+.btn-primary {
+    padding: 6px 12px !important;
+}
+
+/* Footer navigation */
+.footer-nav {
+    padding: 5px 0 !important;
+}
+
+.footer-nav-content {
+    padding: 0 5px !important;
+}
+
+.footer-nav-item {
+    padding: 5px !important;
+}
+
+.footer-hamburger {
+    padding: 8px !important;
+    width: 50px !important;
+    height: 50px !important;
+}
+
+/* Mobile menu */
+.mobile-menu-panel {
+    padding: 8px !important;
+}
+
+.mobile-menu-grid {
+    gap: 8px !important;
+}
+
+.mobile-menu-item {
+    padding: 10px 8px !important;
+}
+
+/* Loading page */
+.splash-container {
+    padding: 8px !important;
+    gap: 1rem !important;
+}
+
+/* App selection */
+#app-selection-page .app-card {
+    padding: 8px !important;
+}
+
+/* Modal containers */
+.modal-container {
+    padding: 8px !important;
+}
+
+.modal-header {
+    padding: 8px 12px !important;
+}
+
+.modal-body {
+    padding: 8px !important;
+}
+
+.modal-footer {
+    padding: 8px !important;
+}
+
+/* Leaderboard */
+.leaderboard-item {
+    padding: 6px 8px !important;
+}
+
+/* Timeline */
+.timeline {
+    padding-left: 15px !important;
+}
+
+/* Stats grid */
+.stats-grid {
+    gap: 8px !important;
+}
+
+/* Charts */
+.chart-container {
+    padding: 8px !important;
+}
+
+/* Performance cards */
+.performance-card {
+    padding: 8px !important;
+}
+
+/* Recommendations */
+.recommendation-item {
+    padding: 8px !important;
+}
+
+/* FAQ */
+.faq-item {
+    margin-bottom: 8px !important;
+}
+
+.faq-question {
+    padding: 8px 10px !important;
+}
+
+.faq-answer {
+    padding: 8px 10px !important;
+}
+
+/* Contact methods */
+.contact-method {
+    padding: 8px !important;
+}
+
+/* Resource items */
+.resource-item {
+    padding: 8px !important;
+}
+
+/* Issue categories */
+.issue-category {
+    padding: 8px !important;
+}
+
+/* Tool modals */
+.tool-modal-content {
+    padding: 0 !important;
+}
+
+.tool-modal-header {
+    padding: 8px 12px !important;
+}
+
+.tool-modal-body {
+    padding: 8px !important;
+}
+
+/* Quiz popup */
+.quiz-popup-header {
+    padding: 12px 15px !important;
+}
+
+.quiz-popup-body {
+    padding: 12px !important;
+}
+
+.quiz-popup-footer {
+    padding: 10px 15px !important;
+}
+
+/* Scrollable containers */
+.continue-learning-module {
+    padding: 8px !important;
+    padding-right: 5px !important;
+}
+
+/* Dashboard board */
+.dashboard-board .card {
+    padding: 8px !important;
+    min-width: 200px !important;
+}
+
+/* Progress dashboard board */
+.progress-dashboard-board .progress-card {
+    padding: 8px !important;
+}
+
+/* Module progress */
+.module-progress-card {
+    padding: 8px !important;
+}
+
+.module-item {
+    padding: 10px !important;
+}
+
+/* Daily goals */
+.daily-goals-card {
+    padding: 8px !important;
+}
+
+.goals-progress-overview {
+    padding: 8px !important;
+    gap: 8px !important;
+}
+
+.goal-item {
+    padding: 8px !important;
+}
+
+/* Tool preview */
+.tool-preview-sidebar {
+    padding: 8px !important;
+}
+
+/* Mobile responsive adjustments */
+@media (max-width: 768px) {
+    body {
+        padding: 5px !important;
+        padding-bottom: 60px !important;
+    }
+    
+    .container,
+    .dashboard-container,
+    .practice-container,
+    .quiz-container,
+    .progress-container,
+    .settings-container,
+    .help-dashboard-container {
+        padding: 5px !important;
+        max-width: calc(100% - 10px) !important;
+    }
+    
+    .card,
+    .progress-card,
+    .settings-card,
+    .help-dashboard-card {
+        padding: 5px !important;
+    }
+}
+
+@media (max-width: 480px) {
+    body {
+        padding: 3px !important;
+        padding-bottom: 60px !important;
+    }
+    
+    .container,
+    .dashboard-container,
+    .practice-container,
+    .quiz-container,
+    .progress-container,
+    .settings-container,
+    .help-dashboard-container {
+        padding: 3px !important;
+        max-width: calc(100% - 6px) !important;
+    }
+}
+
+/* Safe area insets for notched phones */
+@supports (padding: max(0px)) {
+    body {
+        padding-left: max(8px, env(safe-area-inset-left)) !important;
+        padding-right: max(8px, env(safe-area-inset-right)) !important;
+        padding-top: max(8px, env(safe-area-inset-top)) !important;
+        padding-bottom: max(60px, env(safe-area-inset-bottom)) !important;
+    }
+}
+
+/* ============================================
    END OF CSS
    ============================================ */
