@@ -1,6 +1,6 @@
 /* ============================================
-   MATHHUB APPLICATION - ORGANIZED CSS
-   FOR FACTOLEARN - UPDATED TO MATCH POLYLEARN UI
+   MATHHUB APPLICATION - COMPLETE FIXED CSS
+   FOR FACTOLEARN - FULLY ALIGNED WITH HTML & JS
    ============================================
 
    TABLE OF CONTENTS:
@@ -27,11 +27,10 @@
    21. Animations
    22. Responsive Design
    23. Utility Classes
-   24. ENHANCED TOOL BUTTONS UI
-   25. ENHANCED TOOL CONTENT UI
-   26. SCROLLABLE SECTIONS (NEW)
-   27. VERTICAL LAYOUT FIXES (NEW)
-   28. PROGRESS CIRCLE STYLES (NEW)
+   24. Progress Circle Styles
+   25. Scrollable Sections
+   26. Vertical Layout Fixes
+   27. Height Fixes
 
    ============================================ */
 
@@ -40,7 +39,7 @@
    ============================================ */
 :root {
     /* Colors - Primary */
-    --primary: #7a0000; /* UPDATED TO MATCH POLYLEARN */
+    --primary: #7a0000;
     --primary-dark: #5a0000;
     --primary-light: #a52a2a;
     --secondary: #b00000;
@@ -57,14 +56,14 @@
     --light-bg: #f8f9fa;
     
     /* Colors - Functional */
-    --success: #27ae60; /* UPDATED */
+    --success: #27ae60;
     --error: #c41e3a;
     --info: #3498db;
     --warning: #f39c12;
     
     /* Colors - Text */
-    --text: #2c3e50; /* UPDATED */
-    --text-light: #7f8c8d; /* UPDATED */
+    --text: #2c3e50;
+    --text-light: #7f8c8d;
     --text-white: #ffffff;
     
     /* Colors - Background */
@@ -86,7 +85,7 @@
     --tool-timer: linear-gradient(135deg, #e74c3c, #c0392b);
     
     /* Shadows */
-    --shadow: 0 4px 12px rgba(122, 0, 0, 0.1); /* UPDATED */
+    --shadow: 0 4px 12px rgba(122, 0, 0, 0.1);
     --shadow-hover: 0 8px 15px rgba(0, 0, 0, 0.15);
     --shadow-sm: 0 2px 4px rgba(0,0,0,0.1);
     --shadow-md: 0 4px 8px rgba(0,0,0,0.1);
@@ -174,7 +173,7 @@ body:not(.dark-theme) {
 }
 
 body {
-    background: linear-gradient(to bottom, #7a0000, #d3d3d3); /* UPDATED */
+    background: linear-gradient(to bottom, #7a0000, #d3d3d3);
     min-height: 100vh;
     color: var(--text);
     line-height: 1.6;
@@ -255,6 +254,32 @@ body.dark-theme {
     display: flex;
     flex-direction: column;
     gap: 25px;
+}
+
+/* Video Container - Responsive */
+.video-container {
+    position: relative;
+    width: 100%;
+    padding-bottom: 56.25%; /* 16:9 Aspect Ratio */
+    height: 0;
+    overflow: hidden;
+    background: #000;
+}
+
+.video-container video,
+.video-container iframe {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+}
+
+@media (max-width: 768px) {
+    .video-container {
+        padding-bottom: 75%; /* 4:3 Aspect Ratio for mobile */
+    }
 }
 
 /* ============================================
@@ -493,6 +518,7 @@ h1, h2, h3, h4, h5, h6 {
     display: flex;
     align-items: center;
     gap: 10px;
+    margin: 0;
 }
 
 .mobile-menu-header h3 i {
@@ -516,6 +542,16 @@ h1, h2, h3, h4, h5, h6 {
 
 .close-menu-btn:hover {
     background: var(--border-color);
+}
+
+.close-menu-btn i {
+    font-size: 1.2rem;
+    color: var(--medium-gray);
+    transition: all 0.3s ease;
+}
+
+.close-menu-btn:hover i {
+    color: var(--primary);
 }
 
 .mobile-menu-grid {
@@ -802,6 +838,16 @@ h1, h2, h3, h4, h5, h6 {
 /* Welcome Card */
 .welcome-card {
     grid-column: 1 / -1;
+    background: linear-gradient(135deg, var(--primary) 0%, var(--primary-light) 100%);
+    color: white;
+}
+
+.welcome-card .card-title {
+    color: white;
+}
+
+.welcome-card .card-title i {
+    color: white;
 }
 
 .welcome-header {
@@ -809,14 +855,17 @@ h1, h2, h3, h4, h5, h6 {
     justify-content: space-between;
     align-items: center;
     margin-bottom: 20px;
+    flex-wrap: wrap;
+    gap: 15px;
 }
 
 .date-display {
     color: var(--text-light);
-    background: rgba(139, 0, 0, 0.05);
+    background: rgba(255, 255, 255, 0.2);
     padding: 6px 12px;
     border-radius: 8px;
     font-size: 0.85rem;
+    color: white;
 }
 
 .student-info {
@@ -830,7 +879,7 @@ h1, h2, h3, h4, h5, h6 {
     width: 80px;
     height: 80px;
     border-radius: 50%;
-    background: var(--primary-gradient);
+    background: rgba(255, 255, 255, 0.2);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -847,18 +896,18 @@ h1, h2, h3, h4, h5, h6 {
 
 .student-name {
     font-size: 1.8rem;
-    color: var(--text);
+    color: var(--white);
     font-weight: 700;
     margin-bottom: 8px;
 }
 
 .student-name span {
-    color: var(--primary);
+    color: var(--accent);
 }
 
 .achievement-badge {
     display: inline-block;
-    background: linear-gradient(to right, var(--primary), var(--accent));
+    background: rgba(255, 255, 255, 0.2);
     color: var(--white);
     padding: 5px 12px;
     border-radius: 15px;
@@ -1318,6 +1367,26 @@ input:checked + .toggle-slider:before {
     cursor: not-allowed;
 }
 
+/* Complete Lesson Button States */
+#completeLessonBtn.btn-success {
+    background: var(--success) !important;
+    cursor: default !important;
+}
+
+#completeLessonBtn.btn-success i {
+    color: white !important;
+}
+
+#completeLessonBtn.btn-success:hover {
+    transform: none !important;
+    box-shadow: none !important;
+}
+
+#completeLessonBtn:disabled {
+    opacity: 1 !important;
+    background: var(--success) !important;
+}
+
 .btn-danger {
     background: linear-gradient(to right, var(--error), #ff6b6b);
     color: var(--white);
@@ -1438,6 +1507,34 @@ input:checked + .toggle-slider:before {
     transition: width 0.5s ease;
 }
 
+#lessonProgressFill {
+    transition: width 0.5s ease;
+}
+
+.lesson-progress-section {
+    margin-bottom: 25px;
+    padding: 15px;
+    background: rgba(122, 0, 0, 0.02);
+    border-radius: 12px;
+}
+
+.lesson-progress-section h3 {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 1.1rem;
+    margin-bottom: 15px;
+    color: var(--text);
+}
+
+.progress-details {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.9rem;
+    color: var(--text-light);
+    margin-top: 8px;
+}
+
 /* Progress Colors */
 .progress-excellent { 
     background: linear-gradient(to right, var(--success), #2ecc71); 
@@ -1499,6 +1596,7 @@ input:checked + .toggle-slider:before {
 .item-left h3 {
     font-size: 1rem;
     margin-bottom: 3px;
+    color: var(--text);
 }
 
 .item-left p {
@@ -2096,6 +2194,11 @@ input:checked + .toggle-slider:before {
     position: relative;
     overflow: hidden;
     margin-bottom: 20px;
+    max-height: 400px;
+    overflow-y: auto;
+    padding-right: 10px;
+    scrollbar-width: thin;
+    scrollbar-color: var(--primary) var(--border-color);
 }
 
 .continue-learning-module::before {
@@ -2106,6 +2209,42 @@ input:checked + .toggle-slider:before {
     width: 100%;
     height: 5px;
     background: linear-gradient(to right, var(--primary), var(--accent), var(--primary));
+}
+
+.continue-learning-module::-webkit-scrollbar {
+    width: 8px;
+}
+
+.continue-learning-module::-webkit-scrollbar-track {
+    background: var(--border-color);
+    border-radius: 10px;
+}
+
+.continue-learning-module::-webkit-scrollbar-thumb {
+    background: var(--primary);
+    border-radius: 10px;
+    transition: all 0.3s ease;
+}
+
+.continue-learning-module::-webkit-scrollbar-thumb:hover {
+    background: var(--primary-dark);
+}
+
+.continue-learning-module::after {
+    content: '';
+    position: sticky;
+    bottom: 0;
+    left: 0;
+    width: 100%;
+    height: 30px;
+    background: linear-gradient(to top, rgba(255,255,255,0.9), transparent);
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+}
+
+.continue-learning-module.scrollable-bottom::after {
+    opacity: 1;
 }
 
 .module-header {
@@ -2148,6 +2287,9 @@ input:checked + .toggle-slider:before {
 
 .module-lessons {
     margin: 20px 0;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
 }
 
 .lesson-item {
@@ -2285,6 +2427,7 @@ input:checked + .toggle-slider:before {
     font-weight: 700;
     border: 3px solid var(--accent);
     flex-shrink: 0;
+    box-shadow: 0 10px 20px rgba(122, 0, 0, 0.2);
 }
 
 .practice-intro-text {
@@ -2295,10 +2438,12 @@ input:checked + .toggle-slider:before {
     display: inline-block;
     background: linear-gradient(to right, var(--primary), var(--accent));
     color: var(--white);
-    padding: 5px 12px;
-    border-radius: 15px;
+    padding: 5px 15px;
+    border-radius: 25px;
     font-weight: 600;
-    font-size: 0.85rem;
+    font-size: 0.9rem;
+    margin-top: 10px;
+    box-shadow: 0 4px 10px rgba(122, 0, 0, 0.2);
 }
 
 .current-streak i {
@@ -2876,6 +3021,15 @@ input:checked + .toggle-slider:before {
     color: var(--primary);
 }
 
+.no-topic-selected h3 {
+    color: var(--text);
+    margin-bottom: 10px;
+}
+
+.no-topic-selected p {
+    color: var(--text-light);
+}
+
 /* ============================================
    13. QUIZ DASHBOARD PAGE
    ============================================ */
@@ -2904,18 +3058,21 @@ input:checked + .toggle-slider:before {
     margin-bottom: 10px;
     font-weight: 700;
     text-shadow: 1px 1px 3px rgba(0, 0, 0, 0.2);
+    color: var(--white);
 }
 
 .quiz-subtitle {
     font-size: 1.1rem;
     opacity: 0.9;
     margin-bottom: 25px;
+    color: var(--white);
 }
 
 .quiz-stats-row {
     display: flex;
     gap: 20px;
     flex-wrap: wrap;
+    margin-bottom: 30px;
 }
 
 .quiz-stat-card {
@@ -3449,6 +3606,36 @@ input:checked + .toggle-slider:before {
     transform: none;
 }
 
+/* Quiz Progress Bar */
+.quiz-progress-bar {
+    width: 100%;
+    height: 6px;
+    background: var(--neutral);
+    border-radius: 3px;
+    margin: 15px 0;
+    overflow: hidden;
+}
+
+#quizProgressFill {
+    height: 100%;
+    background: linear-gradient(to right, var(--primary), var(--accent));
+    transition: width 0.3s ease;
+}
+
+.quiz-progress {
+    background: #f0f0f0;
+    padding: 5px 15px;
+    border-radius: 20px;
+    font-size: 0.9rem;
+    color: var(--text);
+}
+
+#quizTimerDisplay {
+    font-family: monospace;
+    font-size: 1.2rem;
+    font-weight: 600;
+}
+
 .badges-container {
     background: var(--white);
     border-radius: var(--radius);
@@ -3617,6 +3804,7 @@ input:checked + .toggle-slider:before {
     color: var(--white);
     font-weight: 700;
     font-size: 1.1rem;
+    box-shadow: 0 4px 8px rgba(122, 0, 0, 0.2);
 }
 
 .leaderboard-user-info h4 {
@@ -4238,11 +4426,21 @@ input:checked + .toggle-slider:before {
 
 .settings-section {
     display: none;
+    animation: fadeIn 0.5s ease;
 }
 
 .settings-section.active {
-    display: block;
-    animation: fadeIn 0.5s ease;
+    display: block !important;
+}
+
+.settings-card {
+    margin-bottom: 25px;
+    transition: all 0.3s ease;
+}
+
+.settings-card:hover {
+    transform: translateY(-3px);
+    box-shadow: var(--shadow-hover);
 }
 
 /* ============================================
@@ -4285,6 +4483,13 @@ input:checked + .toggle-slider:before {
     font-size: 0.9rem;
 }
 
+.dashboard-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+    gap: 25px;
+    margin-top: 25px;
+}
+
 .faq-item {
     margin-bottom: 20px;
     border: 1px solid rgba(139, 0, 0, 0.1);
@@ -4296,6 +4501,16 @@ input:checked + .toggle-slider:before {
 
 .faq-item:hover {
     border-color: var(--primary-light);
+}
+
+.faq-item.active {
+    border-color: var(--primary);
+}
+
+.faq-item.active .faq-question {
+    background: rgba(122, 0, 0, 0.08);
+    color: var(--primary);
+    font-weight: 700;
 }
 
 .faq-question {
@@ -4323,12 +4538,13 @@ input:checked + .toggle-slider:before {
     margin-top: 0;
     border-top: 1px solid #eee;
     line-height: 1.6;
-    font-size: 0.9rem;
+    font-size: 0.95rem;
     color: var(--text-light);
 }
 
 .faq-item.active .faq-answer {
     display: block !important;
+    animation: slideDown 0.3s ease;
 }
 
 .faq-question .fas.fa-chevron-down {
@@ -4337,6 +4553,17 @@ input:checked + .toggle-slider:before {
 
 .faq-question.active .fas.fa-chevron-down {
     transform: rotate(180deg);
+}
+
+@keyframes slideDown {
+    from {
+        opacity: 0;
+        transform: translateY(-10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
 }
 
 .contact-methods {
@@ -4786,6 +5013,46 @@ textarea.feedback-form-control {
     box-shadow: 0 5px 15px rgba(255, 255, 255, 0.2);
 }
 
+/* Loading Skeleton */
+.loading-skeleton {
+    background: linear-gradient(90deg, 
+        var(--neutral-light) 25%, 
+        var(--neutral) 50%, 
+        var(--neutral-light) 75%);
+    background-size: 200% 100%;
+    animation: loading 1.5s infinite;
+    border-radius: 4px;
+}
+
+@keyframes loading {
+    0% { background-position: 200% 0; }
+    100% { background-position: -200% 0; }
+}
+
+.skeleton-text {
+    height: 16px;
+    width: 100%;
+    margin: 8px 0;
+    border-radius: 4px;
+    background: var(--neutral-light);
+    position: relative;
+    overflow: hidden;
+}
+
+.skeleton-text::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: linear-gradient(90deg, 
+        transparent, 
+        rgba(255,255,255,0.4), 
+        transparent);
+    animation: shimmer 1.5s infinite;
+}
+
 /* ============================================
    19. LOGIN & SIGNUP PAGES
    ============================================ */
@@ -4848,17 +5115,6 @@ textarea.feedback-form-control {
     letter-spacing: -0.5px;
     line-height: 1.2;
     color: white;
-}
-
-@keyframes fadeInUp {
-    from {
-        opacity: 0;
-        transform: translateY(15px);
-    }
-    to {
-        opacity: 1;
-        transform: translateY(0);
-    }
 }
 
 .welcome-section .tagline {
@@ -5161,6 +5417,22 @@ textarea.feedback-form-control {
     100% { transform: translateX(100%); }
 }
 
+@keyframes loading {
+    0% { background-position: 200% 0; }
+    100% { background-position: -200% 0; }
+}
+
+@keyframes slideDown {
+    from {
+        opacity: 0;
+        transform: translateY(-10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
 /* ============================================
    22. RESPONSIVE DESIGN
    ============================================ */
@@ -5242,17 +5514,15 @@ textarea.feedback-form-control {
     }
     
     .dashboard-container,
-    #dashboard-page .dashboard-vertical-container,
-    #practice-exercises-page .dashboard-vertical-container,
-    #quiz-dashboard-page .dashboard-vertical-container,
-    #progress-page .dashboard-vertical-container,
-    #settings-page .dashboard-vertical-container,
-    #feedback-page .dashboard-vertical-container {
+    .practice-container,
+    .quiz-container,
+    .progress-container,
+    .settings-container,
+    .help-dashboard-container {
         padding: 15px !important;
         max-width: 100% !important;
     }
     
-    .dashboard-card,
     #dashboard-page .card,
     #practice-exercises-page .card,
     #quiz-dashboard-page .card,
@@ -5283,6 +5553,14 @@ textarea.feedback-form-control {
     
     .tool-item .tool-description {
         font-size: 0.75rem;
+    }
+    
+    .video-container {
+        padding-bottom: 75%;
+    }
+    
+    .continue-learning-module {
+        max-height: 350px;
     }
 }
 
@@ -5350,7 +5628,7 @@ textarea.feedback-form-control {
 .p-5 { padding: 2rem; }
 
 /* ============================================
-   24. PROGRESS CIRCLE STYLES - NEW
+   24. PROGRESS CIRCLE STYLES
    ============================================ */
 .progress-indicator {
     text-align: center;
@@ -5414,7 +5692,7 @@ textarea.feedback-form-control {
 }
 
 /* ============================================
-   25. SCROLLABLE SECTIONS - NEW
+   25. SCROLLABLE SECTIONS
    ============================================ */
 .continue-learning-module {
     max-height: 400px;
@@ -5460,14 +5738,8 @@ textarea.feedback-form-control {
     opacity: 1;
 }
 
-@media (max-width: 768px) {
-    .continue-learning-module {
-        max-height: 350px;
-    }
-}
-
 /* ============================================
-   26. VERTICAL LAYOUT FIXES - NEW
+   26. VERTICAL LAYOUT FIXES
    ============================================ */
 .dashboard-vertical-container,
 #dashboard-page .dashboard-vertical-container,
@@ -5657,7 +5929,7 @@ textarea.feedback-form-control {
 }
 
 /* ============================================
-   27. URGENT FIX - REMOVE ALL FIXED HEIGHTS
+   27. HEIGHT FIXES
    ============================================ */
 .dashboard-container,
 .practice-container,
