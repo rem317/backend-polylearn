@@ -8068,15 +8068,6 @@ window.showLogoutConfirmation = showLogoutConfirmation;
 window.closeLogoutModal = closeLogoutModal;
 window.confirmLogout = confirmLogout;
 
-// Close logout modal
-function closeLogoutModal() {
-    console.log('🚪 Closing logout modal');
-    const modal = document.getElementById('logoutModal');
-    if (modal) {
-        modal.style.display = 'none';
-        document.body.classList.remove('modal-open');
-    }
-}
 
 // Confirm logout - actual logout
 function confirmLogout() {
@@ -26370,3 +26361,41 @@ mobileMenuItems.forEach((item, index) => {
         else if (index === 7) logoutUser(e); // Logout is the 8th item
     });
 });
+// Logout user from hamburger menu
+function logoutUser(e) {
+    if (e) {
+        e.preventDefault();
+        e.stopPropagation();
+    }
+    
+    // Close mobile menu first
+    const mobileMenuOverlay = document.getElementById('mobileMenuOverlay');
+    const mobileMenuPanel = document.getElementById('mobileMenuPanel');
+    
+    if (mobileMenuOverlay && mobileMenuPanel) {
+        mobileMenuOverlay.classList.remove('active');
+        mobileMenuPanel.classList.remove('active');
+        document.body.style.overflow = '';
+    }
+    
+    // Show confirmation modal instead of direct logout
+    showLogoutConfirmation();
+}
+
+// Setup logout button in dashboard
+const logoutBtnDashboard = document.getElementById('logoutBtnDashboard');
+if (logoutBtnDashboard) {
+    logoutBtnDashboard.addEventListener('click', function(e) {
+        e.preventDefault();
+        logoutAndRedirect();
+    });
+}
+
+// Setup logout button in app selection
+const logoutBtnAppSelection = document.getElementById('logoutBtnAppSelection');
+if (logoutBtnAppSelection) {
+    logoutBtnAppSelection.addEventListener('click', function(e) {
+        e.preventDefault();
+        logoutAndRedirect();
+    });
+}
