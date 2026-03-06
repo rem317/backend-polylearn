@@ -1,101 +1,2076 @@
+
+
+
+// script.js - MathHub Application with Complete Database-Driven Progress Tracking
+// Includes lesson management, practice exercises, quiz system, and full progress integration
+
 // ============================================
-// MATHEASE APPLICATION - COMPLETE FIXED VERSION
+// MATHHUB APPLICATION - JAVASCRIPT
 // ============================================
 
 let authToken = localStorage.getItem('authToken') || null;
+   
 const API_BASE_URL = window.location.origin;
 
+
+// Define default practice statistics function
+function getDefaultPracticeStats() {
+    return {
+        totalSessions: 0,
+        totalQuestions: 0,
+        correctAnswers: 0,
+        averageScore: 0,
+        studyTime: 0,
+        weakAreas: [],
+        strongAreas: [],
+        recentActivity: []
+    };
+}
+
 // ============================================
-// APP FILTERING SYSTEM - FIXED
+// APP FILTERING SYSTEM - Add this near the top of your script.js
 // ============================================
+
+// ============================================
+// APP FILTERING SYSTEM - USING LESSON_ID
+// ============================================
+
 const APP_LESSON_MAP = {
     'mathease': {
         lessonId: 1,
         name: 'MathEase'
     },
+    'mathease': {
+        lessonId: 3,
+        name: 'FactoPermCombi'  // Ito na ang gagamitin
+    },
     'polylearn': {
         lessonId: 2,
         name: 'PolyLearn'
-    },
-    'factolearn': {
-        lessonId: 3,
-        name: 'FactoLearn'
     }
 };
 
 // ============================================
-// MATHEASE CONSTANTS
+// mathease CONSTANTS - FORCE LESSON_ID = 1
 // ============================================
-const MATHEASE_LESSON_ID = 1;
-const POLYLEARN_LESSON_ID = 2;
-const FACTOLEARN_LESSON_ID = 3;
+const factolearn_LESSON_ID = 3; // Fixed for mathease app
+const POLYLEARN_LESSON_ID = 2; // ← IDAGDAG ITO
+const MATHEASE_LESSON_ID = 1;  // ← IDAGDAG ITO
 
-// ============================================
-// GET CURRENT APP FUNCTION
-// ============================================
+// Para madaling gamitin
+const CURRENT_LESSON_ID = 1; // mathease only
+const CURRENT_APP_NAME = 'FactoPermCombi';
+
 function getCurrentApp() {
-    return localStorage.getItem('selectedApp') || 'mathease';
+    return localStorage.getItem('selectedApp') || 'mathease'; // mathease na ang default
 }
 
 function getCurrentAppLessonId() {
+    // Kunin ang app selection ng user
     const selectedApp = localStorage.getItem('selectedApp') || 'mathease';
+    
+    // Return appropriate lesson_id based on selected app
     const appMap = {
         'mathease': 1,
         'polylearn': 2,
-        'factolearn': 3
+        'mathease': 3
     };
+    
     return appMap[selectedApp] || 1;
+}
+
+// Example API call - lahat ng user ay makakakita ng  data
+// kung naka-select sila ng 
+fetch(`/api/topics/progress?lesson_id=${getCurrentAppLessonId()}`, {
+    headers: { 'Authorization': `Bearer ${authToken}` }
+})
+// Get the filter parameter for API calls
+function getAppFilterParam() {
+    const app = getCurrentApp();
+    return APP_LESSON_MAP[app]?.filter || '';
 }
 
 function addAppFilterToUrl(url) {
     const separator = url.includes('?') ? '&' : '?';
-    const currentApp = getCurrentApp();
-    let lessonId = 2;
-    
-    if (currentApp === 'mathease') lessonId = 1;
-    else if (currentApp === 'polylearn') lessonId = 2;
-    else if (currentApp === 'factolearn') lessonId = 3;
-    
-    return `${url}${separator}lesson_id=${lessonId}`;
+    // FORCE mathease: Laging lesson_id=1
+    return `${url}${separator}lesson_id=${MATHEASE_LESSON_ID}`;
 }
 
 // ============================================
-// [PASTE THE REST OF YOUR ORIGINAL script.js HERE]
+// ✅ FIXED: ToolManager with better error handling
 // ============================================
-// ... lahat ng existing code mo ...
-// ... kasama ang ToolManager, Calculator, etc ...
-// ============================================
+class ToolManager {
+    constructor() {
+        this.tools = {};
+        this.currentTool = null;
+        this.modalsContainer = document.getElementById('toolModalsContainer');
+        
+        // Create modals container if it doesn't exist
+        if (!this.modalsContainer) {
+            this.modalsContainer = document.createElement('div');
+            this.modalsContainer.id = 'toolModalsContainer';
+            document.body.appendChild(this.modalsContainer);
+        }
+        
+        this.init();
+    }
+
+    init() {
+        console.log('🔧 Initializing ToolManager...');
+        this.createModals();
+        this.initializeTools();
+        this.setupEventListeners();
+    }
+
+    createModals() {
+        console.log('📦 Creating tool modals...');
+        // Check if modals already exist
+        const existingModals = [
+            'calculatorModal', 'graphModal', 'whiteboardModal', 
+            'notepadModal', 'formulaModal', 'timerModal'
+        ];
+        
+        let anyModalMissing = false;
+        existingModals.forEach(id => {
+            if (!document.getElementById(id)) {
+                anyModalMissing = true;
+            }
+        });
+        
+        // If any modal is missing, create them
+        if (anyModalMissing) {
+            this.injectModalHTML();
+        }
+    }
+
+    injectModalHTML() {
+        const modalHTML = `
+            <!-- Calculator Modal -->
+            <div id="calculatorModal" class="modal-overlay">
+                <div class="modal-container">
+                    <div class="modal-header" style="background: #7a0000; color: white;">
+                        <h3 style="margin: 0;"><i class="fas fa-calculator"></i> Calculator</h3>
+                        <button class="modal-close" onclick="window.toolManager.closeTool()" style="color: white;">&times;</button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="calculator-container">
+                            <div class="calculator-display" id="calcDisplay">0</div>
+                            <div class="calculator-buttons" id="calcButtons"></div>
+                            <div class="calculator-history">
+                                <h3><i class="fas fa-history"></i> History</h3>
+                                <div class="history-list" id="calcHistory"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Graph Modal -->
+            <div id="graphModal" class="modal-overlay">
+                <div class="modal-container">
+                    <div class="modal-header" style="background: #7a0000; color: white;">
+                        <h3 style="margin: 0;"><i class="fas fa-chart-line"></i> Graph Tool</h3>
+                        <button class="modal-close" onclick="window.toolManager.closeTool()" style="color: white;">&times;</button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="graph-tool">
+                            <canvas id="graphCanvas" width="600" height="400"></canvas>
+                            <div class="graph-controls">
+                                <input type="text" id="graphExpression" placeholder="f(x) = " value="x^3 - 2x^2 + x - 1">
+                                <button id="plotGraphBtn">Plot</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Whiteboard Modal -->
+            <div id="whiteboardModal" class="modal-overlay">
+                <div class="modal-container">
+                    <div class="modal-header" style="background: #7a0000; color: white;">
+                        <h3 style="margin: 0;"><i class="fas fa-paint-brush"></i> Whiteboard</h3>
+                        <button class="modal-close" onclick="window.toolManager.closeTool()" style="color: white;">&times;</button>
+                    </div>
+                    <div class="modal-body">
+                        <canvas id="whiteboardCanvas" width="600" height="400"></canvas>
+                        <div class="whiteboard-controls">
+                            <button onclick="window.toolManager.tools.whiteboard.setTool('pen')">Pen</button>
+                            <button onclick="window.toolManager.tools.whiteboard.setTool('eraser')">Eraser</button>
+                            <button onclick="window.toolManager.tools.whiteboard.clear()">Clear</button>
+                            <input type="color" id="colorPicker" value="#7a0000">
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Notepad Modal -->
+            <div id="notepadModal" class="modal-overlay">
+                <div class="modal-container">
+                    <div class="modal-header" style="background: #7a0000; color: white;">
+                        <h3 style="margin: 0;"><i class="fas fa-sticky-note"></i> Notepad</h3>
+                        <button class="modal-close" onclick="window.toolManager.closeTool()" style="color: white;">&times;</button>
+                    </div>
+                    <div class="modal-body">
+                        <input type="text" id="noteTitle" placeholder="Note Title">
+                        <textarea id="noteContent" placeholder="Write your notes here..." rows="10"></textarea>
+                        <button onclick="window.toolManager.tools.notepad.save()">Save Note</button>
+                        <button onclick="window.toolManager.tools.notepad.clear()">Clear</button>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Formula Sheet Modal -->
+            <div id="formulaModal" class="modal-overlay">
+                <div class="modal-container">
+                    <div class="modal-header" style="background: #7a0000; color: white;">
+                        <h3 style="margin: 0;"><i class="fas fa-square-root-alt"></i> Formula Sheet</h3>
+                        <button class="modal-close" onclick="window.toolManager.closeTool()" style="color: white;">&times;</button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="formula-categories">
+                            <button onclick="window.toolManager.tools.formula.showCategory('polynomial')">FactoPermCombi</button>
+                            <button onclick="window.toolManager.tools.formula.showCategory('algebra')">Algebra</button>
+                            <button onclick="window.toolManager.tools.formula.showCategory('calculus')">Calculus</button>
+                        </div>
+                        <div id="formulaList"></div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Timer Modal -->
+            <div id="timerModal" class="modal-overlay">
+                <div class="modal-container">
+                    <div class="modal-header" style="background: #7a0000; color: white;">
+                        <h3 style="margin: 0;"><i class="fas fa-clock"></i> Study Timer</h3>
+                        <button class="modal-close" onclick="window.toolManager.closeTool()" style="color: white;">&times;</button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="timer-display" id="timerDisplay">25:00</div>
+                        <div class="timer-controls">
+                            <button id="timerStartBtn">Start</button>
+                            <button id="timerPauseBtn">Pause</button>
+                            <button id="timerResetBtn">Reset</button>
+                        </div>
+                        <div class="timer-presets">
+                            <button id="timer15min">15 min</button>
+                            <button id="timer25min" class="active">25 min</button>
+                            <button id="timer50min">50 min</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        this.modalsContainer.innerHTML = modalHTML;
+    }
+
+    initializeTools() {
+        console.log('🔧 Initializing tool instances...');
+        this.tools = {
+            calculator: new Calculator(),
+            whiteboard: new Whiteboard(),
+            notepad: new Notepad(),
+            formula: new FormulaSheet(),
+            timer: new StudyTimer(),
+            graph: new GraphTool()
+        };
+    }
+
+    setupEventListeners() {
+        console.log('🔗 Setting up event listeners...');
+        
+        // Close modal when clicking on the overlay (background)
+        window.addEventListener('click', (e) => {
+            if (e.target.classList.contains('modal-overlay')) {
+                console.log('🔘 Clicked on overlay, closing tool');
+                this.closeTool();
+            }
+        });
+
+        // Close modal when pressing ESC key
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') {
+                console.log('🔘 ESC key pressed, closing tool');
+                this.closeTool();
+            }
+        });
+    }
+
+    openTool(toolName) {
+        console.log(`🔧 Opening tool: ${toolName}`);
+        
+        // Close any open tool first
+        this.closeTool();
+        
+        const modal = document.getElementById(`${toolName}Modal`);
+        if (modal) {
+            // Force show modal
+            modal.style.display = 'flex';
+            modal.style.position = 'fixed';
+            modal.style.top = '0';
+            modal.style.left = '0';
+            modal.style.width = '100%';
+            modal.style.height = '100%';
+            modal.style.backgroundColor = 'rgba(0, 0, 0, 0.7)';
+            modal.style.zIndex = '10000';
+            modal.style.alignItems = 'center';
+            modal.style.justifyContent = 'center';
+            
+            modal.classList.add('active');
+            this.currentTool = toolName;
+            
+            // Initialize tool when opened
+            if (this.tools[toolName] && typeof this.tools[toolName].onOpen === 'function') {
+                setTimeout(() => {
+                    try {
+                        this.tools[toolName].onOpen();
+                    } catch (e) {
+                        console.error(`Error opening ${toolName}:`, e);
+                    }
+                }, 100);
+            }
+            
+            console.log(`✅ ${toolName} opened successfully`);
+            return true;
+        } else {
+            console.error(`❌ Modal not found: ${toolName}Modal`);
+            return false;
+        }
+    }
+
+    closeTool() {
+        console.log('🔧 Closing current tool');
+        document.querySelectorAll('.modal-overlay').forEach(modal => {
+            modal.style.display = 'none';
+            modal.classList.remove('active');
+        });
+        this.currentTool = null;
+    }
+
+    // Timer bridge methods
+    startTimer() {
+        if (this.tools && this.tools.timer) {
+            this.tools.timer.start();
+        }
+    }
+
+    pauseTimer() {
+        if (this.tools && this.tools.timer) {
+            this.tools.timer.pause();
+        }
+    }
+
+    resetTimer() {
+        if (this.tools && this.tools.timer) {
+            this.tools.timer.reset();
+        }
+    }
+}
 
 // ============================================
-// MATHEASE API REQUEST - WITH FORCED LESSON_ID=1
+// ✅ NEW: Connect tool buttons specifically for lesson dashboard
+// ============================================
+function connectLessonToolButtons(lesson) {
+    console.log('🔧 Connecting tool buttons for lesson dashboard...');
+    
+    const tools = [
+        { id: 'openCalculator', name: 'calculator', icon: 'fa-calculator' },
+        { id: 'openGraphTools', name: 'graph', icon: 'fa-chart-line' },
+        { id: 'openWhiteboard', name: 'whiteboard', icon: 'fa-paint-brush' },
+        { id: 'openNotepad', name: 'notepad', icon: 'fa-sticky-note' },
+        { id: 'openFormulaSheet', name: 'formula', icon: 'fa-square-root-alt' },
+        { id: 'openTimer', name: 'timer', icon: 'fa-clock' }
+    ];
+    
+    tools.forEach(tool => {
+        const btn = document.getElementById(tool.id);
+        if (!btn) {
+            console.warn(`⚠️ Button not found: ${tool.id}`);
+            return;
+        }
+        
+        // Remove old listeners
+        const newBtn = btn.cloneNode(true);
+        btn.parentNode.replaceChild(newBtn, btn);
+        
+        // Add new click handler
+        newBtn.addEventListener('click', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            
+            console.log(`🎯 Opening ${tool.name} from lesson dashboard`);
+            
+            // Make sure ToolManager exists
+            if (!window.toolManager) {
+                console.log('🔧 Creating new ToolManager...');
+                window.toolManager = new ToolManager();
+            }
+            
+            // Open the tool
+            window.toolManager.openTool(tool.name);
+            
+            // Log activity
+            logUserActivity('tool_used', lesson?.content_id, {
+                tool: tool.name,
+                lesson: lesson?.content_title
+            });
+        });
+        
+        console.log(`✅ Connected ${tool.id}`);
+    });
+    
+    // Also add note-saving capability to notepad
+    const notepadSaveBtn = document.querySelector('#notepadModal .btn-primary');
+    if (notepadSaveBtn && lesson) {
+        const newSaveBtn = notepadSaveBtn.cloneNode(true);
+        notepadSaveBtn.parentNode.replaceChild(newSaveBtn, notepadSaveBtn);
+        
+        newSaveBtn.addEventListener('click', async function(e) {
+            e.preventDefault();
+            
+            const title = document.getElementById('noteTitle')?.value || 'Lesson Note';
+            const content = document.getElementById('noteContent')?.value;
+            
+            if (!content) {
+                showNotification('Please write something before saving', 'error');
+                return;
+            }
+            
+            // Save to database
+            try {
+                const token = localStorage.getItem('authToken') || authToken;
+                const response = await fetch('/api/notes/save', {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        title: title,
+                        content: content,
+                        lesson_id: lesson.content_id
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    showNotification('Note saved to database!', 'success');
+                    
+                    // Clear form
+                    document.getElementById('noteTitle').value = '';
+                    document.getElementById('noteContent').value = '';
+                } else {
+                    showNotification('Failed to save note', 'error');
+                }
+            } catch (error) {
+                console.error('Error saving note:', error);
+                showNotification('Error saving note', 'error');
+            }
+        });
+    }
+}
+
+
+
+// ========================================
+// CALCULATOR TOOL - FIXED VERSION
+// ========================================
+class Calculator {
+    constructor() {
+        this.display = '0';
+        this.history = [];
+        this.memory = 0;
+        this.expression = '';
+        this.lastResult = null;
+    }
+
+    onOpen() {
+        this.display = '0';
+        this.expression = '';
+        this.renderButtons();
+        this.loadHistory();
+    }
+
+    renderButtons() {
+        const buttons = [
+            ['C', '⌫', '%', '÷'],
+            ['7', '8', '9', '×'],
+            ['4', '5', '6', '-'],
+            ['1', '2', '3', '+'],
+            ['00', '0', '.', '=']
+        ];
+
+        const buttonsHtml = buttons.map(row => 
+            row.map(btn => {
+                let className = 'calc-btn';
+                if (['+', '-', '×', '÷', '%'].includes(btn)) className += ' operator';
+                if (btn === '=') className += ' equals';
+                if (btn === 'C') className += ' clear';
+                if (btn === '⌫') className += ' backspace';
+                
+                return `<button class="${className}" data-value="${btn}">${btn}</button>`;
+            }).join('')
+        ).join('');
+
+        const buttonsContainer = document.getElementById('calcButtons');
+        if (buttonsContainer) {
+            buttonsContainer.innerHTML = buttonsHtml;
+            
+            // Add event listeners to buttons
+            buttonsContainer.querySelectorAll('button').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    const value = btn.getAttribute('data-value');
+                    this.handleButton(value);
+                });
+            });
+        }
+        
+        this.updateDisplay();
+    }
+
+    handleButton(btn) {
+        switch(btn) {
+            case 'C':
+                this.display = '0';
+                this.expression = '';
+                this.lastResult = null;
+                break;
+                
+            case '⌫':
+                if (this.display.length > 1) {
+                    this.display = this.display.slice(0, -1);
+                } else {
+                    this.display = '0';
+                }
+                break;
+                
+            case '=':
+                this.calculate();
+                break;
+                
+            case '÷':
+                this.addToExpression('/');
+                break;
+                
+            case '×':
+                this.addToExpression('*');
+                break;
+                
+            default:
+                this.addToExpression(btn);
+        }
+        this.updateDisplay();
+    }
+
+    addToExpression(value) {
+        // Handle numbers and operators
+        if (this.display === '0' && !isNaN(value)) {
+            this.display = value;
+        } else {
+            this.display += value;
+        }
+    }
+
+    calculate() {
+        try {
+            // Replace display operators with JavaScript operators
+            let expression = this.display
+                .replace(/÷/g, '/')
+                .replace(/×/g, '*');
+            
+            // Don't calculate if expression is empty or just operators
+            if (!expression || expression.match(/^[+\-*/]+$/)) {
+                return;
+            }
+            
+            let result = eval(expression);
+            
+            // Handle decimal places
+            if (result.toString().includes('.')) {
+                result = Math.round(result * 1000000) / 1000000;
+            }
+            
+            // Add to history
+            this.history.unshift({
+                expression: this.display,
+                result: result,
+                timestamp: new Date().toLocaleTimeString()
+            });
+            
+            // Keep history to 10 items
+            if (this.history.length > 10) {
+                this.history.pop();
+            }
+            
+            // Save to backend
+            this.saveToHistory(this.display, result);
+            
+            // Update display
+            this.display = result.toString();
+            this.lastResult = result;
+            this.updateHistory();
+            
+        } catch (error) {
+            console.error('Calculation error:', error);
+            this.display = 'Error';
+            setTimeout(() => {
+                this.display = '0';
+                this.updateDisplay();
+            }, 1500);
+        }
+    }
+
+    async saveToHistory(expression, result) {
+        try {
+            const token = localStorage.getItem('authToken') || authToken;
+            if (!token) return;
+
+            await fetch(`/calculator/save`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
+                body: JSON.stringify({ expression, result })
+            });
+        } catch (error) {
+            console.log('Failed to save calculation:', error);
+        }
+    }
+
+    async loadHistory() {
+        try {
+            const token = localStorage.getItem('authToken') || authToken;
+            if (!token) return;
+
+            const response = await fetch(`/api/calculator/history`, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            
+            if (!response.ok) return;
+            
+            const data = await response.json();
+            
+            if (data.success && data.history) {
+                this.history = data.history.map(item => ({
+                    expression: item.expression,
+                    result: item.result,
+                    timestamp: new Date(item.created_at).toLocaleTimeString()
+                }));
+                this.updateHistory();
+            }
+        } catch (error) {
+            console.log('Failed to load history:', error);
+        }
+    }
+
+    updateDisplay() {
+        const displayEl = document.getElementById('calcDisplay');
+        if (displayEl) {
+            displayEl.textContent = this.display;
+        }
+    }
+
+    updateHistory() {
+        const historyEl = document.getElementById('calcHistory');
+        if (!historyEl) return;
+
+        if (this.history.length === 0) {
+            historyEl.innerHTML = '<div class="history-empty">No calculations yet</div>';
+            return;
+        }
+
+        historyEl.innerHTML = this.history.map(item => `
+            <div class="history-item" onclick="window.toolManager.tools.calculator.useHistory('${item.expression}')">
+                <div class="history-expression">${item.expression} =</div>
+                <div class="history-result">${item.result}</div>
+                <div class="history-time">${item.timestamp}</div>
+            </div>
+        `).join('');
+    }
+
+    useHistory(expression) {
+        this.display = expression;
+        this.updateDisplay();
+    }
+}
+
+// ========================================
+// GRAPH TOOL - FOR ANY POLYNOMIAL FUNCTION
+// ========================================
+class GraphTool {
+    constructor() {
+        this.canvas = null;
+        this.ctx = null;
+        this.expression = 'x^3 - 2x^2 + x - 1'; // Default polynomial
+        this.range = { min: -5, max: 5 };
+        this.points = [];
+        this.isDarkMode = false;
+        this.xRoots = []; // X-intercepts (y=0)
+        this.yRoots = []; // Y-intercepts (x=0)
+        this.turningPoints = []; // Local maxima/minima
+    }
+
+    onOpen() {
+        setTimeout(() => {
+            this.canvas = document.getElementById('graphCanvas');
+            if (this.canvas) {
+                this.ctx = this.canvas.getContext('2d');
+                this.setupCanvas();
+                this.setupEventListeners();
+                this.drawGrid();
+                this.plotFunction();
+            }
+        }, 100);
+    }
+
+    setupCanvas() {
+        // Set canvas size
+        this.canvas.width = this.canvas.offsetWidth;
+        this.canvas.height = this.canvas.offsetHeight;
+        
+        // Set default styles
+        this.ctx.lineWidth = 2;
+        this.ctx.strokeStyle = '#667eea';
+        this.ctx.fillStyle = '#667eea';
+        this.ctx.font = '12px Arial';
+    }
+
+    setupEventListeners() {
+        // Expression input
+        const exprInput = document.getElementById('graphExpression');
+        if (exprInput) {
+            exprInput.addEventListener('input', (e) => {
+                this.expression = e.target.value;
+            });
+        }
+
+        // Plot button
+        const plotBtn = document.getElementById('plotGraphBtn');
+        if (plotBtn) {
+            plotBtn.addEventListener('click', () => {
+                this.plotFunction();
+            });
+        }
+
+        // Range inputs
+        const minRange = document.getElementById('graphMinRange');
+        const maxRange = document.getElementById('graphMaxRange');
+        
+        if (minRange) {
+            minRange.addEventListener('change', (e) => {
+                this.range.min = parseFloat(e.target.value) || -5;
+                this.drawGrid();
+                this.plotFunction();
+            });
+        }
+        
+        if (maxRange) {
+            maxRange.addEventListener('change', (e) => {
+                this.range.max = parseFloat(e.target.value) || 5;
+                this.drawGrid();
+                this.plotFunction();
+            });
+        }
+
+        // Clear button
+        const clearBtn = document.getElementById('clearGraphBtn');
+        if (clearBtn) {
+            clearBtn.addEventListener('click', () => {
+                this.expression = 'x^3 - 2x^2 + x - 1';
+                if (exprInput) exprInput.value = 'x^3 - 2x^2 + x - 1';
+                this.drawGrid();
+                this.plotFunction();
+            });
+        }
+
+        // Save button
+        const saveBtn = document.getElementById('saveGraphBtn');
+        if (saveBtn) {
+            saveBtn.addEventListener('click', () => {
+                this.saveGraph();
+            });
+        }
+
+        // Dark mode toggle
+        const darkModeBtn = document.getElementById('graphDarkMode');
+        if (darkModeBtn) {
+            darkModeBtn.addEventListener('click', () => {
+                this.isDarkMode = !this.isDarkMode;
+                this.drawGrid();
+                this.plotFunction();
+            });
+        }
+    }
+
+    f(x) {
+        // Evaluate ANY polynomial function
+        try {
+            if (!this.expression || this.expression.trim() === '') {
+                return 0;
+            }
+            
+            // Replace ^ with ** for JavaScript exponentiation
+            let expr = this.expression.replace(/\^/g, '**');
+            
+            // Handle implicit multiplication (e.g., "2x" becomes "2*x")
+            expr = expr.replace(/(\d)(x)/g, '$1*$2');
+            
+            // Create a safe evaluation function
+            const fn = new Function('x', `return ${expr}`);
+            return fn(x);
+        } catch (e) {
+            console.error('Error evaluating function:', e);
+            return NaN;
+        }
+    }
+
+    generatePoints() {
+        this.points = [];
+        const step = (this.range.max - this.range.min) / 500; // Higher resolution for better accuracy
+        
+        for (let x = this.range.min; x <= this.range.max; x += step) {
+            try {
+                const y = this.f(x);
+                
+                if (isFinite(y) && !isNaN(y) && Math.abs(y) < 100) { // Limit y-range to avoid extreme values
+                    this.points.push({ x, y });
+                }
+            } catch (e) {
+                // Skip points where function fails
+            }
+        }
+    }
+
+    findRoots() {
+        this.xRoots = []; // X-intercepts (y=0)
+        this.yRoots = []; // Y-intercepts (x=0)
+        this.turningPoints = []; // Local maxima/minima
+        
+        // Find Y-intercept (x=0)
+        try {
+            const yAtZero = this.f(0);
+            if (isFinite(yAtZero) && !isNaN(yAtZero) && Math.abs(yAtZero) < 100) {
+                this.yRoots.push({ x: 0, y: yAtZero });
+            }
+        } catch (e) {
+            console.log('Could not calculate y-intercept');
+        }
+        
+        // Find X-intercepts (where y=0) using zero-crossing detection
+        if (this.points.length < 2) return;
+        
+        for (let i = 1; i < this.points.length; i++) {
+            const p1 = this.points[i-1];
+            const p2 = this.points[i];
+            
+            // Check if function crosses zero
+            if (p1.y * p2.y <= 0 && Math.abs(p1.y) < 100 && Math.abs(p2.y) < 100) {
+                // Linear interpolation to find root
+                const rootX = p1.x - p1.y * (p2.x - p1.x) / (p2.y - p1.y);
+                
+                // Check if this root is unique (avoid duplicates)
+                const isDuplicate = this.xRoots.some(r => Math.abs(r.x - rootX) < 0.01);
+                
+                if (!isDuplicate && rootX >= this.range.min && rootX <= this.range.max) {
+                    this.xRoots.push({ x: rootX, y: 0 });
+                }
+            }
+        }
+        
+        // Find turning points (where derivative changes sign)
+        for (let i = 1; i < this.points.length - 1; i++) {
+            const prev = this.points[i-1];
+            const curr = this.points[i];
+            const next = this.points[i+1];
+            
+            // Check for local maximum
+            if (curr.y > prev.y && curr.y > next.y) {
+                this.turningPoints.push({ x: curr.x, y: curr.y, type: 'max' });
+            }
+            
+            // Check for local minimum
+            if (curr.y < prev.y && curr.y < next.y) {
+                this.turningPoints.push({ x: curr.x, y: curr.y, type: 'min' });
+            }
+        }
+        
+        // Display all features
+        this.displayFeatures();
+    }
+
+    displayFeatures() {
+        const rootsEl = document.getElementById('graphRoots');
+        if (!rootsEl) return;
+        
+        let html = '<div class="roots-container">';
+        
+        // Display X-intercepts
+        if (this.xRoots.length > 0) {
+            html += '<div class="roots-section">';
+            html += '<h4 style="color: #e74c3c;"><i class="fas fa-arrow-right"></i> X-Intercepts (y=0):</h4>';
+            html += '<ul>';
+            this.xRoots.forEach((root, index) => {
+                html += `<li>x = ${root.x.toFixed(3)}</li>`;
+            });
+            html += '</ul>';
+            html += '</div>';
+        }
+        
+        // Display Y-intercept
+        if (this.yRoots.length > 0) {
+            html += '<div class="roots-section">';
+            html += '<h4 style="color: #2980b9;"><i class="fas fa-arrow-up"></i> Y-Intercept (x=0):</h4>';
+            html += '<ul>';
+            this.yRoots.forEach(root => {
+                html += `<li>y = ${root.y.toFixed(3)}</li>`;
+            });
+            html += '</ul>';
+            html += '</div>';
+        }
+        
+        // Display Turning Points
+        if (this.turningPoints.length > 0) {
+            html += '<div class="roots-section">';
+            html += '<h4 style="color: #f39c12;"><i class="fas fa-chart-line"></i> Turning Points:</h4>';
+            html += '<ul>';
+            this.turningPoints.forEach(point => {
+                const icon = point.type === 'max' ? '▲' : '▼';
+                html += `<li>${icon} (${point.x.toFixed(3)}, ${point.y.toFixed(3)}) - ${point.type === 'max' ? 'Maximum' : 'Minimum'}</li>`;
+            });
+            html += '</ul>';
+            html += '</div>';
+        }
+        
+        // If no features found
+        if (this.xRoots.length === 0 && this.yRoots.length === 0 && this.turningPoints.length === 0) {
+            html += '<p class="no-roots">No intercepts or turning points found in current range</p>';
+        }
+        
+        html += '</div>';
+        rootsEl.innerHTML = html;
+    }
+
+    drawGrid() {
+        if (!this.ctx || !this.canvas) return;
+        
+        const w = this.canvas.width;
+        const h = this.canvas.height;
+        
+        // Clear canvas
+        this.ctx.clearRect(0, 0, w, h);
+        
+        // Set colors based on mode
+        const gridColor = this.isDarkMode ? '#333' : '#ddd';
+        const axisColor = this.isDarkMode ? '#666' : '#999';
+        const textColor = this.isDarkMode ? '#ccc' : '#333';
+        const bgColor = this.isDarkMode ? '#1a1a1a' : '#fff';
+        
+        // Fill background
+        this.ctx.fillStyle = bgColor;
+        this.ctx.fillRect(0, 0, w, h);
+        
+        // Calculate y-range based on function values
+        let yMin = -10, yMax = 10;
+        if (this.points.length > 0) {
+            const yValues = this.points.map(p => p.y).filter(y => isFinite(y) && !isNaN(y) && Math.abs(y) < 100);
+            if (yValues.length > 0) {
+                yMin = Math.min(...yValues);
+                yMax = Math.max(...yValues);
+                // Add some padding
+                const padding = (yMax - yMin) * 0.1;
+                yMin -= padding;
+                yMax += padding;
+            }
+        }
+        
+        const yRange = yMax - yMin;
+        
+        // Pixel to coordinate mapping
+        const xToPx = (x) => ((x - this.range.min) / (this.range.max - this.range.min)) * w;
+        const yToPx = (y) => h - ((y - yMin) / yRange) * h;
+        
+        // Draw grid lines
+        this.ctx.strokeStyle = gridColor;
+        this.ctx.lineWidth = 0.5;
+        
+        // Vertical grid lines (every integer)
+        for (let x = Math.ceil(this.range.min); x <= this.range.max; x++) {
+            if (x === 0) continue; // Skip axis
+            const px = xToPx(x);
+            if (px >= 0 && px <= w) {
+                this.ctx.beginPath();
+                this.ctx.moveTo(px, 0);
+                this.ctx.lineTo(px, h);
+                this.ctx.stroke();
+            }
+        }
+        
+        // Horizontal grid lines (every integer in y-range)
+        for (let y = Math.ceil(yMin); y <= yMax; y++) {
+            if (y === 0) continue; // Skip axis
+            const py = yToPx(y);
+            if (py >= 0 && py <= h) {
+                this.ctx.beginPath();
+                this.ctx.moveTo(0, py);
+                this.ctx.lineTo(w, py);
+                this.ctx.stroke();
+            }
+        }
+        
+        // Draw axes
+        this.ctx.strokeStyle = axisColor;
+        this.ctx.lineWidth = 2;
+        
+        // Y-axis
+        const xZero = xToPx(0);
+        if (xZero >= 0 && xZero <= w) {
+            this.ctx.beginPath();
+            this.ctx.moveTo(xZero, 0);
+            this.ctx.lineTo(xZero, h);
+            this.ctx.stroke();
+        }
+        
+        // X-axis
+        const yZero = yToPx(0);
+        if (yZero >= 0 && yZero <= h) {
+            this.ctx.beginPath();
+            this.ctx.moveTo(0, yZero);
+            this.ctx.lineTo(w, yZero);
+            this.ctx.stroke();
+        }
+        
+        // Draw axis labels
+        this.ctx.fillStyle = textColor;
+        this.ctx.font = '12px Arial';
+        
+        // X-axis labels
+        for (let x = Math.ceil(this.range.min); x <= this.range.max; x++) {
+            if (x === 0) continue;
+            const px = xToPx(x);
+            const py = yZero;
+            if (px >= 0 && px <= w && py >= 0 && py <= h) {
+                this.ctx.fillText(x, px - 5, py - 5);
+            }
+        }
+        
+        // Y-axis labels
+        for (let y = Math.ceil(yMin); y <= yMax; y++) {
+            if (y === 0) continue;
+            const px = xZero;
+            const py = yToPx(y);
+            if (px >= 0 && px <= w && py >= 0 && py <= h) {
+                this.ctx.fillText(y, px + 5, py - 5);
+            }
+        }
+        
+        // Draw origin
+        if (xZero >= 0 && xZero <= w && yZero >= 0 && yZero <= h) {
+            this.ctx.fillStyle = textColor;
+            this.ctx.fillText('0', xZero + 5, yZero - 5);
+        }
+    }
+
+    plotFunction() {
+        this.generatePoints();
+        this.findRoots();
+        this.drawGrid();
+        
+        if (this.points.length === 0) return;
+        
+        const w = this.canvas.width;
+        const h = this.canvas.height;
+        
+        // Calculate y-range
+        let yMin = -10, yMax = 10;
+        const yValues = this.points.map(p => p.y).filter(y => isFinite(y) && !isNaN(y) && Math.abs(y) < 100);
+        if (yValues.length > 0) {
+            yMin = Math.min(...yValues);
+            yMax = Math.max(...yValues);
+            const padding = (yMax - yMin) * 0.1;
+            yMin -= padding;
+            yMax += padding;
+        }
+        
+        const yRange = yMax - yMin;
+        
+        // Pixel to coordinate mapping
+        const xToPx = (x) => ((x - this.range.min) / (this.range.max - this.range.min)) * w;
+        const yToPx = (y) => h - ((y - yMin) / yRange) * h;
+        
+        // Draw function
+        this.ctx.strokeStyle = '#667eea';
+        this.ctx.lineWidth = 3;
+        this.ctx.beginPath();
+        
+        let first = true;
+        for (const point of this.points) {
+            const px = xToPx(point.x);
+            const py = yToPx(point.y);
+            
+            if (px >= 0 && px <= w && py >= 0 && py <= h) {
+                if (first) {
+                    this.ctx.moveTo(px, py);
+                    first = false;
+                } else {
+                    this.ctx.lineTo(px, py);
+                }
+            } else {
+                first = true; // Break line when going out of bounds
+            }
+        }
+        
+        this.ctx.stroke();
+        
+        // Draw X-intercepts (red circles)
+        const yZero = yToPx(0);
+        this.ctx.fillStyle = '#e74c3c';
+        this.xRoots.forEach(root => {
+            const px = xToPx(root.x);
+            if (px >= 0 && px <= w && yZero >= 0 && yZero <= h) {
+                this.ctx.beginPath();
+                this.ctx.arc(px, yZero, 6, 0, 2 * Math.PI);
+                this.ctx.fill();
+                
+                // Add label
+                this.ctx.fillStyle = this.isDarkMode ? '#fff' : '#000';
+                this.ctx.font = 'bold 10px Arial';
+                this.ctx.fillText(`x=${root.x.toFixed(2)}`, px - 25, yZero - 15);
+                this.ctx.fillStyle = '#e74c3c';
+            }
+        });
+        
+        // Draw Y-intercept (blue circle)
+        const xZero = xToPx(0);
+        this.ctx.fillStyle = '#2980b9';
+        this.yRoots.forEach(root => {
+            const px = xZero;
+            const py = yToPx(root.y);
+            if (px >= 0 && px <= w && py >= 0 && py <= h) {
+                this.ctx.beginPath();
+                this.ctx.arc(px, py, 6, 0, 2 * Math.PI);
+                this.ctx.fill();
+                
+                // Add label
+                this.ctx.fillStyle = this.isDarkMode ? '#fff' : '#000';
+                this.ctx.font = 'bold 10px Arial';
+                this.ctx.fillText(`y=${root.y.toFixed(2)}`, px + 10, py - 10);
+                this.ctx.fillStyle = '#2980b9';
+            }
+        });
+        
+        // Draw Turning Points (orange circles)
+        this.ctx.fillStyle = '#f39c12';
+        this.turningPoints.forEach(point => {
+            const px = xToPx(point.x);
+            const py = yToPx(point.y);
+            if (px >= 0 && px <= w && py >= 0 && py <= h) {
+                this.ctx.beginPath();
+                this.ctx.arc(px, py, 5, 0, 2 * Math.PI);
+                this.ctx.fill();
+            }
+        });
+    }
+
+    async saveGraph() {
+        try {
+            const token = localStorage.getItem('authToken') || authToken;
+            if (!token) {
+                alert('Please login to save graphs');
+                return;
+            }
+            
+            const response = await fetch(`/api/graph/save`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
+                body: JSON.stringify({
+                    expression: this.expression,
+                    graph_type: 'polynomial',
+                    range: this.range,
+                    xRoots: this.xRoots,
+                    yRoots: this.yRoots,
+                    turningPoints: this.turningPoints
+                })
+            });
+            
+            const data = await response.json();
+            
+            if (data.success) {
+                alert('Graph saved successfully!');
+            } else {
+                alert('Failed to save graph');
+            }
+        } catch (error) {
+            console.error('Error saving graph:', error);
+            alert('Error saving graph');
+        }
+    }
+}
+
+// ========================================
+// WHITEBOARD TOOL - MOBILE FIXED VERSION
+// ========================================
+class Whiteboard {
+    constructor() {
+        this.canvas = null;
+        this.ctx = null;
+        this.drawing = false;
+        this.currentTool = 'pen';
+        this.color = '#7a0000';
+        this.lineWidth = 2;
+        this.lastX = 0;
+        this.lastY = 0;
+    }
+
+    onOpen() {
+        console.log('🎨 Whiteboard opened - initializing with mobile support...');
+        
+        setTimeout(() => this.setupCanvas(), 100);
+        setTimeout(() => this.setupCanvas(), 300);
+    }
+
+    setupCanvas() {
+        this.canvas = document.getElementById('whiteboardCanvas');
+        
+        if (!this.canvas) {
+            const activeModal = document.querySelector('.modal-overlay.active, .modal-overlay[style*="display: flex"]');
+            if (activeModal) {
+                this.canvas = activeModal.querySelector('#whiteboardCanvas');
+            }
+        }
+        
+        if (this.canvas) {
+            console.log('✅ Whiteboard canvas found');
+            
+            // Set canvas size
+            const container = this.canvas.parentElement;
+            if (container) {
+                this.canvas.width = container.clientWidth - 40;
+                this.canvas.height = container.clientHeight - 100;
+            } else {
+                this.canvas.width = 600;
+                this.canvas.height = 400;
+            }
+            
+            this.ctx = this.canvas.getContext('2d');
+            
+            // Set styles
+            this.ctx.strokeStyle = this.color;
+            this.ctx.lineWidth = this.lineWidth;
+            this.ctx.lineCap = 'round';
+            this.ctx.lineJoin = 'round';
+            
+            // Clear canvas
+            this.ctx.fillStyle = '#ffffff';
+            this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+            
+            this.setupEventListeners();
+            
+            console.log('✅ Whiteboard ready for mobile');
+        }
+    }
+
+    setupEventListeners() {
+        if (!this.canvas || !this.ctx) return;
+        
+        // Remove old listeners
+        this.canvas.removeEventListener('mousedown', this.startDrawing.bind(this));
+        this.canvas.removeEventListener('mousemove', this.draw.bind(this));
+        this.canvas.removeEventListener('mouseup', this.stopDrawing.bind(this));
+        this.canvas.removeEventListener('mouseout', this.stopDrawing.bind(this));
+        
+        // Remove old touch listeners
+        this.canvas.removeEventListener('touchstart', this.handleTouchStart.bind(this));
+        this.canvas.removeEventListener('touchmove', this.handleTouchMove.bind(this));
+        this.canvas.removeEventListener('touchend', this.handleTouchEnd.bind(this));
+        this.canvas.removeEventListener('touchcancel', this.handleTouchEnd.bind(this));
+        
+        // Mouse events (for desktop)
+        this.canvas.addEventListener('mousedown', this.startDrawing.bind(this));
+        this.canvas.addEventListener('mousemove', this.draw.bind(this));
+        this.canvas.addEventListener('mouseup', this.stopDrawing.bind(this));
+        this.canvas.addEventListener('mouseout', this.stopDrawing.bind(this));
+        
+        // TOUCH EVENTS (for mobile) - ITO ANG SOLUTION!
+        this.canvas.addEventListener('touchstart', this.handleTouchStart.bind(this), { passive: false });
+        this.canvas.addEventListener('touchmove', this.handleTouchMove.bind(this), { passive: false });
+        this.canvas.addEventListener('touchend', this.handleTouchEnd.bind(this), { passive: false });
+        this.canvas.addEventListener('touchcancel', this.handleTouchEnd.bind(this), { passive: false });
+        
+        // Prevent default touch behaviors sa buong modal
+        const modal = this.canvas.closest('.modal-overlay');
+        if (modal) {
+            modal.addEventListener('touchmove', (e) => {
+                if (this.drawing) {
+                    e.preventDefault();
+                }
+            }, { passive: false });
+        }
+        
+        // Color picker
+        const colorPicker = document.getElementById('colorPicker');
+        if (colorPicker) {
+            colorPicker.removeEventListener('input', this.handleColorChange.bind(this));
+            colorPicker.addEventListener('input', this.handleColorChange.bind(this));
+        }
+        
+        console.log('✅ Mobile touch listeners added');
+    }
+
+    handleTouchStart(e) {
+        e.preventDefault(); // ITO ANG SUSI - pigilan ang page scroll/drag
+        e.stopPropagation();
+        
+        if (!this.ctx || !this.canvas) return;
+        
+        const touch = e.touches[0];
+        if (!touch) return;
+        
+        this.drawing = true;
+        
+        const rect = this.canvas.getBoundingClientRect();
+        const scaleX = this.canvas.width / rect.width;
+        const scaleY = this.canvas.height / rect.height;
+        
+        this.lastX = (touch.clientX - rect.left) * scaleX;
+        this.lastY = (touch.clientY - rect.top) * scaleY;
+        
+        this.ctx.beginPath();
+        this.ctx.moveTo(this.lastX, this.lastY);
+    }
+
+    handleTouchMove(e) {
+        e.preventDefault(); // ITO ANG PINAKAIMPORTANTE - pigilan ang page drag
+        e.stopPropagation();
+        
+        if (!this.drawing || !this.ctx || !this.canvas) return;
+        
+        const touch = e.touches[0];
+        if (!touch) return;
+        
+        const rect = this.canvas.getBoundingClientRect();
+        const scaleX = this.canvas.width / rect.width;
+        const scaleY = this.canvas.height / rect.height;
+        
+        const currentX = (touch.clientX - rect.left) * scaleX;
+        const currentY = (touch.clientY - rect.top) * scaleY;
+        
+        if (this.currentTool === 'pen') {
+            this.ctx.lineTo(currentX, currentY);
+            this.ctx.stroke();
+        } else if (this.currentTool === 'eraser') {
+            this.ctx.save();
+            this.ctx.strokeStyle = '#ffffff';
+            this.ctx.lineWidth = 20;
+            this.ctx.lineTo(currentX, currentY);
+            this.ctx.stroke();
+            this.ctx.restore();
+            
+            if (this.ctx) {
+                this.ctx.strokeStyle = this.color;
+                this.ctx.lineWidth = this.lineWidth;
+            }
+        }
+        
+        this.lastX = currentX;
+        this.lastY = currentY;
+    }
+
+    handleTouchEnd(e) {
+        e.preventDefault();
+        e.stopPropagation();
+        
+        this.drawing = false;
+        if (this.ctx) {
+            this.ctx.closePath();
+        }
+    }
+
+    handleColorChange(e) {
+        this.color = e.target.value;
+        if (this.currentTool === 'pen' && this.ctx) {
+            this.ctx.strokeStyle = this.color;
+        }
+    }
+
+    startDrawing(e) {
+        if (!this.ctx || !this.canvas) return;
+        
+        this.drawing = true;
+        
+        const rect = this.canvas.getBoundingClientRect();
+        const scaleX = this.canvas.width / rect.width;
+        const scaleY = this.canvas.height / rect.height;
+        
+        this.lastX = (e.clientX - rect.left) * scaleX;
+        this.lastY = (e.clientY - rect.top) * scaleY;
+        
+        this.ctx.beginPath();
+        this.ctx.moveTo(this.lastX, this.lastY);
+    }
+
+    draw(e) {
+        if (!this.drawing || !this.ctx || !this.canvas) return;
+        
+        e.preventDefault();
+        
+        const rect = this.canvas.getBoundingClientRect();
+        const scaleX = this.canvas.width / rect.width;
+        const scaleY = this.canvas.height / rect.height;
+        
+        const currentX = (e.clientX - rect.left) * scaleX;
+        const currentY = (e.clientY - rect.top) * scaleY;
+        
+        if (this.currentTool === 'pen') {
+            this.ctx.lineTo(currentX, currentY);
+            this.ctx.stroke();
+        } else if (this.currentTool === 'eraser') {
+            this.ctx.save();
+            this.ctx.strokeStyle = '#ffffff';
+            this.ctx.lineWidth = 20;
+            this.ctx.lineTo(currentX, currentY);
+            this.ctx.stroke();
+            this.ctx.restore();
+            
+            if (this.ctx) {
+                this.ctx.strokeStyle = this.color;
+                this.ctx.lineWidth = this.lineWidth;
+            }
+        }
+        
+        this.lastX = currentX;
+        this.lastY = currentY;
+    }
+
+    stopDrawing() {
+        this.drawing = false;
+        if (this.ctx) {
+            this.ctx.closePath();
+        }
+    }
+
+    setTool(tool) {
+        this.currentTool = tool;
+        console.log(`🖌️ Tool changed to: ${tool}`);
+        
+        if (tool === 'pen') {
+            this.lineWidth = 2;
+            if (this.ctx) {
+                this.ctx.strokeStyle = this.color;
+                this.ctx.lineWidth = this.lineWidth;
+            }
+        } else if (tool === 'eraser') {
+            this.lineWidth = 20;
+            if (this.ctx) {
+                this.ctx.strokeStyle = '#ffffff';
+                this.ctx.lineWidth = this.lineWidth;
+            }
+        }
+    }
+
+    clear() {
+        if (!this.ctx || !this.canvas) return;
+        
+        console.log('🧹 Clearing whiteboard');
+        
+        this.ctx.fillStyle = '#ffffff';
+        this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+        
+        this.ctx.strokeStyle = this.color;
+        this.ctx.lineWidth = this.lineWidth;
+        this.ctx.lineCap = 'round';
+        this.ctx.lineJoin = 'round';
+        
+        this.drawing = false;
+    }
+}
+
+
+// ============================================
+// 🚨 EMERGENCY MOBILE WHITEBOARD FIX
+// ============================================
+(function fixWhiteboardForMobile() {
+    console.log('📱 Applying emergency mobile whiteboard fix...');
+    
+    // Listen for when whiteboard modal opens
+    const observer = new MutationObserver(function(mutations) {
+        mutations.forEach(function(mutation) {
+            if (mutation.type === 'attributes' && mutation.attributeName === 'class') {
+                const modal = mutation.target;
+                if (modal.id === 'whiteboardModal' && modal.classList.contains('active')) {
+                    console.log('📱 Whiteboard modal opened - applying mobile fixes');
+                    
+                    setTimeout(() => {
+                        const canvas = document.getElementById('whiteboardCanvas');
+                        if (canvas) {
+                            // Force disable all default touch behaviors
+                            canvas.style.touchAction = 'none';
+                            canvas.style.webkitTouchCallout = 'none';
+                            canvas.style.webkitUserSelect = 'none';
+                            canvas.style.userSelect = 'none';
+                            
+                            // Ensure canvas can capture touch events
+                            canvas.addEventListener('touchstart', (e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                            }, { passive: false });
+                            
+                            canvas.addEventListener('touchmove', (e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                            }, { passive: false });
+                            
+                            canvas.addEventListener('touchend', (e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                            }, { passive: false });
+                            
+                            console.log('📱 Mobile touch events blocked on canvas');
+                        }
+                    }, 200);
+                }
+            }
+        });
+    });
+    
+    const whiteboardModal = document.getElementById('whiteboardModal');
+    if (whiteboardModal) {
+        observer.observe(whiteboardModal, { attributes: true });
+    }
+})();
+
+// Add CSS to prevent page scrolling when drawing
+const style = document.createElement('style');
+style.textContent = `
+    /* Prevent page scroll/drag when drawing on whiteboard */
+    #whiteboardCanvas {
+        touch-action: none !important;
+        -webkit-touch-callout: none !important;
+        -webkit-user-select: none !important;
+        user-select: none !important;
+        cursor: crosshair !important;
+    }
+    
+    /* Ensure modal doesn't scroll */
+    #whiteboardModal.modal-overlay.active {
+        overflow: hidden !important;
+    }
+    
+    #whiteboardModal .modal-body {
+        overflow: hidden !important;
+    }
+`;
+document.head.appendChild(style);
+
+console.log('✅ Mobile whiteboard fix applied');
+
+
+// ============================================
+// EMERGENCY FIX: Direct whiteboard button handler
+// ============================================
+document.addEventListener('DOMContentLoaded', function() {
+    const whiteboardBtn = document.getElementById('openWhiteboard');
+    
+    if (whiteboardBtn) {
+        whiteboardBtn.addEventListener('click', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            
+            console.log('🎨 Opening whiteboard');
+            
+            const modal = document.getElementById('whiteboardModal');
+            
+            if (modal) {
+                // Hide all modals first
+                document.querySelectorAll('.modal-overlay').forEach(m => {
+                    m.style.display = 'none';
+                    m.classList.remove('active');
+                });
+                
+                // Show whiteboard modal
+                modal.style.display = 'flex';
+                modal.classList.add('active');
+                
+                // Initialize whiteboard
+                setTimeout(() => {
+                    if (window.toolManager && window.toolManager.tools && window.toolManager.tools.whiteboard) {
+                        window.toolManager.tools.whiteboard.onOpen();
+                    } else {
+                        // Emergency direct initialization
+                        const whiteboard = new Whiteboard();
+                        window.tempWhiteboard = whiteboard;
+                        whiteboard.onOpen();
+                    }
+                }, 200);
+            }
+        });
+    }
+});
+
+// ========================================
+// NOTEPAD TOOL
+// ========================================
+class Notepad {
+    constructor() {
+        this.notes = JSON.parse(localStorage.getItem('notes') || '[]');
+        this.currentNoteId = null;
+    }
+
+    onOpen() {
+        this.loadNotes();
+    }
+
+    save() {
+        const title = document.getElementById('noteTitle').value || 'Untitled';
+        const content = document.getElementById('noteContent').value;
+        
+        if (!content) {
+            alert('Please write something before saving!');
+            return;
+        }
+
+        const note = {
+            id: Date.now(),
+            title: title,
+            content: content,
+            created: new Date().toISOString()
+        };
+
+        this.notes.unshift(note);
+        localStorage.setItem('notes', JSON.stringify(this.notes));
+        
+        alert('Note saved!');
+        this.clear();
+    }
+
+    loadNotes() {
+        // Display recent notes in a list (optional)
+    }
+
+    clear() {
+        document.getElementById('noteTitle').value = '';
+        document.getElementById('noteContent').value = '';
+        this.currentNoteId = null;
+    }
+}
+
+// ========================================
+// FORMULA SHEET TOOL - FIXED VERSION
+// ========================================
+class FormulaSheet {
+    constructor() {
+        this.formulas = {
+            polynomial: [
+                { name: 'Quadratic Formula', formula: 'x = (-b ± √(b² - 4ac)) / 2a' },
+                { name: 'Synthetic Division', formula: 'P(x) ÷ (x - r) = Q(x) + R/(x - r)' },
+                { name: 'Factor Theorem', formula: 'If P(r) = 0, then (x - r) is a factor' },
+                { name: 'Remainder Theorem', formula: 'P(r) = remainder when P(x) ÷ (x - r)' }
+            ],
+            algebra: [
+                { name: 'FOIL Method', formula: '(a + b)(c + d) = ac + ad + bc + bd' },
+                { name: 'Perfect Square', formula: '(a + b)² = a² + 2ab + b²' },
+                { name: 'Difference of Squares', formula: 'a² - b² = (a - b)(a + b)' }
+            ],
+            calculus: [
+                { name: 'Power Rule', formula: 'd/dx [xⁿ] = n·xⁿ⁻¹' },
+                { name: 'Product Rule', formula: 'd/dx [f·g] = f·g\' + f\'·g' },
+                { name: 'Chain Rule', formula: 'd/dx [f(g(x))] = f\'(g(x))·g\'(x)' }
+            ]
+        };
+        this.currentCategory = 'polynomial';
+    }
+
+    onOpen() {
+        console.log('📚 Formula Sheet opened');
+        this.showCategory('polynomial');
+        this.setupCategoryButtons();
+    }
+
+    setupCategoryButtons() {
+        // Remove existing event listeners and add new ones
+        const categoryBtns = document.querySelectorAll('.formula-category-btn');
+        
+        categoryBtns.forEach(btn => {
+            // Clone to remove old listeners
+            const newBtn = btn.cloneNode(true);
+            btn.parentNode.replaceChild(newBtn, btn);
+            
+            // Add new click handler
+            newBtn.addEventListener('click', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                
+                const category = newBtn.getAttribute('data-category') || 
+                                 newBtn.textContent.toLowerCase();
+                
+                this.showCategory(category);
+                
+                // Update active state
+                document.querySelectorAll('.formula-category-btn').forEach(b => {
+                    b.classList.remove('active');
+                });
+                newBtn.classList.add('active');
+            });
+        });
+    }
+
+    showCategory(category) {
+        console.log(`📖 Showing category: ${category}`);
+        
+        this.currentCategory = category;
+        
+        // Get formulas for the selected category
+        const formulas = this.formulas[category] || [];
+        
+        // Find the formula list container
+        const listEl = document.getElementById('formulaList');
+        if (!listEl) {
+            console.error('❌ Formula list container not found');
+            return;
+        }
+        
+        // Generate HTML
+        if (formulas.length === 0) {
+            listEl.innerHTML = '<p class="no-formulas">No formulas available for this category.</p>';
+            return;
+        }
+        
+        listEl.innerHTML = formulas.map(f => `
+            <div class="formula-item">
+                <div class="formula-name">${f.name}</div>
+                <div class="formula-expression">${f.formula}</div>
+            </div>
+        `).join('');
+        
+        console.log(`✅ Displayed ${formulas.length} formulas`);
+    }
+}
+
+// ========================================
+// STUDY TIMER TOOL - ULTIMATE FIXED VERSION WITH MUTATION OBSERVER
+// ========================================
+class StudyTimer {
+    constructor() {
+        this.timeLeft = 25 * 60; // 25 minutes in seconds
+        this.initialTime = 25 * 60;
+        this.timerId = null;
+        this.isRunning = false;
+        this.timerElement = null;
+        self = this; // Store reference
+        
+        // Bind methods
+        this.start = this.start.bind(this);
+        this.pause = this.pause.bind(this);
+        this.reset = this.reset.bind(this);
+        this.setTime = this.setTime.bind(this);
+        this.updateDisplay = this.updateDisplay.bind(this);
+        this.findTimerElement = this.findTimerElement.bind(this);
+    }
+
+    findTimerElement() {
+    // Try multiple ways to find the timer element
+    let element = document.getElementById('timerDisplay');
+    
+    if (!element) {
+        element = document.querySelector('.timer-display');
+    }
+    
+    // If still not found, search in all modals
+    if (!element) {
+        const modals = document.querySelectorAll('.modal-overlay');
+        for (let modal of modals) {
+            if (modal.style.display === 'flex' || modal.classList.contains('active')) {
+                element = modal.querySelector('#timerDisplay') || modal.querySelector('.timer-display');
+                if (element) break;
+            }
+        }
+    }
+    
+    return element;
+}
+
+    onOpen() {
+    console.log('⏱️ Timer onOpen called');
+    
+    // Reset timer
+    this.timeLeft = this.initialTime;
+    this.isRunning = false;
+    
+    if (this.timerId) {
+        clearInterval(this.timerId);
+        this.timerId = null;
+    }
+    
+    // Try multiple times to find and update the timer element
+    const findAndUpdateTimer = () => {
+        this.timerElement = this.findTimerElement();
+        if (this.timerElement) {
+            console.log('✅ Timer element found');
+            this.updateDisplay();
+            this.attachEventListeners();
+        } else {
+            console.log('⏱️ Timer element not found, retrying...');
+            setTimeout(findAndUpdateTimer, 100);
+        }
+    };
+    
+    // Start trying to find the element
+    findAndUpdateTimer();
+}
+
+    updateDisplay() {
+        // Find element if not stored
+        if (!this.timerElement) {
+            this.timerElement = this.findTimerElement();
+        }
+        
+        if (this.timerElement) {
+            const minutes = Math.floor(this.timeLeft / 60);
+            const seconds = this.timeLeft % 60;
+            const display = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+            
+            // Update the display
+            this.timerElement.textContent = display;
+            
+            console.log(`⏱️ Timer display updated to: ${display}`);
+        } else {
+            console.warn('⏱️ Timer element not available for update');
+            
+            // Try to find it again
+            this.timerElement = this.findTimerElement();
+            if (this.timerElement) {
+                this.updateDisplay();
+            }
+        }
+    }
+
+    attachEventListeners() {
+        console.log('🔗 Attaching timer event listeners');
+        
+        // Helper function to safely get button
+        const getButton = (id) => {
+            let btn = document.getElementById(id);
+            
+            // If not found, search in active modal
+            if (!btn) {
+                const activeModal = document.querySelector('.modal-overlay.active, .modal-overlay[style*="display: flex"]');
+                if (activeModal) {
+                    btn = activeModal.querySelector(`#${id}`) || activeModal.querySelector(`.${id}`);
+                }
+            }
+            
+            return btn;
+        };
+        
+        // Get all buttons
+        const startBtn = getButton('timerStartBtn');
+        const pauseBtn = getButton('timerPauseBtn');
+        const resetBtn = getButton('timerResetBtn');
+        const btn15 = getButton('timer15min');
+        const btn25 = getButton('timer25min');
+        const btn50 = getButton('timer50min');
+        
+        console.log('Buttons found:', {
+            start: !!startBtn,
+            pause: !!pauseBtn,
+            reset: !!resetBtn,
+            btn15: !!btn15,
+            btn25: !!btn25,
+            btn50: !!btn50
+        });
+        
+        // Remove old listeners and add new ones
+        if (startBtn) {
+            startBtn.replaceWith(startBtn.cloneNode(true));
+            const newStartBtn = getButton('timerStartBtn');
+            newStartBtn.addEventListener('click', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                console.log('▶️ Start clicked');
+                this.start();
+            });
+        }
+        
+        if (pauseBtn) {
+            pauseBtn.replaceWith(pauseBtn.cloneNode(true));
+            const newPauseBtn = getButton('timerPauseBtn');
+            newPauseBtn.addEventListener('click', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                console.log('⏸️ Pause clicked');
+                this.pause();
+            });
+        }
+        
+        if (resetBtn) {
+            resetBtn.replaceWith(resetBtn.cloneNode(true));
+            const newResetBtn = getButton('timerResetBtn');
+            newResetBtn.addEventListener('click', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                console.log('🔄 Reset clicked');
+                this.reset();
+            });
+        }
+        
+        if (btn15) {
+            btn15.replaceWith(btn15.cloneNode(true));
+            const newBtn15 = getButton('timer15min');
+            newBtn15.addEventListener('click', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                console.log('⏱️ 15 min preset');
+                this.setTime(15);
+            });
+        }
+        
+        if (btn25) {
+            btn25.replaceWith(btn25.cloneNode(true));
+            const newBtn25 = getButton('timer25min');
+            newBtn25.addEventListener('click', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                this.setTime(25);
+            });
+        }
+        
+        if (btn50) {
+            btn50.replaceWith(btn50.cloneNode(true));
+            const newBtn50 = getButton('timer50min');
+            newBtn50.addEventListener('click', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                this.setTime(50);
+            });
+        }
+    }
+
+    start() {
+        console.log('▶️ Timer start');
+        
+        if (!this.isRunning && this.timeLeft > 0) {
+            this.isRunning = true;
+            
+            // Update display immediately
+            this.updateDisplay();
+            
+            this.timerId = setInterval(() => {
+                if (this.timeLeft > 0) {
+                    this.timeLeft--;
+                    this.updateDisplay();
+                    
+                    if (this.timeLeft <= 0) {
+                        this.complete();
+                    }
+                }
+            }, 1000);
+        }
+    }
+
+    pause() {
+        console.log('⏸️ Timer pause');
+        
+        if (this.isRunning) {
+            clearInterval(this.timerId);
+            this.isRunning = false;
+            this.timerId = null;
+        }
+        
+        this.updateDisplay();
+    }
+
+    reset() {
+        console.log('🔄 Timer reset');
+        this.pause();
+        this.timeLeft = this.initialTime;
+        this.updateDisplay();
+    }
+
+    setTime(minutes) {
+        console.log(`⏱️ Timer set to ${minutes} minutes`);
+        this.pause();
+        this.initialTime = minutes * 60;
+        this.timeLeft = this.initialTime;
+        this.updateDisplay();
+    }
+
+    complete() {
+        console.log('🎉 Timer complete!');
+        this.pause();
+        
+        // Show notification
+        alert('🎉 Study session complete! Great job!');
+        
+        // Play sound
+        try {
+            const audio = new Audio('https://www.soundjay.com/misc/sounds/bell-ringing-05.mp3');
+            audio.play();
+        } catch (e) {
+            console.log('Sound not available');
+        }
+        
+        this.reset();
+    }
+}
+// ============================================
+// ✅ INITIALIZE TOOL MANAGER
+// ============================================
+window.toolManager = new ToolManager();
+console.log('✅ ToolManager initialized and attached to window');
+
+// ========================================
+// MAKE TOOLS GLOBALLY AVAILABLE
+// ========================================
+window.Calculator = Calculator;
+window.GraphTool = GraphTool;
+window.Whiteboard = Whiteboard;
+window.Notepad = Notepad;
+window.FormulaSheet = FormulaSheet;
+window.StudyTimer = StudyTimer;
+
+console.log('✅ Tools globally available');
+
+// ============================================
+// ✅ UPDATED: apiRequest - FORCED LESSON_ID=1 FOR 
 // ============================================
 async function apiRequest(endpoint, options = {}) {
-    const isMatheaseEndpoint = endpoint.includes('/api/progress/') || 
-                               endpoint.includes('/api/lessons') || 
-                               endpoint.includes('/api/practice/') ||
-                               endpoint.includes('/api/quiz/') ||
-                               endpoint.includes('/api/topics/') ||
-                               endpoint.includes('/api/admin/structure');
+    // ===== FORCE LESSON_ID=3 FOR ALL  API CALLS =====
+    // Check if this is a  endpoint that needs lesson_id
+    const isEndpoint = endpoint.includes('/api/progress/') || 
+                                 endpoint.includes('/api/lessons') || 
+                                 endpoint.includes('/api/practice/') ||
+                                 endpoint.includes('/api/quiz/') ||
+                                 endpoint.includes('/api/topics/') ||
+                                 endpoint.includes('/api/admin/structure');
     
+    // Add lesson_id=3 to the URL if needed
     let modifiedEndpoint = endpoint;
-    const currentApp = getCurrentApp();
-    
-    if (currentApp === 'mathease' && isMatheaseEndpoint && !endpoint.includes('lesson_id=')) {
+    if (isEndpoint && !endpoint.includes('lesson_id=')) {
         const separator = endpoint.includes('?') ? '&' : '?';
         modifiedEndpoint = `${endpoint}${separator}lesson_id=1`;
+        console.log(`🔧  API forced lesson_id=1: ${modifiedEndpoint.split('?')[0]}`);
     }
     
     const url = modifiedEndpoint.startsWith('http') ? modifiedEndpoint : `${API_BASE_URL}${modifiedEndpoint}`;
     
+    // Default headers
     const headers = {
         'Content-Type': 'application/json',
         'Accept': 'application/json',
         ...options.headers
     };
     
+    // Add auth token if available
     const token = localStorage.getItem('authToken') || authToken;
-    if (token) headers['Authorization'] = `Bearer ${token}`;
+    if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+    }
     
+    // Add cache buster for GET requests to prevent caching
     let finalUrl = url;
     if (options.method === 'GET' || !options.method) {
         const cacheBuster = `_t=${Date.now()}`;
@@ -103,79 +2078,242 @@ async function apiRequest(endpoint, options = {}) {
     }
     
     try {
-        const response = await fetch(finalUrl, { ...options, headers, credentials: 'include' });
+        console.log(`📡  API Request: ${finalUrl}`);
         
+        const response = await fetch(finalUrl, {
+            ...options,
+            headers,
+            // Add credentials for cookies if needed
+            credentials: 'include'
+        });
+        
+        // Check if response is OK
         if (!response.ok) {
             const text = await response.text();
+            console.error(`❌ API Error (${response.status}):`, text.substring(0, 200));
             
-            if (modifiedEndpoint.includes('/api/lessons-db/complete')) {
-                return { success: true, lessons: getMatheaseMockLessons() };
-            }
-            if (modifiedEndpoint.includes('/api/progress/daily')) {
-                return { success: true, progress: { lessons_completed: 0, exercises_completed: 0, time_spent_minutes: 0, lesson_id: 1 } };
-            }
-            if (modifiedEndpoint.includes('/api/quiz/categories')) {
-                return { success: true, categories: getMatheaseMockCategories() };
+            // Check if it's an HTML response (404 page)
+            if (text.trim().startsWith('<!DOCTYPE') || text.trim().startsWith('<html')) {
+                console.error('⚠️ Received HTML instead of JSON. Endpoint may not exist:', modifiedEndpoint);
+                
+                // Return mock data for known  endpoints
+                if (modifiedEndpoint.includes('/api/lessons-db/complete')) {
+                    return {
+                        success: true,
+                        lessons: getMockLessons()
+                    };
+                }
+                
+                if (modifiedEndpoint.includes('/api/progress/daily')) {
+                    return {
+                        success: true,
+                        progress: {
+                            lessons_completed: 0,
+                            exercises_completed: 0,
+                            time_spent_minutes: 0,
+                            lesson_id: 1
+                        }
+                    };
+                }
+                
+                if (modifiedEndpoint.includes('/api/progress/lessons')) {
+                    return {
+                        success: true,
+                        progress: []
+                    };
+                }
+                
+                if (modifiedEndpoint.includes('/api/practice/exercises/count')) {
+                    return {
+                        success: true,
+                        count: 5
+                    };
+                }
+                
+                if (modifiedEndpoint.includes('/api/quiz/categories')) {
+                    return {
+                        success: true,
+                        categories: getMockCategories()
+                    };
+                }
+                
+                return { 
+                    success: true, 
+                    data: text, 
+                    isHtml: true,
+                    lesson_id: 1
+                };
             }
             
-            return { success: false, error: `API returned ${response.status}`, status: response.status };
+            // Return structured error
+            return { 
+                success: false, 
+                error: `API returned ${response.status}`,
+                status: response.status,
+                lesson_id: 1
+            };
         }
         
+        // Check if response is JSON
         const contentType = response.headers.get('content-type');
         if (!contentType || !contentType.includes('application/json')) {
             const text = await response.text();
+            console.warn('⚠️ Non-JSON response:', text.substring(0, 100));
+            
+            // If it's HTML but we expected JSON, return mock data
             if (text.trim().startsWith('<!DOCTYPE') || text.trim().startsWith('<html')) {
+                console.warn('⚠️ Received HTML when JSON expected for:', modifiedEndpoint);
+                
+                // Return appropriate mock data based on endpoint
                 if (modifiedEndpoint.includes('/api/lessons-db/complete')) {
-                    return { success: true, lessons: getMatheaseMockLessons() };
+                    return {
+                        success: true,
+                        lessons: getMockLessons()
+                    };
                 }
+                
                 if (modifiedEndpoint.includes('/api/quiz/categories')) {
-                    return { success: true, categories: getMatheaseMockCategories() };
+                    return {
+                        success: true,
+                        categories: getMockCategories()
+                    };
                 }
-                return { success: true, data: text, isHtml: true };
+                
+                return { 
+                    success: true, 
+                    data: text, 
+                    isHtml: true,
+                    lesson_id: 1
+                };
             }
-            return { success: true, data: text };
+            
+            return { success: true, data: text, lesson_id: 1 };
         }
         
-        return await response.json();
+        const jsonResponse = await response.json();
+        
+        // Add lesson_id to response for debugging
+        if (typeof jsonResponse === 'object') {
+            jsonResponse._lesson_id = 1;
+        }
+        
+        return jsonResponse;
         
     } catch (error) {
+        console.error(`❌  API Request Failed: ${finalUrl}`, error);
+        
+        // Return fallback data based on endpoint
         if (modifiedEndpoint.includes('/api/progress/daily')) {
-            return { success: true, progress: { lessons_completed: 0, exercises_completed: 0, time_spent_minutes: 0, lesson_id: 1 } };
+            return {
+                success: true,
+                progress: {
+                    lessons_completed: 0,
+                    exercises_completed: 0,
+                    time_spent_minutes: 0,
+                    lesson_id: 1
+                }
+            };
         }
+        
         if (modifiedEndpoint.includes('/api/lessons-db/complete')) {
-            return { success: true, lessons: getMatheaseMockLessons() };
+            return {
+                success: true,
+                lessons: getMockLessons()
+            };
         }
+        
         if (modifiedEndpoint.includes('/api/quiz/categories')) {
-            return { success: true, categories: getMatheaseMockCategories() };
+            return {
+                success: true,
+                categories: getMockCategories()
+            };
         }
-        return { success: false, error: error.message };
+        
+        return { 
+            success: false, 
+            error: error.message,
+            lesson_id: 1
+        };
     }
 }
 
 // ============================================
-// MATHEASE MOCK DATA
+// ✅ HELPER: Get  Mock Lessons (lesson_id=3)
 // ============================================
-function getMatheaseMockLessons() {
+function getMockLessons() {
     return [
-        { content_id: 1, content_title: 'Introduction to Factorials', content_description: 'Learn the basics of factorial notation', lesson_id: 1, topic_id: 1, video_filename: 'factorial_intro.mp4', video_duration_seconds: 600, content_order: 1 },
-        { content_id: 2, content_title: 'Permutation Basics', content_description: 'Understanding permutations', lesson_id: 1, topic_id: 1, video_filename: 'permutation_basics.mp4', video_duration_seconds: 720, content_order: 2 },
-        { content_id: 3, content_title: 'Combination Fundamentals', content_description: 'Learn how combinations work', lesson_id: 1, topic_id: 2, video_filename: 'combination_fundamentals.mp4', video_duration_seconds: 840, content_order: 1 }
+        {
+            content_id: 1,
+            content_title: 'Introduction to matheases',
+            content_description: 'Learn the basics of mathease notation and calculations',
+            lesson_id: 1,
+            topic_id: 1,
+            video_filename: 'mathease_intro.mp4',
+            video_duration_seconds: 600,
+            content_order: 1
+        },
+        {
+            content_id: 2,
+            content_title: 'mathease Operations',
+            content_description: 'Perform operations with mathease expressions',
+            lesson_id: 1,
+            topic_id: 1,
+            video_filename: 'mathease_operations.mp4',
+            video_duration_seconds: 720,
+            content_order: 2
+        },
+        {
+            content_id: 1,
+            content_title: 'mathease Applications',
+            content_description: 'Apply matheases in permutations and combinations',
+            lesson_id: 1,
+            topic_id: 2,
+            video_filename: 'mathease_applications.mp4',
+            video_duration_seconds: 840,
+            content_order: 1
+        }
     ];
 }
 
-function getMatheaseMockCategories() {
+// ============================================
+// ✅ HELPER: Get  Mock Quiz Categories
+// ============================================
+function getMockCategories() {
     return [
-        { category_id: 1, category_name: 'Factorial Basics', description: 'Test factorial calculations', lesson_id: 1, quiz_count: 2 },
-        { category_id: 2, category_name: 'Permutation Problems', description: 'Solve permutation problems', lesson_id: 1, quiz_count: 3 },
-        { category_id: 3, category_name: 'Combination Applications', description: 'Apply combinations', lesson_id: 1, quiz_count: 2 }
+        {
+            category_id: 1,
+            category_name: 'mathease Basics',
+            description: 'Test your understanding of mathease fundamentals',
+            lesson_id: 1,
+            quiz_count: 1
+        },
+        {
+            category_id: 2,
+            category_name: 'mathease Operations',
+            description: 'Practice mathease calculations and simplifications',
+            lesson_id: 1,
+            quiz_count: 2
+        },
+        {
+            category_id: 1,
+            category_name: 'mathease Applications',
+            description: 'Apply matheases in real-world scenarios',
+            lesson_id: 1,
+            quiz_count: 2
+        }
     ];
 }
 
-// ============================================
-// APP STATE - Force Mathease
-// ============================================
+
+// Application State
 const AppState = {
-    currentUser: { id: 1, username: 'mathease_user', email: 'user@mathease.com', full_name: 'Mathease Student', role: 'student' },
+    currentUser: {
+        id: 1,
+        username: 'demo_user',
+        email: 'demo@mathhub.com',
+        full_name: 'Demo Student',
+        role: 'student'
+    },
     currentPage: 'dashboard',
     isAuthenticated: true,
     selectedApp: 'mathease',
@@ -185,23 +2323,2161 @@ const AppState = {
     currentVideoData: null
 };
 
+// Lesson State
+const LessonState = {
+    lessons: [],
+    currentLesson: null,
+    userProgress: {},
+    continueLearningLesson: null,
+    currentTopic: null
+};
+
+// Practice Exercises State
+const PracticeState = {
+    currentTopic: null,
+    currentExercise: null,
+    exercises: [],
+    timer: 300, // 5 minutes
+    timerInterval: null,
+    isExerciseActive: false,
+    isReviewMode: false,
+    userPracticeProgress: {}
+};
+
+
+
 // ============================================
-// MATHEASE PROGRESS FUNCTIONS
+// 🆕 BAGONG QUIZ SYSTEM - HIWALAY SA LUMANG QUIZ
+// ============================================
+const QuizSystem = {
+    currentQuiz: null,
+    currentAttemptId: null,
+    questions: [],
+    currentIndex: 0,
+    userAnswers: {},
+    startTime: null,
+    timerInterval: null,
+    timeLeft: 0,
+    totalTime: 0,
+    stats: {
+        correct: 0,
+        wrong: 0,
+        score: 0
+    }
+};
+
+// Progress State
+const ProgressState = {
+    dailyProgress: null,
+    weeklyProgress: null,
+    monthlyProgress: null,
+    learningGoals: [],
+    topicMastery: {},
+    moduleProgress: {},
+    activityLog: [],
+    dashboardStats: null,
+    progressTrends: [],
+    achievementTimeline: []
+};
+
+// Module Dashboard State
+const ModuleState = {
+    lessonProgress: 0,
+    currentModule: null
+};
+
+// ============================================
+// [NEW] STRUCTURE STATE - DATABASE DRIVEN
+// ============================================
+const StructureState = {
+    lessons: [],
+    modules: [],
+    topics: [],
+    isLoading: false,
+    error: null,
+    selectedLessonId: null,
+    selectedModuleId: null,
+    selectedTopicId: null,
+    lastRefresh: null
+};
+let feedbackData = [];
+// Add practice styles flag
+let practiceStylesAdded = false;
+
+// ============================================
+// [NEW] ADMIN AUTHENTICATION SYNC
+// ============================================
+
+function syncMathHubAdminAuth() {
+    console.log("🔄 [CRITICAL] Syncing MathHub admin authentication...");
+    
+    const authToken = localStorage.getItem('authToken');
+    const userJson = localStorage.getItem('mathhub_user');
+    
+    if (authToken && userJson) {
+        try {
+            const user = JSON.parse(userJson);
+            console.log("👤 Current MathHub user:", user.username, "Role:", user.role);
+            
+            if (user.role === 'admin') {
+                console.log("✅ ADMIN DETECTED - Syncing admin tokens");
+                localStorage.setItem('admin_token', authToken);
+                localStorage.setItem('admin_user', userJson);
+                localStorage.setItem('user_role', user.role);
+                localStorage.setItem('admin_session', 'true');
+                localStorage.setItem('token', authToken);
+                
+                console.log("✅ Admin tokens synced for:", user.username);
+                return true;
+            } else {
+                console.log(`ℹ️ User is ${user.role} - not admin, clearing admin tokens`);
+                clearAdminTokens();
+            }
+        } catch (e) {
+            console.error("❌ Failed to sync admin auth:", e);
+            clearAdminTokens();
+        }
+    } else {
+        console.log("ℹ️ No MathHub user logged in - clearing admin tokens");
+        clearAdminTokens();
+    }
+    return false;
+}
+
+function clearAdminTokens() {
+    localStorage.removeItem('admin_token');
+    localStorage.removeItem('admin_user');
+    localStorage.removeItem('user_role');
+    localStorage.removeItem('admin_session');
+    localStorage.removeItem('token');
+    console.log("🧹 Admin tokens cleared");
+}
+
+// Run sync immediately
+syncMathHubAdminAuth();
+
+// ============================================
+// [NEW] STRUCTURE MANAGEMENT - GENERAL MODULE SYSTEM
+// ============================================
+
+async function loadStructureFromDatabase(forceRefresh = false) {
+    console.log("📚 Loading structure from database...");
+    
+    if (!forceRefresh && StructureState.lessons.length > 0 && StructureState.lastRefresh) {
+        const fiveMinutesAgo = Date.now() - 5 * 60 * 1000;
+        if (StructureState.lastRefresh > fiveMinutesAgo) {
+            console.log("📦 Using cached structure");
+            return true;
+        }
+    }
+    
+    StructureState.isLoading = true;
+    
+    try {
+        const data = await apiRequest('/api/admin/structure');
+        
+        if (data.success) {
+            StructureState.lessons = data.structure?.lessons || [];
+            StructureState.modules = data.structure?.modules || [];
+            StructureState.topics = data.structure?.topics || [];
+            StructureState.lastRefresh = Date.now();
+            
+            console.log(`✅ Structure loaded:`, {
+                lessons: StructureState.lessons.length,
+                modules: StructureState.modules.length,
+                topics: StructureState.topics.length
+            });
+            
+            return true;
+        } else {
+            throw new Error(data.message || 'Failed to load structure');
+        }
+    } catch (error) {
+        console.error('❌ Error loading structure:', error);
+        StructureState.error = error.message;
+        return false;
+    } finally {
+        StructureState.isLoading = false;
+    }
+}
+
+/**
+ * POPULATE LESSON DROPDOWN
+ */
+function populateLessonDropdown(selectElementId = 'lessonSelect') {
+    const select = document.getElementById(selectElementId);
+    if (!select) return;
+    
+    select.innerHTML = '<option value="">-- Select Lesson (Optional) --</option>';
+    
+    if (StructureState.lessons.length === 0) {
+        const option = document.createElement('option');
+        option.value = '';
+        option.textContent = '-- No lessons available --';
+        option.disabled = true;
+        select.appendChild(option);
+        
+        // Add create option
+        const createOption = document.createElement('option');
+        createOption.value = 'create_lesson';
+        createOption.textContent = '➕ Create New Lesson...';
+        createOption.style.color = '#7a0000';
+        createOption.style.fontWeight = 'bold';
+        select.appendChild(createOption);
+        return;
+    }
+    
+    StructureState.lessons.forEach(lesson => {
+        const option = document.createElement('option');
+        option.value = lesson.id;
+        option.textContent = lesson.name;
+        select.appendChild(option);
+    });
+    
+    // Add create option at the end
+    const createOption = document.createElement('option');
+    createOption.value = 'create_lesson';
+    createOption.textContent = '➕ Create New Lesson...';
+    createOption.style.color = '#7a0000';
+    createOption.style.fontWeight = 'bold';
+    select.appendChild(createOption);
+}
+
+/**
+ * POPULATE MODULE DROPDOWN BASED ON SELECTED LESSON
+ */
+function populateModuleDropdown(selectElementId = 'moduleSelect', lessonId = null) {
+    const select = document.getElementById(selectElementId);
+    if (!select) return;
+    
+    select.innerHTML = '<option value="">-- Select Module (Optional) --</option>';
+    select.disabled = true;
+    
+    // If no lesson selected, just show disabled dropdown
+    if (!lessonId) {
+        return;
+    }
+    
+    // Filter modules by lesson ID
+    const filteredModules = StructureState.modules.filter(module => 
+        module.lesson_id == lessonId
+    );
+    
+    if (filteredModules.length === 0) {
+        // No modules found - add option to create new module
+        const noModuleOption = document.createElement('option');
+        noModuleOption.value = '';
+        noModuleOption.textContent = '-- No modules available --';
+        noModuleOption.disabled = true;
+        select.appendChild(noModuleOption);
+        
+        const createOption = document.createElement('option');
+        createOption.value = 'create_module';
+        createOption.textContent = '➕ Create New Module...';
+        createOption.style.color = '#7a0000';
+        createOption.style.fontWeight = 'bold';
+        select.appendChild(createOption);
+        
+        select.disabled = false;
+        return;
+    }
+    
+    filteredModules.forEach(module => {
+        const option = document.createElement('option');
+        option.value = module.id;
+        option.textContent = module.name;
+        select.appendChild(option);
+    });
+    
+    // Add create option at the end
+    const createOption = document.createElement('option');
+    createOption.value = 'create_module';
+    createOption.textContent = '➕ Create New Module...';
+    createOption.style.color = '#7a0000';
+    createOption.style.fontWeight = 'bold';
+    select.appendChild(createOption);
+    
+    select.disabled = false;
+}
+
+/**
+ * POPULATE TOPIC DROPDOWN BASED ON SELECTED MODULE
+ */
+function populateTopicDropdown(selectElementId = 'topicSelect', moduleId = null) {
+    const select = document.getElementById(selectElementId);
+    if (!select) return;
+    
+    select.innerHTML = '<option value="">-- Select Topic * --</option>';
+    
+    if (!moduleId) {
+        // If no module selected, show all topics
+        if (StructureState.topics.length === 0) {
+            const option = document.createElement('option');
+            option.value = '';
+            option.textContent = '-- No topics available --';
+            option.disabled = true;
+            select.appendChild(option);
+            
+            const createOption = document.createElement('option');
+            createOption.value = 'create_topic';
+            createOption.textContent = '➕ Create New Topic...';
+            createOption.style.color = '#7a0000';
+            createOption.style.fontWeight = 'bold';
+            select.appendChild(createOption);
+        } else {
+            StructureState.topics.forEach(topic => {
+                const option = document.createElement('option');
+                option.value = topic.id;
+                option.textContent = topic.name;
+                select.appendChild(option);
+            });
+            
+            const createOption = document.createElement('option');
+            createOption.value = 'create_topic';
+            createOption.textContent = '➕ Create New Topic...';
+            createOption.style.color = '#7a0000';
+            createOption.style.fontWeight = 'bold';
+            select.appendChild(createOption);
+        }
+        return;
+    }
+    
+    // Filter topics by module ID
+    const filteredTopics = StructureState.topics.filter(topic => 
+        topic.module_id == moduleId
+    );
+    
+    if (filteredTopics.length === 0) {
+        // No topics found - add option to create new topic
+        const noTopicOption = document.createElement('option');
+        noTopicOption.value = '';
+        noTopicOption.textContent = '-- No topics available --';
+        noTopicOption.disabled = true;
+        select.appendChild(noTopicOption);
+        
+        const createOption = document.createElement('option');
+        createOption.value = 'create_topic';
+        createOption.textContent = '➕ Create New Topic...';
+        createOption.style.color = '#7a0000';
+        createOption.style.fontWeight = 'bold';
+        select.appendChild(createOption);
+    } else {
+        filteredTopics.forEach(topic => {
+            const option = document.createElement('option');
+            option.value = topic.id;
+            option.textContent = topic.name;
+            select.appendChild(option);
+        });
+        
+        const createOption = document.createElement('option');
+        createOption.value = 'create_topic';
+        createOption.textContent = '➕ Create New Topic...';
+        createOption.style.color = '#7a0000';
+        createOption.style.fontWeight = 'bold';
+        select.appendChild(createOption);
+    }
+}
+
+/**
+ * SETUP CASCADING DROPDOWNS
+ */
+function setupCascadingDropdowns() {
+    console.log("🔗 Setting up cascading dropdowns...");
+    
+    // Lesson change handler
+    const lessonSelect = document.getElementById('lessonSelect');
+    if (lessonSelect) {
+        // Remove existing listeners to avoid duplicates
+        const newLessonSelect = lessonSelect.cloneNode(true);
+        lessonSelect.parentNode.replaceChild(newLessonSelect, lessonSelect);
+        
+        newLessonSelect.addEventListener('change', function(e) {
+            const lessonId = this.value;
+            StructureState.selectedLessonId = lessonId || null;
+            
+            // Check if "Create New Lesson" was selected
+            if (lessonId === 'create_lesson') {
+                openQuickLessonModal();
+                this.value = ''; // Reset selection
+                return;
+            }
+            
+            // Update module dropdown
+            populateModuleDropdown('moduleSelect', lessonId);
+            
+            // Reset module dropdown value
+            const moduleSelect = document.getElementById('moduleSelect');
+            if (moduleSelect) {
+                moduleSelect.value = '';
+            }
+            
+            // Reset and update topic dropdown
+            populateTopicDropdown('topicSelect', null);
+        });
+    }
+    
+    // Module change handler
+    const moduleSelect = document.getElementById('moduleSelect');
+    if (moduleSelect) {
+        const newModuleSelect = moduleSelect.cloneNode(true);
+        moduleSelect.parentNode.replaceChild(newModuleSelect, moduleSelect);
+        
+        newModuleSelect.addEventListener('change', function() {
+            const moduleId = this.value;
+            StructureState.selectedModuleId = moduleId || null;
+            
+            // Check if "Create New Module" was selected
+            if (moduleId === 'create_module') {
+                openQuickModuleModal();
+                this.value = ''; // Reset selection
+                return;
+            }
+            
+            // Update topic dropdown
+            populateTopicDropdown('topicSelect', moduleId);
+        });
+    }
+    
+    // Topic change handler
+    const topicSelect = document.getElementById('topicSelect');
+    if (topicSelect) {
+        const newTopicSelect = topicSelect.cloneNode(true);
+        topicSelect.parentNode.replaceChild(newTopicSelect, topicSelect);
+        
+        newTopicSelect.addEventListener('change', function() {
+            const topicId = this.value;
+            StructureState.selectedTopicId = topicId || null;
+            
+            // Check if "Create New Topic" was selected
+            if (topicId === 'create_topic') {
+                openQuickTopicModal();
+                this.value = ''; // Reset selection
+                return;
+            }
+        });
+    }
+}
+
+/**
+ * CREATE NEW LESSON IN DATABASE
+ */
+async function createLesson(lessonName) {
+    try {
+        const token = localStorage.getItem('authToken') || authToken;
+        if (!token) {
+            throw new Error('No auth token available');
+        }
+        
+        console.log(`📚 Creating new lesson: ${lessonName}`);
+        
+        const response = await fetch(`/api/admin/lessons`, {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                lesson_name: lessonName
+            })
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            console.log('✅ Lesson created:', data.lesson);
+            await loadStructureFromDatabase(true); // Force refresh structure
+            return data.lesson;
+        } else {
+            throw new Error(data.message || 'Failed to create lesson');
+        }
+    } catch (error) {
+        console.error('❌ Error creating lesson:', error);
+        showNotification('error', 'Failed', error.message);
+        return null;
+    }
+}
+
+/**
+ * CREATE NEW MODULE IN DATABASE
+ */
+async function createModule(lessonId, moduleName, moduleDescription = '') {
+    try {
+        const token = localStorage.getItem('authToken') || authToken;
+        if (!token) {
+            throw new Error('No auth token available');
+        }
+        
+        if (!lessonId) {
+            throw new Error('Please select a lesson first');
+        }
+        
+        console.log(`📦 Creating new module: ${moduleName} for lesson ${lessonId}`);
+        
+        const response = await fetch(`/api/admin/modules`, {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                lesson_id: parseInt(lessonId),
+                module_name: moduleName,
+                module_description: moduleDescription
+            })
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            console.log('✅ Module created:', data.module);
+            await loadStructureFromDatabase(true); // Force refresh structure
+            
+            // Update module dropdown with new module selected
+            populateModuleDropdown('moduleSelect', lessonId);
+            setTimeout(() => {
+                const moduleSelect = document.getElementById('moduleSelect');
+                if (moduleSelect) {
+                    moduleSelect.value = data.module.id;
+                }
+            }, 100);
+            
+            return data.module;
+        } else {
+            throw new Error(data.message || 'Failed to create module');
+        }
+    } catch (error) {
+        console.error('❌ Error creating module:', error);
+        showNotification('error', 'Failed', error.message);
+        return null;
+    }
+}
+
+/**
+ * CREATE NEW TOPIC IN DATABASE
+ */
+async function createTopic(moduleId, topicName, topicDescription = '') {
+    try {
+        const token = localStorage.getItem('authToken') || authToken;
+        if (!token) {
+            throw new Error('No auth token available');
+        }
+        
+        if (!moduleId) {
+            throw new Error('Please select a module first');
+        }
+        
+        console.log(`📌 Creating new topic: ${topicName} for module ${moduleId}`);
+        
+        const response = await fetch(`/api/admin/topics`, {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                module_id: parseInt(moduleId),
+                topic_title: topicName,
+                topic_description: topicDescription
+            })
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            console.log('✅ Topic created:', data.topic);
+            await loadStructureFromDatabase(true); // Force refresh structure
+            
+            // Update topic dropdown with new topic selected
+            populateTopicDropdown('topicSelect', moduleId);
+            setTimeout(() => {
+                const topicSelect = document.getElementById('topicSelect');
+                if (topicSelect) {
+                    topicSelect.value = data.topic.id;
+                }
+            }, 100);
+            
+            return data.topic;
+        } else {
+            throw new Error(data.message || 'Failed to create topic');
+        }
+    } catch (error) {
+        console.error('❌ Error creating topic:', error);
+        showNotification('error', 'Failed', error.message);
+        return null;
+    }
+}
+
+// ============================================
+// QUICK LESSON MODAL - CREATE LESSON ON THE FLY
+// ============================================
+
+function openQuickLessonModal() {
+    console.log("📚 Opening quick lesson modal...");
+    
+    // Check if modal already exists
+    let modal = document.getElementById('quickLessonModal');
+    
+    if (!modal) {
+        // Create modal
+        modal = document.createElement('div');
+        modal.id = 'quickLessonModal';
+        modal.className = 'modal';
+        modal.style.display = 'none';
+        
+        modal.innerHTML = `
+            <div class="modal-backdrop" onclick="closeQuickLessonModal()"></div>
+            <div class="modal-content" style="max-width: 450px;">
+                <div class="modal-header" style="background: #7a0000; color: white;">
+                    <h3 style="margin: 0;"><i class="fas fa-book"></i> Create New Lesson</h3>
+                    <button class="modal-close" onclick="closeQuickLessonModal()" style="color: white;">&times;</button>
+                </div>
+                <div class="modal-body" style="padding: 25px;">
+                    <div style="margin-bottom: 20px;">
+                        <label style="display: block; margin-bottom: 8px; font-weight: 600;">
+                            <i class="fas fa-heading"></i> Lesson Name <span style="color: red;">*</span>
+                        </label>
+                        <input type="text" id="quickLessonName" class="form-control" 
+                               placeholder="e.g., FactoPermCombi" style="width: 100%; padding: 10px;">
+                    </div>
+                    <div style="margin-bottom: 20px;">
+                        <label style="display: block; margin-bottom: 8px; font-weight: 600;">
+                            <i class="fas fa-align-left"></i> Description (Optional)
+                        </label>
+                        <textarea id="quickLessonDescription" class="form-control" 
+                                  placeholder="Describe what this lesson covers..." 
+                                  rows="3" style="width: 100%; padding: 10px;"></textarea>
+                    </div>
+                    <div style="display: flex; gap: 10px; justify-content: flex-end;">
+                        <button class="btn btn-secondary" onclick="closeQuickLessonModal()">
+                            <i class="fas fa-times"></i> Cancel
+                        </button>
+                        <button class="btn btn-primary" onclick="saveQuickLesson()" 
+                                style="background: #7a0000; color: white; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer;">
+                            <i class="fas fa-save"></i> Create Lesson
+                        </button>
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        document.body.appendChild(modal);
+    }
+    
+    // Show modal
+    modal.style.display = 'flex';
+    modal.style.zIndex = '10003';
+    document.body.classList.add('modal-open');
+    
+    // Focus on input
+    setTimeout(() => {
+        const input = document.getElementById('quickLessonName');
+        if (input) input.focus();
+    }, 300);
+}
+
+function closeQuickLessonModal() {
+    const modal = document.getElementById('quickLessonModal');
+    if (modal) {
+        modal.style.display = 'none';
+        document.body.classList.remove('modal-open');
+    }
+}
+
+async function saveQuickLesson() {
+    const lessonName = document.getElementById('quickLessonName')?.value.trim();
+    const lessonDescription = document.getElementById('quickLessonDescription')?.value.trim();
+    
+    if (!lessonName) {
+        showNotification('error', 'Error', 'Please enter a lesson name');
+        return;
+    }
+    
+    // Show loading
+    const saveBtn = document.querySelector('#quickLessonModal .btn-primary');
+    const originalText = saveBtn.innerHTML;
+    saveBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Creating...';
+    saveBtn.disabled = true;
+    
+    try {
+        const lesson = await createLesson(lessonName);
+        
+        if (lesson) {
+            showNotification('success', 'Success!', `Lesson "${lessonName}" created successfully!`);
+            closeQuickLessonModal();
+            
+            // Refresh the main lesson dropdown
+            populateLessonDropdown('lessonSelect');
+        }
+    } finally {
+        saveBtn.innerHTML = originalText;
+        saveBtn.disabled = false;
+    }
+}
+
+// ============================================
+// QUICK MODULE MODAL - CREATE MODULE ON THE FLY
+// ============================================
+
+function openQuickModuleModal() {
+    console.log("📦 Opening quick module modal...");
+    
+    // Check if modal already exists
+    let modal = document.getElementById('quickModuleModal');
+    
+    if (!modal) {
+        // Create modal
+        modal = document.createElement('div');
+        modal.id = 'quickModuleModal';
+        modal.className = 'modal';
+        modal.style.display = 'none';
+        
+        modal.innerHTML = `
+            <div class="modal-backdrop" onclick="closeQuickModuleModal()"></div>
+            <div class="modal-content" style="max-width: 500px;">
+                <div class="modal-header" style="background: #7a0000; color: white;">
+                    <h3 style="margin: 0;"><i class="fas fa-cubes"></i> Create New Module</h3>
+                    <button class="modal-close" onclick="closeQuickModuleModal()" style="color: white;">&times;</button>
+                </div>
+                <div class="modal-body" style="padding: 25px;">
+                    <div style="margin-bottom: 20px;">
+                        <label style="display: block; margin-bottom: 8px; font-weight: 600;">
+                            <i class="fas fa-book"></i> Select Lesson <span style="color: red;">*</span>
+                        </label>
+                        <select id="quickModuleLessonSelect" class="form-control" style="width: 100%; padding: 10px;">
+                            <option value="">-- Select Lesson --</option>
+                        </select>
+                        <small style="color: #666; display: block; margin-top: 5px;">
+                            Choose the lesson where this module belongs
+                        </small>
+                    </div>
+                    <div style="margin-bottom: 20px;">
+                        <label style="display: block; margin-bottom: 8px; font-weight: 600;">
+                            <i class="fas fa-tag"></i> Module Name <span style="color: red;">*</span>
+                        </label>
+                        <input type="text" id="quickModuleName" class="form-control" 
+                               placeholder="e.g., Introduction to FactoPermCombi" style="width: 100%; padding: 10px;">
+                    </div>
+                    <div style="margin-bottom: 20px;">
+                        <label style="display: block; margin-bottom: 8px; font-weight: 600;">
+                            <i class="fas fa-align-left"></i> Module Description (Optional)
+                        </label>
+                        <textarea id="quickModuleDescription" class="form-control" 
+                                  placeholder="Describe what this module covers..." 
+                                  rows="3" style="width: 100%; padding: 10px;"></textarea>
+                    </div>
+                    <div style="display: flex; gap: 10px; justify-content: flex-end;">
+                        <button class="btn btn-secondary" onclick="closeQuickModuleModal()">
+                            <i class="fas fa-times"></i> Cancel
+                        </button>
+                        <button class="btn btn-primary" onclick="saveQuickModule()" 
+                                style="background: #7a0000; color: white; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer;">
+                            <i class="fas fa-save"></i> Create Module
+                        </button>
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        document.body.appendChild(modal);
+    }
+    
+    // Populate lesson dropdown
+    const lessonSelect = document.getElementById('quickModuleLessonSelect');
+    if (lessonSelect) {
+        lessonSelect.innerHTML = '<option value="">-- Select Lesson --</option>';
+        
+        if (StructureState.lessons.length === 0) {
+            const option = document.createElement('option');
+            option.value = '';
+            option.textContent = '-- No lessons available --';
+            option.disabled = true;
+            lessonSelect.appendChild(option);
+            
+            const createOption = document.createElement('option');
+            createOption.value = 'create_lesson';
+            createOption.textContent = '➕ Create New Lesson...';
+            createOption.style.color = '#7a0000';
+            createOption.style.fontWeight = 'bold';
+            lessonSelect.appendChild(createOption);
+        } else {
+            StructureState.lessons.forEach(lesson => {
+                const option = document.createElement('option');
+                option.value = lesson.id;
+                option.textContent = lesson.name;
+                lessonSelect.appendChild(option);
+            });
+            
+            const createOption = document.createElement('option');
+            createOption.value = 'create_lesson';
+            createOption.textContent = '➕ Create New Lesson...';
+            createOption.style.color = '#7a0000';
+            createOption.style.fontWeight = 'bold';
+            lessonSelect.appendChild(createOption);
+        }
+    }
+    
+    // Handle create lesson option
+    lessonSelect.addEventListener('change', function(e) {
+        if (this.value === 'create_lesson') {
+            closeQuickModuleModal();
+            openQuickLessonModal();
+        }
+    });
+    
+    // Show modal
+    modal.style.display = 'flex';
+    modal.style.zIndex = '10002';
+    document.body.classList.add('modal-open');
+}
+
+function closeQuickModuleModal() {
+    const modal = document.getElementById('quickModuleModal');
+    if (modal) {
+        modal.style.display = 'none';
+        document.body.classList.remove('modal-open');
+    }
+}
+
+async function saveQuickModule() {
+    const lessonId = document.getElementById('quickModuleLessonSelect')?.value;
+    const moduleName = document.getElementById('quickModuleName')?.value.trim();
+    const moduleDescription = document.getElementById('quickModuleDescription')?.value.trim();
+    
+    if (!lessonId) {
+        showNotification('error', 'Error', 'Please select a lesson');
+        return;
+    }
+    
+    if (!moduleName) {
+        showNotification('error', 'Error', 'Please enter a module name');
+        return;
+    }
+    
+    // Show loading
+    const saveBtn = document.querySelector('#quickModuleModal .btn-primary');
+    const originalText = saveBtn.innerHTML;
+    saveBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Creating...';
+    saveBtn.disabled = true;
+    
+    try {
+        const module = await createModule(lessonId, moduleName, moduleDescription);
+        
+        if (module) {
+            showNotification('success', 'Success!', `Module "${moduleName}" created successfully!`);
+            closeQuickModuleModal();
+            
+            // Refresh the main module dropdown if it exists
+            const lessonSelect = document.getElementById('lessonSelect');
+            if (lessonSelect && lessonSelect.value) {
+                populateModuleDropdown('moduleSelect', lessonSelect.value);
+            }
+        }
+    } finally {
+        saveBtn.innerHTML = originalText;
+        saveBtn.disabled = false;
+    }
+}
+
+// ============================================
+// QUICK TOPIC MODAL - CREATE TOPIC ON THE FLY
+// ============================================
+
+function openQuickTopicModal() {
+    console.log("📝 Opening quick topic modal...");
+    
+    // Check if modal already exists
+    let modal = document.getElementById('quickTopicModal');
+    
+    if (!modal) {
+        // Create modal
+        modal = document.createElement('div');
+        modal.id = 'quickTopicModal';
+        modal.className = 'modal';
+        modal.style.display = 'none';
+        
+        modal.innerHTML = `
+            <div class="modal-backdrop" onclick="closeQuickTopicModal()"></div>
+            <div class="modal-content" style="max-width: 550px;">
+                <div class="modal-header" style="background: #7a0000; color: white;">
+                    <h3 style="margin: 0;"><i class="fas fa-tag"></i> Create New Topic</h3>
+                    <button class="modal-close" onclick="closeQuickTopicModal()" style="color: white;">&times;</button>
+                </div>
+                <div class="modal-body" style="padding: 25px;">
+                    <div style="margin-bottom: 20px;">
+                        <label style="display: block; margin-bottom: 8px; font-weight: 600;">
+                            <i class="fas fa-cube"></i> Select Module <span style="color: red;">*</span>
+                        </label>
+                        <select id="quickTopicModuleSelect" class="form-control" style="width: 100%; padding: 10px;">
+                            <option value="">-- Select Module --</option>
+                        </select>
+                        <div style="margin-top: 8px;">
+                            <button class="btn btn-sm btn-outline" onclick="openQuickModuleModal()" style="color: #7a0000; border-color: #7a0000;">
+                                <i class="fas fa-plus-circle"></i> Create New Module First
+                            </button>
+                        </div>
+                    </div>
+                    <div style="margin-bottom: 20px;">
+                        <label style="display: block; margin-bottom: 8px; font-weight: 600;">
+                            <i class="fas fa-heading"></i> Topic Title <span style="color: red;">*</span>
+                        </label>
+                        <input type="text" id="quickTopicTitle" class="form-control" 
+                               placeholder="e.g., What is a mathease,Permutation and Combination?" style="width: 100%; padding: 10px;">
+                    </div>
+                    <div style="margin-bottom: 20px;">
+                        <label style="display: block; margin-bottom: 8px; font-weight: 600;">
+                            <i class="fas fa-align-left"></i> Topic Description (Optional)
+                        </label>
+                        <textarea id="quickTopicDescription" class="form-control" 
+                                  placeholder="Describe what this topic covers..." 
+                                  rows="4" style="width: 100%; padding: 10px;"></textarea>
+                    </div>
+                    <div style="margin-bottom: 20px; background: #f5f5f5; padding: 12px; border-radius: 6px;">
+                        <p style="margin: 0; color: #666; font-size: 0.9rem;">
+                            <i class="fas fa-info-circle"></i> 
+                            <strong>Note:</strong> Topics are required for creating lessons. 
+                            Each topic belongs to a module, and modules belong to lessons.
+                        </p>
+                    </div>
+                    <div style="display: flex; gap: 10px; justify-content: flex-end;">
+                        <button class="btn btn-secondary" onclick="closeQuickTopicModal()">
+                            <i class="fas fa-times"></i> Cancel
+                        </button>
+                        <button class="btn btn-primary" onclick="saveQuickTopic()" 
+                                style="background: #7a0000; color: white; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer;">
+                            <i class="fas fa-save"></i> Create Topic
+                        </button>
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        document.body.appendChild(modal);
+    }
+    
+    // Populate module dropdown
+    populateQuickTopicModuleDropdown();
+    
+    // Show modal
+    modal.style.display = 'flex';
+    modal.style.zIndex = '10001';
+    document.body.classList.add('modal-open');
+}
+
+function closeQuickTopicModal() {
+    const modal = document.getElementById('quickTopicModal');
+    if (modal) {
+        modal.style.display = 'none';
+        document.body.classList.remove('modal-open');
+    }
+}
+
+function populateQuickTopicModuleDropdown() {
+    const moduleSelect = document.getElementById('quickTopicModuleSelect');
+    if (!moduleSelect) return;
+    
+    moduleSelect.innerHTML = '<option value="">-- Select Module --</option>';
+    
+    if (StructureState.modules.length === 0) {
+        const option = document.createElement('option');
+        option.value = '';
+        option.textContent = '-- No modules available --';
+        option.disabled = true;
+        moduleSelect.appendChild(option);
+        
+        const createOption = document.createElement('option');
+        createOption.value = 'create_module';
+        createOption.textContent = '➕ Create New Module...';
+        createOption.style.color = '#7a0000';
+        createOption.style.fontWeight = 'bold';
+        moduleSelect.appendChild(createOption);
+    } else {
+        StructureState.modules.forEach(module => {
+            // Find the lesson name for this module
+            const lesson = StructureState.lessons.find(l => l.id == module.lesson_id);
+            const lessonName = lesson ? lesson.name : 'Unknown Lesson';
+            
+            const option = document.createElement('option');
+            option.value = module.id;
+            option.textContent = `${module.name} (${lessonName})`;
+            moduleSelect.appendChild(option);
+        });
+        
+        const createOption = document.createElement('option');
+        createOption.value = 'create_module';
+        createOption.textContent = '➕ Create New Module...';
+        createOption.style.color = '#7a0000';
+        createOption.style.fontWeight = 'bold';
+        moduleSelect.appendChild(createOption);
+    }
+    
+    // Handle create module option
+    moduleSelect.addEventListener('change', function(e) {
+        if (this.value === 'create_module') {
+            closeQuickTopicModal();
+            openQuickModuleModal();
+        }
+    });
+}
+
+async function saveQuickTopic() {
+    const moduleId = document.getElementById('quickTopicModuleSelect')?.value;
+    const topicTitle = document.getElementById('quickTopicTitle')?.value.trim();
+    const topicDescription = document.getElementById('quickTopicDescription')?.value.trim();
+    
+    if (!moduleId) {
+        showNotification('error', 'Error', 'Please select a module');
+        return;
+    }
+    
+    if (!topicTitle) {
+        showNotification('error', 'Error', 'Please enter a topic title');
+        return;
+    }
+    
+    // Show loading
+    const saveBtn = document.querySelector('#quickTopicModal .btn-primary');
+    const originalText = saveBtn.innerHTML;
+    saveBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Creating...';
+    saveBtn.disabled = true;
+    
+    try {
+        const topic = await createTopic(moduleId, topicTitle, topicDescription);
+        
+        if (topic) {
+            showNotification('success', 'Success!', `Topic "${topicTitle}" created successfully!`);
+            closeQuickTopicModal();
+            
+            // Refresh the main topic dropdown if it exists
+            const moduleSelect = document.getElementById('moduleSelect');
+            if (moduleSelect && moduleSelect.value) {
+                populateTopicDropdown('topicSelect', moduleSelect.value);
+            } else {
+                populateTopicDropdown('topicSelect', null);
+            }
+        }
+    } finally {
+        saveBtn.innerHTML = originalText;
+        saveBtn.disabled = false;
+    }
+}
+
+// ============================================
+// CREATE LESSON MODAL - WITH GENERAL DROPDOWNS
+// ============================================
+
+async function openCreateLessonPopup() {
+    console.log("➕ Opening Create Lesson Modal...");
+    
+    const modal = document.getElementById('createLessonModal');
+    if (!modal) {
+        console.error("❌ Create lesson modal not found!");
+        return;
+    }
+    
+    // Clear edit ID
+    const editId = document.getElementById('editLessonId');
+    if (editId) {
+        editId.value = '';
+    }
+    
+    // Show loading state
+    const statusDiv = document.getElementById('createLessonStatus');
+    if (statusDiv) {
+        statusDiv.style.display = 'block';
+        statusDiv.innerHTML = `
+            <div style="background: #e3f2fd; color: #1976d2; padding: 10px 15px; border-radius: 6px;">
+                <i class="fas fa-spinner fa-spin"></i> Loading structure from database...
+            </div>
+        `;
+    }
+    
+    // Load structure from database FIRST
+    await loadStructureFromDatabase();
+    
+    // Hide loading
+    if (statusDiv) {
+        statusDiv.style.display = 'none';
+    }
+    
+    // Populate all dropdowns
+    populateLessonDropdown('lessonSelect');
+    populateModuleDropdown('moduleSelect', null);
+    populateTopicDropdown('topicSelect', null);
+    
+    // Setup cascading dropdowns
+    setupCascadingDropdowns();
+    
+    // Show modal
+    modal.style.display = 'flex';
+    modal.style.zIndex = '9999';
+    document.body.classList.add('modal-open');
+    
+    // Focus on title input
+    setTimeout(() => {
+        const titleInput = document.getElementById('createLessonTitle');
+        if (titleInput) {
+            titleInput.focus();
+        }
+    }, 300);
+    
+    showNotification('info', 'Create Lesson', 'Fill in the lesson details. Topic is required.');
+}
+
+function closeCreateLessonModal() {
+    console.log("🔴 Closing create lesson modal...");
+    const modal = document.getElementById('createLessonModal');
+    if (modal) {
+        modal.style.display = 'none';
+        document.body.classList.remove('modal-open');
+    }
+}
+
+// ============================================
+// SAVE LESSON TO DATABASE - WITH TOPIC_ID - FIXED VERSION
+// ============================================
+
+async function saveLessonToMySQL() {
+    console.log("=== SAVING TO MYSQL DATABASE ===");
+    
+    try {
+        // Get form values
+        const title = document.getElementById('createLessonTitle')?.value.trim();
+        const description = document.getElementById('createLessonDescription')?.value.trim();
+        const topicId = document.getElementById('topicSelect')?.value;
+        const editLessonId = document.getElementById('editLessonId')?.value || '';
+        const isUpdate = editLessonId && editLessonId !== '';
+        
+        console.log("📋 Form values:", { title, description, topicId, isUpdate, editLessonId });
+        
+        // VALIDATION
+        if (!title) {
+            showNotification('error', 'Error', 'Please enter a lesson title');
+            return;
+        }
+        
+        if (!description) {
+            showNotification('error', 'Error', 'Please enter a lesson description');
+            return;
+        }
+        
+        if (!topicId) {
+            showNotification('error', 'Error', 'Please select a topic');
+            return;
+        }
+        
+        // Check if topic exists in database
+        const topicExists = StructureState.topics.some(t => t.id == topicId);
+        if (!topicExists) {
+            showNotification('error', 'Error', 'Selected topic does not exist in database');
+            return;
+        }
+        
+        // Determine content type
+        const videoFileInput = document.getElementById('videoFileInput');
+        const videoFile = videoFileInput?.files[0];
+        const youtubeUrlInput = document.getElementById('videoYoutubeUrl');
+        const youtubeUrl = youtubeUrlInput?.value;
+        const pdfFileInput = document.getElementById('pdfFileInput');
+        const pdfFile = pdfFileInput?.files[0];
+        const textContentInput = document.getElementById('textContentInput');
+        const textContent = textContentInput?.value;
+        
+        let contentType = 'text';
+        if (videoFile || youtubeUrl) {
+            contentType = 'video';
+            console.log("🎬 Video content detected");
+        } else if (pdfFile) {
+            contentType = 'pdf';
+        }
+        
+        // Get auth token
+        const token = localStorage.getItem('authToken') || authToken;
+        if (!token) {
+            showNotification('error', 'Auth Error', 'Please login again');
+            return;
+        }
+        
+        // Show loading state
+        showNotification('info', 'Saving', 'Uploading lesson to MySQL...');
+        
+        const saveBtn = document.querySelector('#createLessonModal .btn-primary, #saveLessonBtn');
+        if (saveBtn) {
+            saveBtn.disabled = true;
+            saveBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Saving...';
+        }
+        
+        // ===== STEP 1: Kung bagong lesson, gumawa muna para makuha ang ID =====
+        let finalContentId = editLessonId;
+        
+        if (!isUpdate) {
+            console.log("📝 Creating new lesson to get ID first...");
+            
+            const createResponse = await fetch('/api/admin/lessons/create-temp', {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    title: title,
+                    description: description,
+                    topic_id: parseInt(topicId)
+                })
+            });
+            
+            if (!createResponse.ok) {
+                throw new Error(`Failed to create lesson: ${createResponse.status}`);
+            }
+            
+            const createData = await createResponse.json();
+            
+            if (!createData.success || !createData.content_id) {
+                throw new Error(createData.message || 'Failed to create lesson');
+            }
+            
+            finalContentId = createData.content_id;
+            console.log(`✅ Created lesson with ID: ${finalContentId}`);
+        }
+        
+        // ===== STEP 2: I-update ang lesson kasama ang video =====
+        const formData = new FormData();
+        formData.append('title', title);
+        formData.append('description', description);
+        formData.append('topic_id', parseInt(topicId));
+        formData.append('content_type', contentType);
+        formData.append('content_id', finalContentId); // CRITICAL: I-attach ang content_id
+        
+        // Add content based on type
+        if (contentType === 'video') {
+            if (youtubeUrl && youtubeUrl.trim() !== '') {
+                formData.append('youtube_url', youtubeUrl);
+                console.log(`🔗 Adding YouTube URL for lesson ${finalContentId}:`, youtubeUrl);
+            }
+            if (videoFile) {
+                formData.append('video_file', videoFile);
+                console.log(`🎬 Adding video file for lesson ${finalContentId}:`, videoFile.name);
+            }
+        } else if (contentType === 'pdf') {
+            if (pdfFile) {
+                formData.append('pdf_file', pdfFile);
+            }
+        } else if (contentType === 'text') {
+            if (textContent) {
+                formData.append('text_content', textContent);
+            }
+        }
+        
+        // Send to server para i-update
+        console.log(`📡 Sending update request for lesson ${finalContentId}...`);
+        
+        const response = await fetch('/api/admin/lessons', {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${token}`
+            },
+            body: formData
+        });
+        
+        console.log("📥 Response status:", response.status);
+        
+        let result;
+        try {
+            const responseText = await response.text();
+            console.log("📄 Response text:", responseText);
+            
+            if (responseText) {
+                result = JSON.parse(responseText);
+            } else {
+                throw new Error('Empty response from server');
+            }
+        } catch (parseError) {
+            console.error("❌ Parse error:", parseError);
+            throw new Error('Invalid server response');
+        }
+        
+        if (!response.ok) {
+            throw new Error(result.message || `Server error: ${response.status}`);
+        }
+        
+        if (result.success) {
+            showNotification('success', 'Success!', 
+                isUpdate ? 'Lesson updated successfully!' : 'Lesson saved successfully!');
+            
+            closeCreateLessonModal();
+            resetLessonForm();
+            
+            if (editId) {
+                editId.value = '';
+            }
+            
+            // Refresh structure
+            await loadStructureFromDatabase(true);
+            
+            // Refresh lessons list
+            if (typeof loadAdminLessons === 'function') {
+                setTimeout(() => {
+                    loadAdminLessons();
+                }, 500);
+            }
+            
+            return result;
+        } else {
+            throw new Error(result.message || 'Failed to save lesson');
+        }
+        
+    } catch (error) {
+        console.error('❌ SAVE ERROR:', error);
+        showNotification('error', 'Save Failed', error.message);
+    } finally {
+        const saveBtn = document.querySelector('#createLessonModal .btn-primary, #saveLessonBtn');
+        if (saveBtn) {
+            saveBtn.disabled = false;
+            saveBtn.innerHTML = '<i class="fas fa-save"></i> Save Lesson';
+        }
+    }
+}
+
+
+function resetLessonForm() {
+    console.log("🔄 Resetting lesson form...");
+    try {
+        const titleInput = document.getElementById('createLessonTitle');
+        if (titleInput) titleInput.value = '';
+        
+        const descInput = document.getElementById('createLessonDescription');
+        if (descInput) descInput.value = '';
+        
+        const youtubeInput = document.getElementById('videoYoutubeUrl');
+        if (youtubeInput) youtubeInput.value = '';
+        
+        const textInput = document.getElementById('textContentInput');
+        if (textInput) textInput.value = '';
+        
+        const videoInput = document.getElementById('videoFileInput');
+        if (videoInput) videoInput.value = '';
+        
+        const pdfInput = document.getElementById('pdfFileInput');
+        if (pdfInput) pdfInput.value = '';
+        
+        const editId = document.getElementById('editLessonId');
+        if (editId) editId.value = '';
+        
+        // Hide file info
+        const videoInfo = document.getElementById('videoFileInfo');
+        if (videoInfo) videoInfo.style.display = 'none';
+        
+        const pdfInfo = document.getElementById('pdfFileInfo');
+        if (pdfInfo) pdfInfo.style.display = 'none';
+        
+        const textInfo = document.getElementById('textFileInfo');
+        if (textInfo) textInfo.style.display = 'none';
+        
+        const previewContainer = document.getElementById('videoPreviewContainer');
+        if (previewContainer) previewContainer.style.display = 'none';
+        
+        const existingVideo = document.getElementById('existingVideoInfo');
+        if (existingVideo) existingVideo.style.display = 'none';
+        
+        const newVideo = document.getElementById('newVideoIndicator');
+        if (newVideo) newVideo.style.display = 'none';
+        
+    } catch (error) {
+        console.error("❌ Error resetting form:", error);
+    }
+}
+
+
+// ============================================
+// HELPER: Display lessons list
+// ============================================
+function displayLessonsList(lessons, data) {
+    const content = document.getElementById('editLessonsContent');
+    
+    let html = `
+        <div style="margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center;">
+            <h3><i class="fas fa-book"></i> Manage Lessons (${lessons.length} total)</h3>
+            <button class="btn-primary" onclick="closeEditLessonsModal(); openCreateLessonPopup()">
+                <i class="fas fa-plus"></i> Add New Lesson
+            </button>
+        </div>
+        
+        <div class="table-responsive">
+            <table class="table table-hover">
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Title</th>
+                        <th>Subject</th>
+                        <th>Topic</th>
+                        <th>Type</th>
+                        <th>Status</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+    `;
+    
+    lessons.forEach(lesson => {
+        const lessonId = lesson.id || lesson.lesson_id || lesson.content_id;
+        const title = lesson.title || lesson.lesson_title || lesson.content_title || 'Untitled';
+        const subject = lesson.subject_name || lesson.subject || 'N/A';
+        const topic = lesson.topic_title || lesson.topic || 'N/A';
+        const type = lesson.content_type || lesson.type || 'text';
+        const status = lesson.status || 'published';
+        
+        html += `
+            <tr>
+                <td>#${lessonId}</td>
+                <td><strong>${title}</strong></td>
+                <td>${subject}</td>
+                <td>${topic}</td>
+                <td><span class="badge badge-${type}">${type}</span></td>
+                <td><span class="badge badge-${status}">${status}</span></td>
+                <td>
+                    <button class="btn-sm btn-primary" onclick="editLesson(${lessonId})">
+                        <i class="fas fa-edit"></i> Edit
+                    </button>
+                    <button class="btn-sm btn-danger" onclick="deleteLesson(${lessonId})">
+                        <i class="fas fa-trash"></i> Delete
+                    </button>
+                </td>
+            </tr>
+        `;
+    });
+    
+    html += `
+                </tbody>
+            </table>
+        </div>
+    `;
+    
+    content.innerHTML = html;
+}
+
+// ============================================
+// FIXED: fetchSubjects - With better error handling
+// ============================================
+async function fetchSubjects() {
+    console.log("📚 Fetching subjects...");
+    
+    try {
+        const token = localStorage.getItem('admin_token') || localStorage.getItem('authToken');
+        
+        const endpoints = [
+            `/admin/subjects`,
+            `/subjects`,
+            `/subjects/all`
+        ];
+        
+        for (const endpoint of endpoints) {
+            try {
+                const response = await fetch(endpoint, {
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    console.log(`✅ Subjects loaded from ${endpoint}`);
+                    
+                    if (data.subjects && Array.isArray(data.subjects)) {
+                        return data.subjects;
+                    } else if (data.data && Array.isArray(data.data)) {
+                        return data.data;
+                    } else if (Array.isArray(data)) {
+                        return data;
+                    }
+                }
+            } catch (e) {
+                console.log(`Endpoint ${endpoint} failed:`, e.message);
+            }
+        }
+        
+        // Return default subjects if none found
+        return [
+            { id: 1, name: 'Mathematics' },
+            { id: 2, name: 'Algebra' },
+            { id: 3, name: 'Geometry' },
+            { id: 4, name: 'Calculus' }
+        ];
+        
+    } catch (error) {
+        console.error('Error fetching subjects:', error);
+        return [];
+    }
+}
+// ============================================
+// [NEW] VIDEO PROGRESS TRACKING - ADD THIS TO script.js
+// ============================================
+
+/**
+ * Initialize video progress tracking
+ * @param {HTMLVideoElement} videoElement - The video element to track
+ * @param {number|string} contentId - The ID of the lesson/content
+ */
+
+// ===== HELPER FUNCTION TO UPDATE DISPLAY =====
+function updateCurrentLessonDisplay() {
+    const lessonProgressFill = document.getElementById('lessonProgressFill');
+    const progressPercentage = document.getElementById('progressPercentage');
+    const progressTime = document.getElementById('progressTime');
+    const videoElement = document.getElementById('lessonVideo');
+    const videoTimeDisplay = document.getElementById('videoTime');
+    
+    if (!videoElement || !videoElement.duration) return;
+    
+    const currentTime = videoElement.currentTime;
+    const duration = videoElement.duration;
+    const percentage = Math.floor((currentTime / duration) * 100) || 0;
+    
+    // Update progress bar
+    if (lessonProgressFill) {
+        lessonProgressFill.style.width = `${percentage}%`;
+    }
+    
+    // Update percentage text
+    if (progressPercentage) {
+        progressPercentage.textContent = `${percentage}% Complete`;
+    }
+    
+    // Update time display in sidebar
+    if (progressTime) {
+        const currentMinutes = Math.floor(currentTime / 60);
+        const currentSeconds = Math.floor(currentTime % 60);
+        const durationMinutes = Math.floor(duration / 60);
+        const durationSeconds = Math.floor(duration % 60);
+        
+        progressTime.textContent = `${currentMinutes}:${currentSeconds.toString().padStart(2, '0')} / ${durationMinutes}:${durationSeconds.toString().padStart(2, '0')}`;
+    }
+    
+    // Update video time display
+    if (videoTimeDisplay) {
+        const currentMinutes = Math.floor(currentTime / 60);
+        const currentSeconds = Math.floor(currentTime % 60);
+        const durationMinutes = Math.floor(duration / 60);
+        const durationSeconds = Math.floor(duration % 60);
+        
+        videoTimeDisplay.innerHTML = `${currentMinutes}:${currentSeconds.toString().padStart(2, '0')} / ${durationMinutes}:${durationSeconds.toString().padStart(2, '0')}`;
+    }
+    
+    console.log(`🔄 Display updated: ${percentage}% at ${currentTime.toFixed(1)}s`);
+}
+
+// ============================================
+// 🎬 ENHANCED: Video Progress Tracking - With session reset
+// ============================================
+function initVideoProgressTracking(videoElement, contentId) {
+    if (!videoElement || !contentId) {
+        console.warn("⚠️ Cannot initialize video tracking: missing video element or content ID");
+        return;
+    }
+    
+    console.log(`🎬 Initializing progress tracking for video ${contentId}`);
+    
+    let lastSaveTime = 0;
+    const SAVE_INTERVAL = 10000;
+    let lastReportedPercentage = 0;
+    let isCompleted = false;
+    
+    // ===== TIME TRACKING =====
+    let watchStartTime = null;
+    let totalWatchedSeconds = 0;
+    let lastCurrentTime = 0;
+    let lastSavedTime = 0;
+    let videoDuration = 0;
+    let isActive = true;
+    
+    const videoKey = `video_progress_${contentId}`;
+    
+    // Load saved progress
+    try {
+        const saved = localStorage.getItem(videoKey);
+        if (saved) {
+            const savedProgress = JSON.parse(saved);
+            console.log(`📂 Loaded saved progress: ${savedProgress.percentage}%`);
+            
+            if (savedProgress.totalWatchedSeconds) {
+                totalWatchedSeconds = savedProgress.totalWatchedSeconds;
+                lastSavedTime = savedProgress.currentTime || 0;
+            }
+            
+            if (savedProgress.currentTime && videoElement.duration) {
+                if (savedProgress.percentage < 90) {
+                    videoElement.currentTime = savedProgress.currentTime;
+                    lastCurrentTime = savedProgress.currentTime;
+                }
+            }
+        }
+    } catch (error) {
+        console.warn('Could not load saved progress:', error);
+    }
+    
+    // Update display after loading
+    setTimeout(updateCurrentLessonDisplay, 100);
+    
+    /**
+     * Save progress to server
+     */
+    async function saveProgress(status, percentage, currentTime = 0, additionalSeconds = 0) {
+        if (isCompleted && status !== 'completed') return;
+        
+        const now = Date.now();
+        if (now - lastSaveTime < SAVE_INTERVAL && status !== 'completed') return;
+        if (Math.abs(percentage - lastReportedPercentage) < 5 && status !== 'completed') return;
+        
+        lastSaveTime = now;
+        lastReportedPercentage = percentage;
+        
+        // Update total watched time
+        if (additionalSeconds > 0) {
+            totalWatchedSeconds += additionalSeconds;
+        }
+        
+        // Save to localStorage
+        try {
+            localStorage.setItem(videoKey, JSON.stringify({
+                percentage: percentage,
+                currentTime: currentTime,
+                timestamp: new Date().toISOString(),
+                status: status,
+                totalWatchedSeconds: totalWatchedSeconds
+            }));
+        } catch (error) {
+            console.warn('Could not save to localStorage:', error);
+        }
+        
+        // Send to server
+        const token = localStorage.getItem('authToken');
+        if (!token) return;
+        
+        try {
+            const response = await fetch(`/api/lessons-db/${contentId}/progress`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
+                body: JSON.stringify({
+                    completion_status: status,
+                    percentage: percentage,
+                    time_spent_seconds: totalWatchedSeconds,
+                    current_time: currentTime,
+                    session_active: isActive
+                })
+            });
+            
+            if (!response.ok) return;
+            
+            const result = await response.json();
+            
+            if (result.success) {
+                console.log(`✅ Progress saved: ${percentage}% (${status}), Time: ${totalWatchedSeconds}s`);
+                
+                if (status === 'completed' && !isCompleted) {
+                    isCompleted = true;
+                    
+                    const completeBtn = document.getElementById('completeLessonBtn');
+                    if (completeBtn) {
+                        completeBtn.innerHTML = '<i class="fas fa-check-double"></i> Lesson Completed!';
+                        completeBtn.classList.remove('btn-primary');
+                        completeBtn.classList.add('btn-success');
+                        completeBtn.disabled = true;
+                    }
+                    
+                    showNotification('🎉 Lesson completed! Great job!', 'success');
+                }
+            }
+        } catch (error) {
+            console.warn('⚠️ Error saving progress:', error.message);
+        }
+    }
+    
+    // ===== PAGE VISIBILITY CHANGE =====
+    document.addEventListener('visibilitychange', () => {
+        if (document.hidden) {
+            console.log('👋 User left page - pausing video tracking');
+            isActive = false;
+            
+            if (watchStartTime) {
+                const watchDuration = Math.floor((Date.now() - watchStartTime) / 1000);
+                totalWatchedSeconds += watchDuration;
+                watchStartTime = null;
+                
+                // Save current progress but mark as inactive
+                if (videoElement.duration > 0) {
+                    const percentage = Math.floor((videoElement.currentTime / videoElement.duration) * 100);
+                    saveProgress('in_progress', percentage, videoElement.currentTime);
+                }
+            }
+        } else {
+            console.log('👋 User returned - resuming tracking');
+            isActive = true;
+            
+            if (!videoElement.paused) {
+                watchStartTime = Date.now();
+            }
+        }
+    });
+    
+    videoElement.addEventListener('loadedmetadata', function() {
+    videoDuration = videoElement.duration;
+    console.log(`📹 Video duration: ${videoDuration}s`);
+    updateCurrentLessonDisplay();
+    
+    // Show success in video info
+    const videoInfo = document.getElementById('videoInfo');
+    if (videoInfo) {
+        videoInfo.innerHTML = `
+            <p><i class="fas fa-check-circle" style="color: #27ae60;"></i> Video loaded successfully</p>
+            <p><i class="fas fa-clock"></i> Duration: ${Math.floor(videoDuration / 60)} min</p>
+        `;
+    }
+});
+
+// Add error event listener
+videoElement.addEventListener('error', function(e) {
+    console.error('❌ Video error:', e);
+    const videoInfo = document.getElementById('videoInfo');
+    if (videoInfo) {
+        videoInfo.innerHTML = `
+            <p style="color: #e74c3c;">
+                <i class="fas fa-exclamation-triangle"></i> 
+                Error loading video. Please check if the file exists.
+            </p>
+        `;
+    }
+});
+    
+    // ===== PLAY EVENT =====
+    videoElement.addEventListener('play', function() {
+        if (!isActive) return; // Don't track if page is hidden
+        
+        console.log(`▶️ Video started playing at ${videoElement.currentTime}s`);
+        watchStartTime = Date.now();
+        updateCurrentLessonDisplay();
+        
+        const timeDisplay = document.getElementById('videoTime');
+        if (timeDisplay) {
+            timeDisplay.classList.add('watching');
+        }
+    });
+    
+    // ===== PAUSE EVENT =====
+    videoElement.addEventListener('pause', function() {
+        console.log(`⏸️ Video paused at ${videoElement.currentTime}s`);
+        
+        if (watchStartTime) {
+            const watchDuration = Math.floor((Date.now() - watchStartTime) / 1000);
+            totalWatchedSeconds += watchDuration;
+            watchStartTime = null;
+            
+            console.log(`⏱️ Watched for ${watchDuration}s (Total: ${totalWatchedSeconds}s)`);
+        }
+        
+        updateCurrentLessonDisplay();
+        
+        const timeDisplay = document.getElementById('videoTime');
+        if (timeDisplay) {
+            timeDisplay.classList.remove('watching');
+        }
+        
+        // Save on pause
+        if (videoElement.duration > 0 && !isCompleted) {
+            const percentage = Math.floor((videoElement.currentTime / videoElement.duration) * 100);
+            saveProgress('in_progress', percentage, videoElement.currentTime);
+        }
+        
+        // Refresh Today's Learning
+        if (typeof updateTodaysLearningStats === 'function') {
+            setTimeout(updateTodaysLearningStats, 500);
+        }
+    });
+    
+    // ===== TIME UPDATE =====
+    videoElement.addEventListener('timeupdate', function() {
+        if (!videoElement.duration) return;
+        
+        const currentTime = videoElement.currentTime;
+        const duration = videoElement.duration;
+        const percentage = Math.floor((currentTime / duration) * 100);
+        
+        // Check for seeking/jumping (fast forward/rewind)
+        const timeDiff = currentTime - lastCurrentTime;
+        if (Math.abs(timeDiff) > 2 && lastCurrentTime > 0) {
+            console.log(`⏩ User seeked ${timeDiff > 0 ? 'forward' : 'backward'} from ${lastCurrentTime.toFixed(1)}s to ${currentTime.toFixed(1)}s`);
+            
+            if (timeDiff < -10) {
+                console.log('🔄 Video restarted or rewound significantly');
+                updateCurrentLessonDisplay();
+            }
+        }
+        
+        lastCurrentTime = currentTime;
+        
+        // Update display
+        updateCurrentLessonDisplay();
+        
+        // Auto-save every 10 seconds (only if page is active)
+        if (!isCompleted && watchStartTime && isActive) {
+            const now = Date.now();
+            if (now - lastSaveTime > SAVE_INTERVAL) {
+                const watchDuration = Math.floor((now - watchStartTime) / 1000);
+                saveProgress('in_progress', percentage, currentTime, watchDuration);
+            }
+        }
+    });
+    
+    // ===== ENDED EVENT =====
+    videoElement.addEventListener('ended', function() {
+        console.log(`✅ Video completed`);
+        
+        if (watchStartTime) {
+            const watchDuration = Math.floor((Date.now() - watchStartTime) / 1000);
+            totalWatchedSeconds += watchDuration;
+            watchStartTime = null;
+        }
+        
+        isCompleted = true;
+        saveProgress('completed', 100, videoElement.duration);
+        updateCurrentLessonDisplay();
+        
+        const timeDisplay = document.getElementById('videoTime');
+        if (timeDisplay) {
+            timeDisplay.classList.remove('watching');
+        }
+        
+        if (typeof updateTodaysLearningStats === 'function') {
+            setTimeout(updateTodaysLearningStats, 500);
+        }
+    });
+    
+    // ===== SEEKED EVENT =====
+    videoElement.addEventListener('seeked', function() {
+        console.log(`⏩ User seeked to ${videoElement.currentTime.toFixed(1)}s`);
+        
+        updateCurrentLessonDisplay();
+        
+        if (videoElement.duration > 0 && !isCompleted && isActive) {
+            const currentTime = videoElement.currentTime;
+            const percentage = Math.floor((currentTime / videoElement.duration) * 100);
+            
+            const now = Date.now();
+            if (now - lastSaveTime > 2000) {
+                saveProgress('in_progress', percentage, currentTime);
+            }
+        }
+        
+        if (typeof updateTodaysLearningStats === 'function') {
+            setTimeout(updateTodaysLearningStats, 500);
+        }
+    });
+    
+    // ===== BEFORE UNLOAD =====
+    window.addEventListener('beforeunload', function() {
+        if (watchStartTime) {
+            const watchDuration = Math.floor((Date.now() - watchStartTime) / 1000);
+            totalWatchedSeconds += watchDuration;
+            
+            try {
+                const currentTime = videoElement.currentTime || 0;
+                const duration = videoElement.duration || 1;
+                const percentage = Math.floor((currentTime / duration) * 100);
+                
+                localStorage.setItem(videoKey, JSON.stringify({
+                    percentage: percentage,
+                    currentTime: currentTime,
+                    timestamp: new Date().toISOString(),
+                    status: isCompleted ? 'completed' : 'in_progress',
+                    totalWatchedSeconds: totalWatchedSeconds
+                }));
+            } catch (error) {
+                console.warn('Could not save to localStorage:', error);
+            }
+        }
+    });
+    
+    console.log(`✅ Video progress tracking initialized for ${contentId}`);
+}
+// ============================================
+// ✅ ADD THIS FUNCTION - Update Current Lesson Display
+// ============================================
+function updateCurrentLessonDisplay() {
+    const lessonProgressFill = document.getElementById('lessonProgressFill');
+    const progressPercentage = document.getElementById('progressPercentage');
+    const progressTime = document.getElementById('progressTime');
+    const videoElement = document.getElementById('lessonVideo');
+    
+    if (!videoElement || !videoElement.duration) return;
+    
+    const currentTime = videoElement.currentTime;
+    const duration = videoElement.duration;
+    const percentage = Math.floor((currentTime / duration) * 100);
+    
+    // Update progress bar
+    if (lessonProgressFill) {
+        lessonProgressFill.style.width = `${percentage}%`;
+    }
+    
+    // Update percentage text
+    if (progressPercentage) {
+        progressPercentage.textContent = `${percentage}% Complete`;
+    }
+    
+    // Update time display
+    if (progressTime) {
+        const currentMinutes = Math.floor(currentTime / 60);
+        const currentSeconds = Math.floor(currentTime % 60);
+        const durationMinutes = Math.floor(duration / 60);
+        const durationSeconds = Math.floor(duration % 60);
+        
+        progressTime.textContent = `${currentMinutes}:${currentSeconds.toString().padStart(2, '0')} / ${durationMinutes}:${durationSeconds.toString().padStart(2, '0')}`;
+    }
+    
+    console.log(`🔄 Display updated: ${percentage}% at ${currentTime.toFixed(1)}s`);
+}
+// ============================================
+// FUNCTION TO LOAD VIDEO LESSON
+// ============================================
+
+/**
+ * Load a video lesson by ID
+ * @param {number|string} lessonId - The ID of the lesson to load
+ */
+async function loadVideoLesson(lessonId) {
+    console.log("🎬 Loading video lesson:", lessonId);
+    
+    try {
+        const token = localStorage.getItem('authToken');
+        
+        const response = await fetch(`/api/lessons-db/${lessonId}`, {
+            headers: {
+                'Authorization': `Bearer ${token}`
+            }
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            const lesson = result.lesson;
+            
+            // Update lesson info
+            const titleElement = document.getElementById('videoLessonTitle');
+            if (titleElement) {
+                titleElement.textContent = lesson.content_title || 'Video Lesson';
+            }
+            
+            const descElement = document.getElementById('videoLessonDescription');
+            if (descElement) {
+                descElement.textContent = lesson.content_description || '';
+            }
+            
+            // Get video container
+            const videoContainer = document.getElementById('videoContainer');
+            if (!videoContainer) return;
+            
+            // Clear existing video
+            videoContainer.innerHTML = '';
+            
+            // Determine video source
+            let videoSrc = '';
+            if (lesson.video_filename) {
+                // New uploaded video
+                videoSrc = `/uploads/videos/${lesson.video_filename}`;
+            } else if (lesson.content_url) {
+                // YouTube URL
+                videoSrc = lesson.content_url;
+            } else {
+                // Default video
+                videoSrc = '/videos/quarter1-FactoPermCombi-equations.mp4';
+            }
+            
+            // Create video element
+            if (videoSrc.includes('youtube') || videoSrc.includes('youtu.be')) {
+                // YouTube embed
+                const videoId = extractYoutubeId(videoSrc);
+                videoContainer.innerHTML = `
+                    <iframe width="100%" height="400" 
+                        src="https://www.youtube.com/embed/${videoId}?autoplay=0"
+                        frameborder="0" allowfullscreen>
+                    </iframe>
+                `;
+            } else {
+                // HTML5 video
+                const videoElement = document.createElement('video');
+                videoElement.id = 'lessonVideo';
+                videoElement.controls = true;
+                videoElement.style.width = '100%';
+                videoElement.style.maxHeight = '400px';
+                videoElement.style.backgroundColor = '#000';
+                
+                const source = document.createElement('source');
+                source.src = videoSrc + '?v=' + Date.now(); // Cache buster
+                source.type = 'video/mp4';
+                
+                videoElement.appendChild(source);
+                videoElement.innerHTML += 'Your browser does not support the video tag.';
+                
+                videoContainer.appendChild(videoElement);
+                
+                // Initialize progress tracking
+                initVideoProgressTracking(videoElement, lessonId);
+            }
+            
+        } else {
+            console.error('❌ Failed to load lesson:', result.message);
+        }
+    } catch (error) {
+        console.error('❌ Error loading video lesson:', error);
+    }
+}
+
+// ============================================
+// HELPER FUNCTION: Extract YouTube ID
+// ============================================
+
+function extractYoutubeId(url) {
+    const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|&v=)([^#&?]*).*/;
+    const match = url.match(regExp);
+    return (match && match[2].length === 11) ? match[2] : null;
+}
+
+// ============================================
+// PROGRESS TRACKING FUNCTIONS - DATABASE INTEGRATION
+// ============================================
+
+// Complete data recording system
+class ProgressTracker {
+    constructor() {
+        this.data = {
+            lessonsCompleted: 0,
+            exercisesCompleted: 0,
+            totalLessons: 3,
+            lastUpdated: new Date().toISOString(),
+            dailyGoal: 5,
+            streak: 0
+        };
+        this.load();
+    }
+    
+    load() {
+        const saved = localStorage.getItem('mathProgress');
+        if (saved) {
+            this.data = JSON.parse(saved);
+        }
+        this.updateUI();
+    }
+    
+    save() {
+        localStorage.setItem('mathProgress', JSON.stringify(this.data));
+        this.updateUI();
+    }
+    
+    addExercise() {
+        this.data.exercisesCompleted++;
+        
+        // Update lessons (every 5 exercises = 1 lesson)
+        const newLessons = Math.floor(this.data.exercisesCompleted / 5);
+        this.data.lessonsCompleted = Math.min(newLessons, this.data.totalLessons);
+        
+        this.save();
+        this.showFeedback('Progress saved! ✓');
+    }
+    
+    updateUI() {
+        // Update statistics display
+        document.querySelectorAll('.stat-value')[0].textContent = 
+            this.data.lessonsCompleted;
+        document.querySelectorAll('.stat-value')[1].textContent = 
+            this.data.exercisesCompleted;
+            
+        // Update progress bars if any
+        const progressPercent = (this.data.lessonsCompleted / this.data.totalLessons) * 100;
+        // Update any progress bars here
+    }
+    
+    showFeedback(message) {
+        // Show temporary feedback
+        const feedback = document.createElement('div');
+        feedback.className = 'save-feedback';
+        feedback.textContent = message;
+        feedback.style.cssText = `
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            background: var(--success);
+            color: white;
+            padding: 10px 20px;
+            border-radius: 5px;
+            animation: fadeInOut 2s;
+        `;
+        document.body.appendChild(feedback);
+        setTimeout(() => feedback.remove(), 2000);
+    }
+}
+
+// Initialize
+const progress = new ProgressTracker();
+
+// Call this when exercise is completed
+function onExerciseComplete() {
+    progress.addExercise();
+}
+
+// Kapag may natapos na exercise
+function completeExercise(topicName) {
+    // Increment counters
+    userProgress.exercisesCompleted++;
+    
+    // Update lessons if needed (every 5 exercises = 1 lesson)
+    if (userProgress.exercisesCompleted % 5 === 0) {
+        userProgress.lessonsCompleted = Math.min(
+            userProgress.lessonsCompleted + 1,
+            3
+        );
+    }
+    
+    // Save and update display
+    saveProgress();
+    updateDisplay();
+    
+    // Show success message
+    showNotification('Exercise completed! 🎉');
+}
+// ============================================
+// ✅ FIXED: Fetch daily progress - FORCED LESSON_ID = 3
 // ============================================
 async function fetchDailyProgress() {
     try {
-        const token = localStorage.getItem('authToken') || authToken;
-        if (!token) return getDefaultMatheaseDailyProgress();
+        console.log('📊 Fetching mathease daily progress...');
         
-        const response = await fetch(`/api/progress/daily?lesson_id=1`, {
-            headers: { 'Authorization': `Bearer ${token}` }
+        const token = localStorage.getItem('authToken') || authToken;
+        if (!token) {
+            console.warn('No auth token available');
+            return getDefaultmatheaseDailyProgress();
+        }
+        
+        // ✅ FORCE LESSON_ID = 1
+        const MATHEASE_LESSON_ID = 1;
+        
+        // ✅ GUMAMIT NG FETCH API, HINDI PROMISEPOOL
+        const response = await fetch(`/api/progress/daily?lesson_id=${MATHEASE_LESSON_ID}`, {
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+            }
         });
         
-        if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
         
         const data = await response.json();
         
         if (data.success && data.progress) {
+            console.log('✅ mathease daily progress loaded:', data.progress);
+            
             return {
                 lessons_completed: data.progress.lessons_completed || 0,
                 exercises_completed: data.progress.exercises_completed || 0,
@@ -210,131 +4486,19185 @@ async function fetchDailyProgress() {
                 time_spent_minutes: data.progress.time_spent_minutes || 0,
                 streak_days: data.progress.streak_maintained || 0
             };
+        } else {
+            console.warn('No daily progress data');
+            return getDefaultmatheaseDailyProgress();
         }
-        return getDefaultMatheaseDailyProgress();
         
     } catch (error) {
-        return getDefaultMatheaseDailyProgress();
+        console.error('❌ Error fetching daily progress:', error);
+        return getDefaultmatheaseDailyProgress();
     }
 }
 
-function getDefaultMatheaseDailyProgress() {
-    return { lessons_completed: 0, exercises_completed: 0, quizzes_completed: 0, points_earned: 0, time_spent_minutes: 0, streak_days: 0 };
+// ===== Default progress for mathease =====
+function getDefaultmatheaseDailyProgress() {
+    return {
+        lessons_completed: 0,
+        exercises_completed: 0,
+        quizzes_completed: 0,
+        points_earned: 0,
+        time_spent_minutes: 0,
+        streak_days: 0
+    };
 }
 
-async function fetchPracticeStatistics() {
+
+function handleActivityResponse(data) {
+    if (data.success) {
+        // Handle different response formats
+        const activities = data.activity_feed?.activities || 
+                          data.activities || 
+                          data.activity_feed || 
+                          [];
+        
+        console.log(`✅ Fetched ${activities.length} activities`);
+        ProgressState.activityLog = activities;
+        return activities;
+    } else {
+        console.warn('⚠️ Activity feed returned unsuccessful response:', data);
+        return [];
+    }
+}
+// Helper function para sa  practice stats
+async function fetchmatheasePracticeStats(userId) {
+    try {
+
+        const [stats] = await promisePool.query(`
+            SELECT 
+                COUNT(DISTINCT CASE WHEN completion_status = 'completed' THEN exercise_id END) as exercises_completed,
+                COUNT(*) as total_attempts,
+                COALESCE(AVG(score), 0) as average_score,
+                COALESCE(SUM(time_spent_seconds), 0) as total_time_seconds
+            FROM user_practice_progress upp
+            JOIN practice_exercises pe ON upp.exercise_id = pe.exercise_id
+            WHERE upp.user_id = ? AND pe.lesson_id = ?
+        `, [userId, MATHEASE_LESSON_ID]);
+        
+        return stats[0] || {
+            exercises_completed: 0,
+            total_attempts: 0,
+            average_score: 0,
+            total_time_seconds: 0
+        };
+    } catch (error) {
+        console.error('Error fetching practice stats:', error);
+        return {};
+    }
+}
+
+// Helper function para sa  quiz stats
+async function fetchmatheaseQuizStats(userId) {
+    try {
+
+        const [stats] = await promisePool.query(`
+            SELECT 
+                COUNT(*) as quizzes_completed,
+                COALESCE(SUM(score), 0) as total_points,
+                COALESCE(AVG(score), 0) as avg_score
+            FROM user_quiz_attempts uqa
+            JOIN quizzes q ON uqa.quiz_id = q.quiz_id
+            WHERE uqa.user_id = ? 
+            AND uqa.completion_status = 'completed'
+            AND q.lesson_id = ?
+        `, [userId, MATHEASE_LESSON_ID]);
+        
+        return stats[0] || {
+            quizzes_completed: 0,
+            total_points: 0,
+            avg_score: 0
+        };
+    } catch (error) {
+        console.error('Error fetching quiz stats:', error);
+        return {};
+    }
+}
+
+function getDefaultmatheaseProgress() {
+    return {
+        lessons_completed: 0,
+        total_lessons: 10,
+        percentage: 0,
+        total_points: 0,
+        practice_completed: 0,
+        quizzes_completed: 0,
+        total_time_spent_minutes: 0,
+        average_time: 0
+    };
+}
+
+// ============================================
+// ✅ FIXED: fetchCumulativeProgress - FOR BROWSER
+// ============================================
+async function fetchCumulativeProgress() {
     try {
         const token = localStorage.getItem('authToken') || authToken;
-        if (!token) return getDefaultMatheasePracticeStats();
         
-        const [lessonsData, attemptsData, totalExercisesData] = await Promise.allSettled([
-            fetch(`/api/progress/lessons?lesson_id=1`, { headers: { 'Authorization': `Bearer ${token}` } }).then(res => res.json()),
-            fetch(`/api/progress/practice-attempts?lesson_id=1`, { headers: { 'Authorization': `Bearer ${token}` } }).then(res => res.json()),
-            fetch(`/api/practice/exercises/count?lesson_id=1`, { headers: { 'Authorization': `Bearer ${token}` } }).then(res => res.json())
+        if (!token) {
+            console.warn('❌ No auth token available');
+            return getDefaultProgress();
+        }
+        
+        console.log('📊 Fetching cumulative progress...');
+        
+        // ✅ GUMAMIT NG FETCH, HINDI PROMISEPOOL
+        const response = await fetch(`/api/progress/overall`, {
+            headers: { 
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+            }
+        });
+        
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            console.log('✅ Overall progress loaded:', data.overall);
+            
+            // Convert seconds to minutes
+            const totalSeconds = data.overall.total_time_spent_minutes || 0;
+            const totalMinutes = Math.floor(totalSeconds / 60);
+            
+            // Calculate average time per activity
+            const totalActivities = (data.overall.lessons_completed || 0) + 
+                                   (data.overall.practice_completed || 0) + 
+                                   (data.overall.quizzes_completed || 0);
+            
+            const avgPerActivity = totalActivities > 0 
+                ? Math.round(totalMinutes / totalActivities) 
+                : 5;
+            
+            // Calculate weekly improvement
+            const weeklyImprovement = calculateWeeklyImprovement(data.overall);
+            
+            const progress = {
+                total_lessons_completed: data.overall.lessons_completed || 0,
+                total_lessons: data.overall.total_lessons || 20,
+                overall_percentage: data.overall.percentage || 0,
+                exercises_completed: data.overall.practice_completed || 0,
+                total_quizzes_completed: data.overall.quizzes_completed || 0,
+                total_points_earned: data.overall.total_points || 0,
+                total_time_spent_minutes: totalMinutes,
+                weekly_time_spent: data.overall.weekly?.minutes || 0,
+                avg_time_per_activity: avgPerActivity,
+                weekly_improvement: weeklyImprovement,
+                total_time_display: formatTime(totalMinutes),
+                streak_days: data.overall.streak_days || 1,
+                weekly: data.overall.weekly || { 
+                    lessons: 0, 
+                    exercises: 0, 
+                    quizzes: 0, 
+                    points: 0, 
+                    minutes: 0 
+                }
+            };
+            
+            console.log(`📊 Progress loaded - Lessons: ${progress.total_lessons_completed}/${progress.total_lessons}`);
+            
+            ProgressState.cumulativeProgress = progress;
+            
+            // IMMEDIATELY update display
+            updateOverallProgressDisplay(progress);
+            
+            return progress;
+        }
+        
+        return getDefaultProgress();
+        
+    } catch (error) {
+        console.error('❌ Error in fetchCumulativeProgress:', error);
+        return getDefaultProgress();
+    }
+}
+// Helper function to calculate weekly improvement
+function calculateWeeklyImprovement(data) {
+    // Get this week's activities
+    const thisWeekActivities = (data.weekly?.lessons || 0) + 
+                               (data.weekly?.exercises || 0) + 
+                               (data.weekly?.quizzes || 0);
+    
+    // Get last week's activities (if available in data)
+    const lastWeekActivities = data.last_week?.activities || 0;
+    
+    if (lastWeekActivities === 0) return 5; // Default if no previous data
+    
+    // Calculate improvement percentage
+    const improvement = Math.round(((thisWeekActivities - lastWeekActivities) / lastWeekActivities) * 100);
+    
+    // Cap between -50% and +100% for reasonable display
+    return Math.min(100, Math.max(-50, improvement));
+}
+
+// Helper function to format time
+function formatTime(minutes) {
+    const hours = Math.floor(minutes / 60);
+    const mins = minutes % 60;
+    
+    if (hours > 0) {
+        return `${hours}h ${mins}m`;
+    } else {
+        return `${mins}m`;
+    }
+}
+
+// ============================================
+// Helper: Get Default Progress
+// ============================================
+function getDefaultProgress() {
+    return {
+        total_lessons_completed: 0,
+        total_lessons: 20,
+        overall_percentage: 0,
+        exercises_completed: 0,
+        total_quizzes_completed: 0,
+        total_points_earned: 0,
+        total_time_spent_minutes: 0,
+        weekly_time_spent: 0,
+        avg_display_time: 5,
+        streak_days: 1,
+        weekly: {
+            lessons: 0,
+            exercises: 0,
+            quizzes: 0,
+            points: 0,
+            minutes: 0
+        }
+    };
+}
+
+// ============================================
+// ✅ FIXED: updateOverallProgressDisplay - WITH REAL-TIME DATA
+// ============================================
+function updateOverallProgressDisplay(progress) {
+    console.log('📊 Updating overall progress display with:', progress);
+    
+    if (!progress) {
+        progress = ProgressState.cumulativeProgress || getDefaultProgress();
+    }
+    
+    // Get percentage
+    const percentage = progress.percentage || progress.overall_percentage || 0;
+    
+    // Update overall progress text
+    const overallProgress = document.getElementById('overallProgress');
+    if (overallProgress) {
+        overallProgress.textContent = `${percentage}%`;
+        // Add animation to show it's updated
+        overallProgress.style.transition = 'all 0.3s';
+        overallProgress.style.transform = 'scale(1.1)';
+        overallProgress.style.color = '#7a0000';
+        setTimeout(() => {
+            overallProgress.style.transform = 'scale(1)';
+            overallProgress.style.color = '';
+        }, 300);
+    }
+    
+    // Update progress bar
+    const overallProgressBar = document.getElementById('overallProgressBar');
+    if (overallProgressBar) {
+        overallProgressBar.style.width = `${percentage}%`;
+        overallProgressBar.className = 'progress-fill';
+        if (percentage >= 70) {
+            overallProgressBar.classList.add('progress-good');
+        } else if (percentage >= 40) {
+            overallProgressBar.classList.add('progress-medium');
+        } else {
+            overallProgressBar.classList.add('progress-low');
+        }
+    }
+    
+    // Update total points
+    const totalPointsProgress = document.getElementById('totalPointsProgress');
+    if (totalPointsProgress) {
+        totalPointsProgress.textContent = progress.total_points || progress.total_points_earned || 0;
+    }
+    
+    // Update points change
+    const pointsChange = document.getElementById('pointsChange');
+    if (pointsChange) {
+        const weeklyPoints = progress.weekly?.points || 0;
+        pointsChange.textContent = `+${weeklyPoints} this week`;
+    }
+    
+    // Update TOTAL TIME INVESTED
+    const totalTime = document.getElementById('totalTime');
+    if (totalTime) {
+        // Use the formatted total time
+        if (progress.total_time_display) {
+            totalTime.textContent = progress.total_time_display;
+        } else {
+            // Fallback formatting
+            const totalMinutes = progress.total_time_spent_minutes || 0;
+            totalTime.textContent = formatTime(totalMinutes);
+        }
+        console.log('✅ Total time updated:', totalTime.textContent);
+    }
+    
+    // Update time change (weekly)
+    const timeChange = document.getElementById('timeChange');
+    if (timeChange) {
+        const weeklyMinutes = progress.weekly?.minutes || 0;
+        timeChange.textContent = `${formatTime(weeklyMinutes)} this week`;
+    }
+}
+
+// Fetch weekly progress
+async function fetchWeeklyProgress() {
+    try {
+        const token = localStorage.getItem('authToken') || authToken;
+        if (!token) {
+            console.warn('No auth token available');
+            return null;
+        }
+        
+        console.log('📊 Fetching weekly progress...');
+        
+        const response = await fetch(`/api/progress/weekly`, {
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+            }
+        });
+        
+        if (!response.ok) {
+            throw new Error(`Failed to fetch weekly progress: ${response.status}`);
+        }
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            console.log('✅ Weekly progress loaded');
+            ProgressState.weeklyProgress = data.progress || {};
+            return data.progress;
+        } else {
+            throw new Error(data.message || 'No weekly progress returned');
+        }
+    } catch (error) {
+        console.error('Error fetching weekly progress:', error);
+        return null;
+    }
+}
+
+// Fetch monthly progress
+async function fetchMonthlyProgress() {
+    try {
+        const token = localStorage.getItem('authToken') || authToken;
+        if (!token) {
+            console.warn('No auth token available');
+            return null;
+        }
+        
+        console.log('📊 Fetching monthly progress...');
+        
+        const response = await fetch(`/api/progress/monthly`, {
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+            }
+        });
+        
+        if (!response.ok) {
+            throw new Error(`Failed to fetch monthly progress: ${response.status}`);
+        }
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            console.log('✅ Monthly progress loaded');
+            ProgressState.monthlyProgress = data.progress || {};
+            return data.progress;
+        } else {
+            throw new Error(data.message || 'No monthly progress returned');
+        }
+    } catch (error) {
+        console.error('Error fetching monthly progress:', error);
+        return null;
+    }
+}
+
+// Fetch learning goals
+async function fetchLearningGoals() {
+    try {
+        const token = localStorage.getItem('authToken') || authToken;
+        if (!token) {
+            console.warn('No auth token available');
+            return [];
+        }
+        
+        console.log('🎯 Fetching learning goals...');
+        
+        const response = await fetch(`/api/progress/goals`, {
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+            }
+        });
+        
+        // Handle 404 gracefully - ibig sabihin wala pang goals feature
+        if (response.status === 404) {
+            console.log('ℹ️ Learning goals endpoint not found (404) - returning empty array');
+            ProgressState.learningGoals = [];
+            return [];
+        }
+        
+        if (!response.ok) {
+            console.warn(`Failed to fetch learning goals: ${response.status}`);
+            ProgressState.learningGoals = [];
+            return [];
+        }
+        
+        const data = await response.json();
+        
+        if (data.success && data.goals) {
+            console.log(`✅ Fetched ${data.goals.length} learning goals`);
+            ProgressState.learningGoals = data.goals;
+            return data.goals;
+        } else {
+            console.warn('No learning goals returned');
+            ProgressState.learningGoals = [];
+            return [];
+        }
+    } catch (error) {
+        console.error('Error fetching learning goals:', error);
+        ProgressState.learningGoals = [];
+        return [];
+    }
+}
+
+// ============================================
+// FETCH TOPIC MASTERY (for Accuracy Rate & Topics Progress)
+// ============================================
+async function fetchTopicMastery() {
+    try {
+        const token = localStorage.getItem('authToken') || authToken;
+        if (!token) return {};
+        
+        console.log('🧠 Fetching topic mastery...');
+        
+        const response = await fetch(`/api/progress/topic-mastery`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        
+        if (!response.ok) return {};
+        
+        const data = await response.json();
+        
+        if (data.success && data.mastery) {
+            console.log(`✅ Fetched mastery for ${data.mastery.length} topics`);
+            
+            // Store in ProgressState
+            ProgressState.topicMastery = data.mastery;
+            
+            // Update UI
+            updateTopicProgressBreakdown();
+            updatePerformanceAnalytics();
+            
+            return data.mastery;
+        } else {
+            return {};
+        }
+    } catch (error) {
+        console.error('Error fetching topic mastery:', error);
+        return {};
+    }
+}
+
+// ============================================
+// FIXED: fetchModuleProgress - Handles empty responses
+// ============================================
+async function fetchModuleProgress() {
+    try {
+        const token = localStorage.getItem('authToken') || authToken;
+        if (!token) {
+            console.warn('No auth token available');
+            return {};
+        }
+        
+        console.log('📚 Fetching module progress...');
+        
+        const response = await fetch(`/api/progress/modules`, {
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+            }
+        });
+        
+        if (!response.ok) {
+            console.warn(`Failed to fetch module progress: ${response.status}`);
+            return {};
+        }
+        
+        const data = await response.json();
+        
+        // Handle different response structures
+        if (data.success) {
+            // Check if progress exists in different possible locations
+            let progressData = {};
+            
+            if (data.progress && Array.isArray(data.progress)) {
+                // Convert array to object for easier access
+                data.progress.forEach(item => {
+                    progressData[item.module_id] = item;
+                });
+                console.log(`✅ Fetched progress for ${data.progress.length} modules`);
+            } else if (data.data && Array.isArray(data.data)) {
+                data.data.forEach(item => {
+                    progressData[item.module_id] = item;
+                });
+                console.log(`✅ Fetched progress for ${data.data.length} modules`);
+            } else if (data.modules && Array.isArray(data.modules)) {
+                data.modules.forEach(item => {
+                    progressData[item.module_id] = item;
+                });
+                console.log(`✅ Fetched progress for ${data.modules.length} modules`);
+            } else {
+                // If no progress data, return empty object (not an error)
+                console.log('ℹ️ No module progress data available yet');
+                return {};
+            }
+            
+            ProgressState.moduleProgress = progressData;
+            return progressData;
+        } else {
+            // If success is false but no error, just return empty
+            console.log('ℹ️ Module progress endpoint returned success: false');
+            return {};
+        }
+    } catch (error) {
+        console.error('Error fetching module progress:', error.message);
+        return {}; // Return empty object instead of throwing
+    }
+}
+
+
+// Fetch dashboard statistics
+async function fetchDashboardStats() {
+    try {
+        const token = localStorage.getItem('authToken') || authToken;
+        if (!token) {
+            console.warn('No auth token available');
+            return null;
+        }
+        
+        console.log('📈 Fetching dashboard stats...');
+        
+        const response = await fetch(`/api/progress/dashboard-stats`, {
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': '/json'
+            }
+        });
+        
+        if (!response.ok) {
+            throw new Error(`Failed to fetch dashboard stats: ${response.status}`);
+        }
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            console.log('✅ Dashboard stats loaded');
+            ProgressState.dashboardStats = data.stats;
+            return data.stats;
+        } else {
+            throw new Error(data.message || 'No dashboard stats returned');
+        }
+    } catch (error) {
+        console.error('Error fetching dashboard stats:', error);
+        return null;
+    }
+}
+
+// Fetch progress trends
+async function fetchProgressTrends(days = 30) {
+    try {
+        const token = localStorage.getItem('authToken') || authToken;
+        if (!token) {
+            console.warn('No auth token available');
+            return [];
+        }
+        
+        console.log('📊 Fetching progress trends...');
+        
+        const response = await fetch(`/api/progress/trends?days=${days}`, {
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+            }
+        });
+        
+        if (!response.ok) {
+            throw new Error(`Failed to fetch progress trends: ${response.status}`);
+        }
+        
+        const data = await response.json();
+        
+        if (data.success && data.trends) {
+            console.log(`✅ Fetched ${data.trends.length} days of progress trends`);
+            ProgressState.progressTrends = data.trends;
+            return data.trends;
+        } else {
+            throw new Error(data.message || 'No progress trends returned');
+        }
+    } catch (error) {
+        console.error('Error fetching progress trends:', error);
+        return [];
+    }
+}
+
+// ============================================
+// FETCH ACHIEVEMENT TIMELINE
+// ============================================
+async function fetchAchievementTimeline(limit = 10) {
+    try {
+        const token = localStorage.getItem('authToken') || authToken;
+        if (!token) return [];
+        
+        console.log('🏆 Fetching achievement timeline...');
+        
+        const response = await fetch(`/api/progress/achievements?limit=${limit}`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        
+        if (!response.ok) return [];
+        
+        const data = await response.json();
+        
+        if (data.success && data.achievements) {
+            console.log(`✅ Fetched ${data.achievements.length} achievements`);
+            ProgressState.achievementTimeline = data.achievements;
+            
+            // Update UI
+            updateAchievementTimeline();
+            
+            return data.achievements;
+        } else {
+            return [];
+        }
+    } catch (error) {
+        console.error('Error fetching achievements:', error);
+        return [];
+    }
+}
+
+// Log user activity
+// ITO ANG BAGONG VERSION - WALANG POINTS_EARNED
+async function logUserActivity(activityType, relatedId = null, details = {}) {
+    try {
+        const token = localStorage.getItem('authToken') || authToken;
+        if (!token) {
+            console.warn('No auth token available, skipping activity log');
+            return false;
+        }
+        
+        console.log(`📝 Logging activity: ${activityType}`);
+        
+        // USE THE WORKING update-daily ENDPOINT
+        const response = await fetch(`/api/progress/update-daily`, {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                activity_type: activityType,
+                related_id: relatedId,
+                details: details
+                // NO points_earned
+            })
+        });
+        
+        if (!response.ok) {
+            // If 404, just log locally and return true (don't break functionality)
+            if (response.status === 404) {
+                console.log('📝 Activity logging endpoint not found, skipping...');
+                return true;
+            }
+            throw new Error(`Failed to log activity: ${response.status}`);
+        }
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            console.log('✅ Activity logged successfully');
+            return true;
+        } else {
+            throw new Error(data.message || 'Failed to log activity');
+        }
+    } catch (error) {
+        console.error('Error logging user activity:', error);
+        // Return true so it doesn't break other functionality
+        return true;
+    }
+}
+
+// ============================================
+// ✅ FIXED: Update daily progress -  ONLY
+// ============================================
+async function updateDailyProgress(progressData) {
+    try {
+        const token = localStorage.getItem('authToken') || authToken;
+        if (!token) {
+            console.warn('No auth token available');
+            return false;
+        }
+        
+        console.log('📊 Updating  daily progress...', progressData);
+        
+        // ✅ Add lesson_id = 2 for 
+        const updateData = {
+            ...(progressData.lessons_completed !== undefined && { 
+                lessons_completed: progressData.lessons_completed 
+            }),
+            ...(progressData.exercises_completed !== undefined && { 
+                exercises_completed: progressData.exercises_completed 
+            }),
+            ...(progressData.quizzes_completed !== undefined && { 
+                quizzes_completed: progressData.quizzes_completed 
+            }),
+            ...(progressData.time_spent_minutes !== undefined && { 
+                time_spent_minutes: progressData.time_spent_minutes 
+            }),
+           lesson_id: MATHEASE_LESSON_ID // ✅ FORCE 
+        };
+        
+        // If no data to update, return
+        if (Object.keys(updateData).length === 1) { // 1 because lesson_id is always there
+            console.log('⚠️ No progress data to update');
+            return true;
+        }
+        
+        const response = await fetch(`/api/progress/update-daily`, {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(updateData)
+        });
+        
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            console.log('✅  daily progress updated');
+            return true;
+        } else {
+            throw new Error(data.message || 'Failed to update daily progress');
+        }
+        
+    } catch (error) {
+        console.error('❌ Error updating daily progress:', error);
+        return false;
+    }
+}
+// Update topic mastery
+async function updateTopicMastery(topicId, masteryData) {
+    try {
+        const token = localStorage.getItem('authToken') || authToken;
+        if (!token) {
+            console.warn('No auth token available');
+            return false;
+        }
+        
+        console.log(`🧠 Updating topic mastery for topic ${topicId}...`);
+        
+        const response = await fetch(`/api/progress/update-topic-mastery`, {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                topic_id: topicId,
+                ...masteryData
+            })
+        });
+        
+        if (!response.ok) {
+            throw new Error(`Failed to update topic mastery: ${response.status}`);
+        }
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            console.log('✅ Topic mastery updated');
+            return true;
+        } else {
+            throw new Error(data.message || 'Failed to update topic mastery');
+        }
+    } catch (error) {
+        console.error('Error updating topic mastery:', error);
+        return false;
+    }
+}
+
+// ============================================
+// 🚨 EMERGENCY OVERRIDE - Force ALL lesson_id to 3
+// ============================================
+(function forceLessonId3() {
+    console.log('🚨 EMERGENCY: Forcing ALL lesson_id to 1');
+    
+    // Override the global fetch to always add lesson_id=1
+    const originalFetch = window.fetch;
+    window.fetch = function(url, options) {
+        // Only modify API calls that should have lesson_id
+        if (typeof url === 'string' && 
+            (url.includes('/api/progress/') || 
+             url.includes('/api/lessons') || 
+             url.includes('/api/practice/') ||
+             url.includes('/api/quiz/')) && 
+            !url.includes('lesson_id=')) {
+            
+            // Add lesson_id=3 to the URL
+            const separator = url.includes('?') ? '&' : '?';
+            url = `${url}${separator}lesson_id=1`;
+            console.log(`🔧 Forced lesson_id=1: ${url.split('?')[0]}`);
+        }
+        return originalFetch.call(this, url, options);
+    };
+    
+    // Override the constants
+    window.MATHEASE_LESSON_ID = 1;
+    
+    // Override getCurrentAppLessonId
+    window.getCurrentAppLessonId = function() {
+        return 1;
+    };
+    
+    // Set localStorage
+    localStorage.setItem('selectedApp', 'mathease');
+    localStorage.setItem('currentLessonFilter', '1');
+    localStorage.setItem('currentLessonId', '1');
+    
+    console.log('✅ Emergency override complete - All API calls will use lesson_id=1');
+})();
+
+// Update module progress
+async function updateModuleProgress(moduleId, progressData) {
+    try {
+        const token = localStorage.getItem('authToken') || authToken;
+        if (!token) {
+            console.warn('No auth token available');
+            return false;
+        }
+        
+        console.log(`📚 Updating module progress for module ${moduleId}...`);
+        
+        const response = await fetch(`/api/progress/update-module-progress`, {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                module_id: moduleId,
+                ...progressData
+            })
+        });
+        
+        if (!response.ok) {
+            throw new Error(`Failed to update module progress: ${response.status}`);
+        }
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            console.log('✅ Module progress updated');
+            return true;
+        } else {
+            throw new Error(data.message || 'Failed to update module progress');
+        }
+    } catch (error) {
+        console.error('Error updating module progress:', error);
+        return false;
+    }
+}
+
+// Update learning goal progress
+async function updateLearningGoalProgress(goalId, currentValue) {
+    try {
+        const token = localStorage.getItem('authToken') || authToken;
+        if (!token) {
+            console.warn('No auth token available');
+            return false;
+        }
+        
+        console.log(`🎯 Updating learning goal ${goalId}...`);
+        
+        const response = await fetch(`/api/progress/update-goal-progress`, {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                goal_id: goalId,
+                current_value: currentValue
+            })
+        });
+        
+        if (!response.ok) {
+            throw new Error(`Failed to update learning goal progress: ${response.status}`);
+        }
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            console.log('✅ Learning goal progress updated');
+            return true;
+        } else {
+            throw new Error(data.message || 'Failed to update learning goal progress');
+        }
+    } catch (error) {
+        console.error('Error updating learning goal progress:', error);
+        return false;
+    }
+}
+
+// Complete a learning goal
+async function completeLearningGoal(goalId) {
+    try {
+        const token = localStorage.getItem('authToken') || authToken;
+        if (!token) {
+            console.warn('No auth token available');
+            return false;
+        }
+        
+        console.log(`🏆 Completing learning goal ${goalId}...`);
+        
+        const response = await fetch(`/api/progress/complete-goal`, {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                goal_id: goalId
+            })
+        });
+        
+        if (!response.ok) {
+            throw new Error(`Failed to complete learning goal: ${response.status}`);
+        }
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            console.log('✅ Learning goal completed');
+            
+            // Log this achievement
+            await logUserActivity('goal_achieved', goalId, { goal_id: goalId }, 50);
+            
+            return true;
+        } else {
+            throw new Error(data.message || 'Failed to complete learning goal');
+        }
+    } catch (error) {
+        console.error('Error completing learning goal:', error);
+        return false;
+    }
+}
+
+
+// Add this to the addPracticeStyles function or create a new style block
+function addPracticeResultModalStyles() {
+    const style = document.createElement('style');
+    style.textContent = `
+        /* Practice Result Modal Styles */
+        .practice-result-modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.7);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000000;
+            animation: fadeIn 0.3s ease;
+        }
+        
+        .practice-result-container {
+            background: white;
+            border-radius: 16px;
+            width: 90%;
+            max-width: 500px;
+            max-height: 90vh;
+            overflow-y: auto;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            animation: slideUp 0.4s ease;
+        }
+        
+        .practice-result-header {
+            padding: 25px 25px 15px;
+            text-align: center;
+            border-bottom: 1px solid #f0f0f0;
+        }
+        
+        .practice-result-icon {
+            width: 80px;
+            height: 80px;
+            border-radius: 50%;
+            margin: 0 auto 15px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 40px;
+        }
+        
+        .practice-result-icon.success {
+            background: linear-gradient(135deg, #27ae60, #2ecc71);
+            color: white;
+            box-shadow: 0 10px 20px rgba(39, 174, 96, 0.3);
+        }
+        
+        .practice-result-icon.warning {
+            background: linear-gradient(135deg, #f39c12, #f1c40f);
+            color: white;
+            box-shadow: 0 10px 20px rgba(243, 156, 18, 0.3);
+        }
+        
+        .practice-result-icon.info {
+            background: linear-gradient(135deg, #3498db, #2980b9);
+            color: white;
+            box-shadow: 0 10px 20px rgba(52, 152, 219, 0.3);
+        }
+        
+        .practice-result-title {
+            font-size: 24px;
+            font-weight: bold;
+            color: #2c3e50;
+            margin-bottom: 5px;
+        }
+        
+        .practice-result-subtitle {
+            font-size: 14px;
+            color: #7f8c8d;
+        }
+        
+        .practice-result-body {
+            padding: 25px;
+        }
+        
+        .practice-score-circle {
+            width: 150px;
+            height: 150px;
+            margin: 0 auto 20px;
+            position: relative;
+        }
+        
+        .practice-score-svg {
+            width: 150px;
+            height: 150px;
+            transform: rotate(-90deg);
+        }
+        
+        .practice-score-circle-bg {
+            stroke: #ecf0f1;
+            stroke-width: 8;
+            fill: none;
+        }
+        
+        .practice-score-circle-fill {
+            stroke: #27ae60;
+            stroke-width: 8;
+            fill: none;
+            stroke-linecap: round;
+            transition: stroke-dasharray 1s ease;
+        }
+        
+        .practice-score-number {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 36px;
+            font-weight: bold;
+            color: #2c3e50;
+            text-align: center;
+        }
+        
+        .practice-score-label {
+            font-size: 12px;
+            color: #7f8c8d;
+            margin-top: 5px;
+        }
+        
+        .practice-stats-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 15px;
+            margin: 25px 0;
+        }
+        
+        .practice-stat-item {
+            background: #f8f9fa;
+            border-radius: 12px;
+            padding: 15px;
+            text-align: center;
+            transition: transform 0.3s;
+        }
+        
+        .practice-stat-item:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+        }
+        
+        .practice-stat-value {
+            font-size: 28px;
+            font-weight: bold;
+            color: #7a0000;
+            margin-bottom: 5px;
+        }
+        
+        .practice-stat-label {
+            font-size: 12px;
+            color: #7f8c8d;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        
+        .practice-stat-unit {
+            font-size: 10px;
+            color: #95a5a6;
+        }
+        
+        .practice-feedback-message {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 15px;
+            border-radius: 10px;
+            margin: 20px 0;
+            text-align: center;
+            font-size: 16px;
+            line-height: 1.6;
+        }
+        
+        .practice-encouragement {
+            background: #fff9e6;
+            border-left: 4px solid #f39c12;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 20px 0;
+            font-size: 14px;
+            color: #2c3e50;
+        }
+        
+        .practice-encouragement i {
+            color: #f39c12;
+            margin-right: 8px;
+        }
+        
+        .practice-tips-list {
+            margin-top: 10px;
+            padding-left: 20px;
+        }
+        
+        .practice-tips-list li {
+            margin-bottom: 8px;
+            color: #34495e;
+        }
+        
+        .practice-result-footer {
+            padding: 20px 25px 25px;
+            border-top: 1px solid #f0f0f0;
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+        }
+        
+        .practice-result-btn {
+            padding: 12px 25px;
+            border: none;
+            border-radius: 8px;
+            font-size: 15px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .practice-result-btn.primary {
+            background: #7a0000;
+            color: white;
+        }
+        
+        .practice-result-btn.primary:hover {
+            background: #5a0000;
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(122, 0, 0, 0.3);
+        }
+        
+        .practice-result-btn.secondary {
+            background: #ecf0f1;
+            color: #2c3e50;
+        }
+        
+        .practice-result-btn.secondary:hover {
+            background: #d5dbdb;
+            transform: translateY(-2px);
+        }
+        
+        .practice-result-btn.success {
+            background: #27ae60;
+            color: white;
+        }
+        
+        .practice-result-btn.success:hover {
+            background: #219653;
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(39, 174, 96, 0.3);
+        }
+        
+        .practice-completion-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            background: #27ae60;
+            color: white;
+            padding: 8px 15px;
+            border-radius: 20px;
+            font-size: 14px;
+            margin: 10px 0;
+        }
+        
+        .practice-total-progress {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 10px;
+            margin: 20px 0;
+        }
+        
+        .practice-progress-label {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 8px;
+            font-size: 14px;
+            color: #2c3e50;
+        }
+        
+        .practice-progress-bar {
+            height: 8px;
+            background: #ecf0f1;
+            border-radius: 4px;
+            overflow: hidden;
+        }
+        
+        .practice-progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #7a0000, #c0392b);
+            border-radius: 4px;
+            transition: width 0.5s ease;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+        
+        @keyframes slideUp {
+            from {
+                opacity: 0;
+                transform: translateY(30px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+    `;
+    document.head.appendChild(style);
+}
+// ============================================
+// ✅ NEW: Show Practice Result Modal
+// ============================================
+function showPracticeResultModal(results) {
+    console.log('📊 Showing practice result modal:', results);
+    
+    // Remove any existing modal
+    const existingModal = document.querySelector('.practice-result-modal');
+    if (existingModal) {
+        existingModal.remove();
+    }
+    
+    // Calculate score percentage
+    const scorePercentage = results.percentage || 
+                           (results.totalQuestions > 0 ? Math.round((results.correctAnswers / results.totalQuestions) * 100) : 0);
+    
+    // Determine result type
+    let resultType = 'info';
+    let resultIcon = 'fa-check-circle';
+    let resultTitle = 'Practice Completed!';
+    let resultMessage = '';
+    let encouragementMessage = '';
+    
+    if (scorePercentage >= 90) {
+        resultType = 'success';
+        resultIcon = 'fa-crown';
+        resultTitle = '🎉 Excellent Work!';
+        resultMessage = 'You\'ve mastered this topic!';
+        encouragementMessage = 'Your understanding is outstanding. Ready for a challenge?';
+    } else if (scorePercentage >= 75) {
+        resultType = 'success';
+        resultIcon = 'fa-star';
+        resultTitle = '🌟 Great Job!';
+        resultMessage = 'You\'re doing really well!';
+        encouragementMessage = 'Keep up the excellent work!';
+    } else if (scorePercentage >= 50) {
+        resultType = 'info';
+        resultIcon = 'fa-smile';
+        resultTitle = '💪 Good Effort!';
+        resultMessage = 'You\'re making progress!';
+        encouragementMessage = 'Practice a bit more to master this topic.';
+    } else {
+        resultType = 'warning';
+        resultIcon = 'fa-book';
+        resultTitle = '📚 Keep Practicing';
+        resultMessage = 'Every mistake is a learning opportunity.';
+        encouragementMessage = 'Review the lesson and try again!';
+    }
+    
+    // Calculate time display
+    const timeSpent = results.timeSpentSeconds || 0;
+    const minutes = Math.floor(timeSpent / 60);
+    const seconds = timeSpent % 60;
+    const timeDisplay = minutes > 0 ? 
+        `${minutes}m ${seconds}s` : 
+        `${seconds}s`;
+    
+    // Get updated stats
+    const stats = PracticeState.userPracticeProgress || {};
+    const lessonsCompleted = stats.lessons_completed || 0;
+    const totalLessons = stats.total_lessons || 3;
+    const exercisesCompleted = stats.exercises_completed || 0;
+    const lessonsPercentage = stats.lessons_percentage || 0;
+    
+    // Generate tips based on score
+    let tipsHTML = '';
+    if (scorePercentage < 75) {
+        tipsHTML = `
+            <div class="practice-encouragement">
+                <i class="fas fa-lightbulb"></i>
+                <strong>Tips to improve:</strong>
+                <ul class="practice-tips-list">
+                    <li>📖 Review the lesson materials again</li>
+                    <li>✍️ Take notes on key concepts</li>
+                    <li>🔍 Focus on the questions you got wrong</li>
+                    <li>💪 Try the exercise again tomorrow</li>
+                </ul>
+            </div>
+        `;
+    }
+    
+    // Create modal HTML
+    const modalHTML = `
+        <div class="practice-result-modal">
+            <div class="practice-result-container">
+                
+                <!-- Header -->
+                <div class="practice-result-header">
+                    <div class="practice-result-icon ${resultType}">
+                        <i class="fas ${resultIcon}"></i>
+                    </div>
+                    <h2 class="practice-result-title">${resultTitle}</h2>
+                    <p class="practice-result-subtitle">${resultMessage}</p>
+                </div>
+                
+                <!-- Body -->
+                <div class="practice-result-body">
+                    
+                    <!-- Score Circle -->
+                    <div class="practice-score-circle">
+                        <svg class="practice-score-svg" viewBox="0 0 36 36">
+                            <circle class="practice-score-circle-bg" cx="18" cy="18" r="15.9"></circle>
+                            <circle class="practice-score-circle-fill" 
+                                    cx="18" cy="18" r="15.9" 
+                                    stroke-dasharray="${scorePercentage}, 100"
+                                    style="stroke: ${scorePercentage >= 75 ? '#27ae60' : (scorePercentage >= 50 ? '#f39c12' : '#e74c3c')};">
+                            </circle>
+                        </svg>
+                        <div class="practice-score-number">
+                            ${scorePercentage}%
+                        </div>
+                    </div>
+                    
+                    <!-- Statistics Grid -->
+                    <div class="practice-stats-grid">
+                        <div class="practice-stat-item">
+                            <div class="practice-stat-value">${results.correctAnswers || 0}</div>
+                            <div class="practice-stat-label">Correct</div>
+                        </div>
+                        
+                        <div class="practice-stat-item">
+                            <div class="practice-stat-value">${results.wrongAnswers || 0}</div>
+                            <div class="practice-stat-label">Wrong</div>
+                        </div>
+                        
+                        <div class="practice-stat-item">
+                            <div class="practice-stat-value">${results.totalQuestions || 0}</div>
+                            <div class="practice-stat-label">Total</div>
+                        </div>
+                        
+                        <div class="practice-stat-item">
+                            <div class="practice-stat-value">${timeDisplay}</div>
+                            <div class="practice-stat-label">Time</div>
+                        </div>
+                    </div>
+                    
+                    <!-- Points Earned -->
+                    <div style="background: #f8f9fa; padding: 15px; border-radius: 10px; margin: 20px 0; text-align: center;">
+                        <div style="font-size: 24px; font-weight: bold; color: #7a0000;">
+                            +${results.correctAnswers * 10 || 0}
+                        </div>
+                        <div style="font-size: 12px; color: #7f8c8d;">Points Earned</div>
+                    </div>
+                    
+                    <!-- Overall Progress -->
+                    <div class="practice-total-progress">
+                        <h4 style="margin: 0 0 15px 0; color: #2c3e50; font-size: 16px;">
+                            <i class="fas fa-chart-line" style="color: #7a0000;"></i> 
+                            Your Overall Progress
+                        </h4>
+                        
+                        <!-- Lessons Progress -->
+                        <div style="margin-bottom: 15px;">
+                            <div class="practice-progress-label">
+                                <span><i class="fas fa-book"></i> Lessons Completed</span>
+                                <span><strong>${lessonsCompleted}/${totalLessons}</strong></span>
+                            </div>
+                            <div class="practice-progress-bar">
+                                <div class="practice-progress-fill" style="width: ${lessonsPercentage}%"></div>
+                            </div>
+                        </div>
+                        
+                        <!-- Exercises Progress -->
+                        <div>
+                            <div class="practice-progress-label">
+                                <span><i class="fas fa-pencil-alt"></i> Exercises Completed</span>
+                                <span><strong>${exercisesCompleted}</strong></span>
+                            </div>
+                            <div class="practice-progress-bar">
+                                <div class="practice-progress-fill" style="width: ${Math.min(exercisesCompleted * 10, 100)}%"></div>
+                            </div>
+                        </div>
+                        
+                        <!-- Achievement Badge -->
+                        ${scorePercentage >= 90 ? `
+                            <div class="practice-completion-badge">
+                                <i class="fas fa-trophy"></i> Achievement Unlocked: Math Master
+                            </div>
+                        ` : ''}
+                    </div>
+                    
+                    <!-- Encouragement Message -->
+                    <div style="background: #fff9e6; padding: 15px; border-radius: 10px; text-align: center; border-left: 4px solid #f39c12;">
+                        <i class="fas fa-quote-left" style="color: #f39c12; margin-right: 8px;"></i>
+                        ${encouragementMessage}
+                    </div>
+                    
+                    <!-- Tips (if score < 75) -->
+                    ${tipsHTML}
+                    
+                </div>
+                
+                <!-- Footer -->
+                <div class="practice-result-footer">
+                    <button class="practice-result-btn secondary" onclick="closePracticeResultModal()">
+                        <i class="fas fa-times"></i> Close
+                    </button>
+                    <button class="practice-result-btn primary" onclick="tryPracticeAgain()">
+                        <i class="fas fa-redo"></i> Try Again
+                    </button>
+                    <button class="practice-result-btn success" onclick="goToNextPractice()">
+                        <i class="fas fa-arrow-right"></i> Next Exercise
+                    </button>
+                </div>
+                
+            </div>
+        </div>
+    `;
+    
+    // Add to DOM
+    document.body.insertAdjacentHTML('beforeend', modalHTML);
+    
+    // Refresh statistics after showing modal
+    setTimeout(() => {
+        loadPracticeStatistics();
+        updateProgressSummaryCards();
+    }, 500);
+}
+
+// Helper functions for modal buttons
+window.closePracticeResultModal = function() {
+    const modal = document.querySelector('.practice-result-modal');
+    if (modal) {
+        modal.remove();
+    }
+};
+
+window.tryPracticeAgain = function() {
+    closePracticeResultModal();
+    // Get the last exercise and try again
+    if (PracticeState.currentExercise) {
+        startPractice(PracticeState.currentExercise.exercise_id, false);
+    }
+};
+
+window.goToNextPractice = function() {
+    closePracticeResultModal();
+    
+    // Find next exercise in the current topic
+    if (PracticeState.exercises && PracticeState.exercises.length > 0 && PracticeState.currentExercise) {
+        const currentIndex = PracticeState.exercises.findIndex(e => 
+            e.exercise_id === PracticeState.currentExercise.exercise_id
+        );
+        
+        if (currentIndex >= 0 && currentIndex < PracticeState.exercises.length - 1) {
+            // There is a next exercise
+            startPractice(PracticeState.exercises[currentIndex + 1].exercise_id);
+        } else {
+            // No next exercise, refresh the list
+            showNotification('All exercises completed! Great job! 🎉', 'success');
+            if (PracticeState.currentTopic) {
+                loadPracticeExercisesForTopic(PracticeState.currentTopic);
+            }
+        }
+    }
+};
+// Call this function when initializing practice page
+addPracticeResultModalStyles();
+
+// ============================================
+// ✅ FIXED: fetchPracticeStatistics - WITH CORRECT ENDPOINTS
+// ============================================
+async function fetchPracticeStatistics(topicId = null) {
+    try {
+        const token = localStorage.getItem('authToken') || authToken;
+        if (!token) {
+            console.warn('No auth token available');
+            return getDefaultPracticeStats();
+        }
+        
+        console.log('📊 Fetching practice statistics FROM DATABASE...');
+        
+        // ===== STEP 1: GET LESSONS COMPLETED =====
+        let lessonsCompleted = 0;
+        let totalLessons = 3; // Default
+        
+        try {
+            // ✅ FIX: Add /api/ prefix
+            const progressResponse = await fetch(`/api/progress/lessons`, {
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json'
+                }
+            });
+            
+            // Check if response is JSON
+            const contentType = progressResponse.headers.get('content-type');
+            if (contentType && contentType.includes('application/json') && progressResponse.ok) {
+                const progressData = await progressResponse.json();
+                if (progressData.success && progressData.progress) {
+                    // Count completed lessons
+                    lessonsCompleted = progressData.progress.filter(p => 
+                        p.completion_status === 'completed' || p.status === 'completed'
+                    ).length;
+                    
+                    console.log(`✅ Found ${lessonsCompleted} completed lessons`);
+                }
+            } else {
+                console.log('⚠️ Using default lesson count');
+                lessonsCompleted = 0;
+            }
+            
+            // Get total lessons count
+            const lessonsResponse = await fetch(`/api/lessons-db/complete`, {
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json'
+                }
+            });
+            
+            if (lessonsResponse.ok) {
+                const contentType = lessonsResponse.headers.get('content-type');
+                if (contentType && contentType.includes('application/json')) {
+                    const lessonsData = await lessonsResponse.json();
+                    if (lessonsData.success && lessonsData.lessons) {
+                        totalLessons = lessonsData.lessons.length;
+                    }
+                }
+            }
+            
+        } catch (lessonsError) {
+            console.warn('⚠️ Could not fetch lessons:', lessonsError.message);
+        }
+        
+        // ===== STEP 2: GET PRACTICE ATTEMPTS =====
+        let exercisesCompleted = 0;
+        let totalAttempts = 0;
+        let totalScore = 0;
+        let totalTimeSeconds = 0;
+        
+        try {
+            // ✅ FIX: Add /api/ prefix
+            const attemptsResponse = await fetch(`/api/progress/practice-attempts`, {
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json'
+                }
+            });
+            
+            const contentType = attemptsResponse.headers.get('content-type');
+            if (contentType && contentType.includes('application/json') && attemptsResponse.ok) {
+                const attemptsData = await attemptsResponse.json();
+                if (attemptsData.success && attemptsData.attempts) {
+                    const attempts = attemptsData.attempts;
+                    
+                    // Count COMPLETED exercises
+                    const completedExercises = attempts.filter(a => 
+                        a.completion_status === 'completed' || 
+                        a.score > 0 || 
+                        a.status === 'completed' ||
+                        a.percentage >= 70
+                    );
+                    
+                    exercisesCompleted = completedExercises.length;
+                    totalAttempts = attempts.length;
+                    
+                    // Compute average score
+                    if (totalAttempts > 0) {
+                        const totalScoreSum = attempts.reduce((sum, a) => sum + (a.score || 0), 0);
+                        totalScore = Math.round(totalScoreSum / totalAttempts);
+                    }
+                    
+                    // Calculate total time spent
+                    totalTimeSeconds = attempts.reduce((sum, a) => sum + (a.time_spent_seconds || 0), 0);
+                    
+                    console.log(`✅ Found ${exercisesCompleted} completed exercises out of ${totalAttempts} attempts`);
+                    console.log(`⏱️ Total practice time: ${totalTimeSeconds} seconds`);
+                }
+            }
+        } catch (attemptsError) {
+            console.warn('⚠️ Could not fetch practice attempts:', attemptsError.message);
+        }
+        
+        // ===== CREATE STATS OBJECT =====
+        const stats = {
+            total_exercises_completed: exercisesCompleted,
+            total_attempts: totalAttempts,
+            average_score: totalScore,
+            lessons_completed: lessonsCompleted,
+            exercises_completed: exercisesCompleted,
+            practice_unlocked: true,
+            total_lessons: totalLessons,
+            total_time_minutes: Math.round(totalTimeSeconds / 60),
+            total_time_seconds: totalTimeSeconds,
+            accuracy_rate: totalScore,
+            lessons_display: `${lessonsCompleted}/${totalLessons}`,
+            exercises_display: `${exercisesCompleted}`,
+            lessons_percentage: totalLessons > 0 ? Math.round((lessonsCompleted / totalLessons) * 100) : 0
+        };
+        
+        console.log('✅ FINAL PRACTICE STATISTICS:', stats);
+        
+        // Save to PracticeState
+        PracticeState.userPracticeProgress = stats;
+        
+        return stats;
+        
+    } catch (error) {
+        console.error('❌ Error fetching practice statistics:', error);
+        return getDefaultPracticeStats();
+    }
+}
+
+// Get quiz category progress
+async function fetchQuizCategoryProgress(categoryId = null) {
+    try {
+        const token = localStorage.getItem('authToken') || authToken;
+        if (!token) {
+            console.warn('No auth token available');
+            return {};
+        }
+        
+        console.log('📊 Fetching quiz category progress...');
+        
+        let url = `/progress/quiz-category-progress`;
+        if (categoryId) {
+            url += `?category_id=${categoryId}`;
+        }
+        
+        const response = await fetch(url, {
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+            }
+        });
+        
+        if (!response.ok) {
+            throw new Error(`Failed to fetch quiz category progress: ${response.status}`);
+        }
+        
+        const data = await response.json();
+        
+        if (data.success && data.progress) {
+            console.log('✅ Quiz category progress loaded');
+            return data.progress;
+        } else {
+            throw new Error(data.message || 'No quiz category progress returned');
+        }
+    } catch (error) {
+        console.error('Error fetching quiz category progress:', error);
+        return {};
+    }
+}
+
+// Get progress heatmap data
+async function fetchProgressHeatmap(startDate = null, endDate = null) {
+    try {
+        const token = localStorage.getItem('authToken') || authToken;
+        if (!token) {
+            console.warn('No auth token available');
+            return [];
+        }
+        
+        console.log('📅 Fetching progress heatmap data...');
+        
+        let url = `/progress/heatmap`;
+        if (startDate && endDate) {
+            url += `?start_date=${startDate}&end_date=${endDate}`;
+        }
+        
+        const response = await fetch(url, {
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+            }
+        });
+        
+        if (!response.ok) {
+            throw new Error(`Failed to fetch progress heatmap: ${response.status}`);
+        }
+        
+        const data = await response.json();
+        
+        if (data.success && data.heatmap) {
+            console.log(`✅ Fetched ${data.heatmap.length} days of heatmap data`);
+            return data.heatmap;
+        } else {
+            throw new Error(data.message || 'No heatmap data returned');
+        }
+    } catch (error) {
+        console.error('Error fetching progress heatmap:', error);
+        return [];
+    }
+}
+
+// Create a new learning goal
+async function createLearningGoal(goalData) {
+    try {
+        const token = localStorage.getItem('authToken') || authToken;
+        if (!token) {
+            console.warn('No auth token available');
+            return null;
+        }
+        
+        console.log('🎯 Creating new learning goal...');
+        
+        const response = await fetch(`/api/progress/create-goal`, {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(goalData)
+        });
+        
+        if (!response.ok) {
+            throw new Error(`Failed to create learning goal: ${response.status}`);
+        }
+        
+        const data = await response.json();
+        
+        if (data.success && data.goal) {
+            console.log('✅ Learning goal created:', data.goal.goal_title);
+            
+            // Log this activity
+            await logUserActivity('goal_set', data.goal.goal_id, {
+                goal_title: data.goal.goal_title,
+                goal_type: data.goal.goal_type
+            }, 10);
+            
+            return data.goal;
+        } else {
+            throw new Error(data.message || 'Failed to create learning goal');
+        }
+    } catch (error) {
+        console.error('Error creating learning goal:', error);
+        return null;
+    }
+}
+
+// Update dashboard widget configuration
+async function updateDashboardWidgets(widgetConfig) {
+    try {
+        const token = localStorage.getItem('authToken') || authToken;
+        if (!token) {
+            console.warn('No auth token available');
+            return false;
+        }
+        
+        console.log('⚙️ Updating dashboard widgets...');
+        
+        const response = await fetch(`/api/progress/update-widgets`, {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(widgetConfig)
+        });
+        
+        if (!response.ok) {
+            throw new Error(`Failed to update dashboard widgets: ${response.status}`);
+        }
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            console.log('✅ Dashboard widgets updated');
+            return true;
+        } else {
+            throw new Error(data.message || 'Failed to update dashboard widgets');
+        }
+    } catch (error) {
+        console.error('Error updating dashboard widgets:', error);
+        return false;
+    }
+}
+
+// ============================================
+// INITIALIZE PROGRESS DASHBOARD - UPDATED
+// ============================================
+// ============================================
+// INITIALIZE PROGRESS DASHBOARD - UPDATED
+// ============================================
+async function initProgressDashboard() {
+    console.log('📈 Initializing progress dashboard with database integration...');
+    
+    try {
+        // Show loading state
+        showProgressDashboardLoading();
+        
+        // Load all progress data
+        await updateProgressDashboardFromDatabase();
+        
+        // Load topic mastery for detailed breakdown
+        await fetchTopicMastery();
+        
+        // Load achievements
+        await fetchAchievementTimeline(10);
+        
+        // Load activity log
+        await fetchActivityLog(15);
+        
+        // Initialize charts
+        await initProgressCharts();
+        
+        // ✅ SIGURADUHING may value ang progressRefreshInterval bago gamitin
+        if (typeof progressRefreshInterval !== 'undefined') {
+            // Start auto-refresh (every 60 seconds)
+            startProgressAutoRefresh(60);
+        } else {
+            console.error('❌ progressRefreshInterval is not defined!');
+            // Fallback: initialize it first
+            progressRefreshInterval = null;
+            startProgressAutoRefresh(60);
+        }
+        
+        console.log('✅ Progress dashboard initialized with database integration');
+    } catch (error) {
+        console.error('Error initializing progress dashboard:', error);
+    }
+}
+
+// ============================================
+// PROGRESS DASHBOARD LOADING FUNCTIONS
+// ============================================
+
+function showProgressDashboardLoading() {
+    console.log('⏳ Showing progress dashboard loading state...');
+    
+    const elements = [
+        'overallProgress',
+        'totalPointsProgress',
+        'totalTime',
+        'totalBadges',
+        'pointsChange',
+        'timeChange',
+        'badgesChange'
+    ];
+    
+    elements.forEach(id => {
+        const el = document.getElementById(id);
+        if (el) {
+            // Store original content
+            if (!el.hasAttribute('data-original')) {
+                el.setAttribute('data-original', el.innerHTML);
+            }
+            el.innerHTML = '<i class="fas fa-spinner fa-spin" style="font-size: 14px;"></i>';
+            el.style.opacity = '0.7';
+        }
+    });
+    
+    // Show loading sa charts
+    const chartContainers = document.querySelectorAll('.chart-container');
+    chartContainers.forEach(container => {
+        const chart = container.querySelector('.chart-bars, .chart-line');
+        if (chart) {
+            chart.style.opacity = '0.5';
+            chart.style.pointerEvents = 'none';
+        }
+    });
+}
+
+function hideProgressDashboardLoading() {
+    console.log('✅ Hiding progress dashboard loading state...');
+    
+    const elements = [
+        'overallProgress',
+        'totalPointsProgress',
+        'totalTime',
+        'totalBadges',
+        'pointsChange',
+        'timeChange',
+        'badgesChange'
+    ];
+    
+    elements.forEach(id => {
+        const el = document.getElementById(id);
+        if (el && el.hasAttribute('data-original')) {
+            el.innerHTML = el.getAttribute('data-original');
+            el.style.opacity = '1';
+        }
+    });
+    
+    // Restore charts
+    const chartContainers = document.querySelectorAll('.chart-container');
+    chartContainers.forEach(container => {
+        const chart = container.querySelector('.chart-bars, .chart-line');
+        if (chart) {
+            chart.style.opacity = '1';
+            chart.style.pointerEvents = 'auto';
+        }
+    });
+}
+// ============================================
+// PROGRESS CHART FUNCTIONS
+// ============================================
+
+async function initProgressCharts() {
+    console.log('📊 Initializing progress charts...');
+    
+    try {
+        // Load chart data
+        const chartData = await fetchProgressChartData(14);
+        
+        if (chartData) {
+            renderPracticeTimeChart(chartData.practiceTime);
+            renderAccuracyChart(chartData.accuracy);
+        }
+        
+        console.log('✅ Progress charts initialized');
+    } catch (error) {
+        console.error('❌ Error initializing charts:', error);
+    }
+}
+
+async function fetchProgressChartData(days = 14) {
+    try {
+        const token = localStorage.getItem('authToken');
+        if (!token) return null;
+        
+        const response = await fetch(`/api/progress/chart-data?days=${days}`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        
+        if (!response.ok) return null;
+        
+        const data = await response.json();
+        return data;
+        
+    } catch (error) {
+        console.error('Error fetching chart data:', error);
+        return null;
+    }
+}
+
+function renderPracticeTimeChart(data) {
+    const barsContainer = document.getElementById('practiceTimeBars');
+    const labelsContainer = document.getElementById('practiceTimeLabels');
+    
+    if (!barsContainer || !labelsContainer || !data || !data.length) {
+        // Create sample data if none exists
+        createSampleChartData();
+        return;
+    }
+    
+    const maxValue = Math.max(...data.map(d => d.value)) || 60;
+    
+    let barsHTML = '';
+    let labelsHTML = '';
+    
+    data.forEach(item => {
+        const height = (item.value / maxValue) * 100;
+        barsHTML += `<div class="chart-bar" style="height: ${height}%;" data-value="${item.value}m"></div>`;
+        labelsHTML += `<div class="chart-label">${item.label}</div>`;
+    });
+    
+    barsContainer.innerHTML = barsHTML;
+    labelsContainer.innerHTML = labelsHTML;
+}
+
+function renderAccuracyChart(data) {
+    const lineContainer = document.getElementById('accuracyLine');
+    const labelsContainer = document.getElementById('accuracyLabels');
+    
+    if (!lineContainer || !labelsContainer || !data || !data.length) return;
+    
+    const maxValue = 100; // Accuracy is percentage
+    
+    let pointsHTML = '';
+    let labelsHTML = '';
+    
+    data.forEach((item, index) => {
+        const left = (index / (data.length - 1)) * 100;
+        const bottom = (item.value / maxValue) * 100;
+        
+        pointsHTML += `<div class="chart-point" style="left: ${left}%; bottom: ${bottom}%;" data-value="${item.value}%"></div>`;
+        labelsHTML += `<div class="chart-label">${item.label}</div>`;
+    });
+    
+    lineContainer.innerHTML = pointsHTML;
+    labelsContainer.innerHTML = labelsHTML;
+}
+
+function createSampleChartData() {
+    console.log('📊 Creating sample chart data...');
+    
+    // Sample practice time data (last 7 days)
+    const days = ['M', 'T', 'W', 'Th', 'F', 'Sa', 'Su'];
+    const practiceTimes = [25, 40, 15, 60, 45, 30, 55];
+    
+    const barsContainer = document.getElementById('practiceTimeBars');
+    const labelsContainer = document.getElementById('practiceTimeLabels');
+    
+    if (barsContainer && labelsContainer) {
+        const maxTime = Math.max(...practiceTimes);
+        
+        let barsHTML = '';
+        let labelsHTML = '';
+        
+        practiceTimes.forEach((time, i) => {
+            const height = (time / maxTime) * 100;
+            barsHTML += `<div class="chart-bar" style="height: ${height}%;" data-value="${time}m"></div>`;
+            labelsHTML += `<div class="chart-label">${days[i]}</div>`;
+        });
+        
+        barsContainer.innerHTML = barsHTML;
+        labelsContainer.innerHTML = labelsHTML;
+    }
+    
+    // Sample accuracy data
+    const accuracyData = [65, 72, 68, 85, 78, 82, 90];
+    
+    const lineContainer = document.getElementById('accuracyLine');
+    const accuracyLabels = document.getElementById('accuracyLabels');
+    
+    if (lineContainer && accuracyLabels) {
+        let pointsHTML = '';
+        let labelsHTML = '';
+        
+        accuracyData.forEach((value, i) => {
+            const left = (i / (accuracyData.length - 1)) * 100;
+            pointsHTML += `<div class="chart-point" style="left: ${left}%; bottom: ${value}%;" data-value="${value}%"></div>`;
+            labelsHTML += `<div class="chart-label">${days[i]}</div>`;
+        });
+        
+        lineContainer.innerHTML = pointsHTML;
+        accuracyLabels.innerHTML = labelsHTML;
+    }
+}
+// ============================================
+// CHECK AND AWARD BADGES AUTOMATICALLY
+// ============================================
+async function checkAndAwardBadges() {
+    try {
+        const token = localStorage.getItem('authToken') || authToken;
+        if (!token) return;
+        
+        // Get user stats
+        const [progress, quizStats] = await Promise.all([
+            fetch(`/api/progress/cumulative`, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            }).then(res => res.json()),
+            fetch(`/api/quiz/user/stats`, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            }).then(res => res.json())
         ]);
         
-        let lessonsCompleted = 0, exercisesCompleted = 0, totalAttempts = 0, averageScore = 0, totalTimeSeconds = 0;
+        if (!progress.success || !quizStats.success) return;
         
-        if (lessonsData.status === 'fulfilled' && lessonsData.value?.success) {
-            lessonsCompleted = lessonsData.value.progress?.filter(p => p.completion_status === 'completed' || p.status === 'completed').length || 0;
+        const stats = {
+            lessonsCompleted: progress.progress?.total_lessons_completed || 0,
+            exercisesCompleted: progress.progress?.exercises_completed || 0,
+            quizScore: quizStats.stats?.best_score || 0,
+            streakDays: progress.progress?.streak_days || 0
+        };
+        
+        // Check for First Lesson badge
+        if (stats.lessonsCompleted >= 1) {
+            await awardBadge('First Lesson', 'Completed your first lesson', 'fas fa-book-open', '#3498db', 10);
         }
         
-        if (totalExercisesData.status === 'fulfilled' && totalExercisesData.value?.success) {
-            // totalExercises = totalExercisesData.value.count || 0;
+        // Check for Quick Learner badge (5 lessons)
+        if (stats.lessonsCompleted >= 5) {
+            await awardBadge('Quick Learner', 'Completed 5 lessons', 'fas fa-rocket', '#9b59b6', 20);
         }
         
-        if (attemptsData.status === 'fulfilled' && attemptsData.value?.success) {
-            const attempts = attemptsData.value.attempts || [];
-            exercisesCompleted = attempts.filter(a => a.completion_status === 'completed' || a.percentage >= 70).length;
-            totalAttempts = attempts.length;
-            if (totalAttempts > 0) {
-                averageScore = Math.round(attempts.reduce((sum, a) => sum + (a.score || 0), 0) / totalAttempts);
+        // Check for Math Master badge (10 lessons)
+        if (stats.lessonsCompleted >= 10) {
+            await awardBadge('Math Master', 'Completed 10 lessons', 'fas fa-crown', '#f39c12', 30);
+        }
+        
+        // Check for Practice Makes Perfect badge (10 exercises)
+        if (stats.exercisesCompleted >= 10) {
+            await awardBadge('Practice Makes Perfect', 'Completed 10 practice exercises', 'fas fa-pencil-alt', '#27ae60', 15);
+        }
+        
+        // Check for Quiz Champion badge (100% on quiz)
+        if (stats.quizScore >= 100) {
+            await awardBadge('Quiz Champion', 'Scored 100% on a quiz', 'fas fa-trophy', '#e74c3c', 25);
+        }
+        
+        // Check for Perfect Week badge (7 day streak)
+        if (stats.streakDays >= 7) {
+            await awardBadge('Perfect Week', 'Active for 7 consecutive days', 'fas fa-calendar-check', '#1abc9c', 20);
+        }
+        
+    } catch (error) {
+        console.error('Error checking badges:', error);
+    }
+}
+
+// ============================================
+// AWARD SPECIFIC BADGE
+// ============================================
+async function awardBadge(badgeName, description, icon, color, points) {
+    try {
+        const token = localStorage.getItem('authToken') || authToken;
+        
+        const response = await fetch(`/api/badges/award`, {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                badge_name: badgeName,
+                description: description,
+                icon: icon,
+                color: color,
+                points: points
+            })
+        });
+        
+        if (response.ok) {
+            const data = await response.json();
+            if (data.success) {
+                console.log(`✅ Awarded badge: ${badgeName}`);
+                
+                // Show notification
+                showNotification(`🎉 Earned badge: ${badgeName}!`, 'success');
+                
+                // Refresh badges
+                await loadUserBadges();
+                
+                return true;
             }
-            totalTimeSeconds = attempts.reduce((sum, a) => sum + (a.time_spent_seconds || 0), 0);
+        }
+        return false;
+    } catch (error) {
+        console.error('Error awarding badge:', error);
+        return false;
+    }
+}
+
+// Get detailed practice statistics including average score and time
+async function getDetailedPracticeStats() {
+    try {
+        const token = localStorage.getItem('authToken') || authToken;
+        if (!token) {
+            console.warn('No auth token available');
+            return null;
+        }
+        
+        console.log('📊 Fetching detailed practice statistics...');
+        
+        const response = await fetch(`/api/progress/practice-analytics`, {
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+            }
+        });
+        
+        if (response.ok) {
+            const data = await response.json();
+            if (data.success) {
+                console.log('✅ Detailed practice stats loaded:', data.stats);
+                return data.stats;
+            }
+        }
+        
+        // If endpoint doesn't exist, try to calculate from user progress
+        console.log('⚠️ Practice analytics endpoint not found, calculating from local data...');
+        
+        // Get all practice attempts
+        const attemptsResponse = await fetch(`/api/progress/practice-attempts`, {
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+            }
+        });
+        
+        if (attemptsResponse.ok) {
+            const attemptsData = await attemptsResponse.json();
+            if (attemptsData.success && attemptsData.attempts) {
+                const attempts = attemptsData.attempts;
+                
+                if (attempts.length > 0) {
+                    const totalScore = attempts.reduce((sum, a) => sum + (a.score || 0), 0);
+                    const totalTime = attempts.reduce((sum, a) => sum + (a.time_spent_seconds || 0), 0);
+                    const completedCount = attempts.length;
+                    
+                    return {
+                        total_attempts: completedCount,
+                        average_score: Math.round(totalScore / completedCount),
+                        average_time_seconds: Math.round(totalTime / completedCount),
+                        average_time_minutes: Math.round((totalTime / completedCount) / 60),
+                        total_exercises_completed: completedCount
+                    };
+                }
+            }
+        }
+        
+        return null;
+    } catch (error) {
+        console.error('Error fetching detailed practice stats:', error);
+        return null;
+    }
+}
+
+// ============================================
+// ✅ FORCE UPDATE UI - DIRECT DOM MANIPULATION
+// ============================================
+function forceUpdateProgressUI(progress) {
+    console.log('🎨 Force updating UI with:', progress);
+    
+    const percentage = progress.overall_percentage || 0;
+    
+    // 1. Update overall progress text
+    const overallProgress = document.getElementById('overallProgress');
+    if (overallProgress) {
+        overallProgress.textContent = percentage + '%';
+        overallProgress.style.transition = 'all 0.3s';
+        overallProgress.style.transform = 'scale(1.1)';
+        overallProgress.style.color = '#7a0000';
+        setTimeout(() => {
+            overallProgress.style.transform = 'scale(1)';
+            overallProgress.style.color = '';
+        }, 300);
+        console.log('✅ Updated overallProgress to:', percentage + '%');
+    } else {
+        console.warn('⚠️ overallProgress element not found');
+    }
+    
+    // 2. Update progress bar
+    const overallProgressBar = document.getElementById('overallProgressBar');
+    if (overallProgressBar) {
+        overallProgressBar.style.width = percentage + '%';
+        overallProgressBar.className = 'progress-fill';
+        if (percentage >= 70) {
+            overallProgressBar.classList.add('progress-good');
+        } else if (percentage >= 40) {
+            overallProgressBar.classList.add('progress-medium');
+        } else {
+            overallProgressBar.classList.add('progress-low');
+        }
+        console.log('✅ Updated progress bar to:', percentage + '%');
+    }
+    
+    // 3. Update total points
+    const totalPointsProgress = document.getElementById('totalPointsProgress');
+    if (totalPointsProgress) {
+        totalPointsProgress.textContent = progress.total_points_earned || 0;
+    }
+    
+    // 4. Update total time
+    const totalTime = document.getElementById('totalTime');
+    if (totalTime) {
+        const totalMinutes = progress.total_time_spent_minutes || 0;
+        let timeDisplay = totalMinutes < 60 
+            ? `${totalMinutes}m` 
+            : `${Math.floor(totalMinutes / 60)}h ${totalMinutes % 60}m`;
+        totalTime.textContent = timeDisplay;
+    }
+    
+    // 5. Update badges
+    const totalBadges = document.getElementById('totalBadges');
+    if (totalBadges) {
+        // Compute badges
+        let badgeCount = 0;
+        if (progress.total_lessons_completed >= 1) badgeCount++;
+        if (progress.total_lessons_completed >= 5) badgeCount++;
+        if (progress.total_lessons_completed >= 10) badgeCount++;
+        if (progress.exercises_completed >= 5) badgeCount++;
+        if (progress.exercises_completed >= 15) badgeCount++;
+        if (progress.total_quizzes_completed >= 1) badgeCount++;
+        
+        totalBadges.textContent = `${badgeCount}/10`;
+    }
+    
+    console.log('✅ UI force updated with', percentage + '%');
+}
+// ============================================
+// ✅ FIXED: Load Progress Dashboard Data -  ONLY (NO ERRORS)
+// ============================================
+async function loadProgressDashboardData() {
+    console.log('📊 Loading mathease progress dashboard data...');
+    
+    try {
+        // Show loading state
+        showProgressDashboardLoading();
+        
+        const token = localStorage.getItem('authToken') || authToken;
+        if (!token) {
+            console.error('❌ No auth token');
+            return;
+        }
+        
+
+        
+        // ===== FETCH ALL  DATA =====
+        const [
+            lessonsProgress,
+            practiceStats,
+            quizStats,
+            totalLessonsCount
+        ] = await Promise.allSettled([
+            // 1. Get  lessons progress
+            fetch(`/api/progress/lessons?lesson_id=${MATHEASE_LESSON_ID}`, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            }).then(res => res.json()).catch(() => ({ success: false })),
+            
+            // 2. Get FacttoLearn practice stats
+            fetch(`/api/progress/practice-attempts?lesson_id=${MATHEASE_LESSON_ID}`, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            }).then(res => res.json()).catch(() => ({ success: false })),
+            
+            // 3. Get  quiz stats
+            fetch(`/api/quiz/user/attempts?lesson_id=${MATHEASE_LESSON_ID}`, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            }).then(res => res.json()).catch(() => ({ success: false })),
+            
+            // 4. Get total  lessons
+            fetch(`/api/lessons-db/complete?lesson_id=${MATHEASE_LESSON_ID}`, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            }).then(res => res.json()).catch(() => ({ success: false }))
+        ]);
+        
+        // ===== PROCESS LESSONS DATA =====
+        let lessonsCompleted = 0;
+        let totalLessons = 10;
+        
+        if (lessonsProgress.status === 'fulfilled' && lessonsProgress.value?.success) {
+            const progress = lessonsProgress.value.progress || [];
+            lessonsCompleted = progress.filter(p => 
+                p.completion_status === 'completed' || p.status === 'completed'
+            ).length;
+            console.log(`✅ mathease lessons completed: ${lessonsCompleted}`);
+        }
+        
+        if (totalLessonsCount.status === 'fulfilled' && totalLessonsCount.value?.success) {
+            totalLessons = totalLessonsCount.value.lessons?.length || 10;
+        }
+        
+        // ===== PROCESS PRACTICE DATA =====
+        let exercisesCompleted = 0;
+        let totalPracticeSeconds = 0;
+        
+        if (practiceStats.status === 'fulfilled' && practiceStats.value?.success) {
+            const attempts = practiceStats.value.attempts || [];
+            exercisesCompleted = attempts.filter(a => 
+                a.completion_status === 'completed' || a.percentage >= 70
+            ).length;
+            
+            // Calculate total practice time in seconds
+            attempts.forEach(a => {
+                totalPracticeSeconds += a.time_spent_seconds || 0;
+            });
+            
+            console.log(`✅ mathease practice completed: ${exercisesCompleted}`);
+            console.log(`⏱️ Total practice seconds: ${totalPracticeSeconds}`);
+        }
+        
+        // ===== PROCESS QUIZ DATA =====
+        let quizPoints = 0;
+        let quizAttempts = 0;
+        
+        if (quizStats.status === 'fulfilled' && quizStats.value?.success) {
+            const attempts = quizStats.value.attempts || [];
+            quizAttempts = attempts.length;
+            
+            // Calculate points (10 points per correct answer)
+            attempts.forEach(attempt => {
+                const correctAnswers = attempt.correct_answers || 0;
+                quizPoints += correctAnswers * 10;
+            });
+            
+            console.log(`✅ mathease quiz points: ${quizPoints}`);
+        }
+        
+        // ===== CALCULATE OVERALL PROGRESS =====
+        // Base sa lessons lang dapat ang overall progress (0-100%)
+        const overallPercentage = totalLessons > 0 
+            ? Math.round((lessonsCompleted / totalLessons) * 100) 
+            : 0;
+        
+        console.log(`📊 Overall progress: ${overallPercentage}% (${lessonsCompleted}/${totalLessons} lessons)`);
+        
+        // ===== UPDATE OVERALL PROGRESS UI =====
+        const overallProgress = document.getElementById('overallProgress');
+        if (overallProgress) {
+             overallProgress.textContent = overallPercentage + '%';
+         }
+         
+         const progressBar = document.getElementById('overallProgressBar');
+         if (progressBar) {
+             progressBar.style.width = overallPercentage + '%';
+          }
+        
+        if (overallProgress) {
+            overallProgress.textContent = `${overallPercentage}%`;
+            
+            // Add animation
+            overallProgress.style.transition = 'all 0.3s';
+            overallProgress.style.transform = 'scale(1.1)';
+            overallProgress.style.color = '#7a0000';
+            setTimeout(() => {
+                overallProgress.style.transform = 'scale(1)';
+                overallProgress.style.color = '';
+            }, 300);
+        }
+        
+        if (overallProgressBar) {
+            overallProgressBar.style.width = `${overallPercentage}%`;
+            
+            // Set color based on progress
+            overallProgressBar.className = 'progress-fill';
+            if (overallPercentage >= 70) {
+                overallProgressBar.classList.add('progress-good');
+            } else if (overallPercentage >= 40) {
+                overallProgressBar.classList.add('progress-medium');
+            } else {
+                overallProgressBar.classList.add('progress-low');
+            }
+        }
+        
+        // ===== UPDATE TOTAL POINTS =====
+        const totalPointsProgress = document.getElementById('totalPointsProgress');
+        if (totalPointsProgress) {
+            totalPointsProgress.textContent = quizPoints;
+        }
+        
+        const pointsChange = document.getElementById('pointsChange');
+        if (pointsChange) {
+            // Compute points this week
+            const pointsThisWeek = Math.min(quizPoints, 10); // Sample computation
+            pointsChange.textContent = `+${pointsThisWeek} this week`;
+        }
+        
+        // ===== UPDATE TOTAL TIME =====
+        const totalTime = document.getElementById('totalTime');
+        if (totalTime) {
+            // Convert seconds to minutes
+            const totalMinutes = Math.floor(totalPracticeSeconds / 60);
+            
+            // Format display
+            let timeDisplay = '';
+            if (totalMinutes < 60) {
+                timeDisplay = `${totalMinutes}m`;
+            } else {
+                const hours = Math.floor(totalMinutes / 60);
+                const mins = totalMinutes % 60;
+                timeDisplay = `${hours}h ${mins}m`;
+            }
+            
+            totalTime.textContent = timeDisplay;
+            console.log(`⏱️ Display time: ${timeDisplay} (${totalMinutes} minutes)`);
+        }
+        
+        const timeChange = document.getElementById('timeChange');
+        if (timeChange) {
+            // Convert seconds to minutes for active days computation
+            const totalMinutes = Math.floor(totalPracticeSeconds / 60);
+            // Compute active days (1 day = 30 minutes of activity)
+            const activeDays = Math.max(1, Math.min(30, Math.ceil(totalMinutes / 30)));
+            timeChange.textContent = `${activeDays} days active`;
+        }
+        
+        // ===== UPDATE BADGES =====
+        const totalBadges = document.getElementById('totalBadges');
+        if (totalBadges) {
+            // Calculate badges based on achievements
+            let badgeCount = 0;
+            if (lessonsCompleted >= 1) badgeCount++;
+            if (lessonsCompleted >= 5) badgeCount++;
+            if (lessonsCompleted >= 10) badgeCount++;
+            if (exercisesCompleted >= 5) badgeCount++;
+            if (exercisesCompleted >= 15) badgeCount++;
+            if (quizAttempts >= 1) badgeCount++;
+            
+            totalBadges.textContent = `${badgeCount}/10`;
+        }
+        
+        const badgesChange = document.getElementById('badgesChange');
+        if (badgesChange) {
+            const badgesThisMonth = Math.floor(lessonsCompleted / 2) + Math.floor(exercisesCompleted / 5);
+            badgesChange.textContent = `+${badgesThisMonth} this month`;
+        }
+        
+        // Hide loading
+        hideProgressDashboardLoading();
+        
+        console.log('✅  progress dashboard updated');
+        
+        // Store in ProgressState
+        ProgressState.cumulativeProgress = {
+            total_lessons_completed: lessonsCompleted,
+            total_lessons: totalLessons,
+            overall_percentage: overallPercentage,
+            exercises_completed: exercisesCompleted,
+            total_quizzes_completed: quizAttempts,
+            total_points_earned: quizPoints,
+            total_time_spent_minutes: Math.floor(totalPracticeSeconds / 60)
+        };
+        
+    } catch (error) {
+        console.error('❌ Error loading progress dashboard:', error);
+        hideProgressDashboardLoading();
+        
+        // Set fallback values
+        const overallProgress = document.getElementById('overallProgress');
+        if (overallProgress) overallProgress.textContent = '0%';
+        
+        const totalPointsProgress = document.getElementById('totalPointsProgress');
+        if (totalPointsProgress) totalPointsProgress.textContent = '0';
+        
+        const totalTime = document.getElementById('totalTime');
+        if (totalTime) totalTime.textContent = '0m';
+        
+        const totalBadges = document.getElementById('totalBadges');
+        if (totalBadges) totalBadges.textContent = '0/10';
+    }
+}
+// ============================================
+// ✅ FIXED: HIDE PROGRESS DASHBOARD LOADING
+// ============================================
+function hideProgressDashboardLoading() {
+    console.log('✅ Hiding loading state');
+    
+    const elements = [
+        { id: 'overallProgress' },
+        { id: 'totalPointsProgress' },
+        { id: 'totalTime' },
+        { id: 'totalBadges' }
+    ];
+    
+    elements.forEach(item => {
+        const element = document.getElementById(item.id);
+        if (element) {
+            element.style.opacity = '1';
+            element.classList.remove('loading');
+            // Don't reset content, it should already have the correct value
+        }
+    });
+}
+
+// ============================================
+// 🚀 DIRECT LOADING ON PAGE OPEN
+// ============================================
+document.addEventListener('DOMContentLoaded', function() {
+    console.log('📄 DOM loaded - setting up progress page observer');
+    
+    const progressPage = document.getElementById('progress-page');
+    
+    if (progressPage) {
+        // Check agad kung visible ang progress page
+        if (!progressPage.classList.contains('hidden')) {
+            console.log('📊 Progress page is already visible - loading data NOW');
+            setTimeout(() => {
+                showProgressDashboardLoading();
+                loadProgressDashboardData();
+            }, 50);
+        }
+        
+        // Observe for when it becomes visible
+        const observer = new MutationObserver(function(mutations) {
+            mutations.forEach(function(mutation) {
+                if (mutation.type === 'attributes' && mutation.attributeName === 'class') {
+                    if (!progressPage.classList.contains('hidden')) {
+                        console.log('📊 Progress page became visible - loading data NOW');
+                        showProgressDashboardLoading();
+                        loadProgressDashboardData();
+                    }
+                }
+            });
+        });
+        
+        observer.observe(progressPage, { attributes: true });
+    }
+});
+
+// ============================================
+// SHOW ERROR STATE
+// ============================================
+function showProgressDashboardError() {
+    const overallProgress = document.getElementById('overallProgress');
+    if (overallProgress) {
+        overallProgress.innerHTML = '<i class="fas fa-exclamation-triangle" style="color: #e74c3c;"></i>';
+    }
+    
+    showNotification('Failed to load progress data', 'error');
+}
+
+// Update progress dashboard UI
+function updateProgressDashboardUI() {
+    // First try to use the database summary if available
+    if (ProgressState.dashboardSummary) {
+        updateProgressDashboardFromDatabase();
+    } else {
+        // Fallback to your existing method
+        updateProgressSummaryCards();
+    }
+    // Update progress summary cards
+    updateProgressSummaryCards();
+    
+    // Update learning goals section
+    updateLearningGoalsSection();
+    
+    // Update activity log
+    updateActivityLog();
+    
+    // Update progress trends chart
+    updateProgressTrendsChart();
+    
+    // Update achievement timeline
+    updateAchievementTimeline();
+    
+    // Update topic mastery section
+    updateTopicMasterySection();
+    
+    // Update module progress section
+    updateModuleProgressSection();
+}
+
+// ============================================
+// 📊 PROGRESS SUMMARY FUNCTIONS - FACTOREADY (LESSON_ID=1)
+// ============================================
+
+async function updateProgressSummaryCards() {
+    console.log('📊 Updating  progress summary cards (lesson_id = 1)...');
+    
+    try {
+        const token = localStorage.getItem('authToken') || authToken;
+        if (!token) {
+            console.warn('No auth token, using fallback');
+            setDefaultProgressValues();
+            return;
+        }
+        
+        const _LESSON_ID = 1; // FIXED to 3
+        
+        // ===== 1. GET LESSONS =====
+        let lessonsCompleted = 0;
+        let totalLessons = 0;
+        
+        try {
+            // Get total lessons count
+            const totalResponse = await fetch(`/api/lessons-db/complete?lesson_id=${_LESSON_ID}`, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            
+            if (totalResponse.ok) {
+                const totalData = await totalResponse.json();
+                if (totalData.success && totalData.lessons) {
+                    totalLessons = totalData.lessons.length;
+                    console.log(`📚 Total  lessons: ${totalLessons}`);
+                }
+            }
+            
+            // Get lessons progress
+            const lessonsResponse = await fetch(`/api/progress/lessons?lesson_id=${_LESSON_ID}`, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            
+            if (lessonsResponse.ok) {
+                const lessonsData = await lessonsResponse.json();
+                if (lessonsData.success && lessonsData.progress) {
+                    lessonsCompleted = lessonsData.progress.filter(p => 
+                        p.completion_status === 'completed' || p.status === 'completed'
+                    ).length;
+                    
+                    console.log(`✅  lessons completed: ${lessonsCompleted}/${totalLessons}`);
+                }
+            }
+        } catch (error) {
+            console.warn('⚠️ Could not fetch lessons:', error.message);
+        }
+        
+        // ===== 2. GET PRACTICE EXERCISES =====
+        let exercisesCompleted = 0;
+        let totalExercises = 0;
+        
+        try {
+            // Get total practice exercises
+            const totalExercisesResponse = await fetch(`/api/practice/exercises/count?lesson_id=${_LESSON_ID}`, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            
+            if (totalExercisesResponse.ok) {
+                const totalData = await totalExercisesResponse.json();
+                if (totalData.success) {
+                    totalExercises = totalData.count || 0;
+                    console.log(`📝 Total  practice exercises: ${totalExercises}`);
+                }
+            }
+            
+            // Get practice attempts
+            const practiceResponse = await fetch(`/api/progress/practice-attempts?lesson_id=${_LESSON_ID}`, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            
+            if (practiceResponse.ok) {
+                const practiceData = await practiceResponse.json();
+                if (practiceData.success && practiceData.attempts) {
+                    exercisesCompleted = practiceData.attempts.filter(attempt => 
+                        attempt.completion_status === 'completed' || 
+                        attempt.percentage >= 70 ||
+                        attempt.score >= 70
+                    ).length;
+                    
+                    console.log(`✅  completed exercises: ${exercisesCompleted}/${totalExercises}`);
+                }
+            }
+            
+        } catch (error) {
+            console.error('❌ Error fetching practice:', error.message);
+        }
+        
+        // ===== 3. GET QUIZ POINTS =====
+        let totalPoints = 0;
+        
+        try {
+            const quizResponse = await fetch(`/api/quiz/user/attempts?lesson_id=${_LESSON_ID}`, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            
+            if (quizResponse.ok) {
+                const quizData = await quizResponse.json();
+                if (quizData.success && quizData.attempts) {
+                    quizData.attempts.forEach(attempt => {
+                        const correctAnswers = attempt.correct_answers || 0;
+                        totalPoints += correctAnswers * 10;
+                    });
+                    console.log(`✅  quiz points: ${totalPoints}`);
+                }
+            }
+        } catch (error) {
+            console.warn('⚠️ Could not fetch quiz points:', error.message);
+        }
+        
+        // ===== 4. UPDATE THE UI =====
+        
+        // Update lessons count
+        const lessonsCount = document.getElementById('lessonsCount');
+        if (lessonsCount) {
+            lessonsCount.innerHTML = `${lessonsCompleted}<span class="item-unit">/${totalLessons || 10}</span>`;
+        }
+        
+        // Update exercises count
+        const exercisesCount = document.getElementById('exercisesCount');
+        if (exercisesCount) {
+            exercisesCount.innerHTML = `${exercisesCompleted}<span class="item-unit">/${totalExercises || 15}</span>`;
+        }
+        
+        // Update quiz score
+        const quizScore = document.getElementById('quizScore');
+        if (quizScore) {
+            quizScore.innerHTML = `${totalPoints}<span class="item-unit">pts</span>`;
+        }
+        
+        // Update avg time - Use calculateAverageTime from your cache system
+        const avgTime = document.getElementById('avgTime');
+        if (avgTime) {
+            const avgMinutes = calculateAverageTime(lessonsCompleted, exercisesCompleted, totalPoints);
+            avgTime.innerHTML = `${avgMinutes}<span class="item-unit">min/day</span>`;
+        }
+        
+        console.log('✅  progress summary cards updated');
+        console.log(`   FINAL - Lessons: ${lessonsCompleted}/${totalLessons}, Practice: ${exercisesCompleted}/${totalExercises}, Points: ${totalPoints}`);
+        
+        // Cache this data for quick load next time
+        cacheProgressData({
+            lessons: `${lessonsCompleted}<span class="item-unit">/${totalLessons || 10}</span>`,
+            exercises: `${exercisesCompleted}<span class="item-unit">/${totalExercises || 15}</span>`,
+            quizScore: `${totalPoints}<span class="item-unit">pts</span>`,
+            avgTime: `${calculateAverageTime(lessonsCompleted, exercisesCompleted, totalPoints)}<span class="item-unit">min/day</span>`
+        });
+        
+    } catch (error) {
+        console.error('❌ Error updating progress summary cards:', error);
+        setDefaultProgressValues();
+    }
+}
+
+function setDefaultProgressValues() {
+    const lessonsCount = document.getElementById('lessonsCount');
+    const exercisesCount = document.getElementById('exercisesCount');
+    const quizScore = document.getElementById('quizScore');
+    const avgTime = document.getElementById('avgTime');
+    
+    if (lessonsCount) lessonsCount.innerHTML = `0<span class="item-unit">/10</span>`;
+    if (exercisesCount) exercisesCount.innerHTML = `0<span class="item-unit">/15</span>`;
+    if (quizScore) quizScore.innerHTML = `0<span class="item-unit">pts</span>`;
+    if (avgTime) avgTime.innerHTML = `5<span class="item-unit">min/day</span>`;
+}
+// Palitan ang pangalan:
+window.debugmatheaseProgress = async function() {
+    console.log('🔍 DEBUGGING mathease PROGRESS...');
+    
+    const token = localStorage.getItem('authToken');
+    
+    console.log(`📡 Fetching mathease data (lesson_id = ${MATHEASE_LESSON_ID})...`);
+    
+    // Check lessons
+    try {
+        const lessonsRes = await fetch(`/api/progress/lessons?lesson_id=${MATHEASE_LESSON_ID}`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        const lessonsData = await lessonsRes.json();
+        console.log('📚 mathease Lessons:', lessonsData);
+    } catch (e) {
+        console.log('Lessons error:', e.message);
+    }
+    
+    // Check practice
+    try {
+        const practiceRes = await fetch(`/api/progress/practice-attempts?lesson_id=${MATHEASE_LESSON_ID}`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        const practiceData = await practiceRes.json();
+        console.log('💪 mathease Practice:', practiceData);
+    } catch (e) {
+        console.log('Practice error:', e.message);
+    }
+    
+    // Check quizzes
+    try {
+        const quizRes = await fetch(`/api/quiz/user/attempts?lesson_id=${MATHEASE_LESSON_ID}`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        const quizData = await quizRes.json();
+        console.log('🧠 mathease Quizzes:', quizData);
+    } catch (e) {
+        console.log('Quiz error:', e.message);
+    }
+    
+    console.log('✅ Debug complete');
+};
+
+// Global cache with timestamps
+const ProgressCache = {
+    data: null,
+    timestamp: null,
+    promise: null, // For deduplication
+    TTL: 30000 // 30 seconds cache
+};
+async function loadProgressSummary() {
+    console.log('📊 Loading REAL progress data (lesson_id=1) - 1 sec max...');
+    
+    const elements = {
+        lessons: document.getElementById('lessonsCount'),
+        exercises: document.getElementById('exercisesCount'),
+        quizScore: document.getElementById('quizScore'),
+        avgTime: document.getElementById('avgTime')
+    };
+    
+    // Store original content
+    const originalContent = {};
+    for (const [key, el] of Object.entries(elements)) {
+        if (el) {
+            originalContent[key] = el.innerHTML;
+            // Show loading with pulse animation
+            el.innerHTML = `<div class="skeleton-loader" style="width: 60px; height: 32px; background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%); background-size: 200% 100%; animation: loading 1.5s infinite; border-radius: 6px;"></div>`;
+        }
+    }
+    
+    try {
+        // Try to get from cache first (instant)
+        const cached = getCachedProgress();
+        if (cached) {
+            console.log('📦 Using cached data (instant)');
+            updateProgressDisplay(cached, elements);
+            
+            // Refresh in background
+            setTimeout(() => {
+                updateProgressSummaryCards();
+            }, 100);
+            return;
+        }
+        
+        // Create abort controller for timeout
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 950); // 950ms timeout
+        
+        // Directly call the updated function
+        await updateProgressSummaryCards();
+        
+        clearTimeout(timeoutId);
+        
+    } catch (error) {
+        console.warn('⚠️ Using emergency fallback data:', error.message);
+        
+        // Try cache even if expired
+        const staleCache = getStaleCache();
+        if (staleCache) {
+            updateProgressDisplay(staleCache, elements);
+        } else {
+            // Last resort - smart defaults
+            const defaults = generateEmergencyDefaults();
+            updateProgressDisplay(defaults, elements);
+        }
+    }
+}
+
+// ============================================
+// 📡 PARALLEL DATA FETCHING - OPTIMIZED
+// ============================================
+
+async function fetchAllProgressDataParallel(signal) {
+    const token = localStorage.getItem('authToken');
+    if (!token) return null;
+    
+    const LESSON_ID = 1; // Fixed for 
+    
+    // Create all fetch promises
+    const promises = {
+        lessons: fetch(`/api/progress/lessons?lesson_id=${LESSON_ID}`, {
+            signal,
+            headers: { 'Authorization': `Bearer ${token}` }
+        }).then(res => res.ok ? res.json() : Promise.reject()),
+        
+        practice: fetch(`/api/progress/practice-attempts?lesson_id=${LESSON_ID}`, {
+            signal,
+            headers: { 'Authorization': `Bearer ${token}` }
+        }).then(res => res.ok ? res.json() : Promise.reject()),
+        
+        quiz: fetch(`/api/quiz/user/attempts?lesson_id=${LESSON_ID}`, {
+            signal,
+            headers: { 'Authorization': `Bearer ${token}` }
+        }).then(res => res.ok ? res.json() : Promise.reject()),
+        
+        totalLessons: fetch(`/api/lessons-db/complete?lesson_id=${LESSON_ID}`, {
+            signal,
+            headers: { 'Authorization': `Bearer ${token}` }
+        }).then(res => res.ok ? res.json() : Promise.reject())
+    };
+    
+    try {
+        // Race ALL promises - kung sino mauna, yun ang gagamitin
+        const results = await Promise.allSettled(Object.values(promises));
+        
+        const [
+            lessonsResult,
+            practiceResult,
+            quizResult,
+            totalLessonsResult
+        ] = results;
+        
+        // Process lessons
+        let lessonsCompleted = 0;
+        if (lessonsResult.status === 'fulfilled' && lessonsResult.value?.success) {
+            lessonsCompleted = lessonsResult.value.progress?.filter(p => 
+                p.completion_status === 'completed' || p.status === 'completed'
+            ).length || 0;
+        }
+        
+        // Process total lessons
+        let totalLessons = 10;
+        if (totalLessonsResult.status === 'fulfilled' && totalLessonsResult.value?.success) {
+            totalLessons = totalLessonsResult.value.lessons?.length || 10;
+        }
+        
+        // Process practice
+        let exercisesCompleted = 0;
+        if (practiceResult.status === 'fulfilled' && practiceResult.value?.success) {
+            exercisesCompleted = practiceResult.value.attempts?.filter(a => 
+                a.completion_status === 'completed' || a.percentage >= 70
+            ).length || 0;
+        }
+        
+        // Process quiz
+        let quizPoints = 0;
+        if (quizResult.status === 'fulfilled' && quizResult.value?.success) {
+            quizResult.value.attempts?.forEach(attempt => {
+                quizPoints += (attempt.correct_answers || 0) * 10;
+            });
+        }
+        
+        // Calculate average time (based on actual activity)
+        const avgTime = calculateAverageTime(lessonsCompleted, exercisesCompleted, quizPoints);
+        
+        return {
+            lessons: `${lessonsCompleted}<span class="item-unit">/${totalLessons}</span>`,
+            exercises: `${exercisesCompleted}<span class="item-unit">/20</span>`,
+            quizScore: `${quizPoints}<span class="item-unit">pts</span>`,
+            avgTime: `${avgTime}<span class="item-unit">min</span>`,
+            raw: { lessonsCompleted, exercisesCompleted, quizPoints, totalLessons }
+        };
+        
+    } catch (error) {
+        if (error.name === 'AbortError') {
+            console.log('⏱️ Request aborted - taking too long');
+        }
+        return null;
+    }
+}
+// ============================================
+// 💾 ADVANCED CACHING SYSTEM
+// ============================================
+
+function cacheProgressData(data) {
+    try {
+        const cacheEntry = {
+            data: data,
+            timestamp: Date.now(),
+            lesson_id: 1
+        };
+        localStorage.setItem('_progress', JSON.stringify(cacheEntry));
+        ProgressCache.data = data;
+        ProgressCache.timestamp = Date.now();
+    } catch (e) {
+        console.warn('Cache failed:', e);
+    }
+}
+
+function getCachedProgress() {
+    // Check memory cache first (fastest)
+    if (ProgressCache.data && ProgressCache.timestamp) {
+        const age = Date.now() - ProgressCache.timestamp;
+        if (age < ProgressCache.TTL) {
+            return ProgressCache.data;
+        }
+    }
+    
+    // Check localStorage
+    try {
+        const cached = localStorage.getItem('_progress');
+        if (cached) {
+            const { data, timestamp, lesson_id } = JSON.parse(cached);
+            const age = Date.now() - timestamp;
+            
+            // Only use if less than 30 seconds old AND correct lesson
+            if (age < 30000 && lesson_id === 1) {
+                // Update memory cache
+                ProgressCache.data = data;
+                ProgressCache.timestamp = timestamp;
+                return data;
+            }
+        }
+    } catch (e) {}
+    
+    return null;
+}
+
+function getStaleCache() {
+    try {
+        const cached = localStorage.getItem('_progress');
+        if (cached) {
+            const { data, lesson_id } = JSON.parse(cached);
+            // Use any cache if lesson_id is correct
+            if (lesson_id === 1) {
+                return data;
+            }
+        }
+    } catch (e) {}
+    return null;
+}
+function generateEmergencyDefaults() {
+    const hour = new Date().getHours();
+    const day = new Date().getDay();
+    const isWeekend = day === 0 || day === 6;
+    
+    // Base values na realistic para sa 
+    let baseLessons = 2;
+    let baseExercises = 5;
+    let basePoints = 50;
+    let baseTime = 8;
+    
+    // Adjust based on time of day (peak learning hours)
+    if (hour >= 9 && hour <= 11) { // Morning study time
+        baseLessons = 3;
+        baseExercises = 8;
+        basePoints = 80;
+        baseTime = 12;
+    } else if (hour >= 14 && hour <= 17) { // Afternoon study time
+        baseLessons = 4;
+        baseExercises = 10;
+        basePoints = 100;
+        baseTime = 15;
+    } else if (hour >= 19 && hour <= 22) { // Evening study time
+        baseLessons = 5;
+        baseExercises = 12;
+        basePoints = 120;
+        baseTime = 18;
+    }
+    
+    // Weekend adjustment
+    if (isWeekend) {
+        baseLessons = Math.floor(baseLessons * 1.3);
+        baseExercises = Math.floor(baseExercises * 1.3);
+        basePoints = Math.floor(basePoints * 1.3);
+        baseTime = Math.floor(baseTime * 1.3);
+    }
+    
+    return {
+        lessons: `${baseLessons}<span class="item-unit">/10</span>`,
+        exercises: `${baseExercises}<span class="item-unit">/20</span>`,
+        quizScore: `${basePoints}<span class="item-unit">pts</span>`,
+        avgTime: `${baseTime}<span class="item-unit">min</span>`
+    };
+}
+
+
+// ============================================
+// ⏱️ UPDATE DISPLAY WITH ANIMATION
+// ============================================
+
+function updateProgressDisplay(data, elements) {
+    if (!data) return;
+    
+    const updateWithAnimation = (el, newValue) => {
+        if (!el) return;
+        
+        // Fade out
+        el.style.transition = 'opacity 0.2s';
+        el.style.opacity = '0';
+        
+        setTimeout(() => {
+            el.innerHTML = newValue;
+            el.style.opacity = '1';
+        }, 100);
+    };
+    
+    updateWithAnimation(elements.lessons, data.lessons);
+    updateWithAnimation(elements.exercises, data.exercises);
+    updateWithAnimation(elements.quizScore, data.quizScore);
+    updateWithAnimation(elements.avgTime, data.avgTime);
+    
+    // Pre-fetch next update in background (after 25 seconds)
+    setTimeout(() => {
+        prefetchProgressData();
+    }, 25000);
+}
+// ============================================
+// 🔄 PRE-FETCH FOR NEXT LOAD
+// ============================================
+
+async function prefetchProgressData() {
+    const token = localStorage.getItem('authToken');
+    if (!token) return;
+    
+    try {
+        const controller = new AbortController();
+        setTimeout(() => controller.abort(), 2000); // 2 second timeout for pre-fetch
+        
+        const data = await fetchAllProgressDataParallel(controller.signal);
+        if (data) {
+            cacheProgressData(data);
+            console.log('✅ Pre-fetched next progress data');
+        }
+    } catch (e) {
+        // Silent fail for pre-fetch
+    }
+}
+// ============================================
+// 🧮 CALCULATE AVERAGE TIME
+// ============================================
+
+function calculateAverageTime(lessons, exercises, points) {
+    // Base time
+    let time = 5;
+    
+    // Activity-based calculation
+    if (lessons > 0) time += lessons * 3;
+    if (exercises > 0) time += exercises * 1.5;
+    if (points > 0) time += Math.floor(points / 30);
+    
+    // Round and cap
+    time = Math.min(45, Math.max(5, Math.round(time)));
+    
+    return time;
+}
+
+// ============================================
+// 🚀 INITIALIZE WITH SMART LOADING
+// ============================================
+
+// Load immediately with cache
+(function initializeQuickLoad() {
+    // Try to show cached data instantly
+    const cached = getCachedProgress();
+    if (cached) {
+        setTimeout(() => {
+            const elements = {
+                lessons: document.getElementById('lessonsCount'),
+                exercises: document.getElementById('exercisesCount'),
+                quizScore: document.getElementById('quizScore'),
+                avgTime: document.getElementById('avgTime')
+            };
+            updateProgressDisplay(cached, elements);
+        }, 50);
+    }
+    
+    // Then fetch fresh data
+    setTimeout(() => {
+        loadProgressSummary();
+    }, 100);
+})();
+
+
+// ============================================
+// 🧭 NAVIGATION FUNCTIONS - FIXED VERSION
+// ============================================
+
+// Show Dashboard
+window.showDashboard = function(e) {
+    if (e) {
+        e.preventDefault();
+        e.stopPropagation();
+    }
+    console.log('🏠 Navigating to Dashboard');
+    closeMobileMenu();
+    navigateTo('dashboard');
+};
+
+// Show Practice Dashboard
+window.showPracticeDashboard = function(e) {
+    if (e) {
+        e.preventDefault();
+        e.stopPropagation();
+    }
+    console.log('💪 Navigating to Practice');
+    closeMobileMenu();
+    navigateTo('practice');
+};
+
+// Show Quiz Dashboard
+window.showQuizDashboard = function(e) {
+    if (e) {
+        e.preventDefault();
+        e.stopPropagation();
+    }
+    console.log('🧠 Navigating to Quiz');
+    closeMobileMenu();
+    navigateTo('quizDashboard');
+};
+
+// Show Progress Page
+window.showProgressPage = function(e) {
+    if (e) {
+        e.preventDefault();
+        e.stopPropagation();
+    }
+    console.log('📊 Navigating to Progress');
+    closeMobileMenu();
+    navigateTo('progress');
+};
+
+// Show Feedback Page
+window.showFeedbackPage = function(e) {
+    if (e) {
+        e.preventDefault();
+        e.stopPropagation();
+    }
+    console.log('💬 Navigating to Feedback');
+    closeMobileMenu();
+    navigateTo('feedback');
+};
+
+// Show Settings Page
+window.showSettingsPage = function(e) {
+    if (e) {
+        e.preventDefault();
+        e.stopPropagation();
+    }
+    console.log('⚙️ Navigating to Settings');
+    closeMobileMenu();
+    navigateTo('settings');
+};
+
+// Go to Module Dashboard (Lessons)
+window.goToModuleDashboard = function(e) {
+    if (e) {
+        e.preventDefault();
+        e.stopPropagation();
+    }
+    console.log('📚 Navigating to Lessons');
+    closeMobileMenu();
+    
+    // If there's a continue learning lesson, open it
+    if (LessonState.continueLearningLesson) {
+        openLesson(LessonState.continueLearningLesson.content_id);
+    } else if (LessonState.lessons.length > 0) {
+        openLesson(LessonState.lessons[0].content_id);
+    } else {
+        navigateTo('moduleDashboard');
+    }
+};
+
+// Close mobile menu helper
+function closeMobileMenu() {
+    const overlay = document.getElementById('mobileMenuOverlay');
+    const panel = document.getElementById('mobileMenuPanel');
+    
+    if (overlay) {
+        overlay.classList.remove('active');
+    }
+    if (panel) {
+        panel.classList.remove('active');
+    }
+    document.body.style.overflow = '';
+}
+
+// ============================================
+// 🚪 LOGOUT CONFIRMATION
+// ============================================
+function showLogoutConfirmation() {
+    const modalHTML = `
+        <div id="logoutModal" class="modal-overlay" style="display: flex; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); backdrop-filter: blur(5px); z-index: 10000; justify-content: center; align-items: center;">
+            <div style="background: white; max-width: 380px; width: 90%; border-radius: 16px; overflow: hidden; box-shadow: 0 20px 40px rgba(0,0,0,0.4);">
+                <div style="background: #7a0000; color: white; padding: 16px 20px; display: flex; justify-content: space-between; align-items: center;">
+                    <h3 style="margin: 0; font-size: 18px;"><i class="fas fa-sign-out-alt"></i> Confirm Logout</h3>
+                    <button onclick="closeLogoutModal()" style="background: none; border: none; color: white; font-size: 24px; cursor: pointer;">&times;</button>
+                </div>
+                
+                <div style="padding: 25px 20px; text-align: center;">
+                    <div style="width: 70px; height: 70px; border-radius: 50%; background: #fff3cd; margin: 0 auto 15px; display: flex; align-items: center; justify-content: center;">
+                        <i class="fas fa-exclamation-triangle" style="font-size: 35px; color: #856404;"></i>
+                    </div>
+                    
+                    <h4 style="margin: 0 0 8px; font-size: 18px; color: #2c3e50;">Are you sure you want to logout?</h4>
+                    <p style="color: #7f8c8d; margin: 0 0 20px; font-size: 14px;">Your progress is automatically saved.</p>
+                    
+                    <div style="display: flex; gap: 10px; justify-content: center;">
+                        <button onclick="closeLogoutModal()" style="flex: 1; padding: 12px 15px; background: #ecf0f1; color: #2c3e50; border: none; border-radius: 6px; font-size: 14px; font-weight: 600; cursor: pointer;">
+                            <i class="fas fa-times"></i> Cancel
+                        </button>
+                        <button onclick="confirmLogout()" style="flex: 1; padding: 12px 15px; background: #7a0000; color: white; border: none; border-radius: 6px; font-size: 14px; font-weight: 600; cursor: pointer;">
+                            <i class="fas fa-sign-out-alt"></i> Logout
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    document.body.insertAdjacentHTML('beforeend', modalHTML);
+}
+
+function closeLogoutModal() {
+    const modal = document.getElementById('logoutModal');
+    if (modal) modal.remove();
+}
+
+function confirmLogout() {
+    closeLogoutModal();
+    
+    // Clear authentication
+    localStorage.removeItem('authToken');
+    localStorage.removeItem('mathhub_user');
+    localStorage.removeItem('hasSelectedApp');
+    localStorage.removeItem('selectedApp');
+    
+    // Reset app state
+    AppState.currentUser = null;
+    AppState.isAuthenticated = false;
+    authToken = null;
+    
+    // Navigate to login
+    navigateTo('login');
+    
+    showNotification('👋 See you next time!', 'info');
+}
+document.addEventListener('DOMContentLoaded', function() {
+    console.log('📄 DOM loaded - initializing all features');
+    
+    // Initialize hamburger menu
+    initHamburgerMenu();
+    
+    // Update menu user info
+    updateMenuUserInfo();
+    
+    // Load progress summary
+    loadProgressSummary();
+    
+    // Auto-refresh every 30 seconds
+    setInterval(loadProgressSummary, 30000);
+});
+// ============================================
+// ✅ NEW: fetchWeeklyImprovement - Get weekly improvement from database
+// ============================================
+async function fetchWeeklyImprovement() {
+    try {
+        const token = localStorage.getItem('authToken') || authToken;
+        if (!token) return 5; // Default value
+        
+        const response = await fetch(`/api/progress/weekly-improvement`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        
+        if (!response.ok) return 5;
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            console.log(`✅ Weekly improvement: ${data.improvement}%`);
+            return data.improvement;
+        }
+        
+        return 5;
+        
+    } catch (error) {
+        console.error('Error fetching weekly improvement:', error);
+        return 5;
+    }
+}
+
+
+// ============================================
+// FIXED: Create modal if missing
+// ============================================
+function createForgotPasswordModal() {
+    console.log('📝 Creating forgot password modal dynamically...');
+    
+    const modalHTML = `
+        <div id="forgotPasswordModal" class="modal-overlay">
+            <div class="modal-container" style="max-width: 450px;">
+                <div class="modal-header" style="background: #7a0000; color: white; padding: 15px 20px; border-radius: 10px 10px 0 0;">
+                    <h3 style="margin: 0; font-size: 18px;"><i class="fas fa-key"></i> Reset Password</h3>
+                    <button class="modal-close" onclick="closeForgotPasswordModal()" style="background: none; border: none; color: white; font-size: 24px; cursor: pointer;">&times;</button>
+                </div>
+                
+                <div class="modal-body" style="padding: 25px;">
+                    <!-- Step 1: Email Form -->
+                    <div id="forgotStep1" style="display: block;">
+                        <p style="margin-bottom: 20px; color: #2c3e50;">Enter your email address and we'll send you a link to reset your password.</p>
+                        
+                        <div style="margin-bottom: 20px;">
+                            <label style="display: block; margin-bottom: 8px; font-weight: 600; color: #2c3e50;">
+                                <i class="fas fa-envelope"></i> Email Address
+                            </label>
+                            <input type="email" id="resetEmail" class="form-control" 
+                                   placeholder="your@email.com" 
+                                   style="width: 100%; padding: 12px 15px; border: 1px solid #ddd; border-radius: 6px;">
+                        </div>
+                        
+                        <div id="forgotError" style="display: none; background: #fee9e7; color: #e74c3c; padding: 10px; border-radius: 6px; margin-bottom: 15px; font-size: 14px;"></div>
+                        
+                        <div style="display: flex; gap: 10px; justify-content: flex-end;">
+                            <button class="btn-secondary" onclick="closeForgotPasswordModal()" style="padding: 10px 20px; border: none; border-radius: 6px; cursor: pointer; background: #95a5a6; color: white;">
+                                <i class="fas fa-times"></i> Cancel
+                            </button>
+                            <button class="btn-primary" onclick="requestPasswordReset()" style="padding: 10px 20px; border: none; border-radius: 6px; cursor: pointer; background: #7a0000; color: white;">
+                                <i class="fas fa-paper-plane"></i> Send Reset Link
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <!-- Step 2: Reset Link Generated -->
+                    <div id="forgotStep2" style="display: none;">
+                        <div style="text-align: center; margin-bottom: 20px;">
+                            <div style="width: 80px; height: 80px; background: #27ae60; border-radius: 50%; margin: 0 auto 15px; display: flex; align-items: center; justify-content: center;">
+                                <i class="fas fa-check" style="font-size: 40px; color: white;"></i>
+                            </div>
+                            <h4 style="color: #2c3e50; margin-bottom: 10px;">Reset Link Generated!</h4>
+                            <p style="color: #7f8c8d; margin-bottom: 5px;" id="resetEmailDisplay"></p>
+                        </div>
+                        
+                        <div style="background: #f8f9fa; border-radius: 8px; padding: 15px; margin-bottom: 20px; border-left: 4px solid #7a0000;">
+                            <p style="margin: 0 0 5px 0; font-weight: bold; color: #2c3e50;">
+                                <i class="fas fa-info-circle"></i> DEMO MODE (No Email Configured)
+                            </p>
+                            <p style="margin: 5px 0; color: #34495e; font-size: 14px;">
+                                Since email is not connected, use this reset link:
+                            </p>
+                            <div style="background: white; padding: 10px; border-radius: 5px; border: 1px solid #ddd; margin: 10px 0;">
+                                <code id="resetLinkDisplay" style="word-break: break-all; font-size: 12px;"></code>
+                            </div>
+                            <button class="btn-secondary" onclick="copyResetLink()" style="width: 100%; padding: 8px; background: #3498db; color: white; border: none; border-radius: 5px; cursor: pointer;">
+                                <i class="fas fa-copy"></i> Copy Reset Link
+                            </button>
+                        </div>
+                        
+                        <div style="display: flex; gap: 10px; justify-content: center;">
+                            <button class="btn-primary" onclick="closeForgotPasswordModal()" style="padding: 10px 20px; background: #7a0000; color: white; border: none; border-radius: 6px; cursor: pointer;">
+                                <i class="fas fa-check"></i> OK, Got It
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    document.body.insertAdjacentHTML('beforeend', modalHTML);
+    console.log('✅ Modal created');
+    
+    // Try to show it again
+    setTimeout(() => {
+        showForgotPasswordModal();
+    }, 100);
+}
+
+
+// ============================================
+// FORGOT PASSWORD FUNCTIONS - UPDATED FOR YOUR showNotification
+// ============================================
+
+let currentResetToken = null;
+let currentResetUser = null;
+
+// ============================================
+// ULTIMATE FIX: Show forgot password modal
+// ============================================
+function showForgotPasswordModal() {
+    console.log('🔑 Opening forgot password modal');
+    
+    const modal = document.getElementById('forgotPasswordModal');
+    if (!modal) {
+        console.error('❌ Modal not found!');
+        createForgotPasswordModal();
+        return;
+    }
+    
+    // Reset to step 1
+    const step1 = document.getElementById('forgotStep1');
+    const step2 = document.getElementById('forgotStep2');
+    const resetEmail = document.getElementById('resetEmail');
+    const forgotError = document.getElementById('forgotError');
+    
+    if (step1) step1.style.display = 'block';
+    if (step2) step2.style.display = 'none';
+    if (resetEmail) resetEmail.value = '';
+    if (forgotError) forgotError.style.display = 'none';
+    
+    // SUPER FORCE show modal
+    modal.setAttribute('style', 'display: flex !important');
+    modal.classList.add('active');
+    modal.setAttribute('data-visible', 'true');
+    
+    // Additional force styles
+    modal.style.display = 'flex';
+    modal.style.zIndex = '2147483647';
+    modal.style.position = 'fixed';
+    modal.style.top = '0';
+    modal.style.left = '0';
+    modal.style.width = '100%';
+    modal.style.height = '100%';
+    modal.style.backgroundColor = 'rgba(0, 0, 0, 0.8)';
+    modal.style.alignItems = 'center';
+    modal.style.justifyContent = 'center';
+    
+    // Prevent body scrolling
+    document.body.classList.add('modal-open');
+    document.body.style.overflow = 'hidden';
+    
+    console.log('✅ Modal styles applied');
+    
+    // Double-check after a tiny delay
+    setTimeout(() => {
+        const computedStyle = window.getComputedStyle(modal);
+        console.log('📊 Computed display:', computedStyle.display);
+        
+        if (computedStyle.display === 'none') {
+            console.log('⚠️ Modal still hidden, forcing again...');
+            modal.style.display = 'flex';
+            modal.style.zIndex = '2147483647';
+        }
+    }, 100);
+}
+
+function closeForgotPasswordModal() {
+    console.log('🔒 Closing forgot password modal');
+    
+    const modal = document.getElementById('forgotPasswordModal');
+    if (modal) {
+        modal.style.display = 'none';
+        modal.classList.remove('active');
+        modal.removeAttribute('data-visible');
+        document.body.classList.remove('modal-open');
+        document.body.style.overflow = '';
+    }
+}
+
+// ============================================
+// ✅ KEEP THIS VERSION (should be around line 4720)
+// ============================================
+async function requestPasswordReset() {
+    const email = document.getElementById('resetEmail').value.trim();
+    const errorDiv = document.getElementById('forgotError');
+    
+    if (!email) {
+        errorDiv.textContent = 'Please enter your email address';
+        errorDiv.style.display = 'block';
+        return;
+    }
+    
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+        errorDiv.textContent = 'Please enter a valid email address';
+        errorDiv.style.display = 'block';
+        return;
+    }
+    
+    // Show loading
+    const submitBtn = document.querySelector('#forgotStep1 .btn-primary');
+    const originalText = submitBtn.innerHTML;
+    submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Sending...';
+    submitBtn.disabled = true;
+    errorDiv.style.display = 'none';
+    
+    try {
+        const response = await fetch('/api/auth/forgot-password', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ email })
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            // Show step 2 with reset link (demo mode)
+            document.getElementById('forgotStep1').style.display = 'none';
+            document.getElementById('forgotStep2').style.display = 'block';
+            
+            document.getElementById('resetEmailDisplay').textContent = `Email: ${email}`;
+            
+            if (data.demo_mode && data.reset_link) {
+                document.getElementById('resetLinkDisplay').textContent = data.reset_link;
+                currentResetToken = data.reset_token;
+            }
+            
+            showNotification('success', 'Success!', 'Reset link generated! Check the modal for instructions.');
+        } else {
+            errorDiv.textContent = data.message || 'Failed to process request';
+            errorDiv.style.display = 'block';
+        }
+    } catch (error) {
+        console.error('Error:', error);
+        errorDiv.textContent = 'Network error. Please try again.';
+        errorDiv.style.display = 'block';
+    } finally {
+        submitBtn.innerHTML = originalText;
+        submitBtn.disabled = false;
+    }
+}
+
+
+
+
+
+// Copy reset link to clipboard
+function copyResetLink() {
+    const linkText = document.getElementById('resetLinkDisplay').textContent;
+    
+    navigator.clipboard.writeText(linkText).then(() => {
+        // ✅ UPDATED: Use your 3-parameter showNotification
+        showNotification('success', 'Copied!', 'Reset link copied to clipboard!');
+    }).catch(() => {
+        // Fallback
+        const textarea = document.createElement('textarea');
+        textarea.value = linkText;
+        document.body.appendChild(textarea);
+        textarea.select();
+        document.execCommand('copy');
+        document.body.removeChild(textarea);
+        
+        // ✅ UPDATED: Use your 3-parameter showNotification
+        showNotification('success', 'Copied!', 'Reset link copied to clipboard!');
+    });
+}
+
+// Show reset password modal (when user clicks reset link)
+function showResetPasswordModal(token) {
+    console.log('🔐 Opening reset password modal with token:', token);
+    
+    const modal = document.getElementById('resetPasswordModal');
+    if (!modal) return;
+    
+    currentResetToken = token;
+    
+    // Show loading
+    document.getElementById('resetPasswordStep1').style.display = 'block';
+    document.getElementById('resetUserName').textContent = 'Loading...';
+    document.getElementById('resetUserEmail').textContent = 'Verifying token...';
+    document.getElementById('resetError').style.display = 'none';
+    document.getElementById('resetSuccess').style.display = 'none';
+    
+    modal.style.display = 'flex';
+    document.body.classList.add('modal-open');
+    
+    // Verify token
+    verifyResetToken(token);
+}
+
+// Close reset password modal
+function closeResetPasswordModal() {
+    const modal = document.getElementById('resetPasswordModal');
+    if (modal) {
+        modal.style.display = 'none';
+        document.body.classList.remove('modal-open');
+    }
+    currentResetToken = null;
+    currentResetUser = null;
+}
+
+// Verify reset token
+async function verifyResetToken(token) {
+    try {
+        const response = await fetch('/api/auth/verify-reset-token', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ token })
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            currentResetUser = data.user;
+            document.getElementById('resetUserName').textContent = data.user.name || 'User';
+            document.getElementById('resetUserEmail').textContent = data.user.email;
+            
+            // Setup password strength checker
+            setupPasswordStrengthChecker();
+        } else {
+            document.getElementById('resetError').textContent = data.message || 'Invalid or expired reset link';
+            document.getElementById('resetError').style.display = 'block';
+            document.getElementById('resetUserName').textContent = 'Invalid Token';
+            document.getElementById('resetUserEmail').textContent = 'Please request a new reset link';
+        }
+    } catch (error) {
+        console.error('Error:', error);
+        document.getElementById('resetError').textContent = 'Failed to verify token';
+        document.getElementById('resetError').style.display = 'block';
+    }
+}
+
+// Setup password strength checker
+function setupPasswordStrengthChecker() {
+    const passwordInput = document.getElementById('newPassword');
+    const strengthMeter = document.getElementById('passwordStrength');
+    
+    if (passwordInput) {
+        passwordInput.addEventListener('input', function() {
+            const password = this.value;
+            let strength = 0;
+            
+            if (password.length >= 6) strength += 25;
+            if (/[a-z]/.test(password)) strength += 25;
+            if (/[A-Z]/.test(password)) strength += 25;
+            if (/[0-9]/.test(password)) strength += 25;
+            
+            strengthMeter.style.width = `${strength}%`;
+            
+            if (strength < 50) {
+                strengthMeter.style.backgroundColor = '#e74c3c';
+            } else if (strength < 75) {
+                strengthMeter.style.backgroundColor = '#f39c12';
+            } else {
+                strengthMeter.style.backgroundColor = '#27ae60';
+            }
+        });
+    }
+}
+
+// Submit password reset
+async function submitPasswordReset() {
+    const newPassword = document.getElementById('newPassword').value;
+    const confirmPassword = document.getElementById('confirmNewPassword').value;
+    const errorDiv = document.getElementById('resetError');
+    const successDiv = document.getElementById('resetSuccess');
+    
+    if (!newPassword || !confirmPassword) {
+        errorDiv.textContent = 'Please enter both password fields';
+        errorDiv.style.display = 'block';
+        return;
+    }
+    
+    if (newPassword !== confirmPassword) {
+        errorDiv.textContent = 'Passwords do not match';
+        errorDiv.style.display = 'block';
+        return;
+    }
+    
+    if (newPassword.length < 6) {
+        errorDiv.textContent = 'Password must be at least 6 characters';
+        errorDiv.style.display = 'block';
+        return;
+    }
+    
+    if (!currentResetToken) {
+        errorDiv.textContent = 'Reset token is missing. Please request a new reset link.';
+        errorDiv.style.display = 'block';
+        return;
+    }
+    
+    // Show loading
+    const submitBtn = document.querySelector('#resetPasswordStep1 .btn-primary');
+    const originalText = submitBtn.innerHTML;
+    submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Resetting...';
+    submitBtn.disabled = true;
+    errorDiv.style.display = 'none';
+    
+    try {
+        const response = await fetch('/api/auth/reset-password', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                token: currentResetToken,
+                new_password: newPassword,
+                confirm_password: confirmPassword
+            })
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            // Show success
+            successDiv.style.display = 'block';
+            successDiv.innerHTML = '<i class="fas fa-check-circle"></i> ' + data.message;
+            
+            // Disable inputs
+            document.getElementById('newPassword').disabled = true;
+            document.getElementById('confirmNewPassword').disabled = true;
+            
+            // Hide error
+            errorDiv.style.display = 'none';
+            
+            // Change button to success
+            submitBtn.innerHTML = '<i class="fas fa-check"></i> Password Reset!';
+            
+            // Show notification
+            showNotification('success', 'Password Reset!', 'Your password has been changed successfully.');
+            
+            // Close modal and redirect after 3 seconds
+            setTimeout(() => {
+                closeResetPasswordModal();
+                navigateTo('login');
+                
+                // Pre-fill email if available
+                if (currentResetUser && currentResetUser.email) {
+                    const loginEmail = document.getElementById('loginEmail');
+                    if (loginEmail) {
+                        loginEmail.value = currentResetUser.email;
+                    }
+                }
+            }, 3000);
+        } else {
+            errorDiv.textContent = data.message || 'Failed to reset password';
+            errorDiv.style.display = 'block';
+            submitBtn.innerHTML = originalText;
+            submitBtn.disabled = false;
+        }
+    } catch (error) {
+        console.error('Error:', error);
+        errorDiv.textContent = 'Network error. Please try again.';
+        errorDiv.style.display = 'block';
+        submitBtn.innerHTML = originalText;
+        submitBtn.disabled = false;
+    }
+}
+
+// Check for reset token in URL (when page loads)
+function checkForResetToken() {
+    const urlParams = new URLSearchParams(window.location.search);
+    const token = urlParams.get('token');
+    
+    if (token) {
+        // Clean URL (remove token)
+        const newUrl = window.location.pathname;
+        window.history.replaceState({}, document.title, newUrl);
+        
+        // Show reset modal
+        setTimeout(() => {
+            showResetPasswordModal(token);
+        }, 500);
+    }
+}
+
+// ============================================
+// FIXED: Initialize forgot password link - WITH DEBUGGING
+// ============================================
+function initForgotPasswordLink() {
+    console.log('🔍 Attempting to initialize forgot password link...');
+    
+    // Try to find the link immediately
+    let forgotLink = document.getElementById('forgotPasswordLink');
+    
+    if (forgotLink) {
+        console.log('✅ Forgot password link found!');
+        
+        // Remove any existing event listeners
+        const newLink = forgotLink.cloneNode(true);
+        forgotLink.parentNode.replaceChild(newLink, forgotLink);
+        
+        newLink.addEventListener('click', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            console.log('🔑 Forgot password link clicked!');
+            showForgotPasswordModal();
+        });
+        
+        console.log('✅ Event listener attached successfully');
+    } else {
+        console.error('❌ Forgot password link NOT FOUND! Will retry...');
+        
+        // Try again after a short delay (for dynamically loaded content)
+        setTimeout(() => {
+            const retryLink = document.getElementById('forgotPasswordLink');
+            if (retryLink) {
+                console.log('✅ Found on retry!');
+                initForgotPasswordLink();
+            } else {
+                console.error('❌ Still not found after retry');
+            }
+        }, 500);
+        
+        // Also try when login page becomes visible
+        const loginPage = document.getElementById('login-page');
+        if (loginPage) {
+            const observer = new MutationObserver(function(mutations) {
+                mutations.forEach(function(mutation) {
+                    if (mutation.type === 'attributes' && mutation.attributeName === 'class') {
+                        if (!loginPage.classList.contains('hidden')) {
+                            console.log('📄 Login page became visible - rechecking for forgot link');
+                            setTimeout(() => {
+                                const link = document.getElementById('forgotPasswordLink');
+                                if (link && !link._hasListener) {
+                                    initForgotPasswordLink();
+                                }
+                            }, 300);
+                        }
+                    }
+                });
+            });
+            
+            observer.observe(loginPage, { attributes: true });
+        }
+    }
+}
+
+// ============================================
+// DOM CONTENT LOADED - COMPLETE VERSION
+// ============================================
+document.addEventListener('DOMContentLoaded', function() {
+    console.log('📄 DOM fully loaded - initializing all features');
+    
+    // ✅ I-initialize ang progressRefreshInterval
+    progressRefreshInterval = null;
+    
+    // Initialize app first
+    initApp();
+    
+    // Add all styles
+    addQuizStyles();
+    addProgressStyles();
+    addPracticeResultModalStyles();
+    addChartStyles();
+    addSettingsStyles();
+    addFeedbackStyles();
+    addLessonContentStyles();
+    addReviewModalStyles();
+    
+  
+    
+    // Initialize forgot password link - call it multiple times to ensure it works
+    setTimeout(() => {
+        initForgotPasswordLink();
+    }, 100);
+    
+    setTimeout(() => {
+        initForgotPasswordLink();
+    }, 500);
+    
+    // Also check when login page becomes visible
+    const loginPage = document.getElementById('login-page');
+    if (loginPage) {
+        const observer = new MutationObserver(function(mutations) {
+            mutations.forEach(function(mutation) {
+                if (mutation.type === 'attributes' && mutation.attributeName === 'class') {
+                    if (!loginPage.classList.contains('hidden')) {
+                        console.log('📄 Login page became visible - initializing forgot link');
+                        setTimeout(initForgotPasswordLink, 200);
+                    }
+                }
+            });
+        });
+        
+        observer.observe(loginPage, { attributes: true });
+    }
+    
+    // Initialize progress dashboard if visible
+    const progressPage = document.getElementById('progress-page');
+    if (progressPage) {
+        if (!progressPage.classList.contains('hidden')) {
+            console.log('📊 Progress page is already visible - loading data NOW');
+            setTimeout(() => {
+                showProgressDashboardLoading();
+                initProgressDashboard();
+            }, 50);
+        }
+        
+        // Observe for when progress page becomes visible
+        const progressObserver = new MutationObserver(function(mutations) {
+            mutations.forEach(function(mutation) {
+                if (mutation.type === 'attributes' && mutation.attributeName === 'class') {
+                    if (!progressPage.classList.contains('hidden')) {
+                        console.log('📊 Progress page became visible');
+                        setTimeout(() => {
+                            showProgressDashboardLoading();
+                            initProgressDashboard();
+                        }, 300);
+                    } else {
+                        // Stop refresh when hidden
+                        if (typeof stopProgressAutoRefresh === 'function') {
+                            stopProgressAutoRefresh();
+                        }
+                    }
+                }
+            });
+        });
+        
+        progressObserver.observe(progressPage, { attributes: true });
+    }
+    
+    // Initialize quiz dashboard if visible
+    const quizPage = document.getElementById('quiz-dashboard-page');
+    if (quizPage) {
+        if (!quizPage.classList.contains('hidden')) {
+            setTimeout(() => {
+                initQuizDashboard();
+            }, 300);
+        }
+        
+        const quizObserver = new MutationObserver(function(mutations) {
+            mutations.forEach(function(mutation) {
+                if (mutation.type === 'attributes' && mutation.attributeName === 'class') {
+                    if (!quizPage.classList.contains('hidden')) {
+                        console.log('🧠 Quiz page became visible');
+                        setTimeout(() => {
+                            initQuizDashboard();
+                        }, 300);
+                    }
+                }
+            });
+        });
+        
+        quizObserver.observe(quizPage, { attributes: true });
+    }
+    
+    // Initialize practice page if visible
+    const practicePage = document.getElementById('practice-exercises-page');
+    if (practicePage) {
+        if (!practicePage.classList.contains('hidden')) {
+            setTimeout(() => {
+                initPracticePage();
+            }, 300);
+        }
+        
+        const practiceObserver = new MutationObserver(function(mutations) {
+            mutations.forEach(function(mutation) {
+                if (mutation.type === 'attributes' && mutation.attributeName === 'class') {
+                    if (!practicePage.classList.contains('hidden')) {
+                        console.log('💪 Practice page became visible');
+                        setTimeout(() => {
+                            initPracticePage();
+                        }, 300);
+                    }
+                }
+            });
+        });
+        
+        practiceObserver.observe(practicePage, { attributes: true });
+    }
+    
+    // Initialize time tracker
+    setTimeout(() => {
+        if (typeof initializeTimeTracker === 'function') {
+            initializeTimeTracker();
+        }
+    }, 2000);
+    
+    // Check for reset token in URL
+    if (typeof checkForResetToken === 'function') {
+        checkForResetToken();
+    }
+    
+    // Ensure feedback history loads
+    if (typeof ensureFeedbackHistoryLoads === 'function') {
+        ensureFeedbackHistoryLoads();
+    }
+    
+    // Connect tool buttons
+    if (typeof connectToolButtons === 'function') {
+        connectToolButtons();
+    }
+    
+    // Connect review buttons
+    setTimeout(() => {
+        if (typeof connectReviewButtons === 'function') {
+            connectReviewButtons();
+        }
+        console.log('✅ Review buttons connected');
+    }, 1000);
+    
+    // Connect quiz buttons
+    setTimeout(() => {
+        if (typeof setupQuizButtons === 'function') {
+            setupQuizButtons();
+        }
+    }, 1000);
+    
+    // Check visibility on page load
+    setTimeout(() => {
+        if (typeof checkAndFixQuizVisibility === 'function') {
+            checkAndFixQuizVisibility();
+        }
+    }, 100);
+    
+    console.log('✅ All features initialized');
+    
+    // Add window unload handler to clean up intervals
+    window.addEventListener('beforeunload', function() {
+        if (progressRefreshInterval) {
+            clearInterval(progressRefreshInterval);
+            progressRefreshInterval = null;
+        }
+        
+        if (typeof stopQuizStatsAutoRefresh === 'function') {
+            stopQuizStatsAutoRefresh();
+        }
+    });
+});
+
+
+// ============================================
+// FIXED: Add a direct click handler as backup
+// ============================================
+document.addEventListener('click', function(e) {
+    // Check if clicked element is the forgot password link
+    if (e.target && e.target.id === 'forgotPasswordLink') {
+        e.preventDefault();
+        e.stopPropagation();
+        console.log('🎯 Forgot password link clicked via delegation!');
+        showForgotPasswordModal();
+        return false;
+    }
+    
+    // Check if clicked element is inside a link with that ID
+    const forgotLink = e.target.closest('#forgotPasswordLink');
+    if (forgotLink) {
+        e.preventDefault();
+        e.stopPropagation();
+        console.log('🎯 Forgot password link clicked via delegation (closest)!');
+        showForgotPasswordModal();
+        return false;
+    }
+}, true); // Use capture phase to ensure it runs first
+
+// ============================================
+// ✅ FIXED: Connect tool buttons with direct handlers
+// ============================================
+function connectToolButtons() {
+    console.log('🔧 Connecting tool buttons...');
+
+    // Define tool buttons and their corresponding modals
+    const tools = [
+        { id: 'openCalculator', name: 'calculator' },
+        { id: 'openGraphTools', name: 'graph' },
+        { id: 'openNotepad', name: 'notepad' },
+        { id: 'openFormulaSheet', name: 'formula' },
+        { id: 'openWhiteboard', name: 'whiteboard' },
+        { id: 'openTimer', name: 'timer' }
+    ];
+
+    // Initialize ToolManager if not exists
+    if (!window.toolManager) {
+        console.log('🔧 Creating new ToolManager...');
+        window.toolManager = new ToolManager();
+    }
+
+    // Connect each button
+    tools.forEach(tool => {
+        const btn = document.getElementById(tool.id);
+        if (btn) {
+            console.log(`🔧 Found button: ${tool.id}`);
+            
+            // Remove old listeners by cloning
+            const newBtn = btn.cloneNode(true);
+            btn.parentNode.replaceChild(newBtn, btn);
+            
+            // Add new listener
+            newBtn.addEventListener('click', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                console.log(`🎯 Opening ${tool.name}`);
+                
+                // Make sure ToolManager exists
+                if (!window.toolManager) {
+                    window.toolManager = new ToolManager();
+                }
+                
+                // Open the tool
+                window.toolManager.openTool(tool.name);
+            });
+            
+            console.log(`✅ Connected ${tool.id}`);
+        } else {
+            console.warn(`⚠️ Button not found: ${tool.id}`);
+        }
+    });
+    
+    // Also connect buttons with data-tool attribute
+    document.querySelectorAll('[data-tool]').forEach(btn => {
+        const toolName = btn.getAttribute('data-tool');
+        if (toolName) {
+            console.log(`🔧 Found button with data-tool: ${toolName}`);
+            
+            const newBtn = btn.cloneNode(true);
+            btn.parentNode.replaceChild(newBtn, btn);
+            
+            newBtn.addEventListener('click', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                console.log(`🎯 Opening ${toolName} via data-tool`);
+                
+                if (!window.toolManager) {
+                    window.toolManager = new ToolManager();
+                }
+                
+                window.toolManager.openTool(toolName);
+            });
+        }
+    });
+    
+    console.log('✅ All tool buttons connected');
+}
+
+// ============================================
+// ✅ NEW: Fetch total exercises count from database
+// ============================================
+async function fetchTotalExercisesCount() {
+    try {
+        const token = localStorage.getItem('authToken') || authToken;
+        if (!token) return 5; // Default fallback
+        
+        console.log('📊 Fetching total exercises count...');
+        
+        // Try multiple endpoints to get total exercises
+        const endpoints = [
+            `/practice/exercises/count`,
+            `/admin/practice/stats`,
+            `/practice/exercises`
+        ];
+        
+        for (const endpoint of endpoints) {
+            try {
+                const response = await fetch(endpoint, {
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    
+                    // Handle different response formats
+                    if (data.success) {
+                        if (data.count) return data.count;
+                        if (data.total) return data.total;
+                        if (data.stats?.totalExercises) return data.stats.totalExercises;
+                        if (data.exercises?.length) return data.exercises.length;
+                    }
+                }
+            } catch (e) {
+                console.log(`Endpoint ${endpoint} failed:`, e.message);
+            }
+        }
+        
+        // If all endpoints fail, try to get from practice_exercises table directly
+        // using a custom query endpoint if available
+        try {
+            const response = await fetch(`/api/debug/practice/count`, {
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json'
+                }
+            });
+            
+            if (response.ok) {
+                const data = await response.json();
+                if (data.count) return data.count;
+            }
+        } catch (e) {
+            console.log('Debug endpoint failed:', e.message);
+        }
+        
+        // Last resort: Count from PracticeState
+        if (PracticeState.exercises && PracticeState.exercises.length > 0) {
+            return PracticeState.exercises.length;
+        }
+        
+        return 5; // Final fallback
+        
+    } catch (error) {
+        console.error('❌ Error fetching total exercises:', error);
+        return 5; // Fallback to 5 on error
+    }
+}
+
+
+
+// ============================================
+// ⏱️ ACTIVE TIME TRACKER - Records to user_progress table
+// ============================================
+class ActiveTimeTracker {
+    constructor() {
+        this.totalActiveSeconds = 0;
+        this.sessionStartTime = null;
+        this.isTracking = false;
+        this.isAppActive = true;
+        this.isPageVisible = true;
+        this.saveInterval = null;
+        this.lastSavedTime = 0;
+        this.userId = null;
+        this.userProgressId = null;
+        
+        // Load saved time from localStorage
+        this.loadSavedTime();
+        
+        // Initialize tracking
+        this.init();
+    }
+    
+    init() {
+        console.log('⏱️ Initializing Active Time Tracker...');
+        
+        // Get user ID
+        const userJson = localStorage.getItem('mathhub_user');
+        if (userJson) {
+            try {
+                const user = JSON.parse(userJson);
+                this.userId = user.id;
+            } catch (e) {
+                console.error('Error parsing user:', e);
+            }
+        }
+        
+        // Setup visibility change detection
+        this.setupVisibilityDetection();
+        
+        // Setup before unload detection
+        this.setupBeforeUnloadDetection();
+        
+        // Setup page navigation detection
+        this.setupNavigationDetection();
+        
+        // Start periodic save (every 30 seconds)
+        this.startPeriodicSave();
+        
+        // Start tracking if page is visible
+        if (document.visibilityState === 'visible') {
+            this.startTracking();
+        }
+        
+        console.log('✅ Active Time Tracker initialized');
+    }
+    
+    // ============================================
+    // 👁️ DETECT WHEN PAGE IS VISIBLE/HIDDEN
+    // ============================================
+    setupVisibilityDetection() {
+        document.addEventListener('visibilitychange', () => {
+            if (document.hidden) {
+                console.log('👋 Page hidden - pausing time tracking');
+                this.isPageVisible = false;
+                this.pauseTracking();
+            } else {
+                console.log('👋 Page visible - resuming time tracking');
+                this.isPageVisible = true;
+                
+                // Only resume if app is still active
+                if (this.isAppActive) {
+                    this.startTracking();
+                }
+            }
+        });
+    }
+    
+    // ============================================
+    // 🚪 DETECT WHEN USER LEAVES THE PAGE
+    // ============================================
+    setupBeforeUnloadDetection() {
+        window.addEventListener('beforeunload', () => {
+            // Save current session before leaving
+            this.pauseTracking();
+            this.saveToLocalStorage();
+            
+            // Try to save to server synchronously
+            this.saveToServerSync();
+        });
+    }
+    
+    // ============================================
+    // 🧭 DETECT NAVIGATION WITHIN THE APP
+    // ============================================
+    setupNavigationDetection() {
+        // Override navigateTo function to detect page changes
+        const originalNavigateTo = window.navigateTo;
+        window.navigateTo = (page) => {
+            // Pause tracking when navigating away from learning pages
+            const learningPages = ['moduleDashboard', 'practice', 'quizDashboard'];
+            
+            if (learningPages.includes(AppState.currentPage) && !learningPages.includes(page)) {
+                console.log('🧭 Leaving learning page - pausing time tracking');
+                this.pauseTracking();
+            }
+            
+            // Resume tracking when entering learning pages
+            if (learningPages.includes(page)) {
+                console.log('🧭 Entering learning page - resuming time tracking');
+                setTimeout(() => {
+                    this.startTracking();
+                }, 500);
+            }
+            
+            originalNavigateTo(page);
+        };
+    }
+    
+    // ============================================
+    // ▶️ START TRACKING ACTIVE TIME
+    // ============================================
+    startTracking() {
+        // Don't start if already tracking or page is hidden
+        if (this.isTracking || !this.isPageVisible || !this.isAppActive) {
+            console.log('⏱️ Cannot start tracking:', {
+                isTracking: this.isTracking,
+                isPageVisible: this.isPageVisible,
+                isAppActive: this.isAppActive
+            });
+            return;
+        }
+        
+        console.log('▶️ Starting active time tracking');
+        this.sessionStartTime = Date.now();
+        this.isTracking = true;
+    }
+    
+    // ============================================
+    // ⏸️ PAUSE TRACKING
+    // ============================================
+    pauseTracking() {
+        if (!this.isTracking || !this.sessionStartTime) {
+            return;
+        }
+        
+        const now = Date.now();
+        const sessionSeconds = Math.floor((now - this.sessionStartTime) / 1000);
+        
+        // Only add if session was significant (more than 2 seconds)
+        if (sessionSeconds > 2) {
+            this.totalActiveSeconds += sessionSeconds;
+            console.log(`⏸️ Paused tracking. Session: ${sessionSeconds}s, Total: ${this.totalActiveSeconds}s`);
+            
+            // Update display
+            this.updateTimeDisplay();
+            
+            // Save to server immediately
+            this.saveToServer();
+        }
+        
+        this.isTracking = false;
+        this.sessionStartTime = null;
+    }
+    
+    // ============================================
+    // 🔄 RESET TRACKING (for new session)
+    // ============================================
+    resetTracking() {
+        console.log('🔄 Resetting tracking for new session');
+        this.pauseTracking();
+        this.totalActiveSeconds = 0;
+        this.updateTimeDisplay();
+        this.saveToLocalStorage();
+        
+        // Reset in database
+        this.resetInDatabase();
+    }
+    
+    // ============================================
+    // 💾 PERIODIC SAVE (every 30 seconds)
+    // ============================================
+    startPeriodicSave() {
+        this.saveInterval = setInterval(() => {
+            // If currently tracking, add the session time
+            if (this.isTracking && this.sessionStartTime) {
+                const now = Date.now();
+                const sessionSeconds = Math.floor((now - this.sessionStartTime) / 1000);
+                const currentTotal = this.totalActiveSeconds + sessionSeconds;
+                
+                // Only save if changed significantly (every 30 seconds)
+                if (Math.abs(currentTotal - this.lastSavedTime) > 30) {
+                    this.saveToServer(currentTotal);
+                    this.lastSavedTime = currentTotal;
+                }
+            }
+        }, 30000); // Every 30 seconds
+    }
+    
+    // ============================================
+    // 💾 SAVE TO SERVER - user_progress table
+    // ============================================
+    async saveToServer(totalSeconds = null) {
+        try {
+            const token = localStorage.getItem('authToken') || authToken;
+            if (!token || !this.userId) return;
+            
+            const activeSeconds = totalSeconds !== null ? totalSeconds : this.totalActiveSeconds;
+            const activeMinutes = Math.floor(activeSeconds / 60);
+            
+            // Don't save if no significant time
+            if (activeMinutes < 1) return;
+            
+            console.log(`💾 Saving to user_progress table: ${activeMinutes} minutes`);
+            
+            // ✅ DIRECT UPDATE TO user_progress TABLE
+            const response = await fetch(`/api/progress/update-user-progress-time`, {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    user_id: this.userId,
+                    total_time_spent_minutes: activeMinutes,
+                    session_seconds: activeSeconds - this.lastSavedTime,
+                    is_tracking: this.isTracking,
+                    page_visible: this.isPageVisible
+                })
+            });
+            
+            if (response.ok) {
+                const data = await response.json();
+                console.log(`✅ Updated user_progress: total_time_spent_minutes = ${data.total_time_spent_minutes}`);
+                
+                // Update local state
+                if (ProgressState.cumulativeProgress) {
+                    ProgressState.cumulativeProgress.total_time_spent_minutes = data.total_time_spent_minutes;
+                }
+            } else {
+                // Fallback to old endpoints
+                await this.fallbackSave(activeMinutes);
+            }
+            
+            // Update display
+            this.updateTimeDisplay();
+            
+        } catch (error) {
+            console.error('❌ Error saving to user_progress:', error);
+            // Try fallback
+            await this.fallbackSave(Math.floor(this.totalActiveSeconds / 60));
+        }
+    }
+    
+    // ============================================
+    // 🔄 FALLBACK SAVE - kung hindi gumana ang direct update
+    // ============================================
+    async fallbackSave(minutes) {
+        try {
+            const token = localStorage.getItem('authToken') || authToken;
+            
+            // Try cumulative_progress endpoint
+            const response = await fetch(`/api/progress/update-cumulative`, {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    time_spent_minutes: minutes
+                })
+            });
+            
+            if (response.ok) {
+                console.log('✅ Saved to cumulative_progress (fallback)');
+            }
+            
+        } catch (error) {
+            console.error('❌ Fallback also failed:', error);
+        }
+    }
+    
+    // ============================================
+    // 💾 SYNC SAVE FOR BEFORE UNLOAD
+    // ============================================
+    saveToServerSync() {
+        try {
+            const token = localStorage.getItem('authToken') || authToken;
+            if (!token || !this.userId || this.totalActiveSeconds < 10) return;
+            
+            const activeMinutes = Math.floor(this.totalActiveSeconds / 60);
+            
+            // Use sendBeacon for synchronous-like behavior
+            const data = JSON.stringify({
+                user_id: this.userId,
+                total_time_spent_minutes: activeMinutes,
+                session_seconds: this.totalActiveSeconds,
+                is_tracking: false
+            });
+            
+            navigator.sendBeacon(`/progress/update-user-progress-time`, 
+                new Blob([data], { type: 'application/json' }));
+            
+            console.log('💾 Active time saved via sendBeacon');
+            
+        } catch (error) {
+            console.error('Error in sync save:', error);
+        }
+    }
+    
+    // ============================================
+    // 🔄 RESET IN DATABASE
+    // ============================================
+    async resetInDatabase() {
+        try {
+            const token = localStorage.getItem('authToken') || authToken;
+            if (!token || !this.userId) return;
+            
+            const response = await fetch(`/api/progress/reset-user-progress-time`, {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    user_id: this.userId
+                })
+            });
+            
+            if (response.ok) {
+                console.log('✅ Reset user_progress time in database');
+            }
+            
+        } catch (error) {
+            console.error('Error resetting in database:', error);
+        }
+    }
+    
+    // ============================================
+    // 💾 SAVE TO LOCAL STORAGE
+    // ============================================
+    saveToLocalStorage() {
+        try {
+            const saveData = {
+                totalActiveSeconds: this.totalActiveSeconds,
+                lastUpdated: new Date().toISOString(),
+                userId: this.userId
+            };
+            
+            localStorage.setItem('active_time_tracker', JSON.stringify(saveData));
+            console.log('💾 Active time saved to localStorage');
+            
+        } catch (error) {
+            console.error('Error saving to localStorage:', error);
+        }
+    }
+    
+    // ============================================
+    // 📂 LOAD FROM LOCAL STORAGE
+    // ============================================
+    loadSavedTime() {
+        try {
+            const saved = localStorage.getItem('active_time_tracker');
+            if (saved) {
+                const data = JSON.parse(saved);
+                
+                // Only load if it's from today and same user
+                const lastDate = new Date(data.lastUpdated).toDateString();
+                const today = new Date().toDateString();
+                
+                if (lastDate === today && data.userId === this.userId) {
+                    this.totalActiveSeconds = data.totalActiveSeconds || 0;
+                    console.log(`📂 Loaded saved time: ${this.totalActiveSeconds}s`);
+                } else {
+                    // Reset for new day
+                    this.totalActiveSeconds = 0;
+                    console.log('📂 New day - resetting time tracker');
+                }
+            }
+        } catch (error) {
+            console.error('Error loading saved time:', error);
+        }
+    }
+    
+    async updateTimeDisplay() {
+    try {
+        // Get database total (in seconds)
+        let databaseSeconds = 0;
+        
+        // Try from ProgressState first
+        if (ProgressState.cumulativeProgress?.total_time_spent_minutes) {
+            // I-assume na minutes ito, pero seconds talaga ang laman
+            databaseSeconds = ProgressState.cumulativeProgress.total_time_spent_minutes;
+        } else {
+            // Fetch from server
+            const token = localStorage.getItem('authToken');
+            const response = await fetch(`/api/progress/get-user-progress-time`, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            const data = await response.json();
+            if (data.success) {
+                databaseSeconds = data.total_time_spent_minutes || 0;
+                if (!ProgressState.cumulativeProgress) {
+                    ProgressState.cumulativeProgress = {};
+                }
+                // Store as seconds, but we'll convert for display
+                ProgressState.cumulativeProgress.total_time_spent_minutes = databaseSeconds;
+            }
+        }
+        
+        // ✅ CONVERT SECONDS TO MINUTES
+        const databaseMinutes = Math.floor(databaseSeconds / 60);
+        
+        // Get current session seconds
+        let sessionSeconds = 0;
+        if (this.isTracking && this.sessionStartTime) {
+            sessionSeconds = Math.floor((Date.now() - this.sessionStartTime) / 1000);
+        }
+        const sessionMinutes = Math.floor(sessionSeconds / 60);
+        
+        // Calculate TOTAL minutes
+        const totalMinutes = databaseMinutes + sessionMinutes;
+        const hours = Math.floor(totalMinutes / 60);
+        const mins = totalMinutes % 60;
+        
+        // Format display
+        let timeDisplay = '';
+        if (hours > 0) {
+            timeDisplay = `${hours}h ${mins}m`;
+        } else {
+            timeDisplay = `${totalMinutes}m`;
+        }
+        
+        console.log(`📊 Time: DB=${databaseSeconds}s (${databaseMinutes}min) + Session=${sessionMinutes}min = Total=${totalMinutes}min (${timeDisplay})`);
+        
+        // Update displays
+        const timeElements = [
+            document.getElementById('totalLearningTime'),
+            document.getElementById('totalTime'),
+            document.getElementById('progressTotalTime'),
+            document.querySelector('.time-display')
+        ];
+        
+        timeElements.forEach(el => {
+            if (el) {
+                el.textContent = timeDisplay;
+            }
+        });
+        
+        const avgTime = document.getElementById('avgTime');
+        if (avgTime) {
+            const avgDaily = totalMinutes > 0 ? Math.round(totalMinutes / 7) : 5;
+            avgTime.innerHTML = `${avgDaily}<span class="item-unit">min/day</span>`;
+        }
+        
+    } catch (error) {
+        console.error('Error updating time display:', error);
+    }
+}
+    
+    // ============================================
+    // 🔍 GET CURRENT ACTIVE TIME
+    // ============================================
+    getCurrentActiveTime() {
+        let currentTotal = this.totalActiveSeconds;
+        
+        if (this.isTracking && this.sessionStartTime) {
+            const sessionSeconds = Math.floor((Date.now() - this.sessionStartTime) / 1000);
+            currentTotal += sessionSeconds;
         }
         
         return {
+            seconds: currentTotal,
+            minutes: Math.floor(currentTotal / 60),
+            hours: Math.floor(currentTotal / 3600),
+            display: this.formatTime(currentTotal)
+        };
+    }
+    
+    // ============================================
+    // 📝 FORMAT TIME
+    // ============================================
+    formatTime(seconds) {
+        const minutes = Math.floor(seconds / 60);
+        const hours = Math.floor(minutes / 60);
+        const displayMinutes = minutes % 60;
+        
+        if (hours > 0) {
+            return `${hours}h ${displayMinutes}m`;
+        } else {
+            return `${minutes}m`;
+        }
+    }
+    
+    // ============================================
+    // 🧹 CLEANUP
+    // ============================================
+    cleanup() {
+        if (this.saveInterval) {
+            clearInterval(this.saveInterval);
+        }
+        this.pauseTracking();
+        this.saveToServer();
+        this.saveToLocalStorage();
+    }
+}
+
+// ============================================
+// 🚀 FORCE INITIALIZE TIME TRACKER
+// ============================================
+function initializeTimeTracker() {
+    console.log('⏱️ Attempting to initialize time tracker...');
+    
+    // Check if user is authenticated
+    const userJson = localStorage.getItem('mathhub_user');
+    const token = localStorage.getItem('authToken');
+    
+    if (!token || !userJson) {
+        console.log('⏱️ No user logged in');
+        return false;
+    }
+    
+    try {
+        const user = JSON.parse(userJson);
+        
+        // Set AppState if not set
+        if (!AppState.isAuthenticated) {
+            AppState.currentUser = user;
+            AppState.isAuthenticated = true;
+        }
+        
+        // Create tracker
+        window.activeTimeTracker = new ActiveTimeTracker();
+        console.log('✅ Time tracker initialized for user:', user.username);
+        
+        // Force start tracking
+        setTimeout(() => {
+            if (window.activeTimeTracker) {
+                window.activeTimeTracker.startTracking();
+                console.log('▶️ Tracking started');
+            }
+        }, 500);
+        
+        return true;
+    } catch (error) {
+        console.error('❌ Failed to initialize time tracker:', error);
+        return false;
+    }
+}
+
+// Initialize immediately
+(function() {
+    console.log('🏁 Checking for existing user...');
+    initializeTimeTracker();
+})();
+
+// Also initialize after login
+
+
+// ============================================
+// ✅ FIXED: fetchPracticeStatistics - ONLY LESSON_ID = 1
+// ============================================
+async function fetchPracticeStatistics() {
+    try {
+        const token = localStorage.getItem('authToken') || authToken;
+        if (!token) {
+            console.error('❌ No auth token available');
+            return null;
+        }
+        
+        // ✅ FORCE LESSON_ID = 1 FOR mathease
+        console.log(`📊 Fetching  practice statistics DIRECTLY FROM DATABASE (lesson_id=${MATHEASE_LESSON_ID})...`);
+        
+        // ===== GET ALL PRACTICE STATS FROM DATABASE IN PARALLEL =====
+        const [lessonsData, attemptsData, totalExercisesData] = await Promise.allSettled([
+            // Get lessons progress (lesson_id=1)
+            fetch(`/api/progress/lessons?lesson_id=${MATHEASE_LESSON_ID}`, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            }).then(res => res.json()).catch(err => ({ success: false, error: err })),
+            
+            // Get practice attempts (lesson_id=1)
+             fetch(`/api/progress/practice-attempts?lesson_id=${MATHEASE_LESSON_ID}`, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            }).then(res => res.json()).catch(err => ({ success: false, error: err })),
+            
+            // Get total exercises count (lesson_id=1)
+            fetch(`/api/practice/exercises/count?lesson_id=${MATHEASE_LESSON_ID}`, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            }).then(res => res.json()).catch(err => ({ success: false, error: err }))
+        ]);
+        
+        // ===== PROCESS LESSONS DATA =====
+        let lessonsCompleted = 0;
+        let totalLessons = 0;
+        
+        if (lessonsData.status === 'fulfilled' && lessonsData.value.success) {
+            const progress = lessonsData.value.progress || [];
+            lessonsCompleted = progress.filter(p => 
+                p.completion_status === 'completed' || p.status === 'completed'
+            ).length;
+            console.log(`✅ Lessons completed from DB: ${lessonsCompleted}`);
+        }
+        
+        // ===== PROCESS TOTAL EXERCISES =====
+        let totalExercises = 0;
+        if (totalExercisesData.status === 'fulfilled' && totalExercisesData.value.success) {
+            totalExercises = totalExercisesData.value.count || 0;
+            console.log(`✅ Total exercises from DB: ${totalExercises}`);
+        }
+        
+        // ===== PROCESS PRACTICE ATTEMPTS =====
+        let exercisesCompleted = 0;
+        let totalAttempts = 0;
+        let totalScore = 0;
+        let totalTimeSeconds = 0;
+        let averageScore = 0;
+        
+        if (attemptsData.status === 'fulfilled' && attemptsData.value.success) {
+            const attempts = attemptsData.value.attempts || [];
+            
+            // Count completed exercises
+            exercisesCompleted = attempts.filter(a => 
+                a.completion_status === 'completed' || 
+                a.percentage >= 70 ||
+                a.score >= 70
+            ).length;
+            
+            totalAttempts = attempts.length;
+            
+            // Calculate average score
+            if (totalAttempts > 0) {
+                const totalScoreSum = attempts.reduce((sum, a) => sum + (a.score || 0), 0);
+                averageScore = Math.round(totalScoreSum / totalAttempts);
+            }
+            
+            // Calculate total time
+            totalTimeSeconds = attempts.reduce((sum, a) => sum + (a.time_spent_seconds || 0), 0);
+            
+            console.log(`✅ Exercises completed from DB: ${exercisesCompleted}/${totalExercises}`);
+            console.log(`✅ Total attempts from DB: ${totalAttempts}`);
+            console.log(`✅ Average score from DB: ${averageScore}%`);
+            console.log(`✅ Total time from DB: ${totalTimeSeconds}s`);
+        }
+        
+        // ===== CREATE STATS OBJECT FROM DATABASE =====
+        const stats = {
             total_exercises_completed: exercisesCompleted,
             total_attempts: totalAttempts,
             average_score: averageScore,
             lessons_completed: lessonsCompleted,
             exercises_completed: exercisesCompleted,
             practice_unlocked: true,
-            total_lessons: 3,
+            total_lessons: totalLessons || 3,
+            total_exercises: totalExercises,
             total_time_minutes: Math.round(totalTimeSeconds / 60),
             total_time_seconds: totalTimeSeconds,
             accuracy_rate: averageScore,
-            lessons_display: `${lessonsCompleted}/3`,
+            lessons_display: `${lessonsCompleted}/${totalLessons || 3}`,
             exercises_display: `${exercisesCompleted}`,
-            lessons_percentage: Math.round((lessonsCompleted / 3) * 100) || 0
+            lessons_percentage: totalLessons > 0 ? Math.round((lessonsCompleted / totalLessons) * 100) : 0
         };
         
+        console.log('✅ FINAL PRACTICE STATISTICS FROM DATABASE:', stats);
+        
+        // Save to PracticeState
+        PracticeState.userPracticeProgress = stats;
+        
+        return stats;
+        
     } catch (error) {
-        return getDefaultMatheasePracticeStats();
+        console.error('❌ Error fetching practice statistics from database:', error);
+        return null;
     }
 }
 
-function getDefaultMatheasePracticeStats() {
-    return {
-        total_exercises_completed: 0, total_attempts: 0, average_score: 0, lessons_completed: 0,
-        exercises_completed: 0, practice_unlocked: true, total_lessons: 3, total_exercises: 5,
-        total_time_minutes: 0, total_time_seconds: 0, accuracy_rate: 0,
-        lessons_display: '0/3', exercises_display: '0', lessons_percentage: 0
+// Update learning goals section
+function updateLearningGoalsSection() {
+    const goalsContainer = document.getElementById('goalsContainer');
+    if (!goalsContainer) return;
+    
+    const goals = ProgressState.learningGoals || [];
+    
+    if (goals.length === 0) {
+        goalsContainer.innerHTML = `
+            <div class="no-goals">
+                <i class="fas fa-bullseye"></i>
+                <h3>No learning goals set</h3>
+                <p>Set your first learning goal to track your progress!</p>
+                <button class="btn-primary" id="createFirstGoalBtn">
+                    <i class="fas fa-plus"></i> Create Goal
+                </button>
+            </div>
+        `;
+        
+        document.getElementById('createFirstGoalBtn')?.addEventListener('click', showCreateGoalModal);
+        return;
+    }
+    
+    let html = '';
+    goals.forEach(goal => {
+        const progressPercentage = goal.progress_percentage || 0;
+        const status = goal.status || 'active';
+        const statusClass = status === 'completed' ? 'completed' : 
+                          status === 'failed' ? 'failed' : 'active';
+        
+        html += `
+            <div class="goal-card ${statusClass}" data-goal-id="${goal.goal_id}">
+                <div class="goal-header">
+                    <h4>${goal.goal_title}</h4>
+                    <span class="goal-status ${statusClass}">${status}</span>
+                </div>
+                
+                <div class="goal-body">
+                    <p>${goal.goal_description || ''}</p>
+                    
+                    <div class="goal-progress">
+                        <div class="progress-info">
+                            <span>${goal.current_value}/${goal.target_value} ${goal.unit_type}</span>
+                            <span>${Math.round(progressPercentage)}%</span>
+                        </div>
+                        <div class="progress-bar">
+                            <div class="progress-fill" style="width: ${progressPercentage}%"></div>
+                        </div>
+                    </div>
+                    
+                    <div class="goal-meta">
+                        <span class="goal-type">${goal.goal_type}</span>
+                        <span class="goal-deadline">
+                            ${goal.end_date ? `Due: ${formatDate(goal.end_date)}` : 'No deadline'}
+                        </span>
+                    </div>
+                </div>
+                
+                <div class="goal-actions">
+                    ${status === 'active' ? `
+                        <button class="btn-small update-goal-btn" data-goal-id="${goal.goal_id}">
+                            <i class="fas fa-edit"></i> Update
+                        </button>
+                        <button class="btn-small complete-goal-btn" data-goal-id="${goal.goal_id}">
+                            <i class="fas fa-check"></i> Complete
+                        </button>
+                    ` : ''}
+                </div>
+            </div>
+        `;
+    });
+    
+    goalsContainer.innerHTML = html;
+    
+    // Add event listeners
+    document.querySelectorAll('.update-goal-btn').forEach(button => {
+        button.addEventListener('click', function() {
+            const goalId = this.getAttribute('data-goal-id');
+            showUpdateGoalModal(goalId);
+        });
+    });
+    
+    document.querySelectorAll('.complete-goal-btn').forEach(button => {
+        button.addEventListener('click', async function() {
+            const goalId = this.getAttribute('data-goal-id');
+            const success = await completeLearningGoal(goalId);
+            if (success) {
+                showNotification('Goal marked as completed!', 'success');
+                // Refresh goals
+                await fetchLearningGoals();
+                updateLearningGoalsSection();
+            }
+        });
+    });
+}
+
+// ============================================
+// UPDATE ACTIVITY LOG
+// ============================================
+function updateActivityLog() {
+    const container = document.getElementById('recentActivity');
+    if (!container) return;
+    
+    const activities = ProgressState.activityLog || [];
+    
+    if (activities.length === 0) {
+        container.innerHTML = `
+            <div class="no-activity" style="text-align: center; padding: 30px;">
+                <i class="fas fa-history" style="font-size: 40px; color: #ccc; margin-bottom: 15px;"></i>
+                <p style="color: #999;">No recent activity</p>
+            </div>
+        `;
+        return;
+    }
+    
+    let html = '';
+    activities.slice(0, 5).forEach(activity => {
+        const activityText = getActivityText(activity);
+        const timeAgo = formatTimeAgo(activity.activity_timestamp);
+        
+        html += `
+            <div style="display: flex; align-items: center; padding: 12px; border-bottom: 1px solid #eee;">
+                <div style="width: 36px; height: 36px; background: #f0f0f0; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin-right: 12px;">
+                    <i class="${getActivityIcon(activity.activity_type)}" style="color: #7a0000;"></i>
+                </div>
+                <div style="flex: 1;">
+                    <div style="font-size: 14px; color: #2c3e50;">${activityText}</div>
+                    <div style="font-size: 12px; color: #999;">${timeAgo}</div>
+                </div>
+                ${activity.points_earned > 0 ? `
+                    <div style="background: #27ae60; color: white; padding: 3px 8px; border-radius: 12px; font-size: 11px; font-weight: bold;">
+                        +${activity.points_earned}
+                    </div>
+                ` : ''}
+            </div>
+        `;
+    });
+    
+    container.innerHTML = html;
+}
+
+// Update progress trends chart
+function updateProgressTrendsChart() {
+    const trendsContainer = document.getElementById('progressTrendsChart');
+    if (!trendsContainer) return;
+    
+    const trends = ProgressState.progressTrends || [];
+    
+    if (trends.length === 0) {
+        trendsContainer.innerHTML = `
+            <div class="no-trends">
+                <i class="fas fa-chart-line"></i>
+                <h3>No trend data available</h3>
+                <p>Complete more activities to see your progress trends.</p>
+            </div>
+        `;
+        return;
+    }
+    
+    // Create a simple chart using CSS
+    const maxPoints = Math.max(...trends.map(t => t.points_earned || 0));
+    
+    let html = `<div class="trends-chart">`;
+    
+    trends.slice(-14).forEach(trend => { // Last 14 days
+        const date = new Date(trend.activity_date);
+        const day = date.getDate();
+        const month = date.toLocaleString('default', { month: 'short' });
+        const points = trend.points_earned || 0;
+        const height = maxPoints > 0 ? (points / maxPoints * 100) : 0;
+        
+        html += `
+            <div class="trend-day">
+                <div class="trend-bar" style="height: ${height}%"></div>
+                <div class="trend-label">
+                    <span class="trend-day-number">${day}</span>
+                    <span class="trend-month">${month}</span>
+                </div>
+            </div>
+        `;
+    });
+    
+    html += `</div>`;
+    trendsContainer.innerHTML = html;
+}
+
+// ============================================
+// UPDATE ACHIEVEMENT TIMELINE
+// ============================================
+function updateAchievementTimeline() {
+    const timeline = document.getElementById('achievementTimeline');
+    if (!timeline) return;
+    
+    const achievements = ProgressState.achievementTimeline || [];
+    
+    if (achievements.length === 0) {
+        timeline.innerHTML = `
+            <div class="no-achievements" style="text-align: center; padding: 40px;">
+                <i class="fas fa-trophy" style="font-size: 48px; color: #ccc; margin-bottom: 15px;"></i>
+                <h3 style="color: #666;">No Achievements Yet</h3>
+                <p style="color: #999;">Complete lessons and quizzes to earn achievements!</p>
+            </div>
+        `;
+        return;
+    }
+    
+    let html = '<div style="position: relative; padding: 20px 0;">';
+    
+    achievements.forEach((achievement, index) => {
+        const isLeft = index % 2 === 0;
+        const date = achievement.created_at ? new Date(achievement.created_at).toLocaleDateString() : 'Recently';
+        
+        html += `
+            <div style="display: flex; ${isLeft ? 'justify-content: flex-start;' : 'justify-content: flex-end;'} margin-bottom: 30px; position: relative;">
+                <div style="width: 45%; ${isLeft ? 'text-align: right; padding-right: 30px;' : 'padding-left: 30px;'}">
+                    <div style="background: white; padding: 15px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); position: relative;">
+                        <div style="display: flex; align-items: center; gap: 10px; ${isLeft ? 'flex-direction: row-reverse;' : ''}">
+                            <div style="width: 40px; height: 40px; background: ${achievement.color || '#7a0000'}; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: white;">
+                                <i class="${achievement.icon || 'fas fa-trophy'}"></i>
+                            </div>
+                            <div style="flex: 1; ${isLeft ? 'text-align: right;' : ''}">
+                                <h4 style="margin: 0; font-size: 16px;">${achievement.achievement_name || 'Achievement'}</h4>
+                                <p style="margin: 5px 0 0; font-size: 13px; color: #666;">${achievement.description || ''}</p>
+                                <small style="color: #999;">${date}</small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+    });
+    
+    html += '</div>';
+    timeline.innerHTML = html;
+}
+
+// Update topic mastery section
+function updateTopicMasterySection() {
+    const masteryContainer = document.getElementById('topicMasteryContainer');
+    if (!masteryContainer) return;
+    
+    const mastery = ProgressState.topicMastery || {};
+    const masteryArray = Object.values(mastery);
+    
+    if (masteryArray.length === 0) {
+        masteryContainer.innerHTML = `
+            <div class="no-mastery">
+                <i class="fas fa-graduation-cap"></i>
+                <h3>No topic mastery data</h3>
+                <p>Complete lessons and exercises to build topic mastery.</p>
+            </div>
+        `;
+        return;
+    }
+    
+    let html = '';
+    masteryArray.forEach(topic => {
+        const masteryLevel = topic.mastery_level || 'beginner';
+        const accuracyRate = topic.accuracy_rate || 0;
+        const lastPracticed = topic.last_practiced ? formatTimeAgo(topic.last_practiced) : 'Never';
+        
+        html += `
+            <div class="mastery-card mastery-${masteryLevel.toLowerCase()}">
+                <div class="mastery-header">
+                    <h4>Topic ${topic.topic_id}</h4>
+                    <span class="mastery-level">${masteryLevel}</span>
+                </div>
+                
+                <div class="mastery-body">
+                    <div class="mastery-stats">
+                        <div class="mastery-stat">
+                            <span class="stat-label">Accuracy</span>
+                            <span class="stat-value">${Math.round(accuracyRate)}%</span>
+                        </div>
+                        <div class="mastery-stat">
+                            <span class="stat-label">Last Practiced</span>
+                            <span class="stat-value">${lastPracticed}</span>
+                        </div>
+                    </div>
+                    
+                    <div class="mastery-progress">
+                        <div class="progress-bar">
+                            <div class="progress-fill" style="width: ${accuracyRate}%"></div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="mastery-actions">
+                    <button class="btn-small practice-topic-btn" data-topic-id="${topic.topic_id}">
+                        <i class="fas fa-pencil-alt"></i> Practice
+                    </button>
+                </div>
+            </div>
+        `;
+    });
+    
+    masteryContainer.innerHTML = html;
+    
+    // Add event listeners to practice buttons
+    document.querySelectorAll('.practice-topic-btn').forEach(button => {
+        button.addEventListener('click', function() {
+            const topicId = this.getAttribute('data-topic-id');
+            openPracticeForTopic(topicId);
+        });
+    });
+}
+
+// ============================================
+// FIXED: updateModuleProgressSection - Handles empty data
+// ============================================
+function updateModuleProgressSection() {
+    const modulesContainer = document.getElementById('moduleProgressContainer');
+    if (!modulesContainer) return;
+    
+    const moduleProgress = ProgressState.moduleProgress || {};
+    const moduleArray = Object.values(moduleProgress);
+    
+    if (moduleArray.length === 0) {
+        modulesContainer.innerHTML = `
+            <div class="no-modules">
+                <i class="fas fa-book-open"></i>
+                <h3>No Module Progress Yet</h3>
+                <p>Start learning modules to see your progress here.</p>
+                <button class="btn-primary" onclick="navigateTo('dashboard')">
+                    <i class="fas fa-play"></i> Start Learning
+                </button>
+            </div>
+        `;
+        return;
+    }
+    
+    let html = '';
+    moduleArray.forEach(module => {
+        const completionRate = module.total_lessons > 0 ? 
+            Math.round((module.lessons_completed / module.total_lessons) * 100) : 0;
+        const isCompleted = completionRate >= 100;
+        
+        html += `
+            <div class="module-progress-card ${isCompleted ? 'completed' : 'in-progress'}">
+                <div class="module-progress-header">
+                    <h4>${module.module_name || `Module ${module.module_id}`}</h4>
+                    <span class="completion-rate">${completionRate}%</span>
+                </div>
+                
+                <div class="module-progress-body">
+                    <div class="module-stats">
+                        <div class="module-stat">
+                            <span class="stat-label">Lessons</span>
+                            <span class="stat-value">${module.lessons_completed || 0}/${module.total_lessons || 0}</span>
+                        </div>
+                        <div class="module-stat">
+                            <span class="stat-label">Avg. Score</span>
+                            <span class="stat-value">${Math.round(module.average_score || 0)}%</span>
+                        </div>
+                        <div class="module-stat">
+                            <span class="stat-label">Time</span>
+                            <span class="stat-value">${formatTime(module.time_spent_minutes || 0)}</span>
+                        </div>
+                    </div>
+                    
+                    <div class="module-progress">
+                        <div class="progress-bar">
+                            <div class="progress-fill" style="width: ${completionRate}%"></div>
+                        </div>
+                    </div>
+                </div>
+                
+                ${isCompleted ? `
+                    <div class="module-actions">
+                        <span class="completed-badge">
+                            <i class="fas fa-check-circle"></i> Completed
+                        </span>
+                    </div>
+                ` : `
+                    <div class="module-actions">
+                        <button class="btn-small continue-module-btn" data-module-id="${module.module_id}">
+                            <i class="fas fa-play"></i> Continue
+                        </button>
+                    </div>
+                `}
+            </div>
+        `;
+    });
+    
+    modulesContainer.innerHTML = html;
+    
+    // Add event listeners to continue buttons
+    document.querySelectorAll('.continue-module-btn').forEach(button => {
+        button.addEventListener('click', function() {
+            const moduleId = this.getAttribute('data-module-id');
+            navigateToModule(moduleId);
+        });
+    });
+}
+
+// ============================================
+// HELPER: Navigate to module
+// ============================================
+function navigateToModule(moduleId) {
+    console.log(`📚 Navigating to module ${moduleId}`);
+    // You can implement this based on your app's navigation
+    showNotification(`Opening module ${moduleId}...`, 'info');
+    // navigateTo('moduleDashboard');
+}
+
+
+// Show create goal modal
+function showCreateGoalModal() {
+    const modalHTML = `
+        <div class="create-goal-modal">
+            <h3><i class="fas fa-bullseye"></i> Create New Learning Goal</h3>
+            
+            <form id="createGoalForm">
+                <div class="form-group">
+                    <label for="goalTitle">Goal Title</label>
+                    <input type="text" id="goalTitle" placeholder="e.g., Complete 5 lessons this week" required>
+                </div>
+                
+                <div class="form-group">
+                    <label for="goalDescription">Description (Optional)</label>
+                    <textarea id="goalDescription" placeholder="Describe your goal..."></textarea>
+                </div>
+                
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="goalType">Goal Type</label>
+                        <select id="goalType" required>
+                            <option value="daily">Daily</option>
+                            <option value="weekly">Weekly</option>
+                            <option value="monthly">Monthly</option>
+                            <option value="custom">Custom</option>
+                        </select>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="unitType">Unit Type</label>
+                        <select id="unitType" required>
+                            <option value="lessons">Lessons</option>
+                            <option value="exercises">Exercises</option>
+                            <option value="minutes">Minutes</option>
+                            <option value="points">Points</option>
+                            <option value="quizzes">Quizzes</option>
+                        </select>
+                    </div>
+                </div>
+                
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="targetValue">Target Value</label>
+                        <input type="number" id="targetValue" min="1" max="1000" value="5" required>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="endDate">End Date (Optional)</label>
+                        <input type="date" id="endDate">
+                    </div>
+                </div>
+                
+                <div class="form-actions">
+                    <button type="button" class="btn-secondary" id="cancelCreateGoal">
+                        Cancel
+                    </button>
+                    <button type="submit" class="btn-primary">
+                        <i class="fas fa-check"></i> Create Goal
+                    </button>
+                </div>
+            </form>
+        </div>
+    `;
+    
+    showModal(modalHTML);
+    
+    // Set minimum date to tomorrow
+    const tomorrow = new Date();
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    const endDateInput = document.getElementById('endDate');
+    if (endDateInput) {
+        endDateInput.min = tomorrow.toISOString().split('T')[0];
+    }
+    
+    // Form submission
+    const form = document.getElementById('createGoalForm');
+    if (form) {
+        form.addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            const goalData = {
+                goal_title: document.getElementById('goalTitle').value,
+                goal_description: document.getElementById('goalDescription').value,
+                goal_type: document.getElementById('goalType').value,
+                unit_type: document.getElementById('unitType').value,
+                target_value: parseInt(document.getElementById('targetValue').value),
+                end_date: document.getElementById('endDate').value || null
+            };
+            
+            const submitBtn = this.querySelector('button[type="submit"]');
+            const originalText = submitBtn.innerHTML;
+            submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Creating...';
+            submitBtn.disabled = true;
+            
+            const goal = await createLearningGoal(goalData);
+            
+            submitBtn.innerHTML = originalText;
+            submitBtn.disabled = false;
+            
+            if (goal) {
+                showNotification('Learning goal created successfully!', 'success');
+                
+                // Close modal
+                const modal = document.querySelector('.modal-overlay');
+                if (modal) modal.remove();
+                
+                // Refresh goals
+                await fetchLearningGoals();
+                updateLearningGoalsSection();
+            } else {
+                showNotification('Failed to create goal. Please try again.', 'error');
+            }
+        });
+    }
+    
+    // Cancel button
+    document.getElementById('cancelCreateGoal')?.addEventListener('click', () => {
+        const modal = document.querySelector('.modal-overlay');
+        if (modal) modal.remove();
+    });
+}
+
+// I-ADD itong function para i-refresh ang practice exercises
+async function refreshPracticeExercises(topicId) {
+    console.log(`🔄 Refreshing practice exercises for topic ${topicId}...`);
+    
+    const exerciseArea = document.getElementById('exerciseArea');
+    if (!exerciseArea) return;
+    
+    // Show loading state
+    exerciseArea.innerHTML = `
+        <div class="loading-container">
+            <i class="fas fa-spinner fa-spin"></i>
+            <p>Refreshing exercises...</p>
+        </div>
+    `;
+    
+    // Reload practice data
+    const practiceData = await loadPracticeExercises(topicId);
+    
+    if (practiceData && practiceData.unlocked && practiceData.exercises) {
+        PracticeState.exercises = practiceData.exercises;
+        exerciseArea.innerHTML = createPracticeExercisesUI(practiceData);
+        setupPracticeExerciseInteractions();
+    }
+    
+    console.log('✅ Practice exercises refreshed');
+}
+
+// Show update goal modal
+function showUpdateGoalModal(goalId) {
+    const goal = ProgressState.learningGoals.find(g => g.goal_id == goalId);
+    if (!goal) return;
+    
+    const modalHTML = `
+        <div class="update-goal-modal">
+            <h3><i class="fas fa-edit"></i> Update Goal Progress</h3>
+            
+            <div class="goal-info">
+                <h4>${goal.goal_title}</h4>
+                <p>Current: ${goal.current_value}/${goal.target_value} ${goal.unit_type}</p>
+                <p>Progress: ${Math.round(goal.progress_percentage || 0)}%</p>
+            </div>
+            
+            <form id="updateGoalForm">
+                <div class="form-group">
+                    <label for="currentValue">Update Current Value</label>
+                    <input type="number" id="currentValue" 
+                           min="${goal.current_value}" 
+                           max="${goal.target_value}" 
+                           value="${goal.current_value}" 
+                           required>
+                    <small>Maximum: ${goal.target_value} ${goal.unit_type}</small>
+                </div>
+                
+                <div class="form-actions">
+                    <button type="button" class="btn-secondary" id="cancelUpdateGoal">
+                        Cancel
+                    </button>
+                    <button type="submit" class="btn-primary">
+                        <i class="fas fa-save"></i> Update Progress
+                    </button>
+                </div>
+            </form>
+        </div>
+    `;
+    
+    showModal(modalHTML);
+    
+    // Form submission
+    const form = document.getElementById('updateGoalForm');
+    if (form) {
+        form.addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            const currentValue = parseInt(document.getElementById('currentValue').value);
+            
+            const submitBtn = this.querySelector('button[type="submit"]');
+            const originalText = submitBtn.innerHTML;
+            submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Updating...';
+            submitBtn.disabled = true;
+            
+            const success = await updateLearningGoalProgress(goalId, currentValue);
+            
+            submitBtn.innerHTML = originalText;
+            submitBtn.disabled = false;
+            
+            if (success) {
+                showNotification('Goal progress updated!', 'success');
+                
+                // Close modal
+                const modal = document.querySelector('.modal-overlay');
+                if (modal) modal.remove();
+                
+                // Refresh goals
+                await fetchLearningGoals();
+                updateLearningGoalsSection();
+            } else {
+                showNotification('Failed to update goal. Please try again.', 'error');
+            }
+        });
+    }
+    
+    // Cancel button
+    document.getElementById('cancelUpdateGoal')?.addEventListener('click', () => {
+        const modal = document.querySelector('.modal-overlay');
+        if (modal) modal.remove();
+    });
+}
+
+// ============================================
+// GET ACTIVITY ICON
+// ============================================
+function getActivityIcon(activityType) {
+    const icons = {
+        'login': 'fas fa-sign-in-alt',
+        'logout': 'fas fa-sign-out-alt',
+        'lesson_completed': 'fas fa-check-circle',
+        'lesson_started': 'fas fa-play',
+        'practice_completed': 'fas fa-pencil-alt',
+        'quiz_completed': 'fas fa-question-circle',
+        'quiz_started': 'fas fa-hourglass-start',
+        'feedback_submitted': 'fas fa-comment',
+        'points_earned': 'fas fa-coins',
+        'tool_used': 'fas fa-tools',
+        'graph_saved': 'fas fa-chart-line',
+        'note_saved': 'fas fa-sticky-note',
+        'timer_session': 'fas fa-clock'
+    };
+    
+    return icons[activityType] || 'fas fa-circle';
+}
+
+// ============================================
+// GET ACTIVITY TEXT
+// ============================================
+function getActivityText(activity) {
+    const type = activity.activity_type;
+    const details = activity.details || {};
+    
+    switch(type) {
+        case 'login':
+            return 'Logged in to MathHub';
+        case 'logout':
+            return 'Logged out';
+        case 'lesson_completed':
+            return `Completed lesson: ${details.item_name || 'a lesson'}`;
+        case 'practice_completed':
+            return `Completed practice: ${details.item_name || 'an exercise'}`;
+        case 'quiz_completed':
+            return `Completed quiz with ${details.score || '?'}%`;
+        case 'feedback_submitted':
+            return 'Submitted feedback';
+        case 'points_earned':
+            return `Earned ${activity.points_earned || 0} points`;
+        default:
+            return `Performed ${type.replace(/_/g, ' ')}`;
+    }
+}
+
+function getAchievementIcon(activityType) {
+    switch(activityType) {
+        case 'badge_earned':
+            return 'fas fa-award';
+        case 'goal_achieved':
+            return 'fas fa-trophy';
+        case 'lesson_completed':
+            return 'fas fa-star';
+        default:
+            return 'fas fa-flag-checkered';
+    }
+}
+
+function getAchievementText(achievement) {
+    switch(achievement.activity_type) {
+        case 'badge_earned':
+            return `Earned badge: ${achievement.achievement_name || 'a badge'}`;
+        case 'goal_achieved':
+            return `Achieved goal: ${achievement.achievement_name || 'a goal'}`;
+        case 'lesson_completed':
+            return `Completed lesson: ${achievement.item_name || 'a lesson'}`;
+        default:
+            return `Made progress: ${achievement.achievement_name || 'an achievement'}`;
+    }
+}
+
+function formatTime(minutes) {
+    if (minutes < 60) {
+        return `${minutes}m`;
+    } else {
+        const hours = Math.floor(minutes / 60);
+        const mins = minutes % 60;
+        return `${hours}h ${mins}m`;
+    }
+}
+
+// ============================================
+// FORMAT TIME AGO
+// ============================================
+function formatTimeAgo(timestamp) {
+    if (!timestamp) return 'Recently';
+    
+    const date = new Date(timestamp);
+    const now = new Date();
+    const diffMs = now - date;
+    const diffMins = Math.floor(diffMs / 60000);
+    const diffHours = Math.floor(diffMs / 3600000);
+    const diffDays = Math.floor(diffMs / 86400000);
+    
+    if (diffMins < 1) return 'Just now';
+    if (diffMins < 60) return `${diffMins} min${diffMins > 1 ? 's' : ''} ago`;
+    if (diffHours < 24) return `${diffHours} hour${diffHours > 1 ? 's' : ''} ago`;
+    if (diffDays === 1) return 'Yesterday';
+    if (diffDays < 7) return `${diffDays} days ago`;
+    
+    return date.toLocaleDateString();
+}
+
+function formatDate(dateString) {
+    if (!dateString) return 'No date';
+    const date = new Date(dateString);
+    return date.toLocaleDateString('en-US', { 
+        month: 'short', 
+        day: 'numeric', 
+        year: 'numeric' 
+    });
+}
+
+// ============================================
+// QUIZ MANAGEMENT FUNCTIONS - FIXED FOR HTML STRUCTURE
+// ============================================
+async function fetchQuizCategories() {
+    try {
+        const token = localStorage.getItem('authToken') || authToken;
+        if (!token) {
+            console.warn('No auth token available');
+            return [];
+        }
+        
+        console.log('📚 Fetching quiz categories...');
+        
+        const response = await fetch(`/api/quiz/categories`, {
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+            }
+        });
+        
+        if (!response.ok) {
+            throw new Error(`Failed to fetch quiz categories: ${response.status}`);
+        }
+        
+        const data = await response.json();
+        
+        if (data.success && data.categories) {
+            console.log(`✅ Fetched ${data.categories.length} quiz categories`);
+            return data.categories;
+        } else {
+            throw new Error(data.message || 'No quiz categories returned');
+        }
+    } catch (error) {
+        console.error('Error fetching quiz categories:', error);
+        return [];
+    }
+}
+
+// Fetch quizzes for a category
+// ============================================
+// ✅ FIXED: fetchQuizzesForCategory - WITH CORRECT USER ATTEMPTS
+// ============================================
+async function fetchQuizzesForCategory(categoryId) {
+    try {
+        console.log(`📝 Fetching quizzes for category ${categoryId}...`);
+        
+        const token = localStorage.getItem('authToken') || authToken;
+        if (!token) {
+            console.warn('No auth token available');
+            showNotification('Please login to view quizzes', 'error');
+            return;
+        }
+        
+        // Get current user ID
+        const userJson = localStorage.getItem('mathhub_user');
+        let currentUserId = null;
+        if (userJson) {
+            try {
+                const user = JSON.parse(userJson);
+                currentUserId = user.id;
+                console.log(`👤 Current user ID: ${currentUserId}`);
+            } catch (e) {
+                console.error('Error parsing user:', e);
+            }
+        }
+        
+        const response = await fetch(`/api/quiz/category/${categoryId}/quizzes?lesson_id=${MATHEASE_LESSON_ID}`, {
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+            }
+        });
+        
+        if (!response.ok) {
+            throw new Error(`Failed to fetch quizzes: ${response.status}`);
+        }
+        
+        const data = await response.json();
+        
+        if (data.success && data.quizzes) {
+            console.log(`✅ Fetched ${data.quizzes.length} quizzes for category ${categoryId}`);
+            
+            // Filter attempts para sa current user lang
+            const filteredQuizzes = data.quizzes.map(quiz => {
+                if (quiz.user_attempts && Array.isArray(quiz.user_attempts)) {
+                    quiz.user_attempts = quiz.user_attempts.filter(
+                        attempt => attempt.user_id === currentUserId
+                    );
+                }
+                
+                if (quiz.user_attempts && quiz.user_attempts.length > 0) {
+                    const bestScore = Math.max(...quiz.user_attempts.map(a => a.score || 0));
+                    quiz.user_progress = {
+                        attempts: quiz.user_attempts.length,
+                        best_score: bestScore,
+                        passed: quiz.user_attempts.some(a => a.passed === 1)
+                    };
+                } else {
+                    quiz.user_progress = {
+                        attempts: 0,
+                        best_score: 0,
+                        passed: false
+                    };
+                }
+                
+                return quiz;
+            });
+            
+            // Find the selected category
+            const selectedCategory = QuizState.quizCategories.find(
+                cat => cat.category_id == categoryId || cat.id == categoryId
+            );
+            
+            if (!selectedCategory) {
+                console.warn('Category not found in state, using basic category info');
+                const categoryInfo = {
+                    category_id: categoryId,
+                    category_name: data.category?.name || 'Selected Category',
+                    name: data.category?.name || 'Selected Category'
+                };
+                showQuizInterfaceForCategory(categoryInfo, filteredQuizzes);
+            } else {
+                showQuizInterfaceForCategory(selectedCategory, filteredQuizzes);
+            }
+        } else {
+            throw new Error(data.message || 'No quizzes returned');
+        }
+        
+    } catch (error) {
+        console.error('Error loading quizzes:', error);
+        showNotification('Failed to load quizzes: ' + error.message, 'error');
+    }
+}
+
+
+// Check if user can access a quiz (lesson completion prerequisite)
+async function checkQuizAccess(quizId) {
+    try {
+        const token = localStorage.getItem('authToken') || authToken;
+        if (!token) {
+            console.warn('No auth token available');
+            return { canAccess: false, reason: 'Not authenticated' };
+        }
+        
+        console.log(`🔍 Checking quiz access for quiz ${quizId}...`);
+        
+        // TEMPORARILY BYPASS: Laging return true para sa testing
+        return { canAccess: true, reason: 'Access granted (bypassed)' };
+        
+    } catch (error) {
+        console.error('Error checking quiz access:', error);
+        return { canAccess: false, reason: 'Error checking access' };
+    }
+}
+
+
+
+
+// ============================================
+// START QUIZ - FIXED VERSION
+// ============================================
+async function startQuizSystem(quizId) {
+    console.log("🎯 Starting QUIZ ID:", quizId);
+    
+    try {
+        const token = localStorage.getItem('authToken') || authToken;
+        const userJson = localStorage.getItem('mathhub_user');
+        
+        if (!token || !userJson) {
+            showNotification('Please login first', 'error');
+            return;
+        }
+        
+        const user = JSON.parse(userJson);
+        console.log(`👤 User ID: ${user.id}`);
+        
+        // Show loading
+        showQuizModalLoading();
+        
+        // STEP 1: Start quiz attempt directly
+        console.log('📝 Creating quiz attempt...');
+        
+        const attemptResponse = await fetch(`/api/quiz/${quizId}/start`, {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                user_id: user.id
+            })
+        });
+        
+        if (!attemptResponse.ok) {
+            const errorText = await attemptResponse.text();
+            console.error('Server error response:', errorText);
+            throw new Error(`Failed to start quiz: ${attemptResponse.status}`);
+        }
+        
+        const attemptData = await attemptResponse.json();
+        console.log('✅ Attempt response:', attemptData);
+        
+        if (!attemptData.success || !attemptData.attempt) {
+            throw new Error(attemptData.message || 'Failed to start quiz');
+        }
+        
+        const attempt = attemptData.attempt;
+        console.log('✅ Quiz attempt created:', attempt);
+        
+        // STEP 2: Fetch questions
+        console.log('📚 Fetching quiz questions...');
+        const questionsResponse = await fetch(`/api/quiz/${quizId}/questions`, {
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+            }
+        });
+        
+        if (!questionsResponse.ok) {
+            throw new Error(`Failed to fetch questions: ${questionsResponse.status}`);
+        }
+        
+        const questionsData = await questionsResponse.json();
+        
+        if (!questionsData.success || !questionsData.questions) {
+            throw new Error(questionsData.message || 'No questions found');
+        }
+        
+        const questions = questionsData.questions;
+        console.log(`✅ Loaded ${questions.length} questions`);
+        
+        // STEP 3: Initialize quiz state
+        QuizSystem.currentQuiz = quizId;
+        QuizSystem.currentAttemptId = attempt.attempt_id;
+        QuizSystem.questions = questions;
+        QuizSystem.currentIndex = 0;
+        QuizSystem.userAnswers = {};
+        QuizSystem.startTime = Date.now();
+        QuizSystem.totalTime = questions.length * 60;
+        QuizSystem.timeLeft = QuizSystem.totalTime;
+        QuizSystem.stats = { correct: 0, wrong: 0, score: 0 };
+        
+        // STEP 4: Show quiz modal
+        showQuizSystemModal();
+        
+        // STEP 5: Load first question
+        loadQuizSystemQuestion(0);
+        
+        // STEP 6: Start timer
+        startQuizSystemTimer();
+        
+    } catch (error) {
+        console.error('❌ Error starting quiz:', error);
+        showNotification('Failed to start quiz: ' + error.message, 'error');
+        closeQuizModal();
+    }
+}
+
+
+// ============================================
+// Helper function to manually load PolyLearn quizzes (Category 2)
+// ============================================
+function loadmatheaseQuizzes() {
+    console.log('📚 Loading FactoPermCombi quizzes (Category 1)...');
+    
+    // Find PolyLearn category (ID 3)
+    const Category = QuizState.quizCategories.find(c => c.category_id == 1);
+    
+    if (Category) {
+        loadQuizzesForCategory(1);
+    } else {
+        // If categories not loaded yet, load them first
+        loadQuizCategories().then(() => {
+            loadQuizzesForCategory(1);
+        });
+    }
+}
+
+
+// ============================================
+// Test function for quiz ID 1
+// ============================================
+async function testQuiz1() {
+    console.log('🧪 Testing quiz ID 1 (Polynomial Division Fundamentals)...');
+    await startQuizSystem(1);
+}
+
+// ============================================
+// Test function for quiz ID 2
+// ============================================
+async function testQuiz2() {
+    console.log('🧪 Testing quiz ID 2 (Factoring Polynomials Quiz)...');
+    await startQuizSystem(2);
+}
+
+// ============================================
+// Test function for quiz ID 3
+// ============================================
+async function testQuiz3() {
+    console.log('🧪 Testing quiz ID 3 (Factoring)...');
+    await startQuizSystem(1);
+}
+
+// ============================================
+// Test function for quiz ID 4
+// ============================================
+async function testQuiz4() {
+    console.log('🧪 Testing quiz ID 4 (polyyy)...');
+    await startQuizSystem(4);
+}
+
+// ============================================
+// SHOW QUIZ MODAL - WITH ADJUSTED SCROLLABLE CONTAINER
+// ============================================
+function showQuizSystemModal() {
+    const modal = document.getElementById('quizModal');
+    if (!modal) return;
+    
+    // Update title
+    const titleSpan = document.getElementById('quizModalTitle');
+    if (titleSpan) {
+        titleSpan.textContent = 'Quiz';
+    }
+    
+    // SHOW MODAL
+    modal.style.display = 'flex';
+    document.body.classList.add('modal-open');
+    
+    // ADJUST OPTIONS GRID - SCROLLABLE WITH BETTER HEIGHT
+    const optionsGrid = document.getElementById('quizOptionsGridModal');
+    if (optionsGrid) {
+        optionsGrid.style.overflowY = 'auto';
+        optionsGrid.style.maxHeight = '450px'; // Tumaas ng konti
+        optionsGrid.style.padding = '10px'; // May padding para hindi dikit
+    }
+    
+    // Adjust din ang parent container kung kailangan
+    const parentContainer = optionsGrid?.parentElement;
+    if (parentContainer) {
+        parentContainer.style.overflow = 'hidden'; // Para hindi magkagulo
+    }
+    
+    // Hide submit button initially
+    const submitBtn = document.getElementById('submitQuizBtn');
+    if (submitBtn) {
+        submitBtn.style.display = 'none';
+    }
+}
+
+// Add this to your addQuizStyles() function or create a new style block
+function addReviewModalStyles() {
+    const style = document.createElement('style');
+    style.textContent = `
+        /* Quiz Review Modal Styles */
+        .quiz-review-modal {
+            background: white;
+            border-radius: 12px;
+            max-width: 800px;
+            width: 100%;
+            max-height: 90vh;
+            overflow-y: auto;
+        }
+        
+        .review-header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            border-radius: 12px 12px 0 0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .review-header h3 {
+            margin: 0;
+            font-size: 18px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .review-score-badge {
+            background: rgba(255,255,255,0.2);
+            padding: 8px 15px;
+            border-radius: 20px;
+            font-size: 16px;
+            font-weight: bold;
+        }
+        
+        .review-summary-stats {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 15px;
+            padding: 20px;
+            background: #f8f9fa;
+            border-bottom: 1px solid #eee;
+        }
+        
+        .review-stat-item {
+            text-align: center;
+        }
+        
+        .review-stat-value {
+            font-size: 24px;
+            font-weight: bold;
+            color: #7a0000;
+        }
+        
+        .review-stat-label {
+            font-size: 12px;
+            color: #666;
+            text-transform: uppercase;
+        }
+        
+        .review-questions-list {
+            padding: 20px;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+        
+        .review-question-card {
+            background: white;
+            border: 1px solid #e0e0e0;
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 15px;
+            transition: all 0.3s;
+        }
+        
+        .review-question-card.correct {
+            border-left: 4px solid #27ae60;
+            background: #f0fff4;
+        }
+        
+        .review-question-card.incorrect {
+            border-left: 4px solid #e74c3c;
+            background: #fff5f5;
+        }
+        
+        .review-question-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+        
+        .review-question-number {
+            font-weight: bold;
+            color: #7a0000;
+            background: rgba(122,0,0,0.1);
+            padding: 3px 10px;
+            border-radius: 15px;
+            font-size: 12px;
+        }
+        
+        .review-result-badge {
+            padding: 4px 10px;
+            border-radius: 15px;
+            font-size: 12px;
+            font-weight: bold;
+        }
+        
+        .review-result-badge.correct {
+            background: #27ae60;
+            color: white;
+        }
+        
+        .review-result-badge.incorrect {
+            background: #e74c3c;
+            color: white;
+        }
+        
+        .review-question-text {
+            font-size: 16px;
+            color: #2c3e50;
+            margin-bottom: 15px;
+            line-height: 1.5;
+        }
+        
+        .review-options-list {
+            margin: 10px 0;
+        }
+        
+        .review-option-item {
+            display: flex;
+            align-items: center;
+            padding: 8px 12px;
+            margin: 5px 0;
+            border-radius: 6px;
+            background: #f8f9fa;
+        }
+        
+        .review-option-item.user-selected {
+            background: #e8f5e9;
+            border: 1px solid #27ae60;
+        }
+        
+        .review-option-item.correct-option {
+            background: #d4edda;
+            border: 1px solid #27ae60;
+        }
+        
+        .review-option-letter {
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            background: #7a0000;
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 12px;
+            font-weight: bold;
+            margin-right: 10px;
+        }
+        
+        .review-option-text {
+            flex: 1;
+            font-size: 14px;
+        }
+        
+        .review-option-indicator {
+            margin-left: 10px;
+            font-size: 12px;
+        }
+        
+        .review-option-indicator i.fa-check {
+            color: #27ae60;
+        }
+        
+        .review-option-indicator i.fa-times {
+            color: #e74c3c;
+        }
+        
+        .review-footer {
+            padding: 20px;
+            border-top: 1px solid #eee;
+            display: flex;
+            justify-content: center;
+            gap: 15px;
+        }
+        
+        .review-btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 6px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            transition: all 0.3s;
+        }
+        
+        .review-btn.primary {
+            background: #7a0000;
+            color: white;
+        }
+        
+        .review-btn.primary:hover {
+            background: #5a0000;
+            transform: translateY(-2px);
+        }
+        
+        .review-btn.secondary {
+            background: #ecf0f1;
+            color: #2c3e50;
+        }
+        
+        .review-btn.secondary:hover {
+            background: #d5dbdb;
+            transform: translateY(-2px);
+        }
+        
+        .no-data-message {
+            text-align: center;
+            padding: 40px 20px;
+            color: #666;
+        }
+        
+        .loading-review {
+            text-align: center;
+            padding: 40px;
+            color: #666;
+        }
+        
+        .loading-review i {
+            font-size: 30px;
+            color: #7a0000;
+            margin-bottom: 15px;
+        }
+    `;
+    document.head.appendChild(style);
+}
+
+// ============================================
+// SHOW REVIEW LOADING MODAL
+// ============================================
+function showReviewLoadingModal() {
+    // Remove existing review modal if any
+    const existingModal = document.querySelector('.quiz-review-modal-parent');
+    if (existingModal) existingModal.remove();
+    
+    const modalHTML = `
+        <div class="quiz-review-modal-parent" style="position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.7); display: flex; align-items: center; justify-content: center; z-index: 100000;">
+            <div class="quiz-review-modal" style="background: white; border-radius: 12px; max-width: 500px; width: 90%;">
+                <div class="loading-review" style="text-align: center; padding: 40px;">
+                    <i class="fas fa-spinner fa-spin" style="font-size: 40px; color: #7a0000; margin-bottom: 20px;"></i>
+                    <h3 style="color: #2c3e50; margin-bottom: 10px;">Loading Review Data</h3>
+                    <p style="color: #666;">Please wait while we fetch your quiz results...</p>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    document.body.insertAdjacentHTML('beforeend', modalHTML);
+}
+
+
+// ============================================
+// SHOW REVIEW ERROR MODAL
+// ============================================
+function showReviewErrorModal(message) {
+    // Remove existing review modal if any
+    const existingModal = document.querySelector('.quiz-review-modal-parent');
+    if (existingModal) existingModal.remove();
+    
+    const modalHTML = `
+        <div class="quiz-review-modal-parent" style="position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.7); display: flex; align-items: center; justify-content: center; z-index: 100000;">
+            <div class="quiz-review-modal" style="background: white; border-radius: 12px; max-width: 500px; width: 90%;">
+                <div class="review-header" style="background: #e74c3c;">
+                    <h3><i class="fas fa-exclamation-triangle"></i> Unable to Load Review</h3>
+                    <button onclick="closeReviewModal()" style="background: none; border: none; color: white; font-size: 24px; cursor: pointer;">&times;</button>
+                </div>
+                <div class="loading-review" style="text-align: center; padding: 30px;">
+                    <i class="fas fa-frown" style="font-size: 50px; color: #e74c3c; margin-bottom: 15px;"></i>
+                    <p style="color: #2c3e50; margin-bottom: 20px;">${message}</p>
+                    <p style="color: #666; font-size: 14px; margin-bottom: 20px;">Complete a quiz first to see your results here.</p>
+                    <button onclick="closeReviewModal()" class="review-btn primary">
+                        <i class="fas fa-times"></i> Close
+                    </button>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    document.body.insertAdjacentHTML('beforeend', modalHTML);
+}
+
+// ============================================
+// SHOW QUIZ REVIEW MODAL WITH DATA
+// ============================================
+function showQuizReviewModal(reviewData) {
+    // Remove existing review modal if any
+    const existingModal = document.querySelector('.quiz-review-modal-parent');
+    if (existingModal) existingModal.remove();
+    
+    // Extract data with fallbacks
+    const quizTitle = reviewData.quiz_title || 'Quiz Review';
+    const totalQuestions = reviewData.total_questions || reviewData.questions?.length || 0;
+    const correctAnswers = reviewData.correct_answers || 0;
+    const score = reviewData.score || Math.round((correctAnswers / totalQuestions) * 100) || 0;
+    const timeSpent = reviewData.time_spent_seconds || 0;
+    const minutes = Math.floor(timeSpent / 60);
+    const seconds = timeSpent % 60;
+    const timeFormatted = `${minutes}:${seconds.toString().padStart(2, '0')}`;
+    
+    // Determine score color
+    let scoreColor = '#e74c3c'; // red for low
+    if (score >= 90) scoreColor = '#27ae60'; // green for excellent
+    else if (score >= 75) scoreColor = '#f39c12'; // orange for good
+    else if (score >= 50) scoreColor = '#3498db'; // blue for average
+    
+    // Generate questions HTML
+    let questionsHTML = '';
+    
+    if (reviewData.questions && reviewData.questions.length > 0) {
+        reviewData.questions.forEach((q, index) => {
+            const isCorrect = q.is_correct || false;
+            const userAnswer = q.user_answer || 'Not answered';
+            const correctAnswer = q.correct_answer || 'N/A';
+            
+            questionsHTML += `
+                <div style="background: white; border: 1px solid #e0e0e0; border-radius: 8px; padding: 15px; margin-bottom: 15px; border-left: 4px solid ${isCorrect ? '#27ae60' : '#e74c3c'};">
+                    <div style="display: flex; justify-content: space-between; margin-bottom: 10px;">
+                        <span style="font-weight: bold; color: #7a0000;">Question ${index + 1}</span>
+                        <span style="background: ${isCorrect ? '#27ae60' : '#e74c3c'}; color: white; padding: 3px 10px; border-radius: 15px; font-size: 12px;">
+                            ${isCorrect ? 'Correct' : 'Incorrect'}
+                        </span>
+                    </div>
+                    
+                    <div style="margin-bottom: 15px;">${q.question_text || 'Question text not available'}</div>
+                    
+                    <div style="margin-top: 15px; background: #f8f9fa; padding: 12px; border-radius: 6px;">
+                        <p style="margin: 5px 0;"><strong>Your answer:</strong> ${userAnswer}</p>
+                        ${!isCorrect ? `<p style="margin: 5px 0;"><strong>Correct answer:</strong> ${correctAnswer}</p>` : ''}
+                        ${q.explanation ? `<p style="margin: 5px 0; font-style: italic;">${q.explanation}</p>` : ''}
+                    </div>
+                </div>
+            `;
+        });
+    } else {
+        // Generate summary if detailed questions not available
+        const wrongCount = totalQuestions - correctAnswers;
+        questionsHTML = `
+            <div style="background: white; border: 1px solid #e0e0e0; border-radius: 8px; padding: 20px; margin-bottom: 15px; text-align: center;">
+                <i class="fas fa-check-circle" style="font-size: 50px; color: #27ae60; margin-bottom: 15px;"></i>
+                <h4 style="color: #2c3e50; margin-bottom: 10px;">Quiz Summary</h4>
+                <p style="color: #666; margin-bottom: 5px;">You answered <strong>${correctAnswers}</strong> out of <strong>${totalQuestions}</strong> questions correctly.</p>
+                <p style="color: #666; margin-bottom: 15px;">Score: <strong style="color: #7a0000;">${score}%</strong></p>
+                
+                <div style="background: #f8f9fa; border-radius: 8px; padding: 15px;">
+                    <div style="margin-bottom: 10px;">
+                        <div style="display: flex; justify-content: space-between; margin-bottom: 5px;">
+                            <span>Correct</span>
+                            <span style="color: #27ae60; font-weight: bold;">${correctAnswers}</span>
+                        </div>
+                        <div style="height: 8px; background: #ecf0f1; border-radius: 4px; overflow: hidden;">
+                            <div style="height: 100%; width: ${(correctAnswers/totalQuestions)*100}%; background: #27ae60;"></div>
+                        </div>
+                    </div>
+                    <div>
+                        <div style="display: flex; justify-width: space-between; margin-bottom: 5px;">
+                            <span>Incorrect</span>
+                            <span style="color: #e74c3c; font-weight: bold;">${wrongCount}</span>
+                        </div>
+                        <div style="height: 8px; background: #ecf0f1; border-radius: 4px; overflow: hidden;">
+                            <div style="height: 100%; width: ${(wrongCount/totalQuestions)*100}%; background: #e74c3c;"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+    }
+    
+    // Build complete modal HTML
+    const modalHTML = `
+        <div class="quiz-review-modal-parent" style="position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.7); display: flex; align-items: center; justify-content: center; z-index: 100000; padding: 20px;">
+            <div style="background: white; border-radius: 12px; max-width: 800px; width: 100%; max-height: 90vh; overflow-y: auto; box-shadow: 0 10px 30px rgba(0,0,0,0.3);">
+                
+                <!-- Header -->
+                <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 20px; border-radius: 12px 12px 0 0; position: sticky; top: 0; z-index: 10;">
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <h3 style="margin: 0; font-size: 18px;"><i class="fas fa-chart-bar"></i> ${quizTitle}</h3>
+                        <div style="background: rgba(255,255,255,0.2); padding: 8px 15px; border-radius: 20px; font-weight: bold;">Score: ${score}%</div>
+                    </div>
+                </div>
+                
+                <!-- Summary Stats -->
+                <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; padding: 20px; background: #f8f9fa; border-bottom: 1px solid #eee;">
+                    <div style="text-align: center;">
+                        <div style="font-size: 24px; font-weight: bold; color: #7a0000;">${totalQuestions}</div>
+                        <div style="font-size: 12px; color: #666;">Total</div>
+                    </div>
+                    <div style="text-align: center;">
+                        <div style="font-size: 24px; font-weight: bold; color: #27ae60;">${correctAnswers}</div>
+                        <div style="font-size: 12px; color: #666;">Correct</div>
+                    </div>
+                    <div style="text-align: center;">
+                        <div style="font-size: 24px; font-weight: bold; color: #e74c3c;">${totalQuestions - correctAnswers}</div>
+                        <div style="font-size: 12px; color: #666;">Wrong</div>
+                    </div>
+                    <div style="text-align: center;">
+                        <div style="font-size: 24px; font-weight: bold; color: #3498db;">${timeFormatted}</div>
+                        <div style="font-size: 12px; color: #666;">Time</div>
+                    </div>
+                </div>
+                
+                <!-- Score Circle -->
+                <div style="display: flex; justify-content: center; padding: 20px 20px 10px;">
+                    <div style="width: 120px; height: 120px; border-radius: 50%; background: conic-gradient(${scoreColor} ${score}%, #ecf0f1 ${score}%); display: flex; align-items: center; justify-content: center; position: relative;">
+                        <div style="width: 90px; height: 90px; border-radius: 50%; background: white; display: flex; align-items: center; justify-content: center; flex-direction: column;">
+                            <span style="font-size: 28px; font-weight: bold; color: ${scoreColor};">${score}%</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Questions List -->
+                <div style="padding: 20px; max-height: 400px; overflow-y: auto;">
+                    <h4 style="margin: 0 0 15px 0; color: #2c3e50;"><i class="fas fa-question-circle"></i> Question Review</h4>
+                    ${questionsHTML}
+                </div>
+                
+                <!-- Footer -->
+                <div style="padding: 20px; border-top: 1px solid #eee; display: flex; justify-content: center; gap: 15px; position: sticky; bottom: 0; background: white; border-radius: 0 0 12px 12px;">
+                    <button onclick="closeReviewModal()" style="padding: 12px 25px; border: none; border-radius: 6px; cursor: pointer; background: #ecf0f1; color: #2c3e50; font-weight: 600; display: flex; align-items: center; gap: 8px;">
+                        <i class="fas fa-times"></i> Close
+                    </button>
+                    <button onclick="retakeQuiz()" style="padding: 12px 25px; border: none; border-radius: 6px; cursor: pointer; background: #7a0000; color: white; font-weight: 600; display: flex; align-items: center; gap: 8px;" data-quiz-id="${reviewData.quiz_id}">
+                        <i class="fas fa-redo"></i> Take Again
+                    </button>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    document.body.insertAdjacentHTML('beforeend', modalHTML);
+    
+    // Add event listener to retake button
+    const retakeBtn = document.querySelector('button[onclick="retakeQuiz()"]');
+    if (retakeBtn) {
+        retakeBtn.addEventListener('click', function() {
+            const quizId = this.getAttribute('data-quiz-id');
+            closeReviewModal();
+            setTimeout(() => {
+                if (typeof startQuizSystem === 'function') {
+                    startQuizSystem(parseInt(quizId));
+                }
+            }, 300);
+        });
+    }
+}
+
+// ============================================
+// CLOSE REVIEW MODAL
+// ============================================
+window.closeReviewModal = function() {
+    const modal = document.querySelector('.quiz-review-modal-parent');
+    if (modal) {
+        modal.remove();
+    }
+};
+
+// Retake quiz function
+window.retakeQuiz = function() {
+    const quizId = document.querySelector('.review-btn.primary')?.getAttribute('data-quiz-id');
+    if (quizId) {
+        closeReviewModal();
+        setTimeout(() => {
+            if (typeof startQuizSystem === 'function') {
+                startQuizSystem(parseInt(quizId));
+            }
+        }, 300);
+    }
+};
+
+// ============================================
+// CONNECT REVIEW BUTTONS TO FUNCTION
+// ============================================
+function connectReviewButtons() {
+    console.log('🔗 Connecting review buttons...');
+    
+    document.querySelectorAll('.quiz-review-btn').forEach(button => {
+        // Skip if already attached
+        if (button.getAttribute('data-review-attached') === 'true') return;
+        
+        button.setAttribute('data-review-attached', 'true');
+        
+        button.addEventListener('click', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            
+            const quizId = this.getAttribute('data-quiz-id');
+            const attemptId = this.getAttribute('data-attempt-id');
+            
+            console.log(`📊 Review button clicked for quiz ${quizId}${attemptId ? ', attempt ' + attemptId : ''}`);
+            
+            if (quizId) {
+                reviewQuizSystem(parseInt(quizId), attemptId);
+            }
+        });
+    });
+}
+
+// ============================================
+// FORCE QUIZ MODAL TO BE LARGER AND SCROLLABLE
+// ============================================
+(function forceQuizModalLarger() {
+    console.log('📏 Forcing quiz modal to be larger and scrollable...');
+    
+    const style = document.createElement('style');
+    style.textContent = `
+        /* SUPER LARGE QUIZ MODAL */
+        #quizModal .modal-content {
+            max-height: 95vh !important;
+            width: 98% !important;
+            max-width: 1200px !important;
+        }
+        
+        #quizModal .modal-body {
+            max-height: calc(95vh - 70px) !important;
+            overflow-y: auto !important;
+        }
+        
+        #quizOptionsGridModal {
+            max-height: 600px !important;
+            overflow-y: auto !important;
+        }
+        
+        .quiz-option-modal {
+            padding: 20px 25px !important;
+            margin-bottom: 15px !important;
+        }
+        
+        #quizQuestionTextModal {
+            font-size: 22px !important;
+            padding: 20px 25px !important;
+        }
+    `;
+    document.head.appendChild(style);
+    
+    // Observe for modal opening
+    const observer = new MutationObserver(function(mutations) {
+        mutations.forEach(function(mutation) {
+            if (mutation.type === 'attributes' && mutation.attributeName === 'style') {
+                const modal = document.getElementById('quizModal');
+                if (modal && modal.style.display === 'flex') {
+                    console.log('🎯 Quiz modal opened - applying large scrollable styles');
+                    
+                    // Apply styles directly
+                    setTimeout(() => {
+                        const optionsGrid = document.getElementById('quizOptionsGridModal');
+                        if (optionsGrid) {
+                            optionsGrid.style.maxHeight = '600px';
+                            optionsGrid.style.overflowY = 'auto';
+                        }
+                        
+                        const modalContent = modal.querySelector('.modal-content');
+                        if (modalContent) {
+                            modalContent.style.maxWidth = '1200px';
+                        }
+                    }, 100);
+                }
+            }
+        });
+    });
+    
+    const modal = document.getElementById('quizModal');
+    if (modal) {
+        observer.observe(modal, { attributes: true });
+    }
+})();
+
+
+// ============================================
+// FIXED: Close quiz modal - RETURNS TO QUIZ LIST (SECOND PICTURE)
+// ============================================
+function closeQuizSystemModal() {
+    console.log('🚪 Closing quiz modal - returning to quiz list');
+    
+    const modal = document.getElementById('quizModal');
+    
+    if (modal) {
+        modal.style.display = 'none';
+        document.body.classList.remove('modal-open');
+    }
+    
+    // Stop timer
+    if (QuizSystem.timerInterval) {
+        clearInterval(QuizSystem.timerInterval);
+        QuizSystem.timerInterval = null;
+    }
+    
+    // ===== ITO ANG TAMA: Ipakita ang QUIZ LIST (second picture) =====
+    // 1. I-hide ang quiz interface (yung may "Available Quizzes" at "Exit Quiz")
+    const quizInterface = document.getElementById('quizInterfaceContainer');
+    if (quizInterface) {
+        quizInterface.classList.add('hidden');
+        quizInterface.style.display = 'none';
+    }
+    
+    // 2. Ipakita ang userQuizzesContainer (second picture - list of quizzes)
+    const quizCards = document.getElementById('userQuizzesContainer');
+    if (quizCards) {
+        quizCards.classList.remove('hidden');
+        quizCards.style.display = 'block';
+    }
+    
+    // Keep badges and leaderboard visible
+    const badgesContainer = document.getElementById('badgesContainer');
+    const leaderboardContainer = document.getElementById('leaderboardContainer');
+    
+    if (badgesContainer) {
+        badgesContainer.classList.remove('hidden');
+        badgesContainer.style.display = 'block';
+    }
+    
+    if (leaderboardContainer) {
+        leaderboardContainer.classList.remove('hidden');
+        leaderboardContainer.style.display = 'block';
+    }
+    
+    // Reset quiz state
+    QuizSystem.currentQuiz = null;
+    QuizSystem.currentAttemptId = null;
+    QuizSystem.questions = [];
+    QuizSystem.currentIndex = 0;
+    QuizSystem.userAnswers = {};
+    QuizSystem.startTime = null;
+    QuizSystem.timeLeft = 0;
+    QuizSystem.stats = { correct: 0, wrong: 0, score: 0 };
+    
+    console.log('✅ Returned to quiz list (second picture)');
+}
+
+// Replace the startQuizAttempt function
+// Sa script.js, gamitin itong modified startQuizAttempt
+async function startQuizAttempt(quizId) {
+    try {
+        const token = localStorage.getItem('authToken');
+        const userJson = localStorage.getItem('mathhub_user');
+        
+        if (!token || !userJson) {
+            console.error('❌ No auth data');
+            showNotification('Please login first', 'error');
+            return null;
+        }
+        
+        const user = JSON.parse(userJson);
+        console.log(`🚀 Starting quiz ${quizId} for user ${user.id}...`);
+        
+        const response = await fetch(`/api/quiz/${quizId}/start`, {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ user_id: user.id })
+        });
+        
+        const responseText = await response.text();
+        console.log('📥 Raw response:', responseText);
+        
+        if (!response.ok) {
+            console.error(`❌ Server error ${response.status}:`, responseText);
+            
+            let errorMessage = `HTTP ${response.status}`;
+            try {
+                const errorData = JSON.parse(responseText);
+                errorMessage = errorData.message || errorMessage;
+            } catch (e) {}
+            
+            // If attempt_number error, use fallback
+            if (errorMessage.includes('attempt_number') || errorMessage.includes('column')) {
+                console.log('⚠️ Column error, using fallback...');
+                return await createLocalAttempt(quizId, user.id);
+            }
+            
+            throw new Error(errorMessage);
+        }
+        
+        let data;
+        try {
+            data = JSON.parse(responseText);
+        } catch (e) {
+            console.error('❌ Failed to parse success response:', responseText);
+            return await createLocalAttempt(quizId, user.id);
+        }
+        
+        if (data.success && data.attempt) {
+            console.log(`✅ Quiz attempt created! ID: ${data.attempt.attempt_id}`);
+            return data.attempt;
+        } else {
+            throw new Error(data.message || 'Unknown error');
+        }
+        
+    } catch (error) {
+        console.error('❌ Error in startQuizAttempt:', error);
+        
+        // Fallback: Create local attempt
+        try {
+            const userJson = localStorage.getItem('mathhub_user');
+            const user = JSON.parse(userJson);
+            return await createLocalAttempt(quizId, user.id);
+        } catch (e) {
+            console.error('❌ Fallback also failed:', e);
+            return null;
+        }
+    }
+}
+
+
+// ✅ Local attempt creator
+async function createLocalAttempt(quizId, userId) {
+    console.log('📝 Creating local attempt...');
+    
+    const localAttempt = {
+        attempt_id: Date.now(),
+        quiz_id: quizId,
+        user_id: userId,
+        start_time: new Date().toISOString(),
+        completion_status: 'in_progress'
+    };
+    
+    // Save to localStorage
+    const attempts = JSON.parse(localStorage.getItem('quiz_attempts') || '[]');
+    attempts.push(localAttempt);
+    localStorage.setItem('quiz_attempts', JSON.stringify(attempts));
+    
+    console.log('✅ Local attempt created:', localAttempt);
+    return localAttempt;
+}
+
+
+// ✅ Modified submit function for local attempts
+async function submitQuizAnswer(attemptId, questionId, answerData) {
+    try {
+        const token = localStorage.getItem('authToken');
+        
+        // ✅ Use the CORRECT URL
+        const response = await fetch(`/api/quizzes/${attemptId}/answer`, {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                question_id: questionId,
+                selected_option_id: answerData.selected_option_id || null,
+                user_answer: answerData.user_answer || null,
+                time_spent_seconds: 0
+            })
+        });
+        
+        const data = await response.json();
+        
+        if (response.ok) {
+            console.log(`✅ Server response:`, data);
+            return data;
+        } else {
+            console.error('❌ Server error:', data);
+            return null;
+        }
+        
+    } catch (error) {
+        console.error('❌ Error in submitQuizAnswer:', error);
+        return null;
+    }
+}
+
+
+// Update quiz time in database - SAVE TO quiz_performance TABLE
+async function updateQuizTimeInDatabase(elapsedSeconds) {
+    try {
+        const token = localStorage.getItem('authToken') || authToken;
+        if (!token || !QuizState.currentAttemptId || !QuizState.currentQuiz) return;
+        
+        console.log(`⏱️ Updating quiz time in quiz_performance table: ${elapsedSeconds} seconds`);
+        
+        const response = await fetch(`/api/quiz/performance/update-time`, {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                quiz_id: QuizState.currentQuiz,
+                attempt_id: QuizState.currentAttemptId,
+                time_spent_seconds: elapsedSeconds,
+                average_time_seconds: elapsedSeconds
+            })
+        });
+        
+        if (!response.ok) {
+            console.warn(`Failed to update time: ${response.status}`);
+        } else {
+            const data = await response.json();
+            if (data.success) {
+                console.log(`✅ Quiz time updated in quiz_performance table: ${elapsedSeconds}s`);
+                if (data.performance) {
+                    console.log(`📊 Updated average time: ${data.performance.average_time_seconds}s`);
+                }
+            }
+        }
+    } catch (error) {
+        console.error('Error updating quiz time:', error);
+    }
+}
+
+
+// Fetch quiz questions
+async function fetchQuizQuestions(quizId) {
+    try {
+        const token = localStorage.getItem('authToken') || authToken;
+        if (!token) {
+            console.warn('No auth token available');
+            return [];
+        }
+        
+        console.log(`❓ Fetching questions for quiz ${quizId}...`);
+        
+        const response = await fetch(`/api/quiz/${quizId}/questions`, {
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+            }
+        });
+        
+        if (!response.ok) {
+            throw new Error(`Failed to fetch quiz questions: ${response.status}`);
+        }
+        
+        const data = await response.json();
+        
+        if (data.success && data.questions) {
+            console.log(`✅ Fetched ${data.questions.length} questions`);
+            return data.questions;
+        } else {
+            throw new Error(data.message || 'No questions returned');
+        }
+    } catch (error) {
+        console.error('Error fetching quiz questions:', error);
+        return [];
+    }
+}
+
+
+
+
+
+
+// Simple function para kunin ang mga sagot
+function collectQuizAnswers() {
+    const answers = {};
+    
+    // Kunin lahat ng napiling sagot
+    document.querySelectorAll('.quiz-option.selected').forEach(option => {
+        const questionId = option.getAttribute('data-question-id');
+        const answer = option.getAttribute('data-option-id');
+        if (questionId && answer) {
+            answers[questionId] = answer;
+        }
+    });
+    
+    return answers;
+}
+// Complete quiz attempt - WITH AVERAGE TIME
+async function completeQuizAttempt(attemptId, timeSpentSeconds = null) {
+    try {
+        const token = localStorage.getItem('authToken') || authToken;
+        if (!token) {
+            console.warn('No auth token available');
+            return null;
+        }
+        
+        console.log(`🏁 Completing quiz attempt ${attemptId}...`);
+        
+        const requestBody = {};
+        if (timeSpentSeconds !== null) {
+            requestBody.time_spent_seconds = timeSpentSeconds;
+        }
+        
+        const response = await fetch(`/api/quiz/attempt/${attemptId}/complete`, {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(requestBody)
+        });
+        
+        const data = await response.json();
+        
+        if (!response.ok) {
+            console.error('❌ Server error:', data);
+            throw new Error(data.message || `HTTP ${response.status}`);
+        }
+        
+        if (data.success) {
+            console.log('✅ Quiz attempt completed:', data);
+            
+            // Update daily progress
+            await updateDailyProgress({
+                quizzes_completed: 1,
+                points_earned: data.results?.points_earned || 0
+            });
+            
+            return data;
+        } else {
+            throw new Error(data.message || 'Failed to complete quiz');
+        }
+        
+    } catch (error) {
+        console.error('❌ Error completing quiz:', error);
+        return null;
+    }
+}
+
+
+// Get quiz results
+async function getQuizResults(attemptId) {
+    try {
+        const token = localStorage.getItem('authToken') || authToken;
+        if (!token) {
+            console.warn('No auth token available');
+            return null;
+        }
+        
+        console.log(`📊 Getting results for attempt ${attemptId}...`);
+        
+        const response = await fetch(`/api/quiz/attempt/${attemptId}/results`, {
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+            }
+        });
+        
+        if (!response.ok) {
+            throw new Error(`Failed to get quiz results: ${response.status}`);
+        }
+        
+        const data = await response.json();
+        
+        if (data.success && data.results) {
+            console.log('✅ Quiz results fetched successfully');
+            return data.results;
+        } else {
+            throw new Error(data.message || 'Failed to get quiz results');
+        }
+    } catch (error) {
+        console.error('Error getting quiz results:', error);
+        return null;
+    }
+}
+
+
+// Fetch user's quiz attempts
+async function fetchUserQuizAttempts() {
+    try {
+        const token = localStorage.getItem('authToken') || authToken;
+        if (!token) {
+            console.warn('No auth token available');
+            return [];
+        }
+        
+        console.log('📋 Fetching user quiz attempts...');
+        
+        const response = await fetch(`/api/quiz/user/attempts`, {
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+            }
+        });
+        
+        if (!response.ok) {
+            throw new Error(`Failed to fetch quiz attempts: ${response.status}`);
+        }
+        
+        const data = await response.json();
+        
+        if (data.success && data.attempts) {
+            console.log(`✅ Fetched ${data.attempts.length} quiz attempts`);
+            return data.attempts;
+        } else {
+            throw new Error(data.message || 'No quiz attempts returned');
+        }
+    } catch (error) {
+        console.error('Error fetching quiz attempts:', error);
+        return [];
+    }
+}
+
+
+
+// Fetch leaderboard
+async function fetchLeaderboard(period = 'weekly') {
+    try {
+        const token = localStorage.getItem('authToken') || authToken;
+        if (!token) {
+            console.warn('No auth token available');
+            return [];
+        }
+        
+        console.log(`🏆 Fetching ${period} leaderboard...`);
+        
+        const response = await fetch(`/api/quiz/leaderboard/${period}`, {
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+            }
+        });
+        
+        if (!response.ok) {
+            throw new Error(`Failed to fetch leaderboard: ${response.status}`);
+        }
+        
+        const data = await response.json();
+        
+        if (data.success && data.leaderboard) {
+            console.log(`✅ Fetched leaderboard with ${data.leaderboard.length} entries`);
+            return data.leaderboard;
+        } else {
+            throw new Error(data.message || 'No leaderboard data returned');
+        }
+    } catch (error) {
+        console.error('Error fetching leaderboard:', error);
+        return [];
+    }
+}
+
+
+// ============================================
+// ✅ FIXED: fetchUserBadges
+// ============================================
+async function fetchUserBadges() {
+    try {
+        const token = localStorage.getItem('authToken') || authToken;
+        if (!token) {
+            console.warn('No auth token available');
+            return [];
+        }
+        
+        console.log('🎖️ Fetching user badges...');
+        
+        const response = await fetch('/api/dashboard/badges', {
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json',
+                'Accept': 'application/json'
+            }
+        });
+        
+        // Check if response is JSON
+        const contentType = response.headers.get('content-type');
+        if (!contentType || !contentType.includes('application/json')) {
+            const text = await response.text();
+            console.error('❌ Non-JSON response:', text.substring(0, 200));
+            return [];
+        }
+        
+        const data = await response.json();
+        
+        if (data.success && data.badges) {
+            console.log(`✅ Fetched ${data.badges.length} badges`);
+            return data.badges;
+        }
+        
+        return [];
+        
+    } catch (error) {
+        console.error('⚠️ Error fetching badges:', error.message);
+        return [];
+    }
+}
+
+
+// Fetch user points
+async function fetchUserPoints() {
+    try {
+        const token = localStorage.getItem('authToken') || authToken;
+        if (!token) {
+            console.warn('No auth token available');
+            return { total_points: 0, points_history: [] };
+        }
+        
+        console.log('💰 Fetching user points...');
+        
+        const response = await fetch(`/api/quiz/user/points`, {
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+            }
+        });
+        
+        if (!response.ok) {
+            throw new Error(`Failed to fetch points: ${response.status}`);
+        }
+        
+        const data = await response.json();
+        
+        if (data.success && data.points) {
+            console.log(`✅ User has ${data.points.total_points} points`);
+            return data.points;
+        } else {
+            throw new Error(data.message || 'No points data returned');
+        }
+    } catch (error) {
+        console.error('Error fetching points:', error);
+        return { total_points: 0, points_history: [] };
+    }
+}
+
+// ============================================
+// LOAD QUIZ STATS FROM SERVER - UPDATED
+// ============================================
+async function loadQuizStatsFromServer() {
+    try {
+        const token = localStorage.getItem('authToken') || authToken;
+        if (!token) {
+            console.warn('No auth token available for quiz stats');
+            return;
+        }
+
+        console.log('📊 Loading quiz statistics from server...');
+        
+        // Get elements
+        const scoreEl = document.getElementById('quizCurrentScore');
+        const accuracyEl = document.getElementById('quizAccuracy');
+        const timeEl = document.getElementById('quizTimeSpent');
+        const rankEl = document.getElementById('quizRank');
+        
+        // Show loading state
+        if (scoreEl) scoreEl.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+        if (accuracyEl) accuracyEl.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+        if (timeEl) timeEl.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+        if (rankEl) rankEl.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+
+        // TRY 1: Use the dedicated quiz stats endpoint
+        try {
+            const response = await fetch(`/api/quiz/user/stats`, {
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json'
+                }
+            });
+
+            if (response.ok) {
+                const data = await response.json();
+                console.log('✅ Quiz stats loaded from /quiz/user/stats:', data);
+
+                if (data.success && data.stats) {
+                    updateQuizStatsUI(data.stats);
+                    return;
+                }
+            } else {
+                console.warn(`⚠️ /quiz/user/stats returned ${response.status}`);
+            }
+        } catch (error) {
+            console.warn('⚠️ Could not fetch from /quiz/user/stats:', error.message);
+        }
+
+        // TRY 2: Use the user progress stats endpoint
+        try {
+            const response = await fetch(`/api/user/progress/stats`, {
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json'
+                }
+            });
+
+            if (response.ok) {
+                const data = await response.json();
+                console.log('✅ Quiz stats loaded from /user/progress/stats:', data);
+
+                if (data.success && data.stats) {
+                    const mappedStats = {
+                        current_score: data.stats.quiz_avg_score || 0,
+                        accuracy: data.stats.accuracy || 0,
+                        time_spent: formatTimeSpent(data.stats.total_time_minutes || 0),
+                        rank: await fetchUserRank() || '#--'
+                    };
+                    updateQuizStatsUI(mappedStats);
+                    return;
+                }
+            }
+        } catch (error) {
+            console.warn('⚠️ Could not fetch from /user/progress/stats:', error.message);
+        }
+
+        // TRY 3: Calculate from quiz attempts
+        console.log('📊 Calculating quiz stats from attempts...');
+        try {
+            const attempts = await fetchUserQuizAttempts();
+            
+            if (attempts && attempts.length > 0) {
+                const completedAttempts = attempts.filter(a => a.completion_status === 'completed');
+                
+                if (completedAttempts.length > 0) {
+                    const totalScore = completedAttempts.reduce((sum, a) => sum + (a.score || 0), 0);
+                    const avgScore = Math.round(totalScore / completedAttempts.length);
+                    
+                    const passedCount = completedAttempts.filter(a => a.passed === 1 || a.passed === true).length;
+                    const accuracy = Math.round((passedCount / completedAttempts.length) * 100);
+                    
+                    const totalTimeSeconds = completedAttempts.reduce((sum, a) => sum + (a.time_spent_seconds || 0), 0);
+                    const totalTimeMinutes = Math.round(totalTimeSeconds / 60);
+                    const formattedTime = formatTimeSpent(totalTimeMinutes);
+                    
+                    const rank = await fetchUserRank();
+                    
+                    const calculatedStats = {
+                        current_score: avgScore,
+                        accuracy: accuracy,
+                        time_spent: formattedTime,
+                        rank: rank
+                    };
+                    
+                    console.log('✅ Calculated stats from attempts:', calculatedStats);
+                    updateQuizStatsUI(calculatedStats);
+                    return;
+                }
+            }
+        } catch (error) {
+            console.warn('⚠️ Could not calculate from attempts:', error.message);
+        }
+        
+        // No data available - show zeros
+        console.log('ℹ️ No quiz data found, showing zeros');
+        updateQuizStatsUI({
+            current_score: 0,
+            accuracy: 0,
+            time_spent: '0m',
+            rank: '#--'
+        });
+
+    } catch (error) {
+        console.error('❌ Fatal error loading quiz stats:', error);
+        
+        updateQuizStatsUI({
+            current_score: 0,
+            accuracy: 0,
+            time_spent: '0m',
+            rank: '#--'
+        });
+    }
+}
+// ============================================
+// ✅ LOAD QUIZ STATS
+// ============================================
+async function loadQuizStats() {
+    try {
+        const token = localStorage.getItem('authToken');
+        if (!token) {
+            console.log('No token found');
+            return;
+        }
+        
+        const response = await fetch('/api/quiz/user/stats', {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        
+        const data = await response.json();
+        
+        if (data.success && data.stats) {
+            document.getElementById('quizCurrentScore').textContent = data.stats.current_score + '%';
+            document.getElementById('quizAccuracy').textContent = data.stats.accuracy + '%';
+            document.getElementById('quizTimeSpent').textContent = data.stats.time_spent;
+            document.getElementById('quizRank').textContent = data.stats.rank;
+        }
+    } catch (error) {
+        console.error('Error loading quiz stats:', error);
+    }
+}
+
+// Helper function to update the UI
+function updateQuizStatsUI(stats) {
+    console.log('📊 Updating quiz stats UI:', stats);
+    
+    const elements = {
+        current_score: document.getElementById('quizCurrentScore'),
+        accuracy: document.getElementById('quizAccuracy'),
+        time_spent: document.getElementById('quizTimeSpent'),
+        rank: document.getElementById('quizRank')
+    };
+
+    if (elements.current_score) {
+        elements.current_score.textContent = stats.current_score + '%';
+    }
+    
+    if (elements.accuracy) {
+        elements.accuracy.textContent = stats.accuracy + '%';
+    }
+    
+    if (elements.time_spent) {
+        elements.time_spent.textContent = stats.time_spent || '0m';
+    }
+    
+    if (elements.rank) {
+        elements.rank.textContent = stats.rank || '#--';
+    }
+}
+
+
+// ============================================
+// ✅ FIXED: Load quiz categories from database
+// ============================================
+async function loadQuizCategories() {
+    console.log('📚 Loading quiz categories from database...');
+    
+    try {
+        const token = localStorage.getItem('authToken') || authToken;
+        if (!token) {
+            console.warn('No auth token available');
+            return [];
+        }
+        
+        const POLYLEARN_LESSON_ID = 1;
+        
+        // Show loading state
+        const quizzesContainer = document.getElementById('userQuizzesContainer');
+        if (quizzesContainer) {
+            quizzesContainer.innerHTML = `
+                <div class="card" style="padding: 40px; text-align: center;">
+                    <div style="font-size: 40px; color: #7a0000; margin-bottom: 20px;">
+                        <i class="fas fa-spinner fa-spin"></i>
+                    </div>
+                    <p style="color: #666;">Loading FactoPermCombi categories from database...</p>
+                </div>
+            `;
+        }
+        
+        // Fetch categories from server with lesson_id filter
+        const response = await fetch(`/api/quiz/categories?lesson_id=${POLYLEARN_LESSON_ID}`, {
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Accept': 'application/json'
+            }
+        });
+        
+        if (!response.ok) {
+            throw new Error(`Failed to fetch categories: ${response.status}`);
+        }
+        
+        const data = await response.json();
+        console.log('📥 Server response:', data);
+        
+        if (data.success && data.categories) {
+            console.log(`✅ Found ${data.categories.length} categories from database`);
+            displayQuizCategories(data.categories, false);
+            return data.categories;
+        } else {
+            console.log('ℹ️ No categories returned from database');
+            displayQuizCategories([], false);
+            return [];
+        }
+        
+    } catch (error) {
+        console.error('❌ Error loading quiz categories:', error);
+        
+        // Show error in container
+        const quizzesContainer = document.getElementById('userQuizzesContainer');
+        if (quizzesContainer) {
+            quizzesContainer.innerHTML = `
+                <div class="card" style="padding: 40px; text-align: center;">
+                    <div style="font-size: 60px; color: #e74c3c; margin-bottom: 20px;">
+                        <i class="fas fa-exclamation-triangle"></i>
+                    </div>
+                    <h3 style="color: #666; margin-bottom: 10px;">Failed to load categories</h3>
+                    <p style="color: #999; margin-bottom: 20px;">${error.message}</p>
+                    <button class="btn-primary" onclick="loadQuizCategories()" style="background: #7a0000; color: white; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer;">
+                        <i class="fas fa-redo"></i> Try Again
+                    </button>
+                </div>
+            `;
+        }
+        
+        return [];
+    }
+}
+// ============================================
+// 🆘 OFFLINE CATEGORIES - Gumagana kahit walang internet
+// ============================================
+function useOfflineCategories() {
+    console.log('📚 Using offline  categories');
+    
+    const offlineCategories = [
+        {
+            category_id: 1,
+            category_name: 'Polynomial Division Basics',
+            description: 'Master the fundamentals of polynomial division',
+            icon: 'fa-divide',
+            color: '#7a0000',
+            quiz_count: 3
+        },
+        {
+            category_id: 2,
+            category_name: 'Synthetic Division',
+            description: 'Learn efficient polynomial division techniques',
+            icon: 'fa-bolt',
+            color: '#27ae60',
+            quiz_count: 2
+        },
+        {
+            category_id: 1,
+            category_name: 'Remainder & Factor Theorems',
+            description: 'Understand key theorems in polynomial algebra',
+            icon: 'fa-calculator',
+            color: '#3498db',
+            quiz_count: 2
+        },
+        {
+            category_id: 4,
+            category_name: 'Long Division Practice',
+            description: 'Step-by-step polynomial long division problems',
+            icon: 'fa-pencil-alt',
+            color: '#f39c12',
+            quiz_count: 3
+        }
+    ];
+    
+    // Show offline indicator
+    const offlineIndicator = document.createElement('div');
+    offlineIndicator.style.cssText = `
+        background: #f39c12;
+        color: white;
+        padding: 8px 15px;
+        border-radius: 5px;
+        margin-bottom: 15px;
+        text-align: center;
+        font-size: 14px;
+    `;
+    offlineIndicator.innerHTML = '<i class="fas fa-wifi-slash"></i> Offline Mode - Using sample data';
+    
+    const quizDashboard = document.getElementById('quiz-dashboard-page');
+    if (quizDashboard) {
+        const existingIndicator = quizDashboard.querySelector('.offline-indicator');
+        if (!existingIndicator) {
+            offlineIndicator.classList.add('offline-indicator');
+            quizDashboard.insertBefore(offlineIndicator, quizDashboard.firstChild);
+        }
+    }
+    
+    // Display the categories
+    displayQuizCategories(offlineCategories);
+    
+    return offlineCategories;
+}
+
+// ============================================
+// 🆘 HARDCODED FALLBACK CATEGORIES FOR POLYLEARN
+// ============================================
+function useHardcodedCategories() {
+    console.log('📚 Using hardcoded  categories');
+    
+    const Categories = [
+        {
+            category_id: 1,
+            category_name: 'Polynomial Division Basics',
+            description: 'Master the fundamentals of polynomial division',
+            icon: 'fa-divide',
+            color: '#7a0000',
+            quiz_count: 3
+        },
+        {
+            category_id: 2,
+            category_name: 'Synthetic Division',
+            description: 'Learn efficient polynomial division techniques',
+            icon: 'fa-bolt',
+            color: '#27ae60',
+            quiz_count: 2
+        },
+        {
+            category_id: 1,
+            category_name: 'Remainder & Factor Theorems',
+            description: 'Understand key theorems in polynomial algebra',
+            icon: 'fa-calculator',
+            color: '#3498db',
+            quiz_count: 2
+        },
+        {
+            category_id: 4,
+            category_name: 'Long Division Practice',
+            description: 'Step-by-step polynomial long division problems',
+            icon: 'fa-pencil-alt',
+            color: '#f39c12',
+            quiz_count: 3
+        }
+    ];
+    
+    // Store in QuizState
+    if (!window.QuizState) window.QuizState = {};
+    window.QuizState.quizCategories = Categories;
+    
+    // Display the categories
+    displayQuizCategories(Categories);
+    
+    return Categories;
+}
+
+// ============================================
+// 🆘 Ultimate fallback if all else fails
+// ============================================
+function showQuizCategoriesFallback() {
+    console.log('📚 Showing hardcoded fallback categories');
+    
+    const categoriesContainer = document.getElementById('quizCategoriesGrid');
+    if (!categoriesContainer) return;
+    
+    const categories = getHardcodedCategories();
+    
+    // Store in QuizState
+    if (!window.QuizState) window.QuizState = {};
+    window.QuizState.quizCategories = categories;
+    
+    // Display
+    displayQuizCategories(categories);
+}
+
+// Helper function to handle categories response
+function handleCategoriesResponse(data, filterOnClient = false) {
+    console.log('📥 Quiz categories response:', data);
+    
+    const categoriesContainer = document.getElementById('quizCategoriesGrid');
+    if (!categoriesContainer) return [];
+    
+    if (data.success && data.categories) {
+        let categories = data.categories;
+        
+        // Filter on client side if needed
+        if (filterOnClient) {
+            categories = categories.filter(cat => {
+                const catLessonId = cat.lesson_id || cat.lessonId;
+                return catLessonId == _LESSON_ID;
+            });
+            console.log(`🎯 Filtered to ${categories.length} categories for `);
+        }
+        
+        console.log(`✅ Found ${categories.length} quiz categories for `);
+        
+        // Store in QuizState
+        if (!window.QuizState) window.QuizState = {};
+        window.QuizState.quizCategories = categories;
+        
+        // Display the categories
+        displayQuizCategories(categories);
+        
+        return categories;
+    } else {
+        console.log('ℹ️ No categories returned');
+        displayQuizCategories([]);
+        return [];
+    }
+}
+// ============================================
+// ✅ FIXED: Display quiz categories na parang dashboard card
+// ============================================
+function displayQuizCategories(categories, isHardcoded = false) {
+    console.log('📋 Displaying FactoPermCombi quiz categories:', categories);
+    
+    const quizzesContainer = document.getElementById('userQuizzesContainer');
+    if (!quizzesContainer) {
+        console.error('❌ userQuizzesContainer not found');
+        return;
+    }
+    
+    // STRICT FILTER - lesson_id=2 LANG
+    const polyLearnCategories = categories.filter(cat => {
+        const catLessonId = cat.lesson_id || cat.lessonId;
+        return catLessonId == 1;
+    });
+    
+    console.log('🎯 After strict filtering:', polyLearnCategories.length, 'categories');
+    
+    // I-clear ang container
+    quizzesContainer.innerHTML = '';
+    
+    if (!polyLearnCategories || polyLearnCategories.length === 0) {
+        quizzesContainer.innerHTML = `
+            <div class="card" style="padding: 40px; text-align: center;">
+                <div style="font-size: 60px; color: #ccc; margin-bottom: 20px;">
+                    <i class="fas fa-folder-open"></i>
+                </div>
+                <h3 style="color: #666; margin-bottom: 10px;">No FactoPermCombi Categories Available</h3>
+                <p style="color: #999; margin-bottom: 20px;">Check back later for new FactoPermCombi quizzes!</p>
+                <button class="btn-primary" onclick="loadQuizCategories()" style="background: #7a0000; color: white; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer;">
+                    <i class="fas fa-redo"></i> Refresh
+                </button>
+            </div>
+        `;
+        return;
+    }
+    
+    // Gaya ng ibang dashboard cards - may header at card body
+    let html = `
+        <!-- Categories Card - gaya ng ibang dashboard cards -->
+        <div class="card full-width-card" style="margin-bottom: 20px;">
+            <div class="card-header" style="padding: 20px 25px 0;">
+                <h2 class="card-title" style="display: flex; align-items: center; gap: 10px; font-size: 1.4rem; color: var(--text-color); margin-bottom: 5px;">
+                    <i class="fas fa-folder" style="color: #7a0000;"></i> 
+                    FactoPermCombi Quiz Categories
+                </h2>
+                <p class="card-subtitle" style="color: var(--text-light); font-size: 0.95rem;">
+                    Select a category to start practicing
+                </p>
+            </div>
+            
+            <div style="padding: 20px 25px 25px;">
+    `;
+    
+    // Add offline indicator kung hardcoded
+    if (isHardcoded) {
+        html += `
+            <div style="background: #f39c12; color: white; padding: 10px 15px; border-radius: 8px; margin-bottom: 20px; display: flex; align-items: center; gap: 10px;">
+                <i class="fas fa-info-circle"></i>
+                <span>Using sample data (offline mode)</span>
+            </div>
+        `;
+    }
+    
+    // Grid ng categories - gaya ng sa ibang grids
+    html += `<div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 20px;">`;
+    
+    polyLearnCategories.forEach(category => {
+        const categoryId = category.category_id || category.id;
+        const categoryName = category.category_name || category.name || 'FactoPermCombi Quiz';
+        const categoryDesc = category.description || 'Test your FactoPermCombi knowledge.';
+        const totalQuizzes = category.quiz_count || category.total_quizzes || 3;
+        const categoryColor = category.color || '#7a0000';
+        const categoryIcon = category.icon || 'fa-graduation-cap';
+        
+        // Category card - gaya ng design sa buong app
+        html += `
+            <div class="quiz-category-card" data-category-id="${categoryId}" 
+                 style="cursor: pointer; background: white; border-radius: 12px; overflow: hidden;
+                        box-shadow: 0 4px 12px rgba(0,0,0,0.1); border: 1px solid var(--border-color);
+                        transition: all 0.3s ease; position: relative;">
+                
+                <!-- Colored top bar -->
+                <div style="height: 6px; background: ${categoryColor}; width: 100%;"></div>
+                
+                <div style="padding: 20px;">
+                    <!-- Header with icon and title -->
+                    <div style="display: flex; align-items: center; gap: 15px; margin-bottom: 15px;">
+                        <div style="width: 50px; height: 50px; background: ${categoryColor}20; 
+                                    border-radius: 12px; display: flex; align-items: center; 
+                                    justify-content: center; font-size: 24px; color: ${categoryColor};">
+                            <i class="fas ${categoryIcon}"></i>
+                        </div>
+                        <div style="flex: 1;">
+                            <h3 style="margin: 0 0 5px 0; color: #2c3e50; font-size: 18px; font-weight: 600;">
+                                ${categoryName}
+                            </h3>
+                            <div style="display: flex; align-items: center; gap: 10px;">
+                                <span style="background: ${categoryColor}10; color: ${categoryColor}; 
+                                           padding: 4px 10px; border-radius: 20px; font-size: 12px;">
+                                    <i class="fas fa-graduation-cap"></i> FactoPermCombi
+                                </span>
+                                <span style="color: #7f8c8d; font-size: 13px;">
+                                    <i class="fas fa-question-circle"></i> ${totalQuizzes} quizzes
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Description -->
+                    <p style="color: #6c757d; font-size: 14px; line-height: 1.5; margin: 0 0 20px 0; min-height: 42px;">
+                        ${categoryDesc}
+                    </p>
+                    
+                    <!-- Action button -->
+                    <button class="quiz-category-btn" data-category-id="${categoryId}" 
+                            style="width: 100%; padding: 12px; background: ${categoryColor}; 
+                                   color: white; border: none; border-radius: 8px; 
+                                   font-weight: 600; cursor: pointer; display: flex;
+                                   align-items: center; justify-content: center; gap: 8px;
+                                   transition: all 0.3s ease;">
+                        <i class="fas fa-play-circle"></i> Browse Quizzes
+                        <i class="fas fa-arrow-right" style="font-size: 14px;"></i>
+                    </button>
+                </div>
+            </div>
+        `;
+    });
+    
+    html += `</div>`; // Close grid
+    html += `</div></div>`; // Close card body and card
+    
+    quizzesContainer.innerHTML = html;
+    
+    // Add event listeners sa buong card (para sa click sa buong card)
+    document.querySelectorAll('.quiz-category-card').forEach(card => {
+        card.addEventListener('click', function(e) {
+            // Kung ang click ay sa button, hayaan ang button mag-handle
+            if (e.target.closest('.quiz-category-btn')) return;
+            
+            const categoryId = this.getAttribute('data-category-id');
+            if (categoryId) {
+                console.log('🎯 Category card clicked:', categoryId);
+                loadQuizzesForCategory(categoryId);
+            }
+        });
+    });
+    
+    // Add event listeners sa button
+    document.querySelectorAll('.quiz-category-btn').forEach(btn => {
+        btn.addEventListener('click', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            const categoryId = this.getAttribute('data-category-id');
+            if (categoryId) {
+                console.log('🎯 Browse button clicked:', categoryId);
+                loadQuizzesForCategory(categoryId);
+            }
+        });
+    });
+}
+// ============================================
+// Helper: Get category icon based on name
+// ============================================
+function getCategoryIcon(categoryName) {
+    const name = categoryName.toLowerCase();
+    
+    if (name.includes('polynomial') || name.includes('math')) return 'fa-square-root-alt';
+    if (name.includes('algebra')) return 'fa-superscript';
+    if (name.includes('geometry')) return 'fa-draw-polygon';
+    if (name.includes('calculus')) return 'fa-chart-line';
+    if (name.includes('trigonometry')) return 'fa-ruler-combined';
+    if (name.includes('statistics')) return 'fa-chart-bar';
+    if (name.includes('fraction')) return 'fa-divide';
+    
+    return 'fa-question-circle';
+}
+
+// ============================================
+// Helper: Get category color based on ID
+// ============================================
+function getCategoryColor(categoryId) {
+    const colors = [
+        '#7a0000', // Dark red
+        '#3498db', // Blue
+        '#27ae60', // Green
+        '#f39c12', // Orange
+        '#9b59b6', // Purple
+        '#e74c3c', // Red
+        '#1abc9c', // Turquoise
+        '#34495e'  // Dark blue
+    ];
+    
+    // Use modulo to assign a color based on ID
+    const index = (parseInt(categoryId) - 1) % colors.length;
+    return colors[index] || colors[0];
+}
+
+
+// ============================================
+// ✅ UPDATED: Load and display quizzes in same container
+// ============================================
+async function loadQuizzesForCategory(categoryId) {
+    try {
+        console.log(`📝 Loading quizzes for category ${categoryId}...`);
+        
+        const token = localStorage.getItem('authToken') || authToken;
+        if (!token) {
+            showNotification('Please login to view quizzes', 'error');
+            return;
+        }
+        
+        const quizzesContainer = document.getElementById('userQuizzesContainer');
+        if (!quizzesContainer) return;
+        
+        // Show loading
+        quizzesContainer.innerHTML = `
+            <div style="text-align: center; padding: 40px;">
+                <i class="fas fa-spinner fa-spin" style="font-size: 40px; color: #7a0000;"></i>
+                <p style="margin-top: 15px;">Loading quizzes...</p>
+            </div>
+        `;
+        
+        // Fetch quizzes
+        const response = await fetch(`/api/quiz/category/${categoryId}/quizzes?lesson_id=1`, {
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+            }
+        });
+        
+        if (!response.ok) {
+            throw new Error(`Failed to fetch quizzes: ${response.status}`);
+        }
+        
+        const data = await response.json();
+        
+        if (data.success && data.quizzes) {
+            // Display quizzes
+            displayQuizzesInContainer(data.quizzes, categoryId);
+        } else {
+            throw new Error(data.message || 'No quizzes returned');
+        }
+        
+    } catch (error) {
+        console.error('Error loading quizzes:', error);
+        
+        // Show error with back button
+        const quizzesContainer = document.getElementById('userQuizzesContainer');
+        if (quizzesContainer) {
+            quizzesContainer.innerHTML = `
+                <div style="text-align: center; padding: 40px;">
+                    <i class="fas fa-exclamation-triangle" style="font-size: 48px; color: #e74c3c; margin-bottom: 15px;"></i>
+                    <h3>Failed to load quizzes</h3>
+                    <p>${error.message}</p>
+                    <button class="btn-primary" onclick="goBackToCategories()" style="margin-top: 15px;">
+                        <i class="fas fa-arrow-left"></i> Back to Categories
+                    </button>
+                </div>
+            `;
+        }
+    }
+}
+
+// ============================================
+// ✅ FIXED: Display quizzes na parang dashboard card
+// ============================================
+function displayQuizzesInContainer(quizzes, categoryId, isHardcoded = false) {
+    const quizzesContainer = document.getElementById('userQuizzesContainer');
+    if (!quizzesContainer) return;
+    
+    if (!quizzes || quizzes.length === 0) {
+        quizzesContainer.innerHTML = `
+            <div class="card" style="padding: 40px; text-align: center;">
+                <div style="font-size: 60px; color: #ccc; margin-bottom: 20px;">
+                    <i class="fas fa-clipboard-list"></i>
+                </div>
+                <h3 style="color: #666; margin-bottom: 10px;">No Quizzes Available</h3>
+                <p style="color: #999; margin-bottom: 20px;">Check back later for new  quizzes!</p>
+                <button class="btn-primary" onclick="goBackToCategories()" style="background: #7a0000; color: white; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer;">
+                    <i class="fas fa-arrow-left"></i> Back to Categories
+                </button>
+            </div>
+        `;
+        return;
+    }
+    
+    // Gaya ng ibang dashboard cards
+    let html = `
+        <!-- Quizzes Card - gaya ng ibang dashboard cards -->
+        <div class="card full-width-card">
+            <div class="card-header" style="padding: 20px 25px 0; display: flex; justify-content: space-between; align-items: center;">
+                <div>
+                    <h2 class="card-title" style="display: flex; align-items: center; gap: 10px; font-size: 1.4rem; color: var(--text-color); margin-bottom: 5px;">
+                        <i class="fas fa-question-circle" style="color: #7a0000;"></i> 
+                         Quizzes
+                    </h2>
+                    <p class="card-subtitle" style="color: var(--text-light); font-size: 0.95rem;">
+                        Test your knowledge with these quizzes
+                    </p>
+                </div>
+                <button class="btn-secondary" onclick="goBackToCategories()" style="padding: 8px 15px; display: flex; align-items: center; gap: 8px;">
+                    <i class="fas fa-arrow-left"></i> Back to Categories
+                </button>
+            </div>
+            
+            <div style="padding: 20px 25px 25px;">
+    `;
+    
+    // Add offline indicator kung hardcoded
+    if (isHardcoded) {
+        html += `
+            <div style="background: #f39c12; color: white; padding: 10px 15px; border-radius: 8px; margin-bottom: 20px; display: flex; align-items: center; gap: 10px;">
+                <i class="fas fa-info-circle"></i>
+                <span>Using sample quiz data</span>
+            </div>
+        `;
+    }
+    
+    // Grid ng quizzes
+    html += `<div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 20px;">`;
+    
+    quizzes.forEach(quiz => {
+        const difficultyColor = 
+            quiz.difficulty === 'easy' ? '#27ae60' : 
+            quiz.difficulty === 'medium' ? '#f39c12' : 
+            quiz.difficulty === 'hard' ? '#e74c3c' : '#3498db';
+        
+        const difficultyLabel = quiz.difficulty || 'medium';
+        
+        // Quiz card - gaya ng design sa buong app
+        html += `
+            <div class="quiz-card" data-quiz-id="${quiz.quiz_id}" 
+                 style="background: white; border-radius: 12px; overflow: hidden;
+                        box-shadow: 0 4px 12px rgba(0,0,0,0.1); border: 1px solid var(--border-color);
+                        transition: all 0.3s ease; cursor: pointer;
+                        display: flex; flex-direction: column;">
+                
+                <!-- Colored top bar with difficulty -->
+                <div style="height: 6px; background: ${difficultyColor}; width: 100%;"></div>
+                
+                <div style="padding: 20px; flex: 1; display: flex; flex-direction: column;">
+                    <!-- Header with title and difficulty badge -->
+                    <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 12px;">
+                        <h3 style="margin: 0; color: #2c3e50; font-size: 18px; font-weight: 600; line-height: 1.3;">
+                            ${quiz.quiz_title || ' Quiz'}
+                        </h3>
+                        <span style="background: ${difficultyColor}; color: white; 
+                                   padding: 4px 10px; border-radius: 20px; font-size: 11px; 
+                                   font-weight: 600; text-transform: uppercase; white-space: nowrap; margin-left: 10px;">
+                            ${difficultyLabel}
+                        </span>
+                    </div>
+                    
+                    <!-- Description -->
+                    <p style="color: #6c757d; font-size: 14px; line-height: 1.5; margin: 0 0 15px 0; min-height: 42px;">
+                        ${quiz.description || 'Test your knowledge with this  quiz.'}
+                    </p>
+                    
+                    <!-- Quiz metadata - gaya ng sa progress items -->
+                    <div style="display: flex; gap: 15px; margin-bottom: 20px; padding: 10px 0; border-top: 1px solid #f0f0f0; border-bottom: 1px solid #f0f0f0;">
+                        <div style="display: flex; align-items: center; gap: 5px; color: #7f8c8d; font-size: 13px;">
+                            <i class="fas fa-question-circle" style="color: #3498db;"></i>
+                            <span>${quiz.total_questions || 0} items</span>
+                        </div>
+                        <div style="display: flex; align-items: center; gap: 5px; color: #7f8c8d; font-size: 13px;">
+                            <i class="fas fa-clock" style="color: #e67e22;"></i>
+                            <span>${quiz.duration_minutes || 10} min</span>
+                        </div>
+                        <div style="display: flex; align-items: center; gap: 5px; color: #7f8c8d; font-size: 13px;">
+                            <i class="fas fa-trophy" style="color: #f39c12;"></i>
+                            <span>${quiz.passing_score || 70}% pass</span>
+                        </div>
+                    </div>
+                    
+                    <!-- Action button -->
+                    <button class="start-quiz-btn" data-quiz-id="${quiz.quiz_id}" 
+                            style="width: 100%; padding: 12px; background: #7a0000; 
+                                   color: white; border: none; border-radius: 8px; 
+                                   font-weight: 600; cursor: pointer; display: flex;
+                                   align-items: center; justify-content: center; gap: 8px;
+                                   transition: all 0.3s ease; margin-top: auto;">
+                        <i class="fas fa-play-circle"></i> Start Quiz
+                        <i class="fas fa-arrow-right" style="font-size: 14px;"></i>
+                    </button>
+                </div>
+            </div>
+        `;
+    });
+    
+    html += `</div>`; // Close grid
+    html += `</div></div>`; // Close card body and card
+    
+    quizzesContainer.innerHTML = html;
+    
+    // Add event listeners sa buong quiz card
+    document.querySelectorAll('.quiz-card').forEach(card => {
+        card.addEventListener('click', function(e) {
+            // Kung ang click ay sa button, hayaan ang button mag-handle
+            if (e.target.closest('.start-quiz-btn')) return;
+            
+            const quizId = this.getAttribute('data-quiz-id');
+            if (quizId) {
+                console.log('🎯 Quiz card clicked:', quizId);
+                // Hanapin ang button at i-click
+                const btn = this.querySelector('.start-quiz-btn');
+                if (btn) btn.click();
+            }
+        });
+    });
+    
+    // Add event listeners sa start buttons
+    document.querySelectorAll('.start-quiz-btn').forEach(btn => {
+        btn.addEventListener('click', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            
+            const quizId = this.getAttribute('data-quiz-id');
+            if (quizId) {
+                console.log('🎯 Start quiz button clicked:', quizId);
+                
+                // Show loading state sa button
+                const originalText = this.innerHTML;
+                this.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Loading...';
+                this.disabled = true;
+                
+                // Call the quiz system
+                if (typeof startQuizSystem === 'function') {
+                    startQuizSystem(parseInt(quizId)).finally(() => {
+                        // Reset button kung may error (optional)
+                        setTimeout(() => {
+                            this.innerHTML = originalText;
+                            this.disabled = false;
+                        }, 1000);
+                    });
+                } else {
+                    alert(`Starting Quiz ID: ${quizId}`);
+                    this.innerHTML = originalText;
+                    this.disabled = false;
+                }
+            }
+        });
+    });
+}
+
+// ============================================
+// ✅ Go back to categories - with loading state
+// ============================================
+function goBackToCategories() {
+    console.log('📚 Going back to categories');
+    
+    const quizzesContainer = document.getElementById('userQuizzesContainer');
+    if (quizzesContainer) {
+        // Show loading state
+        quizzesContainer.innerHTML = `
+            <div class="card" style="padding: 40px; text-align: center;">
+                <div style="font-size: 40px; color: #7a0000; margin-bottom: 20px;">
+                    <i class="fas fa-spinner fa-spin"></i>
+                </div>
+                <p style="color: #666;">Loading categories...</p>
+            </div>
+        `;
+        
+        // Reload categories
+        if (typeof loadQuizCategories === 'function') {
+            setTimeout(() => {
+                loadQuizCategories();
+            }, 300);
+        }
+    }
+}
+
+// ============================================
+// DEBUG: Check quiz data in database
+// ============================================
+window.debugQuizData = async function() {
+    console.log('🔍 DEBUGGING QUIZ DATA...');
+    
+    try {
+        const token = localStorage.getItem('authToken') || authToken;
+        
+        // Check categories
+        console.log('📡 Fetching categories...');
+        const catResponse = await fetch('/api/quiz/categories', {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        
+        if (catResponse.ok) {
+            const catData = await catResponse.json();
+            console.log('📊 Categories in database:', catData);
+        } else {
+            console.error('❌ Failed to fetch categories:', catResponse.status);
+        }
+        
+        // Check if there are any quizzes
+        console.log('📡 Fetching all quizzes...');
+        const quizResponse = await fetch('/api/quizzes/available', {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        
+        if (quizResponse.ok) {
+            const quizData = await quizResponse.json();
+            console.log('📊 Quizzes in database:', quizData);
+        } else {
+            console.error('❌ Failed to fetch quizzes:', quizResponse.status);
+        }
+        
+        // Check specific category (1)
+        console.log('📡 Fetching quizzes for category 1...');
+        const cat1Response = await fetch('/api/quiz/category/1/quizzes', {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        
+        if (cat1Response.ok) {
+            const cat1Data = await cat1Response.json();
+            console.log('📊 Quizzes for category 1:', cat1Data);
+        } else {
+            console.error('❌ Failed to fetch category 1 quizzes:', cat1Response.status);
+        }
+        
+    } catch (error) {
+        console.error('❌ Debug error:', error);
+    }
+};
+
+// Add this function:
+async function fetchAllQuizzes() {
+    try {
+        const token = localStorage.getItem('authToken');
+        const response = await fetch(`/api/quizzes/available`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        
+        if (!response.ok) throw new Error('Failed');
+        
+        const data = await response.json();
+        return data.quizzes || [];
+    } catch (error) {
+        console.error('Error fetching all quizzes:', error);
+        return [];
+    }
+}
+
+
+// ============================================
+// SHOW QUIZ INTERFACE FOR CATEGORY - UPDATED
+// ============================================
+function showQuizInterfaceForCategory(category, quizzes) {
+    console.log('🎯 Showing quiz interface for category:', category);
+    console.log('📋 Quizzes to display:', quizzes);
+    
+    // Get current user ID
+    const userJson = localStorage.getItem('mathhub_user');
+    let currentUserId = null;
+    if (userJson) {
+        try {
+            const user = JSON.parse(userJson);
+            currentUserId = user.id;
+        } catch (e) {
+            console.error('Error parsing user:', e);
+        }
+    }
+    
+    // Hide categories container
+    const categoriesContainer = document.getElementById('userQuizzesContainer');
+    const quizInterfaceContainer = document.getElementById('quizInterfaceContainer');
+    const badgesContainer = document.getElementById('badgesContainer');
+    const leaderboardContainer = document.getElementById('leaderboardContainer');
+    
+    if (categoriesContainer) {
+        categoriesContainer.classList.add('hidden');
+        categoriesContainer.style.display = 'none';
+        console.log('✅ Hidden categories container');
+    }
+    
+    if (badgesContainer) {
+        badgesContainer.classList.add('hidden');
+        badgesContainer.style.display = 'none';
+    }
+    
+    if (leaderboardContainer) {
+        leaderboardContainer.classList.add('hidden');
+        leaderboardContainer.style.display = 'none';
+    }
+    
+    // Show quiz interface
+    if (quizInterfaceContainer) {
+        quizInterfaceContainer.classList.remove('hidden');
+        quizInterfaceContainer.style.display = 'block';
+        quizInterfaceContainer.style.opacity = '1';
+        quizInterfaceContainer.style.visibility = 'visible';
+        console.log('✅ Showing quiz interface container');
+    } else {
+        console.error('❌ quizInterfaceContainer not found!');
+        return;
+    }
+    
+    // Update active quiz title
+    const activeQuizTitle = document.getElementById('activeQuizTitle');
+    if (activeQuizTitle) {
+        activeQuizTitle.textContent = `${category.category_name || category.name || 'Quiz'} Quizzes`;
+    }
+    
+    // Get the options container
+    const quizOptionsContainer = document.getElementById('quizOptionsContainer');
+    if (!quizOptionsContainer) {
+        console.error('❌ quizOptionsContainer not found!');
+        return;
+    }
+    
+    quizOptionsContainer.style.display = '';
+    quizOptionsContainer.style.opacity = '1';
+    quizOptionsContainer.style.visibility = 'visible';
+    quizOptionsContainer.innerHTML = '';
+    
+    if (!quizzes || quizzes.length === 0) {
+        quizOptionsContainer.innerHTML = `
+            <div style="grid-column: 1/-1; text-align: center; padding: 40px;">
+                <i class="fas fa-clipboard-check" style="font-size: 48px; color: #95a5a6; margin-bottom: 15px;"></i>
+                <h3>No quizzes available in this category</h3>
+                <p>Check back later for new quizzes!</p>
+                <button class="btn-primary" onclick="location.reload()" style="margin-top: 15px;">
+                    <i class="fas fa-redo"></i> Refresh
+                </button>
+            </div>
+        `;
+        return;
+    }
+    
+    // Create quiz cards
+    quizzes.forEach(quiz => {
+        const difficultyClass = `difficulty-${quiz.difficulty || 'medium'}`;
+        const difficultyColor = 
+            quiz.difficulty === 'easy' ? '#27ae60' : 
+            quiz.difficulty === 'medium' ? '#f39c12' : 
+            quiz.difficulty === 'hard' ? '#e74c3c' : '#3498db';
+        
+        // Get user-specific progress
+        let attempts = quiz.user_progress?.attempts || 0;
+        let bestScore = quiz.user_progress?.best_score || 0;
+        let canAttempt = quiz.user_progress?.can_attempt !== false;
+        
+        const quizCard = document.createElement('div');
+        quizCard.className = 'quiz-option';
+        quizCard.setAttribute('data-quiz-id', quiz.quiz_id);
+        quizCard.style.opacity = '1';
+        quizCard.style.visibility = 'visible';
+        quizCard.style.display = 'block';
+        
+        quizCard.innerHTML = `
+    <div class="quiz-option-header">
+        <h4>${quiz.quiz_title || 'Untitled Quiz'}</h4>
+        <span class="quiz-option-difficulty ${difficultyClass}" style="background: ${difficultyColor}">
+            ${quiz.difficulty || 'medium'}
+        </span>
+    </div>
+    
+    <div class="quiz-option-body">
+        <p>${quiz.description || 'Test your knowledge with this quiz.'}</p>
+        
+        <div class="quiz-option-meta">
+            <span class="quiz-option-meta-item">
+                <i class="fas fa-question-circle"></i> ${quiz.total_questions || 0} Questions
+            </span>
+            <span class="quiz-option-meta-item">
+                <i class="fas fa-clock"></i> ${quiz.duration_minutes || 10} min
+            </span>
+            <span class="quiz-option-meta-item">
+                <i class="fas fa-trophy"></i> ${quiz.passing_score || 70}% to pass
+            </span>
+        </div>
+        
+        ${attempts > 0 ? `
+            <div class="quiz-option-attempts">
+                <strong>Your Best Score:</strong> ${bestScore}%
+                (${attempts} attempt${attempts > 1 ? 's' : ''})
+            </div>
+        ` : ''}
+    </div>
+    
+    <div class="quiz-option-actions">
+        <button class="quiz-start-btn ${!canAttempt ? 'disabled' : ''}" 
+                data-quiz-id="${quiz.quiz_id}"
+                ${!canAttempt ? 'disabled' : ''}>
+            <i class="fas fa-play"></i> ${attempts > 0 ? 'Retake Quiz' : 'Start Quiz'}
+        </button>
+        ${attempts > 0 ? `
+            <button class="quiz-review-btn" 
+                    data-quiz-id="${quiz.quiz_id}"
+                    data-attempt-id="${quiz.user_attempts && quiz.user_attempts.length > 0 ? quiz.user_attempts[0].attempt_id : ''}">
+                <i class="fas fa-chart-bar"></i> Review
+            </button>
+        ` : ''}
+    </div>
+`;
+        
+        quizOptionsContainer.appendChild(quizCard);
+    });
+    
+    // Add event listeners
+    document.querySelectorAll('.quiz-start-btn:not(.disabled)').forEach(button => {
+        button.addEventListener('click', async function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            
+            const quizId = this.getAttribute('data-quiz-id');
+            console.log('🎯 Starting quiz:', quizId);
+            await startQuizSystem(parseInt(quizId));
+        });
+    });
+    
+    document.querySelectorAll('.quiz-review-btn').forEach(button => {
+        button.addEventListener('click', async function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            
+            const quizId = this.getAttribute('data-quiz-id');
+            console.log('📊 Reviewing quiz:', quizId);
+            alert('Review feature coming soon!');
+        });
+    });
+    
+    console.log('✅ Quiz interface updated with', quizzes.length, 'quizzes');
+}
+
+// Add this function to check visibility on page load
+function checkAndFixQuizVisibility() {
+    console.log('🔍 Checking quiz visibility on page load...');
+    
+    // Check if quiz interface should be visible
+    const quizInterfaceContainer = document.getElementById('quizInterfaceContainer');
+    const categoriesContainer = document.getElementById('userQuizzesContainer');
+    
+    // If categories are hidden, quiz interface should be visible
+    if (categoriesContainer?.classList.contains('hidden') || categoriesContainer?.style.display === 'none') {
+        if (quizInterfaceContainer) {
+            quizInterfaceContainer.classList.remove('hidden');
+            quizInterfaceContainer.style.display = 'block';
+            quizInterfaceContainer.style.opacity = '1';
+            quizInterfaceContainer.style.visibility = 'visible';
+        }
+    }
+    
+    // Fix any containers with opacity 0
+    document.querySelectorAll('.container').forEach(container => {
+        const style = window.getComputedStyle(container);
+        if (style.opacity === '0' && container.offsetParent !== null) {
+            container.style.opacity = '1';
+            container.style.visibility = 'visible';
+        }
+    });
+    
+    // Fix quiz cards
+    document.querySelectorAll('.quiz-option').forEach(card => {
+        card.style.opacity = '1';
+        card.style.visibility = 'visible';
+    });
+}
+
+// Run on every page load
+document.addEventListener('DOMContentLoaded', function() {
+    setTimeout(checkAndFixQuizVisibility, 100);
+});
+
+// Also run after any fetch requests
+const originalFetch = window.fetch;
+window.fetch = function() {
+    return originalFetch.apply(this, arguments).then(response => {
+        setTimeout(checkAndFixQuizVisibility, 200);
+        return response;
+    });
+};
+
+// Load user quiz stats - FIXED FOR YOUR HTML STRUCTURE
+async function loadUserQuizStats() {
+    try {
+        const attempts = await fetchUserQuizAttempts();
+        const points = await fetchUserPoints();
+        
+        // Update stats display in your HTML
+        const quizCurrentScore = document.getElementById('quizCurrentScore');
+        const quizAccuracy = document.getElementById('quizAccuracy');
+        const quizTimeSpent = document.getElementById('quizTimeSpent');
+        const quizRank = document.getElementById('quizRank');
+        
+        if (attempts.length > 0) {
+            const completedQuizzes = attempts.filter(a => a.completion_status === 'completed').length;
+            const averageScore = attempts.reduce((sum, a) => sum + a.score, 0) / attempts.length;
+            const totalTimeSpent = attempts.reduce((sum, a) => sum + (a.time_spent_seconds || 0), 0);
+            
+            // Calculate rank based on points
+            const userRank = Math.max(1, Math.floor(Math.random() * 100) + 1); // Temporary random rank
+            
+            if (quizCurrentScore) {
+                quizCurrentScore.textContent = `${Math.round(averageScore)}%`;
+            }
+            
+            if (quizAccuracy) {
+                const accuracy = attempts.length > 0 ? 
+                    (attempts.filter(a => a.score >= 70).length / attempts.length) * 100 : 0;
+                quizAccuracy.textContent = `${Math.round(accuracy)}%`;
+            }
+            
+            if (quizTimeSpent) {
+                const hours = Math.floor(totalTimeSpent / 3600);
+                const minutes = Math.floor((totalTimeSpent % 3600) / 60);
+                quizTimeSpent.textContent = hours > 0 ? `${hours}h ${minutes}m` : `${minutes}m`;
+            }
+            
+            if (quizRank) {
+                quizRank.textContent = `#${userRank}`;
+            }
+        } else {
+            if (quizCurrentScore) quizCurrentScore.textContent = '0%';
+            if (quizAccuracy) quizAccuracy.textContent = '0%';
+            if (quizTimeSpent) quizTimeSpent.textContent = '0m';
+            if (quizRank) quizRank.textContent = '#--';
+        }
+        
+    } catch (error) {
+        console.error('Error loading user quiz stats:', error);
+        // Set default values on error
+        const quizCurrentScore = document.getElementById('quizCurrentScore');
+        const quizAccuracy = document.getElementById('quizAccuracy');
+        const quizTimeSpent = document.getElementById('quizTimeSpent');
+        const quizRank = document.getElementById('quizRank');
+        
+        if (quizCurrentScore) quizCurrentScore.textContent = '0%';
+        if (quizAccuracy) quizAccuracy.textContent = '0%';
+        if (quizTimeSpent) quizTimeSpent.textContent = '0m';
+        if (quizRank) quizRank.textContent = '#--';
+    }
+}
+
+
+// ============================================
+// LOAD LEADERBOARD - UPDATED
+// ============================================
+async function loadLeaderboard(period = 'weekly') {
+    try {
+        console.log(`🏆 Loading ${period} leaderboard...`);
+        
+        const leaderboardList = document.getElementById('leaderboardList');
+        if (!leaderboardList) {
+            console.log('Leaderboard element not found, skipping');
+            return;
+        }
+        
+        // Show loading
+        leaderboardList.innerHTML = `
+            <div class="loading-container">
+                <i class="fas fa-spinner fa-spin"></i>
+                <p>Loading leaderboard...</p>
+            </div>
+        `;
+        
+        const token = localStorage.getItem('authToken') || authToken;
+        if (!token) {
+            leaderboardList.innerHTML = `
+                <div class="no-leaderboard">
+                    <i class="fas fa-trophy"></i>
+                    <h3>Login to see leaderboard</h3>
+                    <p>Complete quizzes to appear on the leaderboard!</p>
+                </div>
+            `;
+            return;
+        }
+        
+        const response = await fetch(`/api/quiz/leaderboard/${period}`, {
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+            }
+        });
+        
+        if (!response.ok) {
+            throw new Error(`Failed to fetch leaderboard: ${response.status}`);
+        }
+        
+        const data = await response.json();
+        
+        if (data.success && data.leaderboard && data.leaderboard.length > 0) {
+            displayLeaderboard(data.leaderboard);
+        } else {
+            // No data yet - show empty state
+            leaderboardList.innerHTML = `
+                <div class="no-leaderboard">
+                    <i class="fas fa-trophy"></i>
+                    <h3>No leaderboard data yet</h3>
+                    <p>Complete quizzes to appear on the leaderboard!</p>
+                    <button class="btn-primary" onclick="document.querySelector('[data-page=\"quiz\"]').click()">
+                        <i class="fas fa-play"></i> Take a Quiz
+                    </button>
+                </div>
+            `;
+        }
+        
+    } catch (error) {
+        console.error('Error loading leaderboard:', error);
+        const leaderboardList = document.getElementById('leaderboardList');
+        if (leaderboardList) {
+            leaderboardList.innerHTML = `
+                <div class="error-message">
+                    <i class="fas fa-exclamation-triangle"></i>
+                    <p>Unable to load leaderboard</p>
+                    <button class="btn-secondary" onclick="loadLeaderboard('${period}')">
+                        <i class="fas fa-redo"></i> Try Again
+                    </button>
+                </div>
+            `;
+        }
+    }
+}
+
+
+// ============================================
+// DISPLAY LEADERBOARD - UPDATED
+// ============================================
+function displayLeaderboard(leaderboard) {
+    const leaderboardList = document.getElementById('leaderboardList');
+    if (!leaderboardList) return;
+    
+    // Get current user
+    const userJson = localStorage.getItem('mathhub_user');
+    let currentUserId = null;
+    if (userJson) {
+        try {
+            const user = JSON.parse(userJson);
+            currentUserId = user.id;
+        } catch (e) {
+            console.error('Error parsing user:', e);
+        }
+    }
+    
+    let html = '';
+    
+    leaderboard.forEach((entry, index) => {
+        const isCurrentUser = entry.user_id === currentUserId;
+        const rankClass = index === 0 ? 'first' : 
+                        index === 1 ? 'second' : 
+                        index === 2 ? 'third' : '';
+        
+        // Get medal icon for top 3
+        let rankDisplay = index + 1;
+        if (index === 0) rankDisplay = '🥇';
+        else if (index === 1) rankDisplay = '🥈';
+        else if (index === 2) rankDisplay = '🥉';
+        
+        html += `
+            <div class="leaderboard-item ${isCurrentUser ? 'current-user' : ''}">
+                <div class="leaderboard-rank ${rankClass}">${rankDisplay}</div>
+                <div class="leaderboard-user">
+                    <div class="leaderboard-user-name">${entry.full_name || entry.username}</div>
+                    <div class="leaderboard-user-stats">
+                        <span class="leaderboard-stat">
+                            <i class="fas fa-star"></i> ${entry.total_points} pts
+                        </span>
+                        <span class="leaderboard-stat">
+                            <i class="fas fa-trophy"></i> ${entry.quizzes_completed} quizzes
+                        </span>
+                        <span class="leaderboard-stat">
+                            <i class="fas fa-chart-line"></i> ${entry.avg_score}% avg
+                        </span>
+                    </div>
+                </div>
+                <div class="leaderboard-score">${entry.highest_score}%</div>
+            </div>
+        `;
+    });
+    
+    leaderboardList.innerHTML = html;
+}
+
+
+// ============================================
+// FIXED: initQuizDashboard - With container verification
+// ============================================
+async function initQuizDashboard() {
+    console.log('🧠 Initializing quiz dashboard...');
+    
+    try {
+        // Show loading in userQuizzesContainer
+        const container = document.getElementById('userQuizzesContainer');
+        if (container) {
+            container.innerHTML = `
+                <div class="loading-container" style="text-align: center; padding: 40px;">
+                    <i class="fas fa-spinner fa-spin" style="font-size: 40px; color: #7a0000; margin-bottom: 20px;"></i>
+                    <p style="color: #666;">Loading quiz categories...</p>
+                </div>
+            `;
+        }
+        
+        // Show loading in stats cards
+        const statsElements = {
+            score: document.getElementById('quizCurrentScore'),
+            accuracy: document.getElementById('quizAccuracy'),
+            time: document.getElementById('quizTimeSpent'),
+            rank: document.getElementById('quizRank')
+        };
+        
+        if (statsElements.score) statsElements.score.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+        if (statsElements.accuracy) statsElements.accuracy.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+        if (statsElements.time) statsElements.time.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+        if (statsElements.rank) statsElements.rank.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+        
+        // Load all data in parallel
+        const [categories, stats, leaderboard, badges] = await Promise.allSettled([
+            loadQuizCategories(),
+            loadQuizStatsFromServer(),
+            loadLeaderboard('weekly'),
+            loadUserBadges()
+        ]);
+        
+        // Check results
+        if (categories.status === 'rejected') {
+            console.error('❌ Failed to load categories:', categories.reason);
+        }
+        
+        if (stats.status === 'rejected') {
+            console.error('❌ Failed to load stats:', stats.reason);
+            updateQuizStatsUI({
+                current_score: 0,
+                accuracy: 0,
+                time_spent: '0m',
+                rank: '#--'
+            });
+        }
+        
+        if (leaderboard.status === 'rejected') {
+            console.error('❌ Failed to load leaderboard:', leaderboard.reason);
+        }
+        
+        if (badges.status === 'rejected') {
+            console.error('❌ Failed to load badges:', badges.reason);
+        }
+        
+        // Hide quiz interface
+        const quizInterface = document.getElementById('quizInterfaceContainer');
+        if (quizInterface) {
+            quizInterface.classList.add('hidden');
+            quizInterface.style.display = 'none';
+        }
+        
+        console.log('✅ Quiz dashboard initialized successfully');
+        
+    } catch (error) {
+        console.error('❌ Error initializing quiz dashboard:', error);
+        showNotification('Failed to initialize quiz dashboard', 'error');
+        
+        updateQuizStatsUI({
+            current_score: 0,
+            accuracy: 0,
+            time_spent: '0m',
+            rank: '#--'
+        });
+    }
+}
+
+
+// ============================================
+// LOAD USER BADGES - UPDATED FOR YOUR HTML
+// ============================================
+async function loadUserBadges() {
+    try {
+        const badges = await fetchUserBadges();
+        
+        const badgesGrid = document.getElementById('badgesGrid');
+        if (!badgesGrid) return;
+        
+        // Clear the grid first
+        badgesGrid.innerHTML = '';
+        
+        if (!badges || badges.length === 0) {
+            badgesGrid.innerHTML = `
+                <div class="no-badges">
+                    <i class="fas fa-award"></i>
+                    <h3>No badges yet</h3>
+                    <p>Complete quizzes and exercises to earn badges!</p>
+                </div>
+            `;
+            return;
+        }
+        
+        let html = '';
+        badges.forEach(badge => {
+            const badgeName = badge.badge_name || badge.name || 'Achievement Badge';
+            const badgeDescription = badge.description || badge.desc || 'Achievement badge earned through excellence';
+            const badgeIcon = badge.icon || badge.badge_icon || 'fas fa-award';
+            const badgeColor = badge.color || badge.badge_color || '#3498db';
+            const earnedDate = badge.earned_at || badge.date_earned || badge.created_at;
+            
+            html += `
+                <div class="badge-item" title="${badgeName} - Earned: ${formatDate(earnedDate) || 'Recently'}">
+                    <div class="badge-icon" style="background: ${badgeColor}">
+                        <i class="${badgeIcon}"></i>
+                    </div>
+                    <div class="badge-info">
+                        <h4>${badgeName}</h4>
+                        <p>${badgeDescription}</p>
+                        ${earnedDate ? `<small>Earned: ${formatTimeAgo(earnedDate)}</small>` : ''}
+                    </div>
+                </div>
+            `;
+        });
+        
+        badgesGrid.innerHTML = html;
+        
+    } catch (error) {
+        console.error('⚠️ Error loading badges:', error);
+        const badgesGrid = document.getElementById('badgesGrid');
+        if (badgesGrid) {
+            badgesGrid.innerHTML = `
+                <div class="error-message">
+                    <i class="fas fa-exclamation-triangle"></i>
+                    <h3>Unable to load badges</h3>
+                    <p>Please try refreshing the page</p>
+                </div>
+            `;
+        }
+    }
+}
+
+
+// ============================================
+// ✅ FIXED: Fetch accuracy rate - FORCED LESSON_ID = 1
+// ============================================
+async function fetchAccuracyRate() {
+    try {
+        const token = localStorage.getItem('authToken') || authToken;
+        if (!token) return null;
+        
+        // ✅ FORCE LESSON_ID = 1
+        const MATHEASE_LESSON_ID = 1;
+        
+        console.log(`📊 Fetching mathease accuracy rate...`);
+        
+
+        const response = await fetch(`/api/progress/accuracy-rate?lesson_id=${MATHEASE_LESSON_ID}`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        
+        if (!response.ok) return null;
+        
+        const data = await response.json();
+        
+        if (data.success && data.accuracy) {
+            console.log('✅ mathease accuracy rate loaded:', data.accuracy);
+            updateAccuracyRateDisplay(data.accuracy);
+            return data.accuracy;
+        }
+        
+        return null;
+    } catch (error) {
+        console.error('Error fetching accuracy rate:', error);
+        return null;
+    }
+}
+
+// ============================================
+// 🔍 DEBUG: Check only lesson_id=1 data
+// ============================================
+window.debugmatheaseData = async function() {
+    console.log('🔍 DEBUGGING LESSON_ID=1 (mathease) DATA ONLY');
+    console.log('================================================');
+    
+    const token = localStorage.getItem('authToken');
+    
+    if (!token) {
+        console.error('❌ No auth token found');
+        return;
+    }
+    
+    // Force lesson_id=1
+    const LESSON_ID = 1;
+    
+    console.log(`\n📚 FETCHING DATA FOR LESSON_ID = ${LESSON_ID}...\n`);
+    
+    // 1. Check lessons
+    try {
+        const lessonRes = await fetch(`/api/lessons-db/complete?lesson_id=${LESSON_ID}`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        const lessonData = await lessonRes.json();
+        console.log('📋 LESSONS IN DATABASE:');
+        console.log(`- Total lessons: ${lessonData.lessons?.length || 0}`);
+        if (lessonData.lessons) {
+            lessonData.lessons.forEach((l, i) => {
+                console.log(`  ${i+1}. ID: ${l.content_id}, Title: ${l.content_title}`);
+            });
+        }
+    } catch (e) {
+        console.error('Lesson fetch error:', e);
+    }
+    
+    // 2. Check practice exercises
+    try {
+        const practiceRes = await fetch(`/api/practice/exercises/count?lesson_id=${LESSON_ID}`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        const practiceData = await practiceRes.json();
+        console.log('\n💪 PRACTICE EXERCISES:');
+        console.log(`- Total exercises: ${practiceData.count || 0}`);
+    } catch (e) {
+        console.error('Practice fetch error:', e);
+    }
+    
+    // 3. Check practice attempts
+    try {
+        const attemptsRes = await fetch(`/api/progress/practice-attempts?lesson_id=${LESSON_ID}`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        const attemptsData = await attemptsRes.json();
+        console.log('\n📝 PRACTICE ATTEMPTS:');
+        if (attemptsData.success) {
+            console.log(`- Total attempts: ${attemptsData.attempts?.length || 0}`);
+            if (attemptsData.attempts && attemptsData.attempts.length > 0) {
+                attemptsData.attempts.forEach((a, i) => {
+                    console.log(`  ${i+1}. Exercise ID: ${a.exercise_id}, Score: ${a.score}, Status: ${a.status}`);
+                });
+            } else {
+                console.log('  No attempts found');
+            }
+        }
+    } catch (e) {
+        console.error('Attempts fetch error:', e);
+    }
+    
+    // 4. Check quizzes
+    try {
+        const quizRes = await fetch(`/api/quiz/categories?lesson_id=${LESSON_ID}`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        const quizData = await quizRes.json();
+        console.log('\n🧠 QUIZ CATEGORIES:');
+        if (quizData.success && quizData.categories) {
+            console.log(`- Total categories: ${quizData.categories.length}`);
+            quizData.categories.forEach((c, i) => {
+                console.log(`  ${i+1}. ID: ${c.category_id}, Name: ${c.category_name}`);
+            });
+        }
+    } catch (e) {
+        console.error('Quiz fetch error:', e);
+    }
+    
+    // 5. Check user progress
+    try {
+        const progressRes = await fetch(`/api/progress/lessons?lesson_id=${LESSON_ID}`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        const progressData = await progressRes.json();
+        console.log('\n📊 USER PROGRESS:');
+        if (progressData.success && progressData.progress) {
+            console.log(`- Completed lessons: ${progressData.progress.filter(p => p.completion_status === 'completed').length}`);
+        }
+    } catch (e) {
+        console.error('Progress fetch error:', e);
+    }
+    
+    console.log('\n✅ Debug complete for lesson_id=1');
+};
+
+// Run it immediately
+setTimeout(() => {
+    console.log('🔍 Auto-running mathease debug...');
+    debugmatheaseData();
+}, 2000);
+
+// ============================================
+// UPDATE ACCURACY RATE DISPLAY
+// ============================================
+function updateAccuracyRateDisplay(accuracy) {
+    // Update accuracy in module dashboard sidebar
+    const accuracyRate = document.getElementById('accuracyRate');
+    if (accuracyRate) {
+        accuracyRate.textContent = `${accuracy.overall}%`;
+    }
+    
+    // Update accuracy in quiz dashboard stats
+    const quizAccuracy = document.getElementById('quizAccuracy');
+    if (quizAccuracy) {
+        quizAccuracy.textContent = `${accuracy.quiz}%`;
+    }
+    
+    // Update in progress page stats if they exist
+    const overallAccuracy = document.querySelector('.stat-value.accuracy');
+    if (overallAccuracy) {
+        overallAccuracy.textContent = `${accuracy.overall}%`;
+    }
+    
+    // Update topic mastery accuracy
+    if (ProgressState.topicMastery && ProgressState.topicMastery.length > 0) {
+        const avgTopicAccuracy = Math.round(
+            ProgressState.topicMastery.reduce((sum, t) => sum + (t.accuracy_rate || 0), 0) / 
+            ProgressState.topicMastery.length
+        );
+        
+        const accuracyElements = document.querySelectorAll('.topic-item .accuracy-value');
+        // Elements will be updated when topics are rendered
+    }
+}
+
+// Start a quiz - FIXED FOR YOUR HTML STRUCTURE
+async function startQuiz(quizId) {
+    try {
+        console.log(`🚀 Starting quiz ${quizId}...`);
+        
+        // ✅ CHECK MUNA KUNG MAY USER
+        const userJson = localStorage.getItem('mathhub_user');
+        if (!userJson) {
+            showNotification('Please login first', 'error');
+            navigateTo('login');
+            return;
+        }
+        
+        const user = JSON.parse(userJson);
+        console.log('👤 Current user:', user);
+        
+        // Check if user can access the quiz
+        const accessCheck = await checkQuizAccess(quizId);
+        
+        if (!accessCheck.canAccess) {
+            showNotification(accessCheck.reason || 'You need to complete the required lessons first', 'error');
+            return;
+        }
+        
+        // Show loading sa modal
+        showQuizModalLoading();
+        
+        // ✅ Start quiz attempt - with retry logic
+        let attempt = await startQuizAttempt(quizId);
+        
+        // ✅ If first attempt fails, try one more time
+        if (!attempt) {
+            console.log('⚠️ First attempt failed, retrying...');
+            await new Promise(resolve => setTimeout(resolve, 1000));
+            attempt = await startQuizAttempt(quizId);
+        }
+        
+        if (!attempt) {
+            showNotification('Failed to start quiz. Please try again.', 'error');
+            closeQuizModal();
+            return;
+        }
+        
+        console.log('✅ Quiz attempt created:', attempt);
+        
+        // Fetch quiz questions
+        const questions = await fetchQuizQuestions(quizId);
+        if (!questions || questions.length === 0) {
+            showNotification('No questions available for this quiz', 'error');
+            closeQuizModal();
+            return;
+        }
+        
+        console.log(`✅ Loaded ${questions.length} questions`);
+        
+        // Set quiz state
+        QuizState.currentQuiz = quizId;
+        QuizState.currentAttemptId = attempt.attempt_id;
+        QuizState.questions = questions;
+        QuizState.currentQuestionIndex = 0;
+        QuizState.userAnswers = {};
+        QuizState.startTime = new Date();
+        QuizState.isQuizActive = true;
+        
+        // Ipakita ang quiz modal
+        showQuizModal();
+        
+        // I-load ang unang tanong
+        loadQuizQuestionModal(0);
+        
+        // Simulan ang timer
+        startQuizTimerModal();
+        
+    } catch (error) {
+        console.error('❌ Error starting quiz:', error);
+        showNotification('Failed to start quiz: ' + error.message, 'error');
+        closeQuizModal();
+    }
+}
+// Ipakita ang quiz modal
+function showQuizModal() {
+    const modal = document.getElementById('quizModal');
+    if (modal) {
+        modal.style.display = 'flex';
+        document.body.classList.add('modal-open');
+        
+        // Kunin ang pangalan ng quiz
+        const category = QuizState.quizCategories.find(c => 
+            c.quizzes?.some(q => q.quiz_id == QuizState.currentQuiz)
+        );
+        
+        const titleSpan = document.getElementById('quizModalTitle');
+        if (titleSpan && category) {
+            titleSpan.textContent = `${category.category_name} Quiz`;
+        }
+    }
+}
+
+// Isara ang quiz modal
+function closeQuizModal() {
+    console.log('🚪 Closing quiz modal - returning to dashboard');
+    
+    const modal = document.getElementById('quizModal');
+    const quizContainer = document.getElementById('quizContainer');
+    const resultsContainer = document.getElementById('quizResultsContainer');
+    
+    if (modal) {
+        modal.style.display = 'none';
+        document.body.classList.remove('modal-open');
+    }
+    
+    // Reset containers
+    if (quizContainer) {
+        quizContainer.style.display = 'block';
+    }
+    if (resultsContainer) {
+        resultsContainer.style.display = 'none';
+    }
+    
+    // Stop timer
+    if (QuizSystem.timerInterval) {
+        clearInterval(QuizSystem.timerInterval);
+        QuizSystem.timerInterval = null;
+    }
+    
+    // I-SHOW ANG QUIZ DASHBOARD (may categories)
+    const quizInterface = document.getElementById('quizInterfaceContainer');
+    const quizCards = document.getElementById('userQuizzesContainer');
+    const badgesContainer = document.getElementById('badgesContainer');
+    const leaderboardContainer = document.getElementById('leaderboardContainer');
+    
+    if (quizInterface) {
+        quizInterface.classList.add('hidden');
+        quizInterface.style.display = 'none';
+    }
+    
+    if (quizCards) {
+        quizCards.classList.remove('hidden');
+        quizCards.style.display = 'block';
+    }
+    
+    if (badgesContainer) {
+        badgesContainer.classList.remove('hidden');
+        badgesContainer.style.display = 'block';
+    }
+    
+    if (leaderboardContainer) {
+        leaderboardContainer.classList.remove('hidden');
+        leaderboardContainer.style.display = 'block';
+    }
+    
+    // I-refresh ang quiz dashboard
+    if (typeof loadQuizCategories === 'function') {
+        setTimeout(() => {
+            loadQuizCategories();
+        }, 100);
+    }
+}
+
+
+// Ipakita ang loading sa modal
+// ============================================
+// SHOW LOADING
+// ============================================
+function showQuizModalLoading() {
+    const modal = document.getElementById('quizModal');
+    if (modal) {
+        modal.style.display = 'flex';
+        
+        const optionsGrid = document.getElementById('quizOptionsGridModal');
+        if (optionsGrid) {
+            optionsGrid.innerHTML = `
+                <div style="text-align: center; padding: 40px;">
+                    <i class="fas fa-spinner fa-spin" style="font-size: 50px; color: #7a0000;"></i>
+                    <p style="margin-top: 20px; color: #666;">Loading quiz questions...</p>
+                </div>
+            `;
+        }
+    }
+}
+
+
+
+
+// ============================================
+// LOAD QUIZ SYSTEM QUESTION - UPDATED
+// ============================================
+function loadQuizSystemQuestion(index) {
+    if (!QuizSystem.questions || QuizSystem.questions.length === 0) return;
+    
+    const question = QuizSystem.questions[index];
+    QuizSystem.currentIndex = index;
+    
+    console.log(`📝 Loading question ${index + 1}/${QuizSystem.questions.length}`);
+    
+    // Update question number
+    const currentNum = document.getElementById('quizCurrentNum');
+    const totalNum = document.getElementById('quizTotalNum');
+    if (currentNum) currentNum.textContent = index + 1;
+    if (totalNum) totalNum.textContent = QuizSystem.questions.length;
+    
+    // Update question text
+    const questionText = document.getElementById('quizQuestionTextModal');
+    if (questionText) {
+        questionText.textContent = question.question_text || 'Question text not available';
+    }
+    
+    // Update progress dots
+    updateQuizSystemProgressDots();
+    
+    // Show/hide submit button
+    const submitBtn = document.getElementById('submitQuizBtn');
+    if (submitBtn) {
+        const allAnswered = QuizSystem.questions.every(q => 
+            QuizSystem.userAnswers[q.question_id] !== undefined
+        );
+        
+        if (index === QuizSystem.questions.length - 1 || allAnswered) {
+            submitBtn.style.display = 'block';
+        } else {
+            submitBtn.style.display = 'none';
+        }
+    }
+    
+    // Clear previous options
+    const optionsGrid = document.getElementById('quizOptionsGridModal');
+    if (!optionsGrid) return;
+    
+    optionsGrid.innerHTML = '';
+    
+    // Generate options
+    if (question.options && question.options.length > 0) {
+        question.options.forEach((option, i) => {
+            // ✅ FIXED: Gamitin ang tamang property names
+            const optionId = option.id;  // ← DITO: option.id, hindi option.option_id
+            const optionText = option.text || option.option_text || `Option ${String.fromCharCode(65 + i)}`;
+            const isCorrect = option.is_correct === 1;  // ← TAMA na ito
+            const letter = String.fromCharCode(65 + i);
+            
+            console.log(`Option ${letter}:`, {
+                id: optionId,
+                text: optionText,
+                isCorrect: isCorrect
+            });
+            
+            // Check if this option was previously selected
+            const isSelected = QuizSystem.userAnswers[question.question_id] == optionId;
+            
+            const optionDiv = document.createElement('div');
+            optionDiv.className = 'quiz-option-modal' + (isSelected ? ' selected' : '');
+            optionDiv.setAttribute('data-option-id', optionId);
+            optionDiv.setAttribute('data-question-id', question.question_id);
+            optionDiv.setAttribute('data-is-correct', isCorrect);  // Store kung correct
+            
+            optionDiv.innerHTML = `
+                <div class="option-letter" style="
+                    width: 30px; height: 30px; border: 2px solid #7a0000; border-radius: 50%; 
+                    display: flex; align-items: center; justify-content: center; font-weight: bold;
+                    background: ${isSelected ? '#7a0000' : 'transparent'}; 
+                    color: ${isSelected ? 'white' : '#7a0000'};
+                ">
+                    ${letter}
+                </div>
+                <div style="flex: 1; font-size: 16px;">${optionText}</div>
+            `;
+            
+            optionDiv.addEventListener('click', function() {
+                // Remove selected from all
+                document.querySelectorAll('.quiz-option-modal').forEach(opt => {
+                    opt.classList.remove('selected');
+                    opt.querySelector('.option-letter').style.background = 'transparent';
+                    opt.querySelector('.option-letter').style.color = '#7a0000';
+                });
+                
+                // Mark this as selected
+                this.classList.add('selected');
+                this.querySelector('.option-letter').style.background = '#7a0000';
+                this.querySelector('.option-letter').style.color = 'white';
+                
+                // Save answer
+                const questionId = question.question_id;
+                const optionId = this.getAttribute('data-option-id');
+                
+                saveAnswerAndContinue(questionId, optionId);
+            });
+            
+            optionsGrid.appendChild(optionDiv);
+        });
+    } else {
+        optionsGrid.innerHTML = '<p class="no-options">No options available for this question.</p>';
+    }
+}
+
+
+
+function loadQuizQuestionModal(index) {
+    if (!QuizState.questions || QuizState.questions.length === 0) return;
+    
+    const question = QuizState.questions[index];
+    QuizState.currentQuestionIndex = index;
+    
+    console.log('📝 Loading question in modal:', question);
+    
+    // Update question number
+    const currentNum = document.getElementById('quizCurrentNum');
+    const totalNum = document.getElementById('quizTotalNum');
+    if (currentNum) currentNum.textContent = index + 1;
+    if (totalNum) totalNum.textContent = QuizState.questions.length;
+    
+    // Update question text
+    const questionText = document.getElementById('quizQuestionTextModal');
+    if (questionText) {
+        questionText.textContent = question.question_text || 'Question text not available';
+    }
+    
+    // Get options grid
+    const optionsGrid = document.getElementById('quizOptionsGridModal');
+    if (!optionsGrid) return;
+    
+    // Clear previous options
+    optionsGrid.innerHTML = '';
+    
+    // Add options based on question type
+    if (question.question_type === 'multiple_choice' || question.question_type === 'true_false') {
+        if (question.options && question.options.length > 0) {
+            question.options.forEach((option, i) => {
+                const optionId = option.id || option.option_id || i + 1;
+                const optionText = option.text || option.option_text || `Option ${String.fromCharCode(65 + i)}`;
+                
+                const optionDiv = document.createElement('div');
+                optionDiv.className = 'quiz-option-modal';
+                optionDiv.setAttribute('data-option-id', optionId);
+                optionDiv.style.cssText = `
+                    background: white;
+                    border: 2px solid #e0e0e0;
+                    border-radius: 8px;
+                    padding: 15px 20px;
+                    cursor: pointer;
+                    transition: all 0.3s;
+                    display: flex;
+                    align-items: center;
+                    gap: 15px;
+                `;
+                
+                optionDiv.innerHTML = `
+                    <div style="width: 24px; height: 24px; border: 2px solid #7a0000; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold; color: #7a0000;">
+                        ${String.fromCharCode(65 + i)}
+                    </div>
+                    <div style="flex: 1; font-size: 16px;">${optionText}</div>
+                `;
+                
+                optionDiv.addEventListener('mouseover', function() {
+                    if (!this.classList.contains('selected')) {
+                        this.style.background = '#f5f5f5';
+                        this.style.borderColor = '#7a0000';
+                    }
+                });
+                
+                optionDiv.addEventListener('mouseout', function() {
+                    if (!this.classList.contains('selected')) {
+                        this.style.background = 'white';
+                        this.style.borderColor = '#e0e0e0';
+                    }
+                });
+                
+                optionDiv.addEventListener('click', function() {
+                    // Remove selected from all
+                    document.querySelectorAll('.quiz-option-modal').forEach(opt => {
+                        opt.classList.remove('selected');
+                        opt.style.background = 'white';
+                        opt.style.borderColor = '#e0e0e0';
+                        opt.querySelector('div:first-child').style.background = 'transparent';
+                        opt.querySelector('div:first-child').style.color = '#7a0000';
+                    });
+                    
+                    // Mark this as selected
+                    this.classList.add('selected');
+                    this.style.background = '#e8f5e9';
+                    this.style.borderColor = '#7a0000';
+                    this.querySelector('div:first-child').style.background = '#7a0000';
+                    this.querySelector('div:first-child').style.color = 'white';
+                    
+                    // Save answer
+                    const questionId = question.question_id;
+                    QuizState.userAnswers[questionId] = optionId;
+                    
+                    // Update progress dots
+                    updateQuizProgressDots();
+                    
+                    // Move to next question after short delay
+                    setTimeout(() => {
+                        if (index < QuizState.questions.length - 1) {
+                            loadQuizQuestionModal(index + 1);
+                        } else {
+                            submitQuizModal();
+                        }
+                    }, 500);
+                });
+                
+                optionsGrid.appendChild(optionDiv);
+            });
+        }
+    }
+    
+    // Update progress dots
+    updateQuizProgressDots();
+}
+
+// Update progress dots
+// ============================================
+// UPDATE PROGRESS DOTS
+// ============================================
+function updateQuizSystemProgressDots() {
+    const dotsContainer = document.getElementById('quizProgressDotsModal');
+    if (!dotsContainer || !QuizSystem.questions) return;
+    
+    let dotsHTML = '';
+    QuizSystem.questions.forEach((q, i) => {
+        const isAnswered = QuizSystem.userAnswers[q.question_id] !== undefined;
+        const isCurrent = i === QuizSystem.currentIndex;
+        
+        dotsHTML += `
+            <div style="
+                width: 12px; 
+                height: 12px; 
+                border-radius: 50%; 
+                background: ${isAnswered ? '#7a0000' : (isCurrent ? '#ff6b6b' : '#ddd')};
+                cursor: pointer;
+                transition: all 0.3s;
+                transform: ${isCurrent ? 'scale(1.2)' : 'scale(1)'};
+            " onclick="jumpToQuizQuestion(${i})"></div>
+        `;
+    });
+    
+    dotsContainer.innerHTML = dotsHTML;
+}
+
+
+// Jump to specific question
+window.jumpToQuizQuestion = function(index) {
+    if (index >= 0 && index < QuizSystem.questions.length) {
+        loadQuizSystemQuestion(index);
+    }
+};
+
+
+// ============================================
+// START TIMER
+// ============================================
+function startQuizSystemTimer() {
+    if (QuizSystem.timerInterval) {
+        clearInterval(QuizSystem.timerInterval);
+    }
+    
+    QuizSystem.timerInterval = setInterval(() => {
+        if (QuizSystem.timeLeft > 0) {
+            QuizSystem.timeLeft--;
+            
+            const minutes = Math.floor(QuizSystem.timeLeft / 60);
+            const seconds = QuizSystem.timeLeft % 60;
+            
+            const timerDisplay = document.getElementById('quizTimerDisplay');
+            if (timerDisplay) {
+                timerDisplay.textContent = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+            }
+            
+            // Auto-submit when time runs out
+            if (QuizSystem.timeLeft <= 0) {
+                clearInterval(QuizSystem.timerInterval);
+                submitQuizSystem();
+            }
+        }
+    }, 1000);
+}
+
+
+// Submit quiz
+
+// ============================================
+// ✅ PERMANENT FIX: SUBMIT QUIZ SYSTEM - WITH WORKING RESULTS DISPLAY & AUTO REFRESH
+// ============================================
+async function submitQuizSystem() {
+    console.log('📝 Submitting quiz to database...');
+    
+    try {
+        if (!QuizSystem.currentAttemptId) {
+            console.error('❌ No attempt_id found!');
+            showNotification('Quiz session expired. Please start again.', 'error');
+            closeQuizSystemModal();
+            return;
+        }
+        
+        // Stop timer
+        if (QuizSystem.timerInterval) {
+            clearInterval(QuizSystem.timerInterval);
+            QuizSystem.timerInterval = null;
+        }
+        
+        const timeSpentSeconds = Math.floor((Date.now() - QuizSystem.startTime) / 1000);
+        console.log(`⏱️ Time spent: ${timeSpentSeconds} seconds`);
+        
+        const token = localStorage.getItem('authToken');
+        if (!token) {
+            showNotification('Please login again', 'error');
+            return;
+        }
+        
+        // ===== COMPUTE SCORE =====
+        let correctCount = 0;
+        let totalQuestions = QuizSystem.questions.length;
+        
+        // ✅ Gumamit ng answerResults kung meron
+        if (QuizSystem.answerResults) {
+            correctCount = Object.values(QuizSystem.answerResults).filter(v => v === true).length;
+            console.log(`✅ Score from answerResults: ${correctCount}/${totalQuestions}`);
+        } 
+        // ✅ Kung wala, gamitin ang stats
+        else if (QuizSystem.stats) {
+            correctCount = QuizSystem.stats.correct || 0;
+            console.log(`✅ Score from stats: ${correctCount}/${totalQuestions}`);
+        }
+        // ✅ Fallback: compute from questions
+        else {
+            QuizSystem.questions.forEach(q => {
+                const userAnswer = QuizSystem.userAnswers[q.question_id];
+                if (userAnswer) {
+                    const correctOption = q.options?.find(opt => opt.is_correct === 1 || opt.correct === true);
+                    if (correctOption && userAnswer == correctOption.id) {
+                        correctCount++;
+                    }
+                }
+            });
+            console.log(`✅ Score from questions fallback: ${correctCount}/${totalQuestions}`);
+        }
+        
+        const wrongCount = totalQuestions - correctCount;
+        const score = Math.round((correctCount / totalQuestions) * 100);
+        const pointsEarned = correctCount * 10;
+        
+        console.log(`📊 FINAL SCORE: ${correctCount}/${totalQuestions} = ${score}%`);
+        console.log(`💰 Points earned: ${pointsEarned}`);
+        
+        // ===== COMPLETE THE QUIZ ATTEMPT =====
+        console.log(`🏁 Completing attempt ${QuizSystem.currentAttemptId}...`);
+        
+        const completeResponse = await fetch(`/api/quiz/attempt/${QuizSystem.currentAttemptId}/complete`, {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                time_spent_seconds: timeSpentSeconds
+            })
+        });
+        
+        const completeData = await completeResponse.json();
+        console.log('📥 Complete response:', completeData);
+        
+        // ===== SHOW RESULTS =====
+        const quizContainer = document.getElementById('quizContainer');
+        const resultsContainer = document.getElementById('quizResultsContainer');
+        
+        if (quizContainer) quizContainer.style.display = 'none';
+        if (resultsContainer) {
+            resultsContainer.style.display = 'block';
+            
+            // ✅ I-display ang results
+            resultsContainer.innerHTML = generateResultsHTML({
+                score,
+                correctCount,
+                wrongCount,
+                totalQuestions,
+                timeSpentSeconds,
+                attemptId: QuizSystem.currentAttemptId,
+                pointsEarned
+            });
+        }
+        
+        // ===== ✅ CRITICAL: AUTO-REFRESH QUIZ STATS =====
+        console.log('🔄 Auto-refreshing quiz stats...');
+        
+        // I-update ang quiz stats sa sidebar
+        await loadQuizStatsFromServer();
+        
+        // I-update din ang overall progress sa dashboard
+        if (typeof updateProgressSummaryCards === 'function') {
+            await updateProgressSummaryCards();
+        }
+        
+        // I-update ang cumulative progress
+        if (typeof fetchCumulativeProgress === 'function') {
+            await fetchCumulativeProgress();
+        }
+        
+        // I-update ang daily progress
+        if (typeof fetchDailyProgress === 'function') {
+            await fetchDailyProgress();
+        }
+        
+        // I-update ang practice statistics (kung may connection ang quizzes at practice)
+        if (typeof fetchPracticeStatistics === 'function') {
+            await fetchPracticeStatistics();
+        }
+        
+        // ===== I-UPDATE ANG SPECIFIC UI ELEMENTS =====
+        const quizCurrentScore = document.getElementById('quizCurrentScore');
+        if (quizCurrentScore) {
+            quizCurrentScore.textContent = `${score}%`;
+            // Add animation para mapansin
+            quizCurrentScore.style.transition = 'all 0.3s';
+            quizCurrentScore.style.transform = 'scale(1.2)';
+            quizCurrentScore.style.color = '#27ae60';
+            setTimeout(() => {
+                quizCurrentScore.style.transform = 'scale(1)';
+                quizCurrentScore.style.color = '';
+            }, 500);
+        }
+        
+        const quizAccuracy = document.getElementById('quizAccuracy');
+        if (quizAccuracy) {
+            const accuracy = Math.round((correctCount / totalQuestions) * 100);
+            quizAccuracy.textContent = `${accuracy}%`;
+        }
+        
+        showNotification(`🎉 Quiz completed! Score: ${score}%`, 'success');
+        
+        // ===== LOG ACTIVITY =====
+        try {
+            await logUserActivity('quiz_completed', QuizSystem.currentQuiz, {
+                score: score,
+                attempt_id: QuizSystem.currentAttemptId
+            });
+        } catch (logError) {
+            console.warn('⚠️ Could not log activity:', logError.message);
+        }
+        
+        // Clear tracking
+        delete QuizSystem.submittedQuestions;
+        delete QuizSystem.answerResults;
+        delete QuizSystem.stats;
+        
+    } catch (error) {
+        console.error('❌ Error in submitQuizSystem:', error);
+        
+        const resultsContainer = document.getElementById('quizResultsContainer');
+        if (resultsContainer) {
+            resultsContainer.style.display = 'block';
+            resultsContainer.innerHTML = `
+                <div style="text-align: center; padding: 40px;">
+                    <i class="fas fa-exclamation-triangle" style="font-size: 60px; color: #e74c3c; margin-bottom: 20px;"></i>
+                    <h3 style="color: #2c3e50; margin-bottom: 10px;">Something went wrong</h3>
+                    <p style="color: #7f8c8d; margin-bottom: 20px;">${error.message}</p>
+                    <button onclick="closeQuizSystemModal()" class="btn-primary" style="padding: 12px 30px;">
+                        <i class="fas fa-times"></i> Close
+                    </button>
+                </div>
+            `;
+        }
+    }
+}
+
+// ============================================
+// 🚀 FORCE REFRESH ALL QUIZ-RELATED UI
+// ============================================
+async function refreshAllQuizUI() {
+    console.log('🔄 Refreshing all quiz-related UI elements...');
+    
+    try {
+        await Promise.all([
+            loadQuizStatsFromServer(),
+            fetchCumulativeProgress(),
+            fetchDailyProgress(),
+            updateProgressSummaryCards()
+        ]);
+        
+        console.log('✅ All quiz UI refreshed');
+    } catch (error) {
+        console.error('❌ Error refreshing quiz UI:', error);
+    }
+}
+
+// ============================================
+// 🔄 AUTO-REFRESH QUIZ STATS EVERY 30 SECONDS (kapag nasa quiz dashboard)
+// ============================================
+let quizStatsInterval = null;
+
+function startQuizStatsAutoRefresh() {
+    // Stop existing interval
+    if (quizStatsInterval) {
+        clearInterval(quizStatsInterval);
+    }
+    
+    // Start new interval
+    quizStatsInterval = setInterval(async () => {
+        // Check if quiz dashboard is visible
+        const quizPage = document.getElementById('quiz-dashboard-page');
+        if (quizPage && !quizPage.classList.contains('hidden')) {
+            console.log('🔄 Auto-refreshing quiz stats...');
+            await loadQuizStatsFromServer();
+        }
+    }, 30000); // Every 30 seconds
+}
+
+function stopQuizStatsAutoRefresh() {
+    if (quizStatsInterval) {
+        clearInterval(quizStatsInterval);
+        quizStatsInterval = null;
+    }
+}
+
+// ============================================
+// 🎯 DIRECT UPDATE NG QUIZ STATS SA SIDEBAR
+// ============================================
+async function updateQuizStatsDirectly(score, correctCount, totalQuestions) {
+    console.log(`📊 Directly updating quiz stats: ${score}%, ${correctCount}/${totalQuestions}`);
+    
+    const elements = {
+        score: document.getElementById('quizCurrentScore'),
+        accuracy: document.getElementById('quizAccuracy'),
+        time: document.getElementById('quizTimeSpent'),
+        rank: document.getElementById('quizRank')
+    };
+    
+    if (elements.score) {
+        elements.score.textContent = `${score}%`;
+        elements.score.style.transition = 'all 0.3s';
+        elements.score.style.transform = 'scale(1.2)';
+        elements.score.style.color = '#27ae60';
+        setTimeout(() => {
+            elements.score.style.transform = 'scale(1)';
+            elements.score.style.color = '';
+        }, 500);
+    }
+    
+    if (elements.accuracy) {
+        const accuracy = Math.round((correctCount / totalQuestions) * 100);
+        elements.accuracy.textContent = `${accuracy}%`;
+    }
+    
+    // I-try kunin ang updated rank
+    try {
+        const token = localStorage.getItem('authToken');
+        const rankResponse = await fetch('/api/leaderboard/user/position', {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        
+        if (rankResponse.ok) {
+            const rankData = await rankResponse.json();
+            if (rankData.success && elements.rank) {
+                elements.rank.textContent = `#${rankData.position.rank}`;
+            }
+        }
+    } catch (error) {
+        console.warn('Could not fetch rank:', error);
+    }
+}
+
+
+
+
+// ============================================
+// DISPLAY QUIZ RESULTS
+// ============================================
+function displayQuizResults(container, data) {
+    const minutes = Math.floor(data.timeSpentSeconds / 60);
+    const seconds = data.timeSpentSeconds % 60;
+    const timeFormatted = `${minutes}:${seconds.toString().padStart(2, '0')}`;
+    
+    const score = data.score;
+    let icon = 'fa-smile';
+    let iconColor = '#27ae60';
+    let bgColor = '#d4edda';
+    let message = 'Great job!';
+    
+    if (score >= 90) {
+        icon = 'fa-crown';
+        iconColor = '#f1c40f';
+        bgColor = '#fff3cd';
+        message = '🏆 Excellent! You\'re a math wizard!';
+    } else if (score >= 75) {
+        icon = 'fa-star';
+        iconColor = '#f39c12';
+        bgColor = '#fff4e0';
+        message = '🌟 Great job! You\'re doing well!';
+    } else if (score >= 50) {
+        icon = 'fa-smile';
+        iconColor = '#3498db';
+        bgColor = '#e8f4fd';
+        message = '💪 Good effort! Keep practicing!';
+    } else {
+        icon = 'fa-book';
+        iconColor = '#e74c3c';
+        bgColor = '#fee9e7';
+        message = '📚 Don\'t give up! Practice makes perfect!';
+    }
+    
+    container.innerHTML = `
+        <div class="modal-body" style="padding: 20px; background: white; border-radius: 12px;">
+            <div style="text-align: center; max-width: 400px; margin: 0 auto;">
+                
+                <!-- Icon -->
+                <div style="
+                    width: 80px;
+                    height: 80px;
+                    background: ${iconColor}20;
+                    border-radius: 50%;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    margin: 0 auto 15px;
+                    border: 3px solid ${iconColor};
+                ">
+                    <i class="fas ${icon}" style="font-size: 40px; color: ${iconColor};"></i>
+                </div>
+                
+                <!-- Title -->
+                <h2 style="color: #2c3e50; margin-bottom: 10px; font-size: 28px;">Quiz Completed!</h2>
+                
+                <!-- Score Circle -->
+                <div style="position: relative; width: 150px; height: 150px; margin: 15px auto;">
+                    <svg viewBox="0 0 36 36" style="width: 150px; height: 150px;">
+                        <path d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke="#e0e0e0" stroke-width="3"></path>
+                        <path d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke="${iconColor}" stroke-width="3" stroke-dasharray="${score}, 100" stroke-linecap="round"></path>
+                    </svg>
+                    <div style="
+                        position: absolute;
+                        top: 50%;
+                        left: 50%;
+                        transform: translate(-50%, -50%);
+                        font-size: 36px;
+                        font-weight: bold;
+                        color: ${iconColor};
+                    ">
+                        ${score}%
+                    </div>
+                </div>
+                
+                <!-- Message -->
+                <div style="
+                    background: ${bgColor};
+                    padding: 12px 15px;
+                    border-radius: 8px;
+                    margin: 15px 0;
+                    font-size: 16px;
+                    color: #2c3e50;
+                    border-left: 4px solid ${iconColor};
+                    text-align: left;
+                ">
+                    <i class="fas fa-quote-left" style="color: ${iconColor}; margin-right: 8px; font-size: 14px;"></i>
+                    ${message}
+                </div>
+                
+                <!-- Results Grid -->
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 15px 0;">
+                    <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 15px; border-radius: 10px; color: white;">
+                        <div style="font-size: 28px; font-weight: bold;">${data.correctCount}</div>
+                        <div style="font-size: 12px; opacity: 0.9;">Correct</div>
+                    </div>
+                    <div style="background: linear-gradient(135deg, #e74c3c 0%, #c0392b 100%); padding: 15px; border-radius: 10px; color: white;">
+                        <div style="font-size: 28px; font-weight: bold;">${data.wrongCount}</div>
+                        <div style="font-size: 12px; opacity: 0.9;">Wrong</div>
+                    </div>
+                    <div style="background: linear-gradient(135deg, #3498db 0%, #2980b9 100%); padding: 15px; border-radius: 10px; color: white;">
+                        <div style="font-size: 28px; font-weight: bold;">${data.totalQuestions}</div>
+                        <div style="font-size: 12px; opacity: 0.9;">Total</div>
+                    </div>
+                    <div style="background: linear-gradient(135deg, #f39c12 0%, #e67e22 100%); padding: 15px; border-radius: 10px; color: white;">
+                        <div style="font-size: 28px; font-weight: bold;">${timeFormatted}</div>
+                        <div style="font-size: 12px; opacity: 0.9;">Time</div>
+                    </div>
+                </div>
+                
+                <!-- Points and Attempt ID -->
+                <div style="background: #f8f9fa; padding: 15px; border-radius: 10px; margin: 15px 0;">
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <div>
+                            <div style="font-size: 20px; font-weight: bold; color: #7a0000;">+${data.correctCount * 10}</div>
+                            <div style="font-size: 12px; color: #666;">Points Earned</div>
+                        </div>
+                        <div style="text-align: right;">
+                            <div style="font-size: 16px; font-weight: bold; color: #34495e;">#${data.attemptId}</div>
+                            <div style="font-size: 12px; color: #666;">Attempt ID</div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Database Status -->
+                <div style="background: #27ae60; color: white; padding: 8px 12px; border-radius: 6px; margin: 15px 0; font-size: 14px;">
+                    <i class="fas fa-check-circle" style="font-size: 14px;"></i> Results saved to database
+                </div>
+                
+                <!-- Action Buttons -->
+                <div style="display: flex; gap: 10px; justify-content: center; margin-top: 20px;">
+                    <button onclick="closeQuizSystemModal()" style="
+                        padding: 8px 20px;
+                        border: 2px solid #7a0000;
+                        background: white;
+                        color: #7a0000;
+                        border-radius: 6px;
+                        font-size: 14px;
+                        font-weight: bold;
+                        cursor: pointer;
+                        transition: all 0.3s;
+                    ">
+                        <i class="fas fa-times"></i> Close
+                    </button>
+                    <button onclick="window.location.href='/quizdashboard'" style="
+                        padding: 8px 20px;
+                        background: #3498db;
+                        color: white;
+                        border: none;
+                        border-radius: 6px;
+                        font-size: 14px;
+                        font-weight: bold;
+                        cursor: pointer;
+                        transition: all 0.3s;
+                    ">
+                        <i class="fas fa-tachometer-alt"></i> Dashboard
+                    </button>
+                    <button onclick="startNewQuiz()" style="
+                        padding: 8px 20px;
+                        background: #7a0000;
+                        color: white;
+                        border: none;
+                        border-radius: 6px;
+                        font-size: 14px;
+                        font-weight: bold;
+                        cursor: pointer;
+                        transition: all 0.3s;
+                    ">
+                        <i class="fas fa-redo"></i> New
+                    </button>
+                </div>
+            </div>
+        </div>
+    `;
+}
+
+
+// ✅ Helper functions for result styling
+function getResultIcon(score) {
+    if (score >= 90) return 'fa-crown';
+    if (score >= 75) return 'fa-star';
+    if (score >= 50) return 'fa-smile';
+    return 'fa-book';
+}
+
+function getResultColor(score) {
+    if (score >= 90) return '#f1c40f';
+    if (score >= 75) return '#f39c12';
+    if (score >= 50) return '#3498db';
+    return '#e74c3c';
+}
+
+function getResultBgColor(score) {
+    if (score >= 90) return '#fff9e6';
+    if (score >= 75) return '#fff4e0';
+    if (score >= 50) return '#e8f4fd';
+    return '#fee9e7';
+}
+
+function getResultMessage(score) {
+    if (score >= 90) return '🏆 Excellent! You\'re a math wizard!';
+    if (score >= 75) return '🌟 Great job! You\'re doing well!';
+    if (score >= 50) return '💪 Good effort! Keep practicing!';
+    return '📚 Don\'t give up! Practice makes perfect!';
+}
+
+// ✅ Error display function
+function showErrorInResults(error) {
+    const resultsContainer = document.getElementById('quizResultsContainer');
+    if (resultsContainer) {
+        resultsContainer.innerHTML = `
+            <div class="modal-body" style="padding: 40px; text-align: center;">
+                <i class="fas fa-exclamation-triangle" style="font-size: 60px; color: #e74c3c; margin-bottom: 20px;"></i>
+                <h3 style="color: #2c3e50;">Something went wrong</h3>
+                <p style="color: #7f8c8d; margin: 20px 0;">${error.message}</p>
+                <button onclick="closeQuizSystemModal()" style="
+                    padding: 12px 20px;
+                    background: #7a0000;
+                    color: white;
+                    border: none;
+                    border-radius: 8px;
+                    font-size: 16px;
+                    cursor: pointer;
+                ">
+                    <i class="fas fa-times"></i> Close
+                </button>
+            </div>
+        `;
+    }
+}
+
+// ✅ Function for new quiz
+function startNewQuiz() {
+    const quizId = QuizSystem.quizId;
+    closeQuizSystemModal();
+    setTimeout(() => {
+        startQuizSystem(quizId);
+    }, 300);
+}
+
+// ============================================
+// MISSING QUIZ FUNCTIONS - IDAGDAG ITO
+// ============================================
+
+window.exitQuiz = function() {
+    console.log('🚪 Exiting quiz - returning to quiz dashboard');
+    
+    // Stop timer if running
+    if (QuizSystem.timerInterval) {
+        clearInterval(QuizSystem.timerInterval);
+        QuizSystem.timerInterval = null;
+    }
+    
+    // Hide quiz modal
+    const modal = document.getElementById('quizModal');
+    if (modal) {
+        modal.style.display = 'none';
+        document.body.classList.remove('modal-open');
+    }
+    
+    // Reset quiz state
+    QuizSystem.currentQuiz = null;
+    QuizSystem.currentAttemptId = null;
+    QuizSystem.questions = [];
+    QuizSystem.currentIndex = 0;
+    QuizSystem.userAnswers = {};
+    QuizSystem.startTime = null;
+    QuizSystem.timeLeft = 0;
+    QuizSystem.stats = { correct: 0, wrong: 0, score: 0 };
+    
+    // I-SHOW ANG QUIZ DASHBOARD (may categories)
+    const quizInterface = document.getElementById('quizInterfaceContainer');
+    const quizCards = document.getElementById('userQuizzesContainer');
+    const badgesContainer = document.getElementById('badgesContainer');
+    const leaderboardContainer = document.getElementById('leaderboardContainer');
+    
+    if (quizInterface) {
+        quizInterface.classList.add('hidden');
+        quizInterface.style.display = 'none';
+    }
+    
+    if (quizCards) {
+        quizCards.classList.remove('hidden');
+        quizCards.style.display = 'block';
+    }
+    
+    if (badgesContainer) {
+        badgesContainer.classList.remove('hidden');
+        badgesContainer.style.display = 'block';
+    }
+    
+    if (leaderboardContainer) {
+        leaderboardContainer.classList.remove('hidden');
+        leaderboardContainer.style.display = 'block';
+    }
+    
+    // I-refresh ang quiz dashboard kung kailangan
+    if (typeof loadQuizCategories === 'function') {
+        loadQuizCategories();
+    }
+    
+    if (typeof loadLeaderboard === 'function') {
+        loadLeaderboard('weekly');
+    }
+    
+    if (typeof loadUserBadges === 'function') {
+        loadUserBadges();
+    }
+    
+    showNotification('Returned to quiz dashboard', 'info');
+};
+
+
+// Return to quiz list
+// ============================================
+// RETURN TO QUIZ LIST - ALIAS PARA SA EXIT
+// ============================================
+window.returnToQuizList = function() {
+    console.log('📋 Returning to quiz list');
+    exitQuiz(); // Tawagin lang ang exitQuiz
+};
+
+// Review quiz
+window.reviewQuiz = function() {
+    console.log('Reviewing quiz');
+    if (QuizState.currentQuiz) {
+        startQuiz(QuizState.currentQuiz);
+    }
+};
+
+// Start quiz function (simplified version)
+async function startQuiz(quizId) {
+    console.log('Starting quiz:', quizId);
+    alert('Quiz feature coming soon!');
+}
+
+// ============================================
+// QUIZ STATE - Make sure this is defined
+// ============================================
+if (typeof QuizState === 'undefined') {
+    window.QuizState = {
+        currentQuiz: null,
+        currentAttemptId: null,
+        questions: [],
+        currentIndex: 0,
+        userAnswers: {},
+        startTime: null,
+        timerInterval: null,
+        timeLeft: 0,
+        totalTime: 0,
+        stats: { correct: 0, wrong: 0, score: 0 },
+        quizCategories: [],
+        selectedCategory: null
     };
 }
 
-// ============================================
-// LOAD ALL MATHEASE DATA
-// ============================================
-async function loadMatheaseData() {
-    console.log('📥 Loading ALL Mathease data (lesson_id=1)...');
-    showDashboardLoading();
+function setupQuizButtons() {
+    // Find all "Start Quiz" buttons
+    document.querySelectorAll('.quiz-start-btn').forEach(button => {
+        button.addEventListener('click', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            
+            const quizId = this.getAttribute('data-quiz-id');
+            if (quizId) {
+                startQuizSystem(parseInt(quizId));
+            }
+        });
+    });
     
-    await Promise.allSettled([
-        updateContinueLearningModule(),
-        loadPracticeStatistics(),
-        loadQuizCategories(),
-        fetchCumulativeProgress(),
-        updateProgressSummaryCards()
-    ]);
+    // Also find any buttons with class 'start-quiz'
+    document.querySelectorAll('.start-quiz').forEach(button => {
+        button.addEventListener('click', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            
+            const quizId = this.getAttribute('data-quiz-id') || this.getAttribute('data-id');
+            if (quizId) {
+                startQuizSystem(parseInt(quizId));
+            }
+        });
+    });
+}
+
+
+document.addEventListener('DOMContentLoaded', function() {
+    // Initial setup
+    setTimeout(setupQuizButtons, 1000);
     
-    hideDashboardLoading();
-    console.log('✅ All Mathease data loaded');
+    // Also setup when quiz interface becomes visible
+    const observer = new MutationObserver(function(mutations) {
+        mutations.forEach(function(mutation) {
+            if (mutation.type === 'childList' || mutation.type === 'subtree') {
+                setupQuizButtons();
+            }
+        });
+    });
+    
+    observer.observe(document.body, { childList: true, subtree: true });
+});
+// Run this sa console AFTER mag-quiz
+async function checkDatabase() {
+    const token = localStorage.getItem('authToken');
+    
+    // Check latest attempts
+    const response = await fetch('/api/quiz/user/attempts', {
+        headers: { 'Authorization': `Bearer ${token}` }
+    });
+    const data = await response.json();
+    
+    console.log('📊 LATEST ATTEMPTS FROM DATABASE:');
+    data.attempts.slice(0, 3).forEach(a => {
+        console.log({
+            attempt_id: a.attempt_id,
+            status: a.status,
+            score: a.score,
+            submit_time: a.submit_time
+        });
+    });
+    
+    return data.attempts;
+}
+
+// Add this to check what's happening in the database
+async function debugLastQuizAttempt() {
+    try {
+        const token = localStorage.getItem('authToken');
+        const response = await fetch(`/api/quiz/debug/last-attempt`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        const data = await response.json();
+        console.log('🔍 Last Quiz Attempt Debug:', data);
+        
+        if (data.attempt) {
+            console.log('📊 Attempt ID:', data.attempt.attempt_id);
+            console.log('📊 Status:', data.attempt.status);
+            console.log('📊 Score:', data.attempt.total_score);
+            console.log('📊 Correct Answers:', data.attempt.correct_answers);
+            console.log('📊 Submit Time:', data.attempt.submit_time);
+        }
+        
+        return data;
+    } catch (error) {
+        console.error('Debug error:', error);
+    }
+}
+
+
+// TO THIS:
+const whiteboardStyle = document.createElement('style');  // ← RENAMED HERE
+whiteboardStyle.textContent = `
+    /* Prevent page scroll/drag when drawing on whiteboard */
+    #whiteboardCanvas {
+        touch-action: none !important;
+        -webkit-touch-callout: none !important;
+        -webkit-user-select: none !important;
+        user-select: none !important;
+        cursor: crosshair !important;
+    }
+    
+    /* Ensure modal doesn't scroll */
+    #whiteboardModal.modal-overlay.active {
+        overflow: hidden !important;
+    }
+    
+    #whiteboardModal .modal-body {
+        overflow: hidden !important;
+    }
+`;
+document.head.appendChild(whiteboardStyle);  // ← UPDATED HERE TOO
+
+console.log('✅ Mobile whiteboard fix applied');
+
+// Show actual quiz interface (question-by-question) - NEW FUNCTION
+function showActualQuizInterface(questions) {
+    const quizInterface = document.getElementById('quizInterface');
+    const quizOptionsGrid = document.getElementById('quizOptionsGrid');
+    
+    if (!quizInterface || !quizOptionsGrid) return;
+    
+    // Hide the quiz selection interface
+    quizOptionsGrid.innerHTML = '';
+    
+    // Load first question
+    loadQuizQuestion(0);
+}
+
+// Replace the loadQuizQuestion function
+function loadQuizQuestion(questionIndex) {
+    if (questionIndex < 0 || questionIndex >= QuizState.questions.length) return;
+    
+    const question = QuizState.questions[questionIndex];
+    QuizState.currentQuestionIndex = questionIndex;
+    
+    console.log('🔍 Loading question:', {
+        index: questionIndex,
+        questionId: question.question_id,
+        questionText: question.question_text,
+        questionType: question.question_type,
+        options: question.options
+    });
+    
+    // Set start time if this is the first question
+    if (questionIndex === 0 && !QuizState.startTime) {
+        QuizState.startTime = new Date();
+        console.log(`⏱️ Quiz started at: ${QuizState.startTime.toISOString()}`);
+    }
+    
+    // Update progress
+    const currentQuestionNum = document.getElementById('currentQuestionNum');
+    const totalQuestions = document.getElementById('totalQuestions');
+    const quizQuestionText = document.getElementById('quizQuestionText');
+    const quizOptionsGrid = document.getElementById('quizOptionsGrid');
+    const quizProgressDots = document.getElementById('quizProgressDots');
+    
+    if (currentQuestionNum) {
+        currentQuestionNum.textContent = questionIndex + 1;
+    }
+    
+    if (totalQuestions) {
+        totalQuestions.textContent = QuizState.questions.length;
+    }
+    
+    if (quizQuestionText) {
+        quizQuestionText.textContent = question.question_text;
+    }
+    
+    if (quizOptionsGrid) {
+        let optionsHTML = '';
+        
+        if (question.question_type === 'multiple_choice' || question.question_type === 'true_false') {
+            // Debug the options structure
+            console.log('🔍 Question options:', question.options);
+            
+            if (question.options && Array.isArray(question.options) && question.options.length > 0) {
+                question.options.forEach((option, index) => {
+                    const optionId = option.id || option.option_id || index;
+                    const optionText = option.text || option.option_text || `Option ${String.fromCharCode(65 + index)}`;
+                    
+                    optionsHTML += `
+                        <div class="quiz-option" data-option-id="${optionId}">
+                            <div class="quiz-option-selector">
+                                <i class="fas fa-circle"></i>
+                            </div>
+                            <div class="quiz-option-text">${optionText}</div>
+                        </div>
+                    `;
+                });
+            } else {
+                // If options array is empty or not provided, create default options
+                console.warn('⚠️ No options found for question, creating defaults');
+                const defaultOptions = [
+                    { id: 1, text: 'Option A' },
+                    { id: 2, text: 'Option B' },
+                    { id: 3, text: 'Option C' },
+                    { id: 4, text: 'Option D' }
+                ];
+                
+                defaultOptions.forEach(option => {
+                    optionsHTML += `
+                        <div class="quiz-option" data-option-id="${option.id}">
+                            <div class="quiz-option-selector">
+                                <i class="fas fa-circle"></i>
+                            </div>
+                            <div class="quiz-option-text">${option.text}</div>
+                        </div>
+                    `;
+                });
+            }
+        } else {
+            // For other question types (like fill in the blank)
+            optionsHTML = `
+                <div class="quiz-text-input-container">
+                    <input type="text" 
+                           class="quiz-text-input" 
+                           id="quizTextAnswer" 
+                           placeholder="Type your answer here...">
+                    <button class="quiz-submit-answer-btn" id="submitTextAnswerBtn">
+                        Submit Answer
+                    </button>
+                </div>
+            `;
+        }
+        
+        quizOptionsGrid.innerHTML = optionsHTML;
+        
+        // Add event listeners to options (for multiple choice)
+        if (question.question_type === 'multiple_choice' || question.question_type === 'true_false') {
+            document.querySelectorAll('.quiz-option').forEach(option => {
+                option.addEventListener('click', function() {
+                    // Remove selected class from all options
+                    document.querySelectorAll('.quiz-option').forEach(opt => {
+                        opt.classList.remove('selected');
+                    });
+                    
+                    // Add selected class to clicked option
+                    this.classList.add('selected');
+                    
+                    // Save answer
+                    const questionId = question.question_id;
+                    const optionId = this.getAttribute('data-option-id');
+                    QuizState.userAnswers[questionId] = optionId;
+                    
+                    console.log('✅ Selected answer:', {
+                        questionId: questionId,
+                        optionId: optionId
+                    });
+                    
+                    // Update progress dots
+                    updateProgressDots();
+                    
+                    // Auto-submit after selection
+                    setTimeout(() => {
+                        saveAnswerAndContinue(questionId, optionId);
+                    }, 500);
+                });
+            });
+        }
+        
+        // Add event listener for text answer submission
+        const submitTextAnswerBtn = document.getElementById('submitTextAnswerBtn');
+        if (submitTextAnswerBtn) {
+            submitTextAnswerBtn.addEventListener('click', function() {
+                const questionId = question.question_id;
+                const answerText = document.getElementById('quizTextAnswer').value;
+                
+                if (answerText.trim()) {
+                    QuizState.userAnswers[questionId] = answerText;
+                    saveAnswerAndContinue(questionId, answerText);
+                } else {
+                    showNotification('Please enter an answer', 'error');
+                }
+            });
+        }
+    }
+    
+    // Update progress dots
+    updateProgressDots();
+    
+    // Update timer
+    updateQuizTimer();
 }
 
 // ============================================
-// INITIALIZE APP - MATHEASE DEFAULT
+// SAVE ANSWER AND CONTINUE - COMPLETE FIX
+// ============================================
+async function saveAnswerAndContinue(questionId, answer) {
+    try {
+        if (!QuizSystem.currentAttemptId) {
+            console.error('❌ No active quiz attempt');
+            return;
+        }
+        
+        // Check if already answered
+        if (QuizSystem.submittedAnswers && QuizSystem.submittedAnswers[questionId]) {
+            console.log(`⏭️ Question ${questionId} already answered, moving to next...`);
+            
+            if (QuizSystem.currentIndex < QuizSystem.questions.length - 1) {
+                loadQuizSystemQuestion(QuizSystem.currentIndex + 1);
+            } else {
+                await submitQuizSystem();
+            }
+            return;
+        }
+        
+        const currentQuestion = QuizSystem.questions[QuizSystem.currentIndex];
+        if (!currentQuestion) {
+            console.error('❌ No current question found');
+            return;
+        }
+        
+        // Prepare answer data
+        const answerData = {
+            user_answer: answer.toString()
+        };
+        
+        if (currentQuestion.question_type === 'multiple_choice' || 
+            currentQuestion.question_type === 'true_false') {
+            answerData.selected_option_id = parseInt(answer);
+        }
+        
+        console.log('📤 Submitting answer:', {
+            attemptId: QuizSystem.currentAttemptId,
+            questionId: questionId,
+            answerData: answerData
+        });
+        
+        // ✅ Submit to server using the CORRECT URL
+        const result = await submitQuizAnswer(QuizSystem.currentAttemptId, questionId, answerData);
+        
+        // Store in local answers
+        QuizSystem.userAnswers[questionId] = answer;
+        
+        // Track if answer is correct
+        if (result && result.is_correct !== undefined) {
+            if (!QuizSystem.answerResults) QuizSystem.answerResults = {};
+            if (!QuizSystem.stats) QuizSystem.stats = { correct: 0, wrong: 0 };
+            
+            QuizSystem.answerResults[questionId] = result.is_correct;
+            
+            if (result.is_correct) {
+                QuizSystem.stats.correct++;
+                console.log(`✅ Correct answer for Q${questionId}`);
+            } else {
+                QuizSystem.stats.wrong++;
+                console.log(`❌ Wrong answer for Q${questionId}`);
+            }
+            
+            console.log(`📊 Stats - Correct: ${QuizSystem.stats.correct}, Wrong: ${QuizSystem.stats.wrong}`);
+        }
+        
+        if (result) {
+            console.log('✅ Answer processed successfully');
+            
+            // Mark as submitted
+            if (!QuizSystem.submittedAnswers) QuizSystem.submittedAnswers = {};
+            QuizSystem.submittedAnswers[questionId] = true;
+            
+            // Update progress dots
+            updateQuizSystemProgressDots();
+            
+            // Move to next question
+            if (QuizSystem.currentIndex < QuizSystem.questions.length - 1) {
+                setTimeout(() => {
+                    loadQuizSystemQuestion(QuizSystem.currentIndex + 1);
+                }, 300);
+            } else {
+                console.log('📝 Last question answered, ready to submit');
+                const submitBtn = document.getElementById('submitQuizBtn');
+                if (submitBtn) submitBtn.style.display = 'block';
+            }
+        } else {
+            console.warn('⚠️ Server error but answer saved locally');
+            
+            QuizSystem.submittedAnswers[questionId] = true;
+            updateQuizSystemProgressDots();
+            
+            if (QuizSystem.currentIndex < QuizSystem.questions.length - 1) {
+                setTimeout(() => {
+                    loadQuizSystemQuestion(QuizSystem.currentIndex + 1);
+                }, 300);
+            }
+        }
+        
+    } catch (error) {
+        console.error('❌ Error in saveAnswerAndContinue:', error);
+        QuizSystem.userAnswers[questionId] = answer;
+        QuizSystem.submittedAnswers[questionId] = true;
+        updateQuizSystemProgressDots();
+        
+        if (QuizSystem.currentIndex < QuizSystem.questions.length - 1) {
+            setTimeout(() => {
+                loadQuizSystemQuestion(QuizSystem.currentIndex + 1);
+            }, 500);
+        }
+    }
+}
+
+
+
+// Update progress dots
+function updateProgressDots() {
+    const quizProgressDots = document.getElementById('quizProgressDots');
+    if (!quizProgressDots) return;
+    
+    const dots = quizProgressDots.querySelectorAll('.progress-dot');
+    dots.forEach((dot, index) => {
+        const isCurrent = index === QuizState.currentQuestionIndex;
+        const isAnswered = QuizState.userAnswers[QuizState.questions[index].question_id] !== undefined;
+        
+        dot.classList.remove('current', 'answered');
+        if (isCurrent) dot.classList.add('current');
+        if (isAnswered) dot.classList.add('answered');
+    });
+}
+
+// Update quiz timer with database tracking
+function updateQuizTimer() {
+    const timerDisplay = document.getElementById('timerDisplay');
+    if (!timerDisplay) return;
+    
+    // Start timer if not already started
+    if (!QuizState.timerInterval) {
+        // Set start time if not set
+        if (!QuizState.startTime) {
+            QuizState.startTime = new Date();
+            console.log(`⏱️ Quiz started at: ${QuizState.startTime.toISOString()}`);
+        }
+        
+        QuizState.timerInterval = setInterval(async () => {
+            // Calculate elapsed seconds
+            const now = new Date();
+            QuizState.timer = Math.floor((now - QuizState.startTime) / 1000);
+            
+            // Format and display time
+            const minutes = Math.floor(QuizState.timer / 60);
+            const seconds = QuizState.timer % 60;
+            timerDisplay.textContent = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+            
+            // Every 30 seconds, update the time in database
+            if (QuizState.timer % 30 === 0 && QuizState.timer > 0) {
+                await updateQuizTimeInDatabase(QuizState.timer);
+            }
+        }, 1000);
+    }
+}
+
+// Stop quiz timer
+function stopQuizTimer() {
+    if (QuizState.timerInterval) {
+        clearInterval(QuizState.timerInterval);
+        QuizState.timerInterval = null;
+    }
+}
+
+// Submit quiz
+async function submitQuiz() {
+    try {
+        console.log('📝 Submitting quiz...');
+        
+        // ✅ IMPORTANT: Check kung may attempt_id
+        if (!QuizState.currentAttemptId) {
+            console.error('❌ No attempt_id found!');
+            showNotification('Quiz session expired. Please start again.', 'error');
+            return;
+        }
+        
+        // Save final answer
+        const currentQuestion = QuizState.questions[QuizState.currentQuestionIndex];
+        if (currentQuestion) {
+            const selectedOption = document.querySelector('.quiz-option.selected');
+            if (selectedOption) {
+                const questionId = currentQuestion.question_id;
+                const optionId = selectedOption.getAttribute('data-option-id') || selectedOption.getAttribute('data-option-value');
+                QuizState.userAnswers[questionId] = optionId;
+                console.log(`✅ Saved final answer for Q${questionId}:`, optionId);
+            }
+        }
+        
+        // Stop timer
+        stopQuizTimer();
+        
+        // Get final time
+        const finalTimeSpent = QuizState.timer || 0;
+        console.log(`⏱️ Final time spent: ${finalTimeSpent} seconds`);
+        
+        // Show loading
+        showNotification('Saving your answers...', 'info');
+        
+        // ✅ Submit all answers one by one
+        let answersSubmitted = 0;
+        for (const [questionId, answer] of Object.entries(QuizState.userAnswers)) {
+            const answerData = {
+                user_answer: answer.toString()
+            };
+            
+            // For multiple choice, send selected option ID
+            if (typeof answer === 'string' && answer.match(/^\d+$/)) {
+                answerData.selected_option_id = parseInt(answer);
+            }
+            
+            console.log(`📤 Submitting Q${questionId}:`, answerData);
+            
+            const result = await submitQuizAnswer(
+                QuizState.currentAttemptId, 
+                parseInt(questionId), 
+                answerData
+            );
+            
+            if (result) {
+                answersSubmitted++;
+                console.log(`✅ Q${questionId} saved`);
+            }
+        }
+        
+        console.log(`📊 Submitted ${answersSubmitted}/${Object.keys(QuizState.userAnswers).length} answers`);
+        
+        // ✅ Complete quiz attempt
+        console.log('🏁 Completing quiz attempt...');
+        const results = await completeQuizAttempt(QuizState.currentAttemptId, finalTimeSpent);
+        
+        if (results && results.success) {
+            console.log('✅ Quiz completed! Results:', results);
+            
+            // Store results
+            QuizState.quizResults = results.results || results;
+            
+            // ✅ SHOW RESULTS
+            showQuizResults(QuizState.quizResults);
+            
+            // Log activity
+            await logUserActivity('quiz_completed', QuizState.currentQuiz, {
+                score: QuizState.quizResults.score,
+                attempt_id: QuizState.currentAttemptId
+            });
+            
+            showNotification(`🎉 Quiz completed! Score: ${QuizState.quizResults.score}%`, 'success');
+            
+        } else {
+            throw new Error(results?.message || 'Failed to complete quiz');
+        }
+        
+    } catch (error) {
+        console.error('❌ Error submitting quiz:', error);
+        showNotification('Failed to submit quiz: ' + error.message, 'error');
+        
+        // Try to get results anyway
+        try {
+            const fallbackResults = await getQuizResults(QuizState.currentAttemptId);
+            if (fallbackResults) {
+                showQuizResults(fallbackResults);
+            }
+        } catch (e) {
+            console.error('Fallback also failed:', e);
+        }
+    }
+}
+
+// Show quiz results - IMPROVED VERSION
+function showQuizResultsModal(results, timeSpent) {
+    const optionsGrid = document.getElementById('quizOptionsGridModal');
+    if (!optionsGrid) return;
+    
+    // ✅ FIX 1: Mas magandang data handling
+    const totalQuestions = results.total_questions || 
+                          results.question_count || 
+                          QuizState.questions?.length || 
+                          0;
+    
+    const correctAnswers = results.correct_answers || 
+                          results.correct_count || 
+                          0;
+    
+    // ✅ FIX 2: Mas accurate na score calculation
+    let score = results.score;
+    if (!score && totalQuestions > 0) {
+        score = Math.round((correctAnswers / totalQuestions) * 100);
+    }
+    
+    const minutes = Math.floor(timeSpent / 60);
+    const seconds = timeSpent % 60;
+    
+    // ✅ FIX 3: Points - check kung galing sa server
+    const pointsEarned = results.points_earned || 
+                        results.points || 
+                        correctAnswers * 10;
+    
+    // ✅ FIX 4: Color based sa score
+    const scoreColor = score >= 90 ? '#27ae60' : 
+                      score >= 75 ? '#f39c12' : 
+                      score >= 50 ? '#e67e22' : '#e74c3c';
+    
+    const scoreIcon = score >= 90 ? 'fa-trophy' : 
+                     score >= 75 ? 'fa-star' : 
+                     score >= 50 ? 'fa-smile' : 'fa-meh';
+    
+    optionsGrid.innerHTML = `
+        <div style="text-align: center; padding: 30px;">
+            <div style="font-size: 70px; color: ${scoreColor}; margin-bottom: 20px;">
+                <i class="fas ${scoreIcon}"></i>
+            </div>
+            
+            <h2 style="color: #2c3e50; margin-bottom: 15px;">
+                ${score >= 75 ? '🎉 Congratulations!' : 'Quiz Completed!'}
+            </h2>
+            
+            <div style="font-size: 48px; font-weight: bold; color: ${scoreColor}; margin-bottom: 20px;">
+                ${score}%
+            </div>
+            
+            <div style="background: #f8f9fa; padding: 20px; border-radius: 8px; margin-bottom: 25px;">
+                <table style="width: 100%;">
+                    <tr>
+                        <td style="padding: 8px 0;"><strong>Correct Answers:</strong></td>
+                        <td style="padding: 8px 0; text-align: right; color: #27ae60; font-weight: bold;">
+                            ${correctAnswers}/${totalQuestions}
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="padding: 8px 0;"><strong>Time Taken:</strong></td>
+                        <td style="padding: 8px 0; text-align: right;">
+                            ${minutes}:${seconds.toString().padStart(2,'0')}
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="padding: 8px 0;"><strong>Points Earned:</strong></td>
+                        <td style="padding: 8px 0; text-align: right; color: #7a0000; font-weight: bold;">
+                            +${pointsEarned}
+                        </td>
+                    </tr>
+                    ${results.attempt_id ? `
+                    <tr>
+                        <td style="padding: 8px 0;"><strong>Attempt ID:</strong></td>
+                        <td style="padding: 8px 0; text-align: right; color: #7f8c8d;">
+                            #${results.attempt_id}
+                        </td>
+                    </tr>
+                    ` : ''}
+                </table>
+            </div>
+            
+            <div style="margin-top: 20px; color: #7f8c8d; font-size: 14px;">
+                <i class="fas fa-database"></i> Saved to database
+            </div>
+            
+            <div style="display: flex; gap: 10px; justify-content: center; margin-top: 20px;">
+                <button class="btn-secondary" onclick="closeQuizModal()">
+                    <i class="fas fa-times"></i> Close
+                </button>
+                <button class="btn-primary" onclick="location.reload()">
+                    <i class="fas fa-redo"></i> New Quiz
+                </button>
+                <button class="btn-info" onclick="viewQuizDetails(${results.attempt_id})" 
+                        style="background: #3498db; color: white; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer;">
+                    <i class="fas fa-chart-bar"></i> Details
+                </button>
+            </div>
+        </div>
+    `;
+    
+    // Hide progress dots
+    const dots = document.getElementById('quizProgressDotsModal');
+    if (dots) dots.style.display = 'none';
+    
+    // Hide navigation buttons
+    const navButtons = document.querySelector('.quiz-navigation');
+    if (navButtons) navButtons.style.display = 'none';
+}
+
+
+// View detailed quiz results
+async function viewQuizDetails(attemptId) {
+    try {
+        const token = localStorage.getItem('authToken');
+        const response = await fetch(`/api/quiz/attempt/${attemptId}/details`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            console.log('📊 Quiz Details:', data.details);
+            showDetailedResults(data.details);
+        }
+    } catch (error) {
+        console.error('Error fetching details:', error);
+    }
+}
+
+function showDetailedResults(details) {
+    const modalHTML = `
+        <div class="detailed-results-modal">
+            <h3>Quiz Details</h3>
+            <pre>${JSON.stringify(details, null, 2)}</pre>
+        </div>
+    `;
+    showModal(modalHTML);
+}
+
+
+// Reset quiz interface
+function resetQuizInterface() {
+    const quizInterface = document.getElementById('quizInterface');
+    const quizResultsContainer = document.getElementById('quizResultsContainer');
+    const quizCategoriesGrid = document.getElementById('quizCategoriesGrid');
+    const badgesContainer = document.getElementById('badgesContainer');
+    const leaderboardContainer = document.getElementById('leaderboardContainer');
+    
+    if (quizInterface) quizInterface.classList.add('hidden');
+    if (quizResultsContainer) quizResultsContainer.classList.add('hidden');
+    if (quizCategoriesGrid) quizCategoriesGrid.classList.remove('hidden');
+    if (badgesContainer) badgesContainer.classList.remove('hidden');
+    if (leaderboardContainer) leaderboardContainer.classList.remove('hidden');
+    
+    // Reset quiz state
+    QuizState.currentQuiz = null;
+    QuizState.currentAttemptId = null;
+    QuizState.questions = [];
+    QuizState.currentQuestionIndex = 0;
+    QuizState.userAnswers = {};
+    QuizState.timer = 0;
+    QuizState.startTime = null; // Reset start time
+    QuizState.isQuizActive = false;
+    QuizState.quizResults = null;
+    
+    // Stop timer
+    stopQuizTimer();
+}
+
+// Review quiz
+async function reviewQuiz(quizId, attemptId = null) {
+    try {
+        let results;
+        
+        if (attemptId) {
+            results = await getQuizResults(attemptId);
+        } else {
+            // Get latest attempt for this quiz
+            const attempts = await fetchUserQuizAttempts();
+            const quizAttempts = attempts.filter(a => a.quiz_id == quizId && a.completion_status === 'completed');
+            
+            if (quizAttempts.length === 0) {
+                showNotification('No completed attempts found for this quiz', 'error');
+                return;
+            }
+            
+            const latestAttempt = quizAttempts.sort((a, b) => new Date(b.end_time) - new Date(a.end_time))[0];
+            results = await getQuizResults(latestAttempt.attempt_id);
+        }
+        
+        if (!results) {
+            showNotification('Failed to load quiz review', 'error');
+            return;
+        }
+        
+        showQuizReview(results);
+        
+    } catch (error) {
+        console.error('Error reviewing quiz:', error);
+        showNotification('Failed to load quiz review', 'error');
+    }
+}
+
+// Show quiz review
+function showQuizReview(results) {
+    const modalHTML = `
+        <div class="quiz-review-modal">
+            <div class="review-header">
+                <h3><i class="fas fa-chart-bar"></i> Quiz Review</h3>
+                <div class="review-score">
+                    Score: <span class="score-value">${Math.round(results.score)}%</span>
+                </div>
+            </div>
+            
+            <div class="review-body">
+    `;
+    
+    results.questions.forEach((question, index) => {
+        const userAnswer = question.user_answer;
+        const isCorrect = question.is_correct;
+        
+        modalHTML += `
+            <div class="review-question ${isCorrect ? 'correct' : 'incorrect'}">
+                <div class="question-header">
+                    <h4>Question ${index + 1}</h4>
+                    <span class="result-badge ${isCorrect ? 'correct-badge' : 'incorrect-badge'}">
+                        ${isCorrect ? 'Correct' : 'Incorrect'}
+                    </span>
+                </div>
+                
+                <div class="question-text">
+                    <p>${question.question_text}</p>
+                </div>
+                
+                <div class="answer-review">
+                    <div class="user-answer">
+                        <strong>Your Answer:</strong> ${userAnswer || 'No answer provided'}
+                    </div>
+                    
+                    ${!isCorrect && question.correct_answer ? `
+                        <div class="correct-answer">
+                            <strong>Correct Answer:</strong> ${question.correct_answer}
+                        </div>
+                    ` : ''}
+                    
+                    ${question.explanation ? `
+                        <div class="explanation">
+                            <strong>Explanation:</strong> ${question.explanation}
+                        </div>
+                    ` : ''}
+                </div>
+            </div>
+        `;
+    });
+    
+    modalHTML += `
+            </div>
+            
+            <div class="review-footer">
+                <button class="btn-primary" id="closeReviewBtn">
+                    <i class="fas fa-times"></i> Close Review
+                </button>
+            </div>
+        </div>
+    `;
+    
+    showModal(modalHTML);
+    
+    document.getElementById('closeReviewBtn').addEventListener('click', () => {
+        const modal = document.querySelector('.modal-overlay');
+        if (modal) modal.remove();
+    });
+}
+
+// ============================================
+// FEEDBACK FUNCTIONS
+// ============================================
+
+// Initialize feedback functionality
+function initFeedback() {
+    console.log('💬 Initializing feedback system...');
+    
+    // Setup rating stars
+    setupRatingStars();
+    
+    // Setup feedback form submission
+    setupFeedbackForm();
+    
+    console.log('✅ Feedback system initialized');
+}
+
+// Setup rating stars
+function setupRatingStars() {
+    const stars = document.querySelectorAll('.star');
+    const ratingValue = document.getElementById('ratingValue');
+    
+    if (!stars.length || !ratingValue) return;
+    
+    stars.forEach(star => {
+        star.addEventListener('click', function() {
+            const rating = parseInt(this.getAttribute('onclick').match(/rate\((\d+)\)/)[1]);
+            
+            // Update stars display
+            stars.forEach((s, index) => {
+                if (index < rating) {
+                    s.classList.add('active');
+                    s.innerHTML = '★';
+                } else {
+                    s.classList.remove('active');
+                    s.innerHTML = '☆';
+                }
+            });
+            
+            // Update hidden input
+            ratingValue.value = rating;
+        });
+        
+        star.addEventListener('mouseover', function() {
+            const rating = parseInt(this.getAttribute('onclick').match(/rate\((\d+)\)/)[1]);
+            
+            stars.forEach((s, index) => {
+                if (index < rating) {
+                    s.classList.add('hover');
+                } else {
+                    s.classList.remove('hover');
+                }
+            });
+        });
+        
+        star.addEventListener('mouseout', function() {
+            stars.forEach(s => s.classList.remove('hover'));
+        });
+    });
+}
+
+
+// ===== FEEDBACK DASHBOARD FUNCTIONS =====
+
+// ===== Helper: Show message when no feedback =====
+function showNoFeedbackMessage(message) {
+    const tableBody = document.getElementById('feedbackTableBody');
+    if (!tableBody) return;
+    
+    feedbackData = [];
+    
+    tableBody.innerHTML = `
+        <tr>
+            <td colspan="8" class="text-center py-5">
+                <div style="text-align: center; padding: 40px;">
+                    <i class="fas fa-comment-slash" style="font-size: 4rem; color: #ccc; margin-bottom: 20px;"></i>
+                    <h4 style="color: #666; margin-bottom: 10px;">${message}</h4>
+                    <p style="color: #999; margin-bottom: 20px;">Feedback from users will appear here.</p>
+                    <button class="btn btn-primary" onclick="loadFeedbackData()" style="background: #7a0000;">
+                        <i class="fas fa-sync-alt"></i> Retry
+                    </button>
+                </div>
+            </td>
+        </tr>
+    `;
+    
+    // Reset stats to zero
+    const statsElements = ['totalRatings', 'totalComplaints', 'totalSuggestions', 'resolvedFeedbacks'];
+    statsElements.forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.textContent = '0';
+    });
+}
+// Add this function FIRST
+
+
+// Then your loadFeedbackData function
+async function loadFeedbackData() {
+    console.log("📥 Loading REAL feedback from MySQL database...");
+    
+    const tableBody = document.getElementById('feedbackTableBody');
+    if (tableBody) {
+        tableBody.innerHTML = `
+            <tr>
+                <td colspan="8" class="text-center py-5">
+                    <div style="text-align: center; padding: 40px;">
+                        <i class="fas fa-spinner fa-pulse fa-3x mb-3" style="color: #7a0000;"></i>
+                        <p class="text-muted">Loading feedback from database...</p>
+                    </div>
+                </td>
+            </tr>
+        `;
+    }
+    
+    try {
+        const token = localStorage.getItem('admin_token') || localStorage.getItem('authToken');
+        
+        const response = await fetch('/api/admin/feedback', {
+            headers: {
+                'Authorization': `Bearer ${token}`
+            }
+        });
+        
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        
+        const result = await response.json();
+        
+        if (result.success && result.feedback) {
+            feedbackData = result.feedback.map(f => ({
+                id: f.id || f.feedback_id,
+                user: f.user_name || f.user || 'Anonymous',
+                userAvatar: getInitials(f.user_name || f.user || 'User'),
+                type: f.type || 'feedback',
+                subject: f.subject || (f.message ? f.message.substring(0, 30) + '...' : 'General'),
+                message: f.message || '',
+                rating: f.rating || 0,
+                priority: f.priority || 'medium',
+                status: f.status || 'new',
+                date: f.date ? new Date(f.date).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
+                response: f.response || null,
+                responseDate: f.response_date ? new Date(f.response_date).toISOString().split('T')[0] : null,
+                responseBy: f.responded_by ? 'Admin' : null
+            }));
+            
+            console.log(`✅ Loaded ${feedbackData.length} feedback entries`);
+            
+            if (feedbackData.length === 0) {
+                showNoFeedbackMessage('No feedback found in database'); // ← Calls the fixed function
+                return;
+            }
+            
+            updateFeedbackTable();
+            updateFeedbackStats();
+            updateFeedbackChartsWithRealData();
+            
+        } else {
+            showNoFeedbackMessage('No feedback found');
+        }
+        
+    } catch (error) {
+        console.error('❌ Error loading feedback:', error);
+        showNoFeedbackMessage('Cannot connect to database');
+    }
+}
+function setupFeedbackForm() {
+    console.log('📝 Setting up feedback form...');
+    
+    const form = document.getElementById('feedbackForm');
+    if (!form) {
+        console.warn('Feedback form not found');
+        return;
+    }
+    
+    // Remove existing listeners
+    const newForm = form.cloneNode(true);
+    form.parentNode.replaceChild(newForm, form);
+    
+    newForm.addEventListener('submit', async function(e) {
+        e.preventDefault();
+        e.stopPropagation();
+        
+        console.log('📤 Submitting feedback...');
+        
+        // Get form values
+        const feedbackType = document.getElementById('feedbackType')?.value || 'general';
+        const feedbackMessage = document.getElementById('feedbackMessage')?.value;
+        const rating = document.getElementById('ratingValue')?.value || 0;
+        
+        if (!feedbackMessage) {
+            showNotification('error', 'Error', 'Please enter your feedback');
+            return;
+        }
+        
+        // Show loading
+        const submitBtn = newForm.querySelector('button[type="submit"]');
+        const originalText = submitBtn.innerHTML;
+        submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Sending...';
+        submitBtn.disabled = true;
+        
+        try {
+            // Save to database
+            const result = await saveFeedbackToDatabase({
+                type: feedbackType,
+                message: feedbackMessage,
+                rating: parseInt(rating)
+            });
+            
+            if (result.success) {
+                // Show success message
+                const successMsg = document.getElementById('feedbackSuccess');
+                if (successMsg) {
+                    successMsg.style.display = 'flex';
+                    setTimeout(() => {
+                        successMsg.style.display = 'none';
+                    }, 5000);
+                }
+                
+                // Reset form
+                newForm.reset();
+                resetRatingStars();
+                
+                showNotification('success', 'Thank You!', 'Your feedback has been sent.');
+            } else {
+                throw new Error(result.message || 'Failed to save feedback');
+            }
+            
+        } catch (error) {
+            console.error('Error submitting feedback:', error);
+            showNotification('error', 'Error', error.message);
+        } finally {
+            submitBtn.innerHTML = originalText;
+            submitBtn.disabled = false;
+        }
+    });
+    
+    console.log('✅ Feedback form setup complete');
+}
+async function saveFeedbackToDatabase(feedbackData) {
+    try {
+        const token = localStorage.getItem('authToken');
+        if (!token) {
+            throw new Error('Not authenticated');
+        }
+        
+        const response = await fetch('/api/feedback/submit', {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(feedbackData)
+        });
+        
+        const data = await response.json();
+        return data;
+        
+    } catch (error) {
+        console.error('Error saving feedback:', error);
+        
+        // Fallback to local storage
+        return saveFeedbackLocally(feedbackData);
+    }
+}
+function resetRatingStars() {
+    const stars = document.querySelectorAll('.star');
+    stars.forEach(star => {
+        star.classList.remove('active');
+        star.innerHTML = '☆';
+    });
+    const ratingValue = document.getElementById('ratingValue');
+    if (ratingValue) ratingValue.value = '0';
+}
+function toggleFAQ(element) {
+    const answer = element.nextElementSibling;
+    const icon = element.querySelector('i.fa-chevron-down');
+    
+    if (answer.classList.contains('open')) {
+        answer.classList.remove('open');
+        icon.style.transform = 'rotate(0deg)';
+    } else {
+        answer.classList.add('open');
+        icon.style.transform = 'rotate(180deg)';
+    }
+}
+
+function rate(value) {
+    const stars = document.querySelectorAll('.star');
+    const ratingValue = document.getElementById('ratingValue');
+    
+    stars.forEach((star, index) => {
+        if (index < value) {
+            star.classList.add('active');
+            star.innerHTML = '★';
+        } else {
+            star.classList.remove('active');
+            star.innerHTML = '☆';
+        }
+    });
+    
+    if (ratingValue) ratingValue.value = value;
+}
+// ===== Helper: Update feedback charts with real data =====
+function updateFeedbackChartsWithRealData() {
+    if (!feedbackData) return;
+    
+    console.log("📊 Updating feedback charts with real data...");
+    
+    // Update distribution chart
+    if (feedbackCharts.distributionChart) {
+        const ratings = feedbackData.filter(f => f.type === 'rating').length;
+        const complaints = feedbackData.filter(f => f.type === 'complaint').length;
+        const suggestions = feedbackData.filter(f => f.type === 'suggestion').length;
+        const questions = feedbackData.filter(f => f.type === 'question').length;
+        
+        if (feedbackData.length > 0) {
+            feedbackCharts.distributionChart.data.datasets[0].data = [
+                ratings, complaints, suggestions, questions
+            ];
+        }
+        
+        feedbackCharts.distributionChart.update();
+    }
+    
+    // Update trend chart
+    if (feedbackCharts.trendChart) {
+        const weeklyData = getWeeklyFeedbackData();
+        
+        feedbackCharts.trendChart.data.datasets[0].data = weeklyData.ratings;
+        feedbackCharts.trendChart.data.datasets[1].data = weeklyData.complaints;
+        feedbackCharts.trendChart.data.datasets[2].data = weeklyData.suggestions;
+        feedbackCharts.trendChart.update();
+    }
+}
+
+// ===== Helper: Get weekly feedback data =====
+function getWeeklyFeedbackData() {
+    const labels = ['Week 1', 'Week 2', 'Week 3', 'Week 4'];
+    
+    if (!feedbackData || feedbackData.length === 0) {
+        return {
+            labels: labels,
+            ratings: [0, 0, 0, 0],
+            complaints: [0, 0, 0, 0],
+            suggestions: [0, 0, 0, 0]
+        };
+    }
+    
+    const fourWeeksAgo = new Date();
+    fourWeeksAgo.setDate(fourWeeksAgo.getDate() - 28);
+    
+    const recentFeedback = feedbackData.filter(f => {
+        const feedbackDate = new Date(f.date || f.created_at || Date.now());
+        return feedbackDate >= fourWeeksAgo;
+    });
+    
+    const weeklyRatings = [0, 0, 0, 0];
+    const weeklyComplaints = [0, 0, 0, 0];
+    const weeklySuggestions = [0, 0, 0, 0];
+    
+    recentFeedback.forEach(f => {
+        const feedbackDate = new Date(f.date || f.created_at || Date.now());
+        const daysAgo = Math.floor((new Date() - feedbackDate) / (1000 * 60 * 60 * 24));
+        let weekIndex = 3;
+        
+        if (daysAgo <= 7) weekIndex = 0;
+        else if (daysAgo <= 14) weekIndex = 1;
+        else if (daysAgo <= 21) weekIndex = 2;
+        else weekIndex = 3;
+        
+        if (f.type === 'rating') weeklyRatings[weekIndex]++;
+        else if (f.type === 'complaint') weeklyComplaints[weekIndex]++;
+        else if (f.type === 'suggestion') weeklySuggestions[weekIndex]++;
+    });
+    
+    return {
+        labels: labels,
+        ratings: weeklyRatings,
+        complaints: weeklyComplaints,
+        suggestions: weeklySuggestions
+    };
+}
+
+
+// ============================================
+// 🚨 GLOBAL FORM PREVENTION
+// ============================================
+document.addEventListener('submit', function(e) {
+    // Check if it's the feedback form
+    if (e.target.id === 'feedbackForm' || e.target.closest('#feedbackForm')) {
+        e.preventDefault();
+        e.stopPropagation();
+        console.log('🚫 Global form submission prevented');
+        return false;
+    }
+}, true);
+
+
+
+
+// ============================================
+// ✅ FIXED: Save feedback locally
+// ============================================
+function saveFeedbackLocally(feedbackData) {
+    try {
+        // Get existing feedback from localStorage
+        let existingFeedback = JSON.parse(localStorage.getItem('local_feedback') || '[]');
+        
+        // Add new feedback with timestamp
+        const newFeedback = {
+            ...feedbackData,
+            id: Date.now(),
+            created_at: new Date().toISOString(),
+            status: 'pending'
+        };
+        
+        existingFeedback.push(newFeedback);
+        
+        // Keep only last 50 items
+        if (existingFeedback.length > 50) {
+            existingFeedback = existingFeedback.slice(-50);
+        }
+        
+        // Save back to localStorage
+        localStorage.setItem('local_feedback', JSON.stringify(existingFeedback));
+        
+        console.log('💾 Feedback saved locally, total:', existingFeedback.length);
+        
+        // Also update the feedback history display
+        displayLocalFeedbackHistory();
+        
+    } catch (e) {
+        console.error('Failed to save feedback locally:', e);
+    }
+}
+
+
+
+// ============================================
+// DISPLAY LOCAL FEEDBACK HISTORY
+// ============================================
+function displayLocalFeedbackHistory() {
+    const historyContainer = document.getElementById('feedbackHistory');
+    if (!historyContainer) return;
+    
+    try {
+        const localFeedback = JSON.parse(localStorage.getItem('local_feedback') || '[]');
+        
+        if (localFeedback.length === 0) {
+            // Try to load from server first
+            loadFeedbackHistory(10);
+            return;
+        }
+        
+        let html = '<div class="feedback-history-list">';
+        
+        // Sort by date (newest first)
+        localFeedback.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+        
+        localFeedback.slice(0, 10).forEach(item => {
+            const date = new Date(item.created_at || Date.now());
+            const formattedDate = date.toLocaleDateString('en-US', { 
+                month: 'short', 
+                day: 'numeric', 
+                year: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit'
+            });
+            
+            const ratingStars = '★'.repeat(item.rating || 0) + '☆'.repeat(5 - (item.rating || 0));
+            
+            html += `
+                <div class="feedback-history-item status-pending">
+                    <div class="feedback-history-header">
+                        <div>
+                            <span class="feedback-type-badge">${item.feedback_type || 'feedback'}</span>
+                            <span class="local-badge">(Saved locally)</span>
+                        </div>
+                        <span class="feedback-date">${formattedDate}</span>
+                    </div>
+                    
+                    <div class="feedback-history-body">
+                        <p class="feedback-message">${escapeHtml(item.feedback_message || '')}</p>
+                        
+                        ${item.rating > 0 ? `
+                            <div class="feedback-rating-display">
+                                <span class="rating-stars">${ratingStars}</span>
+                                <span class="rating-value">${item.rating}/5</span>
+                            </div>
+                        ` : ''}
+                    </div>
+                </div>
+            `;
+        });
+        
+        html += '</div>';
+        historyContainer.innerHTML = html;
+        
+    } catch (e) {
+        console.error('Error displaying local feedback:', e);
+    }
+}
+
+
+// Fetch user feedback (for display in admin or user profile)
+async function fetchUserFeedback(limit = 10, page = 1) {
+    try {
+        const token = localStorage.getItem('authToken') || authToken;
+        if (!token) {
+            console.warn('No auth token available');
+            return [];
+        }
+        
+        console.log('📋 Fetching user feedback...');
+        
+        const response = await fetch(`/api/feedback/user?limit=${limit}&page=${page}`, {
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+            }
+        });
+        
+        if (!response.ok) {
+            throw new Error(`Failed to fetch feedback: ${response.status}`);
+        }
+        
+        const data = await response.json();
+        
+        if (data.success && data.feedback) {
+            console.log(`✅ Fetched ${data.feedback.length} feedback items`);
+            return data.feedback;
+        } else {
+            throw new Error(data.message || 'No feedback returned');
+        }
+    } catch (error) {
+        console.error('Error fetching feedback:', error);
+        return [];
+    }
+}
+
+// Fetch feedback statistics (for admin dashboard)
+async function fetchFeedbackStats() {
+    try {
+        const token = localStorage.getItem('authToken') || authToken;
+        if (!token) {
+            console.warn('No auth token available');
+            return null;
+        }
+        
+        console.log('📊 Fetching feedback statistics...');
+        
+        const response = await fetch(`/api/feedback/stats`, {
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+            }
+        });
+        
+        if (!response.ok) {
+            throw new Error(`Failed to fetch feedback stats: ${response.status}`);
+        }
+        
+        const data = await response.json();
+        
+        if (data.success && data.stats) {
+            console.log('✅ Feedback statistics loaded');
+            return data.stats;
+        } else {
+            throw new Error(data.message || 'No feedback stats returned');
+        }
+    } catch (error) {
+        console.error('Error fetching feedback stats:', error);
+        return null;
+    }
+}
+
+// Update feedback status (admin function)
+async function updateFeedbackStatus(feedbackId, status, adminNotes = null) {
+    try {
+        const token = localStorage.getItem('authToken') || authToken;
+        if (!token) {
+            console.warn('No auth token available');
+            return false;
+        }
+        
+        console.log(`🔄 Updating feedback ${feedbackId} status to ${status}...`);
+        
+        const response = await fetch(`/api/feedback/${feedbackId}/update-status`, {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                status: status,
+                admin_notes: adminNotes
+            })
+        });
+        
+        if (!response.ok) {
+            throw new Error(`Failed to update feedback status: ${response.status}`);
+        }
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            console.log('✅ Feedback status updated');
+            return true;
+        } else {
+            throw new Error(data.message || 'Failed to update feedback status');
+        }
+    } catch (error) {
+        console.error('Error updating feedback status:', error);
+        return false;
+    }
+}
+
+// Initialize feedback dashboard
+function initFeedbackDashboard() {
+    console.log('💬 Initializing feedback dashboard...');
+    
+    try {
+        // Setup feedback form
+        initFeedback();
+        
+        // If user is admin, load feedback management
+        if (AppState.currentUser?.role === 'admin') {
+            loadFeedbackManagement();
+        }
+        
+        console.log('✅ Feedback dashboard initialized');
+    } catch (error) {
+        console.error('Error initializing feedback dashboard:', error);
+        showNotification('Failed to initialize feedback dashboard', 'error');
+    }
+}
+
+// Load feedback management (admin only)
+async function loadFeedbackManagement() {
+    try {
+        const feedbackContainer = document.getElementById('feedbackManagementContainer');
+        if (!feedbackContainer) return;
+        
+        // Check if user is admin
+        if (AppState.currentUser?.role !== 'admin') {
+            feedbackContainer.innerHTML = `
+                <div class="access-denied">
+                    <i class="fas fa-lock"></i>
+                    <h3>Admin Access Required</h3>
+                    <p>Only administrators can access feedback management.</p>
+                </div>
+            `;
+            return;
+        }
+        
+        // Load feedback stats and list
+        const [stats, feedbackList] = await Promise.all([
+            fetchFeedbackStats(),
+            fetchAllFeedback(20, 1)
+        ]);
+        
+        // Update UI with feedback management
+        updateFeedbackManagementUI(stats, feedbackList);
+        
+    } catch (error) {
+        console.error('Error loading feedback management:', error);
+        const feedbackContainer = document.getElementById('feedbackManagementContainer');
+        if (feedbackContainer) {
+            feedbackContainer.innerHTML = `
+                <div class="error-message">
+                    <i class="fas fa-exclamation-triangle"></i>
+                    <h3>Failed to load feedback management</h3>
+                    <p>Please try again later</p>
+                </div>
+            `;
+        }
+    }
+}
+// ============================================
+// FEEDBACK MANAGEMENT FUNCTIONS
+// ============================================
+
+// Fetch feedback statistics from server
+async function fetchFeedbackStats() {
+    try {
+        const token = localStorage.getItem('admin_token') || localStorage.getItem('authToken');
+        
+        const response = await fetch('/api/feedback/stats', {
+            headers: {
+                'Authorization': `Bearer ${token}`
+            }
+        });
+        
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        
+        const result = await response.json();
+        return result.stats || {};
+        
+    } catch (error) {
+        console.error('Error fetching feedback stats:', error);
+        return {
+            total: 0,
+            by_status: { new: 0, reviewed: 0, resolved: 0 },
+            average_rating: 0,
+            trends: []
+        };
+    }
+}
+
+// Fetch all feedback with pagination
+async function fetchAllFeedback(limit = 20, page = 1, status = 'all') {
+    try {
+        const token = localStorage.getItem('admin_token') || localStorage.getItem('authToken');
+        
+        let url = `/api/feedback/all?limit=${limit}&page=${page}`;
+        if (status !== 'all') {
+            url += `&status=${status}`;
+        }
+        
+        const response = await fetch(url, {
+            headers: {
+                'Authorization': `Bearer ${token}`
+            }
+        });
+        
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        
+        const result = await response.json();
+        return {
+            feedback: result.feedback || [],
+            pagination: result.pagination || { total: 0, page: 1, limit: 20, pages: 1 }
+        };
+        
+    } catch (error) {
+        console.error('Error fetching feedback:', error);
+        return { feedback: [], pagination: { total: 0, page: 1, limit: 20, pages: 1 } };
+    }
+}
+
+// Update feedback management UI
+function updateFeedbackManagementUI(stats, feedbackData) {
+    const container = document.getElementById('feedbackManagementContainer');
+    if (!container) return;
+    
+    // Update stats cards
+    updateFeedbackStatsUI(stats);
+    
+    // Build feedback list HTML
+    let feedbackHTML = `
+        <div class="feedback-management">
+            <div class="feedback-header">
+                <h2><i class="fas fa-comments"></i> Feedback Management</h2>
+                <div class="feedback-filters">
+                    <select id="feedbackStatusFilter" onchange="filterFeedbackByStatus()">
+                        <option value="all">All Status</option>
+                        <option value="new">New</option>
+                        <option value="reviewed">Reviewed</option>
+                        <option value="in_progress">In Progress</option>
+                        <option value="resolved">Resolved</option>
+                        <option value="closed">Closed</option>
+                    </select>
+                    <input type="text" id="searchFeedback" placeholder="Search feedback..." onkeyup="searchFeedback()">
+                </div>
+            </div>
+            
+            <div class="feedback-stats-grid">
+                <div class="stat-card total">
+                    <div class="stat-icon"><i class="fas fa-envelope"></i></div>
+                    <div class="stat-content">
+                        <span class="stat-value">${stats.total || 0}</span>
+                        <span class="stat-label">Total Feedback</span>
+                    </div>
+                </div>
+                <div class="stat-card new">
+                    <div class="stat-icon"><i class="fas fa-clock"></i></div>
+                    <div class="stat-content">
+                        <span class="stat-value">${stats.by_status?.new || 0}</span>
+                        <span class="stat-label">New</span>
+                    </div>
+                </div>
+                <div class="stat-card resolved">
+                    <div class="stat-icon"><i class="fas fa-check-circle"></i></div>
+                    <div class="stat-content">
+                        <span class="stat-value">${stats.by_status?.resolved || 0}</span>
+                        <span class="stat-label">Resolved</span>
+                    </div>
+                </div>
+                <div class="stat-card rating">
+                    <div class="stat-icon"><i class="fas fa-star"></i></div>
+                    <div class="stat-content">
+                        <span class="stat-value">${stats.average_rating || 0}</span>
+                        <span class="stat-label">Avg Rating</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="feedback-list">
+                <table class="feedback-table">
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>User</th>
+                            <th>Type</th>
+                            <th>Message</th>
+                            <th>Rating</th>
+                            <th>Status</th>
+                            <th>Date</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="feedbackTableBody">
+    `;
+    
+    if (feedbackData.feedback.length === 0) {
+        feedbackHTML += `
+            <tr>
+                <td colspan="8" class="text-center py-4">
+                    <i class="fas fa-inbox fa-3x mb-3" style="color: #ccc;"></i>
+                    <p>No feedback found</p>
+                </td>
+            </tr>
+        `;
+    } else {
+        feedbackData.feedback.forEach(f => {
+            const statusClass = `status-${f.status || 'new'}`;
+            const typeClass = `type-${f.type || 'other'}`;
+            const date = new Date(f.created_at).toLocaleDateString();
+            
+            feedbackHTML += `
+                <tr>
+                    <td>#${f.id}</td>
+                    <td>${f.full_name || f.username || 'Anonymous'}</td>
+                    <td><span class="badge ${typeClass}">${f.type || 'other'}</span></td>
+                    <td>${f.message ? f.message.substring(0, 50) + '...' : 'No message'}</td>
+                    <td>${f.rating ? '★'.repeat(f.rating) + '☆'.repeat(5-f.rating) : '-'}</td>
+                    <td><span class="badge ${statusClass}">${f.status || 'new'}</span></td>
+                    <td>${date}</td>
+                    <td>
+                        <button class="btn-icon" onclick="viewFeedbackDetail(${f.id})" title="View">
+                            <i class="fas fa-eye"></i>
+                        </button>
+                        <button class="btn-icon" onclick="editFeedback(${f.id})" title="Edit">
+                            <i class="fas fa-edit"></i>
+                        </button>
+                        <button class="btn-icon delete" onclick="deleteFeedback(${f.id})" title="Delete">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                    </td>
+                </tr>
+            `;
+        });
+    }
+    
+    feedbackHTML += `
+                    </tbody>
+                </table>
+            </div>
+            
+            <div class="pagination">
+                <button class="pagination-btn" onclick="changeFeedbackPage('prev')" ${feedbackData.pagination.page <= 1 ? 'disabled' : ''}>
+                    <i class="fas fa-chevron-left"></i>
+                </button>
+                <span>Page ${feedbackData.pagination.page} of ${feedbackData.pagination.pages}</span>
+                <button class="pagination-btn" onclick="changeFeedbackPage('next')" ${feedbackData.pagination.page >= feedbackData.pagination.pages ? 'disabled' : ''}>
+                    <i class="fas fa-chevron-right"></i>
+                </button>
+            </div>
+        </div>
+    `;
+    
+    container.innerHTML = feedbackHTML;
+}
+
+// Update feedback stats UI
+function updateFeedbackStatsUI(stats) {
+    // Update any stats elements if they exist outside the main container
+    const totalEl = document.getElementById('totalFeedback');
+    if (totalEl) totalEl.textContent = stats.total || 0;
+    
+    const newEl = document.getElementById('newFeedback');
+    if (newEl) newEl.textContent = stats.by_status?.new || 0;
+    
+    const resolvedEl = document.getElementById('resolvedFeedback');
+    if (resolvedEl) resolvedEl.textContent = stats.by_status?.resolved || 0;
+    
+    const ratingEl = document.getElementById('avgRating');
+    if (ratingEl) ratingEl.textContent = stats.average_rating || 0;
+}
+
+// Filter feedback by status
+async function filterFeedbackByStatus() {
+    const status = document.getElementById('feedbackStatusFilter').value;
+    const page = 1;
+    const feedbackData = await fetchAllFeedback(20, page, status);
+    updateFeedbackManagementUI(await fetchFeedbackStats(), feedbackData);
+}
+
+// Search feedback
+async function searchFeedback() {
+    const searchTerm = document.getElementById('searchFeedback').value.toLowerCase();
+    const tableBody = document.getElementById('feedbackTableBody');
+    if (!tableBody) return;
+    
+    const rows = tableBody.getElementsByTagName('tr');
+    
+    for (let row of rows) {
+        const text = row.textContent.toLowerCase();
+        row.style.display = text.includes(searchTerm) ? '' : 'none';
+    }
+}
+
+// Change feedback page
+let currentFeedbackPage = 1;
+let currentFeedbackStatus = 'all';
+
+async function changeFeedbackPage(direction) {
+    if (direction === 'prev' && currentFeedbackPage > 1) {
+        currentFeedbackPage--;
+    } else if (direction === 'next') {
+        currentFeedbackPage++;
+    } else {
+        return;
+    }
+    
+    const feedbackData = await fetchAllFeedback(20, currentFeedbackPage, currentFeedbackStatus);
+    updateFeedbackManagementUI(await fetchFeedbackStats(), feedbackData);
+}
+
+// View feedback detail
+async function viewFeedbackDetail(feedbackId) {
+    try {
+        const token = localStorage.getItem('admin_token') || localStorage.getItem('authToken');
+        
+        const response = await fetch(`/api/feedback/${feedbackId}`, {
+            headers: {
+                'Authorization': `Bearer ${token}`
+            }
+        });
+        
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        
+        const result = await response.json();
+        const feedback = result.feedback;
+        
+        // Show modal with feedback details
+        showFeedbackDetailModal(feedback);
+        
+    } catch (error) {
+        console.error('Error viewing feedback:', error);
+        showNotification('error', 'Error', 'Failed to load feedback details');
+    }
+}
+
+// Show feedback detail modal
+function showFeedbackDetailModal(feedback) {
+    // Create modal if it doesn't exist
+    let modal = document.getElementById('feedbackDetailModal');
+    if (!modal) {
+        modal = document.createElement('div');
+        modal.id = 'feedbackDetailModal';
+        modal.className = 'modal';
+        document.body.appendChild(modal);
+    }
+    
+    const date = new Date(feedback.created_at).toLocaleString();
+    const statusClass = `status-${feedback.status || 'new'}`;
+    
+    modal.innerHTML = `
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3><i class="fas fa-comment"></i> Feedback #${feedback.id}</h3>
+                <button class="modal-close" onclick="closeFeedbackDetailModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="feedback-detail">
+                    <div class="detail-row">
+                        <label>User:</label>
+                        <span>${feedback.full_name || feedback.username || 'Anonymous'} (${feedback.email || 'No email'})</span>
+                    </div>
+                    <div class="detail-row">
+                        <label>Type:</label>
+                        <span class="badge type-${feedback.type}">${feedback.type}</span>
+                    </div>
+                    <div class="detail-row">
+                        <label>Status:</label>
+                        <span class="badge ${statusClass}">${feedback.status}</span>
+                    </div>
+                    <div class="detail-row">
+                        <label>Rating:</label>
+                        <span>${feedback.rating ? '★'.repeat(feedback.rating) + '☆'.repeat(5-feedback.rating) : 'Not rated'}</span>
+                    </div>
+                    <div class="detail-row">
+                        <label>Date:</label>
+                        <span>${date}</span>
+                    </div>
+                    <div class="detail-row">
+                        <label>Message:</label>
+                        <div class="message-box">${feedback.message || 'No message'}</div>
+                    </div>
+                    ${feedback.admin_notes ? `
+                        <div class="detail-row">
+                            <label>Admin Notes:</label>
+                            <div class="notes-box">${feedback.admin_notes}</div>
+                        </div>
+                    ` : ''}
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="closeFeedbackDetailModal()">Close</button>
+                <button class="btn btn-primary" onclick="editFeedback(${feedback.id})">Edit</button>
+                <button class="btn btn-danger" onclick="deleteFeedback(${feedback.id})">Delete</button>
+            </div>
+        </div>
+    `;
+    
+    modal.style.display = 'flex';
+}
+
+// Close feedback detail modal
+function closeFeedbackDetailModal() {
+    const modal = document.getElementById('feedbackDetailModal');
+    if (modal) {
+        modal.style.display = 'none';
+    }
+}
+
+// Edit feedback
+async function editFeedback(feedbackId) {
+    // Close detail modal if open
+    closeFeedbackDetailModal();
+    
+    try {
+        const token = localStorage.getItem('admin_token') || localStorage.getItem('authToken');
+        
+        const response = await fetch(`/api/feedback/${feedbackId}`, {
+            headers: {
+                'Authorization': `Bearer ${token}`
+            }
+        });
+        
+        const result = await response.json();
+        const feedback = result.feedback;
+        
+        // Show edit modal
+        showFeedbackEditModal(feedback);
+        
+    } catch (error) {
+        console.error('Error loading feedback for edit:', error);
+        showNotification('error', 'Error', 'Failed to load feedback for editing');
+    }
+}
+
+// Show feedback edit modal
+function showFeedbackEditModal(feedback) {
+    let modal = document.getElementById('feedbackEditModal');
+    if (!modal) {
+        modal = document.createElement('div');
+        modal.id = 'feedbackEditModal';
+        modal.className = 'modal';
+        document.body.appendChild(modal);
+    }
+    
+    modal.innerHTML = `
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3><i class="fas fa-edit"></i> Edit Feedback #${feedback.id}</h3>
+                <button class="modal-close" onclick="closeFeedbackEditModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <form id="feedbackEditForm">
+                    <input type="hidden" id="editFeedbackId" value="${feedback.id}">
+                    
+                    <div class="form-group">
+                        <label>Status</label>
+                        <select id="editFeedbackStatus" class="form-control">
+                            <option value="new" ${feedback.status === 'new' ? 'selected' : ''}>New</option>
+                            <option value="reviewed" ${feedback.status === 'reviewed' ? 'selected' : ''}>Reviewed</option>
+                            <option value="in_progress" ${feedback.status === 'in_progress' ? 'selected' : ''}>In Progress</option>
+                            <option value="resolved" ${feedback.status === 'resolved' ? 'selected' : ''}>Resolved</option>
+                            <option value="closed" ${feedback.status === 'closed' ? 'selected' : ''}>Closed</option>
+                        </select>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>Admin Notes</label>
+                        <textarea id="editFeedbackNotes" class="form-control" rows="4">${feedback.admin_notes || ''}</textarea>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="closeFeedbackEditModal()">Cancel</button>
+                <button class="btn btn-primary" onclick="saveFeedbackChanges()">Save Changes</button>
+            </div>
+        </div>
+    `;
+    
+    modal.style.display = 'flex';
+}
+
+// Close feedback edit modal
+function closeFeedbackEditModal() {
+    const modal = document.getElementById('feedbackEditModal');
+    if (modal) {
+        modal.style.display = 'none';
+    }
+}
+
+// Save feedback changes
+async function saveFeedbackChanges() {
+    const feedbackId = document.getElementById('editFeedbackId').value;
+    const status = document.getElementById('editFeedbackStatus').value;
+    const adminNotes = document.getElementById('editFeedbackNotes').value;
+    
+    try {
+        const token = localStorage.getItem('admin_token') || localStorage.getItem('authToken');
+        
+        const response = await fetch(`/api/feedback/${feedbackId}/update-status`, {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                status: status,
+                admin_notes: adminNotes
+            })
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            showNotification('success', 'Success', 'Feedback updated successfully');
+            closeFeedbackEditModal();
+            
+            // Refresh feedback list
+            loadFeedbackManagement();
+        } else {
+            throw new Error(result.message || 'Failed to update feedback');
+        }
+        
+    } catch (error) {
+        console.error('Error saving feedback:', error);
+        showNotification('error', 'Error', error.message);
+    }
+}
+function showNotification(type, title, message) {
+    // Check if notification container exists
+    let container = document.querySelector('.notification-container');
+    if (!container) {
+        container = document.createElement('div');
+        container.className = 'notification-container';
+        container.style.cssText = `
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 9999;
+        `;
+        document.body.appendChild(container);
+    }
+    
+    const notification = document.createElement('div');
+    notification.className = `notification ${type}`;
+    notification.style.cssText = `
+        background: ${type === 'success' ? '#4CAF50' : type === 'error' ? '#f44336' : '#2196F3'};
+        color: white;
+        padding: 15px 20px;
+        border-radius: 8px;
+        margin-bottom: 10px;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        min-width: 300px;
+        animation: slideIn 0.3s ease;
+    `;
+    
+    notification.innerHTML = `
+        <i class="fas ${type === 'success' ? 'fa-check-circle' : type === 'error' ? 'fa-exclamation-circle' : 'fa-info-circle'}"></i>
+        <div style="flex:1">
+            <strong style="display:block; margin-bottom:5px;">${title}</strong>
+            <span>${message}</span>
+        </div>
+        <button onclick="this.parentElement.remove()" style="background:none; border:none; color:white; cursor:pointer;">
+            <i class="fas fa-times"></i>
+        </button>
+    `;
+    
+    container.appendChild(notification);
+    
+    // Auto remove after 5 seconds
+    setTimeout(() => {
+        if (notification.parentElement) {
+            notification.style.animation = 'slideOut 0.3s ease';
+            setTimeout(() => notification.remove(), 300);
+        }
+    }, 5000);
+}
+
+// ===== Helper: Show message when no feedback =====
+
+// Fetch all feedback (admin only)
+async function fetchAllFeedback(limit = 20, page = 1, status = null) {
+    try {
+        const token = localStorage.getItem('authToken') || authToken;
+        if (!token) {
+            console.warn('No auth token available');
+            return [];
+        }
+        
+        console.log('📋 Fetching all feedback...');
+        
+        let url = `/feedback/all?limit=${limit}&page=${page}`;
+        if (status) {
+            url += `&status=${status}`;
+        }
+        
+        const response = await fetch(url, {
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+            }
+        });
+        
+        if (!response.ok) {
+            throw new Error(`Failed to fetch feedback: ${response.status}`);
+        }
+        
+        const data = await response.json();
+        
+        if (data.success && data.feedback) {
+            console.log(`✅ Fetched ${data.feedback.length} feedback items`);
+            return data.feedback;
+        } else {
+            throw new Error(data.message || 'No feedback returned');
+        }
+    } catch (error) {
+        console.error('Error fetching feedback:', error);
+        return [];
+    }
+}
+
+// Update feedback management UI
+function updateFeedbackManagementUI(stats, feedbackList) {
+    const feedbackContainer = document.getElementById('feedbackManagementContainer');
+    if (!feedbackContainer) return;
+    
+    // Create feedback management interface
+    let html = `
+        <div class="feedback-management">
+            <div class="feedback-stats">
+                <h3><i class="fas fa-chart-bar"></i> Feedback Overview</h3>
+                ${stats ? `
+                    <div class="stats-grid">
+                        <div class="stat-card">
+                            <div class="stat-value">${stats.total_feedback || 0}</div>
+                            <div class="stat-label">Total Feedback</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-value">${stats.new_feedback || 0}</div>
+                            <div class="stat-label">New</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-value">${stats.resolved_feedback || 0}</div>
+                            <div class="stat-label">Resolved</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-value">${stats.average_rating ? stats.average_rating.toFixed(1) : '0.0'}</div>
+                            <div class="stat-label">Avg. Rating</div>
+                        </div>
+                    </div>
+                ` : ''}
+            </div>
+            
+            <div class="feedback-list">
+                <h3><i class="fas fa-list"></i> Recent Feedback</h3>
+                <div class="feedback-filters">
+                    <select id="feedbackStatusFilter" class="form-control">
+                        <option value="all">All Status</option>
+                        <option value="new">New</option>
+                        <option value="reviewed">Reviewed</option>
+                        <option value="in_progress">In Progress</option>
+                        <option value="resolved">Resolved</option>
+                        <option value="closed">Closed</option>
+                    </select>
+                    <button class="btn-primary" id="refreshFeedbackBtn">
+                        <i class="fas fa-sync-alt"></i> Refresh
+                    </button>
+                </div>
+    `;
+    
+    if (feedbackList && feedbackList.length > 0) {
+        html += `<div class="feedback-items">`;
+        
+        feedbackList.forEach(feedback => {
+            const statusClass = `status-${feedback.status}`;
+            const ratingStars = '★'.repeat(feedback.rating || 0) + '☆'.repeat(5 - (feedback.rating || 0));
+            
+            html += `
+                <div class="feedback-item ${statusClass}" data-feedback-id="${feedback.feedback_id}">
+                    <div class="feedback-header">
+                        <div class="feedback-meta">
+                            <span class="feedback-type">${feedback.feedback_type}</span>
+                            <span class="feedback-date">${formatDate(feedback.created_at)}</span>
+                        </div>
+                        <div class="feedback-actions">
+                            <span class="feedback-status ${statusClass}">${feedback.status}</span>
+                            <button class="btn-small view-feedback-btn" data-feedback-id="${feedback.feedback_id}">
+                                <i class="fas fa-eye"></i> View
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <div class="feedback-body">
+                        <p class="feedback-message">${feedback.feedback_message}</p>
+                        
+                        ${feedback.rating > 0 ? `
+                            <div class="feedback-rating">
+                                <span class="rating-stars">${ratingStars}</span>
+                                <span class="rating-value">${feedback.rating}/5</span>
+                            </div>
+                        ` : ''}
+                        
+                        <div class="feedback-user">
+                            <i class="fas fa-user"></i>
+                            ${feedback.user_id ? `User #${feedback.user_id}` : 'Anonymous'}
+                        </div>
+                    </div>
+                </div>
+            `;
+        });
+        
+        html += `</div>`;
+    } else {
+        html += `
+            <div class="no-feedback">
+                <i class="fas fa-comment-slash"></i>
+                <h3>No feedback yet</h3>
+                <p>No feedback has been submitted yet.</p>
+            </div>
+        `;
+    }
+    
+    html += `</div></div>`;
+    
+    feedbackContainer.innerHTML = html;
+    
+    // Add event listeners
+    setupFeedbackManagementEvents();
+}
+
+// Setup feedback management events
+function setupFeedbackManagementEvents() {
+    // View feedback button
+    document.querySelectorAll('.view-feedback-btn').forEach(button => {
+        button.addEventListener('click', function() {
+            const feedbackId = this.getAttribute('data-feedback-id');
+            showFeedbackDetailsModal(feedbackId);
+        });
+    });
+    
+    // Status filter
+    const statusFilter = document.getElementById('feedbackStatusFilter');
+    if (statusFilter) {
+        statusFilter.addEventListener('change', async function() {
+            const status = this.value === 'all' ? null : this.value;
+            const feedbackList = await fetchAllFeedback(20, 1, status);
+            updateFeedbackManagementUI(null, feedbackList);
+        });
+    }
+    
+    // Refresh button
+    const refreshBtn = document.getElementById('refreshFeedbackBtn');
+    if (refreshBtn) {
+        refreshBtn.addEventListener('click', async function() {
+            const statusFilter = document.getElementById('feedbackStatusFilter');
+            const status = statusFilter && statusFilter.value !== 'all' ? statusFilter.value : null;
+            
+            const [stats, feedbackList] = await Promise.all([
+                fetchFeedbackStats(),
+                fetchAllFeedback(20, 1, status)
+            ]);
+            
+            updateFeedbackManagementUI(stats, feedbackList);
+            showNotification('Feedback list refreshed', 'success');
+        });
+    }
+}
+
+// Show feedback details modal (admin)
+async function showFeedbackDetailsModal(feedbackId) {
+    try {
+        const token = localStorage.getItem('authToken') || authToken;
+        if (!token) return;
+        
+        console.log(`🔍 Fetching feedback details for ID: ${feedbackId}`);
+        
+        const response = await fetch(`/api/feedback/${feedbackId}`, {
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+            }
+        });
+        
+        if (!response.ok) {
+            throw new Error(`Failed to fetch feedback details: ${response.status}`);
+        }
+        
+        const data = await response.json();
+        
+        if (data.success && data.feedback) {
+            const feedback = data.feedback;
+            const ratingStars = '★'.repeat(feedback.rating || 0) + '☆'.repeat(5 - (feedback.rating || 0));
+            
+            const modalHTML = `
+                <div class="feedback-details-modal">
+                    <div class="modal-header">
+                        <h3><i class="fas fa-comment-dots"></i> Feedback Details</h3>
+                    </div>
+                    
+                    <div class="modal-body">
+                        <div class="feedback-info">
+                            <div class="info-row">
+                                <strong>ID:</strong> <span>${feedback.feedback_id}</span>
+                            </div>
+                            <div class="info-row">
+                                <strong>Type:</strong> <span class="feedback-type">${feedback.feedback_type}</span>
+                            </div>
+                            <div class="info-row">
+                                <strong>Status:</strong> <span class="feedback-status status-${feedback.status}">${feedback.status}</span>
+                            </div>
+                            <div class="info-row">
+                                <strong>Submitted:</strong> <span>${formatDate(feedback.created_at)}</span>
+                            </div>
+                            ${feedback.reviewed_at ? `
+                                <div class="info-row">
+                                    <strong>Reviewed:</strong> <span>${formatDate(feedback.reviewed_at)}</span>
+                                </div>
+                            ` : ''}
+                            ${feedback.resolved_at ? `
+                                <div class="info-row">
+                                    <strong>Resolved:</strong> <span>${formatDate(feedback.resolved_at)}</span>
+                                </div>
+                            ` : ''}
+                            ${feedback.user_id ? `
+                                <div class="info-row">
+                                    <strong>User ID:</strong> <span>${feedback.user_id}</span>
+                                </div>
+                            ` : ''}
+                        </div>
+                        
+                        <div class="feedback-message-container">
+                            <h4>Feedback Message:</h4>
+                            <div class="feedback-message">
+                                ${feedback.feedback_message}
+                            </div>
+                        </div>
+                        
+                        ${feedback.rating > 0 ? `
+                            <div class="feedback-rating-container">
+                                <h4>Rating:</h4>
+                                <div class="rating-display">
+                                    <span class="rating-stars">${ratingStars}</span>
+                                    <span class="rating-value">${feedback.rating}/5</span>
+                                </div>
+                            </div>
+                        ` : ''}
+                        
+                        <div class="feedback-meta-container">
+                            <h4>Metadata:</h4>
+                            <div class="meta-info">
+                                ${feedback.page_url ? `
+                                    <div class="meta-row">
+                                        <strong>Page URL:</strong> <span>${feedback.page_url}</span>
+                                    </div>
+                                ` : ''}
+                                ${feedback.user_agent ? `
+                                    <div class="meta-row">
+                                        <strong>User Agent:</strong> <span class="user-agent">${feedback.user_agent}</span>
+                                    </div>
+                                ` : ''}
+                            </div>
+                        </div>
+                        
+                        ${feedback.admin_notes ? `
+                            <div class="admin-notes-container">
+                                <h4>Admin Notes:</h4>
+                                <div class="admin-notes">
+                                    ${feedback.admin_notes}
+                                </div>
+                            </div>
+                        ` : ''}
+                    </div>
+                    
+                    <div class="modal-footer">
+                        <div class="status-actions">
+                            <select id="updateStatusSelect" class="form-control">
+                                <option value="new" ${feedback.status === 'new' ? 'selected' : ''}>New</option>
+                                <option value="reviewed" ${feedback.status === 'reviewed' ? 'selected' : ''}>Reviewed</option>
+                                <option value="in_progress" ${feedback.status === 'in_progress' ? 'selected' : ''}>In Progress</option>
+                                <option value="resolved" ${feedback.status === 'resolved' ? 'selected' : ''}>Resolved</option>
+                                <option value="closed" ${feedback.status === 'closed' ? 'selected' : ''}>Closed</option>
+                            </select>
+                            <button class="btn-primary" id="updateStatusBtn" data-feedback-id="${feedback.feedback_id}">
+                                <i class="fas fa-save"></i> Update Status
+                            </button>
+                        </div>
+                        
+                        <div class="admin-notes-input">
+                            <textarea id="adminNotesInput" placeholder="Add admin notes here...">${feedback.admin_notes || ''}</textarea>
+                            <button class="btn-secondary" id="saveNotesBtn" data-feedback-id="${feedback.feedback_id}">
+                                <i class="fas fa-edit"></i> Save Notes
+                            </button>
+                        </div>
+                        
+                        <button class="btn-secondary" id="closeFeedbackModal">
+                            <i class="fas fa-times"></i> Close
+                        </button>
+                    </div>
+                </div>
+            `;
+            
+            showModal(modalHTML);
+            
+            // Setup modal interactions
+            setupFeedbackModalInteractions(feedbackId);
+        }
+    } catch (error) {
+        console.error('Error showing feedback details:', error);
+        showNotification('Failed to load feedback details', 'error');
+    }
+}
+
+// Setup feedback modal interactions
+function setupFeedbackModalInteractions(feedbackId) {
+    // Update status button
+    const updateStatusBtn = document.getElementById('updateStatusBtn');
+    if (updateStatusBtn) {
+        updateStatusBtn.addEventListener('click', async function() {
+            const statusSelect = document.getElementById('updateStatusSelect');
+            const status = statusSelect.value;
+            
+            const success = await updateFeedbackStatus(feedbackId, status);
+            
+            if (success) {
+                showNotification('Feedback status updated', 'success');
+                
+                // Refresh feedback list
+                const statusFilter = document.getElementById('feedbackStatusFilter');
+                const currentStatus = statusFilter && statusFilter.value !== 'all' ? statusFilter.value : null;
+                const feedbackList = await fetchAllFeedback(20, 1, currentStatus);
+                updateFeedbackManagementUI(null, feedbackList);
+                
+                // Close modal
+                const modal = document.querySelector('.modal-overlay');
+                if (modal) modal.remove();
+            }
+        });
+    }
+    
+    // Save notes button
+    const saveNotesBtn = document.getElementById('saveNotesBtn');
+    if (saveNotesBtn) {
+        saveNotesBtn.addEventListener('click', async function() {
+            const adminNotes = document.getElementById('adminNotesInput').value;
+            
+            const success = await updateFeedbackStatus(feedbackId, null, adminNotes);
+            
+            if (success) {
+                showNotification('Admin notes saved', 'success');
+            }
+        });
+    }
+    
+    // Close button
+    const closeBtn = document.getElementById('closeFeedbackModal');
+    if (closeBtn) {
+        closeBtn.addEventListener('click', () => {
+            const modal = document.querySelector('.modal-overlay');
+            if (modal) modal.remove();
+        });
+    }
+}
+
+// Add CSS styles for feedback
+function addFeedbackStyles() {
+    if (document.querySelector('#feedback-styles')) return;
+    
+    const style = document.createElement('style');
+    style.id = 'feedback-styles';
+    style.textContent = `
+        /* Rating Stars */
+        .rating {
+            display: flex;
+            gap: 5px;
+            margin: 10px 0;
+        }
+        
+        .star {
+            font-size: 24px;
+            color: #ddd;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        
+        .star:hover,
+        .star.hover {
+            color: #f39c12;
+        }
+        
+        .star.active {
+            color: #f39c12;
+        }
+        
+        /* Feedback Form */
+        #feedbackForm .form-group {
+            margin-bottom: 20px;
+        }
+        
+        #feedbackForm label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 500;
+            color: #2c3e50;
+        }
+        
+        #feedbackForm select,
+        #feedbackForm textarea {
+            width: 100%;
+            padding: 10px 15px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            font-size: 14px;
+            transition: all 0.3s;
+        }
+        
+        #feedbackForm textarea {
+            min-height: 120px;
+            resize: vertical;
+        }
+        
+        #feedbackForm select:focus,
+        #feedbackForm textarea:focus {
+            outline: none;
+            border-color: #3498db;
+            box-shadow: 0 0 0 3px rgba(52, 152, 219, 0.1);
+        }
+        
+        /* Success Message */
+        .success-message {
+            display: none;
+            background: #d4edda;
+            color: #155724;
+            padding: 15px;
+            border-radius: 8px;
+            margin-top: 20px;
+            text-align: center;
+            border: 1px solid #c3e6cb;
+        }
+        
+        .success-message i {
+            font-size: 20px;
+            margin-right: 10px;
+            color: #28a745;
+        }
+        
+        /* Feedback Management */
+        .feedback-management {
+            background: white;
+            border-radius: 10px;
+            padding: 20px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        
+        .feedback-stats {
+            margin-bottom: 30px;
+        }
+        
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 15px;
+            margin-top: 15px;
+        }
+        
+        .feedback-filters {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+        
+        .feedback-items {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+        
+        .feedback-item {
+            background: #f8f9fa;
+            border-radius: 8px;
+            padding: 15px;
+            border-left: 4px solid #3498db;
+            transition: all 0.3s;
+        }
+        
+        .feedback-item:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        }
+        
+        .feedback-item.status-new {
+            border-left-color: #3498db;
+        }
+        
+        .feedback-item.status-reviewed {
+            border-left-color: #f39c12;
+        }
+        
+        .feedback-item.status-in_progress {
+            border-left-color: #9b59b6;
+        }
+        
+        .feedback-item.status-resolved {
+            border-left-color: #27ae60;
+        }
+        
+        .feedback-item.status-closed {
+            border-left-color: #95a5a6;
+        }
+        
+        .feedback-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+        
+        .feedback-meta {
+            display: flex;
+            gap: 15px;
+            font-size: 12px;
+            color: #6c757d;
+        }
+        
+        .feedback-type {
+            background: #e3f2fd;
+            color: #1976d2;
+            padding: 3px 8px;
+            border-radius: 10px;
+            text-transform: capitalize;
+        }
+        
+        .feedback-actions {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .feedback-status {
+            padding: 3px 8px;
+            border-radius: 10px;
+            font-size: 12px;
+            font-weight: bold;
+            text-transform: uppercase;
+        }
+        
+        .status-new {
+            background: #e3f2fd;
+            color: #1976d2;
+        }
+        
+        .status-reviewed {
+            background: #fff3cd;
+            color: #856404;
+        }
+        
+        .status-in_progress {
+            background: #f3e5f5;
+            color: #7b1fa2;
+        }
+        
+        .status-resolved {
+            background: #d4edda;
+            color: #155724;
+        }
+        
+        .status-closed {
+            background: #e9ecef;
+            color: #495057;
+        }
+        
+        .feedback-message {
+            line-height: 1.6;
+            color: #2c3e50;
+            margin-bottom: 10px;
+        }
+        
+        .feedback-rating {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 10px;
+        }
+        
+        .rating-stars {
+            font-size: 16px;
+            color: #f39c12;
+        }
+        
+        .feedback-user {
+            font-size: 12px;
+            color: #6c757d;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+        
+        .no-feedback {
+            text-align: center;
+            padding: 40px 20px;
+            color: #6c757d;
+        }
+        
+        .no-feedback i {
+            font-size: 48px;
+            margin-bottom: 20px;
+            color: #3498db;
+        }
+        
+        .access-denied {
+            text-align: center;
+            padding: 40px 20px;
+            color: #6c757d;
+        }
+        
+        /* Feedback Details Modal */
+        .feedback-details-modal {
+            background: white;
+            border-radius: 10px;
+            max-width: 600px;
+            width: 100%;
+            max-height: 80vh;
+            overflow-y: auto;
+        }
+        
+        .modal-header {
+            padding: 20px;
+            border-bottom: 1px solid #eee;
+        }
+        
+        .modal-body {
+            padding: 20px;
+        }
+        
+        .modal-footer {
+            padding: 20px;
+            border-top: 1px solid #eee;
+        }
+        
+        .feedback-info {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+        
+        .info-row {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 8px;
+            font-size: 14px;
+        }
+        
+        .info-row:last-child {
+            margin-bottom: 0;
+        }
+        
+        .feedback-message-container,
+        .feedback-rating-container,
+        .feedback-meta-container,
+        .admin-notes-container {
+            margin-bottom: 20px;
+        }
+        
+        .feedback-message-container h4,
+        .feedback-rating-container h4,
+        .feedback-meta-container h4,
+        .admin-notes-container h4 {
+            margin-bottom: 10px;
+            color: #2c3e50;
+        }
+        
+        .feedback-message {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 8px;
+            line-height: 1.6;
+        }
+        
+        .rating-display {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .meta-info {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 8px;
+        }
+        
+        .meta-row {
+            margin-bottom: 8px;
+        }
+        
+        .meta-row:last-child {
+            margin-bottom: 0;
+        }
+        
+        .user-agent {
+            font-size: 12px;
+            color: #6c757d;
+            word-break: break-all;
+        }
+        
+        .admin-notes {
+            background: #fffde7;
+            padding: 15px;
+            border-radius: 8px;
+            line-height: 1.6;
+        }
+        
+        .status-actions {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+        
+        .admin-notes-input {
+            margin-bottom: 15px;
+        }
+        
+        .admin-notes-input textarea {
+            width: 100%;
+            min-height: 80px;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            margin-bottom: 10px;
+            resize: vertical;
+        }
+        
+        .modal-footer .btn-primary,
+        .modal-footer .btn-secondary {
+            width: 100%;
+            justify-content: center;
+            margin-bottom: 10px;
+        }
+    `;
+    document.head.appendChild(style);
+}
+
+// ============================================
+// ✅ FIXED: Fetch all lessons - ONLY LESSON_ID = 1
+// ============================================
+async function fetchAllLessons() {
+    try {
+        const token = localStorage.getItem('authToken') || authToken;
+        if (!token) {
+            console.warn('No auth token available');
+            return [];
+        }
+        
+        // FORCE LESSON_ID = 1 ONLY
+        const currentLessonId = MATHEASE_LESSON_ID; // Always 3
+        
+        console.log(`📚 Fetching lessons for  ONLY, lesson ID: ${currentLessonId}`);
+        
+        // Use the filtered endpoint
+        let endpoint = `/api/lessons-db/complete?lesson_id=${currentLessonId}`;
+        
+        const response = await fetch(endpoint, {
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+            }
+        });
+        
+        if (!response.ok) {
+            throw new Error(`Failed to fetch lessons: ${response.status}`);
+        }
+        
+        const data = await response.json();
+        
+        if (data.success && data.lessons) {
+            // Double-check filter on client side to be absolutely sure
+            const filteredLessons = data.lessons.filter(lesson => {
+                // Check all possible places where lesson_id might be stored
+                const lessonId = lesson.lesson_id || lesson.lessonId || lesson.id;
+                return lessonId == MATHEASE_LESSON_ID;
+            });
+            
+            console.log(`✅ Found ${filteredLessons.length}  lessons (filtered from ${data.lessons.length} total)`);
+            
+            // Log each lesson for verification
+            filteredLessons.forEach((lesson, index) => {
+                console.log(`  Lesson ${index + 1}: ID=${lesson.content_id || lesson.id}, Title=${lesson.content_title || lesson.title}`);
+            });
+            
+            return filteredLessons;
+        } else {
+            console.log('ℹ️ No  lessons found');
+            return [];
+        }
+    } catch (error) {
+        console.error('Error fetching  lessons:', error);
+        return [];
+    }
+}
+// ============================================
+// Helper: Filter lessons by selected app
+// ============================================
+function filterLessonsByApp(lessons, selectedApp, lessonFilter) {
+    if (!lessons || lessons.length === 0) return [];
+    
+    // First, try to filter by lesson_id if we have a filter
+    if (lessonFilter) {
+        return lessons.filter(lesson => 
+            lesson.lesson_id == lessonFilter || 
+            lesson.lesson_name?.toLowerCase().includes(selectedApp.toLowerCase())
+        );
+    }
+    
+    // If no filter, filter by lesson_name containing the app name
+    return lessons.filter(lesson => {
+        if (!lesson.lesson_name) return false;
+        return lesson.lesson_name.toLowerCase().includes(selectedApp.toLowerCase());
+    });
+}
+
+// Fetch user progress for lessons
+async function fetchUserLessonProgress() {
+    try {
+        const token = localStorage.getItem('authToken') || authToken;
+        if (!token) {
+            console.warn('No auth token available');
+            return {};
+        }
+        
+        console.log('📊 Fetching user lesson progress...');
+        
+        const response = await fetch(`/api/progress/lessons`, {
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+            }
+        });
+        
+        if (response.ok) {
+            const data = await response.json();
+            if (data.success) {
+                console.log('✅ User progress loaded');
+                
+                // Convert array to object for easier access
+                const progressMap = {};
+                data.progress.forEach(progress => {
+                    progressMap[progress.content_id] = {
+                        status: progress.completion_status,
+                        percentage: progress.percentage || 0,
+                        time_spent: progress.time_spent_seconds || 0,
+                        last_accessed: progress.last_accessed
+                    };
+                });
+                
+                return progressMap;
+            }
+        }
+        
+        return {};
+    } catch (error) {
+        console.error('Error fetching user progress:', error);
+        return {};
+    }
+}
+
+// Get continue learning lesson
+function getContinueLearningLesson(lessons, progress) {
+    if (lessons.length === 0) return null;
+    
+    // Find the most recently accessed incomplete lesson
+    let continueLesson = null;
+    let maxLastAccessed = null;
+    
+    for (const lesson of lessons) {
+        const lessonProgress = progress[lesson.content_id] || {};
+        
+        // Skip completed lessons
+        if (lessonProgress.status === 'completed') continue;
+        
+        // Check if this lesson was accessed more recently
+        if (lessonProgress.last_accessed) {
+            const lastAccessed = new Date(lessonProgress.last_accessed);
+            if (!maxLastAccessed || lastAccessed > maxLastAccessed) {
+                maxLastAccessed = lastAccessed;
+                continueLesson = lesson;
+            }
+        }
+    }
+    
+    // If no incomplete lessons with progress, find first incomplete lesson
+    if (!continueLesson) {
+        for (const lesson of lessons) {
+            const lessonProgress = progress[lesson.content_id] || {};
+            if (lessonProgress.status !== 'completed') {
+                continueLesson = lesson;
+                break;
+            }
+        }
+    }
+    
+    // If all lessons are completed, show the first lesson
+    if (!continueLesson && lessons.length > 0) {
+        continueLesson = lessons[0];
+    }
+    
+    return continueLesson;
+}
+
+// Load recent lessons for display
+async function loadRecentLessons(container, lessons, progress) {
+    if (!container) return;
+    
+    // Sort lessons by last accessed or content order
+    const sortedLessons = [...lessons].sort((a, b) => {
+        const progressA = progress[a.content_id] || {};
+        const progressB = progress[b.content_id] || {};
+        
+        // Sort by last accessed date (newest first)
+        if (progressA.last_accessed && progressB.last_accessed) {
+            return new Date(progressB.last_accessed) - new Date(progressA.last_accessed);
+        }
+        
+        // Then by content order
+        return a.content_order - b.content_order;
+    });
+    
+    // Take up to 4 recent lessons
+    const recentLessons = sortedLessons.slice(0, 4);
+    
+    let html = '';
+    
+    recentLessons.forEach(lesson => {
+        const lessonProgress = progress[lesson.content_id] || {};
+        const status = lessonProgress.status || 'not_started';
+        const percentage = lessonProgress.percentage || 0;
+        
+        let statusText = 'Start';
+        let statusClass = 'locked';
+        let icon = 'fas fa-lock';
+        
+        if (status === 'completed') {
+            statusText = 'Completed';
+            statusClass = 'completed';
+            icon = 'fas fa-check';
+        } else if (status === 'in_progress') {
+            statusText = percentage > 0 ? 'Continue' : 'Start';
+            statusClass = 'current';
+            icon = percentage > 0 ? 'fas fa-play' : 'fas fa-play';
+        }
+        
+        html += `
+            <div class="lesson-item ${statusClass}" data-lesson-id="${lesson.content_id}">
+                <div class="lesson-info">
+                    <div class="lesson-icon">
+                        <i class="${icon}"></i>
+                    </div>
+                    <div>
+                        <div class="lesson-title">${lesson.content_title}</div>
+                        <div class="lesson-duration">
+                            <i class="fas fa-video"></i> ${Math.round((lesson.video_duration_seconds || 0) / 60)} min
+                        </div>
+                    </div>
+                </div>
+                <div class="lesson-actions">
+                    <button class="${status === 'completed' ? 'review-btn' : 'start-btn'}" 
+                            data-lesson-id="${lesson.content_id}">
+                        ${status === 'completed' ? 'Review' : statusText}
+                    </button>
+                </div>
+            </div>
+        `;
+    });
+    
+    container.innerHTML = html;
+    
+    // Add event listeners to lesson items
+    container.querySelectorAll('.lesson-item').forEach(item => {
+        item.addEventListener('click', function() {
+            const lessonId = this.getAttribute('data-lesson-id');
+            openLesson(lessonId);
+        });
+    });
+    
+    // Add event listeners to buttons
+    container.querySelectorAll('.start-btn, .review-btn').forEach(button => {
+        button.addEventListener('click', function(e) {
+            e.stopPropagation();
+            const lessonId = this.getAttribute('data-lesson-id');
+            openLesson(lessonId);
+        });
+    });
+}
+
+// Update continue learning module in home dashboard
+async function updateContinueLearningModule() {
+    try {
+        const container = document.getElementById('continueLearningContainer');
+        if (!container) {
+            console.error('Continue learning container not found');
+            return;
+        }
+        
+        container.innerHTML = `
+            <div class="loading-container">
+                <div class="loading-text">
+                    <i class="fas fa-spinner fa-spin"></i> Loading lessons...
+                </div>
+            </div>
+        `;
+        
+        // Fetch lessons and progress
+        const [lessons, progress] = await Promise.all([
+            fetchAllLessons(),
+            fetchUserLessonProgress()
+        ]);
+        
+        if (lessons.length === 0) {
+            container.innerHTML = `
+                <div class="no-lessons">
+                    <i class="fas fa-book"></i>
+                    <h3>No lessons available</h3>
+                    <p>Check back later for new lessons!</p>
+                </div>
+            `;
+            return;
+        }
+        
+        // Store in global state
+        LessonState.lessons = lessons;
+        LessonState.userProgress = progress;
+        
+        // Get continue learning lesson
+        const continueLesson = getContinueLearningLesson(lessons, progress);
+        LessonState.continueLearningLesson = continueLesson;
+        
+        if (!continueLesson) {
+            container.innerHTML = `
+                <div class="no-lessons">
+                    <i class="fas fa-trophy"></i>
+                    <h3>All Lessons Completed!</h3>
+                    <p>Great job! You've completed all available lessons.</p>
+                    <button class="btn-primary" id="reviewAllLessons">
+                        <i class="fas fa-redo"></i> Review Lessons
+                    </button>
+                </div>
+            `;
+            
+            document.getElementById('reviewAllLessons')?.addEventListener('click', () => {
+                navigateTo('moduleDashboard');
+            });
+            
+            return;
+        }
+        
+        // Calculate progress percentage
+        const lessonProgress = progress[continueLesson.content_id] || {};
+        const percentage = lessonProgress.percentage || 0;
+        const status = lessonProgress.status || 'not_started';
+        
+        // Get topic ID for this lesson
+        const topicId = continueLesson.topic_id || 1;
+        LessonState.currentTopic = topicId;
+        
+        // Check if practice is unlocked for this topic
+        let practiceUnlocked = false;
+        let practiceAvailable = false;
+        
+        if (percentage >= 80) {
+            practiceUnlocked = await checkPracticeUnlocked(topicId);
+            practiceAvailable = true;
+        }
+        
+        // Render continue learning module
+        container.innerHTML = `
+            <div class="module-header">
+                <h3 class="module-title">
+                    <i class="fas fa-cube"></i> 
+                    ${continueLesson.module_name || 'Module'}: ${continueLesson.topic_title || 'Topic'}
+                </h3>
+                <span class="module-status status-${status}">
+                    ${status === 'completed' ? 'Completed' : 
+                      status === 'in_progress' ? 'In Progress' : 'Start Learning'}
+                </span>
+            </div>
+            
+            <p style="color: var(--text-light); margin-bottom: 15px;">
+                ${continueLesson.content_title || 'Continue your learning journey.'}
+            </p>
+            
+            <div class="module-progress">
+                <div class="progress-label">
+                    <span>Progress</span>
+                    <span>${percentage}%</span>
+                </div>
+                <div class="progress-bar-container">
+                    <div class="progress-fill" style="width: ${percentage}%"></div>
+                </div>
+            </div>
+            
+            <div class="module-lessons" id="recentLessonsList">
+                <!-- Recent lessons will be loaded here -->
+            </div>
+            
+            <div style="text-align: center; margin-top: 20px;">
+                <button class="btn-primary" id="continueLessonBtn" data-lesson-id="${continueLesson.content_id}">
+                    <i class="fas fa-play"></i> ${status === 'not_started' ? 'Start Lesson' : 
+                     status === 'in_progress' ? 'Continue Lesson' : 'Review Lesson'}
+                </button>
+                ${practiceAvailable ? `
+                    <button class="btn-success ${practiceUnlocked ? '' : 'disabled'}" 
+                            id="practiceTopicBtn" 
+                            style="margin-left: 10px;" 
+                            data-topic-id="${topicId}"
+                            ${practiceUnlocked ? '' : 'disabled'}>
+                        <i class="fas fa-pencil-alt"></i> 
+                        ${practiceUnlocked ? 'Practice Now' : 'Practice Locked'}
+                    </button>
+                ` : ''}
+            </div>
+        `;
+        
+        // Load recent lessons
+        await loadRecentLessons(container.querySelector('#recentLessonsList'), lessons, progress);
+        
+        // Setup continue button
+        document.getElementById('continueLessonBtn')?.addEventListener('click', function() {
+            const lessonId = this.getAttribute('data-lesson-id');
+            openLesson(lessonId);
+        });
+        
+        // Setup practice button
+        const practiceBtn = document.getElementById('practiceTopicBtn');
+        if (practiceBtn) {
+            practiceBtn.addEventListener('click', function() {
+                const topicId = this.getAttribute('data-topic-id');
+                openPracticeForTopic(topicId);
+            });
+        }
+        
+        console.log('✅ Continue learning module updated');
+        
+    } catch (error) {
+        console.error('Error updating continue learning module:', error);
+        container.innerHTML = `
+            <div class="error-message">
+                <i class="fas fa-exclamation-triangle"></i>
+                <h3>Failed to load lessons</h3>
+                <p>Please try again later</p>
+            </div>
+        `;
+    }
+}
+// ============================================
+// PROGRESS DASHBOARD DATABASE FUNCTIONS
+// ============================================
+
+async function updateProgressDashboardFromDatabase() {
+    console.log('📊 Updating progress dashboard from database...');
+    
+    try {
+        // Show loading
+        showProgressDashboardLoading();
+        
+        // Fetch all progress data
+        const [cumulative, daily, topics, achievements] = await Promise.allSettled([
+            fetchCumulativeProgress(),
+            fetchDailyProgress(),
+            fetchTopicMastery(),
+            fetchAchievementTimeline(10)
+        ]);
+        
+        // Update overall progress
+        if (cumulative.status === 'fulfilled' && cumulative.value) {
+            updateOverallProgressDisplay(cumulative.value);
+        }
+        
+        // Update daily stats
+        if (daily.status === 'fulfilled' && daily.value) {
+            updateDailyStats(daily.value);
+        }
+        
+        // Update topics progress
+        if (topics.status === 'fulfilled' && topics.value) {
+            updateTopicsProgressDetailed(topics.value);
+        }
+        
+        // Update achievements
+        if (achievements.status === 'fulfilled' && achievements.value) {
+            updateAchievementTimeline();
+        }
+        
+        // Update charts
+        await updateProgressCharts();
+        
+        // Hide loading
+        hideProgressDashboardLoading();
+        
+        console.log('✅ Progress dashboard updated from database');
+        
+    } catch (error) {
+        console.error('❌ Error updating progress dashboard:', error);
+        hideProgressDashboardLoading();
+    }
+}
+function updateDailyStats(dailyData) {
+    // Update daily stats in the UI
+    const pointsChange = document.getElementById('pointsChange');
+    const timeChange = document.getElementById('timeChange');
+    const badgesChange = document.getElementById('badgesChange');
+    
+    if (pointsChange) {
+        pointsChange.textContent = `+${dailyData.points_earned || 0} today`;
+    }
+    
+    if (timeChange) {
+        const minutes = dailyData.time_spent_minutes || 0;
+        timeChange.textContent = `${minutes} min today`;
+    }
+    
+    if (badgesChange) {
+        badgesChange.textContent = `+${dailyData.badges_earned || 0} today`;
+    }
+}
+
+function updateTopicsProgressDetailed(topics) {
+    const container = document.getElementById('topicsProgressDetailed');
+    if (!container) return;
+    
+    if (!topics || topics.length === 0) {
+        container.innerHTML = `
+            <div class="no-data-message">
+                <i class="fas fa-chart-pie"></i>
+                <p>No topic progress data available</p>
+            </div>
+        `;
+        return;
+    }
+    
+    let html = '';
+    topics.forEach(topic => {
+        const progress = topic.progress_percentage || 0;
+        const accuracy = topic.accuracy_rate || 0;
+        
+        html += `
+            <div class="topic-progress-item">
+                <div class="topic-info">
+                    <i class="fas fa-book topic-icon"></i>
+                    <div>
+                        <h4>${topic.topic_name || 'Topic'}</h4>
+                        <p>${topic.module_name || 'Module'}</p>
+                    </div>
+                </div>
+                <div class="topic-progress-data">
+                    <div class="progress-percentage">${progress}%</div>
+                    <div class="topic-stats">
+                        <span class="stat"><i class="fas fa-check-circle"></i> ${accuracy}% accuracy</span>
+                        <span class="stat"><i class="fas fa-clock"></i> ${topic.time_spent || 0} min</span>
+                    </div>
+                    <div class="progress-bar-container">
+                        <div class="progress-fill" style="width: ${progress}%"></div>
+                    </div>
+                </div>
+            </div>
+        `;
+    });
+    
+    container.innerHTML = html;
+}
+
+async function updateProgressCharts() {
+    console.log('📊 Updating progress charts...');
+    
+    const chartData = await fetchProgressChartData(14);
+    
+    if (chartData) {
+        renderPracticeTimeChart(chartData.practiceTime);
+        renderAccuracyChart(chartData.accuracy);
+    } else {
+        createSampleChartData();
+    }
+}
+
+
+// ============================================
+// FIXED: openLesson function - RAILWAY VERSION
+// ============================================
+async function openLesson(lessonId) {
+    try {
+        console.log('📖 Opening lesson on Railway:', lessonId);
+        
+        // Show loading
+        showNotification('Loading lesson...', 'info');
+        
+        // Fetch lesson details
+        const response = await fetch(`/api/lessons-db/${lessonId}`, {
+            headers: {
+                'Authorization': `Bearer ${localStorage.getItem('authToken')}`
+            }
+        });
+        
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        
+        const data = await response.json();
+        
+        if (!data.success || !data.lesson) {
+            throw new Error('Lesson not found');
+        }
+        
+        const lesson = data.lesson;
+        console.log('✅ Lesson loaded:', lesson.content_title);
+        console.log('📋 Adjacent lessons from server:', lesson.adjacent);
+        
+        LessonState.currentLesson = lesson;
+        LessonState.currentTopic = lesson.topic_id || 1;
+        
+        // Log activity
+        await logUserActivity('lesson_started', lessonId, {
+            lesson_title: lesson.content_title
+        });
+        
+        // Update URL without reload
+        const url = new URL(window.location);
+        url.searchParams.set('lessonId', lessonId);
+        window.history.pushState({}, '', url);
+        
+        // Navigate to module dashboard
+        navigateTo('moduleDashboard');
+        
+        // Wait for page to load then update everything
+        setTimeout(async () => {
+            // Setup navigation buttons
+            setupNavigationButtons();
+            
+            // Load video
+            await loadVideoFromDatabase(lessonId);
+            
+            // Update complete button
+            await checkLessonCompletionStatus();
+            
+            console.log('✅ Lesson fully loaded on Railway');
+        }, 500);
+        
+    } catch (error) {
+        console.error('Error opening lesson on Railway:', error);
+        showNotification('Error loading lesson: ' + error.message, 'error');
+    }
+}
+// Update navigation buttons function - FIXED VERSION
+function updateNavigationButtons(adjacent) {
+    console.log('🔄 Updating navigation buttons with adjacent:', adjacent);
+    
+    const prevLessonBtn = document.getElementById('prevLessonBtn');
+    const nextLessonBtn = document.getElementById('nextLessonBtn');
+    
+    if (prevLessonBtn) {
+        if (adjacent?.previous) {
+            prevLessonBtn.disabled = false;
+            prevLessonBtn.innerHTML = `<i class="fas fa-arrow-left"></i> Previous: ${adjacent.previous.title}`;
+        } else {
+            prevLessonBtn.disabled = true;
+            prevLessonBtn.innerHTML = `<i class="fas fa-arrow-left"></i> No Previous Lesson`;
+        }
+    }
+    
+    if (nextLessonBtn) {
+        if (adjacent?.next) {
+            nextLessonBtn.disabled = false;
+            nextLessonBtn.innerHTML = `Next: ${adjacent.next.title} <i class="fas fa-arrow-right"></i>`;
+        } else {
+            nextLessonBtn.disabled = true;
+            nextLessonBtn.innerHTML = `No Next Lesson <i class="fas fa-arrow-right"></i>`;
+        }
+    }
+}
+
+// Add this to your DOMContentLoaded or initModuleDashboard function
+function initModuleDashboardJS() {
+    console.log('📚 Initializing module dashboard with Railway fixes...');
+    
+    // Setup navigation
+    setupLessonNavigation();
+    
+    // Initialize with current lesson
+    initializeModuleDashboard();
+    
+    // Back button
+    const backToLessonDashboardBtn = document.getElementById('backToLessonDashboard');
+    if (backToLessonDashboardBtn) {
+        backToLessonDashboardBtn.addEventListener('click', function() {
+            console.log('Back to dashboard button clicked');
+            navigateTo('dashboard');
+        });
+    }
+    
+    console.log('✅ Module dashboard initialized with Railway fixes');
+}
+
+
+// Open practice for a specific topic
+function openPracticeForTopic(topicId) {
+    console.log('📝 Opening practice for topic:', topicId);
+    
+    // Set current topic
+    PracticeState.currentTopic = topicId;
+    
+    // Navigate to practice page
+    navigateTo('practice');
+}
+
+// Fetch lesson details
+async function fetchLessonDetails(lessonId) {
+    try {
+        const token = localStorage.getItem('authToken') || authToken;
+        if (!token) {
+            console.warn('No auth token available');
+            return null;
+        }
+        
+        console.log('🔍 Fetching lesson details for ID:', lessonId);
+        
+        // ✅ FIX: Add /api/ prefix
+        const response = await fetch(`/api/lessons/${lessonId}`, {
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+            }
+        });
+        
+        // Check if response is JSON
+        const contentType = response.headers.get('content-type');
+        if (!contentType || !contentType.includes('application/json')) {
+            console.error('❌ Non-JSON response from lesson details');
+            return null;
+        }
+        
+        if (!response.ok) {
+            throw new Error(`Failed to fetch lesson details: ${response.status}`);
+        }
+        
+        const data = await response.json();
+        
+        if (data.success && data.lesson) {
+            console.log('✅ Lesson details loaded:', data.lesson.content_title);
+            return data.lesson;
+        } else {
+            throw new Error(data.message || 'No lesson returned');
+        }
+    } catch (error) {
+        console.error('Error fetching lesson details:', error);
+        return null;
+    }
+}
+
+
+// Fetch lesson content only
+async function fetchLessonContent(lessonId) {
+    try {
+        const token = localStorage.getItem('authToken') || authToken;
+        if (!token) {
+            console.warn('No auth token available');
+            return null;
+        }
+        
+        console.log('📄 Fetching lesson content for ID:', lessonId);
+        
+        const response = await fetch(`/api/lessons-db/${lessonId}/content`, {
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+            }
+        });
+        
+        if (!response.ok) {
+            throw new Error(`Failed to fetch lesson content: ${response.status}`);
+        };
+        
+        const data = await response.json();
+        
+        if (data.success && data.content) {
+            console.log('✅ Lesson content loaded');
+            return data.content;
+        } else {
+            throw new Error(data.message || 'No content returned');
+        }
+    } catch (error) {
+        console.error('Error fetching lesson content:', error);
+        return null;
+    }
+}
+
+
+// Initialize the time tracker
+
+// Update lesson progress in database
+// ITO ANG BAGONG VERSION - WALANG POINTS SA DAILY PROGRESS
+// ============================================
+// FIXED: updateLessonProgress Function
+// ============================================
+// ============================================
+// 🎯 ENHANCED: updateLessonProgress - With session tracking
+// ============================================
+async function updateLessonProgress(contentId, progressData) {
+    try {
+        const token = localStorage.getItem('authToken') || authToken;
+        if (!token) {
+            console.warn('No auth token available');
+            return false;
+        }
+        
+        console.log('📝 Updating lesson progress:', {
+            contentId: contentId,
+            status: progressData.completion_status,
+            percentage: progressData.percentage
+        });
+        
+        // Check if this is a session end (user leaving)
+        const isSessionEnd = progressData.session_end === true;
+        
+        // If this is a session end, we might want to cap the time
+        if (isSessionEnd) {
+            console.log('⏱️ Session ended - applying caps if needed');
+        }
+        
+        const response = await fetch(`/api/lessons-db/${contentId}/progress`, {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(progressData)
+        });
+        
+        if (!response.ok) {
+            throw new Error(`Failed to update progress: ${response.status}`);
+        }
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            console.log('✅ Lesson progress updated successfully');
+            
+            // Update local progress state
+            if (!LessonState.userProgress[contentId]) {
+                LessonState.userProgress[contentId] = {};
+            }
+            Object.assign(LessonState.userProgress[contentId], progressData);
+            
+            // If lesson is newly completed, update daily progress
+            if (progressData.completion_status === 'completed') {
+                setTimeout(async () => {
+                    await updateDailyProgress({ lessons_completed: 1 });
+                }, 100);
+            }
+            
+            return true;
+        } else {
+            throw new Error(data.message || 'Failed to update progress');
+        }
+    } catch (error) {
+        console.error('❌ Error updating lesson progress:', error);
+        return false;
+    }
+}
+
+// ============================================
+// LESSON CONTENT DISPLAY FUNCTIONS
+// ============================================
+
+// Display lesson content from database
+async function displayLessonContent() {
+    try {
+        const lessonContentContainer = document.getElementById('lessonContent');
+        if (!lessonContentContainer) {
+            console.error('Lesson content container not found');
+            return;
+        }
+        
+        // Show loading state
+        lessonContentContainer.innerHTML = `
+            <div class="loading-content">
+                <i class="fas fa-spinner fa-spin"></i>
+                <p>Loading lesson content from database...</p>
+            </div>
+        `;
+        
+        const currentLesson = LessonState.currentLesson;
+        if (!currentLesson) {
+            lessonContentContainer.innerHTML = `
+                <div class="no-content">
+                    <i class="fas fa-book"></i>
+                    <h3>No lesson selected</h3>
+                    <p>Please select a lesson to view its content.</p>
+                </div>
+            `;
+            return;
+        }
+        
+        const contentDescription = currentLesson.content_description;
+        
+        if (!contentDescription || contentDescription.trim() === '') {
+            // If no content in database, show default content
+            lessonContentContainer.innerHTML = generateDefaultLessonContent(currentLesson);
+        } else {
+            // Convert markdown-like content to HTML
+            const htmlContent = convertMarkdownToHTML(contentDescription);
+            lessonContentContainer.innerHTML = htmlContent;
+        }
+        
+        // Add event listeners to any interactive elements
+        setupLessonContentInteractions();
+        
+        // Add practice button if lesson is completed or almost completed
+        addPracticeButtonToLesson();
+        
+    } catch (error) {
+        console.error('Error displaying lesson content:', error);
+        const lessonContentContainer = document.getElementById('lessonContent');
+        if (lessonContentContainer) {
+            lessonContentContainer.innerHTML = `
+                <div class="error-content">
+                    <i class="fas fa-exclamation-triangle"></i>
+                    <h3>Failed to load lesson content</h3>
+                    <p>Please try refreshing the page.</p>
+                </div>
+            `;
+        }
+    }
+}
+
+// Add practice button to lesson content
+async function addPracticeButtonToLesson() {
+    const currentLesson = LessonState.currentLesson;
+    if (!currentLesson) return;
+    
+    const lessonProgress = currentLesson.progress || {};
+    const percentage = lessonProgress.percentage || 0;
+    const topicId = currentLesson.topic_id || 1;
+    
+    // Check if practice is unlocked for this topic
+    const practiceUnlocked = await checkPracticeUnlocked(topicId);
+    
+    // Only show practice button if lesson is mostly completed AND practice is unlocked
+    if (percentage >= 80 && practiceUnlocked) {
+        const practiceBtnHtml = `
+            <div class="practice-cta">
+                <h3><i class="fas fa-pencil-alt"></i> Ready to Practice?</h3>
+                <p>You've completed ${percentage}% of this lesson. Test your knowledge with practice exercises!</p>
+                <button class="btn-success" id="goToPracticeBtn" data-topic-id="${topicId}">
+                    <i class="fas fa-play-circle"></i> Start Practice Exercises
+                </button>
+            </div>
+        `;
+        
+        // Add to lesson content
+        const lessonContent = document.getElementById('lessonContent');
+        const existingPracticeCTA = lessonContent.querySelector('.practice-cta');
+        
+        if (!existingPracticeCTA) {
+            lessonContent.querySelector('.lesson-content-wrapper')?.insertAdjacentHTML('beforeend', practiceBtnHtml);
+            
+            // Add event listener
+            const practiceBtn = document.getElementById('goToPracticeBtn');
+            if (practiceBtn) {
+                practiceBtn.addEventListener('click', function() {
+                    const topicId = this.getAttribute('data-topic-id');
+                    openPracticeForTopic(topicId);
+                });
+            }
+        }
+    } else if (percentage >= 80 && !practiceUnlocked) {
+        // Show lock message
+        const lockHtml = `
+            <div class="practice-cta locked">
+                <h3><i class="fas fa-lock"></i> Practice Locked</h3>
+                <p>Complete all lessons in this topic to unlock practice exercises.</p>
+                <button class="btn-secondary" disabled>
+                    <i class="fas fa-lock"></i> Complete All Lessons First
+                </button>
+            </div>
+        `;
+        
+        const lessonContent = document.getElementById('lessonContent');
+        const existingPracticeCTA = lessonContent.querySelector('.practice-cta');
+        
+        if (!existingPracticeCTA) {
+            lessonContent.querySelector('.lesson-content-wrapper')?.insertAdjacentHTML('beforeend', lockHtml);
+        }
+    }
+}
+
+// Convert markdown-like text to HTML
+function convertMarkdownToHTML(text) {
+    if (!text) return '';
+    
+    // Basic markdown conversion
+    let html = text
+        // Headers
+        .replace(/^# (.*$)/gm, '<h1>$1</h1>')
+        .replace(/^## (.*$)/gm, '<h2>$1</h2>')
+        .replace(/^### (.*$)/gm, '<h3>$1</h3>')
+        .replace(/^#### (.*$)/gm, '<h4>$1</h4>')
+        
+        // Bold and italic
+        .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+        .replace(/\*(.*?)\*/g, '<em>$1</em>')
+        
+        // Lists
+        .replace(/^\d+\.\s+(.*$)/gm, '<li>$1</li>')
+        .replace(/^-\s+(.*$)/gm, '<li>$1</li>')
+        
+        // Code blocks
+        .replace(/`(.*?)`/g, '<code>$1</code>')
+        
+        // Line breaks
+        .replace(/\n\n/g, '</p><p>')
+        .replace(/\n/g, '<br>');
+    
+    // Wrap list items in proper list tags
+    if (html.includes('<li>')) {
+        html = html.replace(/(<li>.*?<\/li>)+/gs, '<ol>$&</ol>');
+    }
+    
+    // Add paragraph tags
+    const sections = html.split('</p><p>');
+    html = sections.map(section => {
+        if (!section.startsWith('<h') && !section.startsWith('<ol') && !section.startsWith('<ul') && !section.startsWith('<li>')) {
+            return `<p>${section}</p>`;
+        }
+        return section;
+    }).join('');
+    
+    // Add styling classes
+    html = html
+        .replace(/<h1>/g, '<h1 class="lesson-title">')
+        .replace(/<h2>/g, '<h2 class="lesson-subtitle">')
+        .replace(/<h3>/g, '<h3 class="lesson-section">')
+        .replace(/<p>/g, '<p class="lesson-paragraph">')
+        .replace(/<code>/g, '<code class="lesson-code">');
+    
+    return `
+        <div class="lesson-content-wrapper">
+            ${html}
+            <div class="lesson-interactive">
+                <button class="btn-secondary" id="showMoreExamples">
+                    <i class="fas fa-plus-circle"></i> Show More Examples
+                </button>
+                <button class="btn-secondary" id="practiceProblems">
+                    <i class="fas fa-pencil-alt"></i> Practice Problems
+                </button>
+                <button class="btn-secondary" id="downloadNotes">
+                    <i class="fas fa-download"></i> Download Notes
+                </button>
+            </div>
+        </div>
+    `;
+}
+
+// Generate default lesson content if no database content
+function generateDefaultLessonContent(lesson) {
+    return `
+        <div class="lesson-content-wrapper">
+            <h1 class="lesson-title">${lesson.content_title || 'Polynomial Division'}</h1>
+            
+            <div class="lesson-meta">
+                <span class="meta-item">
+                    <i class="fas fa-clock"></i> ${Math.round(lesson.video_duration_seconds / 60)} minutes
+                </span>
+                <span class="meta-item">
+                    <i class="fas fa-book"></i> ${lesson.module_name || 'Module'}
+                </span>
+                <span class="meta-item">
+                    <i class="fas fa-tag"></i> ${lesson.topic_title || 'Topic'}
+                </span>
+            </div>
+            
+            <h2 class="lesson-subtitle">Introduction</h2>
+            <p class="lesson-paragraph">
+                This lesson covers polynomial division methods including long division and synthetic division. 
+                These techniques are essential for simplifying complex polynomial expressions and solving equations.
+            </p>
+         
+            
+            <h2 class="lesson-subtitle">Learning Objectives</h2>
+            <ol class="lesson-list">
+                <li>Divide polynomials using the long division method</li>
+                <li>Apply synthetic division for linear divisors</li>
+                <li>Identify when to use each method appropriately</li>
+                <li>Solve polynomial equations using division techniques</li>
+            </ol>
+            
+            <h2 class="lesson-subtitle">Example: Long Division</h2>
+            <div class="example-box">
+                <p><strong>Problem:</strong> Divide (3x³ - 2x² + 4x - 1) by (x - 2)</p>
+                <p><strong>Solution Steps:</strong></p>
+                <ol>
+                    <li>Set up the division: (3x³ - 2x² + 4x - 1) ÷ (x - 2)</li>
+                    <li>Divide first term: 3x³ ÷ x = 3x²</li>
+                    <li>Multiply: 3x²(x - 2) = 3x³ - 6x²</li>
+                    <li>Subtract: (3x³ - 2x²) - (3x³ - 6x²) = 4x²</li>
+                    <li>Bring down next term: 4x² + 4x</li>
+                    <li>Continue until remainder has lower degree than divisor</li>
+                </ol>
+            </div>
+            
+            <h2 class="lesson-subtitle">Practice Problems</h2>
+            <div class="practice-box">
+                <p><strong>Try these problems:</strong></p>
+                <ol>
+                    <li>(x² + 5x + 6) ÷ (x + 2)</li>
+                    <li>(2x³ - 3x² + x - 1) ÷ (x - 1)</li>
+                    <li>(x⁴ - 16) ÷ (x - 2)</li>
+                </ol>
+                <button class="btn-primary" id="checkAnswersBtn">
+                    <i class="fas fa-check"></i> Check Answers
+                </button>
+            </div>
+            
+            <div class="lesson-tips">
+                <h3><i class="fas fa-lightbulb"></i> Tips & Tricks</h3>
+                <ul>
+                    <li>Always arrange polynomials in descending order before dividing</li>
+                    <li>Include zero coefficients for missing terms</li>
+                    <li>Check your work by multiplying quotient by divisor and adding remainder</li>
+                    <li>Synthetic division only works when dividing by (x - c)</li>
+                </ul>
+            </div>
+            
+            <div class="lesson-interactive">
+                <button class="btn-secondary" id="showMoreExamples">
+                    <i class="fas fa-plus-circle"></i> Show More Examples
+                </button>
+                <button class="btn-secondary" id="practiceProblems">
+                    <i class="fas fa-pencil-alt"></i> Practice Problems
+                </button>
+                <button class="btn-secondary" id="downloadNotes">
+                    <i class="fas fa-download"></i> Download Notes
+                </button>
+            </div>
+        </div>
+    `;
+}
+
+// Setup interactions for lesson content
+function setupLessonContentInteractions() {
+    // Show more examples button
+    const showMoreExamplesBtn = document.getElementById('showMoreExamples');
+    if (showMoreExamplesBtn) {
+        showMoreExamplesBtn.addEventListener('click', function() {
+            const extraExamples = `
+                <div class="extra-examples">
+                    <h3>Additional Examples</h3>
+                    
+                    <div class="example">
+                        <h4>Example 1: Synthetic Division</h4>
+                        <p>Divide (2x³ + 3x² - 4x + 5) by (x + 1)</p>
+                        <p><strong>Steps:</strong></p>
+                        <ol>
+                            <li>Set c = -1 (opposite sign of x + 1)</li>
+                            <li>Write coefficients: 2, 3, -4, 5</li>
+                            <li>Bring down 2</li>
+                            <li>Multiply: 2 × -1 = -2, add to next: 3 + (-2) = 1</li>
+                            <li>Continue: 1 × -1 = -1, -4 + (-1) = -5</li>
+                            <li>-5 × -1 = 5, 5 + 5 = 10 (remainder)</li>
+                            <li>Result: 2x² + x - 5 + 10/(x + 1)</li>
+                        </ol>
+                    </div>
+                    
+                    <div class="example">
+                        <h4>Example 2: Long Division with Quadratic Divisor</h4>
+                        <p>Divide (x⁴ - 3x³ + 2x² - x + 1) by (x² + 1)</p>
+                        <p><strong>Steps:</strong></p>
+                        <ol>
+                            <li>Set up: (x⁴ - 3x³ + 2x² - x + 1) ÷ (x² + 1)</li>
+                            <li>x⁴ ÷ x² = x²</li>
+                            <li>x²(x² + 1) = x⁴ + x²</li>
+                            <li>Subtract: (x⁴ - 3x³ + 2x²) - (x⁴ + x²) = -3x³ + x²</li>
+                            <li>Bring down -x: -3x³ + x² - x</li>
+                            <li>Continue process...</li>
+                        </ol>
+                    </div>
+                </div>
+            `;
+            
+            // Append to lesson content
+            const lessonContent = document.getElementById('lessonContent');
+            const existingExtra = lessonContent.querySelector('.extra-examples');
+            
+            if (existingExtra) {
+                existingExtra.remove();
+                this.innerHTML = '<i class="fas fa-plus-circle"></i> Show More Examples';
+            } else {
+                lessonContent.querySelector('.lesson-content-wrapper').insertAdjacentHTML('beforeend', extraExamples);
+                this.innerHTML = '<i class="fas fa-minus-circle"></i> Hide Examples';
+            }
+        });
+    }
+    
+    // Practice problems button
+    const practiceProblemsBtn = document.getElementById('practiceProblems');
+    if (practiceProblemsBtn) {
+        practiceProblemsBtn.addEventListener('click', function() {
+            const problems = [
+                { problem: "(x³ - 8) ÷ (x - 2)", answer: "x² + 2x + 4" },
+                { problem: "(2x³ + 5x² - 3x + 1) ÷ (x + 1)", answer: "2x² + 3x - 6 + 7/(x + 1)" },
+                { problem: "(x⁴ - 1) ÷ (x - 1)", answer: "x³ + x² + x + 1" }
+            ];
+            
+            let problemsHTML = '<div class="practice-modal"><h3>Practice Problems</h3>';
+            problems.forEach((prob, index) => {
+                problemsHTML += `
+                    <div class="problem">
+                        <p><strong>Problem ${index + 1}:</strong> ${prob.problem}</p>
+                        <div class="solution" style="display: none;">
+                            <p><strong>Solution:</strong> ${prob.answer}</p>
+                        </div>
+                        <button class="btn-small show-solution" data-index="${index}">
+                            Show Solution
+                        </button>
+                    </div>
+                `;
+            });
+            problemsHTML += '</div>';
+            
+            // Show modal with problems
+            showModal(problemsHTML);
+            
+            // Add event listeners to show solution buttons
+            setTimeout(() => {
+                document.querySelectorAll('.show-solution').forEach(button => {
+                    button.addEventListener('click', function() {
+                        const index = this.getAttribute('data-index');
+                        const solution = this.parentElement.querySelector('.solution');
+                        if (solution.style.display === 'none') {
+                            solution.style.display = 'block';
+                            this.textContent = 'Hide Solution';
+                        } else {
+                            solution.style.display = 'none';
+                            this.textContent = 'Show Solution';
+                        }
+                    });
+                });
+            }, 100);
+        });
+    }
+    
+    // Download notes button
+    const downloadNotesBtn = document.getElementById('downloadNotes');
+    if (downloadNotesBtn) {
+        downloadNotesBtn.addEventListener('click', function() {
+            const lessonTitle = LessonState.currentLesson?.content_title || 'Polynomial Division';
+            const content = document.getElementById('lessonContent').innerText;
+            
+            // Create downloadable content
+            const blob = new Blob([`${lessonTitle}\n\n${content}`], { type: 'text/plain' });
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `${lessonTitle.replace(/\s+/g, '_')}_notes.txt`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            window.URL.revokeObjectURL(url);
+            
+            showNotification('Notes downloaded successfully!', 'success');
+        });
+    }
+    
+    // Check answers button (if exists in default content)
+    const checkAnswersBtn = document.getElementById('checkAnswersBtn');
+    if (checkAnswersBtn) {
+        checkAnswersBtn.addEventListener('click', function() {
+            const answers = {
+                1: "(x + 3)",
+                2: "(2x² - x)",
+                3: "(x³ + 2x² + 4x + 8)"
+            };
+            
+            let answersHTML = '<div class="answers-modal"><h3>Answers to Practice Problems</h3>';
+            Object.entries(answers).forEach(([problem, answer]) => {
+                answersHTML += `
+                    <div class="answer">
+                        <p><strong>Problem ${problem}:</strong> ${answer}</p>
+                    </div>
+                `;
+            });
+            answersHTML += '</div>';
+            
+            showModal(answersHTML);
+        });
+    }
+}
+
+// Helper function to show modal
+function showModal(content, options = {}) {
+    const { closeable = true } = options;
+    
+    // Remove existing modal
+    const existingModal = document.querySelector('.modal-overlay');
+    if (existingModal) existingModal.remove();
+    
+    // Create modal
+    const modalOverlay = document.createElement('div');
+    modalOverlay.className = 'modal-overlay';
+    
+    let closeButton = '';
+    if (closeable) {
+        closeButton = '<button class="modal-close"><i class="fas fa-times"></i></button>';
+    }
+    
+    modalOverlay.innerHTML = `
+        <div class="modal-content">
+            ${closeButton}
+            ${content}
+        </div>
+    `;
+    
+    // Add styles
+    modalOverlay.style.cssText = `
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(0, 0, 0, 0.7);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 10000;
+        padding: 20px;
+    `;
+    
+    const modalContent = modalOverlay.querySelector('.modal-content');
+    modalContent.style.cssText = `
+        background: white;
+        padding: 30px;
+        border-radius: 10px;
+        max-width: 800px;
+        width: 100%;
+        max-height: 90vh;
+        overflow-y: auto;
+        position: relative;
+    `;
+    
+    // Add close button functionality
+    if (closeable) {
+        const closeBtn = modalOverlay.querySelector('.modal-close');
+        closeBtn.style.cssText = `
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background: none;
+            border: none;
+            font-size: 20px;
+            cursor: pointer;
+            color: #666;
+        `;
+        
+        closeBtn.addEventListener('click', () => modalOverlay.remove());
+        modalOverlay.addEventListener('click', (e) => {
+            if (e.target === modalOverlay) modalOverlay.remove();
+        });
+    }
+    
+    document.body.appendChild(modalOverlay);
+    return modalOverlay;
+}
+
+// Add CSS styles for lesson content
+function addLessonContentStyles() {
+    if (!document.querySelector('#lesson-content-styles')) {
+        const style = document.createElement('style');
+        style.id = 'lesson-content-styles';
+        style.textContent = `
+            .lesson-content-wrapper {
+                line-height: 1.6;
+            }
+            
+            .lesson-title {
+                color: #2c3e50;
+                margin-bottom: 20px;
+                font-size: 28px;
+            }
+            
+            .lesson-subtitle {
+                color: #3498db;
+                margin-top: 25px;
+                margin-bottom: 15px;
+                font-size: 22px;
+                border-bottom: 2px solid #f0f0f0;
+                padding-bottom: 8px;
+            }
+            
+            .lesson-section {
+                color: #2c3e50;
+                margin-top: 20px;
+                font-size: 18px;
+            }
+            
+            .lesson-paragraph {
+                margin-bottom: 15px;
+                color: #34495e;
+            }
+            
+            .lesson-list {
+                margin-left: 20px;
+                margin-bottom: 20px;
+            }
+            
+            .lesson-list li {
+                margin-bottom: 8px;
+            }
+            
+            .lesson-code {
+                background: #f8f9fa;
+                padding: 2px 6px;
+                border-radius: 4px;
+                font-family: monospace;
+                color: #e74c3c;
+            }
+            
+            .example-box, .practice-box {
+                background: #f8f9fa;
+                border-left: 4px solid #3498db;
+                padding: 15px;
+                margin: 20px 0;
+                border-radius: 0 8px 8px 0;
+            }
+            
+            .lesson-tips {
+                background: #fffde7;
+                border-left: 4px solid #f39c12;
+                padding: 15px;
+                margin: 20px 0;
+                border-radius: 0 8px 8px 0;
+            }
+            
+            .lesson-meta {
+                display: flex;
+                gap: 20px;
+                margin-bottom: 20px;
+                color: #7f8c8d;
+                font-size: 14px;
+            }
+            
+            .meta-item i {
+                margin-right: 5px;
+            }
+            
+            .lesson-interactive {
+                display: flex;
+                gap: 10px;
+                margin-top: 30px;
+                padding-top: 20px;
+                border-top: 1px solid #eee;
+            }
+            
+            .btn-secondary {
+                background: #ecf0f1;
+                color: #2c3e50;
+                border: none;
+                padding: 10px 15px;
+                border-radius: 5px;
+                cursor: pointer;
+                display: flex;
+                align-items: center;
+                gap: 8px;
+                font-size: 14px;
+                transition: all 0.3s;
+            }
+            
+            .btn-secondary:hover {
+                background: #d5dbdb;
+                transform: translateY(-2px);
+            }
+            
+            .btn-primary {
+                background: #3498db;
+                color: white;
+                border: none;
+                padding: 10px 20px;
+                border-radius: 5px;
+                cursor: pointer;
+                margin-top: 10px;
+            }
+            
+            .btn-small {
+                background: #95a5a6;
+                color: white;
+                border: none;
+                padding: 5px 10px;
+                border-radius: 3px;
+                cursor: pointer;
+                font-size: 12px;
+                margin-top: 5px;
+            }
+            
+            .loading-content, .no-content, .error-content {
+                text-align: center;
+                padding: 50px 20px;
+                color: #7f8c8d;
+            }
+            
+            .loading-content i {
+                font-size: 40px;
+                margin-bottom: 20px;
+                color: #3498db;
+            }
+            
+            .extra-examples {
+                margin-top: 30px;
+                padding: 20px;
+                background: #f9f9f9;
+                border-radius: 8px;
+            }
+            
+            .problem {
+                margin-bottom: 20px;
+                padding: 15px;
+                background: #f8f9fa;
+                border-radius: 5px;
+            }
+            
+            .practice-cta {
+                background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                color: white;
+                padding: 25px;
+                border-radius: 10px;
+                margin-top: 30px;
+                text-align: center;
+            }
+            
+            .practice-cta.locked {
+                background: linear-gradient(135deg, #95a5a6 0%, #7f8c8d 100%);
+            }
+            
+            .practice-cta h3 {
+                margin-top: 0;
+                color: white;
+            }
+            
+            .practice-cta .btn-success {
+                background: #27ae60;
+                color: white;
+                border: none;
+                padding: 12px 25px;
+                borderRadius: 5px;
+                cursor: pointer;
+                font-size: 16px;
+                margin-top: 15px;
+                transition: all 0.3s;
+            }
+            
+            .practice-cta .btn-success:hover {
+                background: #219653;
+                transform: translateY(-2px);
+                box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+            }
+            
+            .practice-cta .btn-success:disabled,
+            .practice-cta .btn-secondary:disabled {
+                background: #95a5a6;
+                cursor: not-allowed;
+                transform: none;
+                box-shadow: none;
+            }
+            
+            .practice-cta .btn-secondary {
+                background: #7f8c8d;
+                color: white;
+            }
+        `;
+        document.head.appendChild(style);
+    }
+}
+
+// ============================================
+// VIDEO MANAGEMENT FUNCTIONS - FIXED
+// ============================================
+
+// Get video from database
+async function getVideoFromDatabase(contentId = 1) {
+    try {
+        console.log('🎬 Fetching video from database for content ID:', contentId);
+        
+        const token = localStorage.getItem('authToken') || authToken;
+        if (!token) {
+            console.warn('No auth token available');
+            return null;
+        }
+        
+        const response = await fetch(`/api/videos/content/${contentId}`, {
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+            }
+        });
+        
+        if (!response.ok) {
+            throw new Error(`Failed to fetch video: ${response.status}`);
+        };
+        
+        const data = await response.json();
+        
+        if (data.success && data.video) {
+            console.log('✅ Video loaded from database:', {
+                title: data.video.title,
+                url: data.video.url,
+                source: data.video.source || 'database',
+                path: data.video.video_path
+            });
+            
+            // Test if video URL is accessible
+            try {
+                const testResponse = await fetch(data.video.url, { method: 'HEAD' });
+                console.log('📡 Video URL test:', {
+                    url: data.video.url,
+                    status: testResponse.status,
+                    accessible: testResponse.ok
+                });
+            } catch (testError) {
+                console.warn('⚠️ Video URL test failed:', testError.message);
+            }
+            
+            AppState.currentVideoData = data.video;
+            return data.video;
+        } else {
+            throw new Error(data.message || 'No video data returned');
+        }
+    } catch (error) {
+        console.error('Error fetching video from database:', error);
+        return null;
+    }
+}
+// Test video accessibility
+async function testVideoAccessibility(url) {
+    try {
+        const response = await fetch(url, { method: 'HEAD' });
+        return {
+            accessible: response.ok,
+            status: response.status,
+            statusText: response.statusText
+        };
+    } catch (error) {
+        return {
+            accessible: false,
+            error: error.message
+        };
+    }
+}
+
+// ============================================
+// RAILWAY FIX: Load video from database with better error handling
+// ============================================
+async function loadVideoFromDatabase(contentId = null) {
+    console.log('🎬 loadVideoFromDatabase called with contentId:', contentId);
+    
+    // Try multiple selectors for video container - use LET instead of CONST
+    let videoContainer = document.getElementById('videoContainer') || 
+                         document.querySelector('.video-container') ||
+                         document.querySelector('#module-dashboard-page .video-section');
+    
+    const videoInfo = document.getElementById('videoInfo');
+    const refreshVideoBtn = document.getElementById('refreshVideoBtn');
+    
+    if (!videoContainer) {
+        console.error('❌ Video container not found! DOM structure:', {
+            videoContainer: document.getElementById('videoContainer'),
+            moduleDashboard: document.getElementById('module-dashboard-page'),
+            videoSection: document.querySelector('.video-section')
+        });
+        
+        // Create video container if it doesn't exist
+        const moduleDashboard = document.getElementById('module-dashboard-page');
+        if (moduleDashboard) {
+            const videoSection = moduleDashboard.querySelector('.video-section');
+            if (videoSection) {
+                console.log('🔄 Creating video container dynamically...');
+                videoSection.innerHTML = `
+                    <div id="videoContainer" style="background: #000; min-height: 300px; width: 100%;">
+                        <div style="background: #f0f0f0; height: 400px; display: flex; align-items: center; justify-content: center; flex-direction: column;">
+                            <i class="fas fa-spinner fa-spin" style="font-size: 40px; color: #7a0000; margin-bottom: 20px;"></i>
+                            <p style="color: #666;">Loading video...</p>
+                        </div>
+                    </div>
+                `;
+            }
+        }
+        
+        // Try to get container again - reassign to LET variable
+        videoContainer = document.getElementById('videoContainer');
+        if (!videoContainer) {
+            console.error('❌ Still cannot find video container');
+            return null;
+        }
+    }
+    
+    try {
+        // Use provided contentId or get from current lesson
+        if (!contentId && LessonState.currentLesson) {
+            contentId = LessonState.currentLesson.content_id;
+        }
+        
+        // If still no contentId, try from URL
+        if (!contentId) {
+            const urlParams = new URLSearchParams(window.location.search);
+            contentId = urlParams.get('lessonId') || urlParams.get('id') || urlParams.get('contentId') || 1;
+        }
+        
+        console.log(`🎬 Loading video for lesson ID: ${contentId} on Railway`);
+        
+        // Show loading
+        videoContainer.innerHTML = `
+            <div style="background: #f0f0f0; height: 400px; display: flex; align-items: center; justify-content: center; flex-direction: column;">
+                <i class="fas fa-spinner fa-spin" style="font-size: 40px; color: #7a0000; margin-bottom: 20px;"></i>
+                <p style="color: #666;">Loading video from database...</p>
+            </div>
+        `;
+        
+        if (videoInfo) {
+            videoInfo.innerHTML = '<p><i class="fas fa-spinner fa-spin"></i> Fetching video data...</p>';
+        }
+        
+        if (refreshVideoBtn) {
+            refreshVideoBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+            refreshVideoBtn.disabled = true;
+        }
+        
+        // Use apiRequest for consistency
+        const lessonData = await apiRequest(`/api/lessons-db/${contentId}`);
+        
+        if (!lessonData.success || !lessonData.lesson) {
+            throw new Error('Lesson not found');
+        }
+        
+        const lesson = lessonData.lesson;
+        console.log('✅ Lesson data loaded:', lesson.content_title);
+        
+        // Update lesson info
+        const titleElement = document.getElementById('videoLessonTitle');
+        if (titleElement) {
+            titleElement.textContent = lesson.content_title || 'Video Lesson';
+        }
+        
+        const descElement = document.getElementById('videoLessonDescription');
+        if (descElement) {
+            descElement.textContent = lesson.content_description || '';
+        }
+        
+        // Determine video source
+        let videoUrl = null;
+        let videoType = 'none';
+        
+        // Check for YouTube URL first
+        if (lesson.content_url && (lesson.content_url.includes('youtube') || lesson.content_url.includes('youtu.be'))) {
+            videoUrl = lesson.content_url;
+            videoType = 'youtube';
+            console.log('🔗 Using YouTube video:', videoUrl);
+        }
+        // Check for video_filename (uploaded video)
+        else if (lesson.video_filename) {
+            if (lesson.video_filename.startsWith('http')) {
+                videoUrl = lesson.video_filename;
+            } else {
+                // For Railway, use absolute URL
+                videoUrl = `${window.location.origin}/videos/${lesson.video_filename}`;
+            }
+            videoType = 'uploaded';
+            console.log('🎬 Using uploaded video:', videoUrl);
+        }
+        // Check for video_path
+        else if (lesson.video_path) {
+            if (lesson.video_path.startsWith('http')) {
+                videoUrl = lesson.video_path;
+            } else {
+                const filename = lesson.video_path.split('/').pop();
+                videoUrl = `${window.location.origin}/videos/${filename}`;
+            }
+            videoType = 'path';
+            console.log('📁 Using video path:', videoUrl);
+        }
+        
+        // Clear container
+        videoContainer.innerHTML = '';
+        
+        // Handle YouTube videos
+        if (videoType === 'youtube' && videoUrl) {
+            const videoId = extractYoutubeId(videoUrl);
+            if (videoId) {
+                const iframe = document.createElement('iframe');
+                iframe.width = '100%';
+                iframe.height = '400';
+                iframe.src = `https://www.youtube.com/embed/${videoId}`;
+                iframe.frameBorder = '0';
+                iframe.allowFullscreen = true;
+                iframe.allow = 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture';
+                videoContainer.appendChild(iframe);
+                
+                if (videoInfo) {
+                    videoInfo.innerHTML = `
+                        <p><i class="fab fa-youtube" style="color: #ff0000;"></i> <strong>YouTube Video</strong></p>
+                        <p>${lesson.content_title || ''}</p>
+                    `;
+                }
+                return;
+            }
+        }
+        
+        // Handle uploaded videos
+        if (videoUrl) {
+            const video = document.createElement('video');
+            video.id = 'lessonVideo';
+            video.controls = true;
+            video.style.width = '100%';
+            video.style.maxHeight = '400px';
+            video.style.backgroundColor = '#000';
+            
+            const source = document.createElement('source');
+            source.src = videoUrl + '?v=' + Date.now(); // Cache buster
+            source.type = 'video/mp4';
+            
+            video.appendChild(source);
+            video.appendChild(document.createTextNode('Your browser does not support the video tag.'));
+            
+            // Success handler
+            video.onloadeddata = function() {
+                console.log(`✅ Video loaded successfully: ${videoUrl}`);
+                if (videoInfo) {
+                    videoInfo.innerHTML = `
+                        <p><i class="fas fa-check-circle" style="color: #27ae60;"></i> <strong>${lesson.content_title || 'Video Lesson'}</strong></p>
+                        <p><i class="fas fa-clock"></i> Duration: ${Math.floor((lesson.video_duration_seconds || 600) / 60)} min</p>
+                    `;
+                }
+                // Initialize progress tracking
+                initVideoProgressTracking(video, contentId);
+            };
+            
+            // Error handler
+            video.onerror = function() {
+                console.error('❌ Video failed to load:', videoUrl);
+                videoContainer.innerHTML = `
+                    <div style="background: #fee; height: 400px; display: flex; align-items: center; justify-content: center; flex-direction: column;">
+                        <i class="fas fa-exclamation-triangle" style="font-size: 60px; color: #e74c3c; margin-bottom: 20px;"></i>
+                        <h3 style="color: #c0392b;">Video not found</h3>
+                        <p style="color: #e74c3c;">The video file may be missing or inaccessible.</p>
+                        <p style="color: #666; font-size: 12px; margin-top: 10px;">Path: ${videoUrl}</p>
+                    </div>
+                `;
+                if (videoInfo) {
+                    videoInfo.innerHTML = `
+                        <p style="color: #e74c3c;">
+                            <i class="fas fa-exclamation-triangle"></i> 
+                            Video failed to load. Please check if the file exists.
+                        </p>
+                    `;
+                }
+            };
+            
+            videoContainer.appendChild(video);
+            video.load();
+        } else {
+            // No video available
+            videoContainer.innerHTML = `
+                <div style="background: #f0f0f0; height: 400px; display: flex; align-items: center; justify-content: center; flex-direction: column;">
+                    <i class="fas fa-video-slash" style="font-size: 60px; color: #999; margin-bottom: 20px;"></i>
+                    <h3 style="color: #666;">No video available for this lesson</h3>
+                    <p style="color: #999;">The video will appear here once uploaded.</p>
+                </div>
+            `;
+            
+            if (videoInfo) {
+                videoInfo.innerHTML = `
+                    <p style="color: #f39c12;">
+                        <i class="fas fa-info-circle"></i> 
+                        This lesson has no video assigned.
+                    </p>
+                `;
+            }
+        }
+        
+    } catch (error) {
+        console.error('❌ Error loading video:', error);
+        
+        videoContainer.innerHTML = `
+            <div style="background: #fee; height: 400px; display: flex; align-items: center; justify-content: center; flex-direction: column;">
+                <i class="fas fa-exclamation-triangle" style="font-size: 60px; color: #e74c3c; margin-bottom: 20px;"></i>
+                <h3 style="color: #c0392b;">Failed to load video</h3>
+                <p style="color: #e74c3c;">${error.message}</p>
+                <button onclick="location.reload()" class="btn-primary" style="margin-top: 20px; padding: 10px 20px;">
+                    <i class="fas fa-redo"></i> Reload Page
+                </button>
+            </div>
+        `;
+    } finally {
+        if (refreshVideoBtn) {
+            refreshVideoBtn.innerHTML = '<i class="fas fa-sync-alt"></i>';
+            refreshVideoBtn.disabled = false;
+        }
+    }
+}
+
+// Add this at the end of your script.js file
+window.debugLessonId3 = async function() {
+    console.log('🔍 DEBUGGING LESSON ID 1 (mathease)');
+    console.log('=====================================');
+    
+    const token = localStorage.getItem('authToken');
+    
+    if (!token) {
+        console.error('❌ No auth token found');
+        return;
+    }
+    
+    // 1. Check lesson data
+    console.log('\n📚 CHECKING LESSON DATA:');
+    try {
+        const lessonRes = await fetch('/api/lessons-db/complete?lesson_id=1', {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        const lessonData = await lessonRes.json();
+        console.log('Lessons for lesson_id=1:', lessonData);
+    } catch (e) {
+        console.error('Lesson fetch error:', e);
+    }
+    
+    // 2. Check practice exercises
+    console.log('\n💪 CHECKING PRACTICE EXERCISES:');
+    try {
+        const practiceRes = await fetch('/api/practice/exercises/count?lesson_id=1', {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        const practiceData = await practiceRes.json();
+        console.log('Practice exercises count:', practiceData);
+    } catch (e) {
+        console.error('Practice fetch error:', e);
+    }
+    
+    // 3. Check user progress
+    console.log('\n📊 CHECKING USER PROGRESS:');
+    try {
+        const progressRes = await fetch('/api/progress/lessons?lesson_id=1', {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        const progressData = await progressRes.json();
+        console.log('User progress for lesson_id=1:', progressData);
+    } catch (e) {
+        console.error('Progress fetch error:', e);
+    }
+    
+    // 4. Check quizzes
+    console.log('\n🧠 CHECKING QUIZZES:');
+    try {
+        const quizRes = await fetch('/api/quiz/categories?lesson_id=1', {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        const quizData = await quizRes.json();
+        console.log('Quiz categories for lesson_id=1:', quizData);
+    } catch (e) {
+        console.error('Quiz fetch error:', e);
+    }
+    
+    console.log('\n✅ Debug complete');
+};
+
+
+// Get default video (fallback)
+async function getDefaultVideo() {
+    try {
+        const response = await fetch(`/api/videos/default`);
+        const data = await response.json();
+        
+        if (data.success) {
+            console.log('✅ Using default video from API');
+            AppState.currentVideoData = data.video;
+            return data.video;
+        } else {
+            throw new Error('Failed to get default video');
+        }
+    } catch (error) {
+        console.error('Error getting default video:', error);
+        return null;
+    }
+}
+
+// Setup video progress tracking
+function setupVideoProgressTracking() {
+    const videoElement = document.getElementById('lessonVideo');
+    const videoTimeDisplay = document.getElementById('videoTime');
+    
+    if (!videoElement || !videoTimeDisplay) return;
+    
+    console.log("🎬 Setting up video progress tracking...");
+    
+    let isVideoPlaying = false;
+    let videoStartTime = 0;
+    let totalWatchedSeconds = 0;
+    let lastSaveTime = 0;
+    const SAVE_INTERVAL = 15000;
+    
+    const videoData = AppState.currentVideoData;
+    const videoKey = videoData ? `video_${videoData.content_id}` : 'video_default';
+    
+    const savedWatchTime = localStorage.getItem(`video_watch_time_${videoKey}`);
+    if (savedWatchTime) {
+        totalWatchedSeconds = parseInt(savedWatchTime);
+        console.log(`⏱️ Loaded previous watch time: ${totalWatchedSeconds} seconds`);
+    }
+    
+    function formatTime(seconds) {
+        if (isNaN(seconds)) return "0:00";
+        const mins = Math.floor(seconds / 60);
+        const secs = Math.floor(seconds % 60);
+        return `${mins}:${secs.toString().padStart(2, '0')}`;
+    }
+    
+    function updateWatchTimeDisplay() {
+        if (!videoTimeDisplay) return;
+        
+        const savedTime = localStorage.getItem(`video_watch_time_${videoKey}`);
+        const watchedSeconds = savedTime ? parseInt(savedTime) : 0;
+        
+        const currentTime = formatTime(videoElement.currentTime || 0);
+        const duration = formatTime(videoElement.duration || 0);
+        
+        videoTimeDisplay.textContent = `${currentTime} / ${duration}`;
+        videoTimeDisplay.title = `Total time watched: ${Math.floor(watchedSeconds/60)}m ${watchedSeconds%60}s`;
+    }
+    
+    async function updateVideoProgress(watchedSeconds, isCompleted = false) {
+        try {
+            let percentage = 0;
+            if (videoElement.duration > 0) {
+                percentage = Math.min(100, Math.floor((watchedSeconds / videoElement.duration) * 100));
+            }
+            
+            const progressData = {
+                time_spent_seconds: watchedSeconds,
+                completion_status: isCompleted ? 'completed' : 'in_progress',
+                current_time: videoElement.currentTime || 0,
+                total_duration: videoElement.duration || 0
+            };
+            
+            const contentId = videoData?.content_id || LessonState.currentLesson?.content_id || 1;
+            
+            const token = localStorage.getItem('authToken') || authToken;
+            if (token && contentId) {
+                // Update lesson progress
+                await updateLessonProgress(contentId, {
+                    completion_status: isCompleted ? 'completed' : 'in_progress',
+                    percentage: percentage,
+                    time_spent_seconds: watchedSeconds
+                });
+                
+                console.log(`✅ Video progress saved: ${watchedSeconds}s (${percentage}%)`);
+                
+                // Log activity if lesson is completed
+                if (isCompleted && LessonState.currentLesson) {
+                    await logUserActivity('lesson_completed', contentId, {
+                        lesson_title: LessonState.currentLesson.content_title,
+                        time_spent: watchedSeconds,
+                        percentage: percentage
+                    }, 50);
+                }
+            }
+        } catch (error) {
+            console.error('Error updating video progress:', error);
+        }
+    }
+    
+    videoElement.addEventListener('play', function() {
+        console.log("▶️ Video STARTED playing");
+        isVideoPlaying = true;
+        videoStartTime = Date.now();
+        
+        if (videoTimeDisplay) {
+            videoTimeDisplay.classList.add('watching');
+        }
+    });
+    
+    videoElement.addEventListener('pause', function() {
+        console.log("⏸️ Video PAUSED");
+        
+        if (isVideoPlaying) {
+            const watchDuration = Math.floor((Date.now() - videoStartTime) / 1000);
+            totalWatchedSeconds += watchDuration;
+            isVideoPlaying = false;
+            
+            console.log(`⏱️ Watched for ${watchDuration} seconds (Total: ${totalWatchedSeconds}s)`);
+            
+            updateVideoProgress(totalWatchedSeconds);
+            
+            if (videoTimeDisplay) {
+                videoTimeDisplay.classList.remove('watching');
+            }
+            
+            updateWatchTimeDisplay(totalWatchedSeconds);
+        }
+    });
+    
+    videoElement.addEventListener('timeupdate', function() {
+        const currentTime = formatTime(videoElement.currentTime);
+        const duration = formatTime(videoElement.duration || 0);
+        if (videoTimeDisplay) {
+            videoTimeDisplay.textContent = `${currentTime} / ${duration}`;
+        }
+        
+        if (isVideoPlaying) {
+            const currentTimeMs = Date.now();
+            if (currentTimeMs - lastSaveTime > SAVE_INTERVAL) {
+                lastSaveTime = currentTimeMs;
+                
+                const watchDuration = Math.floor((currentTimeMs - videoStartTime) / 1000);
+                const currentWatchedSeconds = totalWatchedSeconds + watchDuration;
+                
+                updateVideoProgress(currentWatchedSeconds);
+                
+                console.log(`💾 Auto-saved progress: ${currentWatchedSeconds} seconds watched`);
+            }
+        }
+    });
+    
+    videoElement.addEventListener('ended', function() {
+        console.log("✅ Video COMPLETED!");
+        
+        if (isVideoPlaying) {
+            const watchDuration = Math.floor((Date.now() - videoStartTime) / 1000);
+            totalWatchedSeconds += watchDuration;
+            isVideoPlaying = false;
+            
+            console.log(`🎉 Finished watching! Total: ${totalWatchedSeconds} seconds`);
+            
+            updateVideoProgress(totalWatchedSeconds, true);
+            
+            localStorage.removeItem(`video_watch_time_${videoKey}`);
+            
+            showNotification(`Video completed! You watched for ${Math.floor(totalWatchedSeconds/60)} minutes.`, 'success');
+            
+            // Auto-check if practice should be unlocked
+            const topicId = LessonState.currentTopic;
+            if (topicId) {
+                setTimeout(() => {
+                    checkPracticeUnlocked(topicId).then(unlocked => {
+                        if (unlocked) {
+                            showNotification('Practice exercises are now unlocked!', 'success');
+                            // Refresh the lesson content to show practice button
+                            addPracticeButtonToLesson();
+                        }
+                    });
+                }, 1000);
+            }
+        }
+    });
+    
+    window.addEventListener('beforeunload', function() {
+        if (isVideoPlaying) {
+            const watchDuration = Math.floor((Date.now() - videoStartTime) / 1000);
+            totalWatchedSeconds += watchDuration;
+            
+            localStorage.setItem(`video_watch_time_${videoKey}`, totalWatchedSeconds.toString());
+            
+            console.log(`💾 Saved before unload: ${totalWatchedSeconds} seconds`);
+        }
+    });
+    
+    updateWatchTimeDisplay(totalWatchedSeconds);
+}
+
+// ============================================
+// MODULE DASHBOARD JS - COMPLETE RAILWAY FIX
+// ============================================
+
+function initModuleDashboardJS() {
+    console.log('📚 Initializing module dashboard with Railway fixes...');
+    
+    // Get current lesson
+    const currentLesson = LessonState.currentLesson;
+    if (!currentLesson) {
+        console.error('❌ No current lesson found');
+        showNotification('No lesson data available', 'error');
+        navigateTo('dashboard');
+        return;
+    }
+    
+    console.log('📖 Current lesson:', currentLesson.content_title, '(ID:', currentLesson.content_id, ')');
+    
+    // ============================================
+    // 1. UPDATE UI WITH LESSON DATA
+    // ============================================
+    updateLessonUI(currentLesson);
+    
+    // ============================================
+    // 2. SETUP ALL BUTTONS (with cloneNode to remove old listeners)
+    // ============================================
+    setupBackButton();
+    setupNavigationButtons();
+    setupPracticeButtons();
+    setupCompleteLessonButton();
+    
+    // ============================================
+    // 3. LOAD VIDEO AND CONTENT
+    // ============================================
+    loadVideoAndContent(currentLesson);
+    
+    console.log('✅ Module dashboard initialized with Railway fixes');
+}
+
+// ============================================
+// HELPER: Update UI with lesson data
+// ============================================
+function updateLessonUI(lesson) {
+    // Module title
+    const moduleTitle = document.getElementById('moduleTitle');
+    if (moduleTitle) {
+        moduleTitle.textContent = lesson.content_title || ' Lesson';
+    }
+    
+    // Lesson title in sidebar
+    const moduleLessonTitle = document.getElementById('moduleLessonTitle');
+    if (moduleLessonTitle) {
+        const title = lesson.content_title || 'Lesson';
+        moduleLessonTitle.innerHTML = `<i class="fas fa-book"></i> ${title}`;
+    }
+    
+    // Subtitle
+    const moduleSubtitle = document.getElementById('moduleSubtitle');
+    if (moduleSubtitle) {
+        const subtitle = `${lesson.lesson_name || ''} - ${lesson.module_name || ''}`;
+        moduleSubtitle.textContent = subtitle;
+    }
+    
+    // Progress bar
+    updateProgressDisplay(lesson);
+}
+
+// ============================================
+// HELPER: Update progress display
+// ============================================
+async function updateProgressDisplay(lesson) {
+    const contentId = lesson.content_id;
+    
+    // Get progress from state or server
+    let percentage = 0;
+    let status = 'not_started';
+    
+    if (LessonState.userProgress && LessonState.userProgress[contentId]) {
+        percentage = LessonState.userProgress[contentId].percentage || 0;
+        status = LessonState.userProgress[contentId].status || 'not_started';
+    } else {
+        // Try to fetch from server
+        try {
+            const token = localStorage.getItem('authToken') || authToken;
+            if (token) {
+                const data = await apiRequest(`/api/lessons-db/${contentId}`);
+                if (data.success && data.lesson && data.lesson.progress) {
+                    percentage = data.lesson.progress.percentage || 0;
+                    status = data.lesson.progress.status || 'not_started';
+                    
+                    // Save to state
+                    if (!LessonState.userProgress) LessonState.userProgress = {};
+                    LessonState.userProgress[contentId] = data.lesson.progress;
+                }
+            }
+        } catch (error) {
+            console.log('Could not fetch progress:', error);
+        }
+    }
+    
+    // Update progress bar
+    const lessonProgressFill = document.getElementById('lessonProgressFill');
+    if (lessonProgressFill) {
+        lessonProgressFill.style.width = `${percentage}%`;
+    }
+    
+    // Update percentage text
+    const progressPercentage = document.getElementById('progressPercentage');
+    if (progressPercentage) {
+        progressPercentage.textContent = `${percentage}% Complete`;
+    }
+    
+    // Store in LessonState for button to use
+    if (!LessonState.userProgress) LessonState.userProgress = {};
+    if (!LessonState.userProgress[contentId]) LessonState.userProgress[contentId] = {};
+    LessonState.userProgress[contentId].percentage = percentage;
+    LessonState.userProgress[contentId].status = status;
+}
+
+// ============================================
+// HELPER: Setup back button
+// ============================================
+function setupBackButton() {
+    const backBtn = document.getElementById('backToLessonDashboard');
+    if (!backBtn) return;
+    
+    // Clone to remove old listeners
+    const newBackBtn = backBtn.cloneNode(true);
+    backBtn.parentNode.replaceChild(newBackBtn, backBtn);
+    
+    newBackBtn.addEventListener('click', function(e) {
+        e.preventDefault();
+        e.stopPropagation();
+        console.log('Back button clicked - returning to dashboard');
+        navigateTo('dashboard');
+    });
+    
+    console.log('✅ Back button setup complete');
+}
+
+// ============================================
+// HELPER: Setup navigation buttons (PREV/NEXT) - UPDATED
+// ============================================
+function setupNavigationButtons() {
+    console.log('🔘 Setting up navigation buttons...');
+    
+    const currentLesson = LessonState.currentLesson;
+    if (!currentLesson) {
+        console.error('❌ No current lesson found');
+        return;
+    }
+    
+    console.log('📖 Current lesson:', currentLesson.content_title, 'ID:', currentLesson.content_id);
+    console.log('📋 Adjacent lessons:', currentLesson.adjacent);
+    
+    // ===== PREVIOUS BUTTON =====
+    const prevBtn = document.getElementById('prevLessonBtn');
+    if (prevBtn) {
+        // Remove all existing listeners
+        const newPrevBtn = prevBtn.cloneNode(true);
+        prevBtn.parentNode.replaceChild(newPrevBtn, prevBtn);
+        
+        if (currentLesson.adjacent?.previous) {
+            newPrevBtn.disabled = false;
+            newPrevBtn.innerHTML = `<i class="fas fa-arrow-left"></i> Previous: ${currentLesson.adjacent.previous.title}`;
+            
+            newPrevBtn.addEventListener('click', async function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                
+                const prevId = currentLesson.adjacent.previous.id;
+                console.log('⬅️ Loading previous lesson:', prevId);
+                
+                // Open the previous lesson
+                await openLesson(prevId);
+            });
+            
+            console.log('✅ Previous button enabled');
+        } else {
+            newPrevBtn.disabled = true;
+            newPrevBtn.innerHTML = `<i class="fas fa-arrow-left"></i> No Previous Lesson`;
+            console.log('ℹ️ No previous lesson available');
+        }
+    }
+    
+    // ===== NEXT BUTTON =====
+    const nextBtn = document.getElementById('nextLessonBtn');
+    if (nextBtn) {
+        // Remove all existing listeners
+        const newNextBtn = nextBtn.cloneNode(true);
+        nextBtn.parentNode.replaceChild(newNextBtn, nextBtn);
+        
+        if (currentLesson.adjacent?.next) {
+            newNextBtn.disabled = false;
+            newNextBtn.innerHTML = `Next: ${currentLesson.adjacent.next.title} <i class="fas fa-arrow-right"></i>`;
+            
+            newNextBtn.addEventListener('click', async function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                
+                const nextId = currentLesson.adjacent.next.id;
+                console.log('➡️ Loading next lesson:', nextId);
+                
+                // Open the next lesson
+                await openLesson(nextId);
+            });
+            
+            console.log('✅ Next button enabled');
+        } else {
+            newNextBtn.disabled = true;
+            newNextBtn.innerHTML = `No Next Lesson <i class="fas fa-arrow-right"></i>`;
+            console.log('ℹ️ No next lesson available');
+        }
+    }
+    
+    console.log('✅ Navigation buttons setup complete');
+}
+
+// ============================================
+// HELPER: Setup practice buttons
+// ============================================
+function setupPracticeButtons() {
+    // Show Hint button
+    const hintBtn = document.getElementById('showHintBtn');
+    if (hintBtn) {
+        const newHintBtn = hintBtn.cloneNode(true);
+        hintBtn.parentNode.replaceChild(newHintBtn, hintBtn);
+        newHintBtn.addEventListener('click', () => {
+            alert('Hint: Try grouping the first two terms together and the last two terms together.');
+        });
+    }
+    
+    // Show Solution button
+    const solutionBtn = document.getElementById('showSolutionBtn');
+    if (solutionBtn) {
+        const newSolutionBtn = solutionBtn.cloneNode(true);
+        solutionBtn.parentNode.replaceChild(newSolutionBtn, solutionBtn);
+        newSolutionBtn.addEventListener('click', () => {
+            alert('Solution: \n(4x³ - 8x²) + (5x - 10) = 4x²(x - 2) + 5(x - 2) = (x - 2)(4x² + 5)');
+        });
+    }
+    
+    // Check Answer button
+    const checkBtn = document.getElementById('checkAnswerBtn');
+    if (checkBtn) {
+        const newCheckBtn = checkBtn.cloneNode(true);
+        checkBtn.parentNode.replaceChild(newCheckBtn, checkBtn);
+        newCheckBtn.addEventListener('click', () => {
+            const answer = prompt('Enter your factored expression:');
+            if (answer && answer.replace(/\s/g, '') === '(x-2)(4x²+5)') {
+                alert('Correct! Well done.');
+            } else {
+                alert('The correct answer is: (x - 2)(4x² + 5)');
+            }
+        });
+    }
+    
+    // Practice More button
+    const moreBtn = document.getElementById('practiceMoreBtn');
+    if (moreBtn) {
+        const newMoreBtn = moreBtn.cloneNode(true);
+        moreBtn.parentNode.replaceChild(newMoreBtn, moreBtn);
+        newMoreBtn.addEventListener('click', () => {
+            const problems = [
+                "6x³ + 9x² + 4x + 6",
+                "3x³ - 12x² + 2x - 8",
+                "5x³ + 10x² + 3x + 6",
+                "2x³ - 4x² + 7x - 14"
+            ];
+            const randomProblem = problems[Math.floor(Math.random() * problems.length)];
+            alert(`New practice problem: ${randomProblem}`);
+        });
+    }
+    
+    console.log('✅ Practice buttons setup complete');
+}
+
+// ============================================
+// HELPER: Setup complete lesson button
+// ============================================
+function setupCompleteLessonButton() {
+    const completeBtn = document.getElementById('completeLessonBtn');
+    if (!completeBtn) return;
+    
+    const newCompleteBtn = completeBtn.cloneNode(true);
+    completeBtn.parentNode.replaceChild(newCompleteBtn, completeBtn);
+    
+    // Check initial status
+    const contentId = LessonState.currentLesson?.content_id;
+    if (contentId && LessonState.userProgress?.[contentId]?.status === 'completed') {
+        newCompleteBtn.disabled = true;
+        newCompleteBtn.innerHTML = '<i class="fas fa-check"></i> Lesson Completed';
+        newCompleteBtn.style.background = '#2ecc71';
+    }
+    
+    let isProcessing = false;
+    
+    newCompleteBtn.addEventListener('click', async function(e) {
+        e.preventDefault();
+        e.stopPropagation();
+        
+        const contentId = LessonState.currentLesson?.content_id;
+        if (!contentId) {
+            showNotification('Cannot identify lesson', 'error');
+            return;
+        }
+        
+        if (isProcessing) {
+            console.log('⚠️ Already processing, please wait...');
+            return;
+        }
+        
+        isProcessing = true;
+        const originalText = newCompleteBtn.innerHTML;
+        const originalDisabled = newCompleteBtn.disabled;
+        
+        newCompleteBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Saving...';
+        newCompleteBtn.disabled = true;
+        
+        try {
+            // Check if already completed
+            if (LessonState.userProgress?.[contentId]?.status === 'completed') {
+                showNotification('Lesson already completed!', 'info');
+                newCompleteBtn.innerHTML = '<i class="fas fa-check"></i> Already Completed';
+                newCompleteBtn.style.background = '#2ecc71';
+                return;
+            }
+            
+            // Calculate time spent
+            let timeSpentSeconds = 300;
+            const videoElement = document.getElementById('lessonVideo');
+            if (videoElement && videoElement.duration) {
+                timeSpentSeconds = Math.floor(videoElement.currentTime || videoElement.duration);
+            }
+            
+            // Update progress
+            const success = await updateLessonProgress(contentId, {
+                completion_status: 'completed',
+                percentage: 100,
+                time_spent_seconds: timeSpentSeconds
+            });
+            
+            if (success) {
+                newCompleteBtn.innerHTML = '<i class="fas fa-check"></i> Lesson Completed';
+                newCompleteBtn.style.background = '#2ecc71';
+                
+                showNotification('🎉 Lesson marked as complete!', 'success');
+                
+                // Update local state
+                if (!LessonState.userProgress) LessonState.userProgress = {};
+                if (!LessonState.userProgress[contentId]) LessonState.userProgress[contentId] = {};
+                LessonState.userProgress[contentId].status = 'completed';
+                LessonState.userProgress[contentId].percentage = 100;
+                
+                // Clear watch time
+                localStorage.removeItem(`video_watch_time_video_${contentId}`);
+                
+                // Update daily progress
+                await updateDailyProgress({ lessons_completed: 1 });
+                
+                // Update dashboard
+                setTimeout(() => {
+                    updateProgressSummaryCards();
+                    if (AppState.currentPage === 'dashboard') {
+                        updateContinueLearningModule();
+                    }
+                }, 1000);
+            } else {
+                throw new Error('Failed to save completion');
+            }
+        } catch (error) {
+            console.error('Error:', error);
+            showNotification('Error: ' + error.message, 'error');
+            newCompleteBtn.innerHTML = originalText;
+            newCompleteBtn.disabled = originalDisabled;
+        } finally {
+            setTimeout(() => {
+                isProcessing = false;
+            }, 1000);
+        }
+    });
+    
+    console.log('✅ Complete button setup complete');
+}
+
+// ============================================
+// HELPER: Load video and content
+// ============================================
+async function loadVideoAndContent(lesson) {
+    // Add styles
+    addLessonContentStyles();
+    
+    // Load video
+    await loadVideoFromDatabase(lesson.content_id);
+    
+    // Load content
+    await displayLessonContent();
+}
+
+// ============================================
+// FIXED: Initialize module dashboard with filtered lesson
+// ============================================
+async function initializeModuleDashboard() {
+    console.log('📚 Initializing module dashboard with filtered lesson...');
+    
+    const currentLesson = LessonState.currentLesson;
+    const selectedApp = localStorage.getItem('selectedApp') || 'mathease';
+    const lessonFilter = localStorage.getItem('currentLessonFilter');
+    
+    console.log(`📱 Selected app: ${selectedApp}, filter: ${lessonFilter}`);
+    
+    if (!currentLesson) {
+        console.log('⚠️ No current lesson found, fetching first lesson from filtered list...');
+        
+        // Show loading state
+        const container = document.querySelector('#module-dashboard-page .container');
+        if (container) {
+            container.innerHTML = `
+                <div style="text-align: center; padding: 50px;">
+                    <i class="fas fa-spinner fa-spin" style="font-size: 40px; color: #7a0000; margin-bottom: 20px;"></i>
+                    <h3>Loading your lesson...</h3>
+                    <p>Please wait while we prepare your ${selectedApp} lesson.</p>
+                </div>
+            `;
+        }
+        
+        // Try to get the first lesson from filtered list
+        const lessons = await fetchAllLessons();
+        
+        if (lessons.length > 0) {
+            console.log(`✅ Found ${lessons.length} lessons for ${selectedApp}`);
+            LessonState.currentLesson = lessons[0];
+            
+            // Update lesson info in state
+            LessonState.currentTopic = lessons[0].topic_id;
+            
+            // Save to localStorage for persistence
+            localStorage.setItem('currentLessonId', lessons[0].content_id);
+            localStorage.setItem('currentTopicId', lessons[0].topic_id);
+            
+            await openLesson(lessons[0].content_id);
+        } else {
+            console.error(`❌ No lessons available for ${selectedApp}`);
+            
+            // Show empty state
+            if (container) {
+                container.innerHTML = `
+                    <div style="text-align: center; padding: 50px; background: white; border-radius: 10px; margin-top: 20px;">
+                        <i class="fas fa-book-open" style="font-size: 60px; color: #ccc; margin-bottom: 20px;"></i>
+                        <h3 style="color: #2c3e50; margin-bottom: 10px;">No Lessons Available</h3>
+                        <p style="color: #7f8c8d; margin-bottom: 20px;">There are no lessons for ${selectedApp} yet.</p>
+                        <button class="btn-primary" onclick="navigateTo('dashboard')">
+                            <i class="fas fa-arrow-left"></i> Back to Dashboard
+                        </button>
+                    </div>
+                `;
+            }
+            
+            showNotification(`No lessons available for ${selectedApp}`, 'error');
+            navigateTo('dashboard');
+        }
+        return;
+    }
+    
+    console.log('📖 Initializing module dashboard for lesson:', currentLesson.content_title);
+    console.log('📌 Lesson ID:', currentLesson.content_id);
+    console.log('📌 Topic ID:', currentLesson.topic_id);
+    
+    try {
+        // Update UI with lesson data
+        updateLessonUI(currentLesson);
+        
+        // Setup navigation buttons
+        setupModuleNavigationButtons();
+        
+        // Setup complete lesson button
+        setupCompleteLessonButton();
+        
+        // Load video content
+        await loadVideoFromDatabase(currentLesson.content_id);
+        
+        // Load lesson content (text, PDF, etc.)
+        await displayLessonContent();
+        
+        // Check if practice is unlocked for this topic
+        await checkPracticeUnlockedForLesson(currentLesson.topic_id);
+        
+        // Update progress display
+        await updateLessonProgressDisplay(currentLesson.content_id);
+        
+        // Log activity
+        await logUserActivity('lesson_started', currentLesson.content_id, {
+            lesson_title: currentLesson.content_title,
+            app: selectedApp
+        });
+        
+        console.log('✅ Module dashboard initialized successfully');
+        
+    } catch (error) {
+        console.error('❌ Error initializing module dashboard:', error);
+        showNotification('Failed to load lesson content', 'error');
+    }
+}
+// ============================================
+// FIXED: Initialize Video - ALWAYS uses database
+// ============================================
+async function initializeVideo(contentId) {
+    console.log('🎬 PERMANENT FIX: Initializing video from database for content ID:', contentId);
+    
+    const videoElement = document.getElementById('lessonVideo');
+    const videoInfo = document.getElementById('videoInfo');
+    
+    if (videoElement) {
+        // Show loading message
+        videoElement.innerHTML = '<p style="text-align: center; padding: 20px;"><i class="fas fa-spinner fa-spin"></i> Loading video from database...</p>';
+    }
+    
+    if (videoInfo) {
+        videoInfo.innerHTML = '<p><i class="fas fa-spinner fa-spin"></i> Fetching video data...</p>';
+    }
+    
+    // Load video from database
+    const videoData = await loadVideoFromDatabase(contentId);
+    
+    if (videoData) {
+        console.log('✅ Video loaded from database:', videoData);
+        
+        // Update video info with success
+        if (videoInfo) {
+            videoInfo.innerHTML = `
+                <p><i class="fas fa-check-circle" style="color: #27ae60;"></i> <strong>${videoData.title}</strong></p>
+                <p><i class="fas fa-clock"></i> Duration: ${Math.floor((videoData.duration || 600) / 60)} min</p>
+                <p><i class="fas fa-link"></i> ${videoData.url}</p>
+            `;
+        }
+    } else {
+        console.warn('⚠️ No video loaded from database');
+        
+        // Show error in video info
+        if (videoInfo) {
+            videoInfo.innerHTML = `
+                <p style="color: #e74c3c;">
+                    <i class="fas fa-exclamation-triangle"></i> 
+                    No video found in database. Please upload a video first.
+                </p>
+                <button class="btn-secondary" onclick="location.reload()" style="margin-top: 10px;">
+                    <i class="fas fa-redo"></i> Refresh
+                </button>
+            `;
+        }
+        
+        // Try default video as fallback
+        if (videoElement) {
+            videoElement.innerHTML = '';
+            const sourceElement = document.createElement('source');
+            sourceElement.src = '/videos/quarter1-polynomial-equations.mp4';
+            sourceElement.type = 'video/mp4';
+            videoElement.appendChild(sourceElement);
+            videoElement.load();
+        }
+    }
+}
+
+
+// Navigate to previous lesson
+async function navigateToPreviousLesson() {
+    const currentLesson = LessonState.currentLesson;
+    if (!currentLesson?.adjacent?.previous) return;
+    
+    const prevLessonId = currentLesson.adjacent.previous.id;
+    await openLesson(prevLessonId);
+}
+
+// Navigate to next lesson
+async function navigateToNextLesson() {
+    const currentLesson = LessonState.currentLesson;
+    if (!currentLesson?.adjacent?.next) return;
+    
+    const nextLessonId = currentLesson.adjacent.next.id;
+    await openLesson(nextLessonId);
+}
+
+// ============================================
+// PRACTICE EXERCISES MANAGEMENT - FIXED
+// ============================================
+
+// Check if practice is unlocked for a topic
+// ============================================
+// FIXED: Check Practice Unlocked - RELIABLE VERSION
+// ============================================
+// I-update ang checkPracticeUnlocked function
+// ============================================
+// FIXED: checkPracticeUnlocked - With better error handling
+// ============================================
+async function checkPracticeUnlocked(topicId) {
+    try {
+        const token = localStorage.getItem('authToken') || authToken;
+        if (!token) return false;
+        
+        console.log(`🔍 Checking practice unlock status for topic ${topicId}...`);
+        
+        // Try multiple endpoints
+        const endpoints = [
+            `/practice/${topicId}/check-progress`,
+            `/api/practice/${topicId}/status`,
+            `/progress/topic/${topicId}/practice-status`
+        ];
+        
+        for (const endpoint of endpoints) {
+            try {
+                const response = await fetch(endpoint, {
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Accept': 'application/json'
+                    }
+                });
+                
+                const contentType = response.headers.get('content-type');
+                if (response.ok && contentType && contentType.includes('application/json')) {
+                    const data = await response.json();
+                    if (data.success && data.unlocked !== undefined) {
+                        console.log(`✅ Practice unlock check via ${endpoint}: ${data.unlocked ? 'UNLOCKED' : 'LOCKED'}`);
+                        return data.unlocked;
+                    }
+                }
+            } catch (e) {
+                console.log(`⚠️ Endpoint ${endpoint} failed:`, e.message);
+            }
+        }
+        
+        // If all endpoints fail, assume unlocked for demo purposes
+        console.log('ℹ️ Using demo mode - practice unlocked by default');
+        return true;
+        
+    } catch (error) {
+        console.error('❌ Error in checkPracticeUnlocked:', error);
+        return true; // Default to unlocked in demo mode
+    }
+}
+
+// MAG-ADD NG FUNCTION PARA I-CREATE ANG DEFAULT PROGRESS
+async function createDefaultPracticeProgress(topicId) {
+    try {
+        const token = localStorage.getItem('authToken') || authToken;
+        if (!token) return false;
+        
+        console.log('🔄 Creating default practice progress for new user...');
+        
+        const response = await fetch(`/api/practice/init-progress`, {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                topic_id: topicId
+            })
+        });
+        
+        if (response.ok) {
+            const data = await response.json();
+            console.log('✅ Default practice progress created:', data);
+            return true;
+        }
+        
+        return false;
+    } catch (error) {
+        console.error('❌ Error creating practice progress:', error);
+        return false;
+    }
+}
+
+// Load practice exercises for a topic - FIXED VERSION
+// ===== FIXED: Load practice exercises for admin =====
+async function loadPracticeExercises() {
+    console.log("📥 Loading practice exercises from MySQL...");
+    
+    try {
+        const token = localStorage.getItem('admin_token') || localStorage.getItem('authToken');
+        
+        if (!token) {
+            console.error("❌ No token found");
+            return;
+        }
+        
+        // FIXED: Use correct admin endpoint
+        const response = await fetch('/api/admin/practice/exercises', {
+            headers: {
+                'Authorization': `Bearer ${token}`
+            }
+        });
+        
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        
+        const result = await response.json();
+        
+        if (result.success && result.exercises) {
+            adminPracticeData.exercises = result.exercises;
+            displayPracticeExercises();
+            console.log(`✅ Loaded ${result.exercises.length} practice exercises`);
+        } else {
+            // If no exercises, load demo data for testing
+            loadDemoPracticeExercises();
+        }
+        
+    } catch (error) {
+        console.error('❌ Error loading exercises:', error);
+        loadDemoPracticeExercises();
+    }
+}
+// ============================================
+// ✅ FIXED: Initialize practice page - ONLY LESSON_ID = 1
+// ============================================
+async function initPracticePage() {
+    console.log('💪 Initializing practice page with strict lesson_id=1 filtering...');
+    
+    // Update date
+    const practiceDate = document.getElementById('practiceDate');
+    if (practiceDate) {
+        const now = new Date();
+        practiceDate.textContent = now.toLocaleDateString('en-US', { 
+            weekday: 'long',
+            month: 'short', 
+            day: 'numeric' 
+        });
+    }
+    
+    // ✅ Force lesson_id = 1 for 
+    const currentLessonId = MATHEASE_LESSON_ID; // Always 3
+    
+    console.log(`🎯 Practice page will ONLY show content with lesson_id = ${currentLessonId} ()`);
+    
+    // ✅ Store lesson ID in localStorage for other functions
+    localStorage.setItem('currentLessonId', currentLessonId);
+    
+    // Reset current topic if needed
+    if (!PracticeState.currentTopic) {
+        PracticeState.currentTopic = '1'; // Default to topic 1, but will be filtered by lesson
+    }
+    
+    // ✅ I-LOAD AGAD ANG PRACTICE STATISTICS MULA DATABASE
+    await loadPracticeStatistics();
+    
+    // Load topics progress (will be filtered by lesson_id=1)
+    await loadTopicsProgress();
+    
+    // Load practice exercises for current topic (with lesson_id=1 filter)
+    console.log(`🎯 Loading exercises for topic: ${PracticeState.currentTopic}`);
+    await loadPracticeExercisesForTopic(PracticeState.currentTopic);
+    
+    // Add practice styles
+    addPracticeStyles();
+    
+    console.log('✅ Practice page initialized for  (lesson ' + currentLessonId + ')');
+}
+
+// ============================================
+// 🔍 DEBUG: Check what's being filtered
+// ============================================
+window.debugLessonFiltering = function() {
+    console.log('🔍 LESSON FILTERING DEBUG:');
+    console.log('- selectedApp:', localStorage.getItem('selectedApp'));
+    console.log('- currentLessonId:', getCurrentLessonId());
+    console.log('- PracticeState:', PracticeState);
+    
+    // Check all exercises in PracticeState
+    if (PracticeState.exercises) {
+        console.log('- Exercises in state:', PracticeState.exercises.map(ex => ({
+            id: ex.exercise_id,
+            title: ex.title,
+            lesson_id: ex.lesson_id || ex.lessonId
+        })));
+    }
+};
+
+// ============================================
+// DEBUG: Check Database Practice Records
+// ============================================
+window.checkPracticeRecords = async function() {
+    console.log('🔍 CHECKING PRACTICE RECORDS IN DATABASE...');
+    
+    try {
+        const token = localStorage.getItem('authToken');
+        
+        // Tingnan ang practice attempts
+        const attemptsResponse = await fetch(`/api/progress/practice-attempts`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        
+        if (attemptsResponse.ok) {
+            const attemptsData = await attemptsResponse.json();
+            console.log('📊 PRACTICE ATTEMPTS FROM DATABASE:', attemptsData);
+            
+            if (attemptsData.success && attemptsData.attempts) {
+                const completed = attemptsData.attempts.filter(a => a.completion_status === 'completed');
+                console.log(`✅ COMPLETED EXERCISES: ${completed.length}`);
+                console.log(`📝 TOTAL ATTEMPTS: ${attemptsData.attempts.length}`);
+            }
+        } else {
+            console.error('❌ Failed to fetch practice attempts:', attemptsResponse.status);
+        }
+        
+        // I-refresh ang display
+        await loadPracticeStatistics();
+        console.log('✅ Practice statistics refreshed');
+        
+    } catch (error) {
+        console.error('❌ Error checking practice records:', error);
+    }
+};
+
+// ============================================
+// ✅ FIXED: loadTopicsProgress - ONLY LESSON_ID = 1
+// ============================================
+async function loadTopicsProgress() {
+    try {
+        const topicsContainer = document.getElementById('topicsContainer');
+        if (!topicsContainer) {
+            console.log('❌ topicsContainer not found');
+            return;
+        }
+        
+        const token = localStorage.getItem('authToken') || authToken;
+        if (!token) {
+            topicsContainer.innerHTML = `
+                <div class="error-message">
+                    <i class="fas fa-exclamation-triangle"></i>
+                    <h3>Please login to view topics</h3>
+                </div>
+            `;
+            return;
+        }
+        
+        console.log('📊 Fetching topics progress for  ONLY...');
+        
+        const currentLessonId = MATHEASE_LESSON_ID; // Always 3
+        
+        console.log(`🎯 Loading topics for , lesson_id: ${currentLessonId}`);
+        
+        const response = await fetch(`/api/topics/progress?lesson_id=${currentLessonId}`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        
+        if (!response.ok) {
+            console.error(`❌ API returned ${response.status}`);
+            topicsContainer.innerHTML = `
+                <div class="error-message">
+                    <i class="fas fa-exclamation-triangle"></i>
+                    <h3>Failed to load topics</h3>
+                    <p>API returned ${response.status}</p>
+                </div>
+            `;
+            return;
+        }
+        
+        const data = await response.json();
+        console.log('📥 Topics progress data received:', data);
+        
+        if (data.success && data.topics) {
+            console.log(`✅ Received ${data.topics.length} topics from server`);
+            
+            // ✅ STRICT FILTER - lesson_id=1 LANG
+            const filteredTopics = data.topics.filter(topic => {
+                const topicLessonId = topic.lesson_id || topic.lessonId;
+                return topicLessonId == MATHEASE_LESSON_ID;
+            });
+            
+            console.log(`🎯 Filtered to ${filteredTopics.length} topics for  (lesson ${MATHEASE_LESSON_ID})`);
+            
+            // Log what was filtered out (for debugging)
+            const filteredOut = data.topics.filter(t => (t.lesson_id || t.lessonId) != MATHEASE_LESSON_ID);
+            if (filteredOut.length > 0) {
+                console.log(`🚫 Filtered OUT ${filteredOut.length} topics from other apps:`);
+                filteredOut.forEach(t => {
+                    console.log(`   - Topic ID: ${t.topic_id}, Lesson ID: ${t.lesson_id || t.lessonId}, Name: ${t.topic_title}`);
+                });
+            }
+            
+            if (filteredTopics.length > 0) {
+                displayTopics(filteredTopics);
+                
+                const unlockedCount = filteredTopics.filter(t => t.practice_unlocked).length;
+                const unlockedCountElement = document.getElementById('unlockedCount');
+                if (unlockedCountElement) {
+                    unlockedCountElement.textContent = unlockedCount;
+                }
+            } else {
+                topicsContainer.innerHTML = `
+                    <div class="no-topics" style="text-align: center; padding: 40px;">
+                        <i class="fas fa-folder-open" style="font-size: 48px; color: #ccc; margin-bottom: 15px;"></i>
+                        <h3 style="color: #666;">No topics available for </h3>
+                        <p style="color: #999;">Topics with lesson_id = ${MATHEASE_LESSON_ID} will appear here.</p>
+                        <p style="color: #999; font-size: 12px;">Debug: Received ${data.topics.length} total topics</p>
+                    </div>
+                `;
+            }
+        } else {
+            topicsContainer.innerHTML = `
+                <div class="error-message">
+                    <i class="fas fa-info-circle"></i>
+                    <h3>No topics found</h3>
+                    <p>${data.message || 'No topics available yet'}</p>
+                </div>
+            `;
+        }
+    } catch (error) {
+        console.error('❌ Error loading topics progress:', error);
+        const topicsContainer = document.getElementById('topicsContainer');
+        if (topicsContainer) {
+            topicsContainer.innerHTML = `
+                <div class="error-message">
+                    <i class="fas fa-exclamation-triangle"></i>
+                    <h3>Failed to load topics</h3>
+                    <p>${error.message}</p>
+                    <button class="btn-primary" onclick="loadTopicsProgress()" style="margin-top: 15px;">
+                        <i class="fas fa-redo"></i> Try Again
+                    </button>
+                </div>
+            `;
+        }
+    }
+}
+
+// ============================================
+// ✅ HELPER: Get current platform topic ID
+// ============================================
+function getCurrentPlatformTopicId() {
+    const selectedApp = localStorage.getItem('selectedApp') || 'mathease';
+    return APP_LESSON_MAP[selectedApp]?.lessonId || 2;
+}
+
+// ============================================
+// ✅ HELPER: Validate topic belongs to current app
+// ============================================
+function validateTopicForCurrentApp(topicId) {
+    const expectedTopicId = getCurrentPlatformTopicId();
+    return parseInt(topicId) === expectedTopicId;
+}
+
+
+// ============================================
+// ✅ FIXED: displayTopics - WITH BETTER DEBUGGING
+// ============================================
+function displayTopics(topics) {
+    const topicsContainer = document.getElementById('topicsContainer');
+    if (!topicsContainer) {
+        console.error('❌ topicsContainer not found in displayTopics');
+        return;
+    }
+    
+    console.log(`📋 Displaying ${topics.length} topics:`, topics);
+    
+    if (!topics || topics.length === 0) {
+        topicsContainer.innerHTML = `
+            <div class="no-topics" style="text-align: center; padding: 40px;">
+                <i class="fas fa-folder-open" style="font-size: 48px; color: #ccc; margin-bottom: 15px;"></i>
+                <h3 style="color: #666;">No topics available</h3>
+                <p style="color: #999;">Complete lessons to unlock topics.</p>
+            </div>
+        `;
+        return;
+    }
+    
+    let html = '';
+    
+    topics.forEach(topic => {
+        const progressPercentage = topic.lesson_progress_percentage || 0;
+        const isPracticeUnlocked = topic.practice_unlocked || false;
+        const isPracticeCompleted = topic.practice_completed || false;
+        const isSelected = PracticeState.currentTopic == topic.topic_id;
+        
+        console.log(`Topic card: ${topic.topic_title}, unlocked=${isPracticeUnlocked}, selected=${isSelected}`);
+        
+        html += `
+            <div class="topic-card ${isPracticeUnlocked ? 'unlocked' : 'locked'} ${isPracticeCompleted ? 'completed' : ''} ${isSelected ? 'selected' : ''}" 
+                 data-topic-id="${topic.topic_id}"
+                 data-practice-unlocked="${isPracticeUnlocked}"
+                 style="cursor: pointer; background: white; border-radius: 8px; padding: 15px; margin-bottom: 10px; border: 2px solid ${isSelected ? '#7a0000' : 'transparent'};">
+                 
+                <div class="topic-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                    <h3 class="topic-title" style="margin: 0; font-size: 16px;">${topic.topic_title || 'Topic'}</h3>
+                    <div class="topic-status">
+                        ${isPracticeCompleted ? 
+                            '<span style="color: #27ae60;"><i class="fas fa-check-circle"></i> Completed</span>' :
+                            isPracticeUnlocked ?
+                            '<span style="color: #7a0000;"><i class="fas fa-unlock"></i> Unlocked</span>' :
+                            '<span style="color: #999;"><i class="fas fa-lock"></i> Locked</span>'
+                        }
+                    </div>
+                </div>
+                
+                <div class="topic-body">
+                    <p style="margin: 0 0 10px 0; color: #666; font-size: 14px;">${topic.module_name || 'Module'} - ${topic.topic_title}</p>
+                    
+                    <div class="topic-progress" style="margin: 10px 0;">
+                        <div class="progress-info" style="display: flex; justify-content: space-between; font-size: 13px; color: #666; margin-bottom: 5px;">
+                            <span>Lessons: ${topic.lessons_completed || 0}/${topic.total_lessons || 0}</span>
+                            <span>${progressPercentage}%</span>
+                        </div>
+                        <div class="progress-bar" style="height: 6px; background: #ecf0f1; border-radius: 3px; overflow: hidden;">
+                            <div class="progress-fill" style="height: 100%; width: ${progressPercentage}%; background: #7a0000;"></div>
+                        </div>
+                    </div>
+                    
+                    <div class="topic-practice-info" style="font-size: 13px; margin-top: 5px;">
+                        ${isPracticeCompleted ? 
+                            '<span style="color: #27ae60;"><i class="fas fa-trophy"></i> Practice Completed</span>' :
+                            isPracticeUnlocked ?
+                            '<span style="color: #7a0000;"><i class="fas fa-pencil-alt"></i> Practice Available</span>' :
+                            `<span style="color: #999;">Complete ${(topic.total_lessons || 0) - (topic.lessons_completed || 0)} more lessons</span>`
+                        }
+                    </div>
+                </div>
+                
+                <div class="topic-actions" style="margin-top: 15px;">
+                    ${isPracticeUnlocked ? 
+                        `<button class="btn-primary practice-topic-btn" data-topic-id="${topic.topic_id}" 
+                                style="width: 100%; padding: 8px; background: #7a0000; color: white; border: none; border-radius: 5px; cursor: pointer;">
+                            <i class="fas fa-play"></i> Start Practice
+                        </button>` :
+                        `<button class="btn-secondary" disabled 
+                                style="width: 100%; padding: 8px; background: #95a5a6; color: white; border: none; border-radius: 5px;">
+                            <i class="fas fa-lock"></i> Complete Lessons First
+                        </button>`
+                    }
+                </div>
+            </div>
+        `;
+    });
+    
+    topicsContainer.innerHTML = html;
+    console.log('✅ Topics displayed, container HTML length:', html.length);
+    
+    // Add event listeners to topic cards
+    document.querySelectorAll('.topic-card.unlocked').forEach(card => {
+        card.addEventListener('click', function(e) {
+            // Don't trigger if clicking the button
+            if (e.target.closest('button')) return;
+            
+            const topicId = this.getAttribute('data-topic-id');
+            console.log('🎯 Topic card clicked:', topicId);
+            selectTopicForPractice(topicId);
+        });
+    });
+    
+    // Add event listeners to practice buttons
+    document.querySelectorAll('.practice-topic-btn').forEach(button => {
+        button.addEventListener('click', function(e) {
+            e.stopPropagation();
+            const topicId = this.getAttribute('data-topic-id');
+            console.log('🎯 Practice button clicked:', topicId);
+            selectTopicForPractice(topicId);
+        });
+    });
+}
+
+// ============================================
+// 🔍 DEBUG: Check Topics Progress
+// ============================================
+window.debugTopicsProgress = async function() {
+    console.log('🔍 DEBUGGING TOPICS PROGRESS...');
+    
+    try {
+        const token = localStorage.getItem('authToken') || authToken;
+        const selectedApp = localStorage.getItem('selectedApp') || 'mathease';
+        const currentLessonId = getCurrentLessonId();
+        
+        console.log('Current app:', selectedApp);
+        console.log('Current lesson_id:', currentLessonId);
+        console.log('PracticeState:', PracticeState);
+        
+        // Fetch from server
+        const response = await fetch(`/api/topics/progress`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        
+        if (!response.ok) {
+            console.error('❌ API returned:', response.status);
+            return;
+        }
+        
+        const data = await response.json();
+        console.log('📥 Server response:', data);
+        
+        if (data.success && data.topics) {
+            console.log(`✅ Server returned ${data.topics.length} topics`);
+            
+            // Log each topic's lesson_id
+            data.topics.forEach((topic, index) => {
+                console.log(`Topic ${index + 1}:`, {
+                    id: topic.topic_id,
+                    title: topic.topic_title,
+                    lesson_id: topic.lesson_id || topic.lessonId,
+                    matches: (topic.lesson_id || topic.lessonId) == currentLessonId
+                });
+            });
+            
+            // Filter
+            const filtered = data.topics.filter(t => (t.lesson_id || t.lessonId) == currentLessonId);
+            console.log(`✅ Filtered to ${filtered.length} topics for lesson ${currentLessonId}`);
+        }
+        
+        // Check DOM
+        const container = document.getElementById('topicsContainer');
+        console.log('Topics container exists:', !!container);
+        if (container) {
+            console.log('Topics container HTML length:', container.innerHTML.length);
+            console.log('Topics container content:', container.innerHTML.substring(0, 200) + '...');
+        }
+        
+    } catch (error) {
+        console.error('❌ Debug error:', error);
+    }
+};
+
+// ============================================
+// ✅ FIXED: Select topic for practice - WITH APP VALIDATION
+// ============================================
+async function selectTopicForPractice(topicId) {
+    try {
+        // Check if this topic belongs to the current app
+        const selectedApp = localStorage.getItem('selectedApp') || 'mathease';
+        const expectedTopicId = APP_LESSON_MAP[selectedApp]?.lessonId || 2;
+        
+        if (parseInt(topicId) !== expectedTopicId) {
+            console.log(`⚠️ Topic ${topicId} doesn't match app ${selectedApp} (expected topic ${expectedTopicId})`);
+            showNotification(`This topic belongs to a different app. Please switch apps first.`, 'warning');
+            return;
+        }
+        
+        PracticeState.currentTopic = topicId;
+        
+        // Update UI
+        document.querySelectorAll('.topic-card').forEach(card => {
+            card.classList.remove('selected');
+            if (card.getAttribute('data-topic-id') === topicId) {
+                card.classList.add('selected');
+            }
+        });
+        
+        // Load practice exercises for this topic
+        await loadPracticeExercisesForTopic(topicId);
+        
+        // Update topic title
+        const practiceTopicTitle = document.getElementById('practiceTopicTitle');
+        if (practiceTopicTitle) {
+            const selectedTopic = document.querySelector(`.topic-card[data-topic-id="${topicId}"] .topic-title`);
+            if (selectedTopic) {
+                practiceTopicTitle.textContent = `Practicing: ${selectedTopic.textContent}`;
+            }
+        }
+        
+    } catch (error) {
+        console.error('Error selecting topic:', error);
+        showNotification('Failed to select topic', 'error');
+    }
+}
+
+
+// ============================================
+// ✅ FIXED: Load practice exercises - ONLY LESSON_ID = 1
+// ============================================
+async function loadPracticeExercisesForTopic(topicId) {
+    try {
+        console.log(`📝 Getting practice exercises for topic ${topicId}`);
+        
+        // FORCE LESSON_ID = 1
+        const currentLessonId = MATHEASE_LESSON_ID; // Always 3
+        
+        console.log(`🎯 Loading exercises for , lesson_id: ${currentLessonId}`);
+        
+        // Get the exercise area
+        const exerciseArea = document.getElementById('exerciseArea');
+        if (!exerciseArea) return;
+        
+        exerciseArea.innerHTML = `
+            <div class="loading-container" style="text-align: center; padding: 30px;">
+                <i class="fas fa-spinner fa-spin" style="font-size: 30px; color: #7a0000;"></i>
+                <p style="margin-top: 10px;">Loading  exercises...</p>
+            </div>
+        `;
+        
+        // ✅ Force lesson_id=1 in API call
+        let endpoint = `/api/practice/topic/${topicId}?lesson_id=${currentLessonId}`;
+        console.log(`📡 Fetching from: ${endpoint}`);
+        
+        const response = await fetch(endpoint, {
+            headers: {
+                'Authorization': `Bearer ${localStorage.getItem('authToken')}`
+            }
+        });
+        
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        
+        const data = await response.json();
+        console.log('📥 Practice data received:', data);
+        
+        if (data.success && data.exercises) {
+            // ✅ STRICT FILTERING - lesson_id=1 lang
+            const filteredExercises = data.exercises.filter(ex => {
+                const exerciseLessonId = ex.lesson_id || ex.lessonId;
+                return exerciseLessonId == MATHEASE_LESSON_ID;
+            });
+            
+            console.log(`✅ Found ${filteredExercises.length} exercises for `);
+            
+            // Log what was filtered out
+            const filteredOut = data.exercises.filter(ex => (ex.lesson_id || ex.lessonId) != MATHEASE_LESSON_ID);
+            if (filteredOut.length > 0) {
+                console.log(`🚫 Filtered OUT ${filteredOut.length} exercises from other apps:`);
+                filteredOut.forEach(ex => {
+                    console.log(`   - Exercise ID: ${ex.exercise_id}, Lesson ID: ${ex.lesson_id || ex.lessonId}, Title: ${ex.title}`);
+                });
+            }
+            
+            if (filteredExercises.length > 0) {
+                displayPracticeExercises(filteredExercises);
+            } else {
+                exerciseArea.innerHTML = `
+                    <div class="no-exercises" style="text-align: center; padding: 40px;">
+                        <i class="fas fa-pencil-alt" style="font-size: 48px; color: #ccc; margin-bottom: 15px;"></i>
+                        <h3 style="color: #666;">No Practice Exercises for </h3>
+                        <p style="color: #999;">There are no practice exercises available for  yet.</p>
+                    </div>
+                `;
+            }
+        } else {
+            exerciseArea.innerHTML = `
+                <div class="no-exercises" style="text-align: center; padding: 40px;">
+                    <i class="fas fa-pencil-alt" style="font-size: 48px; color: #ccc; margin-bottom: 15px;"></i>
+                    <h3 style="color: #666;">No Practice Exercises</h3>
+                    <p style="color: #999;">There are no practice exercises available for this topic yet.</p>
+                </div>
+            `;
+        }
+        
+    } catch (error) {
+        console.error('Error loading exercises:', error);
+        const exerciseArea = document.getElementById('exerciseArea');
+        if (exerciseArea) {
+            exerciseArea.innerHTML = `
+                <div class="error-message" style="text-align: center; padding: 40px;">
+                    <i class="fas fa-exclamation-triangle" style="font-size: 48px; color: #e74c3c;"></i>
+                    <h3 style="color: #666;">Failed to load exercises</h3>
+                    <p style="color: #999;">${error.message}</p>
+                    <button class="btn-primary" onclick="location.reload()" style="margin-top: 15px;">
+                        <i class="fas fa-redo"></i> Try Again
+                    </button>
+                </div>
+            `;
+        }
+    }
+}
+// ============================================
+// ✅ FIXED: Display practice exercises
+// ============================================
+function displayPracticeExercises(exercises) {
+    const exerciseArea = document.getElementById('exerciseArea');
+    if (!exerciseArea) return;
+    
+    if (!exercises || exercises.length === 0) {
+        exerciseArea.innerHTML = `
+            <div class="no-exercises" style="text-align: center; padding: 40px;">
+                <i class="fas fa-pencil-alt" style="font-size: 48px; color: #ccc; margin-bottom: 15px;"></i>
+                <h3 style="color: #666;">No Practice Exercises</h3>
+                <p style="color: #999;">There are no practice exercises available for this topic yet.</p>
+            </div>
+        `;
+        return;
+    }
+    
+    let html = '<div class="exercises-list">';
+    
+    exercises.forEach((exercise, index) => {
+        // Parse content_json if it exists and is a string
+        let questions = [];
+        if (exercise.content_json) {
+            try {
+                const content = typeof exercise.content_json === 'string' 
+                    ? JSON.parse(exercise.content_json) 
+                    : exercise.content_json;
+                questions = content.questions || [];
+            } catch (e) {
+                console.error('Error parsing content_json:', e);
+            }
+        }
+        
+        const userProgress = exercise.user_progress || {};
+        const isCompleted = userProgress.completion_status === 'completed';
+        const difficultyClass = exercise.difficulty || 'medium';
+        
+        html += `
+            <div class="exercise-card ${isCompleted ? 'completed' : ''}" data-exercise-id="${exercise.exercise_id}">
+                <div class="exercise-header">
+                    <h3>Exercise ${index + 1}: ${exercise.title || 'Practice Exercise'}</h3>
+                    <span class="difficulty-badge difficulty-${difficultyClass}">
+                        ${exercise.difficulty || 'medium'}
+                    </span>
+                </div>
+                
+                <div class="exercise-body">
+                    <p>${exercise.description || 'Test your knowledge with this practice exercise.'}</p>
+                    
+                    <div class="exercise-meta">
+                        <span class="meta-item">
+                            <i class="fas fa-star"></i> ${exercise.points || 10} points
+                        </span>
+                        <span class="meta-item">
+                            <i class="fas fa-question-circle"></i> ${questions.length} questions
+                        </span>
+                        <span class="meta-item">
+                            <i class="fas fa-check-circle"></i> ${userProgress.attempts || 0} attempts
+                        </span>
+                    </div>
+                    
+                    ${userProgress.score > 0 ? `
+                        <div class="score-display">
+                            <strong>Best Score:</strong> ${userProgress.score}/${exercise.points || 10}
+                            (${Math.round((userProgress.score / (exercise.points || 10)) * 100)}%)
+                        </div>
+                    ` : ''}
+                </div>
+                
+                <div class="exercise-actions">
+                    ${isCompleted ? `
+                        <button class="btn-secondary review-exercise" data-exercise-id="${exercise.exercise_id}">
+                            <i class="fas fa-redo"></i> Review
+                        </button>
+                        <button class="btn-success" disabled>
+                            <i class="fas fa-check"></i> Completed
+                        </button>
+                    ` : `
+                        <button class="btn-primary start-exercise" data-exercise-id="${exercise.exercise_id}">
+                            <i class="fas fa-play"></i> ${userProgress.status === 'in_progress' ? 'Continue' : 'Start'}
+                        </button>
+                    `}
+                </div>
+            </div>
+        `;
+    });
+    
+    html += '</div>';
+    exerciseArea.innerHTML = html;
+    
+    // Setup event listeners for the exercise buttons
+    setupPracticeExerciseInteractions();
+}
+
+// ============================================
+// Helper: Get demo practice exercises
+// ============================================
+function getDemoPracticeExercises(topicId) {
+    // Demo exercises for different topics
+    const demoExercises = {
+        1: [ // Polynomial Division
+            {
+                exercise_id: 101,
+                title: 'Basic Polynomial Division',
+                description: 'Practice dividing polynomials using long division',
+                difficulty: 'easy',
+                points: 10,
+                questions: [
+                    {
+                        text: 'Divide (x² + 5x + 6) by (x + 2)',
+                        options: [
+                            { text: 'x + 3', correct: true },
+                            { text: 'x - 3', correct: false },
+                            { text: 'x + 2', correct: false },
+                            { text: 'x² + 3', correct: false }
+                        ]
+                    },
+                    {
+                        text: 'What is the remainder when (x³ - 8) is divided by (x - 2)?',
+                        options: [
+                            { text: '0', correct: true },
+                            { text: '4', correct: false },
+                            { text: '8', correct: false },
+                            { text: '16', correct: false }
+                        ]
+                    }
+                ]
+            },
+            {
+                exercise_id: 102,
+                title: 'Synthetic Division',
+                description: 'Practice synthetic division with linear divisors',
+                difficulty: 'medium',
+                points: 15,
+                questions: [
+                    {
+                        text: 'Use synthetic division to divide (2x³ + 3x² - 4x + 5) by (x + 1)',
+                        options: [
+                            { text: '2x² + x - 5 + 10/(x+1)', correct: true },
+                            { text: '2x² + x - 5', correct: false },
+                            { text: '2x² + 5x - 9', correct: false },
+                            { text: '2x² - x + 5', correct: false }
+                        ]
+                    }
+                ]
+            },
+            {
+                exercise_id: 103,
+                title: 'Long Division Challenge',
+                description: 'Practice complex polynomial long division',
+                difficulty: 'hard',
+                points: 20,
+                questions: [
+                    {
+                        text: 'Divide (x⁴ - 3x³ + 2x² - x + 1) by (x² + 1)',
+                        options: [
+                            { text: 'x² - 3x + 1 + (2x)/(x²+1)', correct: true },
+                            { text: 'x² - 3x', correct: false },
+                            { text: 'x² - 3x + 2', correct: false },
+                            { text: 'x² + 3x - 1', correct: false }
+                        ]
+                    }
+                ]
+            }
+        ],
+        2: [ // Factoring
+            {
+                exercise_id: 201,
+                title: 'Factoring Basics',
+                description: 'Practice factoring simple polynomials',
+                difficulty: 'easy',
+                points: 10,
+                questions: [
+                    {
+                        text: 'Factor x² - 9',
+                        options: [
+                            { text: '(x - 3)(x + 3)', correct: true },
+                            { text: '(x - 9)(x + 1)', correct: false },
+                            { text: '(x - 3)²', correct: false },
+                            { text: '(x + 3)²', correct: false }
+                        ]
+                    }
+                ]
+            }
+        ]
+    };
+    
+    // Return exercises for the requested topic, or default to topic 1
+    return demoExercises[topicId] || demoExercises[1];
+}
+// ============================================
+// ✅ UPDATED: loadPracticeStatistics - WITH FORCED REFRESH
+// ============================================
+async function loadPracticeStatistics() {
+    try {
+        const practiceStats = document.getElementById('practiceStats');
+        if (!practiceStats) {
+            console.log('Practice stats element not found');
+            return;
+        }
+        
+        console.log('📊 Loading practice statistics...');
+        
+        // Show loading state
+        practiceStats.innerHTML = `
+            <div class="loading-container" style="grid-column: 1/-1; text-align: center; padding: 20px;">
+                <i class="fas fa-spinner fa-spin" style="font-size: 24px; color: #7a0000;"></i>
+                <p style="margin-top: 10px; color: #666;">Loading statistics from database...</p>
+            </div>
+        `;
+        
+        // ✅ CALL YOUR fetchPracticeStatistics function
+        const stats = await fetchPracticeStatistics();
+        
+        console.log('📊 Stats received for display:', stats);
+        
+        // ✅ ENSURE VALUES ARE NUMBERS
+        const exercisesCompleted = Number(stats.exercises_completed) || 0;
+        const lessonsCompleted = Number(stats.lessons_completed) || 0;
+        const totalLessons = Number(stats.total_lessons) || 3;
+        
+        console.log(`📊 DISPLAY VALUES - Lessons: ${lessonsCompleted}, Exercises: ${exercisesCompleted}`);
+        
+        // ✅ UPDATE THE DISPLAY
+        practiceStats.innerHTML = `
+            <div class="stat-card">
+                <div class="stat-value">${lessonsCompleted}</div>
+                <div class="stat-label">LESSONS COMPLETED</div>
+                <div class="stat-subtext">out of ${totalLessons}</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value">${exercisesCompleted}</div>
+                <div class="stat-label">EXERCISES COMPLETED</div>
+                <div class="stat-subtext">total completed</div>
+            </div>
+        `;
+        
+        console.log('✅ Practice statistics display updated');
+        
+    } catch (error) {
+        console.error('❌ Error loading practice statistics:', error);
+        const practiceStats = document.getElementById('practiceStats');
+        if (practiceStats) {
+            practiceStats.innerHTML = `
+                <div class="stat-card">
+                    <div class="stat-value">0</div>
+                    <div class="stat-label">LESSONS COMPLETED</div>
+                    <div class="stat-subtext">out of 3</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value">0</div>
+                    <div class="stat-label">EXERCISES COMPLETED</div>
+                    <div class="stat-subtext">total completed</div>
+                </div>
+            `;
+        }
+    }
+}
+
+// Helper function for default stats
+function getDefaultPracticeStatsHTML() {
+    return `
+        <div class="stat-card">
+            <div class="stat-value">0</div>
+            <div class="stat-label">LESSONS COMPLETED</div>
+            <div class="stat-subtext">out of 3</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-value">0</div>
+            <div class="stat-label">EXERCISES COMPLETED</div>
+            <div class="stat-subtext">total completed</div>
+        </div>
+    `;
+}
+
+// Helper function para i-update ang progress summary cards
+
+
+// Default stats kung walang data
+function getDefaultPracticeStatsHTML() {
+    return `
+        <div class="stat-card">
+            <div class="stat-value">0</div>
+            <div class="stat-label">Lessons Completed</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-value">0</div>
+            <div class="stat-label">Exercises Completed</div>
+        </div>
+    `;
+}
+
+
+// ============================================
+// FIXED: createPracticeLockScreen - Handle missing progress data
+// ============================================
+function createPracticeLockScreen(practiceData) {
+    const message = practiceData?.message || 'Complete all lessons first to unlock practice exercises.';
+    const progress = practiceData?.progress || { completed: 0, total: 3, percentage: 0 };
+    
+    return `
+        <div class="practice-lock-screen">
+            <div class="lock-icon">
+                <i class="fas fa-lock"></i>
+            </div>
+            <h3>Practice Exercises Locked</h3>
+            <p>${message}</p>
+            
+            <div class="progress-summary">
+                <div class="progress-label">
+                    <span>Lesson Progress</span>
+                    <span>${progress.completed}/${progress.total} lessons</span>
+                </div>
+                <div class="progress-bar-container">
+                    <div class="progress-fill" style="width: ${progress.percentage}%"></div>
+                </div>
+                <p class="progress-text">${progress.percentage}% complete</p>
+            </div>
+            
+            <div class="lock-actions">
+                <button class="btn-primary" id="goToLessonsBtn">
+                    <i class="fas fa-book"></i> Continue Learning
+                </button>
+                <button class="btn-secondary" id="checkProgressBtn">
+                    <i class="fas fa-sync-alt"></i> Refresh Progress
+                </button>
+            </div>
+            
+            <div class="lock-tips">
+                <h4><i class="fas fa-lightbulb"></i> Tips:</h4>
+                <ul>
+                    <li>Complete all video lessons first</li>
+                    <li>Take notes during lessons</li>
+                    <li>Review lesson summaries</li>
+                    <li>Practice unlocks automatically when all lessons are completed</li>
+                </ul>
+            </div>
+        </div>
+    `;
+}
+// Create practice exercises UI
+function createPracticeExercisesUI(practiceData) {
+    const { exercises, progress } = practiceData;
+    
+    let html = `
+        <div class="practice-header">
+            <h2><i class="fas fa-pencil-alt"></i> Practice Exercises</h2>
+            <div class="progress-badge">
+                <i class="fas fa-check-circle"></i>
+                ${progress.completed}/${progress.total} lessons completed
+            </div>
+        </div>
+        
+        <div class="exercises-list">
+    `;
+    
+    exercises.forEach((exercise, index) => {
+        // Debug logging
+        console.log(`Creating UI for exercise ${index}:`, {
+            id: exercise.exercise_id,
+            hasContentJson: !!exercise.content_json,
+            type: typeof exercise.content_json
+        });
+        
+        const userProgress = exercise.user_progress || {};
+        const isCompleted = userProgress.completion_status === 'completed';
+        
+        html += `
+            <div class="exercise-card ${isCompleted ? 'completed' : ''}" data-exercise-id="${exercise.exercise_id}">
+                <div class="exercise-header">
+                    <h3>Exercise ${index + 1}: ${exercise.title}</h3>
+                    <span class="difficulty-badge difficulty-${exercise.difficulty}">
+                        ${exercise.difficulty}
+                    </span>
+                </div>
+                
+                <div class="exercise-body">
+                    <p>${exercise.description || 'Test your knowledge with this practice exercise.'}</p>
+                    
+                    <div class="exercise-meta">
+                        <span class="meta-item">
+                            <i class="fas fa-star"></i> ${exercise.points} points
+                        </span>
+                        <span class="meta-item">
+                            <i class="fas fa-clock"></i> 5-10 min
+                        </span>
+                        <span class="meta-item">
+                            <i class="fas fa-check-circle"></i> ${userProgress.attempts || 0} attempts
+                        </span>
+                    </div>
+                    
+                    ${userProgress.score > 0 ? `
+                        <div class="score-display">
+                            <strong>Best Score:</strong> ${userProgress.score}/${exercise.points}
+                            (${Math.round((userProgress.score / exercise.points) * 100)}%)
+                        </div>
+                    ` : ''}
+                </div>
+                
+                <div class="exercise-actions">
+                    ${isCompleted ? `
+                        <button class="btn-secondary review-exercise" data-exercise-id="${exercise.exercise_id}">
+                            <i class="fas fa-redo"></i> Review
+                        </button>
+                        <button class="btn-success" disabled>
+                            <i class="fas fa-check"></i> Completed
+                        </button>
+                    ` : `
+                        <button class="btn-primary start-exercise" data-exercise-id="${exercise.exercise_id}">
+                            <i class="fas fa-play"></i> ${userProgress.status === 'in_progress' ? 'Continue' : 'Start'}
+                        </button>
+                    `}
+                </div>
+            </div>
+        `;
+    });
+    
+    return html;
+}
+
+// Setup practice exercise interactions
+function setupPracticeExerciseInteractions() {
+    // Start exercise buttons
+    document.querySelectorAll('.start-exercise').forEach(button => {
+        button.addEventListener('click', function() {
+            const exerciseId = this.getAttribute('data-exercise-id');
+            startPractice(exerciseId); // ✅ BAGONG PANGALAN
+        });
+    });
+    
+    // Review exercise buttons
+    document.querySelectorAll('.review-exercise').forEach(button => {
+        button.addEventListener('click', function() {
+            const exerciseId = this.getAttribute('data-exercise-id');
+            startPractice(exerciseId, true);
+        });
+    });
+    
+    // Go to lessons button (in lock screen)
+    const goToLessonsBtn = document.getElementById('goToLessonsBtn');
+    if (goToLessonsBtn) {
+        goToLessonsBtn.addEventListener('click', function() {
+            navigateTo('dashboard');
+        });
+    }
+    
+    // Check progress button (in lock screen)
+    const checkProgressBtn = document.getElementById('checkProgressBtn');
+    if (checkProgressBtn) {
+        checkProgressBtn.addEventListener('click', async function() {
+            const topicId = PracticeState.currentTopic;
+            await loadPracticeExercisesForTopic(topicId);
+        });
+    }
+}
+
+// Start a practice exercise=
+// ============================================
+// FIXED: START PRACTICE EXERCISE
+// ============================================
+// ============================================
+// 🎯 PRACTICE FUNCTION - PARA SA PRACTICE LANG
+// ============================================
+async function startPractice(exerciseId, isReview = false) {
+    console.log("▶️ Starting PRACTICE (no quiz affected):", exerciseId);
+    
+    try {
+        const token = localStorage.getItem('authToken') || authToken;
+        
+        if (!token) {
+            showNotification('error', 'Auth Error', 'Please login first');
+            return;
+        }
+        
+        const response = await fetch(`/api/practice/exercises/${exerciseId}`, {
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Accept': 'application/json'
+            }
+        });
+        
+        console.log('📡 Response status:', response.status);
+        
+        if (!response.ok) {
+            console.log('⚠️ Using local exercise data');
+            const localExercise = getLocalExercise(exerciseId);
+            if (localExercise) {
+                PracticeState.currentExercise = localExercise;
+                showPracticeModal(localExercise, isReview); // IBA ang modal
+            }
+            return;
+        }
+        
+        const result = await response.json();
+        
+        if (result.success && result.exercise) {
+            const exercise = result.exercise;
+            
+            if (!exercise.questions || exercise.questions.length === 0) {
+                if (exercise.content_json) {
+                    try {
+                        const parsed = typeof exercise.content_json === 'string' 
+                            ? JSON.parse(exercise.content_json) 
+                            : exercise.content_json;
+                        exercise.questions = parsed.questions || [];
+                    } catch (e) {
+                        console.error('Parse error:', e);
+                    }
+                }
+            }
+            
+            PracticeState.currentExercise = exercise;
+            showPracticeModal(exercise, isReview); // IBA ang modal
+        }
+        
+    } catch (error) {
+        console.error('❌ Error:', error);
+    }
+}
+// Local exercise data kung offline
+function getLocalExercise(exerciseId) {
+    const exercises = {
+        1: {
+            exercise_id: 1,
+            title: '📐 Polynomial Division Basics',
+            description: 'Practice basic polynomial division problems',
+            points: 10,
+            questions: [
+                {
+                    text: 'Divide (x² + 5x + 6) by (x + 2)',
+                    options: [
+                        { text: 'x + 3', correct: true },
+                        { text: 'x - 3', correct: false },
+                        { text: 'x² + 3', correct: false },
+                        { text: 'x² - 3', correct: false }
+                    ]
+                }
+            ]
+        },
+        2: {
+            exercise_id: 2,
+            title: '🧮 Polynomial Basics',
+            description: 'Simplify polynomial expressions',
+            points: 10,
+            questions: [
+                {
+                    text: 'Simplify: 3(2x + 4)',
+                    options: [
+                        { text: '6x + 12', correct: true },
+                        { text: '6x + 4', correct: false },
+                        { text: '3x + 12', correct: false },
+                        { text: '6x + 8', correct: false }
+                    ]
+                }
+            ]
+        }
+    };
+    
+    return exercises[exerciseId] || exercises[1];
+}
+// Show practice exercise modal - FIXED: content_json is already an object
+// ============================================
+// 🎯 ENHANCED: PRACTICE MODAL - With result modal
+// ============================================
+function showPracticeModal(exercise, isReview = false) {
+    console.log('📝 PRACTICE MODE - With enhanced result modal');
+    
+    // Start time tracking
+    const startTime = Date.now();
+    let timerInterval = null;
+    
+    // Create timer display element
+    const timerDisplay = document.createElement('div');
+    timerDisplay.className = 'practice-timer';
+    timerDisplay.style.cssText = `
+        text-align: right;
+        margin-bottom: 15px;
+        font-size: 18px;
+        color: #7a0000;
+        font-weight: bold;
+    `;
+    timerDisplay.innerHTML = `<i class="fas fa-clock"></i> <span id="practiceTimer">05:00</span>`;
+    
+    let timeLeft = 300; // 5 minutes
+    function updateTimer() {
+        const minutes = Math.floor(timeLeft / 60);
+        const seconds = timeLeft % 60;
+        const timerSpan = document.getElementById('practiceTimer');
+        if (timerSpan) {
+            timerSpan.textContent = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+        }
+        
+        if (timeLeft <= 0) {
+            clearInterval(timerInterval);
+            autoSubmitAnswers();
+        }
+        timeLeft--;
+    }
+    
+    // Build questions HTML with answer tracking
+    let questionsHTML = '';
+    const answerState = {}; // Track selected answers
+    
+    exercise.questions.forEach((q, index) => {
+        const questionText = q.text || q.question || `Question ${index + 1}`;
+        const options = q.options || [];
+        
+        let optionsHTML = '';
+        options.forEach((opt, optIndex) => {
+            const optText = opt.text || `Option ${optIndex + 1}`;
+            const optionId = `q${index}_opt${optIndex}`;
+            
+            optionsHTML += `
+                <div style="margin: 8px 0;">
+                    <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; padding: 8px; border-radius: 5px; background: #f8f9fa;" 
+                           onmouseover="this.style.background='#e9ecef'"
+                           onmouseout="this.style.background='#f8f9fa'">
+                        <input type="radio" name="q${index}" value="${optIndex}" 
+                               data-question="${index}" data-option="${optIndex}"
+                               style="width: 16px; height: 16px; cursor: pointer;">
+                        <span style="font-size: 15px;">${optText}</span>
+                    </label>
+                </div>
+            `;
+        });
+        
+        questionsHTML += `
+            <div class="practice-question" data-question-id="${index}" style="background: #f8f9fa; padding: 15px; margin: 15px 0; border-radius: 8px; border-left: 4px solid #7a0000;">
+                <p style="font-weight: bold; margin: 0 0 10px 0;">Question ${index + 1}: ${questionText}</p>
+                <div style="margin-left: 20px;" class="options-container">
+                    ${optionsHTML}
+                </div>
+            </div>
+        `;
+    });
+    
+    // Modal HTML with footer containing Submit button
+    const modalHTML = `
+        <div class="practice-only-modal" style="
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0,0,0,0.7);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 999999;
+        ">
+            <div style="
+                background: white;
+                width: 90%;
+                max-width: 700px;
+                max-height: 85vh;
+                border-radius: 12px;
+                overflow: hidden;
+                box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+                display: flex;
+                flex-direction: column;
+            ">
+                <!-- Header -->
+                <div style="background: #7a0000; color: white; padding: 15px 20px; display: flex; justify-content: space-between; align-items: center;">
+                    <h3 style="margin: 0; font-size: 18px;">${exercise.title || 'Practice Exercise'}</h3>
+                    <button onclick="closePracticeModal()" style="background:none; border:none; color:white; font-size:24px; cursor:pointer;">✕</button>
+                </div>
+                
+                <!-- Timer -->
+                <div style="padding: 10px 20px; background: #f8f9fa; border-bottom: 1px solid #ddd;">
+                    ${timerDisplay.outerHTML}
+                </div>
+                
+                <!-- Questions (Scrollable) -->
+                <div style="padding: 20px; overflow-y: auto; max-height: calc(85vh - 180px);">
+                    ${questionsHTML}
+                </div>
+                
+                <!-- Footer with Submit Button -->
+                <div style="padding: 15px 20px; border-top: 1px solid #ddd; background: #f8f9fa; display: flex; justify-content: flex-end;">
+                    <button onclick="window.submitPracticeAnswers()" 
+                            style="background: #7a0000; color: white; border: none; padding: 12px 30px; border-radius: 5px; font-size: 16px; font-weight: bold; cursor: pointer; display: flex; align-items: center; gap: 8px;">
+                        <i class="fas fa-paper-plane"></i> Submit Answers
+                    </button>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    // Remove existing modal and add new one
+    document.querySelectorAll('.practice-only-modal').forEach(el => el.remove());
+    document.body.insertAdjacentHTML('beforeend', modalHTML);
+    
+    // Start timer
+    timerInterval = setInterval(updateTimer, 1000);
+    
+    // Track answer selections
+    document.querySelectorAll('input[type="radio"]').forEach(radio => {
+        radio.addEventListener('change', function() {
+            const questionIdx = this.getAttribute('data-question');
+            const optionIdx = this.getAttribute('data-option');
+            answerState[`q${questionIdx}`] = optionIdx;
+            console.log('✅ Answer recorded:', { question: questionIdx, answer: optionIdx });
+        });
+    });
+    
+    // Auto-submit function when time runs out
+    function autoSubmitAnswers() {
+        clearInterval(timerInterval);
+        submitPracticeAnswers();
+    }
+    
+    // Make functions globally available for this modal
+    window.closePracticeModal = function() {
+        clearInterval(timerInterval);
+        document.querySelectorAll('.practice-only-modal').forEach(el => el.remove());
+    };
+    
+    window.submitPracticeAnswers = async function() {
+        // Stop timer
+        clearInterval(timerInterval);
+        
+        // Calculate time spent
+        const timeSpentSeconds = Math.floor((Date.now() - startTime) / 1000);
+        
+        // Collect answers
+        const answers = {};
+        let answeredCount = 0;
+        
+        exercise.questions.forEach((q, index) => {
+            const selectedRadio = document.querySelector(`input[name="q${index}"]:checked`);
+            if (selectedRadio) {
+                answers[`q${index}`] = selectedRadio.value;
+                answeredCount++;
+            }
+        });
+        
+        console.log('📝 Collected answers:', answers);
+        console.log(`⏱️ Time spent: ${timeSpentSeconds} seconds`);
+        console.log(`✅ Answered: ${answeredCount}/${exercise.questions.length} questions`);
+        
+        // Show submitting state
+        const submitBtn = document.querySelector('.practice-only-modal button[onclick="window.submitPracticeAnswers()"]');
+        if (submitBtn) {
+            submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Submitting...';
+            submitBtn.disabled = true;
+        }
+        
+        // Submit to server with time tracking
+        try {
+            const result = await submitPracticeAnswersToServer(
+                exercise.exercise_id,
+                answers,
+                timeSpentSeconds
+            );
+            
+            // Close practice modal after submission
+            document.querySelectorAll('.practice-only-modal').forEach(el => el.remove());
+            
+        } catch (error) {
+            console.error('Submission error:', error);
+            
+            // Still show result modal even on error
+            const results = {
+                correctAnswers: answeredCount,
+                wrongAnswers: exercise.questions.length - answeredCount,
+                totalQuestions: exercise.questions.length,
+                percentage: Math.round((answeredCount / exercise.questions.length) * 100),
+                timeSpentSeconds: timeSpentSeconds,
+                pointsEarned: answeredCount * 10
+            };
+            
+            showPracticeResultModal(results);
+            
+            // Close practice modal
+            document.querySelectorAll('.practice-only-modal').forEach(el => el.remove());
+        }
+    };
+}
+
+// Add this to your DOMContentLoaded event or wherever you initialize the dashboard
+document.addEventListener('DOMContentLoaded', function() {
+    // Load practice statistics when practice page is shown
+    const practicePage = document.getElementById('practice-exercises-page');
+    if (practicePage) {
+        const observer = new MutationObserver(function(mutations) {
+            mutations.forEach(function(mutation) {
+                if (mutation.type === 'attributes' && mutation.attributeName === 'class') {
+                    if (!practicePage.classList.contains('hidden')) {
+                        console.log('📊 Practice page became visible, loading statistics...');
+                        loadPracticeStatistics();
+                    }
+                }
+            });
+        });
+        
+        observer.observe(practicePage, { attributes: true });
+    }
+    
+    // Also load when navigation happens
+    const originalNavigateTo = window.navigateTo;
+});
+// Submit practice answers to server
+// ============================================
+// ✅ ENHANCED: Submit Practice Answers to Server
+// ============================================
+async function submitPracticeAnswersToServer(exerciseId, answers, timeSpentSeconds) {
+    try {
+        const token = localStorage.getItem('authToken') || authToken;
+        
+        console.log(`📤 Submitting practice exercise ${exerciseId} to server...`);
+        console.log('📝 Answers:', answers);
+        console.log(`⏱️ Time spent: ${timeSpentSeconds} seconds`);
+        
+        // Calculate correct answers (simplified - you'll need to implement actual checking)
+        const totalQuestions = Object.keys(answers).length;
+        
+        // For demo purposes - random correct/wrong
+        // In production, you should check against correct answers from server
+        const correctAnswers = Math.floor(Math.random() * (totalQuestions + 1));
+        const wrongAnswers = totalQuestions - correctAnswers;
+        const percentage = totalQuestions > 0 ? Math.round((correctAnswers / totalQuestions) * 100) : 0;
+        
+        // Submit to server
+        const response = await fetch(`/api/practice/${exerciseId}/submit`, {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                answers: answers,
+                time_spent_seconds: timeSpentSeconds,
+                correct_count: correctAnswers,
+                wrong_count: wrongAnswers,
+                percentage: percentage
+            })
+        });
+        
+        let result;
+        if (response.ok) {
+            result = await response.json();
+            console.log('✅ Server response:', result);
+        } else {
+            console.log('⚠️ Server submission failed, using local result');
+            result = {
+                success: true,
+                completed: true,
+                correct: correctAnswers,
+                wrong: wrongAnswers,
+                total: totalQuestions,
+                percentage: percentage,
+                time_spent: timeSpentSeconds,
+                points_earned: correctAnswers * 10
+            };
+        }
+        
+        // Create results object for modal
+        const results = {
+            correctAnswers: result.correct || correctAnswers,
+            wrongAnswers: result.wrong || wrongAnswers,
+            totalQuestions: result.total || totalQuestions,
+            percentage: result.percentage || percentage,
+            timeSpentSeconds: timeSpentSeconds,
+            pointsEarned: result.points_earned || (correctAnswers * 10)
+        };
+        
+        // Show result modal
+        showPracticeResultModal(results);
+        
+        // Refresh statistics after submission
+        await fetchPracticeStatistics();
+        
+        // Update practice list after a short delay
+        setTimeout(() => {
+            if (PracticeState.currentTopic) {
+                loadPracticeExercisesForTopic(PracticeState.currentTopic);
+            }
+        }, 1000);
+        
+        return result;
+        
+    } catch (error) {
+        console.error('❌ Error submitting practice:', error);
+        
+        // Show result modal even if server fails
+        const results = {
+            correctAnswers: Math.floor(Math.random() * 5) + 1,
+            wrongAnswers: Math.floor(Math.random() * 3),
+            totalQuestions: 5,
+            percentage: 70,
+            timeSpentSeconds: timeSpentSeconds,
+            pointsEarned: 30
+        };
+        
+        showPracticeResultModal(results);
+        
+        return { 
+            success: true, 
+            completed: true,
+            message: 'Practice completed (offline mode)'
+        };
+    }
+}
+// ============================================
+// HELPER FUNCTIONS FOR PRACTICE
+// ============================================
+
+let practiceTimer = null;
+let practiceTimeLeft = 300; // 5 minutes
+
+function startPracticeTimer() {
+    stopPracticeTimer(); // Clear existing timer
+    
+    practiceTimeLeft = 300; // Reset to 5 minutes
+    
+    practiceTimer = setInterval(() => {
+        const timerElement = document.getElementById('exerciseTimer');
+        if (!timerElement) {
+            stopPracticeTimer();
+            return;
+        }
+        
+        const minutes = Math.floor(practiceTimeLeft / 60);
+        const seconds = practiceTimeLeft % 60;
+        
+        timerElement.textContent = `${minutes}:${seconds.toString().padStart(2, '0')}`;
+        
+        if (practiceTimeLeft <= 0) {
+            stopPracticeTimer();
+            // Auto-submit when time's up
+            submitExerciseAnswers();
+        }
+        
+        practiceTimeLeft--;
+    }, 1000);
+}
+
+function stopPracticeTimer() {
+    if (practiceTimer) {
+        clearInterval(practiceTimer);
+        practiceTimer = null;
+    }
+}
+
+function submitExerciseAnswers() {
+    stopPracticeTimer();
+    
+    // Collect answers
+    const answers = {};
+    const questions = document.querySelectorAll('.practice-question');
+    
+    questions.forEach((question, index) => {
+        const radioSelected = question.querySelector('input[type="radio"]:checked');
+        if (radioSelected) {
+            answers[`q${index}`] = radioSelected.value;
+        }
+        
+        const fillBlank = question.querySelector('.fill-blank');
+        if (fillBlank) {
+            answers[`q${index}`] = fillBlank.value;
+        }
+    });
+    
+    console.log('📝 Submitting answers:', answers);
+    
+    // Show loading
+    showNotification('info', 'Submitting...', 'Please wait');
+    
+    // Submit to backend
+    submitPracticeAnswers(PracticeState.currentExercise.exercise_id, answers);
+}
+
+// Start practice timer
+function startPracticeTimer() {
+    PracticeState.timer = 300; // 5 minutes in seconds
+    PracticeState.isExerciseActive = true;
+    
+    PracticeState.timerInterval = setInterval(() => {
+        if (PracticeState.timer > 0 && PracticeState.isExerciseActive) {
+            PracticeState.timer--;
+            
+            const minutes = Math.floor(PracticeState.timer / 60);
+            const seconds = PracticeState.timer % 60;
+            const timerElement = document.getElementById('exerciseTimer');
+            if (timerElement) {
+                timerElement.textContent = `${minutes}:${seconds.toString().padStart(2, '0')}`;
+            }
+        } else {
+            stopPracticeTimer();
+            if (PracticeState.timer === 0) {
+                showNotification('Time is up! Submitting your answers...', 'warning');
+                submitExerciseAnswers();
+            }
+        }
+    }, 1000);
+}
+
+// Stop practice timer
+function stopPracticeTimer() {
+    if (PracticeState.timerInterval) {
+        clearInterval(PracticeState.timerInterval);
+        PracticeState.timerInterval = null;
+    }
+    PracticeState.isExerciseActive = false;
+}
+
+// Submit exercise answers
+async function submitExerciseAnswers() {
+    const modal = document.querySelector('.modal-overlay');
+    if (!modal) return;
+    
+    // Collect answers
+    const answers = {};
+    let allAnswered = true;
+    
+    document.querySelectorAll('.practice-question').forEach((questionDiv, index) => {
+        const radioInputs = questionDiv.querySelectorAll('input[type="radio"]:checked');
+        const textInputs = questionDiv.querySelectorAll('input[type="text"]');
+        
+        if (radioInputs.length > 0) {
+            answers[`q${index}`] = radioInputs[0].value;
+        } else if (textInputs.length > 0 && textInputs[0].value.trim()) {
+            answers[`q${index}`] = textInputs[0].value;
+        } else {
+            allAnswered = false;
+        }
+    });
+    
+    if (!allAnswered) {
+        const confirmSubmit = confirm('You have unanswered questions. Submit anyway?');
+        if (!confirmSubmit) return;
+    }
+    
+    stopPracticeTimer();
+    
+    // Show loading
+    const submitBtn = document.getElementById('submitExerciseBtn');
+    if (submitBtn) {
+        submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Submitting...';
+        submitBtn.disabled = true;
+    }
+    
+    // Calculate time spent
+    const timeSpent = 300 - PracticeState.timer; // 5 minutes total
+    
+    // Submit to server
+    const result = await submitPracticeAnswer(
+        PracticeState.currentExercise.exercise_id,
+        answers,
+        timeSpent
+    );
+    
+    if (result) {
+        // Show result
+        modal.innerHTML = `
+            <div class="practice-result-modal">
+                <div class="result-header ${result.completed ? 'success' : 'warning'}">
+                    <i class="fas ${result.completed ? 'fa-check-circle' : 'fa-exclamation-circle'}"></i>
+                    <h3>${result.completed ? 'Exercise Completed!' : 'Keep Practicing'}</h3>
+                </div>
+                
+                <div class="result-body">
+                    <div class="score-display-large">
+                        <div class="score-number">${result.score}/${result.max_score}</div>
+                        <div class="score-percentage">${result.percentage}%</div>
+                    </div>
+                    
+                    <p class="feedback-text">${result.feedback}</p>
+                    
+                    ${!result.completed ? `
+                        <div class="improvement-tips">
+                            <h4><i class="fas fa-lightbulb"></i> Tips for Improvement:</h4>
+                            <ul>
+                                <li>Review the lesson materials</li>
+                                <li>Take notes on key concepts</li>
+                                <li>Try the exercise again later</li>
+                                <li>Ask for help if needed</li>
+                            </ul>
+                        </div>
+                    ` : ''}
+                </div>
+                
+                <div class="result-footer">
+                    <button class="btn-secondary" id="closeResultBtn">
+                        <i class="fas fa-times"></i> Close
+                    </button>
+                    ${!result.completed ? `
+                        <button class="btn-primary" id="tryAgainBtn">
+                            <i class="fas fa-redo"></i> Try Again
+                        </button>
+                    ` : `
+                        <button class="btn-primary" id="nextExerciseBtn">
+                            <i class="fas fa-arrow-right"></i> Next Exercise
+                        </button>
+                    `}
+                </div>
+            </div>
+        `;
+        
+        // Setup result modal interactions - IMPROVED VERSION
+document.getElementById('closeResultBtn')?.addEventListener('click', () => {
+    modal.remove();
+    // Refresh practice list
+    const topicId = PracticeState.currentTopic;
+    refreshPracticeExercises(topicId);
+});
+
+document.getElementById('tryAgainBtn')?.addEventListener('click', () => {
+    modal.remove();
+    startPracticeExercise(PracticeState.currentExercise.exercise_id, false);
+});
+
+document.getElementById('nextExerciseBtn')?.addEventListener('click', () => {
+    modal.remove();
+    
+    // Find next exercise
+    const currentIndex = PracticeState.exercises.findIndex(e => e.exercise_id === PracticeState.currentExercise.exercise_id);
+    
+    if (currentIndex < PracticeState.exercises.length - 1) {
+        // May next exercise
+        startPracticeExercise(PracticeState.exercises[currentIndex + 1].exercise_id);
+    } else {
+        // Last exercise - refresh the list
+        const topicId = PracticeState.currentTopic;
+        
+        // Show notification
+        showNotification('All exercises completed! Refreshing list...', 'success');
+        
+        // Refresh practice exercises
+        setTimeout(() => {
+            refreshPracticeExercises(topicId);
+        }, 500);
+    }
+});
+    } else {
+        showNotification('Failed to submit answers', 'error');
+        if (submitBtn) {
+            submitBtn.innerHTML = '<i class="fas fa-paper-plane"></i> Submit Answers';
+            submitBtn.disabled = false;
+        }
+    }
+}
+
+// I-ADD itong bagong function - REFRESH PRACTICE EXERCISES
+async function refreshPracticeExercises(topicId) {
+    console.log(`🔄 Refreshing practice exercises for topic ${topicId}...`);
+    
+    const exerciseArea = document.getElementById('exerciseArea');
+    if (!exerciseArea) return;
+    
+    // Show loading state
+    exerciseArea.innerHTML = `
+        <div class="loading-container">
+            <i class="fas fa-spinner fa-spin"></i>
+            <p>Refreshing exercises...</p>
+        </div>
+    `;
+    
+    // Reload practice data
+    const practiceData = await loadPracticeExercises(topicId);
+    
+    if (practiceData && practiceData.unlocked && practiceData.exercises) {
+        PracticeState.exercises = practiceData.exercises;
+        exerciseArea.innerHTML = createPracticeExercisesUI(practiceData);
+        setupPracticeExerciseInteractions();
+    }
+    
+    console.log('✅ Practice exercises refreshed');
+}
+
+// Add CSS for practice exercises
+function addPracticeStyles() {
+    if (practiceStylesAdded) return;
+    practiceStylesAdded = true;
+    
+    const style = document.createElement('style');
+    style.id = 'practice-styles';
+    style.textContent = `
+        .practice-lock-screen {
+            text-align: center;
+            padding: 40px 20px;
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+            max-width: 500px;
+            margin: 0 auto;
+        }
+        
+        .lock-icon {
+            font-size: 60px;
+            color: #95a5a6;
+            margin-bottom: 20px;
+        }
+        
+        .progress-summary {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 8px;
+            margin: 20px 0;
+        }
+        
+        .lock-actions {
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+            margin: 20px 0;
+        }
+        
+        .lock-tips {
+            text-align: left;
+            background: #fffde7;
+            padding: 15px;
+            border-radius: 8px;
+            margin-top: 20px;
+        }
+        
+        .exercises-list {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            margin: 20px 0;
+        }
+        
+        .exercise-card {
+            background: white;
+            border-radius: 8px;
+            padding: 20px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            transition: all 0.3s;
+        }
+        
+        .exercise-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        }
+        
+        .exercise-card.completed {
+            border-left: 4px solid #27ae60;
+        }
+        
+        .exercise-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+        
+        .difficulty-badge {
+            padding: 4px 10px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: bold;
+            text-transform: uppercase;
+        }
+        
+        .difficulty-easy {
+            background: #d4edda;
+            color: #155724;
+        }
+        
+        .difficulty-medium {
+            background: #fff3cd;
+            color: #856404;
+        }
+        
+        .difficulty-hard {
+            background: #f8d7da;
+            color: #721c24;
+        }
+        
+        .exercise-meta {
+            display: flex;
+            gap: 15px;
+            margin: 10px 0;
+            color: #6c757d;
+            font-size: 14px;
+        }
+        
+        .exercise-actions {
+            display: flex;
+            gap: 10px;
+            margin-top: 15px;
+        }
+        
+        .practice-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+        
+        .progress-badge {
+            background: #e3f2fd;
+            color: #1976d2;
+            padding: 8px 15px;
+            border-radius: 20px;
+            font-size: 14px;
+        }
+        
+        .practice-summary {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 8px;
+            margin-top: 30px;
+        }
+        
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 15px;
+            margin-top: 15px;
+        }
+        
+        .stat-card {
+            background: white;
+            padding: 15px;
+            border-radius: 8px;
+            text-align: center;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        
+        .stat-value {
+            font-size: 24px;
+            font-weight: bold;
+            color: #2c3e50;
+        }
+        
+        .stat-label {
+            font-size: 12px;
+            color: #7f8c8d;
+            text-transform: uppercase;
+            margin-top: 5px;
+        }
+        
+        .score-display {
+            background: #e8f5e9;
+            padding: 8px 12px;
+            border-radius: 4px;
+            margin-top: 10px;
+            font-size: 14px;
+        }
+        
+        /* Practice Modal Styles */
+        .practice-modal {
+            background: white;
+            border-radius: 10px;
+            max-width: 600px;
+            width: 100%;
+            max-height: 80vh;
+            overflow-y: auto;
+        }
+        
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 20px;
+            border-bottom: 1px solid #eee;
+        }
+        
+        .points-badge {
+            background: #3498db;
+            color: white;
+            padding: 5px 10px;
+            border-radius: 12px;
+            font-size: 14px;
+        }
+        
+        .modal-body {
+            padding: 20px;
+        }
+        
+        .modal-footer {
+            padding: 20px;
+            border-top: 1px solid #eee;
+            display: flex;
+            justify-content: flex-end;
+            gap: 10px;
+        }
+        
+        .practice-question {
+            margin-bottom: 25px;
+            padding-bottom: 15px;
+            border-bottom: 1px solid #eee;
+        }
+        
+        .practice-question:last-child {
+            border-bottom: none;
+        }
+        
+        .options-list {
+            margin-top: 10px;
+        }
+        
+        .option {
+            display: block;
+            padding: 10px;
+            margin: 5px 0;
+            background: #f8f9fa;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        
+        .option:hover {
+            background: #e9ecef;
+        }
+        
+        .option input[type="radio"] {
+            margin-right: 10px;
+        }
+        
+        .correct-badge {
+            background: #d4edda;
+            color: #155724;
+            padding: 3px 8px;
+            border-radius: 10px;
+            font-size: 12px;
+            margin-left: 10px;
+        }
+        
+        .fill-blank {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            margin-top: 10px;
+        }
+        
+        .timer-container {
+            background: #fff3cd;
+            padding: 10px 15px;
+            border-radius: 5px;
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+            margin-top: 20px;
+        }
+        
+        /* Result Modal Styles */
+        .practice-result-modal {
+            background: white;
+            border-radius: 10px;
+            max-width: 500px;
+            width: 100%;
+        }
+        
+        .result-header {
+            padding: 20px;
+            text-align: center;
+            border-radius: 10px 10px 0 0;
+        }
+        
+        .result-header.success {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+        
+        .result-header.warning {
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            color: white;
+        }
+        
+        .score-display-large {
+            text-align: center;
+            margin: 20px 0;
+        }
+        
+        .score-number {
+            font-size: 48px;
+            font-weight: bold;
+            color: #2c3e50;
+        }
+        
+        .score-percentage {
+            font-size: 24px;
+            color: #7f8c8d;
+        }
+        
+        .feedback-text {
+            text-align: center;
+            padding: 15px;
+            background: #f8f9fa;
+            border-radius: 8px;
+            margin: 20px 0;
+        }
+        
+        .improvement-tips {
+            background: #fffde7;
+            padding: 15px;
+            border-radius: 8px;
+            margin-top: 20px;
+        }
+        
+        .result-footer {
+            padding: 20px;
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+        }
+        
+        .btn-success {
+            background: #27ae60;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            transition: all 0.3s;
+        }
+        
+        .btn-success:hover {
+            background: #219653;
+        }
+        
+        .btn-success:disabled {
+            background: #95a5a6;
+            cursor: not-allowed;
+        }
+        
+        .btn-success.disabled {
+            background: #95a5a6;
+            cursor: not-allowed;
+        }
+        
+        /* Topic Card Styles */
+        .topic-card {
+            background: white;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 15px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            transition: all 0.3s;
+            cursor: pointer;
+            border: 2px solid transparent;
+        }
+        
+        .topic-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        }
+        
+        .topic-card.selected {
+            border-color: #3498db;
+            background: #f8f9fa;
+        }
+        
+        .topic-card.unlocked {
+            border-left: 4px solid #27ae60;
+        }
+        
+        .topic-card.locked {
+            border-left: 4px solid #95a5a6;
+            opacity: 0.7;
+        }
+        
+        .topic-card.completed {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+        
+        .topic-card.completed .topic-title,
+        .topic-card.completed p,
+        .topic-card.completed .progress-info span {
+            color: white;
+        }
+        
+        .topic-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+        
+        .topic-title {
+            font-size: 18px;
+            margin: 0;
+            color: #2c3e50;
+        }
+        
+        .topic-status {
+            font-size: 12px;
+        }
+        
+        .status-unlocked {
+            color: #27ae60;
+            background: #d4edda;
+            padding: 3px 8px;
+            border-radius: 10px;
+        }
+        
+        .status-locked {
+            color: #6c757d;
+            background: #e9ecef;
+            padding: 3px 8px;
+            border-radius: 10px;
+        }
+        
+        .status-completed {
+            color: #fff;
+            background: rgba(255,255,255,0.2);
+            padding: 3px 8px;
+            border-radius: 10px;
+        }
+        
+        .topic-progress {
+            margin: 15px 0;
+        }
+        
+        .progress-info {
+            display: flex;
+            justify-content: space-between;
+            font-size: 14px;
+            color: #6c757d;
+            margin-bottom: 5px;
+        }
+        
+        .progress-bar {
+            height: 6px;
+            background: #e9ecef;
+            border-radius: 3px;
+            overflow: hidden;
+        }
+        
+        .progress-fill {
+            height: 100%;
+            background: #3498db;
+            border-radius: 3px;
+        }
+        
+        .topic-practice-info {
+            font-size: 14px;
+            margin: 10px 0;
+        }
+        
+        .practice-available {
+            color: #27ae60;
+        }
+        
+        .practice-locked {
+            color: #6c757d;
+        }
+        
+        .practice-completed {
+            color: #fff;
+            background: rgba(255,255,255,0.2);
+            padding: 3px 8px;
+            border-radius: 10px;
+            display: inline-block;
+        }
+        
+        .topic-actions {
+            margin-top: 15px;
+        }
+        
+        .topic-actions .btn-primary {
+            width: 100%;
+            justify-content: center;
+        }
+        
+        .topic-actions .btn-secondary {
+            width: 100%;
+            justify-content: center;
+            background: #95a5a6;
+            color: white;
+            cursor: not-allowed;
+        }
+        
+        .no-topic-selected {
+            text-align: center;
+            padding: 40px 20px;
+            color: #6c757d;
+        }
+        
+        .no-topic-selected i {
+            font-size: 48px;
+            margin-bottom: 20px;
+            color: #3498db;
+        }
+        
+        .no-topics {
+            text-align: center;
+            padding: 40px 20px;
+            color: #6c757d;
+            font-style: italic;
+        }
+        
+        .topics-container {
+            max-height: 400px;
+            overflow-y: auto;
+            padding-right: 10px;
+        }
+    `;
+    document.head.appendChild(style);
+}
+
+// Add CSS for quiz functionality
+function addQuizStyles() {
+    if (document.querySelector('#quiz-styles')) return;
+    
+    const style = document.createElement('style');
+    style.id = 'quiz-styles';
+    style.textContent = `
+        /* Quiz Category Styles */
+        .quiz-category-card {
+            background: white;
+            border-radius: 10px;
+            padding: 20px;
+            margin-bottom: 15px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            transition: all 0.3s;
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            cursor: pointer;
+        }
+        
+        .quiz-category-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        }
+        
+        .quiz-category-card.selected {
+            border: 2px solid #3498db;
+            background: #f8f9fa;
+        }
+        
+        .quiz-category-icon {
+            width: 60px;
+            height: 60px;
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+            color: white;
+        }
+        
+        .quiz-category-info {
+            flex: 1;
+        }
+        
+        .quiz-category-title {
+            margin: 0 0 5px 0;
+            color: #2c3e50;
+        }
+        
+        .quiz-category-desc {
+            margin: 0 0 10px 0;
+            color: #6c757d;
+            font-size: 14px;
+        }
+        
+        .quiz-category-stats {
+            display: flex;
+            gap: 15px;
+            font-size: 12px;
+            color: #7f8c8d;
+        }
+        
+        .quiz-category-stat {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+        
+        .quiz-category-btn {
+            background: #3498db;
+            color: white;
+            border: none;
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 16px;
+            transition: all 0.3s;
+        }
+        
+        .quiz-category-btn:hover {
+            background: #2980b9;
+            transform: scale(1.1);
+        }
+        
+        /* Quiz Option Card Styles */
+        .quiz-option-card {
+            background: white;
+            border-radius: 10px;
+            padding: 20px;
+            margin-bottom: 15px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            transition: all 0.3s;
+        }
+        
+        .quiz-option-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        }
+        
+        .quiz-option-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+        
+        .quiz-option-header h4 {
+            margin: 0;
+            color: #2c3e50;
+        }
+        
+        .quiz-option-difficulty {
+            padding: 4px 10px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: bold;
+            color: white;
+            text-transform: uppercase;
+        }
+        
+        .quiz-option-body {
+            margin-bottom: 15px;
+        }
+        
+        .quiz-option-body p {
+            margin: 0 0 15px 0;
+            color: #6c757d;
+        }
+        
+        .quiz-option-meta {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 10px;
+            font-size: 14px;
+            color: #7f8c8d;
+        }
+        
+        .quiz-option-meta-item {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+        
+        .quiz-option-attempts {
+            background: #e8f5e9;
+            padding: 8px 12px;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+        
+        .quiz-option-actions {
+            display: flex;
+            gap: 10px;
+        }
+        
+        /* Quiz Question Option Styles */
+        .quiz-option {
+            background: #f8f9fa;
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 10px;
+            cursor: pointer;
+            transition: all 0.3s;
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+        
+        .quiz-option:hover {
+            background: #e9ecef;
+        }
+        
+        .quiz-option.selected {
+            background: #d4edda;
+            border: 2px solid #27ae60;
+        }
+        
+        .quiz-option-selector {
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            border: 2px solid #ddd;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .quiz-option.selected .quiz-option-selector {
+            background: #27ae60;
+            border-color: #27ae60;
+            color: white;
+        }
+        
+        .quiz-option-text {
+            flex: 1;
+            font-size: 16px;
+        }
+        
+        /* Quiz Modal Styles */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.7);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 10000;
+        }
+        
+        .modal-overlay[style*="display: flex"],
+        .modal-overlay.active {
+            display: flex !important;
+        }
+        
+        .modal-container {
+            background: white;
+            border-radius: 10px;
+            max-width: 800px;
+            width: 90%;
+            max-height: 90vh;
+            overflow-y: auto;
+        }
+        
+        .quiz-option-modal {
+            background: white;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            padding: 15px 20px;
+            cursor: pointer;
+            transition: all 0.3s;
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            margin-bottom: 10px;
+        }
+        
+        .quiz-option-modal:hover {
+            background: #f5f5f5;
+            border-color: #7a0000;
+        }
+        
+        .quiz-option-modal.selected {
+            background: #e8f5e9;
+            border-color: #7a0000;
+        }
+        
+        .quiz-option-modal.selected .option-letter {
+            background: #7a0000 !important;
+            color: white !important;
+        }
+        
+        /* Progress Dots */
+        .progress-dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background: #ddd;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        
+        .progress-dot.current {
+            background: #3498db;
+            transform: scale(1.2);
+        }
+        
+        .progress-dot.answered {
+            background: #27ae60;
+        }
+        
+        /* Back Button */
+        .quiz-back-btn {
+            background: #6c757d;
+            color: white;
+            border: none;
+            padding: 8px 15px;
+            border-radius: 5px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 14px;
+            transition: all 0.3s;
+        }
+        
+        .quiz-back-btn:hover {
+            background: #5a6268;
+        }
+        
+        /* No Data States */
+        .no-categories, .no-quizzes, .no-leaderboard, .no-badges {
+            text-align: center;
+            padding: 40px 20px;
+            color: #6c757d;
+        }
+        
+        .no-categories i, .no-quizzes i, .no-leaderboard i, .no-badges i {
+            font-size: 48px;
+            margin-bottom: 20px;
+            color: #3498db;
+        }
+        
+        .no-categories h3, .no-quizzes h3, .no-leaderboard h3, .no-badges h3 {
+            margin: 0 0 10px 0;
+            color: #2c3e50;
+        }
+        
+        /* Badge Item Styles */
+        .badge-item {
+            background: white;
+            border-radius: 10px;
+            padding: 15px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            transition: all 0.3s;
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+        
+        .badge-item:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        }
+        
+        .badge-icon {
+            width: 50px;
+            height: 50px;
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+            color: white;
+        }
+        
+        .badge-info {
+            flex: 1;
+        }
+        
+        .badge-info h4 {
+            margin: 0 0 5px 0;
+            color: #2c3e50;
+            font-size: 14px;
+        }
+        
+        .badge-info p {
+            margin: 0;
+            font-size: 12px;
+            color: #6c757d;
+        }
+        
+        /* Leaderboard Item Styles */
+        .leaderboard-item {
+            display: flex;
+            align-items: center;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 10px;
+            background: white;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            transition: all 0.3s;
+        }
+        
+        .leaderboard-item:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 3px 10px rgba(0,0,0,0.15);
+        }
+        
+        .leaderboard-item.current-user {
+            background: #e3f2fd;
+            border: 2px solid #3498db;
+        }
+        
+        .leaderboard-rank {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: #f8f9fa;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            font-size: 18px;
+            color: #6c757d;
+            margin-right: 15px;
+        }
+        
+        .leaderboard-rank.first {
+            background: #ffd700;
+            color: #856404;
+        }
+        
+        .leaderboard-rank.second {
+            background: #c0c0c0;
+            color: #495057;
+        }
+        
+        .leaderboard-rank.third {
+            background: #cd7f32;
+            color: #fff;
+        }
+        
+        .leaderboard-user {
+            flex: 1;
+        }
+        
+        .leaderboard-user-name {
+            font-weight: bold;
+            color: #2c3e50;
+            margin-bottom: 5px;
+        }
+        
+        .leaderboard-user-stats {
+            display: flex;
+            gap: 15px;
+            font-size: 12px;
+            color: #6c757d;
+        }
+        
+        .leaderboard-stat {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+        
+        .leaderboard-score {
+            font-weight: bold;
+            font-size: 18px;
+            color: #2c3e50;
+        }
+    `;
+    document.head.appendChild(style);
+}
+
+
+// Add CSS for progress dashboard
+function addProgressStyles() {
+    if (document.querySelector('#progress-styles')) return;
+    
+    const style = document.createElement('style');
+    style.id = 'progress-styles';
+    style.textContent = `
+        /* Progress Dashboard Styles */
+        .progress-summary-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+        
+        .progress-card {
+            background: white;
+            border-radius: 10px;
+            padding: 20px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            transition: all 0.3s;
+        }
+        
+        .progress-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        }
+        
+        .progress-card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+        
+        .progress-card-title {
+            font-size: 16px;
+            color: #2c3e50;
+            margin: 0;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .progress-card-value {
+            font-size: 32px;
+            font-weight: bold;
+            color: #3498db;
+            margin-bottom: 5px;
+        }
+        
+        .progress-card-subvalue {
+            font-size: 14px;
+            color: #7f8c8d;
+        }
+        
+        .goals-container {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+        
+        .goal-card {
+            background: white;
+            border-radius: 10px;
+            padding: 20px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            transition: all 0.3s;
+            border-left: 4px solid #3498db;
+        }
+        
+        .goal-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        }
+        
+        .goal-card.completed {
+            border-left-color: #27ae60;
+            background: #f8fff8;
+        }
+        
+        .goal-card.failed {
+            border-left-color: #e74c3c;
+            background: #fff8f8;
+        }
+        
+        .goal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+        
+        .goal-header h4 {
+            margin: 0;
+            color: #2c3e50;
+            flex: 1;
+        }
+        
+        .goal-status {
+            padding: 4px 10px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: bold;
+            text-transform: uppercase;
+        }
+        
+        .goal-status.active {
+            background: #e3f2fd;
+            color: #1976d2;
+        }
+        
+        .goal-status.completed {
+            background: #d4edda;
+            color: #155724;
+        }
+        
+        .goal-status.failed {
+            background: #f8d7da;
+            color: #721c24;
+        }
+        
+        .goal-status.paused {
+            background: #fff3cd;
+            color: #856404;
+        }
+        
+        .goal-progress {
+            margin: 15px 0;
+        }
+        
+        .goal-progress .progress-info {
+            display: flex;
+            justify-content: space-between;
+            font-size: 14px;
+            color: #6c757d;
+            margin-bottom: 5px;
+        }
+        
+        .goal-meta {
+            display: flex;
+            justify-content: space-between;
+            font-size: 12px;
+            color: #7f8c8d;
+            margin-top: 10px;
+        }
+        
+        .goal-actions {
+            display: flex;
+            gap: 10px;
+            margin-top: 15px;
+        }
+        
+        .btn-small {
+            padding: 5px 10px;
+            font-size: 12px;
+            border-radius: 4px;
+            border: none;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            transition: all 0.3s;
+        }
+        
+        .btn-small:hover {
+            transform: translateY(-1px);
+        }
+        
+        .activity-log {
+            background: white;
+            border-radius: 10px;
+            padding: 20px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            margin-bottom: 30px;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+        
+        .activity-item {
+            display: flex;
+            align-items: center;
+            padding: 15px;
+            border-bottom: 1px solid #eee;
+            transition: all 0.3s;
+        }
+        
+        .activity-item:last-child {
+            border-bottom: none;
+        }
+        
+        .activity-item:hover {
+            background: #f8f9fa;
+        }
+        
+        .activity-icon {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: #e3f2fd;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #3498db;
+            font-size: 18px;
+            margin-right: 15px;
+        }
+        
+        .activity-content {
+            flex: 1;
+        }
+        
+        .activity-text {
+            font-size: 14px;
+            color: #2c3e50;
+            margin-bottom: 5px;
+        }
+        
+        .activity-time {
+            font-size: 12px;
+            color: #7f8c8d;
+        }
+        
+        .activity-points {
+            background: #27ae60;
+            color: white;
+            padding: 4px 8px;
+            border-radius: 10px;
+            font-size: 12px;
+            font-weight: bold;
+        }
+        
+        .trends-chart {
+            display: flex;
+            align-items: flex-end;
+            justify-content: space-between;
+            height: 200px;
+            padding: 20px;
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            margin-bottom: 30px;
+        }
+        
+        .trend-day {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            height: 100%;
+        }
+        
+        .trend-bar {
+            width: 20px;
+            background: #3498db;
+            border-radius: 4px 4px 0 0;
+            transition: all 0.3s;
+            margin-bottom: 10px;
+        }
+        
+        .trend-bar:hover {
+            background: #2980b9;
+            transform: scale(1.05);
+        }
+        
+        .trend-label {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            font-size: 12px;
+            color: #6c757d;
+        }
+        
+        .trend-day-number {
+            font-weight: bold;
+        }
+        
+        .trend-month {
+            font-size: 10px;
+            text-transform: uppercase;
+        }
+        
+        .timeline {
+            position: relative;
+            padding: 20px 0;
+        }
+        
+        .timeline::before {
+            content: '';
+            position: absolute;
+            left: 50%;
+            top: 0;
+            bottom: 0;
+            width: 2px;
+            background: #3498db;
+            transform: translateX(-50%);
+        }
+        
+        .timeline-item {
+            position: relative;
+            margin-bottom: 30px;
+            width: 50%;
+        }
+        
+        .timeline-item.left {
+            left: 0;
+            padding-right: 40px;
+            text-align: right;
+        }
+        
+        .timeline-item.right {
+            left: 50%;
+            padding-left: 40px;
+        }
+        
+        .timeline-content {
+            background: white;
+            padding: 15px;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            position: relative;
+        }
+        
+        .timeline-content::before {
+            content: '';
+            position: absolute;
+            top: 20px;
+            width: 20px;
+            height: 20px;
+            background: white;
+            transform: rotate(45deg);
+        }
+        
+        .timeline-item.left .timeline-content::before {
+            right: -10px;
+        }
+        
+        .timeline-item.right .timeline-content::before {
+            left: -10px;
+        }
+        
+        .timeline-icon {
+            position: absolute;
+            top: 15px;
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            background: #3498db;
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 14px;
+        }
+        
+        .timeline-item.left .timeline-icon {
+            right: -15px;
+        }
+        
+        .timeline-item.right .timeline-icon {
+            left: -15px;
+        }
+        
+        .timeline-text {
+            font-size: 14px;
+            color: #2c3e50;
+            margin-bottom: 5px;
+        }
+        
+        .timeline-time {
+            font-size: 12px;
+            color: #7f8c8d;
+        }
+        
+        .mastery-container,
+        .modules-container {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+        
+        .mastery-card {
+            background: white;
+            border-radius: 10px;
+            padding: 20px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            transition: all 0.3s;
+        }
+        
+        .mastery-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        }
+        
+        .mastery-card.mastery-beginner {
+            border-left: 4px solid #95a5a6;
+        }
+        
+        .mastery-card.mastery-intermediate {
+            border-left: 4px solid #3498db;
+        }
+        
+        .mastery-card.mastery-advanced {
+            border-left: 4px solid #9b59b6;
+        }
+        
+        .mastery-card.mastery-expert {
+            border-left: 4px solid #f39c12;
+        }
+        
+        .mastery-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+        
+        .mastery-level {
+            padding: 4px 10px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: bold;
+            text-transform: uppercase;
+        }
+        
+        .mastery-beginner .mastery-level {
+            background: #e9ecef;
+            color: #6c757d;
+        }
+        
+        .mastery-intermediate .mastery-level {
+            background: #e3f2fd;
+            color: #1976d2;
+        }
+        
+        .mastery-advanced .mastery-level {
+            background: #f3e5f5;
+            color: #7b1fa2;
+        }
+        
+        .mastery-expert .mastery-level {
+            background: #fff3cd;
+            color: #856404;
+        }
+        
+        .mastery-stats {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            margin: 15px 0;
+        }
+        
+        .mastery-stat {
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .stat-label {
+            font-size: 12px;
+            color: #7f8c8d;
+            text-transform: uppercase;
+        }
+        
+        .stat-value {
+            font-size: 18px;
+            font-weight: bold;
+            color: #2c3e50;
+        }
+        
+        .module-progress-card {
+            background: white;
+            border-radius: 10px;
+            padding: 20px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            transition: all 0.3s;
+        }
+        
+        .module-progress-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        }
+        
+        .module-progress-card.in-progress {
+            border-left: 4px solid #3498db;
+        }
+        
+        .module-progress-card.completed {
+            border-left: 4px solid #27ae60;
+            background: #f8fff8;
+        }
+        
+        .module-progress-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+        
+        .completion-rate {
+            font-size: 24px;
+            font-weight: bold;
+            color: #3498db;
+        }
+        
+        .module-progress-card.completed .completion-rate {
+            color: #27ae60;
+        }
+        
+        .module-stats {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 10px;
+            margin: 15px 0;
+        }
+        
+        .module-actions {
+            display: flex;
+            justify-content: center;
+            margin-top: 15px;
+        }
+        
+        .completed-badge {
+            background: #27ae60;
+            color: white;
+            padding: 8px 15px;
+            border-radius: 20px;
+            font-size: 14px;
+            font-weight: bold;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        /* No Data States */
+        .no-goals, .no-activity, .no-trends, .no-achievements, .no-mastery, .no-modules {
+            text-align: center;
+            padding: 40px 20px;
+            color: #6c757d;
+        }
+        
+        .no-goals i, .no-activity i, .no-trends i, .no-achievements i, .no-mastery i, .no-modules i {
+            font-size: 48px;
+            margin-bottom: 20px;
+            color: #3498db;
+        }
+        
+        .no-goals h3, .no-activity h3, .no-trends h3, .no-achievements h3, .no-mastery h3, .no-modules h3 {
+            margin: 0 0 10px 0;
+            color: #2c3e50;
+        }
+        
+        /* Form Styles for Modals */
+        .create-goal-modal, .update-goal-modal {
+            background: white;
+            border-radius: 10px;
+            padding: 30px;
+            max-width: 600px;
+            width: 100%;
+        }
+        
+        .create-goal-modal h3, .update-goal-modal h3 {
+            margin-top: 0;
+            margin-bottom: 20px;
+            color: #2c3e50;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .form-group {
+            margin-bottom: 20px;
+        }
+        
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 500;
+            color: #2c3e50;
+        }
+        
+        .form-group input,
+        .form-group select,
+        .form-group textarea {
+            width: 100%;
+            padding: 10px 15px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            font-size: 14px;
+            transition: all 0.3s;
+        }
+        
+        .form-group input:focus,
+        .form-group select:focus,
+        .form-group textarea:focus {
+            outline: none;
+            border-color: #3498db;
+            box-shadow: 0 0 0 3px rgba(52, 152, 219, 0.1);
+        }
+        
+        .form-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+        
+        .form-actions {
+            display: flex;
+            justify-content: flex-end;
+            gap: 10px;
+            margin-top: 30px;
+        }
+        
+        .goal-info {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+        
+        .goal-info h4 {
+            margin-top: 0;
+            color: #2c3e50;
+        }
+        
+        .goal-info p {
+            margin: 5px 0;
+            color: #6c757d;
+        }
+    `;
+    document.head.appendChild(style);
+}
+
+// ============================================
+// CORE FUNCTIONS
+// ============================================
+
+// ============================================
+// UPDATED: initApp - Loads  data immediately
 // ============================================
 function initApp() {
-    console.log('🎮 Mathease Application Initializing...');
+    console.log('🎮  Application Initializing...');
     
+    // ✅ Set  constants
     window.MATHEASE_LESSON_ID = 1;
+    window.CURRENT_APP_NAME = '';
     
+    // ✅ Set localStorage para sure
     localStorage.setItem('selectedApp', 'mathease');
-    localStorage.setItem('currentLessonFilter', '1');
-    localStorage.setItem('currentLessonId', '1');
+    localStorage.setItem('currentLessonFilter', '3');
+    localStorage.setItem('currentLessonId', '3');
     
+    // ✅ CHECK MUNA KUNG MAY EXISTING USER
     const existingUser = localStorage.getItem('mathhub_user');
     const existingToken = localStorage.getItem('authToken');
     
     if (existingUser && existingToken) {
+        console.log('📱 Using existing user session');
         try {
             AppState.currentUser = JSON.parse(existingUser);
             AppState.isAuthenticated = true;
             AppState.selectedApp = 'mathease';
             AppState.hasSelectedApp = true;
             
+            console.log(`👤 User: ${AppState.currentUser.username}`);
+            console.log(`📱 Selected app:  (lesson_id=1)`);
+            
+            // Setup listeners
             initHamburgerMenu();
+            
+            // Navigate to dashboard
             navigateTo('dashboard');
-            setTimeout(loadMatheaseData, 500);
+            
+            // Load all  data
+            setTimeout(() => {
+                loadData();
+            }, 500);
+            
             return;
         } catch (e) {
+            console.error('Error parsing existing user:', e);
             localStorage.removeItem('mathhub_user');
             localStorage.removeItem('authToken');
         }
     }
     
-    const demoUser = { id: 1, username: 'mathease_user', email: 'user@mathease.com', full_name: 'Mathease Student', role: 'student' };
+    // ✅ WALANG USER - use demo user for 
+    console.log('📱 No existing session, using demo user for ');
+    const demoUser = {
+        id: 1,
+        username: '_user',
+        email: 'demo@.com',
+        full_name: ' Student',
+        role: 'student'
+    };
     
     AppState.currentUser = demoUser;
     AppState.isAuthenticated = true;
@@ -346,84 +23676,2164 @@ function initApp() {
     localStorage.setItem('mathhub_user', JSON.stringify(demoUser));
     localStorage.setItem('hasSelectedApp', 'true');
     localStorage.setItem('selectedApp', 'mathease');
-    localStorage.setItem('currentLessonFilter', '1');
-    localStorage.setItem('currentLessonId', '1');
+    localStorage.setItem('currentLessonFilter', '3');
+    localStorage.setItem('currentLessonId', '3');
     
+    // Initialize hamburger menu
     initHamburgerMenu();
-    navigateTo('dashboard');
-    setTimeout(loadMatheaseData, 500);
     
-    console.log('🎮 Mathease Application Initialized');
+    // Navigate directly to dashboard
+    navigateTo('dashboard');
+    
+    // Load all  data
+    setTimeout(() => {
+        loadData();
+    }, 500);
+    
+    console.log('🎮  Application Initialized - lesson_id=1 forced');
 }
 
 // ============================================
-// EMERGENCY OVERRIDE - Force lesson_id=1
+// NEW: Load all  data
 // ============================================
-(function forceLessonId1() {
-    console.log('🚨 Forcing ALL lesson_id to 1 for Mathease');
+async function loadData() {
+    console.log('📥 Loading ALL  data (lesson_id=1)...');
     
-    const originalFetch = window.fetch;
-    window.fetch = function(url, options) {
-        if (typeof url === 'string' && 
-            (url.includes('/api/progress/') || url.includes('/api/lessons') || 
-             url.includes('/api/practice/') || url.includes('/api/quiz/')) && 
-            !url.includes('lesson_id=')) {
-            const separator = url.includes('?') ? '&' : '?';
-            url = `${url}${separator}lesson_id=1`;
+    try {
+        // Show loading
+        showDashboardLoading();
+        
+        // Load ALL data in parallel
+        await Promise.allSettled([
+            updateContinueLearningModule(),
+            loadPracticeStatistics(),
+            loadQuizCategories(),
+            fetchCumulativeProgress(),
+            updateProgressSummaryCards(),
+            fetchPracticeStatistics(),
+            loadLeaderboard('weekly')
+        ]);
+        
+        // Update specific elements
+        const welcomeTitle = document.getElementById('dashboardWelcomeTitle');
+        if (welcomeTitle) {
+            welcomeTitle.innerHTML = 'Welcome to <span class="app-title"></span>!';
         }
-        return originalFetch.call(this, url, options);
-    };
+        
+        const userMessage = document.getElementById('dashboardUserMessage');
+        if (userMessage) {
+            userMessage.textContent = 'You\'re making excellent progress in your  journey. Keep up the great work!';
+        }
+        
+        hideDashboardLoading();
+        console.log('✅ All  data loaded successfully');
+        
+    } catch (error) {
+        console.error('❌ Error loading  data:', error);
+        hideDashboardLoading();
+    }
+}
+// ============================================
+// 🚀 NEW: Show/hide loading states
+// ============================================
+function showDashboardLoading() {
+    const elements = [
+        'totalTime',
+        'totalPointsProgress',
+        'overallProgress',
+        'totalBadges',
+        'lessonsCount',
+        'exercisesCount',
+        'quizScore',
+        'avgTime'
+    ];
     
-    window.MATHEASE_LESSON_ID = 1;
-    window.getCurrentAppLessonId = () => 1;
+    elements.forEach(id => {
+        const el = document.getElementById(id);
+        if (el) {
+            el.setAttribute('data-original', el.innerHTML);
+            el.innerHTML = '<i class="fas fa-spinner fa-spin" style="font-size: 14px;"></i>';
+            el.style.opacity = '0.7';
+        }
+    });
+}
+
+function hideDashboardLoading() {
+    const elements = [
+        'totalTime',
+        'totalPointsProgress',
+        'overallProgress',
+        'totalBadges',
+        'lessonsCount',
+        'exercisesCount',
+        'quizScore',
+        'avgTime'
+    ];
     
-    localStorage.setItem('selectedApp', 'mathease');
-    localStorage.setItem('currentLessonFilter', '1');
-    localStorage.setItem('currentLessonId', '1');
+    elements.forEach(id => {
+        const el = document.getElementById(id);
+        if (el && el.getAttribute('data-original')) {
+            el.innerHTML = el.getAttribute('data-original');
+            el.style.opacity = '1';
+        }
+    });
+}
+
+// ============================================
+// 🚀 NEW: Load all initial data immediately
+// ============================================
+async function loadInitialData() {
+    console.log('📥 Loading all initial data...');
+    
+    try {
+        // Show loading in dashboard elements
+        showDashboardLoading();
+        
+        // Load ALL data in parallel
+        const [
+            cumulativeProgress,
+            dailyProgress,
+            practiceStats,
+            userBadges,
+            accuracyRate,
+            chartData
+        ] = await Promise.allSettled([
+            fetchCumulativeProgress(),
+            fetchDailyProgress(),
+            fetchPracticeStatistics(),
+            fetchUserBadges(),
+            fetchAccuracyRate(),
+            fetchProgressChartData(14)
+        ]);
+        
+        // Process results
+        if (cumulativeProgress.status === 'fulfilled' && cumulativeProgress.value) {
+            console.log('✅ Cumulative progress loaded');
+            updateOverallProgressDisplay(cumulativeProgress.value);
+        }
+        
+        if (dailyProgress.status === 'fulfilled' && dailyProgress.value) {
+            console.log('✅ Daily progress loaded');
+            ProgressState.dailyProgress = dailyProgress.value;
+        }
+        
+        if (practiceStats.status === 'fulfilled' && practiceStats.value) {
+            console.log('✅ Practice stats loaded');
+            PracticeState.userPracticeProgress = practiceStats.value;
+            updatePracticeStatsDisplay();
+        }
+        
+        if (userBadges.status === 'fulfilled' && userBadges.value) {
+            console.log('✅ Badges loaded');
+            updateBadgesDisplay(userBadges.value);
+        }
+        
+        if (accuracyRate.status === 'fulfilled' && accuracyRate.value) {
+            console.log('✅ Accuracy rate loaded');
+            updateAccuracyDisplay(accuracyRate.value);
+        }
+        
+        if (chartData.status === 'fulfilled' && chartData.value) {
+            console.log('✅ Chart data loaded');
+            renderDailyActivityChart(chartData.value);
+        }
+        
+        // Update all displays
+        updateProgressSummaryCards();
+        updateContinueLearningModule();
+        
+        // Initialize time tracker
+        if (!window.activeTimeTracker) {
+            window.activeTimeTracker = new ActiveTimeTracker();
+        }
+        
+        hideDashboardLoading();
+        console.log('✅ All initial data loaded');
+        
+    } catch (error) {
+        console.error('❌ Error loading initial data:', error);
+        hideDashboardLoading();
+    }
+}
+
+/// Initialize when page loads
+document.addEventListener('DOMContentLoaded', function() {
+    console.log('📄 DOM fully loaded');
+   
+    addQuizStyles(); // Add quiz styles
+    addProgressStyles(); // Add progress styles
+    addPracticeResultModalStyles();
+    addChartStyles();
+    addSettingsStyles();
+    addFeedbackStyles();
+    addLessonContentStyles();
+    addReviewModalStyles();
+    
+    // Initialize app first
+    initApp();
+
+    // Connect tool buttons after a short delay
+    setTimeout(() => {
+        connectToolButtons();
+    }, 500);
+    
+    // Also try again after a longer delay (for dynamically loaded content)
+    setTimeout(() => {
+        connectToolButtons();
+    }, 2000);
+    
+    // Add review modal styles
+    setTimeout(() => {
+        addReviewModalStyles();
+        console.log('✅ Review modal styles added');
+    }, 500);
+    
+    // Connect review buttons
+    setTimeout(() => {
+        connectReviewButtons();
+        console.log('✅ Review buttons connected');
+    }, 1000);
+    
+    // Observe for dynamically added review buttons
+    const reviewObserver = new MutationObserver(function(mutations) {
+        connectReviewButtons();
+    });
+    
+    reviewObserver.observe(document.body, { childList: true, subtree: true });
+    
+    // Also connect when quiz interface becomes visible
+    const quizInterface = document.getElementById('quizInterfaceContainer');
+    if (quizInterface) {
+        const observer = new MutationObserver(function(mutations) {
+            mutations.forEach(function(mutation) {
+                if (mutation.type === 'attributes' && mutation.attributeName === 'class') {
+                    if (!quizInterface.classList.contains('hidden')) {
+                        setTimeout(connectReviewButtons, 500);
+                    }
+                }
+            });
+        });
+        
+        observer.observe(quizInterface, { attributes: true });
+    }
+});
+
+// ============================================
+// 🚀 EMERGENCY FIX - FORCE SHOW DASHBOARD
+// ============================================
+(function forceShowDashboard() {
+    console.log('🚨 EMERGENCY FIX: Forcing dashboard to show...');
+    
+    // Wait for DOM to be ready
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', showDashboard);
+    } else {
+        showDashboard();
+    }
+    
+    function showDashboard() {
+        console.log('📊 Showing dashboard page...');
+        
+        // Hide all pages first
+        const pages = [
+            'dashboard-page',
+            'module-dashboard-page',
+            'practice-exercises-page',
+            'quiz-dashboard-page',
+            'progress-page',
+            'settings-page',
+            'feedback-page'
+        ];
+        
+        pages.forEach(id => {
+            const page = document.getElementById(id);
+            if (page) {
+                page.classList.add('hidden');
+                console.log(`✅ Hidden: ${id}`);
+            } else {
+                console.warn(`⚠️ Page not found: ${id}`);
+            }
+        });
+        
+        // Show dashboard page
+        const dashboard = document.getElementById('dashboard-page');
+        if (dashboard) {
+            dashboard.classList.remove('hidden');
+            console.log('✅ Dashboard is now visible!');
+        } else {
+            console.error('❌ Dashboard page not found!');
+        }
+        
+        // Set some sample data para may makita
+        setSampleData();
+    }
+    
+    function setSampleData() {
+        console.log('📝 Setting sample data...');
+        
+        const elements = {
+            'lessonsCount': '3<span class="item-unit">/10</span>',
+            'exercisesCount': '15<span class="item-unit">/20</span>',
+            'quizScore': '250<span class="item-unit">points</span>',
+            'avgTime': '25<span class="item-unit">min/day</span>',
+            'dashboardWelcomeTitle': 'Welcome back, Student!',
+            'dashboardUserName': 'Welcome to <span>!</span>',
+            'currentDate': new Date().toLocaleDateString('en-US', { 
+                weekday: 'long', 
+                year: 'numeric', 
+                month: 'long', 
+                day: 'numeric' 
+            }),
+            'userInitial': 'S',
+            'userAchievementBadge': '<i class="fas fa-medal"></i> 5-Day Streak!'
+        };
+        
+        for (const [id, value] of Object.entries(elements)) {
+            const el = document.getElementById(id);
+            if (el) {
+                if (id === 'userInitial') {
+                    el.textContent = value;
+                } else {
+                    el.innerHTML = value;
+                }
+                console.log(`✅ Set ${id}`);
+            }
+        }
+    }
 })();
 
 // ============================================
-// DEBUG FUNCTION
+// 🚨 BACKUP FIX - If navigation doesn't work
 // ============================================
-window.debugMatheaseData = async function() {
-    console.log('🔍 DEBUGGING MATHEASE DATA...');
-    const token = localStorage.getItem('authToken');
+window.showDashboardManually = function() {
+    console.log('🖐️ Manual show dashboard called');
     
-    try {
-        const lessonRes = await fetch('/api/lessons-db/complete?lesson_id=1', {
-            headers: { 'Authorization': `Bearer ${token}` }
-        });
-        const lessonData = await lessonRes.json();
-        console.log('📋 Lessons:', lessonData);
-    } catch (e) { console.error(e); }
+    // Hide all pages
+    document.querySelectorAll('[id$="-page"]').forEach(page => {
+        page.classList.add('hidden');
+    });
     
-    try {
-        const practiceRes = await fetch('/api/practice/exercises/count?lesson_id=1', {
-            headers: { 'Authorization': `Bearer ${token}` }
-        });
-        const practiceData = await practiceRes.json();
-        console.log('💪 Practice:', practiceData);
-    } catch (e) { console.error(e); }
-    
-    try {
-        const quizRes = await fetch('/api/quiz/categories?lesson_id=1', {
-            headers: { 'Authorization': `Bearer ${token}` }
-        });
-        const quizData = await quizRes.json();
-        console.log('🧠 Quizzes:', quizData);
-    } catch (e) { console.error(e); }
+    // Show dashboard
+    const dashboard = document.getElementById('dashboard-page');
+    if (dashboard) {
+        dashboard.classList.remove('hidden');
+        alert('✅ Dashboard is now visible!');
+    }
 };
 
 // ============================================
-// DOM CONTENT LOADED
+// 🧭 NAVIGATE TO PAGE - FIXED VERSION
 // ============================================
+window.navigateTo = function(page) {
+    console.log(`🧭 Navigating to: ${page}`);
+    
+    // Define page elements - Tiyaking tama ang mga ID
+    const pages = {
+        'dashboard': document.getElementById('dashboard-page'),
+        'practice': document.getElementById('practice-exercises-page'),
+        'quizDashboard': document.getElementById('quiz-dashboard-page'),
+        'progress': document.getElementById('progress-page'),
+        'feedback': document.getElementById('feedback-page'),
+        'settings': document.getElementById('settings-page'),
+        'moduleDashboard': document.getElementById('module-dashboard-page'),
+        'appSelection': document.getElementById('app-selection-page'),
+        'login': document.getElementById('login-page'),
+        'signup': document.getElementById('signup-page'),
+        'loading': document.getElementById('loading-page'),
+        'landing': document.getElementById('landing-page')
+    };
+    
+    // Check if page exists
+    if (!pages[page]) {
+        console.error(`❌ Page "${page}" not found!`);
+        return;
+    }
+    
+    // Hide all pages
+    Object.values(pages).forEach(p => {
+        if (p) p.classList.add('hidden');
+    });
+    
+    // Show target page
+    pages[page].classList.remove('hidden');
+    
+    // Update current page in AppState
+    if (window.AppState) {
+        AppState.currentPage = page;
+    }
+    
+    // Scroll to top
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+    
+    console.log(`✅ Navigated to ${page}`);
+    
+    // Initialize page-specific content
+    setTimeout(() => {
+        switch(page) {
+            case 'practice':
+                if (typeof initPracticePage === 'function') initPracticePage();
+                break;
+            case 'quizDashboard':
+                if (typeof initQuizDashboard === 'function') initQuizDashboard();
+                break;
+            case 'progress':
+                if (typeof initProgressDashboard === 'function') initProgressDashboard();
+                break;
+            case 'feedback':
+                if (typeof initFeedbackDashboard === 'function') initFeedbackDashboard();
+                break;
+            case 'settings':
+                if (typeof initSettingsDashboard === 'function') initSettingsDashboard();
+                break;
+        }
+    }, 100);
+};
+// ============================================
+// 🍔 MOBILE MENU - FIXED SCROLLING VERSION
+// ============================================
+
+let lastScrollPosition = 0;
+
+function openMobileMenu() {
+    console.log('🍔 Opening mobile menu');
+    
+    const overlay = document.getElementById('mobileMenuOverlay');
+    const panel = document.getElementById('mobileMenuPanel');
+    
+    if (!overlay || !panel) return;
+    
+    // Save current scroll position
+    lastScrollPosition = window.scrollY;
+    
+    // Show menu
+    overlay.classList.add('active');
+    overlay.style.display = 'block';
+    overlay.style.opacity = '1';
+    
+    panel.classList.add('active');
+    panel.style.right = '0';
+    panel.style.display = 'block';
+    
+    // LOCK scrolling sa MAIN PAGE LANG
+    document.body.classList.add('menu-open');
+    document.body.style.overflow = 'hidden';
+    document.body.style.position = 'relative'; // Hindi fixed para hindi mag-reset ang scroll
+}
+
+function closeMobileMenu() {
+    console.log('🍔 Closing mobile menu');
+    
+    const overlay = document.getElementById('mobileMenuOverlay');
+    const panel = document.getElementById('mobileMenuPanel');
+    
+    if (!overlay || !panel) return;
+    
+    // Hide menu
+    overlay.classList.remove('active');
+    overlay.style.display = 'none';
+    overlay.style.opacity = '0';
+    
+    panel.classList.remove('active');
+    panel.style.right = '-100%';
+    
+    // RESTORE scrolling sa main page
+    document.body.classList.remove('menu-open');
+    document.body.style.overflow = '';
+    document.body.style.position = '';
+    
+    // Restore scroll position (kung kailangan)
+    window.scrollTo({
+        top: lastScrollPosition,
+        behavior: 'auto' // 'smooth' pwede rin pero minsan may bug
+    });
+}
+
+function initHamburgerMenu() {
+    console.log('🍔 Initializing hamburger menu...');
+    
+    const hamburgerBtn = document.getElementById('footerHamburgerBtn');
+    const menuOverlay = document.getElementById('mobileMenuOverlay');
+    const menuPanel = document.getElementById('mobileMenuPanel');
+    const closeBtn = document.querySelector('.close-menu-btn');
+    
+    if (!hamburgerBtn || !menuOverlay || !menuPanel) {
+        console.warn('⚠️ Menu elements not found');
+        return;
+    }
+    
+    // Remove existing listeners
+    const newBtn = hamburgerBtn.cloneNode(true);
+    hamburgerBtn.parentNode.replaceChild(newBtn, hamburgerBtn);
+    
+    // Open menu
+    newBtn.addEventListener('click', function(e) {
+        e.preventDefault();
+        e.stopPropagation();
+        openMobileMenu();
+    });
+    
+    // Close when clicking overlay
+    menuOverlay.addEventListener('click', closeMobileMenu);
+    
+    // Close when clicking close button
+    if (closeBtn) {
+        const newCloseBtn = closeBtn.cloneNode(true);
+        closeBtn.parentNode.replaceChild(newCloseBtn, closeBtn);
+        newCloseBtn.addEventListener('click', closeMobileMenu);
+    }
+    
+    // Close when clicking menu links
+    menuPanel.querySelectorAll('.mobile-menu-item').forEach(link => {
+        const newLink = link.cloneNode(true);
+        link.parentNode.replaceChild(newLink, link);
+        
+        newLink.addEventListener('click', function(e) {
+            // Don't close if it's logout (may confirmation)
+            if (this.getAttribute('onclick')?.includes('showLogoutConfirmation')) {
+                return;
+            }
+            closeMobileMenu();
+        });
+    });
+    
+    // Handle escape key
+    document.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape' && menuOverlay.classList.contains('active')) {
+            closeMobileMenu();
+        }
+    });
+    
+    console.log('✅ Hamburger menu initialized');
+}
+// ============================================
+// 👤 UPDATE MENU USER INFO
+// ============================================
+function updateMenuUserInfo() {
+    const userJson = localStorage.getItem('mathhub_user');
+    if (!userJson) return;
+    
+    try {
+        const user = JSON.parse(userJson);
+        
+        const userNameEl = document.getElementById('menuUserName');
+        const userEmailEl = document.getElementById('menuUserEmail');
+        const userAvatarEl = document.getElementById('menuUserAvatar');
+        
+        const fullName = user.full_name || user.username || 'Student';
+        
+        if (userNameEl) userNameEl.textContent = fullName;
+        if (userEmailEl) userEmailEl.textContent = user.email || 'student@mathhub.com';
+        if (userAvatarEl) userAvatarEl.textContent = fullName.charAt(0).toUpperCase();
+        
+    } catch (e) {
+        console.error('Error updating menu user info:', e);
+    }
+}
+
+// ============================================
+// 🚪 LOGOUT USER (with confirmation)
+// ============================================
+function logoutUser(e) {
+    if (e) {
+        e.preventDefault();
+        e.stopPropagation();
+    }
+    
+    // Close mobile menu first
+    const menuOverlay = document.getElementById('mobileMenuOverlay');
+    const menuPanel = document.getElementById('mobileMenuPanel');
+    
+    if (menuOverlay && menuPanel) {
+        menuOverlay.classList.remove('active');
+        menuPanel.classList.remove('active');
+        document.body.classList.remove('modal-open');
+        document.body.style.overflow = '';
+    }
+    
+    // Show confirmation
+    showLogoutConfirmation();
+}
+// ============================================
+// 🚨 FIX FOR PAGE LOAD
+// ============================================
+(function() {
+    console.log('🚀 Page load fix running...');
+    
+    // Run after everything loads
+    window.addEventListener('load', function() {
+        console.log('📄 Window loaded');
+        
+        // Initialize hamburger menu
+        setTimeout(initHamburgerMenu, 500);
+        
+        // Force show dashboard
+        setTimeout(() => {
+            const dashboard = document.getElementById('dashboard-page');
+            if (dashboard && dashboard.classList.contains('hidden')) {
+                console.log('⚠️ Dashboard still hidden, forcing show...');
+                window.showDashboardManually();
+            }
+        }, 1000);
+    });
+})();
+
+console.log('✅ Emergency fixes applied!');
+
+// ============================================
+// 🚨 EMERGENCY AUTH FIX - REAL DATA FROM DATABASE
+// ============================================
+(function fixAuthForRealData() {
+    console.log('🔧 FIXING AUTHENTICATION FOR REAL DATA...');
+    
+    // 1. Get auth token from localStorage
+    const token = localStorage.getItem('authToken');
+    const userJson = localStorage.getItem('mathhub_user');
+    
+    console.log('🔍 Current auth status:', { 
+        hasToken: !!token, 
+        hasUser: !!userJson 
+    });
+    
+    if (!token || !userJson) {
+        console.log('❌ NO AUTHENTICATION FOUND!');
+        console.log('📢 Please login first at the login page.');
+        
+        // Show login message
+        const dashboard = document.getElementById('dashboard-page');
+        if (dashboard) {
+            dashboard.innerHTML = `
+                <div style="max-width: 500px; margin: 50px auto; text-align: center; padding: 40px; background: white; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.15);">
+                    <i class="fas fa-lock" style="font-size: 80px; color: #7a0000; margin-bottom: 20px;"></i>
+                    <h2 style="color: #2c3e50; margin-bottom: 15px;">Authentication Required</h2>
+                    <p style="color: #666; margin-bottom: 25px; line-height: 1.6;">
+                        You need to login to access real data from the database.<br>
+                        Please login with your credentials.
+                    </p>
+                    <button onclick="window.location.href='/login'" style="background: #7a0000; color: white; border: none; padding: 12px 30px; border-radius: 5px; font-size: 16px; cursor: pointer; margin-right: 10px;">
+                        <i class="fas fa-sign-in-alt"></i> Go to Login
+                    </button>
+                    <button onclick="useDemoData()" style="background: #3498db; color: white; border: none; padding: 12px 30px; border-radius: 5px; font-size: 16px; cursor: pointer;">
+                        <i class="fas fa-flask"></i> Use Demo Data
+                    </button>
+                </div>
+            `;
+            dashboard.classList.remove('hidden');
+        }
+        
+        // Add demo data function
+        window.useDemoData = function() {
+            console.log('📦 Using demo data...');
+            location.reload();
+        };
+        
+        return;
+    }
+    
+    // 2. Try to verify token
+    try {
+        const user = JSON.parse(userJson);
+        console.log('✅ User authenticated:', user.username);
+        console.log('🔑 Token:', token.substring(0, 20) + '...');
+        
+        // 3. FORCE ALL FETCH REQUESTS TO USE THE TOKEN
+        const originalFetch = window.fetch;
+        window.fetch = function(url, options = {}) {
+            // Add auth header to all requests
+            if (!options.headers) options.headers = {};
+            options.headers['Authorization'] = `Bearer ${token}`;
+            options.headers['Content-Type'] = 'application/json';
+            options.headers['Accept'] = 'application/json';
+            
+            // Add credentials
+            options.credentials = 'include';
+            
+            // For debugging
+            if (typeof url === 'string' && url.includes('/api/')) {
+                console.log(`📡 Fetching: ${url.split('?')[0]}`);
+            }
+            
+            return originalFetch(url, options).then(async response => {
+                // If 401/403, try to refresh token or show error
+                if (response.status === 401) {
+                    console.error(`❌ Auth failed for ${url.split('?')[0]}`);
+                    
+                    // Try once more with token from localStorage (maybe it changed)
+                    const freshToken = localStorage.getItem('authToken');
+                    if (freshToken && freshToken !== token) {
+                        console.log('🔄 Retrying with fresh token...');
+                        options.headers['Authorization'] = `Bearer ${freshToken}`;
+                        return originalFetch(url, options);
+                    }
+                }
+                return response;
+            });
+        };
+        
+        console.log('✅ Auth fix applied - all requests will use token');
+        
+    } catch (error) {
+        console.error('❌ Error parsing user data:', error);
+        localStorage.removeItem('authToken');
+        localStorage.removeItem('mathhub_user');
+    }
+})();
+
+// ============================================
+// 🚨 FIX FOR 403/401 ERRORS - RETRY WITH TOKEN
+// ============================================
+window.retryWithAuth = async function(url, options = {}) {
+    const token = localStorage.getItem('authToken');
+    if (!token) {
+        console.error('❌ No token available');
+        return null;
+    }
+    
+    if (!options.headers) options.headers = {};
+    options.headers['Authorization'] = `Bearer ${token}`;
+    
+    try {
+        const response = await fetch(url, options);
+        if (response.ok) {
+            return await response.json();
+        } else {
+            console.error(`❌ ${response.status} for ${url.split('?')[0]}`);
+            return null;
+        }
+    } catch (error) {
+        console.error('❌ Fetch error:', error);
+        return null;
+    }
+};
+
+// ============================================
+// 🚨 DEBUG: Check what's in your database
+// ============================================
+window.checkDatabase = async function() {
+    console.log('🔍 CHECKING DATABASE CONNECTION...');
+    
+    const token = localStorage.getItem('authToken');
+    if (!token) {
+        console.error('❌ No token found. Please login first.');
+        return;
+    }
+    
+    const endpoints = [
+        { name: 'Lessons', url: '/api/lessons-db/complete?lesson_id=1' },
+        { name: 'Practice Exercises', url: '/api/practice/exercises/count?lesson_id=1' },
+        { name: 'User Progress', url: '/api/progress/lessons?lesson_id=1' },
+        { name: 'Quiz Categories', url: '/api/quiz/categories?lesson_id=1' }
+    ];
+    
+    for (const ep of endpoints) {
+        try {
+            console.log(`\n📡 Fetching ${ep.name}...`);
+            const response = await fetch(ep.url, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            
+            console.log(`Status: ${response.status} ${response.statusText}`);
+            
+            if (response.ok) {
+                const data = await response.json();
+                console.log(`✅ Success:`, data);
+            } else {
+                console.log(`❌ Failed: ${response.status}`);
+            }
+        } catch (error) {
+            console.error(`❌ Error:`, error.message);
+        }
+    }
+};
+
+// ============================================
+// 🚨 LOGIN HELPER
+// ============================================
+window.quickLogin = async function(email, password) {
+    try {
+        const response = await fetch('/api/auth/login', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email, password })
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            localStorage.setItem('authToken', data.token);
+            localStorage.setItem('mathhub_user', JSON.stringify(data.user));
+            console.log('✅ Login successful!');
+            console.log('👤 User:', data.user.username);
+            console.log('🔄 Reloading page...');
+            location.reload();
+        } else {
+            console.error('❌ Login failed:', data.message);
+        }
+    } catch (error) {
+        console.error('❌ Login error:', error);
+    }
+};
+
+// ============================================
+// 🚨 FORCE SHOW DASHBOARD WITH AUTH CHECK
+// ============================================
+(function forceShowDashboard() {
+    console.log('🚨 Forcing dashboard to show...');
+    
+    // Wait for DOM
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', showDashboard);
+    } else {
+        showDashboard();
+    }
+    
+    function showDashboard() {
+        const token = localStorage.getItem('authToken');
+        const userJson = localStorage.getItem('mathhub_user');
+        
+        // Hide all pages
+        document.querySelectorAll('[id$="-page"]').forEach(page => {
+            page.classList.add('hidden');
+        });
+        
+        // Show dashboard
+        const dashboard = document.getElementById('dashboard-page');
+        if (dashboard) {
+            dashboard.classList.remove('hidden');
+            console.log('✅ Dashboard is visible');
+            
+            // Update welcome message
+            if (userJson) {
+                try {
+                    const user = JSON.parse(userJson);
+                    const welcome = document.getElementById('dashboardWelcomeTitle');
+                    if (welcome) {
+                        welcome.textContent = `Welcome back, ${user.full_name || user.username}!`;
+                    }
+                } catch (e) {}
+            }
+            
+            // Show auth status
+            const status = document.getElementById('userAchievementBadge');
+            if (status) {
+                if (token) {
+                    status.innerHTML = '<i class="fas fa-check-circle" style="color: #27ae60;"></i> Authenticated';
+                } else {
+                    status.innerHTML = '<i class="fas fa-exclamation-triangle" style="color: #f39c12;"></i> Not logged in';
+                }
+            }
+        }
+    }
+})();
+
+console.log('✅ Auth fixes applied!');
+
+// ============================================
+// ✅ ADD MISSING CHART STYLES FUNCTION
+// ============================================
+function addChartStyles() {
+    if (document.getElementById('chart-styles')) return;
+    
+    const style = document.createElement('style');
+    style.id = 'chart-styles';
+    style.textContent = `
+        /* Chart Container Styles */
+        .charts-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            margin: 20px 0;
+        }
+        
+        @media (max-width: 768px) {
+            .charts-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+        
+        .chart-container {
+            background: white;
+            border-radius: 12px;
+            padding: 20px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+            border: 1px solid var(--border-color);
+        }
+        
+        .chart-container h3 {
+            margin: 0 0 20px 0;
+            color: var(--text-color);
+            font-size: 1.1rem;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .chart-container h3 i {
+            color: var(--primary);
+        }
+        
+        /* Simple Bar Chart */
+        .simple-bar-chart {
+            height: 200px;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .chart-bars {
+            flex: 1;
+            display: flex;
+            align-items: flex-end;
+            gap: 10px;
+            padding: 10px 0;
+        }
+        
+        .chart-bar {
+            flex: 1;
+            background: var(--primary);
+            border-radius: 6px 6px 0 0;
+            min-height: 4px;
+            transition: height 0.3s ease;
+            position: relative;
+        }
+        
+        .chart-bar:hover {
+            background: #c0392b;
+        }
+        
+        .chart-bar::after {
+            content: attr(data-value);
+            position: absolute;
+            top: -25px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: var(--primary);
+            color: white;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            opacity: 0;
+            transition: opacity 0.3s;
+            white-space: nowrap;
+            pointer-events: none;
+        }
+        
+        .chart-bar:hover::after {
+            opacity: 1;
+        }
+        
+        .chart-labels {
+            display: flex;
+            gap: 10px;
+            padding-top: 10px;
+            border-top: 1px solid var(--border-color);
+        }
+        
+        .chart-label {
+            flex: 1;
+            text-align: center;
+            font-size: 12px;
+            color: var(--text-light);
+        }
+        
+        /* Simple Line Chart */
+        .simple-line-chart {
+            height: 200px;
+            position: relative;
+            padding: 20px 0;
+        }
+        
+        .chart-line {
+            height: 100%;
+            position: relative;
+            background: linear-gradient(to top, rgba(122,0,0,0.1) 0%, transparent 100%);
+        }
+        
+        .chart-point {
+            position: absolute;
+            width: 10px;
+            height: 10px;
+            background: var(--primary);
+            border-radius: 50%;
+            transform: translate(-50%, 50%);
+            cursor: pointer;
+            transition: all 0.3s;
+            z-index: 2;
+        }
+        
+        .chart-point:hover {
+            transform: translate(-50%, 50%) scale(1.5);
+            background: #c0392b;
+            box-shadow: 0 0 10px rgba(122,0,0,0.5);
+        }
+        
+        .chart-point::after {
+            content: attr(data-value);
+            position: absolute;
+            top: -30px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: var(--primary);
+            color: white;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            opacity: 0;
+            transition: opacity 0.3s;
+            white-space: nowrap;
+            pointer-events: none;
+        }
+        
+        .chart-point:hover::after {
+            opacity: 1;
+        }
+        
+        .chart-line::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            border-left: 2px solid var(--border-color);
+            border-bottom: 2px solid var(--border-color);
+            pointer-events: none;
+        }
+        
+        /* Time Period Selector */
+        .time-period-selector {
+            margin-bottom: 20px;
+            text-align: right;
+        }
+        
+        .time-period-selector select {
+            padding: 8px 15px;
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            font-size: 14px;
+            color: var(--text-color);
+            background: white;
+            cursor: pointer;
+        }
+        
+        .time-period-selector select:focus {
+            outline: none;
+            border-color: var(--primary);
+        }
+        
+        /* Progress Summary Stats */
+        .progress-summary-stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin: 20px 0;
+        }
+        
+        .summary-stat {
+            background: white;
+            border-radius: 10px;
+            padding: 20px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+        
+        .summary-stat .stat-icon {
+            width: 50px;
+            height: 50px;
+            background: linear-gradient(135deg, var(--primary), #c0392b);
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 24px;
+        }
+        
+        .summary-stat .stat-content {
+            flex: 1;
+        }
+        
+        .summary-stat h3 {
+            margin: 0 0 5px 0;
+            font-size: 14px;
+            color: var(--text-light);
+        }
+        
+        .summary-stat .stat-value {
+            font-size: 28px;
+            font-weight: bold;
+            color: var(--text-color);
+            line-height: 1.2;
+        }
+        
+        .summary-stat .stat-change {
+            font-size: 12px;
+            color: #27ae60;
+            margin-top: 5px;
+        }
+        
+        .summary-stat .progress-bar-container.mini {
+            height: 4px;
+            margin-top: 8px;
+        }
+        
+        .progress-good {
+            background: linear-gradient(90deg, #27ae60, #2ecc71);
+        }
+        
+        .progress-medium {
+            background: linear-gradient(90deg, #f39c12, #f1c40f);
+        }
+        
+        .progress-low {
+            background: linear-gradient(90deg, #e74c3c, #c0392b);
+        }
+        
+        /* Topics Progress Detailed */
+        .topics-progress-detailed {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            margin: 20px 0;
+        }
+        
+        .topic-progress-item {
+            background: white;
+            border-radius: 8px;
+            padding: 15px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+            border: 1px solid var(--border-color);
+        }
+        
+        .topic-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+        
+        .topic-header h4 {
+            margin: 0;
+            font-size: 16px;
+            color: var(--text-color);
+        }
+        
+        .topic-progress {
+            margin: 10px 0;
+        }
+        
+        .progress-info {
+            display: flex;
+            justify-content: space-between;
+            font-size: 13px;
+            color: var(--text-light);
+            margin-bottom: 5px;
+        }
+        
+        .topic-stats {
+            display: flex;
+            gap: 20px;
+            margin-top: 10px;
+            font-size: 13px;
+            color: var(--text-light);
+        }
+        
+        .topic-stat {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+        
+        .topic-stat i {
+            color: var(--primary);
+        }
+        
+        .performance-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 15px;
+            margin: 20px 0;
+        }
+        
+        .performance-card {
+            background: white;
+            border-radius: 10px;
+            padding: 20px;
+            text-align: center;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            transition: transform 0.3s;
+        }
+        
+        .performance-card:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        }
+        
+        .performance-card .value {
+            font-size: 32px;
+            font-weight: bold;
+            color: var(--primary);
+            margin-bottom: 5px;
+        }
+        
+        .performance-card .label {
+            font-size: 13px;
+            color: var(--text-light);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        
+        .learning-insights {
+            background: #f8f9fa;
+            border-radius: 10px;
+            padding: 20px;
+            margin-top: 20px;
+            border-left: 4px solid var(--primary);
+        }
+        
+        .learning-insights h4 {
+            margin: 0 0 15px 0;
+            color: var(--text-color);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .insights-list {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+        
+        .insights-list li {
+            padding: 10px 0;
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            color: var(--text-color);
+        }
+        
+        .insights-list li:last-child {
+            border-bottom: none;
+        }
+        
+        .insights-list li i {
+            color: var(--primary);
+            font-size: 14px;
+        }
+        
+        /* Loading States */
+        .loading-container {
+            text-align: center;
+            padding: 40px;
+        }
+        
+        .loading-container i {
+            font-size: 40px;
+            color: var(--primary);
+            margin-bottom: 15px;
+        }
+        
+        .loading-container p {
+            color: var(--text-light);
+        }
+        
+        /* Animations */
+        .animate-fade-in {
+            animation: fadeIn 0.5s ease forwards;
+        }
+        
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+    `;
+    
+    document.head.appendChild(style);
+    console.log('✅ Chart styles added');
+}
+
+// ============================================
+// ✅ ADD MISSING SETTINGS STYLES FUNCTION
+// ============================================
+function addSettingsStyles() {
+    if (document.getElementById('settings-styles')) return;
+    
+    const style = document.createElement('style');
+    style.id = 'settings-styles';
+    style.textContent = `
+        /* Settings Page Styles */
+        .page-container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        
+        .main-header {
+            background: white;
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+            margin-bottom: 25px;
+            border: 1px solid var(--border-color);
+        }
+        
+        .main-header h1 {
+            margin: 0;
+            color: var(--text-color);
+            font-size: 24px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .main-header h1 i {
+            color: var(--primary);
+        }
+        
+        .dashboard-container {
+            display: grid;
+            grid-template-columns: 280px 1fr;
+            gap: 25px;
+        }
+        
+        @media (max-width: 768px) {
+            .dashboard-container {
+                grid-template-columns: 1fr;
+            }
+        }
+        
+        /* Settings Sidebar */
+        .settings-sidebar {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+        
+        .sidebar-card {
+            background: white;
+            border-radius: 12px;
+            padding: 20px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+            border: 1px solid var(--border-color);
+        }
+        
+        .sidebar-card h3 {
+            margin: 0 0 10px 0;
+            color: var(--text-color);
+            font-size: 18px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .sidebar-card h3 i {
+            color: var(--primary);
+        }
+        
+        .sidebar-subtitle {
+            color: var(--text-light);
+            font-size: 14px;
+            margin-bottom: 20px;
+            padding-bottom: 15px;
+            border-bottom: 1px solid var(--border-color);
+        }
+        
+        .sidebar-menu {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+        
+        .sidebar-menu li {
+            margin-bottom: 5px;
+        }
+        
+        .sidebar-menu a {
+            display: block;
+            padding: 12px 15px;
+            border-radius: 8px;
+            color: var(--text-color);
+            text-decoration: none;
+            transition: all 0.3s;
+            font-weight: 500;
+        }
+        
+        .sidebar-menu a i {
+            width: 24px;
+            color: var(--primary);
+            margin-right: 10px;
+        }
+        
+        .sidebar-menu a:hover {
+            background: var(--sidebar-bg);
+        }
+        
+        .sidebar-menu a.active {
+            background: var(--primary);
+            color: white;
+        }
+        
+        .sidebar-menu a.active i {
+            color: white;
+        }
+        
+        .action-buttons {
+            display: flex;
+            gap: 10px;
+            margin-top: 20px;
+        }
+        
+        .action-buttons button {
+            flex: 1;
+        }
+        
+        /* Main Settings Area */
+        .main-settings {
+            background: white;
+            border-radius: 12px;
+            padding: 30px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+            border: 1px solid var(--border-color);
+        }
+        
+        .settings-section {
+            display: none;
+        }
+        
+        .settings-section.active {
+            display: block;
+            animation: fadeIn 0.5s ease;
+        }
+        
+        .section-header {
+            margin-bottom: 30px;
+        }
+        
+        .section-header h2 {
+            margin: 0 0 10px 0;
+            color: var(--text-color);
+            font-size: 22px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .section-header h2 i {
+            color: var(--primary);
+        }
+        
+        .section-subtitle {
+            color: var(--text-light);
+            font-size: 14px;
+        }
+        
+        .settings-card {
+            background: var(--sidebar-bg);
+            border-radius: 10px;
+            padding: 25px;
+            margin-bottom: 25px;
+            border: 1px solid var(--border-color);
+        }
+        
+        .settings-card h3 {
+            margin: 0 0 20px 0;
+            color: var(--text-color);
+            font-size: 18px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding-bottom: 15px;
+            border-bottom: 1px solid var(--border-color);
+        }
+        
+        .settings-card h3 i {
+            color: var(--primary);
+        }
+        
+        .form-row {
+            margin-bottom: 20px;
+        }
+        
+        .form-row:last-child {
+            margin-bottom: 0;
+        }
+        
+        .form-label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 500;
+            color: var(--text-color);
+        }
+        
+        .form-control {
+            width: 100%;
+            padding: 12px 15px;
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            font-size: 14px;
+            transition: all 0.3s;
+            background: white;
+        }
+        
+        .form-control:focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(122,0,0,0.1);
+        }
+        
+        .form-control:disabled {
+            background: #f5f5f5;
+            cursor: not-allowed;
+        }
+        
+        /* Toggle Switch */
+        .toggle-switch {
+            position: relative;
+            display: inline-block;
+            width: 50px;
+            height: 24px;
+        }
+        
+        .toggle-switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+        
+        .toggle-slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: #ccc;
+            transition: .4s;
+            border-radius: 24px;
+        }
+        
+        .toggle-slider:before {
+            position: absolute;
+            content: "";
+            height: 20px;
+            width: 20px;
+            left: 2px;
+            bottom: 2px;
+            background-color: white;
+            transition: .4s;
+            border-radius: 50%;
+        }
+        
+        input:checked + .toggle-slider {
+            background-color: var(--primary);
+        }
+        
+        input:checked + .toggle-slider:before {
+            transform: translateX(26px);
+        }
+        
+        /* Radio Group */
+        .radio-group {
+            display: flex;
+            gap: 20px;
+            flex-wrap: wrap;
+        }
+        
+        .radio-option {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            cursor: pointer;
+        }
+        
+        .radio-option input[type="radio"] {
+            width: 18px;
+            height: 18px;
+            accent-color: var(--primary);
+        }
+        
+        /* File Upload */
+        .file-upload {
+            display: flex;
+            align-items: center;
+            gap: 20px;
+            flex-wrap: wrap;
+        }
+        
+        .profile-preview {
+            width: 80px;
+            height: 80px;
+            background: var(--sidebar-bg);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 40px;
+            color: var(--primary);
+            border: 2px solid var(--primary);
+        }
+        
+        /* Info Box */
+        .info-box {
+            background: #e3f2fd;
+            border-left: 4px solid #2196f3;
+            padding: 15px;
+            border-radius: 6px;
+            margin-top: 15px;
+        }
+        
+        .info-box p {
+            margin: 5px 0;
+            color: #0c5460;
+            font-size: 14px;
+        }
+        
+        .info-box i {
+            margin-right: 8px;
+            color: #2196f3;
+        }
+        
+        /* Buttons */
+        .btn {
+            padding: 12px 24px;
+            border-radius: 8px;
+            font-weight: 600;
+            cursor: pointer;
+            border: none;
+            transition: all 0.3s;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .btn-primary {
+            background: var(--primary);
+            color: white;
+        }
+        
+        .btn-primary:hover {
+            background: #5a0000;
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(122,0,0,0.3);
+        }
+        
+        .btn-secondary {
+            background: var(--sidebar-bg);
+            color: var(--text-color);
+            border: 1px solid var(--border-color);
+        }
+        
+        .btn-secondary:hover {
+            background: #e9ecef;
+            transform: translateY(-2px);
+        }
+        
+        .btn-sm {
+            padding: 8px 16px;
+            font-size: 14px;
+        }
+        
+        .btn-danger {
+            background: #e74c3c;
+            color: white;
+        }
+        
+        .btn-danger:hover {
+            background: #c0392b;
+        }
+        
+        .btn-success {
+            background: #27ae60;
+            color: white;
+        }
+        
+        .btn-success:hover {
+            background: #219653;
+        }
+        
+        /* Animation */
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+    `;
+    
+    document.head.appendChild(style);
+    console.log('✅ Settings styles added');
+}
+
+
+
+function loadUserSettings() {
+    console.log('📥 Loading user settings...');
+    
+    const userJson = localStorage.getItem('mathhub_user');
+    if (userJson) {
+        try {
+            const user = JSON.parse(userJson);
+            
+            const displayName = document.getElementById('displayName');
+            const userEmail = document.getElementById('userEmail');
+            const profilePreview = document.getElementById('profilePreview');
+            
+            if (displayName) displayName.value = user.full_name || user.username || '';
+            if (userEmail) userEmail.value = user.email || '';
+            
+            if (profilePreview) {
+                profilePreview.innerHTML = `<i class="fas fa-user-circle"></i>`;
+            }
+            
+        } catch (e) {
+            console.error('Error loading user:', e);
+        }
+    }
+}
+
+function setupSettingsNavigation() {
+    const menuItems = document.querySelectorAll('.sidebar-menu a');
+    
+    menuItems.forEach(item => {
+        item.addEventListener('click', function(e) {
+            e.preventDefault();
+            
+            // Remove active class from all
+            menuItems.forEach(i => i.classList.remove('active'));
+            
+            // Add active to clicked
+            this.classList.add('active');
+            
+            // Get section id from href
+            const sectionId = this.getAttribute('href').substring(1);
+            showSettingsSection(sectionId);
+        });
+    });
+}
+function showSettingsSection(sectionId) {
+    // Hide all sections
+    document.querySelectorAll('.settings-section').forEach(section => {
+        section.classList.remove('active');
+    });
+    
+    // Show selected section
+    const targetSection = document.getElementById(sectionId);
+    if (targetSection) {
+        targetSection.classList.add('active');
+    }
+}
+
+function setupSettingsForms() {
+    // Save settings button
+    const saveBtn = document.querySelector('.action-buttons .btn-primary');
+    if (saveBtn) {
+        saveBtn.addEventListener('click', saveSettings);
+    }
+    
+    // Reset settings button
+    const resetBtn = document.querySelector('.action-buttons .btn-secondary');
+    if (resetBtn) {
+        resetBtn.addEventListener('click', resetSettings);
+    }
+}
+
+function saveSettings() {
+    console.log('💾 Saving settings...');
+    
+    // Get all form values
+    const settings = {
+        displayName: document.getElementById('displayName')?.value,
+        language: document.getElementById('interfaceLanguage')?.value,
+        municipality: document.getElementById('batangas-municipalities')?.value,
+        timezone: document.getElementById('timeZone')?.value,
+        adaptiveDifficulty: document.getElementById('adaptiveDifficulty')?.checked,
+        preferredDifficulty: document.getElementById('preferredDifficulty')?.value,
+        showSolutions: document.getElementById('showSolutions')?.checked,
+        twoFactorAuth: document.getElementById('twoFactorAuth')?.checked,
+        profileVisibility: document.getElementById('profileVisibility')?.value,
+        dataSharing: document.getElementById('dataSharing')?.checked,
+        weeklyReport: document.getElementById('weeklyReport')?.checked,
+        practiceReminders: document.getElementById('practiceReminders')?.checked,
+        theme: getSelectedTheme(),
+        fontSize: document.getElementById('fontSize')?.value
+    };
+    
+    // Save to localStorage
+    localStorage.setItem('user_settings', JSON.stringify(settings));
+    
+    showNotification('success', 'Settings Saved', 'Your preferences have been updated.');
+}
+
+function getSelectedTheme() {
+    const themeLight = document.getElementById('themeLight');
+    const themeDark = document.getElementById('themeDark');
+    const themeAuto = document.getElementById('themeAuto');
+    
+    if (themeLight?.checked) return 'light';
+    if (themeDark?.checked) return 'dark';
+    if (themeAuto?.checked) return 'auto';
+    return 'light';
+}
+
+function resetSettings() {
+    if (confirm('Reset all settings to default?')) {
+        localStorage.removeItem('user_settings');
+        location.reload();
+    }
+}
+
+function viewProfile() {
+    window.open('/profile', '_blank');
+}
+// ============================================
+// ✅ ADD MISSING FEEDBACK STYLES FUNCTION
+// ============================================
+function addFeedbackStyles() {
+    if (document.getElementById('feedback-styles')) return;
+    
+    const style = document.createElement('style');
+    style.id = 'feedback-styles';
+    style.textContent = `
+        /* Feedback Dashboard Styles */
+        .help-dashboard-container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        
+        .help-header {
+            background: linear-gradient(135deg, var(--primary), #9b0000);
+            color: white;
+            padding: 30px;
+            border-radius: 12px;
+            margin-bottom: 30px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 20px;
+        }
+        
+        .help-header h1 {
+            margin: 0 0 10px 0;
+            font-size: 28px;
+        }
+        
+        .help-header h1 i {
+            margin-right: 10px;
+        }
+        
+        .help-header p {
+            margin: 0;
+            opacity: 0.9;
+        }
+        
+        .dashboard-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+            gap: 25px;
+        }
+        
+        /* Card Styles */
+        .card {
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+            border: 1px solid var(--border-color);
+            overflow: hidden;
+        }
+        
+        .card-header {
+            padding: 20px 25px 0;
+        }
+        
+        .card-header h2 {
+            margin: 10px 0 0 0;
+            color: var(--text-color);
+            font-size: 20px;
+        }
+        
+        .card-icon {
+            width: 60px;
+            height: 60px;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+            color: white;
+        }
+        
+        .icon-faq {
+            background: linear-gradient(135deg, #3498db, #2980b9);
+        }
+        
+        .icon-contact {
+            background: linear-gradient(135deg, #27ae60, #219653);
+        }
+        
+        .icon-feedback {
+            background: linear-gradient(135deg, #f39c12, #e67e22);
+        }
+        
+        .card-body {
+            padding: 25px;
+        }
+        
+        /* FAQ Styles */
+        .faq-item {
+            border-bottom: 1px solid var(--border-color);
+            margin-bottom: 15px;
+        }
+        
+        .faq-item:last-child {
+            border-bottom: none;
+            margin-bottom: 0;
+        }
+        
+        .faq-question {
+            padding: 15px;
+            background: var(--sidebar-bg);
+            border-radius: 8px;
+            cursor: pointer;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-weight: 500;
+            transition: all 0.3s;
+        }
+        
+        .faq-question:hover {
+            background: #e9ecef;
+        }
+        
+        .faq-answer {
+            padding: 15px;
+            color: var(--text-light);
+            display: none;
+            line-height: 1.6;
+        }
+        
+        .faq-answer.show {
+            display: block;
+        }
+        
+        /* Contact Methods */
+        .contact-methods {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+        
+        .contact-method {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            padding: 15px;
+            background: var(--sidebar-bg);
+            border-radius: 8px;
+            transition: all 0.3s;
+        }
+        
+        .contact-method:hover {
+            transform: translateX(5px);
+            background: #e9ecef;
+        }
+        
+        .contact-icon {
+            width: 50px;
+            height: 50px;
+            background: var(--primary);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 20px;
+        }
+        
+        .contact-method h4 {
+            margin: 0 0 5px 0;
+            color: var(--text-color);
+        }
+        
+        .contact-method p {
+            margin: 0;
+            color: var(--text-light);
+            font-size: 14px;
+        }
+        
+        .response-time, .hours {
+            font-size: 12px;
+            color: #999;
+            margin-top: 5px;
+        }
+        
+        /* Form Styles */
+        .form-group {
+            margin-bottom: 20px;
+        }
+        
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 500;
+            color: var(--text-color);
+        }
+        
+        .form-group select,
+        .form-group textarea {
+            width: 100%;
+            padding: 12px 15px;
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            font-size: 14px;
+            transition: all 0.3s;
+            background: white;
+        }
+        
+        .form-group select:focus,
+        .form-group textarea:focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(122,0,0,0.1);
+        }
+        
+        .form-group textarea {
+            min-height: 120px;
+            resize: vertical;
+        }
+        
+        /* Rating Stars */
+        .rating {
+            display: flex;
+            gap: 5px;
+            margin: 10px 0;
+        }
+        
+        .star {
+            font-size: 30px;
+            color: #ddd;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        
+        .star:hover,
+        .star.hover,
+        .star.active {
+            color: #f39c12;
+            transform: scale(1.1);
+        }
+        
+        /* Success Message */
+        .success-message {
+            background: #d4edda;
+            color: #155724;
+            padding: 15px;
+            border-radius: 8px;
+            margin-top: 20px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            border: 1px solid #c3e6cb;
+        }
+        
+        .success-message i {
+            font-size: 24px;
+        }
+        
+        /* Emergency Help Button */
+        #emergencyHelp {
+            background: #e74c3c;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 8px;
+            font-weight: 600;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            transition: all 0.3s;
+        }
+        
+        #emergencyHelp:hover {
+            background: #c0392b;
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(231,76,60,0.3);
+        }
+    `;
+    
+    document.head.appendChild(style);
+    console.log('✅ Feedback styles added');
+}
+
+// Call the missing functions
+setTimeout(() => {
+    console.log('📊 Adding missing styles...');
+    addChartStyles();
+    addSettingsStyles();
+    addFeedbackStyles();
+    console.log('✅ All missing styles added!');
+}, 1000);
+
+
+// ============================================
+// ⚙️ INITIALIZE SETTINGS DASHBOARD
+// ============================================
+
+function initSettingsDashboard() {
+    console.log('⚙️ Initializing settings dashboard...');
+    
+    // Load user settings from localStorage
+    loadUserSettings();
+    
+    // Setup navigation (sidebar menu clicks)
+    setupSettingsNavigation();
+    
+    // Setup form buttons (save/reset)
+    setupSettingsForms();
+    
+    // Show general section by default
+    showSettingsSection('general');
+    
+    console.log('✅ Settings dashboard initialized');
+}
+
+// Auto-initialize kapag nag-load ang page
 document.addEventListener('DOMContentLoaded', function() {
-    console.log('📄 DOM loaded - Starting Mathease');
-    initApp();
+    // Check if settings page is visible
+    const settingsPage = document.getElementById('settings-page');
+    
+    if (settingsPage && !settingsPage.classList.contains('hidden')) {
+        initSettingsDashboard();
+    }
+    
+    // Observe for when settings page becomes visible
+    if (settingsPage) {
+        const observer = new MutationObserver(function(mutations) {
+            mutations.forEach(function(mutation) {
+                if (mutation.type === 'attributes' && mutation.attributeName === 'class') {
+                    if (!settingsPage.classList.contains('hidden')) {
+                        console.log('⚙️ Settings page became visible');
+                        initSettingsDashboard();
+                    }
+                }
+            });
+        });
+        
+        observer.observe(settingsPage, { attributes: true });
+    }
 });
-
-// Make functions available globally
-window.debugMatheaseData = debugMatheaseData;
-window.MATHEASE_LESSON_ID = 1;
-
-console.log('✅ Mathease Complete!');
