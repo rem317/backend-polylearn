@@ -7920,17 +7920,7 @@ function confirmLogout() {
     closeLogoutModal();
     
     // Clear ALL authentication data
-    localStorage.removeItem('authToken');
-    localStorage.removeItem('mathhub_user');
-    localStorage.removeItem('hasSelectedApp');
-    localStorage.removeItem('selectedApp');
-    localStorage.removeItem('currentLessonFilter');
-    localStorage.removeItem('currentLessonId');
-    localStorage.removeItem('admin_token');
-    localStorage.removeItem('admin_user');
-    localStorage.removeItem('user_role');
-    localStorage.removeItem('admin_session');
-    localStorage.removeItem('token');
+    localStorage.clear();
     
     // Reset app state
     AppState.currentUser = null;
@@ -7940,11 +7930,15 @@ function confirmLogout() {
     // Close any open menus
     closeMobileMenu();
     
-    // Navigate to login page
-    navigateTo('login');
+    // ✅ FIXED: Dynamic redirect sa original login page
+    // Get the base URL (kung saan man hosted ang app)
+    const baseUrl = window.location.origin;
     
-    // Show notification
-    showNotification('👋 See you next time!', 'info');
+    // Redirect to the login page ng app na ito
+    window.location.href = `${baseUrl}/login.html`; // or '/login' depende sa setup mo
+    
+    // O kung gusto mo i-reload na lang ang app para mag-redirect sa login
+    // window.location.reload();
 }
 
 // ============================================
@@ -24067,22 +24061,26 @@ window.showDashboardManually = function() {
 window.navigateTo = function(page) {
     console.log(`🧭 Navigating to: ${page}`);
     
-    // Define page elements - Tiyaking tama ang mga ID
-    const pages = {
-        'dashboard': document.getElementById('dashboard-page'),
-        'practice': document.getElementById('practice-exercises-page'),
-        'quizDashboard': document.getElementById('quiz-dashboard-page'),
-        'progress': document.getElementById('progress-page'),
-        'feedback': document.getElementById('feedback-page'),
-        'settings': document.getElementById('settings-page'),
-        'moduleDashboard': document.getElementById('module-dashboard-page'),
-        'appSelection': document.getElementById('app-selection-page'),
-        'login': document.getElementById('login-page'),
-        'signup': document.getElementById('signup-page'),
-        'loading': document.getElementById('loading-page'),
-        'landing': document.getElementById('landing-page')
-    };
+    // Hide all pages
+    document.querySelectorAll('[id$="-page"]').forEach(p => p.classList.add('hidden'));
     
+    // Show target page
+    const targetPage = document.getElementById(page + '-page');
+    if (targetPage) {
+        targetPage.classList.remove('hidden');
+    } else {
+        console.error(`Page ${page}-page not found!`);
+        // Fallback to dashboard
+        document.getElementById('dashboard-page')?.classList.remove('hidden');
+    }
+    
+    // Update current page
+    if (window.AppState) AppState.currentPage = page;
+    
+    // Scroll to top
+    window.scrollTo({ top: 0 });
+};
+
     // Check if page exists
     if (!pages[page]) {
         console.error(`❌ Page "${page}" not found!`);
