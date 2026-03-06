@@ -7868,9 +7868,16 @@ function closeMobileMenu() {
 }
 
 // ============================================
-// 🚪 LOGOUT CONFIRMATION
+// 🚪 LOGOUT CONFIRMATION - FIXED VERSION
 // ============================================
-function showLogoutConfirmation() {
+function showLogoutConfirmation(e) {
+    if (e) {
+        e.preventDefault();
+        e.stopPropagation();
+    }
+    
+    console.log('🚪 Showing logout confirmation');
+    
     const modalHTML = `
         <div id="logoutModal" class="modal-overlay" style="display: flex; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); backdrop-filter: blur(5px); z-index: 10000; justify-content: center; align-items: center;">
             <div style="background: white; max-width: 380px; width: 90%; border-radius: 16px; overflow: hidden; box-shadow: 0 20px 40px rgba(0,0,0,0.4);">
@@ -7909,24 +7916,60 @@ function closeLogoutModal() {
 }
 
 function confirmLogout() {
+    console.log('🔓 Logging out...');
     closeLogoutModal();
     
-    // Clear authentication
+    // Clear ALL authentication data
     localStorage.removeItem('authToken');
     localStorage.removeItem('mathhub_user');
     localStorage.removeItem('hasSelectedApp');
     localStorage.removeItem('selectedApp');
+    localStorage.removeItem('currentLessonFilter');
+    localStorage.removeItem('currentLessonId');
+    localStorage.removeItem('admin_token');
+    localStorage.removeItem('admin_user');
+    localStorage.removeItem('user_role');
+    localStorage.removeItem('admin_session');
+    localStorage.removeItem('token');
     
     // Reset app state
     AppState.currentUser = null;
     AppState.isAuthenticated = false;
     authToken = null;
     
-    // Navigate to login
+    // Close any open menus
+    closeMobileMenu();
+    
+    // Navigate to login page
     navigateTo('login');
     
+    // Show notification
     showNotification('👋 See you next time!', 'info');
 }
+
+// ============================================
+// 🚪 LOGOUT USER - UPDATED
+// ============================================
+window.logoutUser = function(e) {
+    if (e) {
+        e.preventDefault();
+        e.stopPropagation();
+    }
+    
+    // Close mobile menu first
+    const menuOverlay = document.getElementById('mobileMenuOverlay');
+    const menuPanel = document.getElementById('mobileMenuPanel');
+    
+    if (menuOverlay && menuPanel) {
+        menuOverlay.classList.remove('active');
+        menuPanel.classList.remove('active');
+        document.body.classList.remove('modal-open');
+        document.body.style.overflow = '';
+    }
+    
+    // Show confirmation
+    showLogoutConfirmation();
+};
 document.addEventListener('DOMContentLoaded', function() {
     console.log('📄 DOM loaded - initializing all features');
     
@@ -8696,28 +8739,25 @@ document.addEventListener('DOMContentLoaded', function() {
 
 
 // ============================================
-// FIXED: Add a direct click handler as backup
+// 🚪 GLOBAL LOGOUT HANDLER - FIXED
 // ============================================
 document.addEventListener('click', function(e) {
-    // Check if clicked element is the forgot password link
-    if (e.target && e.target.id === 'forgotPasswordLink') {
-        e.preventDefault();
-        e.stopPropagation();
-        console.log('🎯 Forgot password link clicked via delegation!');
-        showForgotPasswordModal();
-        return false;
-    }
+    // Check if clicked element is logout button or inside logout button
+    const logoutBtn = e.target.closest('.logout-item, #logoutBtn, [onclick*="logout"]');
     
-    // Check if clicked element is inside a link with that ID
-    const forgotLink = e.target.closest('#forgotPasswordLink');
-    if (forgotLink) {
+    if (logoutBtn) {
         e.preventDefault();
         e.stopPropagation();
-        console.log('🎯 Forgot password link clicked via delegation (closest)!');
-        showForgotPasswordModal();
+        console.log('🚪 Logout button clicked via global handler');
+        
+        // Close mobile menu
+        closeMobileMenu();
+        
+        // Show confirmation
+        showLogoutConfirmation();
         return false;
     }
-}, true); // Use capture phase to ensure it runs first
+}, true); // Use capture phase
 
 // ============================================
 // ✅ FIXED: Connect tool buttons with direct handlers
@@ -24183,18 +24223,31 @@ function initHamburgerMenu() {
     }
     
     // Close when clicking menu links
-    menuPanel.querySelectorAll('.mobile-menu-item').forEach(link => {
-        const newLink = link.cloneNode(true);
-        link.parentNode.replaceChild(newLink, link);
-        
-        newLink.addEventListener('click', function(e) {
-            // Don't close if it's logout (may confirmation)
-            if (this.getAttribute('onclick')?.includes('showLogoutConfirmation')) {
-                return;
-            }
+    // In initHamburgerMenu function, update the logout link handling:
+menuPanel.querySelectorAll('.mobile-menu-item').forEach(link => {
+    const newLink = link.cloneNode(true);
+    link.parentNode.replaceChild(newLink, link);
+    
+    newLink.addEventListener('click', function(e) {
+        // Special handling for logout
+        if (this.classList.contains('logout-item') || 
+            this.getAttribute('onclick')?.includes('logout')) {
+            e.preventDefault();
+            e.stopPropagation();
             closeMobileMenu();
-        });
+            setTimeout(() => {
+                showLogoutConfirmation();
+            }, 300);
+            return false;
+        }
+        
+        // Don't close if it's logout (may confirmation)
+        if (this.getAttribute('onclick')?.includes('showLogoutConfirmation')) {
+            return;
+        }
+        closeMobileMenu();
     });
+});
     
     // Handle escape key
     document.addEventListener('keydown', function(e) {
