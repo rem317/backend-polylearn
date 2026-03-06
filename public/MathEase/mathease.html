@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -3073,6 +3072,65 @@
                             </div>
                         </div>
                     </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Login Page -->
+        <div id="login-page" class="hidden">
+            <div class="container">
+                <div class="welcome-section">
+                    <div class="math-symbols">
+                        <span>π</span>
+                        <span>∑</span>
+                        <span>∫</span>
+                        <span>√</span>
+                    </div>
+                    <h1>Math<span class="logo-accent">Hub</span></h1>
+                    <div class="tagline">Your Ultimate Learning Companion</div>
+                    <ul class="features">
+                        <li><i class="fas fa-calculator"></i> Interactive Tools</li>
+                        <li><i class="fas fa-chart-line"></i> Track Progress</li>
+                        <li><i class="fas fa-puzzle-piece"></i> Practice Exercises</li>
+                        <li><i class="fas fa-trophy"></i> Earn Achievements</li>
+                    </ul>
+                </div>
+                
+                <div class="form-section">
+                    <div class="form-header">
+                        <h2>Welcome Back!</h2>
+                        <p>Please login to your account</p>
+                    </div>
+                    
+                    <form id="loginForm">
+                        <div class="form-group">
+                            <label>Email</label>
+                            <div class="input-with-icon">
+                                <i class="fas fa-envelope"></i>
+                                <input type="email" id="loginEmail" class="form-control" placeholder="Enter your email">
+                            </div>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label>Password</label>
+                            <div class="input-with-icon">
+                                <i class="fas fa-lock"></i>
+                                <input type="password" id="loginPassword" class="form-control" placeholder="Enter your password">
+                            </div>
+                        </div>
+                        
+                        <div class="forgot-password">
+                            <a href="#" id="forgotPasswordLink">Forgot Password?</a>
+                        </div>
+                        
+                        <button type="submit" class="btn-primary">
+                            <i class="fas fa-sign-in-alt"></i> Login
+                        </button>
+                        
+                        <div class="switch-link">
+                            Don't have an account? <a href="#" onclick="navigateTo('signup')">Sign Up</a>
+                        </div>
+                    </form>
                 </div>
             </div>
         </div>
