@@ -2252,15 +2252,44 @@ async function loadFactoLearnData() {
     try {
         showDashboardLoading();
         
-        await Promise.allSettled([
-            updateContinueLearningModule(),
-            loadPracticeStatistics(),
-            loadQuizCategories(),
-            fetchCumulativeProgress(),
-            updateProgressSummaryCards(),
-            fetchPracticeStatistics(),
-            loadLeaderboard('weekly')
-        ]);
+        // Check muna kung may functions bago i-call
+        const promises = [];
+        
+        if (typeof updateContinueLearningModule === 'function') {
+            promises.push(updateContinueLearningModule());
+        }
+        
+        if (typeof loadPracticeStatistics === 'function') {
+            promises.push(loadPracticeStatistics());
+        } else {
+            console.log('⚠️ loadPracticeStatistics not available - using fallback');
+            // Create fallback function
+            window.loadPracticeStatistics = async function() {
+                console.log('📊 Using fallback practice statistics');
+                return {
+                    total_exercises_completed: 0,
+                    lessons_completed: 0
+                };
+            };
+        }
+        
+        if (typeof loadQuizCategories === 'function') {
+            promises.push(loadQuizCategories());
+        }
+        
+        if (typeof fetchCumulativeProgress === 'function') {
+            promises.push(fetchCumulativeProgress());
+        }
+        
+        if (typeof updateProgressSummaryCards === 'function') {
+            promises.push(updateProgressSummaryCards());
+        }
+        
+        if (typeof loadLeaderboard === 'function') {
+            promises.push(loadLeaderboard('weekly'));
+        }
+        
+        await Promise.allSettled(promises);
         
         const welcomeTitle = document.getElementById('dashboardWelcomeTitle');
         if (welcomeTitle) {
@@ -2280,7 +2309,6 @@ async function loadFactoLearnData() {
         hideDashboardLoading();
     }
 }
-
 function showDashboardLoading() {
     const elements = [
         'totalTime',
@@ -2984,7 +3012,89 @@ document.addEventListener('DOMContentLoaded', function() {
         updateMenuUserInfo();
     }, 500);
 });
+// ============================================
+// ✅ MISSING FUNCTIONS
+// ============================================
 
+// For reset password modal
+window.closeResetPasswordModal = function() {
+    console.log('🔒 Closing reset password modal');
+    const modal = document.getElementById('resetPasswordModal');
+    if (modal) {
+        modal.style.display = 'none';
+        document.body.classList.remove('modal-open');
+    }
+};
+
+// For practice statistics (fallback)
+if (typeof loadPracticeStatistics !== 'function') {
+    window.loadPracticeStatistics = async function() {
+        console.log('📊 Using fallback practice statistics');
+        return {
+            total_exercises_completed: 0,
+            total_attempts: 0,
+            average_score: 0,
+            lessons_completed: 0,
+            exercises_completed: 0
+        };
+    };
+}
+
+// For quiz categories (fallback)
+if (typeof loadQuizCategories !== 'function') {
+    window.loadQuizCategories = async function() {
+        console.log('📚 Using fallback quiz categories');
+        const container = document.getElementById('userQuizzesContainer');
+        if (container) {
+            container.innerHTML = `
+                <div class="card" style="padding: 40px; text-align: center;">
+                    <i class="fas fa-spinner fa-spin" style="font-size: 40px; color: #7a0000;"></i>
+                    <p style="margin-top: 15px;">Loading quiz categories...</p>
+                </div>
+            `;
+        }
+        setTimeout(() => {
+            if (typeof displayQuizCategories === 'function') {
+                displayQuizCategories(getFactoLearnMockCategories());
+            }
+        }, 500);
+    };
+}
+
+// For cumulative progress (fallback)
+if (typeof fetchCumulativeProgress !== 'function') {
+    window.fetchCumulativeProgress = async function() {
+        return {
+            total_lessons_completed: 0,
+            total_lessons: 8,
+            overall_percentage: 0,
+            exercises_completed: 0,
+            total_points_earned: 0
+        };
+    };
+}
+
+// For progress summary cards (fallback)
+if (typeof updateProgressSummaryCards !== 'function') {
+    window.updateProgressSummaryCards = async function() {
+        const lessonsCount = document.getElementById('lessonsCount');
+        const exercisesCount = document.getElementById('exercisesCount');
+        const quizScore = document.getElementById('quizScore');
+        const avgTime = document.getElementById('avgTime');
+        
+        if (lessonsCount) lessonsCount.innerHTML = `0<span class="item-unit">/8</span>`;
+        if (exercisesCount) exercisesCount.innerHTML = `0<span class="item-unit">/15</span>`;
+        if (quizScore) quizScore.innerHTML = `0<span class="item-unit">pts</span>`;
+        if (avgTime) avgTime.innerHTML = `5<span class="item-unit">min/day</span>`;
+    };
+}
+
+// For leaderboard (fallback)
+if (typeof loadLeaderboard !== 'function') {
+    window.loadLeaderboard = async function() {
+        console.log('🏆 Leaderboard function not available');
+    };
+}
 // ============================================
 // ✅ MAKE FUNCTIONS GLOBALLY AVAILABLE
 // ============================================
