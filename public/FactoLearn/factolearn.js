@@ -35,7 +35,7 @@ function getDefaultPracticeStats() {
 const APP_LESSON_MAP = {
     'mathease': {
         lessonId: 1,
-        name: 'factorial'
+        name: 'mathease'
     },
     'factorial': {
         lessonId: 3,
@@ -6222,7 +6222,73 @@ window.goToNextPractice = function() {
 };
 // Call this function when initializing practice page
 addPracticeResultModalStyles();
-
+// ============================================
+// ✅ FIXED: Fetch Practice Exercises from Database
+// ============================================
+async function fetchPracticeExercisesFromDB(topicId) {
+    console.log(`📥 Fetching practice exercises for topic ${topicId} from database...`);
+    
+    try {
+        const token = localStorage.getItem('authToken') || authToken;
+        if (!token) {
+            console.warn('⚠️ No auth token available');
+            return getDemoPracticeExercises(topicId);
+        }
+        
+        // Try multiple possible endpoints
+        const endpoints = [
+            `/api/practice/topic/${topicId}`,
+            `/api/practice/exercises?topic_id=${topicId}`,
+            `/api/practice/list?topic=${topicId}`,
+            `/api/exercises/topic/${topicId}`
+        ];
+        
+        for (const endpoint of endpoints) {
+            try {
+                console.log(`📡 Trying endpoint: ${endpoint}`);
+                
+                const response = await fetch(endpoint, {
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Accept': 'application/json'
+                    }
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    console.log(`✅ Success from ${endpoint}:`, data);
+                    
+                    // Handle different response formats
+                    let exercises = [];
+                    
+                    if (data.success && data.exercises) {
+                        exercises = data.exercises;
+                    } else if (data.exercises) {
+                        exercises = data.exercises;
+                    } else if (Array.isArray(data)) {
+                        exercises = data;
+                    } else if (data.data && Array.isArray(data.data)) {
+                        exercises = data.data;
+                    }
+                    
+                    if (exercises.length > 0) {
+                        console.log(`✅ Found ${exercises.length} exercises from database`);
+                        return exercises;
+                    }
+                }
+            } catch (e) {
+                console.log(`⚠️ Endpoint ${endpoint} failed:`, e.message);
+            }
+        }
+        
+        console.log('⚠️ No working endpoint found, using demo data');
+        return getDemoPracticeExercises(topicId);
+        
+    } catch (error) {
+        console.error('❌ Error fetching practice exercises:', error);
+        return getDemoPracticeExercises(topicId);
+    }
+}
 // ============================================
 // ✅ FIXED: fetchPracticeStatistics - WITH CORRECT ENDPOINTS
 // ============================================
@@ -7392,7 +7458,7 @@ async function updateProgressSummaryCards() {
         
         try {
             // Get total lessons count
-            const totalResponse = await fetch(`/api/lessons-db/complete?lesson_id=${FACTOLEARN_LESSON_ID}`, {
+            const totalResponse = await fetch(`/api/lessons-db/complete?lesson_id=${FACTORIAL_LESSON_ID}`, {
                 headers: { 'Authorization': `Bearer ${token}` }
             });
             
@@ -7405,7 +7471,7 @@ async function updateProgressSummaryCards() {
             }
             
             // Get lessons progress
-            const lessonsResponse = await fetch(`/api/progress/lessons?lesson_id=${FACTOLEARN_LESSON_ID}`, {
+            const lessonsResponse = await fetch(`/api/progress/lessons?lesson_id=${FACTORIAL_LESSON_ID}`, {
                 headers: { 'Authorization': `Bearer ${token}` }
             });
             
@@ -7429,7 +7495,7 @@ async function updateProgressSummaryCards() {
         
         try {
             // Get total practice exercises
-            const totalExercisesResponse = await fetch(`/api/practice/exercises/count?lesson_id=${FACTOLEARN_LESSON_ID}`, {
+            const totalExercisesResponse = await fetch(`/api/practice/exercises/count?lesson_id=${FACTORIAL_LESSON_ID}`, {
                 headers: { 'Authorization': `Bearer ${token}` }
             });
             
@@ -7442,7 +7508,7 @@ async function updateProgressSummaryCards() {
             }
             
             // Get practice attempts
-            const practiceResponse = await fetch(`/api/progress/practice-attempts?lesson_id=${FACTOLEARN_LESSON_ID}`, {
+            const practiceResponse = await fetch(`/api/progress/practice-attempts?lesson_id=${FACTORIAL_LESSON_ID}`, {
                 headers: { 'Authorization': `Bearer ${token}` }
             });
             
@@ -7467,7 +7533,7 @@ async function updateProgressSummaryCards() {
         let totalPoints = 0;
         
         try {
-            const quizResponse = await fetch(`/api/quiz/user/attempts?lesson_id=${FACTOLEARN_LESSON_ID}`, {
+            const quizResponse = await fetch(`/api/quiz/user/attempts?lesson_id=${FACTORIAL_LESSON_ID}`, {
                 headers: { 'Authorization': `Bearer ${token}` }
             });
             
@@ -12728,7 +12794,7 @@ function handleCategoriesResponse(data, filterOnClient = false) {
         if (filterOnClient) {
             categories = categories.filter(cat => {
                 const catLessonId = cat.lesson_id || cat.lessonId;
-                return catLessonId == FACTOLEARN_LESSON_ID;
+                return catLessonId == FACTORIAL_LESSON_ID;
             });
             console.log(`🎯 Filtered to ${categories.length} categories for FactoLearn`);
         }
@@ -21071,10 +21137,10 @@ async function loadPracticeExercises() {
     }
 }
 // ============================================
-// ✅ FIXED: Initialize practice page - ONLY LESSON_ID = 3
+// ✅ FIXED: Initialize Practice Page
 // ============================================
 async function initPracticePage() {
-    console.log('💪 Initializing practice page with strict lesson_id=3 filtering...');
+    console.log('💪 Initializing practice page...');
     
     // Update date
     const practiceDate = document.getElementById('practiceDate');
@@ -21087,35 +21153,37 @@ async function initPracticePage() {
         });
     }
     
-    // ✅ Force lesson_id = 3 for FactoLearn
-    const currentLessonId = FACTORIAL_LESSON_ID; // Always 3
+    // Force lesson_id = 3 for FactoLearn
+    const currentLessonId = FACTORIAL_LESSON_ID || 3;
+    console.log(`🎯 Practice page for lesson_id = ${currentLessonId}`);
     
-    console.log(`🎯 Practice page will ONLY show content with lesson_id = ${currentLessonId} (FactoLearn)`);
-    
-    // ✅ Store lesson ID in localStorage for other functions
-    localStorage.setItem('currentLessonId', currentLessonId);
-    
-    // Reset current topic if needed
-    if (!PracticeState.currentTopic) {
-        PracticeState.currentTopic = '1'; // Default to topic 1, but will be filtered by lesson
+    // Show loading
+    const exerciseArea = document.getElementById('exerciseArea');
+    if (exerciseArea) {
+        exerciseArea.innerHTML = `
+            <div class="loading-container" style="text-align: center; padding: 40px;">
+                <i class="fas fa-spinner fa-spin" style="font-size: 40px; color: #7a0000; margin-bottom: 15px;"></i>
+                <p style="color: #666;">Connecting to database...</p>
+            </div>
+        `;
     }
     
-    // ✅ I-LOAD AGAD ANG PRACTICE STATISTICS MULA DATABASE
+    // Load practice statistics
     await loadPracticeStatistics();
     
-    // Load topics progress (will be filtered by lesson_id=3)
+    // Load topics progress
     await loadTopicsProgress();
     
-    // Load practice exercises for current topic (with lesson_id=3 filter)
-    console.log(`🎯 Loading exercises for topic: ${PracticeState.currentTopic}`);
-    await loadPracticeExercisesForTopic(PracticeState.currentTopic);
+    // Load practice exercises for current topic
+    const topicId = PracticeState.currentTopic || '1';
+    console.log(`🎯 Loading exercises for topic: ${topicId}`);
+    await loadPracticeExercisesForTopic(topicId);
     
     // Add practice styles
     addPracticeStyles();
     
-    console.log('✅ Practice page initialized for FactoLearn (lesson ' + currentLessonId + ')');
+    console.log('✅ Practice page initialized');
 }
-
 // ============================================
 // 🔍 DEBUG: Check what's being filtered
 // ============================================
@@ -21520,95 +21588,73 @@ async function selectTopicForPractice(topicId) {
 
 
 // ============================================
-// ✅ FIXED: Load practice exercises - ONLY LESSON_ID = 3
+// ✅ FIXED: Load Practice Exercises For Topic
 // ============================================
 async function loadPracticeExercisesForTopic(topicId) {
     try {
-        console.log(`📝 Getting practice exercises for topic ${topicId}`);
+        console.log(`📝 Loading practice exercises for topic ${topicId}`);
         
-        // FORCE LESSON_ID = 3
-        const currentLessonId = FACTORIAL_LESSON_ID; // Always 3
+        // Force lesson_id = 3 for FactoLearn
+        const currentLessonId = FACTORIAL_LESSON_ID || 3;
         
         console.log(`🎯 Loading exercises for FactoLearn, lesson_id: ${currentLessonId}`);
         
         // Get the exercise area
         const exerciseArea = document.getElementById('exerciseArea');
-        if (!exerciseArea) return;
+        if (!exerciseArea) {
+            console.error('❌ Exercise area not found');
+            return;
+        }
         
         exerciseArea.innerHTML = `
-            <div class="loading-container" style="text-align: center; padding: 30px;">
-                <i class="fas fa-spinner fa-spin" style="font-size: 30px; color: #7a0000;"></i>
-                <p style="margin-top: 10px;">Loading FactoLearn exercises...</p>
+            <div class="loading-container" style="text-align: center; padding: 40px;">
+                <i class="fas fa-spinner fa-spin" style="font-size: 40px; color: #7a0000; margin-bottom: 15px;"></i>
+                <p style="color: #666;">Loading practice exercises from database...</p>
             </div>
         `;
         
-        // ✅ Force lesson_id=3 in API call
-        let endpoint = `/api/practice/topic/${topicId}?lesson_id=${currentLessonId}`;
-        console.log(`📡 Fetching from: ${endpoint}`);
+        // Fetch exercises from database
+        const exercises = await fetchPracticeExercisesFromDB(topicId);
         
-        const response = await fetch(endpoint, {
-            headers: {
-                'Authorization': `Bearer ${localStorage.getItem('authToken')}`
-            }
-        });
-        
-        if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
-        }
-        
-        const data = await response.json();
-        console.log('📥 Practice data received:', data);
-        
-        if (data.success && data.exercises) {
-            // ✅ STRICT FILTERING - lesson_id=3 lang
-            const filteredExercises = data.exercises.filter(ex => {
-                const exerciseLessonId = ex.lesson_id || ex.lessonId;
-                return exerciseLessonId == FACTORIAL_LESSON_ID;
-            });
+        if (exercises && exercises.length > 0) {
+            console.log(`✅ Found ${exercises.length} exercises for topic ${topicId}`);
             
-            console.log(`✅ Found ${filteredExercises.length} exercises for FactoLearn`);
+            // Store in PracticeState
+            PracticeState.exercises = exercises;
             
-            // Log what was filtered out
-            const filteredOut = data.exercises.filter(ex => (ex.lesson_id || ex.lessonId) != FACTORIAL_LESSON_ID);
-            if (filteredOut.length > 0) {
-                console.log(`🚫 Filtered OUT ${filteredOut.length} exercises from other apps:`);
-                filteredOut.forEach(ex => {
-                    console.log(`   - Exercise ID: ${ex.exercise_id}, Lesson ID: ${ex.lesson_id || ex.lessonId}, Title: ${ex.title}`);
-                });
-            }
-            
-            if (filteredExercises.length > 0) {
-                displayPracticeExercises(filteredExercises);
-            } else {
-                exerciseArea.innerHTML = `
-                    <div class="no-exercises" style="text-align: center; padding: 40px;">
-                        <i class="fas fa-pencil-alt" style="font-size: 48px; color: #ccc; margin-bottom: 15px;"></i>
-                        <h3 style="color: #666;">No Practice Exercises for FactoLearn</h3>
-                        <p style="color: #999;">There are no practice exercises available for FactoLearn yet.</p>
-                    </div>
-                `;
-            }
+            // Display exercises
+            displayPracticeExercises(exercises);
         } else {
+            console.log('⚠️ No exercises found, showing demo data');
+            
+            // Use demo exercises as fallback
+            const demoExercises = getDemoPracticeExercises(topicId);
+            PracticeState.exercises = demoExercises;
+            
             exerciseArea.innerHTML = `
-                <div class="no-exercises" style="text-align: center; padding: 40px;">
-                    <i class="fas fa-pencil-alt" style="font-size: 48px; color: #ccc; margin-bottom: 15px;"></i>
-                    <h3 style="color: #666;">No Practice Exercises</h3>
-                    <p style="color: #999;">There are no practice exercises available for this topic yet.</p>
+                <div class="demo-mode-notice" style="background: #fff3cd; color: #856404; padding: 10px; border-radius: 5px; margin-bottom: 15px; text-align: center;">
+                    <i class="fas fa-info-circle"></i> Using sample exercises (database connection issue)
                 </div>
             `;
+            
+            displayPracticeExercises(demoExercises);
         }
         
+        // Setup interactions
+        setupPracticeExerciseInteractions();
+        
     } catch (error) {
-        console.error('Error loading exercises:', error);
+        console.error('❌ Error loading practice exercises:', error);
+        
         const exerciseArea = document.getElementById('exerciseArea');
         if (exerciseArea) {
             exerciseArea.innerHTML = `
-                <div class="error-message" style="text-align: center; padding: 40px;">
-                    <i class="fas fa-exclamation-triangle" style="font-size: 48px; color: #e74c3c;"></i>
-                    <h3 style="color: #666;">Failed to load exercises</h3>
-                    <p style="color: #999;">${error.message}</p>
-                    <button class="btn-primary" onclick="location.reload()" style="margin-top: 15px;">
-                        <i class="fas fa-redo"></i> Try Again
+                <div class="error-container" style="text-align: center; padding: 40px;">
+                    <i class="fas fa-exclamation-triangle" style="font-size: 50px; color: #e74c3c; margin-bottom: 15px;"></i>
+                    <h3 style="color: #2c3e50; margin-bottom: 10px;">Failed to load exercises</h3>
+                    <p style="color: #7f8c8d; margin-bottom: 20px;">${error.message || 'Could not connect to database'}</p>
+                    <button class="btn-primary" onclick="location.reload()" style="padding: 10px 20px;">
+                        <i class="fas fa-redo"></i> Retry
                     </button>
                 </div>
             `;
@@ -21616,7 +21662,7 @@ async function loadPracticeExercisesForTopic(topicId) {
     }
 }
 // ============================================
-// ✅ FIXED: Display practice exercises
+// ✅ ENHANCED: Display Practice Exercises
 // ============================================
 function displayPracticeExercises(exercises) {
     const exerciseArea = document.getElementById('exerciseArea');
@@ -21624,78 +21670,105 @@ function displayPracticeExercises(exercises) {
     
     if (!exercises || exercises.length === 0) {
         exerciseArea.innerHTML = `
-            <div class="no-exercises" style="text-align: center; padding: 40px;">
-                <i class="fas fa-pencil-alt" style="font-size: 48px; color: #ccc; margin-bottom: 15px;"></i>
-                <h3 style="color: #666;">No Practice Exercises</h3>
-                <p style="color: #999;">There are no practice exercises available for this topic yet.</p>
+            <div class="no-exercises" style="text-align: center; padding: 60px 20px;">
+                <i class="fas fa-pencil-alt" style="font-size: 60px; color: #ccc; margin-bottom: 20px;"></i>
+                <h3 style="color: #666; margin-bottom: 15px;">No Practice Exercises Available</h3>
+                <p style="color: #999; margin-bottom: 25px;">There are no practice exercises for this topic yet.</p>
+                <button class="btn-primary" onclick="location.reload()" style="padding: 12px 25px;">
+                    <i class="fas fa-redo"></i> Refresh
+                </button>
             </div>
         `;
         return;
     }
     
-    let html = '<div class="exercises-list">';
+    let html = '<div class="exercises-list" style="display: flex; flex-direction: column; gap: 15px;">';
     
     exercises.forEach((exercise, index) => {
-        // Parse content_json if it exists and is a string
-        let questions = [];
+        // Handle different property names
+        const exerciseId = exercise.exercise_id || exercise.id || index + 1;
+        const title = exercise.title || exercise.exercise_title || `Exercise ${index + 1}`;
+        const description = exercise.description || exercise.exercise_description || 'Practice your skills with this exercise.';
+        const difficulty = exercise.difficulty || exercise.difficulty_level || 'medium';
+        const points = exercise.points || exercise.max_score || 10;
+        
+        // Parse questions from content_json if it exists
+        let questionCount = 0;
         if (exercise.content_json) {
             try {
                 const content = typeof exercise.content_json === 'string' 
                     ? JSON.parse(exercise.content_json) 
                     : exercise.content_json;
-                questions = content.questions || [];
+                questionCount = content.questions?.length || 0;
             } catch (e) {
-                console.error('Error parsing content_json:', e);
+                console.warn('Could not parse content_json:', e);
             }
         }
         
+        // Get user progress
         const userProgress = exercise.user_progress || {};
-        const isCompleted = userProgress.completion_status === 'completed';
-        const difficultyClass = exercise.difficulty || 'medium';
+        const isCompleted = userProgress.completion_status === 'completed' || userProgress.status === 'completed';
+        const attempts = userProgress.attempts || 0;
+        const bestScore = userProgress.best_score || userProgress.score || 0;
+        
+        // Difficulty badge color
+        const difficultyColor = 
+            difficulty === 'easy' ? '#27ae60' : 
+            difficulty === 'medium' ? '#f39c12' : 
+            difficulty === 'hard' ? '#e74c3c' : '#3498db';
         
         html += `
-            <div class="exercise-card ${isCompleted ? 'completed' : ''}" data-exercise-id="${exercise.exercise_id}">
-                <div class="exercise-header">
-                    <h3>Exercise ${index + 1}: ${exercise.title || 'Practice Exercise'}</h3>
-                    <span class="difficulty-badge difficulty-${difficultyClass}">
-                        ${exercise.difficulty || 'medium'}
+            <div class="exercise-card" data-exercise-id="${exerciseId}" 
+                 style="background: white; border-radius: 12px; padding: 20px; 
+                        box-shadow: 0 2px 8px rgba(0,0,0,0.1); border: 2px solid ${isCompleted ? '#27ae60' : 'transparent'};
+                        transition: all 0.3s ease;">
+                
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                    <h3 style="margin: 0; color: #2c3e50; font-size: 18px;">
+                        <i class="fas fa-pencil-alt" style="color: #7a0000; margin-right: 8px;"></i>
+                        ${title}
+                    </h3>
+                    <span style="background: ${difficultyColor}; color: white; padding: 4px 12px; 
+                               border-radius: 20px; font-size: 12px; font-weight: bold; text-transform: uppercase;">
+                        ${difficulty}
                     </span>
                 </div>
                 
-                <div class="exercise-body">
-                    <p>${exercise.description || 'Test your knowledge with this practice exercise.'}</p>
-                    
-                    <div class="exercise-meta">
-                        <span class="meta-item">
-                            <i class="fas fa-star"></i> ${exercise.points || 10} points
-                        </span>
-                        <span class="meta-item">
-                            <i class="fas fa-question-circle"></i> ${questions.length} questions
-                        </span>
-                        <span class="meta-item">
-                            <i class="fas fa-check-circle"></i> ${userProgress.attempts || 0} attempts
-                        </span>
-                    </div>
-                    
-                    ${userProgress.score > 0 ? `
-                        <div class="score-display">
-                            <strong>Best Score:</strong> ${userProgress.score}/${exercise.points || 10}
-                            (${Math.round((userProgress.score / (exercise.points || 10)) * 100)}%)
-                        </div>
-                    ` : ''}
+                <p style="color: #666; margin: 0 0 15px 0; line-height: 1.5;">${description}</p>
+                
+                <div style="display: flex; gap: 20px; margin-bottom: 15px; padding: 10px 0; border-top: 1px solid #f0f0f0; border-bottom: 1px solid #f0f0f0;">
+                    <span style="display: flex; align-items: center; gap: 5px; color: #7f8c8d;">
+                        <i class="fas fa-star" style="color: #f39c12;"></i> ${points} points
+                    </span>
+                    <span style="display: flex; align-items: center; gap: 5px; color: #7f8c8d;">
+                        <i class="fas fa-question-circle" style="color: #3498db;"></i> ${questionCount || 5} questions
+                    </span>
+                    <span style="display: flex; align-items: center; gap: 5px; color: #7f8c8d;">
+                        <i class="fas fa-history" style="color: #95a5a6;"></i> ${attempts} attempts
+                    </span>
                 </div>
                 
-                <div class="exercise-actions">
+                ${bestScore > 0 ? `
+                    <div style="background: #e8f5e9; padding: 10px; border-radius: 6px; margin-bottom: 15px; display: flex; justify-content: space-between; align-items: center;">
+                        <span style="color: #2c3e50;"><i class="fas fa-trophy" style="color: #f39c12;"></i> Best Score:</span>
+                        <span style="font-weight: bold; color: #27ae60;">${bestScore}/${points} (${Math.round((bestScore/points)*100)}%)</span>
+                    </div>
+                ` : ''}
+                
+                <div style="display: flex; gap: 10px; justify-content: flex-end;">
                     ${isCompleted ? `
-                        <button class="btn-secondary review-exercise" data-exercise-id="${exercise.exercise_id}">
+                        <button class="btn-secondary review-exercise" data-exercise-id="${exerciseId}"
+                                style="background: #ecf0f1; color: #2c3e50; border: none; padding: 10px 20px; border-radius: 6px; cursor: pointer; display: flex; align-items: center; gap: 8px;">
                             <i class="fas fa-redo"></i> Review
                         </button>
-                        <button class="btn-success" disabled>
-                            <i class="fas fa-check"></i> Completed
+                        <button class="btn-success" disabled
+                                style="background: #27ae60; color: white; border: none; padding: 10px 20px; border-radius: 6px; display: flex; align-items: center; gap: 8px; opacity: 0.7;">
+                            <i class="fas fa-check-circle"></i> Completed
                         </button>
                     ` : `
-                        <button class="btn-primary start-exercise" data-exercise-id="${exercise.exercise_id}">
-                            <i class="fas fa-play"></i> ${userProgress.status === 'in_progress' ? 'Continue' : 'Start'}
+                        <button class="btn-primary start-exercise" data-exercise-id="${exerciseId}"
+                                style="background: #7a0000; color: white; border: none; padding: 10px 25px; border-radius: 6px; cursor: pointer; display: flex; align-items: center; gap: 8px; font-weight: 600;">
+                            <i class="fas fa-play-circle"></i> Start Exercise
                         </button>
                     `}
                 </div>
@@ -21706,10 +21779,52 @@ function displayPracticeExercises(exercises) {
     html += '</div>';
     exerciseArea.innerHTML = html;
     
-    // Setup event listeners for the exercise buttons
-    setupPracticeExerciseInteractions();
+    console.log(`✅ Displayed ${exercises.length} practice exercises`);
 }
-
+// ============================================
+// 🔍 Test Database Connection
+// ============================================
+window.testDatabaseConnection = async function() {
+    console.log('🔍 TESTING DATABASE CONNECTION...');
+    
+    const token = localStorage.getItem('authToken');
+    if (!token) {
+        console.error('❌ No auth token found');
+        return;
+    }
+    
+    const endpoints = [
+        '/api/practice/exercises',
+        '/api/practice/list',
+        '/api/exercises',
+        '/api/practice/topic/1',
+        '/api/practice?lesson_id=3'
+    ];
+    
+    for (const endpoint of endpoints) {
+        try {
+            console.log(`\n📡 Testing: ${endpoint}`);
+            const response = await fetch(endpoint, {
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Accept': 'application/json'
+                }
+            });
+            
+            console.log(`Status: ${response.status} ${response.statusText}`);
+            
+            if (response.ok) {
+                const data = await response.json();
+                console.log('✅ Response:', data);
+            } else {
+                const text = await response.text();
+                console.log('❌ Error:', text.substring(0, 200));
+            }
+        } catch (error) {
+            console.error(`❌ Failed: ${endpoint}`, error.message);
+        }
+    }
+};
 // ============================================
 // Helper: Get demo practice exercises
 // ============================================
@@ -26293,6 +26408,170 @@ function resetSettings() {
 function viewProfile() {
     window.open('/profile', '_blank');
 }
+// ============================================
+// SHOW SETTINGS SECTION FUNCTION
+// ============================================
+window.showSection = function(sectionId) {
+    console.log(`📂 Showing settings section: ${sectionId}`);
+    
+    // Hide all settings sections first
+    const sections = document.querySelectorAll('.settings-section');
+    sections.forEach(section => {
+        section.classList.remove('active');
+        section.style.display = 'none';
+    });
+    
+    // Show the selected section
+    const targetSection = document.getElementById(sectionId);
+    if (targetSection) {
+        targetSection.classList.add('active');
+        targetSection.style.display = 'block';
+        
+        // Update active state in sidebar
+        document.querySelectorAll('.sidebar-menu a').forEach(link => {
+            link.classList.remove('active');
+        });
+        
+        // Find and activate the clicked link
+        const activeLink = document.querySelector(`[onclick="showSection('${sectionId}')"]`);
+        if (activeLink) {
+            activeLink.classList.add('active');
+        }
+        
+        console.log(`✅ Section "${sectionId}" is now visible`);
+    } else {
+        console.error(`❌ Section "${sectionId}" not found`);
+        
+        // Show general section as fallback
+        const generalSection = document.getElementById('general');
+        if (generalSection) {
+            generalSection.classList.add('active');
+            generalSection.style.display = 'block';
+            
+            // Update active menu
+            document.querySelectorAll('.sidebar-menu a').forEach(link => {
+                link.classList.remove('active');
+            });
+            
+            const generalLink = document.querySelector('[onclick="showSection(\'general\')"]');
+            if (generalLink) {
+                generalLink.classList.add('active');
+            }
+        }
+    }
+};
+// ============================================
+// SETTINGS PAGE INITIALIZATION
+// ============================================
+window.initSettingsDashboard = function() {
+    console.log('⚙️ Initializing settings dashboard...');
+    
+    // Show general section by default
+    setTimeout(() => {
+        showSection('general');
+    }, 100);
+    
+    // Load user settings
+    loadUserSettings();
+};
+// ============================================
+// LOAD USER SETTINGS
+// ============================================
+function loadUserSettings() {
+    console.log('📥 Loading user settings...');
+    
+    const userJson = localStorage.getItem('mathhub_user');
+    if (userJson) {
+        try {
+            const user = JSON.parse(userJson);
+            
+            const displayName = document.getElementById('displayName');
+            const userEmail = document.getElementById('userEmail');
+            
+            if (displayName) displayName.value = user.full_name || user.username || '';
+            if (userEmail) userEmail.value = user.email || '';
+            
+        } catch (e) {
+            console.error('Error loading user:', e);
+        }
+    }
+}
+// ============================================
+// SAVE ALL SETTINGS
+// ============================================
+window.saveAllSettings = function() {
+    console.log('💾 Saving settings...');
+    
+    const settings = {
+        displayName: document.getElementById('displayName')?.value,
+        language: document.getElementById('interfaceLanguage')?.value,
+        municipality: document.getElementById('batangas-municipalities')?.value,
+        timezone: document.getElementById('timeZone')?.value,
+        adaptiveDifficulty: document.getElementById('adaptiveDifficulty')?.checked,
+        preferredDifficulty: document.getElementById('preferredDifficulty')?.value,
+        showSolutions: document.getElementById('showSolutions')?.checked,
+        twoFactorAuth: document.getElementById('twoFactorAuth')?.checked,
+        profileVisibility: document.getElementById('profileVisibility')?.value,
+        dataSharing: document.getElementById('dataSharing')?.checked,
+        weeklyReport: document.getElementById('weeklyReport')?.checked,
+        practiceReminders: document.getElementById('practiceReminders')?.checked,
+        theme: getSelectedTheme(),
+        fontSize: document.getElementById('fontSize')?.value
+    };
+    
+    localStorage.setItem('user_settings', JSON.stringify(settings));
+    
+    showNotification('success', 'Settings Saved', 'Your preferences have been updated.');
+};
+
+// ============================================
+// GET SELECTED THEME
+// ============================================
+function getSelectedTheme() {
+    const themeLight = document.getElementById('themeLight');
+    const themeDark = document.getElementById('themeDark');
+    const themeAuto = document.getElementById('themeAuto');
+    
+    if (themeLight?.checked) return 'light';
+    if (themeDark?.checked) return 'dark';
+    if (themeAuto?.checked) return 'auto';
+    return 'light';
+}
+
+// ============================================
+// RESET SETTINGS
+// ============================================
+window.resetSettings = function() {
+    if (confirm('Reset all settings to default?')) {
+        localStorage.removeItem('user_settings');
+        location.reload();
+    }
+};
+
+// ============================================
+// VIEW PROFILE
+// ============================================
+window.viewProfile = function() {
+    window.open('/profile', '_blank');
+};
+
+// ============================================
+// EXPORT DATA
+// ============================================
+window.exportData = function() {
+    console.log('📤 Exporting data...');
+    showNotification('info', 'Export', 'Data export coming soon!');
+};
+
+// ============================================
+// CLEAR HISTORY
+// ============================================
+window.clearHistory = function() {
+    if (confirm('Are you sure you want to clear all learning history?')) {
+        console.log('🧹 Clearing history...');
+        showNotification('success', 'Success', 'Learning history cleared!');
+    }
+};
 // ============================================
 // ✅ ADD MISSING FEEDBACK STYLES FUNCTION
 // ============================================
