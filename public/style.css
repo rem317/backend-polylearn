@@ -9568,5 +9568,222 @@ body.dark-theme .timer-preset {
 }
 
 /* ============================================
+   MODULE DASHBOARD - REDUCED PADDING
+   ============================================ */
+
+/* Lesson Content Card - Reduced Padding */
+#module-page-container .card {
+    padding: 12px 15px !important; /* from 18px 20px */
+}
+
+#module-page-container .card-header {
+    padding: 8px 0 0 0 !important; /* from 25px 25px 0 */
+    margin-bottom: 8px; /* from 20px */
+}
+
+#module-page-container .lesson-content {
+    padding: 10px !important; /* from 25px */
+}
+
+/* Video Container - Reduced Spacing */
+#module-page-container .media-container {
+    margin-bottom: 12px; /* from 30px */
+}
+
+#module-page-container .media-header {
+    padding: 8px 12px; /* from 15px 20px */
+}
+
+#module-page-container .media-header span {
+    font-size: 0.9rem;
+}
+
+#module-page-container .media-controls {
+    gap: 8px; /* from 15px */
+}
+
+#module-page-container .refresh-video-btn {
+    width: 28px;
+    height: 28px;
+    font-size: 0.8rem;
+}
+
+#module-page-container .video-info {
+    padding: 6px 12px; /* from 15px 20px */
+    font-size: 0.8rem;
+}
+
+#module-page-container .video-info p {
+    margin: 2px 0;
+}
+
+/* Step Container - Reduced Spacing */
+#module-page-container .step-container {
+    margin-bottom: 15px; /* from 30px */
+}
+
+#module-page-container .step-title {
+    margin-bottom: 8px; /* from 15px */
+    padding-bottom: 5px; /* from 10px */
+}
+
+#module-page-container .step-title span {
+    font-size: 1rem; /* from 1.2rem */
+    gap: 5px; /* from 10px */
+}
+
+#module-page-container .step-number {
+    width: 24px; /* from 30px */
+    height: 24px; /* from 30px */
+    font-size: 0.8rem;
+}
+
+#module-page-container .step-content {
+    padding-left: 8px; /* from 15px */
+}
+
+/* Math Example - Reduced Padding */
+#module-page-container .math-example {
+    padding: 10px; /* from 20px */
+    margin: 8px 0; /* from 15px 0 */
+    font-size: 0.9rem; /* from 1.1rem */
+}
+
+/* Steps List - Reduced Spacing */
+#module-page-container .steps {
+    padding-left: 15px; /* from 20px */
+    margin-top: 8px; /* from 15px */
+}
+
+#module-page-container .steps li {
+    margin-bottom: 4px; /* from 8px */
+    font-size: 0.9rem;
+}
+
+/* Divider Line - Reduced Margin */
+#module-page-container [style*="height: 1px;"] {
+    margin: 15px 0 !important; /* from 30px 0 */
+}
+
+/* Lesson Navigation - Reduced Padding/Margin */
+#module-page-container .lesson-navigation {
+    margin-top: 15px; /* from 30px */
+    padding-top: 10px; /* from 20px */
+    gap: 8px; /* add gap between buttons */
+}
+
+#module-page-container .lesson-nav-btn {
+    padding: 8px 16px; /* from 12px 24px */
+    font-size: 0.85rem;
+    gap: 5px; /* from 10px */
+}
+
+#module-page-container .btn-primary {
+    padding: 8px 16px; /* from 12px 24px */
+    font-size: 0.85rem;
+    gap: 5px; /* from 10px */
+}
+
+/* Progress Learning Tool - Reduced Padding/Margin */
+#module-page-container .progress-learning-tool {
+    margin-top: 15px !important; /* from 25px */
+    padding: 15px !important; /* from 25px */
+}
+
+#module-page-container .progress-title {
+    font-size: 1.1rem !important; /* from 1.3rem */
+    margin-bottom: 12px !important; /* from 20px */
+    padding-bottom: 8px !important; /* from 15px */
+    gap: 5px !important; /* from 10px */
+}
+
+#module-page-container .lesson-progress-section {
+    margin-bottom: 15px !important; /* from 25px */
+}
+
+#module-page-container .lesson-progress-section h3 {
+    font-size: 0.95rem !important; /* from 1.1rem */
+    margin-bottom: 8px !important; /* from 15px */
+    gap: 5px !important; /* from 10px */
+}
+
+#module-page-container .progress-details {
+    font-size: 0.8rem; /* from 0.9rem */
+    margin-top: 4px; /* from 8px */
+}
+
+#module-page-container .learning-stats h3 {
+    font-size: 0.95rem !important; /* from 1.1rem */
+    margin-bottom: 10px !important; /* from 15px */
+    gap: 5px !important; /* from 10px */
+}
+
+#module-page-container .stat-item {
+    gap: 10px !important; /* from 15px */
+    margin-bottom: 10px !important; /* from 15px */
+    padding-bottom: 8px !important; /* from 15px */
+}
+
+#module-page-container .stat-icon {
+    width: 35px !important; /* from 45px */
+    height: 35px !important; /* from 45px */
+    font-size: 1rem !important; /* from 1.2rem */
+}
+
+#module-page-container .stat-value {
+    font-size: 1.1rem !important; /* from 1.3rem */
+}
+
+#module-page-container .stat-label {
+    font-size: 0.75rem; /* from 0.85rem */
+}
+
+/* Mobile Responsive Adjustments */
+@media (max-width: 768px) {
+    #module-page-container .card {
+        padding: 10px !important;
+    }
+    
+    #module-page-container .lesson-content {
+        padding: 8px !important;
+    }
+    
+    #module-page-container .media-header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 5px;
+    }
+    
+    #module-page-container .lesson-navigation {
+        flex-direction: column;
+    }
+    
+    #module-page-container .lesson-nav-btn,
+    #module-page-container .btn-primary {
+        width: 100%;
+    }
+}
+
+/* Ultra Small Devices */
+@media (max-width: 480px) {
+    #module-page-container .card {
+        padding: 8px !important;
+    }
+    
+    #module-page-container .lesson-content {
+        padding: 5px !important;
+    }
+    
+    #module-page-container .step-title span {
+        font-size: 0.9rem;
+    }
+    
+    #module-page-container .math-example {
+        padding: 8px;
+        font-size: 0.85rem;
+    }
+}
+
+/* ============================================
    END OF CSS
    ============================================ */
