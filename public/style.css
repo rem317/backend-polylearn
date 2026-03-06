@@ -10528,6 +10528,19 @@ code {
     }
 }
 
+/* Target only within continue learning */
+#continueLearningContainer .start-btn i,
+#continueLearningContainer .start-btn .fas,
+#continueLearningContainer .start-btn .far,
+#continueLearningContainer .start-btn .lesson-icon {
+    display: none !important;
+}
+
+#continueLearningContainer .start-btn {
+    gap: 0 !important;
+    padding-left: 15px !important;
+}
+
 /* ============================================
    END OF CSS
    ============================================ */
