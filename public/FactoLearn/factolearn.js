@@ -2531,6 +2531,7 @@ syncMathHubAdminAuth();
 // ✅ CHECK LESSON COMPLETION STATUS
 // ============================================
 
+// ✅ FIXED: checkLessonCompletionStatus
 async function checkLessonCompletionStatus() {
     console.log('🔍 Checking lesson completion status...');
     
@@ -5354,6 +5355,7 @@ async function logUserActivity(activityType, relatedId = null, details = {}) {
 // ============================================
 // ✅ FIXED: Update daily progress - FACTOLEARN ONLY
 // ============================================
+// ✅ FIXED: updateDailyProgress - FOR FACTOLEARN
 async function updateDailyProgress(progressData) {
     try {
         const token = localStorage.getItem('authToken') || authToken;
@@ -5364,7 +5366,7 @@ async function updateDailyProgress(progressData) {
         
         console.log('📊 Updating FactoLearn daily progress...', progressData);
         
-        // ✅ Add lesson_id = 2 for FactoLearn
+        // ✅ Add lesson_id = 3 for FactoLearn
         const updateData = {
             ...(progressData.lessons_completed !== undefined && { 
                 lessons_completed: progressData.lessons_completed 
@@ -5378,7 +5380,7 @@ async function updateDailyProgress(progressData) {
             ...(progressData.time_spent_minutes !== undefined && { 
                 time_spent_minutes: progressData.time_spent_minutes 
             }),
-           lesson_id: FACTORIAL_LESSON_ID // ✅ FORCE FACTOLEARN
+            lesson_id: 3 // ✅ FORCE FACTOLEARN
         };
         
         // If no data to update, return
@@ -18346,6 +18348,7 @@ async function updateProgressCharts() {
 // ============================================
 // FIXED: openLesson function - RAILWAY VERSION
 // ============================================
+// FIXED VERSION - IDAGDAG ITO SA openLesson()
 async function openLesson(lessonId) {
     try {
         console.log('📖 Opening lesson:', lessonId);
@@ -18396,7 +18399,8 @@ async function openLesson(lessonId) {
             updateLessonUI(lesson);
             setupNavigationButtons();
             await loadVideoFromDatabase(lessonId);
-            await checkLessonCompletionStatus();  // ← Tawagin dito
+            // ✅ IDAGDAG ITO - CHECK COMPLETION STATUS
+            await checkLessonCompletionStatus();  
             console.log('✅ Lesson fully loaded');
         }, 500);
         
@@ -20204,6 +20208,7 @@ function setupPracticeButtons() {
 // ============================================
 // FIXED: Setup complete lesson button
 // ============================================
+// ✅ FIXED: setupCompleteLessonButton
 function setupCompleteLessonButton() {
     console.log('🔘 Setting up complete lesson button...');
     
@@ -26276,5 +26281,92 @@ setTimeout(() => {
 }, 1000);
 
 
+// Logout function
+function logoutAndRedirect() {
+    console.log('🚪 Logging out...');
+    
+    // Log logout activity before clearing data
+    if (AppState.currentUser) {
+        logUserActivity('logout', null, {}, 0);
+    }
+    
+    // Clear local storage
+    localStorage.removeItem('authToken');
+    localStorage.removeItem('mathhub_user');
+    localStorage.removeItem('hasSelectedApp');
+    
+    // Reset app state
+    AppState.currentUser = null;
+    AppState.isAuthenticated = false;
+    AppState.hasSelectedApp = false;
+    AppState.selectedApp = null;
+    AppState.currentLessonData = null;
+    AppState.currentVideoData = null;
+    authToken = null;
+    
+    // Reset lesson state
+    LessonState.lessons = [];
+    LessonState.currentLesson = null;
+    LessonState.userProgress = {};
+    LessonState.continueLearningLesson = null;
+    LessonState.currentTopic = null;
+    
+    // Reset practice state
+    PracticeState.currentTopic = null;
+    PracticeState.currentExercise = null;
+    PracticeState.exercises = [];
+    PracticeState.timer = 300;
+    PracticeState.timerInterval = null;
+    PracticeState.isExerciseActive = false;
+    PracticeState.isReviewMode = false;
+    PracticeState.userPracticeProgress = {};
+    
+    // Reset quiz state
+    QuizState.currentQuiz = null;
+    QuizState.currentQuestionIndex = 0;
+    QuizState.questions = [];
+    QuizState.userAnswers = {};
+    QuizState.timer = 0;
+    QuizState.timerInterval = null;
+    QuizState.isQuizActive = false;
+    QuizState.currentAttemptId = null;
+    QuizState.quizResults = null;
+    QuizState.selectedCategory = null;
+    QuizState.quizCategories = [];
+    
+    // Reset progress state
+    ProgressState.dailyProgress = null;
+    ProgressState.weeklyProgress = null;
+    ProgressState.monthlyProgress = null;
+    ProgressState.learningGoals = [];
+    ProgressState.topicMastery = {};
+    ProgressState.moduleProgress = {};
+    ProgressState.activityLog = [];
+    ProgressState.dashboardStats = null;
+    ProgressState.progressTrends = [];
+    ProgressState.achievementTimeline = [];
+    
+    // Hide footer navigation when logging out
+    hideFooterNavigation();
+    
+    // Navigate to login
+    navigateTo('login');
+    
+    showNotification('Logged out successfully', 'info');
+}
 
-
+// In the hamburger menu initialization
+const mobileMenuItems = document.querySelectorAll('.mobile-menu-item');
+mobileMenuItems.forEach((item, index) => {
+    item.addEventListener('click', function(e) {
+        e.preventDefault();
+        if (index === 0) showDashboard(e);
+        else if (index === 1) showPracticeDashboard(e);
+        else if (index === 2) showQuizDashboard(e);
+        else if (index === 3) showProgressPage(e);
+        else if (index === 4) showFeedbackPage(e);
+        else if (index === 5) showSettingsPage(e);
+        else if (index === 6) goToModuleDashboard(e);
+        else if (index === 7) logoutUser(e); // Logout is the 8th item
+    });
+});
