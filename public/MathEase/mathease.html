@@ -836,4 +836,282 @@
                     </button>
                 </div>
             </div>
-       
+        </div>
+    </div>
+
+    <!-- ============================================ -->
+    <!-- FOOTER NAVIGATION (MOBILE FRIENDLY)          -->
+    <!-- ============================================ -->
+    <footer class="footer-nav">
+        <div class="footer-nav-content">
+            <a href="#" class="footer-nav-item active" data-page="dashboard" onclick="event.preventDefault(); showDashboard(event);">
+                <i class="fas fa-tachometer-alt"></i>
+                <span>Home</span>
+            </a>
+            <a href="#" class="footer-nav-item" data-page="practice" onclick="event.preventDefault(); showPracticeDashboard(event);">
+                <i class="fas fa-book-open"></i>
+                <span>Practice</span>
+            </a>
+            <button class="footer-hamburger" id="footerHamburgerBtn">
+                <i class="fas fa-bars"></i>
+                <span>Menu</span>
+            </button>
+            <a href="#" class="footer-nav-item" data-page="quiz" onclick="event.preventDefault(); showQuizDashboard(event);">
+                <i class="fas fa-question-circle"></i>
+                <span>Quiz</span>
+            </a>
+            <a href="#" class="footer-nav-item" data-page="settings" onclick="event.preventDefault(); showSettingsPage(event);">
+                <i class="fas fa-user"></i>
+                <span>Profile</span>
+            </a>
+        </div>
+    </footer>
+
+    <!-- ============================================ -->
+    <!-- MOBILE MENU PANEL                             -->
+    <!-- ============================================ -->
+    <div class="mobile-menu-overlay" id="mobileMenuOverlay"></div>
+    <div class="mobile-menu-panel" id="mobileMenuPanel">
+        <div class="mobile-menu-header">
+            <h3><i class="fas fa-bars"></i> Menu</h3>
+            <button class="close-menu-btn" onclick="closeMobileMenu()"><i class="fas fa-times"></i></button>
+        </div>
+        <div class="mobile-menu-grid">
+            <a href="#" class="mobile-menu-item" onclick="showDashboard(event)"><i class="fas fa-tachometer-alt"></i> Dashboard</a>
+            <a href="#" class="mobile-menu-item" onclick="showPracticeDashboard(event)"><i class="fas fa-book-open"></i> Practice</a>
+            <a href="#" class="mobile-menu-item" onclick="showQuizDashboard(event)"><i class="fas fa-question-circle"></i> Quiz</a>
+            <a href="#" class="mobile-menu-item" onclick="showProgressPage(event)"><i class="fas fa-chart-line"></i> Progress</a>
+            <a href="#" class="mobile-menu-item" onclick="showFeedbackPage(event)"><i class="fas fa-comments"></i> Feedback</a>
+            <a href="#" class="mobile-menu-item" onclick="showSettingsPage(event)"><i class="fas fa-cog"></i> Settings</a>
+            <a href="#" class="mobile-menu-item" onclick="goToModuleDashboard(event)"><i class="fas fa-graduation-cap"></i> Lessons</a>
+            <a href="#" class="mobile-menu-item logout-item" onclick="showLogoutConfirmation()"><i class="fas fa-sign-out-alt"></i> Logout</a>
+        </div>
+    </div>
+
+    <!-- ============================================ -->
+    <!-- TOOL MODALS (Calculator, Graph, etc.)        -->
+    <!-- ============================================ -->
+    <div id="toolModalsContainer">
+        <!-- Calculator Modal -->
+        <div id="calculatorModal" class="modal-overlay">
+            <div class="modal-container">
+                <div class="modal-header">
+                    <h3><i class="fas fa-calculator"></i> Scientific Calculator</h3>
+                    <button class="modal-close" onclick="window.toolManager.closeTool()">&times;</button>
+                </div>
+                <div class="modal-body">
+                    <div class="calculator-container">
+                        <div id="calcDisplay" class="calculator-display">0</div>
+                        <div id="calcButtons" class="calculator-buttons"></div>
+                        <div class="calculator-history">
+                            <h4>History</h4>
+                            <div id="calcHistory"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Graph Modal -->
+        <div id="graphModal" class="modal-overlay">
+            <div class="modal-container">
+                <div class="modal-header">
+                    <h3><i class="fas fa-chart-line"></i> Graph Tool</h3>
+                    <button class="modal-close" onclick="window.toolManager.closeTool()">&times;</button>
+                </div>
+                <div class="modal-body">
+                    <div class="graph-container">
+                        <input type="text" id="graphExpression" placeholder="f(x) = " value="x^2">
+                        <div class="graph-controls">
+                            <button onclick="window.toolManager.tools.graph.plotFunction()">Plot</button>
+                            <button onclick="window.toolManager.tools.graph.clear()">Clear</button>
+                        </div>
+                        <canvas id="graphCanvas" width="500" height="300"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Whiteboard Modal -->
+        <div id="whiteboardModal" class="modal-overlay">
+            <div class="modal-container">
+                <div class="modal-header">
+                    <h3><i class="fas fa-paint-brush"></i> Whiteboard</h3>
+                    <button class="modal-close" onclick="window.toolManager.closeTool()">&times;</button>
+                </div>
+                <div class="modal-body">
+                    <div class="whiteboard-toolbar">
+                        <button onclick="window.toolManager.tools.whiteboard.setTool('pen')">Pen</button>
+                        <button onclick="window.toolManager.tools.whiteboard.setTool('eraser')">Eraser</button>
+                        <input type="color" id="colorPicker" value="#7a0000">
+                        <button onclick="window.toolManager.tools.whiteboard.clear()">Clear</button>
+                    </div>
+                    <canvas id="whiteboardCanvas" width="500" height="300"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <!-- Notepad Modal -->
+        <div id="notepadModal" class="modal-overlay">
+            <div class="modal-container">
+                <div class="modal-header">
+                    <h3><i class="fas fa-sticky-note"></i> Notepad</h3>
+                    <button class="modal-close" onclick="window.toolManager.closeTool()">&times;</button>
+                </div>
+                <div class="modal-body">
+                    <input type="text" id="noteTitle" placeholder="Note title">
+                    <textarea id="noteContent" rows="8" placeholder="Write your notes..."></textarea>
+                    <button onclick="window.toolManager.tools.notepad.save()">Save Note</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Formula Sheet Modal -->
+        <div id="formulaModal" class="modal-overlay">
+            <div class="modal-container">
+                <div class="modal-header">
+                    <h3><i class="fas fa-square-root-alt"></i> Formula Sheet</h3>
+                    <button class="modal-close" onclick="window.toolManager.closeTool()">&times;</button>
+                </div>
+                <div class="modal-body">
+                    <div class="formula-categories">
+                        <button onclick="window.toolManager.tools.formula.showCategory('algebra')">Algebra</button>
+                        <button onclick="window.toolManager.tools.formula.showCategory('geometry')">Geometry</button>
+                    </div>
+                    <div id="formulaList"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Timer Modal -->
+        <div id="timerModal" class="modal-overlay">
+            <div class="modal-container">
+                <div class="modal-header">
+                    <h3><i class="fas fa-clock"></i> Study Timer</h3>
+                    <button class="modal-close" onclick="window.toolManager.closeTool()">&times;</button>
+                </div>
+                <div class="modal-body">
+                    <div id="timerDisplay" class="timer-display">25:00</div>
+                    <div class="timer-controls">
+                        <button onclick="window.toolManager.startTimer()">Start</button>
+                        <button onclick="window.toolManager.pauseTimer()">Pause</button>
+                        <button onclick="window.toolManager.resetTimer()">Reset</button>
+                    </div>
+                    <div class="timer-presets">
+                        <button onclick="window.toolManager.tools.timer.setTime(15)">15</button>
+                        <button onclick="window.toolManager.tools.timer.setTime(25)">25</button>
+                        <button onclick="window.toolManager.tools.timer.setTime(50)">50</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ============================================ -->
+    <!-- QUIZ MODAL                                    -->
+    <!-- ============================================ -->
+    <div class="modal-overlay" id="quizModal">
+        <div class="modal-container" style="max-width: 600px;">
+            <div class="modal-header">
+                <h2><i class="fas fa-question-circle"></i> <span id="quizModalTitle">Quiz</span></h2>
+                <button class="modal-close" onclick="closeQuizSystemModal()">&times;</button>
+            </div>
+            
+            <div id="quizContainer">
+                <div class="modal-body">
+                    <div class="quiz-progress-header">
+                        <span>Question <span id="quizCurrentNum">1</span>/<span id="quizTotalNum">10</span></span>
+                        <div class="quiz-timer"><i class="fas fa-clock"></i> <span id="quizTimerDisplay">00:00</span></div>
+                    </div>
+                    <div id="quizProgressDotsModal" class="progress-dots"></div>
+                    <h3 id="quizQuestionTextModal">Loading...</h3>
+                    <div id="quizOptionsGridModal" class="options-vertical"></div>
+                    <button class="btn-primary btn-block" id="submitQuizBtn" onclick="submitQuizSystem()">Submit Quiz</button>
+                </div>
+            </div>
+
+            <div id="quizResultsContainer" style="display: none;">
+                <div class="modal-body" id="quizResultsContent"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ============================================ -->
+    <!-- FORGOT PASSWORD MODAL                         -->
+    <!-- ============================================ -->
+    <div id="forgotPasswordModal" class="modal-overlay">
+        <div class="modal-container">
+            <div class="modal-header">
+                <h3><i class="fas fa-key"></i> Reset Password</h3>
+                <button class="modal-close" onclick="closeForgotPasswordModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div id="forgotStep1">
+                    <p>Enter your email address:</p>
+                    <input type="email" id="resetEmail" class="form-control" placeholder="your@email.com">
+                    <div id="forgotError" class="error-message"></div>
+                    <div class="modal-footer">
+                        <button class="btn-secondary" onclick="closeForgotPasswordModal()">Cancel</button>
+                        <button class="btn-primary" onclick="requestPasswordReset()">Send Reset Link</button>
+                    </div>
+                </div>
+                <div id="forgotStep2" style="display: none;">
+                    <p>Reset link sent to <span id="resetEmailDisplay"></span></p>
+                    <p>Demo link: <code id="resetLinkDisplay"></code></p>
+                    <button class="btn-primary" onclick="closeForgotPasswordModal()">OK</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ============================================ -->
+    <!-- RESET PASSWORD MODAL                          -->
+    <!-- ============================================ -->
+    <div id="resetPasswordModal" class="modal-overlay">
+        <div class="modal-container">
+            <div class="modal-header">
+                <h3><i class="fas fa-lock"></i> Create New Password</h3>
+                <button class="modal-close" onclick="closeResetPasswordModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div id="resetPasswordStep1">
+                    <p>User: <span id="resetUserName"></span></p>
+                    <p>Email: <span id="resetUserEmail"></span></p>
+                    <input type="password" id="newPassword" class="form-control" placeholder="New password">
+                    <div class="strength-meter"><div id="passwordStrength"></div></div>
+                    <input type="password" id="confirmNewPassword" class="form-control" placeholder="Confirm password">
+                    <div id="resetError" class="error-message"></div>
+                    <div id="resetSuccess" class="success-message"></div>
+                    <div class="modal-footer">
+                        <button class="btn-secondary" onclick="closeResetPasswordModal()">Cancel</button>
+                        <button class="btn-primary" onclick="submitPasswordReset()">Reset Password</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ============================================ -->
+    <!-- LOGOUT CONFIRMATION MODAL                     -->
+    <!-- ============================================ -->
+    <div id="logoutModal" class="modal-overlay">
+        <div class="modal-container" style="max-width: 350px;">
+            <div class="modal-header">
+                <h3><i class="fas fa-sign-out-alt"></i> Confirm Logout</h3>
+                <button class="modal-close" onclick="closeLogoutModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <p>Are you sure you want to logout?</p>
+                <p>Your progress is automatically saved.</p>
+                <div class="modal-footer">
+                    <button class="btn-secondary" onclick="closeLogoutModal()">Cancel</button>
+                    <button class="btn-primary" onclick="confirmLogout()">Logout</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="mathease.js"></script>
+</body>
+</html>
