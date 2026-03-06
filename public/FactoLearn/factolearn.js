@@ -6178,18 +6178,7 @@ class Calculator {
         this.updateDisplay();
     }
 }
-async loadHistory() {
-    // Temporarily disabled due to backend issues
-    console.log('📝 Using local calculator history only');
-    // Don't try to fetch from server
-    this.updateHistory();
-}
 
-async saveToHistory(expression, result) {
-    // Save locally only
-    console.log('💾 Saving calculation locally');
-    // Don't try to save to server
-}
 // ============================================
 // ✅ WHITEBOARD TOOL
 // ============================================
