@@ -1825,30 +1825,103 @@
     <!-- Page Container -->
     <div id="page-container">
 
-        <!-- Dashboard Page -->
-        <div id="dashboard-page" class="hidden">
-            <!-- Dashboard Content -->
-            <div class="dashboard-container">
-                <!-- Welcome Card -->
-                <section class="card welcome-card">
-                    <div class="welcome-header">
-                        <h1 class="welcome-title" id="dashboardWelcomeTitle">Welcome!</h1>
-                        <div class="date-display" id="currentDate">Loading date...</div>
+        <!-- MathEase Dashboard Page -->
+        <div id="dashboard-page" class="page hidden">
+            <div class="container">
+                <!-- Header with MathEase branding -->
+                <div class="dashboard-header" style="background: linear-gradient(135deg, #3498db, #2980b9);">
+                    <div>
+                        <h1 id="dashboardWelcomeTitle">Welcome to MathEase!</h1>
+                        <p id="dashboardUserMessage">Master mathematics with ease and confidence</p>
                     </div>
-                    
-                    <div class="student-info">
-                        <div class="student-avatar-large" id="userInitial">U</div>
-                        <div class="student-details">
-                            <h2 class="student-name" id="dashboardUserName">Welcome back  <span>MathEase!</span></h2>
-                            <p style="color: var(--text-light); margin-bottom: 15px;" id="dashboardUserMessage">
-                                You're making excellent progress in your Basic Mathematical Operations and Basic Introductory Statistics journey. Keep up the great work!
-                            </p>
-                            <div class="achievement-badge" id="userAchievementBadge">
-                                <i class="fas fa-medal"></i> Loading...
-                            </div>
+                    <div class="user-avatar" style="background: #3498db;">
+                        <span id="userInitial">M</span>
+                    </div>
+                </div>
+        
+                <!-- Date -->
+                <div class="date-display" style="color: #3498db;">
+                    <i class="far fa-calendar-alt"></i>
+                    <span id="currentDate"></span>
+                </div>
+        
+                <!-- Stats Grid -->
+                <div class="stats-grid">
+                    <div class="stat-card" style="border-left-color: #3498db;">
+                        <div class="stat-icon" style="background: #3498db20; color: #3498db;">
+                            <i class="fas fa-book"></i>
+                        </div>
+                        <div class="stat-details">
+                            <span class="stat-label">Lessons Completed</span>
+                            <span class="stat-value" id="lessonsCount">0/10</span>
                         </div>
                     </div>
-                </section>
+        
+                    <div class="stat-card" style="border-left-color: #3498db;">
+                        <div class="stat-icon" style="background: #3498db20; color: #3498db;">
+                            <i class="fas fa-pencil-alt"></i>
+                        </div>
+                        <div class="stat-details">
+                            <span class="stat-label">Exercises Completed</span>
+                            <span class="stat-value" id="exercisesCount">0/15</span>
+                        </div>
+                    </div>
+        
+                    <div class="stat-card" style="border-left-color: #3498db;">
+                        <div class="stat-icon" style="background: #3498db20; color: #3498db;">
+                            <i class="fas fa-star"></i>
+                        </div>
+                        <div class="stat-details">
+                            <span class="stat-label">Quiz Score</span>
+                            <span class="stat-value" id="quizScore">0 pts</span>
+                        </div>
+                    </div>
+        
+                    <div class="stat-card" style="border-left-color: #3498db;">
+                        <div class="stat-icon" style="background: #3498db20; color: #3498db;">
+                            <i class="fas fa-clock"></i>
+                        </div>
+                        <div class="stat-details">
+                            <span class="stat-label">Avg. Time</span>
+                            <span class="stat-value" id="avgTime">5 min</span>
+                        </div>
+                    </div>
+                </div>
+        
+                <!-- Continue Learning Section -->
+                <div class="card" id="continueLearningModule">
+                    <div class="card-header">
+                        <h2><i class="fas fa-play-circle" style="color: #3498db;"></i> Continue Learning</h2>
+                    </div>
+                    <div id="continueLearningContainer">
+                        <div class="loading-container">
+                            <i class="fas fa-spinner fa-spin"></i>
+                            <p>Loading MathEase lessons...</p>
+                        </div>
+                    </div>
+                </div>
+        
+                <!-- Quick Actions -->
+                <div class="actions-grid">
+                    <button class="action-btn" onclick="navigateTo('moduleDashboard')" style="background: #3498db;">
+                        <i class="fas fa-book-open"></i>
+                        <span>Lessons</span>
+                    </button>
+                    <button class="action-btn" onclick="navigateTo('practice')" style="background: #27ae60;">
+                        <i class="fas fa-pencil-alt"></i>
+                        <span>Practice</span>
+                    </button>
+                    <button class="action-btn" onclick="navigateTo('quizDashboard')" style="background: #9b59b6;">
+                        <i class="fas fa-question-circle"></i>
+                        <span>Quizzes</span>
+                    </button>
+                    <button class="action-btn" onclick="navigateTo('progress')" style="background: #f39c12;">
+                        <i class="fas fa-chart-line"></i>
+                        <span>Progress</span>
+                    </button>
+                </div>
+            </div>
+        </div>
 
                 <!-- Progress Summary Card -->
                 <section class="card">
@@ -2011,87 +2084,70 @@
         </div>
 
         <!-- Module Dashboard Page - DATABASE DRIVEN -->
-        <div id="module-dashboard-page" class="hidden">
-            <!-- Page Container -->
-            <div id="module-page-container">
-                <!-- Header -->
-
-                <!-- Dashboard Content -->
-                <div class="dashboard-container">
-                    <!-- Main Content -->
-                    <main class="main-content">
-                        <!-- Lesson Content Card -->
-                        <div class="card">
-                            <div class="card-header">
-                                <h2 class="card-title">
-                                    <i class="fas fa-book-open"></i> Lesson: <span id="moduleTitle">Loading...</span>
-                                </h2>
-                                <p class="card-subtitle" id="moduleSubtitle">Loading lesson content...</p>
+        <!-- MathEase Module Dashboard Page -->
+        <div id="module-dashboard-page" class="page hidden">
+            <div class="container module-dashboard-container">
+                <button class="back-btn" id="backToLessonDashboard">
+                    <i class="fas fa-arrow-left"></i> Back to Dashboard
+                </button>
+        
+                <div class="module-header" style="background: #3498db;">
+                    <h1 id="moduleTitle">MathEase Lesson</h1>
+                    <p id="moduleSubtitle">Master mathematics concepts</p>
+                </div>
+        
+                <div class="content-grid">
+                    <!-- Video Section -->
+                    <div class="video-section">
+                        <div id="videoContainer" class="video-container">
+                            <div style="background: #f0f0f0; height: 400px; display: flex; align-items: center; justify-content: center;">
+                                <i class="fas fa-spinner fa-spin" style="font-size: 40px; color: #3498db;"></i>
                             </div>
-                            
-                            <div class="lesson-content">
-                                <!-- Video Section -->
-                                <div class="media-container">
-                                    <div class="media-header">
-                                        <span><i class="fas fa-video"></i> Lesson Video</span>
-                                        <div class="media-controls">
-                                            <span id="videoTime" style="font-family: monospace; color: white;">0:00 / 0:00</span>
-                                            <button class="refresh-video-btn" id="refreshVideoBtn" title="Reload video">
-                                                <i class="fas fa-sync-alt"></i>
-                                            </button>
-                                        </div>
-                                    </div>
-                                    <div class="video-container">
-                                        <!-- VIDEO: Loaded from database -->
-                                        <video id="lessonVideo" width="100%" height="100%" controls>
-                                            <source src="" type="video/mp4">
-                                            Your browser does not support the video tag.
-                                        </video>
-                                    </div>
-                                    <div class="video-info" id="videoInfo">
-                                        <p><i class="fas fa-info-circle"></i> Video loaded from database. Changes will appear automatically.</p>
-                                    </div>
+                        </div>
+                        <div id="videoInfo" class="video-info"></div>
+                        <div class="video-controls">
+                            <button id="refreshVideoBtn"><i class="fas fa-sync-alt"></i> Refresh Video</button>
+                        </div>
+                    </div>
+        
+                    <!-- Lesson Content -->
+                    <div class="lesson-content-section">
+                        <h2><i class="fas fa-file-alt" style="color: #3498db;"></i> Lesson Content</h2>
+                        <div id="lessonContent" class="lesson-content"></div>
+                    </div>
+        
+                    <!-- Sidebar -->
+                    <div class="lesson-sidebar">
+                        <div class="sidebar-card">
+                            <h3><i class="fas fa-tasks" style="color: #3498db;"></i> Lesson Progress</h3>
+                            <div class="progress-container">
+                                <div class="progress-bar-container">
+                                    <div class="progress-fill" id="lessonProgressFill" style="width: 0%; background: #3498db;"></div>
                                 </div>
-                            
-                                <!-- Example Section -->
-                                <div class="step-container" id="exampleSection">
-                                    <div class="step-title">
-                                        <span class="step-number"><i class="fas fa-book"></i></span> Lesson Content
-                                    </div>
-                                    <div class="step-content" id="lessonContent">
-                                        <p>Loading lesson content from database...</p>
-                                        <div class="math-example">
-                                            <p><strong>Loading example...</strong></p>
-                                        </div>
-                                        <ol class="steps">
-                                            <li>Lesson steps will appear here</li>
-                                            <li>Loaded dynamically from database</li>
-                                        </ol>
-                                    </div>
-                                </div>
-                                
-                                <!-- Divider Line -->
-                                <div style="height: 1px; background: var(--border-color); margin: 30px 0;"></div>
-                                
-                                
-                                <!-- Lesson Navigation -->
-                                <div class="lesson-navigation">
-                                    <button class="lesson-nav-btn nav-prev" id="prevLessonBtn" disabled>
-                                        <i class="fas fa-arrow-left"></i> Previous Lesson
-                                    </button>
-                                    
-                                    <!-- CRITICAL: Admin Connection - data-lesson-id added for backend tracking -->
-                                    <button class="btn-primary" id="completeLessonBtn" data-lesson-id="1">
-                                        <i class="fas fa-check-circle"></i> Mark Lesson Complete
-                                    </button>
-                                    
-                                    <button class="lesson-nav-btn nav-next" id="nextLessonBtn" disabled>
-                                        Next Lesson <i class="fas fa-arrow-right"></i>
-                                    </button>
+                                <div class="progress-details">
+                                    <span id="progressPercentage">0% Complete</span>
+                                    <span id="progressTime">0:00 / 0:00</span>
                                 </div>
                             </div>
                         </div>
-                    </main>
+        
+                        <div class="sidebar-card">
+                            <h3><i class="fas fa-calculator" style="color: #3498db;"></i> Practice</h3>
+                            <div class="practice-buttons">
+                                <button class="btn-primary" id="showHintBtn">Show Hint</button>
+                                <button class="btn-primary" id="showSolutionBtn">Show Solution</button>
+                                <button class="btn-primary" id="checkAnswerBtn">Check Answer</button>
+                                <button class="btn-primary" id="practiceMoreBtn">Practice More</button>
+                            </div>
+                        </div>
+        
+                        <button class="btn-primary complete-lesson-btn" id="completeLessonBtn" style="background: #3498db;">
+                            <i class="fas fa-check-circle"></i> Mark Lesson Complete
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
                     
                     <!-- Sidebar -->
                     <aside class="sidebar">
