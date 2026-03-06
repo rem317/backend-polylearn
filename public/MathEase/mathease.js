@@ -72,7 +72,7 @@ function getCurrentAppLessonId() {
     const appMap = {
         'mathease': 1,
         'polylearn': 2,
-        'mathease': 3
+        'factolearn': 3
     };
     
     return appMap[selectedApp] || 1;
@@ -2037,23 +2037,26 @@ console.log('✅ Tools globally available');
 // ✅ UPDATED: apiRequest - FORCED LESSON_ID=1 FOR 
 // ============================================
 async function apiRequest(endpoint, options = {}) {
-    // ===== FORCE LESSON_ID=3 FOR ALL  API CALLS =====
-    // Check if this is a  endpoint that needs lesson_id
-    const isEndpoint = endpoint.includes('/api/progress/') || 
-                                 endpoint.includes('/api/lessons') || 
-                                 endpoint.includes('/api/practice/') ||
-                                 endpoint.includes('/api/quiz/') ||
-                                 endpoint.includes('/api/topics/') ||
-                                 endpoint.includes('/api/admin/structure');
+    // ===== FORCE LESSON_ID=1 FOR ALL MATHEASE API CALLS =====
+    // Check if this is a MathEase endpoint that needs lesson_id
+    const isMathEaseEndpoint = endpoint.includes('/api/progress/') || 
+                               endpoint.includes('/api/lessons') || 
+                               endpoint.includes('/api/practice/') ||
+                               endpoint.includes('/api/quiz/') ||
+                               endpoint.includes('/api/topics/') ||
+                               endpoint.includes('/api/admin/structure');
     
-    // Add lesson_id=3 to the URL if needed
+    // Add lesson_id=1 to the URL if needed
     let modifiedEndpoint = endpoint;
-    if (isEndpoint && !endpoint.includes('lesson_id=')) {
+    if (isMathEaseEndpoint && !endpoint.includes('lesson_id=')) {
         const separator = endpoint.includes('?') ? '&' : '?';
         modifiedEndpoint = `${endpoint}${separator}lesson_id=1`;
-        console.log(`🔧  API forced lesson_id=1: ${modifiedEndpoint.split('?')[0]}`);
+        console.log(`🔧 MathEase API forced lesson_id=1: ${modifiedEndpoint.split('?')[0]}`);
     }
     
+    const url = modifiedEndpoint.startsWith('http') ? modifiedEndpoint : `${API_BASE_URL}${modifiedEndpoint}`;
+    // ... rest of function
+}
     const url = modifiedEndpoint.startsWith('http') ? modifiedEndpoint : `${API_BASE_URL}${modifiedEndpoint}`;
     
     // Default headers
@@ -4449,18 +4452,17 @@ function completeExercise(topicName) {
 // ============================================
 async function fetchDailyProgress() {
     try {
-        console.log('📊 Fetching mathease daily progress...');
+        console.log('📊 Fetching MathEase daily progress...');
         
         const token = localStorage.getItem('authToken') || authToken;
         if (!token) {
             console.warn('No auth token available');
-            return getDefaultmatheaseDailyProgress();
+            return getDefaultMathEaseDailyProgress();
         }
         
         // ✅ FORCE LESSON_ID = 1
         const MATHEASE_LESSON_ID = 1;
         
-        // ✅ GUMAMIT NG FETCH API, HINDI PROMISEPOOL
         const response = await fetch(`/api/progress/daily?lesson_id=${MATHEASE_LESSON_ID}`, {
             headers: {
                 'Authorization': `Bearer ${token}`,
@@ -4475,7 +4477,7 @@ async function fetchDailyProgress() {
         const data = await response.json();
         
         if (data.success && data.progress) {
-            console.log('✅ mathease daily progress loaded:', data.progress);
+            console.log('✅ MathEase daily progress loaded:', data.progress);
             
             return {
                 lessons_completed: data.progress.lessons_completed || 0,
@@ -4487,15 +4489,25 @@ async function fetchDailyProgress() {
             };
         } else {
             console.warn('No daily progress data');
-            return getDefaultmatheaseDailyProgress();
+            return getDefaultMathEaseDailyProgress();
         }
         
     } catch (error) {
         console.error('❌ Error fetching daily progress:', error);
-        return getDefaultmatheaseDailyProgress();
+        return getDefaultMathEaseDailyProgress();
     }
 }
 
+function getDefaultMathEaseDailyProgress() {
+    return {
+        lessons_completed: 0,
+        exercises_completed: 0,
+        quizzes_completed: 0,
+        points_earned: 0,
+        time_spent_minutes: 0,
+        streak_days: 0
+    };
+}
 // ===== Default progress for mathease =====
 function getDefaultmatheaseDailyProgress() {
     return {
@@ -6849,7 +6861,7 @@ function forceUpdateProgressUI(progress) {
 // ✅ FIXED: Load Progress Dashboard Data -  ONLY (NO ERRORS)
 // ============================================
 async function loadProgressDashboardData() {
-    console.log('📊 Loading mathease progress dashboard data...');
+    console.log('📊 Loading MathEase progress dashboard data...');
     
     try {
         // Show loading state
@@ -6861,6 +6873,47 @@ async function loadProgressDashboardData() {
             return;
         }
         
+        const MATHEASE_LESSON_ID = 1;
+        
+        // ===== FETCH ALL MATHEASE DATA =====
+        const [
+            lessonsProgress,
+            practiceStats,
+            quizStats,
+            totalLessonsCount
+        ] = await Promise.allSettled([
+            fetch(`/api/progress/lessons?lesson_id=${MATHEASE_LESSON_ID}`, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            }).then(res => res.json()).catch(() => ({ success: false })),
+            
+            fetch(`/api/progress/practice-attempts?lesson_id=${MATHEASE_LESSON_ID}`, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            }).then(res => res.json()).catch(() => ({ success: false })),
+            
+            fetch(`/api/quiz/user/attempts?lesson_id=${MATHEASE_LESSON_ID}`, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            }).then(res => res.json()).catch(() => ({ success: false })),
+            
+            fetch(`/api/lessons-db/complete?lesson_id=${MATHEASE_LESSON_ID}`, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            }).then(res => res.json()).catch(() => ({ success: false }))
+        ]);
+        
+        // ===== PROCESS LESSONS DATA =====
+        let lessonsCompleted = 0;
+        let totalLessons = 10;
+        
+        if (lessonsProgress.status === 'fulfilled' && lessonsProgress.value?.success) {
+            const progress = lessonsProgress.value.progress || [];
+            lessonsCompleted = progress.filter(p => 
+                p.completion_status === 'completed' || p.status === 'completed'
+            ).length;
+            console.log(`✅ MathEase lessons completed: ${lessonsCompleted}`);
+        }
+        
+        // ... rest of function
+    }
+}
 
         
         // ===== FETCH ALL  DATA =====
@@ -7192,7 +7245,7 @@ function updateProgressDashboardUI() {
 // ============================================
 
 async function updateProgressSummaryCards() {
-    console.log('📊 Updating  progress summary cards (lesson_id = 1)...');
+    console.log('📊 Updating MathEase progress summary cards (lesson_id = 1)...');
     
     try {
         const token = localStorage.getItem('authToken') || authToken;
@@ -7202,7 +7255,7 @@ async function updateProgressSummaryCards() {
             return;
         }
         
-        const _LESSON_ID = 1; // FIXED to 3
+        const MATHEASE_LESSON_ID = 1; // Fixed for MathEase
         
         // ===== 1. GET LESSONS =====
         let lessonsCompleted = 0;
@@ -7210,7 +7263,7 @@ async function updateProgressSummaryCards() {
         
         try {
             // Get total lessons count
-            const totalResponse = await fetch(`/api/lessons-db/complete?lesson_id=${_LESSON_ID}`, {
+            const totalResponse = await fetch(`/api/lessons-db/complete?lesson_id=${MATHEASE_LESSON_ID}`, {
                 headers: { 'Authorization': `Bearer ${token}` }
             });
             
@@ -7218,12 +7271,12 @@ async function updateProgressSummaryCards() {
                 const totalData = await totalResponse.json();
                 if (totalData.success && totalData.lessons) {
                     totalLessons = totalData.lessons.length;
-                    console.log(`📚 Total  lessons: ${totalLessons}`);
+                    console.log(`📚 Total MathEase lessons: ${totalLessons}`);
                 }
             }
             
             // Get lessons progress
-            const lessonsResponse = await fetch(`/api/progress/lessons?lesson_id=${_LESSON_ID}`, {
+            const lessonsResponse = await fetch(`/api/progress/lessons?lesson_id=${MATHEASE_LESSON_ID}`, {
                 headers: { 'Authorization': `Bearer ${token}` }
             });
             
@@ -7234,13 +7287,116 @@ async function updateProgressSummaryCards() {
                         p.completion_status === 'completed' || p.status === 'completed'
                     ).length;
                     
-                    console.log(`✅  lessons completed: ${lessonsCompleted}/${totalLessons}`);
+                    console.log(`✅ MathEase lessons completed: ${lessonsCompleted}/${totalLessons}`);
                 }
             }
         } catch (error) {
             console.warn('⚠️ Could not fetch lessons:', error.message);
         }
         
+        // ===== 2. GET PRACTICE EXERCISES =====
+        let exercisesCompleted = 0;
+        let totalExercises = 0;
+        
+        try {
+            const totalExercisesResponse = await fetch(`/api/practice/exercises/count?lesson_id=${MATHEASE_LESSON_ID}`, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            
+            if (totalExercisesResponse.ok) {
+                const totalData = await totalExercisesResponse.json();
+                if (totalData.success) {
+                    totalExercises = totalData.count || 0;
+                    console.log(`📝 Total MathEase practice exercises: ${totalExercises}`);
+                }
+            }
+            
+            const practiceResponse = await fetch(`/api/progress/practice-attempts?lesson_id=${MATHEASE_LESSON_ID}`, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            
+            if (practiceResponse.ok) {
+                const practiceData = await practiceResponse.json();
+                if (practiceData.success && practiceData.attempts) {
+                    exercisesCompleted = practiceData.attempts.filter(attempt => 
+                        attempt.completion_status === 'completed' || 
+                        attempt.percentage >= 70 ||
+                        attempt.score >= 70
+                    ).length;
+                    
+                    console.log(`✅ MathEase completed exercises: ${exercisesCompleted}/${totalExercises}`);
+                }
+            }
+            
+        } catch (error) {
+            console.error('❌ Error fetching practice:', error.message);
+        }
+        
+        // ===== 3. GET QUIZ POINTS =====
+        let totalPoints = 0;
+        
+        try {
+            const quizResponse = await fetch(`/api/quiz/user/attempts?lesson_id=${MATHEASE_LESSON_ID}`, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            
+            if (quizResponse.ok) {
+                const quizData = await quizResponse.json();
+                if (quizData.success && quizData.attempts) {
+                    quizData.attempts.forEach(attempt => {
+                        const correctAnswers = attempt.correct_answers || 0;
+                        totalPoints += correctAnswers * 10;
+                    });
+                    console.log(`✅ MathEase quiz points: ${totalPoints}`);
+                }
+            }
+        } catch (error) {
+            console.warn('⚠️ Could not fetch quiz points:', error.message);
+        }
+        
+        // ===== 4. UPDATE THE UI =====
+        
+        // Update lessons count
+        const lessonsCount = document.getElementById('lessonsCount');
+        if (lessonsCount) {
+            lessonsCount.innerHTML = `${lessonsCompleted}<span class="item-unit">/${totalLessons || 10}</span>`;
+        }
+        
+        // Update exercises count
+        const exercisesCount = document.getElementById('exercisesCount');
+        if (exercisesCount) {
+            exercisesCount.innerHTML = `${exercisesCompleted}<span class="item-unit">/${totalExercises || 15}</span>`;
+        }
+        
+        // Update quiz score
+        const quizScore = document.getElementById('quizScore');
+        if (quizScore) {
+            quizScore.innerHTML = `${totalPoints}<span class="item-unit">pts</span>`;
+        }
+        
+        // Update avg time
+        const avgTime = document.getElementById('avgTime');
+        if (avgTime) {
+            const avgMinutes = calculateAverageTime(lessonsCompleted, exercisesCompleted, totalPoints);
+            avgTime.innerHTML = `${avgMinutes}<span class="item-unit">min/day</span>`;
+        }
+        
+        console.log('✅ MathEase progress summary cards updated');
+        console.log(`   FINAL - Lessons: ${lessonsCompleted}/${totalLessons}, Practice: ${exercisesCompleted}/${totalExercises}, Points: ${totalPoints}`);
+        
+        // Cache this data
+        cacheProgressData({
+            lessons: `${lessonsCompleted}<span class="item-unit">/${totalLessons || 10}</span>`,
+            exercises: `${exercisesCompleted}<span class="item-unit">/${totalExercises || 15}</span>`,
+            quizScore: `${totalPoints}<span class="item-unit">pts</span>`,
+            avgTime: `${calculateAverageTime(lessonsCompleted, exercisesCompleted, totalPoints)}<span class="item-unit">min/day</span>`
+        });
+        
+    } catch (error) {
+        console.error('❌ Error updating progress summary cards:', error);
+        setDefaultProgressValues();
+    }
+}
         // ===== 2. GET PRACTICE EXERCISES =====
         let exercisesCompleted = 0;
         let totalExercises = 0;
@@ -17453,15 +17609,12 @@ async function fetchAllLessons() {
             return [];
         }
         
-        // FORCE LESSON_ID = 1 ONLY
-        const currentLessonId = MATHEASE_LESSON_ID; // Always 3
+        // FORCE LESSON_ID = 1 ONLY for MathEase
+        const currentLessonId = 1;
         
-        console.log(`📚 Fetching lessons for  ONLY, lesson ID: ${currentLessonId}`);
+        console.log(`📚 Fetching lessons for MathEase ONLY, lesson ID: ${currentLessonId}`);
         
-        // Use the filtered endpoint
-        let endpoint = `/api/lessons-db/complete?lesson_id=${currentLessonId}`;
-        
-        const response = await fetch(endpoint, {
+        const response = await fetch(`/api/lessons-db/complete?lesson_id=${currentLessonId}`, {
             headers: {
                 'Authorization': `Bearer ${token}`,
                 'Content-Type': 'application/json'
@@ -17475,27 +17628,26 @@ async function fetchAllLessons() {
         const data = await response.json();
         
         if (data.success && data.lessons) {
-            // Double-check filter on client side to be absolutely sure
+            // Double-check filter on client side
             const filteredLessons = data.lessons.filter(lesson => {
-                // Check all possible places where lesson_id might be stored
                 const lessonId = lesson.lesson_id || lesson.lessonId || lesson.id;
-                return lessonId == MATHEASE_LESSON_ID;
+                return lessonId == 1;
             });
             
-            console.log(`✅ Found ${filteredLessons.length}  lessons (filtered from ${data.lessons.length} total)`);
+            console.log(`✅ Found ${filteredLessons.length} MathEase lessons`);
             
             // Log each lesson for verification
             filteredLessons.forEach((lesson, index) => {
-                console.log(`  Lesson ${index + 1}: ID=${lesson.content_id || lesson.id}, Title=${lesson.content_title || lesson.title}`);
+                console.log(`  Lesson ${index + 1}: ID=${lesson.content_id}, Title=${lesson.content_title}`);
             });
             
             return filteredLessons;
         } else {
-            console.log('ℹ️ No  lessons found');
+            console.log('ℹ️ No MathEase lessons found');
             return [];
         }
     } catch (error) {
-        console.error('Error fetching  lessons:', error);
+        console.error('Error fetching MathEase lessons:', error);
         return [];
     }
 }
@@ -17988,13 +18140,13 @@ async function updateProgressCharts() {
 // ============================================
 async function openLesson(lessonId) {
     try {
-        console.log('📖 Opening lesson on Railway:', lessonId);
+        console.log('📖 Opening MathEase lesson:', lessonId);
         
         // Show loading
-        showNotification('Loading lesson...', 'info');
+        showNotification('Loading MathEase lesson...', 'info');
         
-        // Fetch lesson details
-        const response = await fetch(`/api/lessons-db/${lessonId}`, {
+        // Fetch lesson details with forced lesson_id=1
+        const response = await fetch(`/api/lessons-db/${lessonId}?lesson_id=1`, {
             headers: {
                 'Authorization': `Bearer ${localStorage.getItem('authToken')}`
             }
@@ -18019,13 +18171,9 @@ async function openLesson(lessonId) {
         
         // Log activity
         await logUserActivity('lesson_started', lessonId, {
-            lesson_title: lesson.content_title
+            lesson_title: lesson.content_title,
+            app: 'MathEase'
         });
-        
-        // Update URL without reload
-        const url = new URL(window.location);
-        url.searchParams.set('lessonId', lessonId);
-        window.history.pushState({}, '', url);
         
         // Navigate to module dashboard
         navigateTo('moduleDashboard');
@@ -18041,11 +18189,11 @@ async function openLesson(lessonId) {
             // Update complete button
             await checkLessonCompletionStatus();
             
-            console.log('✅ Lesson fully loaded on Railway');
+            console.log('✅ MathEase lesson fully loaded');
         }, 500);
         
     } catch (error) {
-        console.error('Error opening lesson on Railway:', error);
+        console.error('Error opening MathEase lesson:', error);
         showNotification('Error loading lesson: ' + error.message, 'error');
     }
 }
@@ -23610,16 +23758,16 @@ function addProgressStyles() {
 // UPDATED: initApp - Loads  data immediately
 // ============================================
 function initApp() {
-    console.log('🎮  Application Initializing...');
+    console.log('🎮 MathEase Application Initializing...');
     
-    // ✅ Set  constants
+    // ✅ Set MathEase constants
     window.MATHEASE_LESSON_ID = 1;
-    window.CURRENT_APP_NAME = '';
+    window.CURRENT_APP_NAME = 'MathEase';
     
     // ✅ Set localStorage para sure
     localStorage.setItem('selectedApp', 'mathease');
-    localStorage.setItem('currentLessonFilter', '3');
-    localStorage.setItem('currentLessonId', '3');
+    localStorage.setItem('currentLessonFilter', '1');
+    localStorage.setItem('currentLessonId', '1');
     
     // ✅ CHECK MUNA KUNG MAY EXISTING USER
     const existingUser = localStorage.getItem('mathhub_user');
@@ -23634,7 +23782,7 @@ function initApp() {
             AppState.hasSelectedApp = true;
             
             console.log(`👤 User: ${AppState.currentUser.username}`);
-            console.log(`📱 Selected app:  (lesson_id=1)`);
+            console.log(`📱 Selected app: MathEase (lesson_id=1)`);
             
             // Setup listeners
             initHamburgerMenu();
@@ -23642,9 +23790,9 @@ function initApp() {
             // Navigate to dashboard
             navigateTo('dashboard');
             
-            // Load all  data
+            // Load all MathEase data
             setTimeout(() => {
-                loadData();
+                loadMathEaseData();
             }, 500);
             
             return;
@@ -23655,13 +23803,13 @@ function initApp() {
         }
     }
     
-    // ✅ WALANG USER - use demo user for 
-    console.log('📱 No existing session, using demo user for ');
+    // ✅ WALANG USER - use demo user for MathEase
+    console.log('📱 No existing session, using demo user for MathEase');
     const demoUser = {
         id: 1,
-        username: '_user',
-        email: 'demo@.com',
-        full_name: ' Student',
+        username: 'math_ease_user',
+        email: 'demo@mathease.com',
+        full_name: 'MathEase Student',
         role: 'student'
     };
     
@@ -23675,8 +23823,8 @@ function initApp() {
     localStorage.setItem('mathhub_user', JSON.stringify(demoUser));
     localStorage.setItem('hasSelectedApp', 'true');
     localStorage.setItem('selectedApp', 'mathease');
-    localStorage.setItem('currentLessonFilter', '3');
-    localStorage.setItem('currentLessonId', '3');
+    localStorage.setItem('currentLessonFilter', '1');
+    localStorage.setItem('currentLessonId', '1');
     
     // Initialize hamburger menu
     initHamburgerMenu();
@@ -23684,14 +23832,52 @@ function initApp() {
     // Navigate directly to dashboard
     navigateTo('dashboard');
     
-    // Load all  data
+    // Load all MathEase data
     setTimeout(() => {
-        loadData();
+        loadMathEaseData();
     }, 500);
     
-    console.log('🎮  Application Initialized - lesson_id=1 forced');
+    console.log('🎮 MathEase Application Initialized - lesson_id=1 forced');
 }
 
+// NEW: Load all MathEase data
+async function loadMathEaseData() {
+    console.log('📥 Loading ALL MathEase data (lesson_id=1)...');
+    
+    try {
+        // Show loading
+        showDashboardLoading();
+        
+        // Load ALL data in parallel
+        await Promise.allSettled([
+            updateContinueLearningModule(),
+            loadPracticeStatistics(),
+            loadQuizCategories(),
+            fetchCumulativeProgress(),
+            updateProgressSummaryCards(),
+            fetchPracticeStatistics(),
+            loadLeaderboard('weekly')
+        ]);
+        
+        // Update specific elements
+        const welcomeTitle = document.getElementById('dashboardWelcomeTitle');
+        if (welcomeTitle) {
+            welcomeTitle.innerHTML = 'Welcome to <span class="app-title">MathEase</span>!';
+        }
+        
+        const userMessage = document.getElementById('dashboardUserMessage');
+        if (userMessage) {
+            userMessage.textContent = 'Master mathematics concepts with our step-by-step lessons.';
+        }
+        
+        hideDashboardLoading();
+        console.log('✅ All MathEase data loaded successfully');
+        
+    } catch (error) {
+        console.error('❌ Error loading MathEase data:', error);
+        hideDashboardLoading();
+    }
+}
 // ============================================
 // NEW: Load all  data
 // ============================================
@@ -25836,3 +26022,83 @@ document.addEventListener('DOMContentLoaded', function() {
         observer.observe(settingsPage, { attributes: true });
     }
 });
+
+
+
+// Debug MathEase
+window.debugMathEase = async function() {
+    console.log('🔍 DEBUGGING MATHEASE (LESSON_ID=1)');
+    console.log('=====================================');
+    
+    const token = localStorage.getItem('authToken');
+    
+    if (!token) {
+        console.error('❌ No auth token found');
+        return;
+    }
+    
+    // 1. Check lessons
+    console.log('\n📚 MATHEASE LESSONS:');
+    try {
+        const res = await fetch('/api/lessons-db/complete?lesson_id=1', {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        const data = await res.json();
+        console.log('Lessons:', data);
+    } catch (e) {
+        console.error('Error:', e);
+    }
+    
+    // 2. Check practice exercises
+    console.log('\n💪 MATHEASE PRACTICE:');
+    try {
+        const res = await fetch('/api/practice/exercises/count?lesson_id=1', {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        const data = await res.json();
+        console.log('Practice exercises:', data);
+    } catch (e) {
+        console.error('Error:', e);
+    }
+    
+    // 3. Check user progress
+    console.log('\n📊 USER PROGRESS:');
+    try {
+        const res = await fetch('/api/progress/lessons?lesson_id=1', {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        const data = await res.json();
+        console.log('Progress:', data);
+    } catch (e) {
+        console.error('Error:', e);
+    }
+    
+    // 4. Check quizzes
+    console.log('\n🧠 MATHEASE QUIZZES:');
+    try {
+        const res = await fetch('/api/quiz/categories?lesson_id=1', {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        const data = await res.json();
+        console.log('Quiz categories:', data);
+    } catch (e) {
+        console.error('Error:', e);
+    }
+    
+    console.log('\n✅ MathEase debug complete');
+};
+
+// Force MathEase lesson_id=1
+window.forceMathEase = function() {
+    console.log('🔧 FORCING MATHEASE MODE');
+    localStorage.setItem('selectedApp', 'mathease');
+    localStorage.setItem('currentLessonFilter', '1');
+    localStorage.setItem('currentLessonId', '1');
+    
+    // Override constants
+    window.MATHEASE_LESSON_ID = 1;
+    window.getCurrentAppLessonId = function() { return 1; };
+    
+    console.log('✅ Now using lesson_id=1 for MathEase');
+    location.reload();
+};
