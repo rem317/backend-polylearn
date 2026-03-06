@@ -316,7 +316,217 @@ function getFactoLearnMockLessons() {
         }
     ];
 }
+// ============================================
+// OPEN LESSON FUNCTION - LOAD LESSON FROM DATABASE
+// ============================================
+async function openLesson(lessonId) {
+    console.log('📖 Opening lesson:', lessonId);
+    
+    try {
+        if (!lessonId) {
+            console.error('❌ No lesson ID provided');
+            return;
+        }
+        
+        lessonId = parseInt(lessonId);
+        localStorage.setItem('currentLessonId', lessonId.toString());
+        
+        showNotification('Loading lesson...', 'info');
+        
+        // Try to get lesson from state first
+        let lesson = null;
+        if (LessonState.lessons && LessonState.lessons.length > 0) {
+            lesson = LessonState.lessons.find(l => l.content_id === lessonId);
+        }
+        
+        // If not in state, fetch from API
+        if (!lesson) {
+            const data = await apiRequest(`/api/lessons-db/${lessonId}`);
+            if (data.success && data.lesson) {
+                lesson = data.lesson;
+            }
+        }
+        
+        if (!lesson) {
+            // Use mock lesson as fallback
+            lesson = getMockLesson(lessonId);
+        }
+        
+        console.log('✅ Lesson loaded:', lesson.content_title);
+        
+        // Store in state
+        LessonState.currentLesson = lesson;
+        LessonState.currentTopic = lesson.topic_id || 1;
+        
+        // Navigate to module dashboard
+        navigateTo('moduleDashboard');
+        
+        // Wait for page to load then update content
+        setTimeout(async () => {
+            updateLessonUI(lesson);
+            setupNavigationButtons();
+            await loadVideoFromDatabase(lessonId);
+            await checkLessonCompletionStatus();
+            console.log('✅ Lesson fully loaded');
+        }, 500);
+        
+    } catch (error) {
+        console.error('Error opening lesson:', error);
+        showNotification('Error loading lesson: ' + error.message, 'error');
+    }
+}
 
+// ============================================
+// GET MOCK LESSON (FALLBACK)
+// ============================================
+function getMockLesson(lessonId) {
+    const mockLessons = {
+        1: {
+            content_id: 1,
+            content_title: 'Introduction to Factorials',
+            content_description: 'Learn the basics of factorial notation and calculations',
+            video_duration_seconds: 600,
+            topic_id: 1,
+            adjacent: {
+                previous: null,
+                next: { id: 2, title: 'Factorial Operations' }
+            }
+        },
+        2: {
+            content_id: 2,
+            content_title: 'Factorial Operations',
+            content_description: 'Perform operations with factorial expressions',
+            video_duration_seconds: 720,
+            topic_id: 1,
+            adjacent: {
+                previous: { id: 1, title: 'Introduction to Factorials' },
+                next: { id: 3, title: 'Factorial Applications' }
+            }
+        },
+        3: {
+            content_id: 3,
+            content_title: 'Factorial Applications',
+            content_description: 'Apply factorials in permutations and combinations',
+            video_duration_seconds: 840,
+            topic_id: 2,
+            adjacent: {
+                previous: { id: 2, title: 'Factorial Operations' },
+                next: { id: 4, title: 'Permutation Fundamentals' }
+            }
+        },
+        4: {
+            content_id: 4,
+            content_title: 'Permutation Fundamentals',
+            content_description: 'Learn the basics of permutations and the permutation formula',
+            video_duration_seconds: 900,
+            topic_id: 3,
+            adjacent: {
+                previous: { id: 3, title: 'Factorial Applications' },
+                next: { id: 5, title: 'Combination Concepts' }
+            }
+        },
+        5: {
+            content_id: 5,
+            content_title: 'Combination Concepts',
+            content_description: 'Master combination problems and the combination formula',
+            video_duration_seconds: 960,
+            topic_id: 4,
+            adjacent: {
+                previous: { id: 4, title: 'Permutation Fundamentals' },
+                next: null
+            }
+        }
+    };
+    
+    return mockLessons[lessonId] || mockLessons[1];
+}
+
+// ============================================
+// UPDATE LESSON UI
+// ============================================
+function updateLessonUI(lesson) {
+    // Module title
+    const moduleTitle = document.getElementById('moduleTitle');
+    if (moduleTitle) {
+        moduleTitle.textContent = lesson.content_title || 'FactoLearn Lesson';
+    }
+    
+    // Lesson title in sidebar
+    const moduleLessonTitle = document.getElementById('moduleLessonTitle');
+    if (moduleLessonTitle) {
+        moduleLessonTitle.innerHTML = `<i class="fas fa-book"></i> ${lesson.content_title || 'Lesson'}`;
+    }
+    
+    // Subtitle
+    const moduleSubtitle = document.getElementById('moduleSubtitle');
+    if (moduleSubtitle) {
+        moduleSubtitle.textContent = `FactoLearn - ${lesson.topic_title || 'Topic'}`;
+    }
+}
+
+// ============================================
+// SETUP NAVIGATION BUTTONS
+// ============================================
+function setupNavigationButtons() {
+    const currentLesson = LessonState.currentLesson;
+    if (!currentLesson) return;
+    
+    const prevBtn = document.getElementById('prevLessonBtn');
+    const nextBtn = document.getElementById('nextLessonBtn');
+    
+    if (prevBtn) {
+        if (currentLesson.adjacent?.previous) {
+            prevBtn.disabled = false;
+            prevBtn.innerHTML = `<i class="fas fa-arrow-left"></i> Previous: ${currentLesson.adjacent.previous.title}`;
+            prevBtn.onclick = () => openLesson(currentLesson.adjacent.previous.id);
+        } else {
+            prevBtn.disabled = true;
+            prevBtn.innerHTML = `<i class="fas fa-arrow-left"></i> No Previous Lesson`;
+            prevBtn.onclick = null;
+        }
+    }
+    
+    if (nextBtn) {
+        if (currentLesson.adjacent?.next) {
+            nextBtn.disabled = false;
+            nextBtn.innerHTML = `Next: ${currentLesson.adjacent.next.title} <i class="fas fa-arrow-right"></i>`;
+            nextBtn.onclick = () => openLesson(currentLesson.adjacent.next.id);
+        } else {
+            nextBtn.disabled = true;
+            nextBtn.innerHTML = `No Next Lesson <i class="fas fa-arrow-right"></i>`;
+            nextBtn.onclick = null;
+        }
+    }
+}
+
+// ============================================
+// LOAD VIDEO FROM DATABASE
+// ============================================
+async function loadVideoFromDatabase(contentId) {
+    console.log('🎬 Loading video for lesson:', contentId);
+    
+    const videoContainer = document.getElementById('videoContainer');
+    if (!videoContainer) return;
+    
+    videoContainer.innerHTML = `
+        <div style="background: #f0f0f0; height: 400px; display: flex; align-items: center; justify-content: center;">
+            <i class="fas fa-spinner fa-spin" style="font-size: 40px; color: #7a0000;"></i>
+            <p style="margin-left: 15px;">Loading video...</p>
+        </div>
+    `;
+    
+    // For demo, show placeholder
+    setTimeout(() => {
+        videoContainer.innerHTML = `
+            <div style="background: #000; height: 400px; display: flex; align-items: center; justify-content: center; color: white; flex-direction: column;">
+                <i class="fas fa-video" style="font-size: 60px; color: #7a0000; margin-bottom: 15px;"></i>
+                <h3>Video Lesson: ${LessonState.currentLesson?.content_title || 'FactoLearn'}</h3>
+                <p style="color: #999;">Video content would play here</p>
+                <p style="color: #666; font-size: 12px; margin-top: 20px;">Video ID: ${contentId}</p>
+            </div>
+        `;
+    }, 1000);
+}
 // ============================================
 // ✅ Get FactoLearn Mock Quiz Categories
 // ============================================
@@ -2575,70 +2785,199 @@ function updateMenuUserInfo() {
 }
 
 // ============================================
-// ✅ LOGOUT CONFIRMATION
+// LOGOUT CONFIRMATION MODAL - GAYA NG NASA PICTURE
 // ============================================
 function showLogoutConfirmation() {
     console.log('🚪 Showing logout confirmation');
     
+    // Remove existing modal if any
     const existingModal = document.querySelector('.logout-modal');
     if (existingModal) existingModal.remove();
     
+    // Get user info for display
+    const userJson = localStorage.getItem('mathhub_user');
+    let userEmail = 'student@mathhub.com';
+    let userLevel = 'Beginner';
+    let userName = 'Student';
+    
+    if (userJson) {
+        try {
+            const user = JSON.parse(userJson);
+            userEmail = user.email || 'student@mathhub.com';
+            userName = user.full_name || user.username || 'Student';
+            
+            // Calculate level based on progress (simplified)
+            const lessonsCompleted = ProgressState.cumulativeProgress?.total_lessons_completed || 0;
+            if (lessonsCompleted >= 5) userLevel = 'Intermediate';
+            if (lessonsCompleted >= 10) userLevel = 'Advanced';
+            if (lessonsCompleted >= 15) userLevel = 'Expert';
+        } catch (e) {
+            console.error('Error parsing user:', e);
+        }
+    }
+    
+    // Get session time (simplified)
+    const loginTime = localStorage.getItem('loginTime');
+    let sessionTime = 'Just now';
+    if (loginTime) {
+        const minutes = Math.floor((Date.now() - parseInt(loginTime)) / 60000);
+        if (minutes > 0) {
+            sessionTime = minutes < 60 ? `${minutes} min` : `${Math.floor(minutes/60)}h ${minutes%60}m`;
+        }
+    }
+    
     const modalHTML = `
-        <div class="logout-modal" style="position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.7); backdrop-filter: blur(5px); display: flex; align-items: center; justify-content: center; z-index: 10000; padding: 15px;">
+        <div class="logout-modal" style="position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); backdrop-filter: blur(5px); display: flex; align-items: center; justify-content: center; z-index: 10000; padding: 15px; animation: fadeIn 0.3s ease;">
+            
             <div style="background: white; max-width: 380px; width: 100%; border-radius: 16px; overflow: hidden; box-shadow: 0 20px 40px -12px rgba(0,0,0,0.4);">
+                
+                <!-- Modal Header -->
                 <div style="background: #b90404; color: white; padding: 16px 20px; display: flex; justify-content: space-between; align-items: center;">
-                    <h3 style="margin: 0; font-size: 18px;"><i class="fas fa-sign-out-alt"></i> Confirm Logout</h3>
-                    <button onclick="closeLogoutModal()" style="background: none; border: none; color: white; font-size: 24px; cursor: pointer;">&times;</button>
+                    <h3 style="margin: 0; font-size: 18px; font-weight: 600; display: flex; align-items: center; gap: 10px;">
+                        <i class="fas fa-sign-out-alt"></i> 
+                        Confirm Logout
+                    </h3>
+                    <button onclick="closeLogoutModal()" style="background: none; border: none; color: white; font-size: 24px; cursor: pointer; line-height: 1; padding: 0; width: 30px; height: 30px; display: flex; align-items: center; justify-content: center;">&times;</button>
                 </div>
                 
+                <!-- Modal Body -->
                 <div style="padding: 25px 20px; text-align: center; background: white;">
+                    
+                    <!-- Warning Icon -->
                     <div style="width: 70px; height: 70px; border-radius: 50%; background: #fff3cd; margin: 0 auto 15px; display: flex; align-items: center; justify-content: center;">
                         <i class="fas fa-exclamation-triangle" style="font-size: 35px; color: #856404;"></i>
                     </div>
                     
+                    <!-- Title -->
                     <h4 style="margin: 0 0 8px; font-size: 18px; font-weight: 600; color: #2c3e50;">
                         Are you sure you want to logout?
                     </h4>
                     
-                    <p style="color: #7f8c8d; margin: 0 0 20px; font-size: 14px;">
+                    <!-- Message -->
+                    <p style="color: #7f8c8d; margin: 0 0 20px; font-size: 14px; line-height: 1.5;">
+                        You are about to log out from your MathHub Student account. 
                         Your progress is automatically saved.
                     </p>
                     
+                    <!-- Details Section -->
+                    <div style="background: #f8f9fa; border-radius: 8px; padding: 15px; margin: 0 0 20px; text-align: left;">
+                        
+                        <!-- Account Info -->
+                        <p style="margin: 8px 0; color: #2c3e50; font-size: 14px; display: flex; align-items: center; gap: 10px;">
+                            <i class="fas fa-user" style="width: 18px; color: #7a0000;"></i>
+                            <strong style="min-width: 80px;">Account:</strong> 
+                            <span style="color: #34495e;">${userEmail}</span>
+                        </p>
+                        
+                        <!-- Session Time -->
+                        <p style="margin: 8px 0; color: #2c3e50; font-size: 14px; display: flex; align-items: center; gap: 10px;">
+                            <i class="fas fa-clock" style="width: 18px; color: #7a0000;"></i>
+                            <strong style="min-width: 80px;">Session:</strong> 
+                            <span style="color: #34495e;">${sessionTime}</span>
+                        </p>
+                        
+                        <!-- Student Level -->
+                        <p style="margin: 8px 0; color: #2c3e50; font-size: 14px; display: flex; align-items: center; gap: 10px;">
+                            <i class="fas fa-graduation-cap" style="width: 18px; color: #7a0000;"></i>
+                            <strong style="min-width: 80px;">Level:</strong> 
+                            <span style="color: #34495e;">${userLevel}</span>
+                        </p>
+                    </div>
+                    
+                    <!-- Action Buttons -->
                     <div style="display: flex; gap: 10px; justify-content: center;">
-                        <button onclick="closeLogoutModal()" style="flex: 1; padding: 12px 15px; background: #ecf0f1; color: #2c3e50; border: none; border-radius: 6px; font-weight: 600; cursor: pointer;">
-                            <i class="fas fa-times"></i> Cancel
+                        
+                        <!-- Cancel Button -->
+                        <button onclick="closeLogoutModal()" style="flex: 1; padding: 12px 15px; background: #ecf0f1; color: #2c3e50; border: none; border-radius: 6px; font-size: 14px; font-weight: 600; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px; transition: all 0.3s;">
+                            <i class="fas fa-times"></i>
+                            Cancel
                         </button>
-                        <button onclick="confirmLogout()" style="flex: 1; padding: 12px 15px; background: #7a0000; color: white; border: none; border-radius: 6px; font-weight: 600; cursor: pointer;">
-                            <i class="fas fa-sign-out-alt"></i> Logout
+                        
+                        <!-- Logout Button -->
+                        <button onclick="confirmLogout()" style="flex: 1; padding: 12px 15px; background: #7a0000; color: white; border: none; border-radius: 6px; font-size: 14px; font-weight: 600; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px; transition: all 0.3s;">
+                            <i class="fas fa-sign-out-alt"></i>
+                            Logout
                         </button>
                     </div>
                 </div>
             </div>
         </div>
+        
+        <style>
+            @keyframes fadeIn {
+                from { opacity: 0; }
+                to { opacity: 1; }
+            }
+            
+            .logout-modal button {
+                transition: all 0.3s ease;
+            }
+            
+            .logout-modal button:hover {
+                transform: translateY(-2px);
+                box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+            }
+            
+            .logout-modal button[onclick="confirmLogout()"]:hover {
+                background: #5a0000 !important;
+                box-shadow: 0 5px 15px rgba(122, 0, 0, 0.3);
+            }
+            
+            @media (max-width: 480px) {
+                .logout-modal div[style*="max-width: 380px"] {
+                    max-width: 320px;
+                }
+                
+                .logout-modal p {
+                    font-size: 13px;
+                }
+                
+                .logout-modal strong {
+                    min-width: 70px;
+                }
+                
+                .logout-modal button {
+                    padding: 10px 12px;
+                    font-size: 13px;
+                }
+            }
+        </style>
     `;
     
     document.body.insertAdjacentHTML('beforeend', modalHTML);
-}
-
-function closeLogoutModal() {
-    const modal = document.querySelector('.logout-modal');
-    if (modal) modal.remove();
-}
-
-function confirmLogout() {
-    console.log('✅ Logout confirmed');
     
+    // Store login time for session display
+    if (!localStorage.getItem('loginTime')) {
+        localStorage.setItem('loginTime', Date.now().toString());
+    }
+}
+
+// ============================================
+// CLOSE LOGOUT MODAL
+// ============================================
+window.closeLogoutModal = function() {
+    console.log('🔒 Closing logout modal');
+    const modal = document.querySelector('.logout-modal');
+    if (modal) {
+        modal.remove();
+    }
+    document.body.classList.remove('modal-open');
+    document.body.style.overflow = '';
+};
+
+// ============================================
+// CONFIRM LOGOUT
+// ============================================
+window.confirmLogout = function() {
+    console.log('✅ Logout confirmed');
     closeLogoutModal();
     showNotification('👋 See you next time!', 'info');
     
     setTimeout(() => {
         logoutAndRedirect();
     }, 500);
-}
+};
 
-// ============================================
-// LOGOUT FUNCTION - REDIRECT TO MAIN LOGIN PAGE
-// ============================================
 function logoutAndRedirect() {
     console.log('🚪 Logging out - redirecting to main login page...');
     
@@ -2649,6 +2988,7 @@ function logoutAndRedirect() {
     localStorage.removeItem('selectedApp');
     localStorage.removeItem('currentLessonFilter');
     localStorage.removeItem('currentLessonId');
+    localStorage.removeItem('loginTime'); // <- Add this line
     sessionStorage.clear();
     
     // Reset app state
@@ -2661,12 +3001,8 @@ function logoutAndRedirect() {
     // Show notification
     alert('👋 Logged out successfully! Redirecting to login page...');
     
-    // REDIRECT TO MAIN LOGIN PAGE (parent directory)
-    // Assuming FactoLearn is in a subfolder like /FactoLearn/
+    // REDIRECT TO MAIN LOGIN PAGE
     window.location.href = '../index.html';
-    
-    // Fallback: if that doesn't work, try root
-    // window.location.href = '/index.html';
 }
 // Make sure closeLogoutModal exists
 window.closeLogoutModal = function() {
@@ -2769,82 +3105,7 @@ function showNotification(message, type = 'info') {
     });
 }
 
-// ============================================
-// ✅ QUIZ FUNCTIONS (Simplified)
-// ============================================
-async function loadQuizCategories() {
-    console.log('📚 Loading quiz categories...');
-    
-    const container = document.getElementById('userQuizzesContainer');
-    if (container) {
-        container.innerHTML = `
-            <div class="card" style="padding: 40px; text-align: center;">
-                <i class="fas fa-spinner fa-spin" style="font-size: 40px; color: #7a0000;"></i>
-                <p style="margin-top: 15px;">Loading quiz categories...</p>
-            </div>
-        `;
-    }
-    
-    setTimeout(() => {
-        displayQuizCategories(getFactoLearnMockCategories());
-    }, 500);
-}
 
-function displayQuizCategories(categories) {
-    const container = document.getElementById('userQuizzesContainer');
-    if (!container) return;
-    
-    let html = `
-        <div class="card full-width-card">
-            <div class="card-header" style="padding: 20px 25px 0;">
-                <h2 class="card-title" style="display: flex; align-items: center; gap: 10px; font-size: 1.4rem; margin-bottom: 5px;">
-                    <i class="fas fa-folder" style="color: #7a0000;"></i> FactoLearn Quiz Categories
-                </h2>
-                <p class="card-subtitle" style="color: #666; font-size: 0.95rem;">
-                    Select a category to start practicing
-                </p>
-            </div>
-            <div style="padding: 20px 25px 25px;">
-                <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 20px;">
-    `;
-    
-    categories.forEach(category => {
-        html += `
-            <div class="quiz-category-card" data-category-id="${category.category_id}" 
-                 style="cursor: pointer; background: white; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 12px rgba(0,0,0,0.1); border: 1px solid #eee;">
-                <div style="height: 6px; background: #7a0000; width: 100%;"></div>
-                <div style="padding: 20px;">
-                    <div style="display: flex; align-items: center; gap: 15px; margin-bottom: 15px;">
-                        <div style="width: 50px; height: 50px; background: rgba(122,0,0,0.1); border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 24px; color: #7a0000;">
-                            <i class="fas fa-graduation-cap"></i>
-                        </div>
-                        <div style="flex: 1;">
-                            <h3 style="margin: 0 0 5px 0; color: #2c3e50; font-size: 18px;">${category.category_name}</h3>
-                            <span style="color: #7f8c8d; font-size: 13px;"><i class="fas fa-question-circle"></i> ${category.quiz_count} quizzes</span>
-                        </div>
-                    </div>
-                    <p style="color: #6c757d; font-size: 14px; margin: 0 0 20px 0;">${category.description}</p>
-                    <button class="quiz-category-btn" data-category-id="${category.category_id}" 
-                            style="width: 100%; padding: 12px; background: #7a0000; color: white; border: none; border-radius: 8px; font-weight: 600; cursor: pointer;">
-                        <i class="fas fa-play-circle"></i> Browse Quizzes
-                    </button>
-                </div>
-            </div>
-        `;
-    });
-    
-    html += `</div></div></div>`;
-    container.innerHTML = html;
-    
-    document.querySelectorAll('.quiz-category-btn').forEach(btn => {
-        btn.addEventListener('click', function(e) {
-            e.preventDefault();
-            const categoryId = this.getAttribute('data-category-id');
-            console.log('🎯 Browse category:', categoryId);
-            alert(`Category ${categoryId} - Quiz feature coming soon!`);
-        });
-    });
-}
 
 async function loadLeaderboard(period = 'weekly') {
     console.log(`🏆 Loading ${period} leaderboard...`);
@@ -2861,10 +3122,7 @@ async function loadLeaderboard(period = 'weekly') {
     `;
 }
 
-async function initQuizDashboard() {
-    console.log('🧠 Initializing quiz dashboard...');
-    await loadQuizCategories();
-}
+
 // ============================================
 // UPDATE CONTINUE LEARNING MODULE - LOAD LESSONS FROM DATABASE
 // ============================================
@@ -3076,10 +3334,11 @@ async function updateContinueLearningModule() {
         
         // Add click handlers
         document.querySelectorAll('.lesson-item').forEach(item => {
-            item.addEventListener('click', function() {
+           item.addEventListener('click', function() {
                 const lessonId = this.getAttribute('data-lesson-id');
                 if (lessonId) openLesson(lessonId);
             });
+
         });
         
         document.querySelectorAll('.start-btn, .review-btn').forEach(btn => {
@@ -3529,7 +3788,1265 @@ window.resetSettings = function() {
         location.reload();
     }
 };
+// ============================================
+// ✅ QUIZ DASHBOARD - FROM POLYLEARN (FIXED VERSION)
+// ============================================
 
+// Quiz State
+const QuizState = {
+    currentQuiz: null,
+    currentAttemptId: null,
+    questions: [],
+    currentIndex: 0,
+    userAnswers: {},
+    startTime: null,
+    timerInterval: null,
+    timeLeft: 0,
+    totalTime: 0,
+    stats: {
+        correct: 0,
+        wrong: 0,
+        score: 0
+    },
+    quizCategories: [],
+    selectedCategory: null
+};
+
+// ============================================
+// INIT QUIZ DASHBOARD
+// ============================================
+async function initQuizDashboard() {
+    console.log('🧠 Initializing quiz dashboard...');
+    
+    try {
+        // Show loading in userQuizzesContainer
+        const container = document.getElementById('userQuizzesContainer');
+        if (container) {
+            container.innerHTML = `
+                <div class="loading-container" style="text-align: center; padding: 40px;">
+                    <i class="fas fa-spinner fa-spin" style="font-size: 40px; color: #7a0000; margin-bottom: 20px;"></i>
+                    <p style="color: #666;">Loading quiz categories...</p>
+                </div>
+            `;
+        }
+        
+        // Show loading in stats cards
+        const statsElements = {
+            score: document.getElementById('quizCurrentScore'),
+            accuracy: document.getElementById('quizAccuracy'),
+            time: document.getElementById('quizTimeSpent'),
+            rank: document.getElementById('quizRank')
+        };
+        
+        if (statsElements.score) statsElements.score.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+        if (statsElements.accuracy) statsElements.accuracy.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+        if (statsElements.time) statsElements.time.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+        if (statsElements.rank) statsElements.rank.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+        
+        // Load all data in parallel
+        const [categories, stats] = await Promise.allSettled([
+            loadQuizCategories(),
+            loadQuizStatsFromServer()
+        ]);
+        
+        // Check results
+        if (categories.status === 'rejected') {
+            console.error('❌ Failed to load categories:', categories.reason);
+            // Use mock categories as fallback
+            displayQuizCategories(getFactoLearnMockCategories());
+        }
+        
+        if (stats.status === 'rejected') {
+            console.error('❌ Failed to load stats:', stats.reason);
+            updateQuizStatsUI({
+                current_score: 0,
+                accuracy: 0,
+                time_spent: '0m',
+                rank: '#--'
+            });
+        }
+        
+        // Hide quiz interface
+        const quizInterface = document.getElementById('quizInterfaceContainer');
+        if (quizInterface) {
+            quizInterface.classList.add('hidden');
+            quizInterface.style.display = 'none';
+        }
+        
+        console.log('✅ Quiz dashboard initialized successfully');
+        
+    } catch (error) {
+        console.error('❌ Error initializing quiz dashboard:', error);
+        showNotification('Failed to initialize quiz dashboard', 'error');
+        
+        updateQuizStatsUI({
+            current_score: 0,
+            accuracy: 0,
+            time_spent: '0m',
+            rank: '#--'
+        });
+        
+        // Show fallback categories
+        displayQuizCategories(getFactoLearnMockCategories());
+    }
+}
+
+// ============================================
+// LOAD QUIZ CATEGORIES
+// ============================================
+async function loadQuizCategories() {
+    console.log('📚 Loading quiz categories from database...');
+    
+    try {
+        const token = localStorage.getItem('authToken') || authToken;
+        
+        // Show loading state
+        const quizzesContainer = document.getElementById('userQuizzesContainer');
+        if (quizzesContainer) {
+            quizzesContainer.innerHTML = `
+                <div class="card" style="padding: 40px; text-align: center;">
+                    <div style="font-size: 40px; color: #7a0000; margin-bottom: 20px;">
+                        <i class="fas fa-spinner fa-spin"></i>
+                    </div>
+                    <p style="color: #666;">Loading FactoLearn categories from database...</p>
+                </div>
+            `;
+        }
+        
+        // Try to fetch from API first
+        if (token) {
+            try {
+                const response = await fetch(`/api/quiz/categories?lesson_id=3`, {
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Accept': 'application/json'
+                    }
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    if (data.success && data.categories) {
+                        console.log(`✅ Found ${data.categories.length} categories from database`);
+                        displayQuizCategories(data.categories);
+                        return data.categories;
+                    }
+                }
+            } catch (error) {
+                console.log('⚠️ Could not fetch from API, using mock data');
+            }
+        }
+        
+        // Use mock categories as fallback
+        console.log('📚 Using mock FactoLearn categories');
+        const mockCategories = getFactoLearnMockCategories();
+        displayQuizCategories(mockCategories);
+        return mockCategories;
+        
+    } catch (error) {
+        console.error('❌ Error loading quiz categories:', error);
+        
+        // Show error in container
+        const quizzesContainer = document.getElementById('userQuizzesContainer');
+        if (quizzesContainer) {
+            quizzesContainer.innerHTML = `
+                <div class="card" style="padding: 40px; text-align: center;">
+                    <div style="font-size: 60px; color: #e74c3c; margin-bottom: 20px;">
+                        <i class="fas fa-exclamation-triangle"></i>
+                    </div>
+                    <h3 style="color: #666; margin-bottom: 10px;">Failed to load categories</h3>
+                    <p style="color: #999; margin-bottom: 20px;">${error.message}</p>
+                    <button class="btn-primary" onclick="loadQuizCategories()" style="background: #7a0000; color: white; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer;">
+                        <i class="fas fa-redo"></i> Try Again
+                    </button>
+                </div>
+            `;
+        }
+        
+        return [];
+    }
+}
+
+// ============================================
+// DISPLAY QUIZ CATEGORIES
+// ============================================
+function displayQuizCategories(categories) {
+    console.log('📋 Displaying FactoLearn quiz categories:', categories);
+    
+    const quizzesContainer = document.getElementById('userQuizzesContainer');
+    if (!quizzesContainer) {
+        console.error('❌ userQuizzesContainer not found');
+        return;
+    }
+    
+    // Filter for lesson_id=3
+    const factolearnCategories = categories.filter(cat => {
+        const catLessonId = cat.lesson_id || cat.lessonId;
+        return catLessonId == 3;
+    });
+    
+    console.log('🎯 After filtering:', factolearnCategories.length, 'categories');
+    
+    // Clear container
+    quizzesContainer.innerHTML = '';
+    
+    if (!factolearnCategories || factolearnCategories.length === 0) {
+        quizzesContainer.innerHTML = `
+            <div class="card" style="padding: 40px; text-align: center;">
+                <div style="font-size: 60px; color: #ccc; margin-bottom: 20px;">
+                    <i class="fas fa-folder-open"></i>
+                </div>
+                <h3 style="color: #666; margin-bottom: 10px;">No FactoLearn Categories Available</h3>
+                <p style="color: #999; margin-bottom: 20px;">Check back later for new FactoLearn quizzes!</p>
+                <button class="btn-primary" onclick="loadQuizCategories()" style="background: #7a0000; color: white; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer;">
+                    <i class="fas fa-redo"></i> Refresh
+                </button>
+            </div>
+        `;
+        return;
+    }
+    
+    // Create categories grid
+    let html = `
+        <div class="card full-width-card" style="margin-bottom: 20px;">
+            <div class="card-header" style="padding: 20px 25px 0;">
+                <h2 class="card-title" style="display: flex; align-items: center; gap: 10px; font-size: 1.4rem; color: var(--text-color); margin-bottom: 5px;">
+                    <i class="fas fa-folder" style="color: #7a0000;"></i> 
+                    FactoLearn Quiz Categories
+                </h2>
+                <p class="card-subtitle" style="color: var(--text-light); font-size: 0.95rem;">
+                    Select a category to start practicing
+                </p>
+            </div>
+            
+            <div style="padding: 20px 25px 25px;">
+                <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 20px;">
+    `;
+    
+    factolearnCategories.forEach(category => {
+        const categoryId = category.category_id || category.id;
+        const categoryName = category.category_name || category.name || 'FactoLearn Quiz';
+        const categoryDesc = category.description || 'Test your FactoLearn knowledge.';
+        const totalQuizzes = category.quiz_count || category.total_quizzes || 3;
+        const categoryColor = category.color || '#7a0000';
+        const categoryIcon = category.icon || 'fa-graduation-cap';
+        
+        html += `
+            <div class="quiz-category-card" data-category-id="${categoryId}" 
+                 style="cursor: pointer; background: white; border-radius: 12px; overflow: hidden;
+                        box-shadow: 0 4px 12px rgba(0,0,0,0.1); border: 1px solid var(--border-color);
+                        transition: all 0.3s ease; position: relative;">
+                
+                <!-- Colored top bar -->
+                <div style="height: 6px; background: ${categoryColor}; width: 100%;"></div>
+                
+                <div style="padding: 20px;">
+                    <!-- Header with icon and title -->
+                    <div style="display: flex; align-items: center; gap: 15px; margin-bottom: 15px;">
+                        <div style="width: 50px; height: 50px; background: ${categoryColor}20; 
+                                    border-radius: 12px; display: flex; align-items: center; 
+                                    justify-content: center; font-size: 24px; color: ${categoryColor};">
+                            <i class="fas ${categoryIcon}"></i>
+                        </div>
+                        <div style="flex: 1;">
+                            <h3 style="margin: 0 0 5px 0; color: #2c3e50; font-size: 18px; font-weight: 600;">
+                                ${categoryName}
+                            </h3>
+                            <div style="display: flex; align-items: center; gap: 10px;">
+                                <span style="background: ${categoryColor}10; color: ${categoryColor}; 
+                                           padding: 4px 10px; border-radius: 20px; font-size: 12px;">
+                                    <i class="fas fa-graduation-cap"></i> FactoLearn
+                                </span>
+                                <span style="color: #7f8c8d; font-size: 13px;">
+                                    <i class="fas fa-question-circle"></i> ${totalQuizzes} quizzes
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Description -->
+                    <p style="color: #6c757d; font-size: 14px; line-height: 1.5; margin: 0 0 20px 0; min-height: 42px;">
+                        ${categoryDesc}
+                    </p>
+                    
+                    <!-- Action button -->
+                    <button class="quiz-category-btn" data-category-id="${categoryId}" 
+                            style="width: 100%; padding: 12px; background: ${categoryColor}; 
+                                   color: white; border: none; border-radius: 8px; 
+                                   font-weight: 600; cursor: pointer; display: flex;
+                                   align-items: center; justify-content: center; gap: 8px;
+                                   transition: all 0.3s ease;">
+                        <i class="fas fa-play-circle"></i> Browse Quizzes
+                        <i class="fas fa-arrow-right" style="font-size: 14px;"></i>
+                    </button>
+                </div>
+            </div>
+        `;
+    });
+    
+    html += `</div></div></div>`;
+    quizzesContainer.innerHTML = html;
+    
+    // Add event listeners to category cards
+    document.querySelectorAll('.quiz-category-card').forEach(card => {
+        card.addEventListener('click', function(e) {
+            if (e.target.closest('.quiz-category-btn')) return;
+            const categoryId = this.getAttribute('data-category-id');
+            if (categoryId) {
+                console.log('🎯 Category card clicked:', categoryId);
+                loadQuizzesForCategory(categoryId);
+            }
+        });
+    });
+    
+    // Add event listeners to browse buttons
+    document.querySelectorAll('.quiz-category-btn').forEach(btn => {
+        btn.addEventListener('click', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            const categoryId = this.getAttribute('data-category-id');
+            if (categoryId) {
+                console.log('🎯 Browse button clicked:', categoryId);
+                loadQuizzesForCategory(categoryId);
+            }
+        });
+    });
+}
+
+// ============================================
+// LOAD QUIZZES FOR CATEGORY
+// ============================================
+async function loadQuizzesForCategory(categoryId) {
+    console.log(`📝 Loading quizzes for category ${categoryId}...`);
+    
+    try {
+        const token = localStorage.getItem('authToken') || authToken;
+        
+        const quizzesContainer = document.getElementById('userQuizzesContainer');
+        if (!quizzesContainer) return;
+        
+        // Show loading
+        quizzesContainer.innerHTML = `
+            <div style="text-align: center; padding: 40px;">
+                <i class="fas fa-spinner fa-spin" style="font-size: 40px; color: #7a0000;"></i>
+                <p style="margin-top: 15px;">Loading quizzes...</p>
+            </div>
+        `;
+        
+        // Try to fetch from API
+        let quizzes = [];
+        
+        if (token) {
+            try {
+                const response = await fetch(`/api/quiz/category/${categoryId}/quizzes?lesson_id=3`, {
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    if (data.success && data.quizzes) {
+                        quizzes = data.quizzes;
+                    }
+                }
+            } catch (error) {
+                console.log('⚠️ Could not fetch quizzes, using mock data');
+            }
+        }
+        
+        // Use mock quizzes if none returned
+        if (quizzes.length === 0) {
+            quizzes = getMockQuizzesForCategory(categoryId);
+        }
+        
+        // Display quizzes
+        displayQuizzesInContainer(quizzes, categoryId);
+        
+    } catch (error) {
+        console.error('Error loading quizzes:', error);
+        
+        const quizzesContainer = document.getElementById('userQuizzesContainer');
+        if (quizzesContainer) {
+            quizzesContainer.innerHTML = `
+                <div style="text-align: center; padding: 40px;">
+                    <i class="fas fa-exclamation-triangle" style="font-size: 48px; color: #e74c3c; margin-bottom: 15px;"></i>
+                    <h3>Failed to load quizzes</h3>
+                    <p>${error.message}</p>
+                    <button class="btn-primary" onclick="goBackToCategories()" style="margin-top: 15px;">
+                        <i class="fas fa-arrow-left"></i> Back to Categories
+                    </button>
+                </div>
+            `;
+        }
+    }
+}
+
+// ============================================
+// DISPLAY QUIZZES IN CONTAINER
+// ============================================
+function displayQuizzesInContainer(quizzes, categoryId) {
+    const quizzesContainer = document.getElementById('userQuizzesContainer');
+    if (!quizzesContainer) return;
+    
+    if (!quizzes || quizzes.length === 0) {
+        quizzesContainer.innerHTML = `
+            <div class="card" style="padding: 40px; text-align: center;">
+                <div style="font-size: 60px; color: #ccc; margin-bottom: 20px;">
+                    <i class="fas fa-clipboard-list"></i>
+                </div>
+                <h3 style="color: #666; margin-bottom: 10px;">No Quizzes Available</h3>
+                <p style="color: #999; margin-bottom: 20px;">Check back later for new FactoLearn quizzes!</p>
+                <button class="btn-primary" onclick="goBackToCategories()" style="background: #7a0000; color: white; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer;">
+                    <i class="fas fa-arrow-left"></i> Back to Categories
+                </button>
+            </div>
+        `;
+        return;
+    }
+    
+    let html = `
+        <div class="card full-width-card">
+            <div class="card-header" style="padding: 20px 25px 0; display: flex; justify-content: space-between; align-items: center;">
+                <div>
+                    <h2 class="card-title" style="display: flex; align-items: center; gap: 10px; font-size: 1.4rem; color: var(--text-color); margin-bottom: 5px;">
+                        <i class="fas fa-question-circle" style="color: #7a0000;"></i> 
+                        FactoLearn Quizzes
+                    </h2>
+                    <p class="card-subtitle" style="color: var(--text-light); font-size: 0.95rem;">
+                        Test your knowledge with these quizzes
+                    </p>
+                </div>
+                <button class="btn-secondary" onclick="goBackToCategories()" style="padding: 8px 15px; display: flex; align-items: center; gap: 8px;">
+                    <i class="fas fa-arrow-left"></i> Back to Categories
+                </button>
+            </div>
+            
+            <div style="padding: 20px 25px 25px;">
+                <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 20px;">
+    `;
+    
+    quizzes.forEach(quiz => {
+        const difficultyColor = 
+            quiz.difficulty === 'easy' ? '#27ae60' : 
+            quiz.difficulty === 'medium' ? '#f39c12' : 
+            quiz.difficulty === 'hard' ? '#e74c3c' : '#3498db';
+        
+        const difficultyLabel = quiz.difficulty || 'medium';
+        
+        html += `
+            <div class="quiz-card" data-quiz-id="${quiz.quiz_id}" 
+                 style="background: white; border-radius: 12px; overflow: hidden;
+                        box-shadow: 0 4px 12px rgba(0,0,0,0.1); border: 1px solid var(--border-color);
+                        transition: all 0.3s ease; cursor: pointer;
+                        display: flex; flex-direction: column;">
+                
+                <div style="height: 6px; background: ${difficultyColor}; width: 100%;"></div>
+                
+                <div style="padding: 20px; flex: 1; display: flex; flex-direction: column;">
+                    <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 12px;">
+                        <h3 style="margin: 0; color: #2c3e50; font-size: 18px; font-weight: 600; line-height: 1.3;">
+                            ${quiz.quiz_title || 'FactoLearn Quiz'}
+                        </h3>
+                        <span style="background: ${difficultyColor}; color: white; 
+                                   padding: 4px 10px; border-radius: 20px; font-size: 11px; 
+                                   font-weight: 600; text-transform: uppercase; white-space: nowrap; margin-left: 10px;">
+                            ${difficultyLabel}
+                        </span>
+                    </div>
+                    
+                    <p style="color: #6c757d; font-size: 14px; line-height: 1.5; margin: 0 0 15px 0; min-height: 42px;">
+                        ${quiz.description || 'Test your knowledge with this FactoLearn quiz.'}
+                    </p>
+                    
+                    <div style="display: flex; gap: 15px; margin-bottom: 20px; padding: 10px 0; border-top: 1px solid #f0f0f0; border-bottom: 1px solid #f0f0f0;">
+                        <div style="display: flex; align-items: center; gap: 5px; color: #7f8c8d; font-size: 13px;">
+                            <i class="fas fa-question-circle" style="color: #3498db;"></i>
+                            <span>${quiz.total_questions || 0} items</span>
+                        </div>
+                        <div style="display: flex; align-items: center; gap: 5px; color: #7f8c8d; font-size: 13px;">
+                            <i class="fas fa-clock" style="color: #e67e22;"></i>
+                            <span>${quiz.duration_minutes || 10} min</span>
+                        </div>
+                        <div style="display: flex; align-items: center; gap: 5px; color: #7f8c8d; font-size: 13px;">
+                            <i class="fas fa-trophy" style="color: #f39c12;"></i>
+                            <span>${quiz.passing_score || 70}% pass</span>
+                        </div>
+                    </div>
+                    
+                    <button class="start-quiz-btn" data-quiz-id="${quiz.quiz_id}" 
+                            style="width: 100%; padding: 12px; background: #7a0000; 
+                                   color: white; border: none; border-radius: 8px; 
+                                   font-weight: 600; cursor: pointer; display: flex;
+                                   align-items: center; justify-content: center; gap: 8px;
+                                   transition: all 0.3s ease; margin-top: auto;">
+                        <i class="fas fa-play-circle"></i> Start Quiz
+                        <i class="fas fa-arrow-right" style="font-size: 14px;"></i>
+                    </button>
+                </div>
+            </div>
+        `;
+    });
+    
+    html += `</div></div></div>`;
+    quizzesContainer.innerHTML = html;
+    
+    // Add event listeners to quiz cards
+    document.querySelectorAll('.quiz-card').forEach(card => {
+        card.addEventListener('click', function(e) {
+            if (e.target.closest('.start-quiz-btn')) return;
+            const quizId = this.getAttribute('data-quiz-id');
+            if (quizId) {
+                const btn = this.querySelector('.start-quiz-btn');
+                if (btn) btn.click();
+            }
+        });
+    });
+    
+    // Add event listeners to start buttons
+    document.querySelectorAll('.start-quiz-btn').forEach(btn => {
+        btn.addEventListener('click', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            
+            const quizId = this.getAttribute('data-quiz-id');
+            if (quizId) {
+                console.log('🎯 Start quiz button clicked:', quizId);
+                
+                const originalText = this.innerHTML;
+                this.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Loading...';
+                this.disabled = true;
+                
+                setTimeout(() => {
+                    startQuizSystem(parseInt(quizId)).finally(() => {
+                        setTimeout(() => {
+                            this.innerHTML = originalText;
+                            this.disabled = false;
+                        }, 1000);
+                    });
+                }, 300);
+            }
+        });
+    });
+}
+
+// ============================================
+// GO BACK TO CATEGORIES
+// ============================================
+function goBackToCategories() {
+    console.log('📚 Going back to categories');
+    
+    const quizzesContainer = document.getElementById('userQuizzesContainer');
+    if (quizzesContainer) {
+        quizzesContainer.innerHTML = `
+            <div class="card" style="padding: 40px; text-align: center;">
+                <div style="font-size: 40px; color: #7a0000; margin-bottom: 20px;">
+                    <i class="fas fa-spinner fa-spin"></i>
+                </div>
+                <p style="color: #666;">Loading categories...</p>
+            </div>
+        `;
+        
+        setTimeout(() => {
+            loadQuizCategories();
+        }, 300);
+    }
+}
+
+// ============================================
+// LOAD QUIZ STATS FROM SERVER
+// ============================================
+async function loadQuizStatsFromServer() {
+    try {
+        const token = localStorage.getItem('authToken') || authToken;
+        
+        const statsElements = {
+            score: document.getElementById('quizCurrentScore'),
+            accuracy: document.getElementById('quizAccuracy'),
+            time: document.getElementById('quizTimeSpent'),
+            rank: document.getElementById('quizRank')
+        };
+        
+        if (!statsElements.score) return;
+        
+        // Show loading
+        statsElements.score.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+        statsElements.accuracy.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+        statsElements.time.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+        statsElements.rank.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+        
+        // Try to fetch from API
+        if (token) {
+            try {
+                const response = await fetch(`/api/quiz/user/stats`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    if (data.success && data.stats) {
+                        updateQuizStatsUI(data.stats);
+                        return;
+                    }
+                }
+            } catch (error) {
+                console.log('⚠️ Could not fetch quiz stats');
+            }
+        }
+        
+        // Use mock stats
+        updateQuizStatsUI({
+            current_score: 85,
+            accuracy: 92,
+            time_spent: '45m',
+            rank: '#12'
+        });
+        
+    } catch (error) {
+        console.error('❌ Error loading quiz stats:', error);
+        updateQuizStatsUI({
+            current_score: 0,
+            accuracy: 0,
+            time_spent: '0m',
+            rank: '#--'
+        });
+    }
+}
+
+// ============================================
+// UPDATE QUIZ STATS UI
+// ============================================
+function updateQuizStatsUI(stats) {
+    console.log('📊 Updating quiz stats UI:', stats);
+    
+    const elements = {
+        current_score: document.getElementById('quizCurrentScore'),
+        accuracy: document.getElementById('quizAccuracy'),
+        time_spent: document.getElementById('quizTimeSpent'),
+        rank: document.getElementById('quizRank')
+    };
+
+    if (elements.current_score) {
+        elements.current_score.textContent = stats.current_score + '%';
+    }
+    
+    if (elements.accuracy) {
+        elements.accuracy.textContent = stats.accuracy + '%';
+    }
+    
+    if (elements.time_spent) {
+        elements.time_spent.textContent = stats.time_spent || '0m';
+    }
+    
+    if (elements.rank) {
+        elements.rank.textContent = stats.rank || '#--';
+    }
+}
+
+// ============================================
+// START QUIZ SYSTEM
+// ============================================
+async function startQuizSystem(quizId) {
+    console.log("🎯 Starting QUIZ ID:", quizId);
+    
+    try {
+        const token = localStorage.getItem('authToken') || authToken;
+        
+        if (!token) {
+            showNotification('Please login first', 'error');
+            return;
+        }
+        
+        // Show loading
+        showQuizModalLoading();
+        
+        // Mock questions for demo
+        const questions = getMockQuizQuestions(quizId);
+        
+        // Initialize quiz state
+        QuizState.currentQuiz = quizId;
+        QuizState.questions = questions;
+        QuizState.currentIndex = 0;
+        QuizState.userAnswers = {};
+        QuizState.startTime = Date.now();
+        QuizState.totalTime = questions.length * 60;
+        QuizState.timeLeft = QuizState.totalTime;
+        QuizState.stats = { correct: 0, wrong: 0, score: 0 };
+        
+        // Show quiz modal
+        showQuizSystemModal();
+        
+        // Load first question
+        loadQuizSystemQuestion(0);
+        
+        // Start timer
+        startQuizSystemTimer();
+        
+    } catch (error) {
+        console.error('❌ Error starting quiz:', error);
+        showNotification('Failed to start quiz: ' + error.message, 'error');
+        closeQuizModal();
+    }
+}
+
+// ============================================
+// SHOW QUIZ MODAL
+// ============================================
+function showQuizSystemModal() {
+    const modal = document.getElementById('quizModal');
+    if (!modal) return;
+    
+    const titleSpan = document.getElementById('quizModalTitle');
+    if (titleSpan) {
+        titleSpan.textContent = 'FactoLearn Quiz';
+    }
+    
+    modal.style.display = 'flex';
+    document.body.classList.add('modal-open');
+    
+    const optionsGrid = document.getElementById('quizOptionsGridModal');
+    if (optionsGrid) {
+        optionsGrid.style.overflowY = 'auto';
+        optionsGrid.style.maxHeight = '450px';
+        optionsGrid.style.padding = '10px';
+    }
+    
+    const submitBtn = document.getElementById('submitQuizBtn');
+    if (submitBtn) {
+        submitBtn.style.display = 'none';
+    }
+}
+
+// ============================================
+// SHOW QUIZ MODAL LOADING
+// ============================================
+function showQuizModalLoading() {
+    const modal = document.getElementById('quizModal');
+    if (modal) {
+        modal.style.display = 'flex';
+        
+        const optionsGrid = document.getElementById('quizOptionsGridModal');
+        if (optionsGrid) {
+            optionsGrid.innerHTML = `
+                <div style="text-align: center; padding: 40px;">
+                    <i class="fas fa-spinner fa-spin" style="font-size: 50px; color: #7a0000;"></i>
+                    <p style="margin-top: 20px; color: #666;">Loading quiz questions...</p>
+                </div>
+            `;
+        }
+    }
+}
+
+// ============================================
+// LOAD QUIZ SYSTEM QUESTION
+// ============================================
+function loadQuizSystemQuestion(index) {
+    if (!QuizState.questions || QuizState.questions.length === 0) return;
+    
+    const question = QuizState.questions[index];
+    QuizState.currentIndex = index;
+    
+    const currentNum = document.getElementById('quizCurrentNum');
+    const totalNum = document.getElementById('quizTotalNum');
+    if (currentNum) currentNum.textContent = index + 1;
+    if (totalNum) totalNum.textContent = QuizState.questions.length;
+    
+    const questionText = document.getElementById('quizQuestionTextModal');
+    if (questionText) {
+        questionText.textContent = question.question_text || 'Question text not available';
+    }
+    
+    updateQuizSystemProgressDots();
+    
+    const submitBtn = document.getElementById('submitQuizBtn');
+    if (submitBtn) {
+        const allAnswered = QuizState.questions.every(q => 
+            QuizState.userAnswers[q.question_id] !== undefined
+        );
+        
+        if (index === QuizState.questions.length - 1 || allAnswered) {
+            submitBtn.style.display = 'block';
+        } else {
+            submitBtn.style.display = 'none';
+        }
+    }
+    
+    const optionsGrid = document.getElementById('quizOptionsGridModal');
+    if (!optionsGrid) return;
+    
+    optionsGrid.innerHTML = '';
+    
+    if (question.options && question.options.length > 0) {
+        question.options.forEach((option, i) => {
+            const optionId = option.id || i;
+            const optionText = option.text || option.option_text || `Option ${String.fromCharCode(65 + i)}`;
+            const isCorrect = option.is_correct === 1;
+            const letter = String.fromCharCode(65 + i);
+            
+            const isSelected = QuizState.userAnswers[question.question_id] == optionId;
+            
+            const optionDiv = document.createElement('div');
+            optionDiv.className = 'quiz-option-modal' + (isSelected ? ' selected' : '');
+            optionDiv.setAttribute('data-option-id', optionId);
+            optionDiv.setAttribute('data-question-id', question.question_id);
+            optionDiv.setAttribute('data-is-correct', isCorrect);
+            
+            optionDiv.innerHTML = `
+                <div class="option-letter" style="
+                    width: 30px; height: 30px; border: 2px solid #7a0000; border-radius: 50%; 
+                    display: flex; align-items: center; justify-content: center; font-weight: bold;
+                    background: ${isSelected ? '#7a0000' : 'transparent'}; 
+                    color: ${isSelected ? 'white' : '#7a0000'};
+                ">
+                    ${letter}
+                </div>
+                <div style="flex: 1; font-size: 16px;">${optionText}</div>
+            `;
+            
+            optionDiv.addEventListener('click', function() {
+                document.querySelectorAll('.quiz-option-modal').forEach(opt => {
+                    opt.classList.remove('selected');
+                    opt.querySelector('.option-letter').style.background = 'transparent';
+                    opt.querySelector('.option-letter').style.color = '#7a0000';
+                });
+                
+                this.classList.add('selected');
+                this.querySelector('.option-letter').style.background = '#7a0000';
+                this.querySelector('.option-letter').style.color = 'white';
+                
+                const questionId = question.question_id;
+                const optionId = this.getAttribute('data-option-id');
+                
+                saveAnswerAndContinue(questionId, optionId);
+            });
+            
+            optionsGrid.appendChild(optionDiv);
+        });
+    } else {
+        optionsGrid.innerHTML = '<p class="no-options">No options available for this question.</p>';
+    }
+}
+
+// ============================================
+// UPDATE QUIZ SYSTEM PROGRESS DOTS
+// ============================================
+function updateQuizSystemProgressDots() {
+    const dotsContainer = document.getElementById('quizProgressDotsModal');
+    if (!dotsContainer || !QuizState.questions) return;
+    
+    let dotsHTML = '';
+    QuizState.questions.forEach((q, i) => {
+        const isAnswered = QuizState.userAnswers[q.question_id] !== undefined;
+        const isCurrent = i === QuizState.currentIndex;
+        
+        dotsHTML += `
+            <div style="
+                width: 12px; 
+                height: 12px; 
+                border-radius: 50%; 
+                background: ${isAnswered ? '#7a0000' : (isCurrent ? '#ff6b6b' : '#ddd')};
+                cursor: pointer;
+                transition: all 0.3s;
+                transform: ${isCurrent ? 'scale(1.2)' : 'scale(1)'};
+            " onclick="jumpToQuizQuestion(${i})"></div>
+        `;
+    });
+    
+    dotsContainer.innerHTML = dotsHTML;
+}
+
+// ============================================
+// JUMP TO QUIZ QUESTION
+// ============================================
+window.jumpToQuizQuestion = function(index) {
+    if (index >= 0 && index < QuizState.questions.length) {
+        loadQuizSystemQuestion(index);
+    }
+};
+
+// ============================================
+// START QUIZ SYSTEM TIMER
+// ============================================
+function startQuizSystemTimer() {
+    if (QuizState.timerInterval) {
+        clearInterval(QuizState.timerInterval);
+    }
+    
+    QuizState.timerInterval = setInterval(() => {
+        if (QuizState.timeLeft > 0) {
+            QuizState.timeLeft--;
+            
+            const minutes = Math.floor(QuizState.timeLeft / 60);
+            const seconds = QuizState.timeLeft % 60;
+            
+            const timerDisplay = document.getElementById('quizTimerDisplay');
+            if (timerDisplay) {
+                timerDisplay.textContent = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+            }
+            
+            if (QuizState.timeLeft <= 0) {
+                clearInterval(QuizState.timerInterval);
+                submitQuizSystem();
+            }
+        }
+    }, 1000);
+}
+
+// ============================================
+// SAVE ANSWER AND CONTINUE
+// ============================================
+async function saveAnswerAndContinue(questionId, answer) {
+    QuizState.userAnswers[questionId] = answer;
+    
+    updateQuizSystemProgressDots();
+    
+    if (QuizState.currentIndex < QuizState.questions.length - 1) {
+        setTimeout(() => {
+            loadQuizSystemQuestion(QuizState.currentIndex + 1);
+        }, 300);
+    } else {
+        console.log('📝 Last question answered, ready to submit');
+        const submitBtn = document.getElementById('submitQuizBtn');
+        if (submitBtn) submitBtn.style.display = 'block';
+    }
+}
+
+// ============================================
+// SUBMIT QUIZ SYSTEM
+// ============================================
+async function submitQuizSystem() {
+    console.log('📝 Submitting quiz...');
+    
+    try {
+        if (QuizState.timerInterval) {
+            clearInterval(QuizState.timerInterval);
+            QuizState.timerInterval = null;
+        }
+        
+        const timeSpentSeconds = Math.floor((Date.now() - QuizState.startTime) / 1000);
+        
+        let correctCount = 0;
+        let totalQuestions = QuizState.questions.length;
+        
+        // Calculate score
+        QuizState.questions.forEach(q => {
+            const userAnswer = QuizState.userAnswers[q.question_id];
+            if (userAnswer) {
+                const correctOption = q.options?.find(opt => opt.is_correct === 1 || opt.correct === true);
+                if (correctOption && userAnswer == correctOption.id) {
+                    correctCount++;
+                }
+            }
+        });
+        
+        const wrongCount = totalQuestions - correctCount;
+        const score = Math.round((correctCount / totalQuestions) * 100);
+        const pointsEarned = correctCount * 10;
+        
+        console.log(`📊 FINAL SCORE: ${correctCount}/${totalQuestions} = ${score}%`);
+        
+        // Show results
+        const quizContainer = document.getElementById('quizContainer');
+        const resultsContainer = document.getElementById('quizResultsContainer');
+        
+        if (quizContainer) quizContainer.style.display = 'none';
+        if (resultsContainer) {
+            resultsContainer.style.display = 'block';
+            displayQuizResults(resultsContainer, {
+                score: score,
+                correctCount: correctCount,
+                wrongCount: wrongCount,
+                totalQuestions: totalQuestions,
+                timeSpentSeconds: timeSpentSeconds,
+                attemptId: Date.now(),
+                pointsEarned: pointsEarned
+            });
+        }
+        
+        // Update quiz stats
+        const quizCurrentScore = document.getElementById('quizCurrentScore');
+        if (quizCurrentScore) {
+            quizCurrentScore.textContent = `${score}%`;
+        }
+        
+        const quizAccuracy = document.getElementById('quizAccuracy');
+        if (quizAccuracy) {
+            const accuracy = Math.round((correctCount / totalQuestions) * 100);
+            quizAccuracy.textContent = `${accuracy}%`;
+        }
+        
+        showNotification(`🎉 Quiz completed! Score: ${score}%`, 'success');
+        
+    } catch (error) {
+        console.error('❌ Error submitting quiz:', error);
+        showNotification('Error submitting quiz', 'error');
+    }
+}
+
+// ============================================
+// DISPLAY QUIZ RESULTS
+// ============================================
+function displayQuizResults(container, data) {
+    const minutes = Math.floor(data.timeSpentSeconds / 60);
+    const seconds = data.timeSpentSeconds % 60;
+    const timeFormatted = `${minutes}:${seconds.toString().padStart(2, '0')}`;
+    
+    const score = data.score;
+    let icon = 'fa-smile';
+    let iconColor = '#27ae60';
+    let message = 'Great job!';
+    
+    if (score >= 90) {
+        icon = 'fa-crown';
+        iconColor = '#f1c40f';
+        message = '🏆 Excellent! You\'re a math wizard!';
+    } else if (score >= 75) {
+        icon = 'fa-star';
+        iconColor = '#f39c12';
+        message = '🌟 Great job! You\'re doing well!';
+    } else if (score >= 50) {
+        icon = 'fa-smile';
+        iconColor = '#3498db';
+        message = '💪 Good effort! Keep practicing!';
+    } else {
+        icon = 'fa-book';
+        iconColor = '#e74c3c';
+        message = '📚 Don\'t give up! Practice makes perfect!';
+    }
+    
+    container.innerHTML = `
+        <div class="modal-body" style="padding: 20px; background: white; border-radius: 12px;">
+            <div style="text-align: center; max-width: 400px; margin: 0 auto;">
+                
+                <div style="width: 80px; height: 80px; background: ${iconColor}20; border-radius: 50%; 
+                            display: flex; align-items: center; justify-content: center; margin: 0 auto 15px; 
+                            border: 3px solid ${iconColor};">
+                    <i class="fas ${icon}" style="font-size: 40px; color: ${iconColor};"></i>
+                </div>
+                
+                <h2 style="color: #2c3e50; margin-bottom: 10px; font-size: 28px;">Quiz Completed!</h2>
+                
+                <div style="position: relative; width: 150px; height: 150px; margin: 15px auto;">
+                    <svg viewBox="0 0 36 36" style="width: 150px; height: 150px;">
+                        <path d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" 
+                              fill="none" stroke="#e0e0e0" stroke-width="3"></path>
+                        <path d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" 
+                              fill="none" stroke="${iconColor}" stroke-width="3" 
+                              stroke-dasharray="${score}, 100" stroke-linecap="round"></path>
+                    </svg>
+                    <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+                                font-size: 36px; font-weight: bold; color: ${iconColor};">
+                        ${score}%
+                    </div>
+                </div>
+                
+                <div style="background: ${iconColor}10; padding: 12px 15px; border-radius: 8px; margin: 15px 0;
+                            border-left: 4px solid ${iconColor}; text-align: left;">
+                    <i class="fas fa-quote-left" style="color: ${iconColor}; margin-right: 8px;"></i>
+                    ${message}
+                </div>
+                
+                <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin: 15px 0;">
+                    <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); 
+                                padding: 15px; border-radius: 10px; color: white;">
+                        <div style="font-size: 28px; font-weight: bold;">${data.correctCount}</div>
+                        <div style="font-size: 12px;">Correct</div>
+                    </div>
+                    <div style="background: linear-gradient(135deg, #e74c3c 0%, #c0392b 100%); 
+                                padding: 15px; border-radius: 10px; color: white;">
+                        <div style="font-size: 28px; font-weight: bold;">${data.wrongCount}</div>
+                        <div style="font-size: 12px;">Wrong</div>
+                    </div>
+                    <div style="background: linear-gradient(135deg, #3498db 0%, #2980b9 100%); 
+                                padding: 15px; border-radius: 10px; color: white;">
+                        <div style="font-size: 28px; font-weight: bold;">${data.totalQuestions}</div>
+                        <div style="font-size: 12px;">Total</div>
+                    </div>
+                    <div style="background: linear-gradient(135deg, #f39c12 0%, #e67e22 100%); 
+                                padding: 15px; border-radius: 10px; color: white;">
+                        <div style="font-size: 28px; font-weight: bold;">${timeFormatted}</div>
+                        <div style="font-size: 12px;">Time</div>
+                    </div>
+                </div>
+                
+                <div style="background: #f8f9fa; padding: 15px; border-radius: 10px; margin: 15px 0;">
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <div>
+                            <div style="font-size: 20px; font-weight: bold; color: #7a0000;">+${data.pointsEarned}</div>
+                            <div style="font-size: 12px; color: #666;">Points Earned</div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div style="display: flex; gap: 10px; justify-content: center; margin-top: 20px;">
+                    <button onclick="closeQuizSystemModal()" class="btn-secondary" 
+                            style="padding: 10px 20px; border: 2px solid #7a0000; background: white; color: #7a0000; border-radius: 6px; cursor: pointer;">
+                        <i class="fas fa-times"></i> Close
+                    </button>
+                    <button onclick="window.location.reload()" class="btn-primary" 
+                            style="padding: 10px 20px; background: #3498db; color: white; border: none; border-radius: 6px; cursor: pointer;">
+                        <i class="fas fa-tachometer-alt"></i> Dashboard
+                    </button>
+                </div>
+            </div>
+        </div>
+    `;
+}
+
+// ============================================
+// CLOSE QUIZ SYSTEM MODAL
+// ============================================
+function closeQuizSystemModal() {
+    console.log('🚪 Closing quiz modal - returning to quiz list');
+    
+    const modal = document.getElementById('quizModal');
+    
+    if (modal) {
+        modal.style.display = 'none';
+        document.body.classList.remove('modal-open');
+    }
+    
+    if (QuizState.timerInterval) {
+        clearInterval(QuizState.timerInterval);
+        QuizState.timerInterval = null;
+    }
+    
+    const quizInterface = document.getElementById('quizInterfaceContainer');
+    const quizCards = document.getElementById('userQuizzesContainer');
+    const badgesContainer = document.getElementById('badgesContainer');
+    const leaderboardContainer = document.getElementById('leaderboardContainer');
+    
+    if (quizInterface) {
+        quizInterface.classList.add('hidden');
+        quizInterface.style.display = 'none';
+    }
+    
+    if (quizCards) {
+        quizCards.classList.remove('hidden');
+        quizCards.style.display = 'block';
+    }
+    
+    if (badgesContainer) {
+        badgesContainer.classList.remove('hidden');
+        badgesContainer.style.display = 'block';
+    }
+    
+    if (leaderboardContainer) {
+        leaderboardContainer.classList.remove('hidden');
+        leaderboardContainer.style.display = 'block';
+    }
+    
+    QuizState.currentQuiz = null;
+    QuizState.currentAttemptId = null;
+    QuizState.questions = [];
+    QuizState.currentIndex = 0;
+    QuizState.userAnswers = {};
+    QuizState.startTime = null;
+    QuizState.timeLeft = 0;
+    QuizState.stats = { correct: 0, wrong: 0, score: 0 };
+}
+
+// ============================================
+// GET MOCK QUIZ QUESTIONS
+// ============================================
+function getMockQuizQuestions(quizId) {
+    return [
+        {
+            question_id: 1,
+            question_text: 'What is 5! (5 factorial)?',
+            options: [
+                { id: 1, text: '120', is_correct: true },
+                { id: 2, text: '60', is_correct: false },
+                { id: 3, text: '24', is_correct: false },
+                { id: 4, text: '720', is_correct: false }
+            ]
+        },
+        {
+            question_id: 2,
+            question_text: 'Simplify: 6! / 4!',
+            options: [
+                { id: 1, text: '30', is_correct: true },
+                { id: 2, text: '24', is_correct: false },
+                { id: 3, text: '20', is_correct: false },
+                { id: 4, text: '36', is_correct: false }
+            ]
+        },
+        {
+            question_id: 3,
+            question_text: 'How many ways can you arrange 5 books on a shelf?',
+            options: [
+                { id: 1, text: '120', is_correct: true },
+                { id: 2, text: '60', is_correct: false },
+                { id: 3, text: '24', is_correct: false },
+                { id: 4, text: '720', is_correct: false }
+            ]
+        },
+        {
+            question_id: 4,
+            question_text: 'What is the value of 0! ?',
+            options: [
+                { id: 1, text: '1', is_correct: true },
+                { id: 2, text: '0', is_correct: false },
+                { id: 3, text: 'Undefined', is_correct: false },
+                { id: 4, text: 'Infinity', is_correct: false }
+            ]
+        },
+        {
+            question_id: 5,
+            question_text: 'Calculate: C(5,2) - combination of 5 taken 2',
+            options: [
+                { id: 1, text: '10', is_correct: true },
+                { id: 2, text: '20', is_correct: false },
+                { id: 3, text: '5', is_correct: false },
+                { id: 4, text: '15', is_correct: false }
+            ]
+        }
+    ];
+}
+
+// ============================================
+// GET MOCK QUIZZES FOR CATEGORY
+// ============================================
+function getMockQuizzesForCategory(categoryId) {
+    return [
+        {
+            quiz_id: 1,
+            quiz_title: 'Factorial Basics Quiz',
+            description: 'Test your knowledge of basic factorial concepts',
+            difficulty: 'easy',
+            total_questions: 5,
+            duration_minutes: 10,
+            passing_score: 70
+        },
+        {
+            quiz_id: 2,
+            quiz_title: 'Factorial Operations',
+            description: 'Practice factorial calculations and simplifications',
+            difficulty: 'medium',
+            total_questions: 5,
+            duration_minutes: 15,
+            passing_score: 70
+        },
+        {
+            quiz_id: 3,
+            quiz_title: 'Permutations & Combinations',
+            description: 'Test your understanding of permutations and combinations',
+            difficulty: 'hard',
+            total_questions: 5,
+            duration_minutes: 20,
+            passing_score: 70
+        }
+    ];
+}
+
+// ============================================
+// MAKE FUNCTIONS GLOBALLY AVAILABLE
+// ============================================
+window.startQuizSystem = startQuizSystem;
+window.closeQuizSystemModal = closeQuizSystemModal;
+window.goBackToCategories = goBackToCategories;
+window.loadQuizCategories = loadQuizCategories;
+window.initQuizDashboard = initQuizDashboard;
 // ============================================
 // VIEW PROFILE
 // ============================================
@@ -3554,7 +5071,1072 @@ window.clearHistory = function() {
         showNotification('success', 'Success', 'Learning history cleared!');
     }
 };
+// ============================================
+// ✅ TOOL MANAGER - FROM POLYLEARN (FIXED VERSION)
+// ============================================
 
+// Tool Manager Class
+class ToolManager {
+    constructor() {
+        this.tools = {};
+        this.currentTool = null;
+        this.modalsContainer = document.getElementById('toolModalsContainer');
+        
+        // Create modals container if it doesn't exist
+        if (!this.modalsContainer) {
+            this.modalsContainer = document.createElement('div');
+            this.modalsContainer.id = 'toolModalsContainer';
+            document.body.appendChild(this.modalsContainer);
+        }
+        
+        this.init();
+    }
+
+    init() {
+        console.log('🔧 Initializing ToolManager...');
+        this.createModals();
+        this.initializeTools();
+        this.setupEventListeners();
+    }
+
+    createModals() {
+        console.log('📦 Creating tool modals...');
+        
+        // Check if modals already exist
+        const modalHTML = `
+            <!-- Calculator Modal -->
+            <div id="calculatorModal" class="modal-overlay">
+                <div class="modal-container">
+                    <div class="modal-header" style="background: #7a0000; color: white;">
+                        <h3 style="margin: 0;"><i class="fas fa-calculator"></i> Calculator</h3>
+                        <button class="modal-close" onclick="window.toolManager.closeTool()" style="color: white;">&times;</button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="calculator-container">
+                            <div class="calculator-display" id="calcDisplay">0</div>
+                            <div class="calculator-buttons" id="calcButtons"></div>
+                            <div class="calculator-history">
+                                <h3><i class="fas fa-history"></i> History</h3>
+                                <div class="history-list" id="calcHistory"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Graph Modal -->
+            <div id="graphModal" class="modal-overlay">
+                <div class="modal-container">
+                    <div class="modal-header" style="background: #7a0000; color: white;">
+                        <h3 style="margin: 0;"><i class="fas fa-chart-line"></i> Graph Tool</h3>
+                        <button class="modal-close" onclick="window.toolManager.closeTool()" style="color: white;">&times;</button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="graph-tool">
+                            <canvas id="graphCanvas" width="600" height="400"></canvas>
+                            <div class="graph-controls">
+                                <input type="text" id="graphExpression" placeholder="f(x) = " value="x^2 - 3x + 2">
+                                <button id="plotGraphBtn">Plot</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Whiteboard Modal -->
+            <div id="whiteboardModal" class="modal-overlay">
+                <div class="modal-container">
+                    <div class="modal-header" style="background: #7a0000; color: white;">
+                        <h3 style="margin: 0;"><i class="fas fa-paint-brush"></i> Whiteboard</h3>
+                        <button class="modal-close" onclick="window.toolManager.closeTool()" style="color: white;">&times;</button>
+                    </div>
+                    <div class="modal-body">
+                        <canvas id="whiteboardCanvas" width="600" height="400"></canvas>
+                        <div class="whiteboard-controls">
+                            <button onclick="window.toolManager.tools.whiteboard.setTool('pen')">Pen</button>
+                            <button onclick="window.toolManager.tools.whiteboard.setTool('eraser')">Eraser</button>
+                            <button onclick="window.toolManager.tools.whiteboard.clear()">Clear</button>
+                            <input type="color" id="colorPicker" value="#7a0000">
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Notepad Modal -->
+            <div id="notepadModal" class="modal-overlay">
+                <div class="modal-container">
+                    <div class="modal-header" style="background: #7a0000; color: white;">
+                        <h3 style="margin: 0;"><i class="fas fa-sticky-note"></i> Notepad</h3>
+                        <button class="modal-close" onclick="window.toolManager.closeTool()" style="color: white;">&times;</button>
+                    </div>
+                    <div class="modal-body">
+                        <input type="text" id="noteTitle" placeholder="Note Title">
+                        <textarea id="noteContent" placeholder="Write your notes here..." rows="10"></textarea>
+                        <button onclick="window.toolManager.tools.notepad.save()">Save Note</button>
+                        <button onclick="window.toolManager.tools.notepad.clear()">Clear</button>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Formula Sheet Modal -->
+            <div id="formulaModal" class="modal-overlay">
+                <div class="modal-container">
+                    <div class="modal-header" style="background: #7a0000; color: white;">
+                        <h3 style="margin: 0;"><i class="fas fa-square-root-alt"></i> Formula Sheet</h3>
+                        <button class="modal-close" onclick="window.toolManager.closeTool()" style="color: white;">&times;</button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="formula-categories">
+                            <button onclick="window.toolManager.tools.formula.showCategory('factorial')">Factorial</button>
+                            <button onclick="window.toolManager.tools.formula.showCategory('combinatorics')">Combinatorics</button>
+                            <button onclick="window.toolManager.tools.formula.showCategory('probability')">Probability</button>
+                        </div>
+                        <div id="formulaList"></div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Timer Modal -->
+            <div id="timerModal" class="modal-overlay">
+                <div class="modal-container">
+                    <div class="modal-header" style="background: #7a0000; color: white;">
+                        <h3 style="margin: 0;"><i class="fas fa-clock"></i> Study Timer</h3>
+                        <button class="modal-close" onclick="window.toolManager.closeTool()" style="color: white;">&times;</button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="timer-display" id="timerDisplay">25:00</div>
+                        <div class="timer-controls">
+                            <button id="timerStartBtn">Start</button>
+                            <button id="timerPauseBtn">Pause</button>
+                            <button id="timerResetBtn">Reset</button>
+                        </div>
+                        <div class="timer-presets">
+                            <button id="timer15min">15 min</button>
+                            <button id="timer25min" class="active">25 min</button>
+                            <button id="timer50min">50 min</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        // Only inject if modals don't exist
+        const existingModals = ['calculatorModal', 'graphModal', 'whiteboardModal', 'notepadModal', 'formulaModal', 'timerModal'];
+        let anyModalMissing = false;
+        
+        existingModals.forEach(id => {
+            if (!document.getElementById(id)) anyModalMissing = true;
+        });
+        
+        if (anyModalMissing) {
+            this.modalsContainer.innerHTML = modalHTML;
+            console.log('✅ Tool modals created');
+        }
+    }
+
+    initializeTools() {
+        console.log('🔧 Initializing tool instances...');
+        this.tools = {
+            calculator: new Calculator(),
+            whiteboard: new Whiteboard(),
+            notepad: new Notepad(),
+            formula: new FormulaSheet(),
+            timer: new StudyTimer(),
+            graph: new GraphTool()
+        };
+    }
+
+    setupEventListeners() {
+        console.log('🔗 Setting up event listeners...');
+        
+        // Close modal when clicking on overlay
+        window.addEventListener('click', (e) => {
+            if (e.target.classList.contains('modal-overlay')) {
+                this.closeTool();
+            }
+        });
+
+        // Close modal when pressing ESC
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') {
+                this.closeTool();
+            }
+        });
+    }
+
+    openTool(toolName) {
+        console.log(`🔧 Opening tool: ${toolName}`);
+        
+        // Close any open tool first
+        this.closeTool();
+        
+        const modal = document.getElementById(`${toolName}Modal`);
+        if (modal) {
+            modal.style.display = 'flex';
+            modal.style.position = 'fixed';
+            modal.style.top = '0';
+            modal.style.left = '0';
+            modal.style.width = '100%';
+            modal.style.height = '100%';
+            modal.style.backgroundColor = 'rgba(0, 0, 0, 0.7)';
+            modal.style.zIndex = '10000';
+            modal.style.alignItems = 'center';
+            modal.style.justifyContent = 'center';
+            
+            modal.classList.add('active');
+            this.currentTool = toolName;
+            
+            // Initialize tool when opened
+            if (this.tools[toolName] && typeof this.tools[toolName].onOpen === 'function') {
+                setTimeout(() => {
+                    try {
+                        this.tools[toolName].onOpen();
+                    } catch (e) {
+                        console.error(`Error opening ${toolName}:`, e);
+                    }
+                }, 100);
+            }
+            
+            console.log(`✅ ${toolName} opened successfully`);
+            return true;
+        } else {
+            console.error(`❌ Modal not found: ${toolName}Modal`);
+            return false;
+        }
+    }
+
+    closeTool() {
+        console.log('🔧 Closing current tool');
+        document.querySelectorAll('.modal-overlay').forEach(modal => {
+            modal.style.display = 'none';
+            modal.classList.remove('active');
+        });
+        this.currentTool = null;
+    }
+}
+
+// ============================================
+// ✅ CALCULATOR TOOL
+// ============================================
+class Calculator {
+    constructor() {
+        this.display = '0';
+        this.history = [];
+        this.memory = 0;
+        this.expression = '';
+        this.lastResult = null;
+    }
+
+    onOpen() {
+        this.display = '0';
+        this.expression = '';
+        this.renderButtons();
+        this.loadHistory();
+    }
+
+    renderButtons() {
+        const buttons = [
+            ['C', '⌫', '%', '÷'],
+            ['7', '8', '9', '×'],
+            ['4', '5', '6', '-'],
+            ['1', '2', '3', '+'],
+            ['00', '0', '.', '=']
+        ];
+
+        const buttonsHtml = buttons.map(row => 
+            row.map(btn => {
+                let className = 'calc-btn';
+                if (['+', '-', '×', '÷', '%'].includes(btn)) className += ' operator';
+                if (btn === '=') className += ' equals';
+                if (btn === 'C') className += ' clear';
+                if (btn === '⌫') className += ' backspace';
+                return `<button class="${className}" data-value="${btn}">${btn}</button>`;
+            }).join('')
+        ).join('');
+
+        const buttonsContainer = document.getElementById('calcButtons');
+        if (buttonsContainer) {
+            buttonsContainer.innerHTML = buttonsHtml;
+            buttonsContainer.querySelectorAll('button').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    const value = btn.getAttribute('data-value');
+                    this.handleButton(value);
+                });
+            });
+        }
+        this.updateDisplay();
+    }
+
+    handleButton(btn) {
+        switch(btn) {
+            case 'C':
+                this.display = '0';
+                this.expression = '';
+                this.lastResult = null;
+                break;
+            case '⌫':
+                this.display = this.display.length > 1 ? this.display.slice(0, -1) : '0';
+                break;
+            case '=':
+                this.calculate();
+                break;
+            case '÷':
+                this.addToExpression('/');
+                break;
+            case '×':
+                this.addToExpression('*');
+                break;
+            default:
+                this.addToExpression(btn);
+        }
+        this.updateDisplay();
+    }
+
+    addToExpression(value) {
+        if (this.display === '0' && !isNaN(value)) {
+            this.display = value;
+        } else {
+            this.display += value;
+        }
+    }
+
+    calculate() {
+        try {
+            let expression = this.display.replace(/÷/g, '/').replace(/×/g, '*');
+            if (!expression || expression.match(/^[+\-*/]+$/)) return;
+            
+            let result = eval(expression);
+            if (result.toString().includes('.')) {
+                result = Math.round(result * 1000000) / 1000000;
+            }
+            
+            this.history.unshift({
+                expression: this.display,
+                result: result,
+                timestamp: new Date().toLocaleTimeString()
+            });
+            
+            if (this.history.length > 10) this.history.pop();
+            this.saveToHistory(this.display, result);
+            this.display = result.toString();
+            this.lastResult = result;
+            this.updateHistory();
+        } catch (error) {
+            this.display = 'Error';
+            setTimeout(() => this.display = '0', 1500);
+        }
+    }
+
+    async saveToHistory(expression, result) {
+        try {
+            const token = localStorage.getItem('authToken') || authToken;
+            if (!token) return;
+            await fetch(`/api/calculator/save`, {
+                method: 'POST',
+                headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+                body: JSON.stringify({ expression, result })
+            });
+        } catch (error) {}
+    }
+
+    async loadHistory() {
+        try {
+            const token = localStorage.getItem('authToken') || authToken;
+            if (!token) return;
+            const response = await fetch(`/api/calculator/history`, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            if (!response.ok) return;
+            const data = await response.json();
+            if (data.success && data.history) {
+                this.history = data.history.map(item => ({
+                    expression: item.expression,
+                    result: item.result,
+                    timestamp: new Date(item.created_at).toLocaleTimeString()
+                }));
+                this.updateHistory();
+            }
+        } catch (error) {}
+    }
+
+    updateDisplay() {
+        const displayEl = document.getElementById('calcDisplay');
+        if (displayEl) displayEl.textContent = this.display;
+    }
+
+    updateHistory() {
+        const historyEl = document.getElementById('calcHistory');
+        if (!historyEl) return;
+        if (this.history.length === 0) {
+            historyEl.innerHTML = '<div class="history-empty">No calculations yet</div>';
+            return;
+        }
+        historyEl.innerHTML = this.history.map(item => `
+            <div class="history-item" onclick="window.toolManager.tools.calculator.useHistory('${item.expression}')">
+                <div class="history-expression">${item.expression} =</div>
+                <div class="history-result">${item.result}</div>
+                <div class="history-time">${item.timestamp}</div>
+            </div>
+        `).join('');
+    }
+
+    useHistory(expression) {
+        this.display = expression;
+        this.updateDisplay();
+    }
+}
+
+// ============================================
+// ✅ WHITEBOARD TOOL
+// ============================================
+class Whiteboard {
+    constructor() {
+        this.canvas = null;
+        this.ctx = null;
+        this.drawing = false;
+        this.currentTool = 'pen';
+        this.color = '#7a0000';
+        this.lineWidth = 2;
+        this.lastX = 0;
+        this.lastY = 0;
+    }
+
+    onOpen() {
+        setTimeout(() => this.setupCanvas(), 100);
+    }
+
+    setupCanvas() {
+        this.canvas = document.getElementById('whiteboardCanvas');
+        if (!this.canvas) return;
+        
+        const container = this.canvas.parentElement;
+        this.canvas.width = container?.clientWidth - 40 || 600;
+        this.canvas.height = container?.clientHeight - 100 || 400;
+        
+        this.ctx = this.canvas.getContext('2d');
+        this.ctx.strokeStyle = this.color;
+        this.ctx.lineWidth = this.lineWidth;
+        this.ctx.lineCap = 'round';
+        this.ctx.lineJoin = 'round';
+        this.ctx.fillStyle = '#ffffff';
+        this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+        
+        this.setupEventListeners();
+    }
+
+    setupEventListeners() {
+        if (!this.canvas || !this.ctx) return;
+        
+        // Mouse events
+        this.canvas.addEventListener('mousedown', this.startDrawing.bind(this));
+        this.canvas.addEventListener('mousemove', this.draw.bind(this));
+        this.canvas.addEventListener('mouseup', this.stopDrawing.bind(this));
+        this.canvas.addEventListener('mouseout', this.stopDrawing.bind(this));
+        
+        // Touch events for mobile
+        this.canvas.addEventListener('touchstart', this.handleTouchStart.bind(this), { passive: false });
+        this.canvas.addEventListener('touchmove', this.handleTouchMove.bind(this), { passive: false });
+        this.canvas.addEventListener('touchend', this.handleTouchEnd.bind(this), { passive: false });
+        this.canvas.addEventListener('touchcancel', this.handleTouchEnd.bind(this), { passive: false });
+        
+        // Color picker
+        const colorPicker = document.getElementById('colorPicker');
+        if (colorPicker) {
+            colorPicker.addEventListener('input', (e) => {
+                this.color = e.target.value;
+                if (this.currentTool === 'pen' && this.ctx) {
+                    this.ctx.strokeStyle = this.color;
+                }
+            });
+        }
+    }
+
+    handleTouchStart(e) {
+        e.preventDefault();
+        const touch = e.touches[0];
+        if (!touch) return;
+        this.startDrawing({ clientX: touch.clientX, clientY: touch.clientY });
+    }
+
+    handleTouchMove(e) {
+        e.preventDefault();
+        const touch = e.touches[0];
+        if (!touch) return;
+        this.draw({ clientX: touch.clientX, clientY: touch.clientY });
+    }
+
+    handleTouchEnd(e) {
+        e.preventDefault();
+        this.stopDrawing();
+    }
+
+    startDrawing(e) {
+        if (!this.ctx || !this.canvas) return;
+        this.drawing = true;
+        
+        const rect = this.canvas.getBoundingClientRect();
+        const scaleX = this.canvas.width / rect.width;
+        const scaleY = this.canvas.height / rect.height;
+        
+        this.lastX = (e.clientX - rect.left) * scaleX;
+        this.lastY = (e.clientY - rect.top) * scaleY;
+        
+        this.ctx.beginPath();
+        this.ctx.moveTo(this.lastX, this.lastY);
+    }
+
+    draw(e) {
+        if (!this.drawing || !this.ctx || !this.canvas) return;
+        e.preventDefault();
+        
+        const rect = this.canvas.getBoundingClientRect();
+        const scaleX = this.canvas.width / rect.width;
+        const scaleY = this.canvas.height / rect.height;
+        
+        const currentX = (e.clientX - rect.left) * scaleX;
+        const currentY = (e.clientY - rect.top) * scaleY;
+        
+        if (this.currentTool === 'pen') {
+            this.ctx.lineTo(currentX, currentY);
+            this.ctx.stroke();
+        } else if (this.currentTool === 'eraser') {
+            this.ctx.save();
+            this.ctx.strokeStyle = '#ffffff';
+            this.ctx.lineWidth = 20;
+            this.ctx.lineTo(currentX, currentY);
+            this.ctx.stroke();
+            this.ctx.restore();
+            if (this.ctx) {
+                this.ctx.strokeStyle = this.color;
+                this.ctx.lineWidth = this.lineWidth;
+            }
+        }
+        
+        this.lastX = currentX;
+        this.lastY = currentY;
+    }
+
+    stopDrawing() {
+        this.drawing = false;
+        if (this.ctx) this.ctx.closePath();
+    }
+
+    setTool(tool) {
+        this.currentTool = tool;
+        if (tool === 'pen') {
+            this.lineWidth = 2;
+            if (this.ctx) {
+                this.ctx.strokeStyle = this.color;
+                this.ctx.lineWidth = this.lineWidth;
+            }
+        } else if (tool === 'eraser') {
+            this.lineWidth = 20;
+            if (this.ctx) {
+                this.ctx.strokeStyle = '#ffffff';
+                this.ctx.lineWidth = this.lineWidth;
+            }
+        }
+    }
+
+    clear() {
+        if (!this.ctx || !this.canvas) return;
+        this.ctx.fillStyle = '#ffffff';
+        this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+        this.ctx.strokeStyle = this.color;
+        this.ctx.lineWidth = this.lineWidth;
+        this.ctx.lineCap = 'round';
+        this.ctx.lineJoin = 'round';
+        this.drawing = false;
+    }
+}
+
+// ============================================
+// ✅ NOTEPAD TOOL
+// ============================================
+class Notepad {
+    constructor() {
+        this.notes = JSON.parse(localStorage.getItem('notes') || '[]');
+        this.currentNoteId = null;
+    }
+
+    onOpen() {
+        this.loadNotes();
+    }
+
+    save() {
+        const title = document.getElementById('noteTitle').value || 'Untitled';
+        const content = document.getElementById('noteContent').value;
+        
+        if (!content) {
+            alert('Please write something before saving!');
+            return;
+        }
+
+        const note = {
+            id: Date.now(),
+            title: title,
+            content: content,
+            created: new Date().toISOString()
+        };
+
+        this.notes.unshift(note);
+        localStorage.setItem('notes', JSON.stringify(this.notes));
+        alert('Note saved!');
+        this.clear();
+    }
+
+    loadNotes() {}
+
+    clear() {
+        document.getElementById('noteTitle').value = '';
+        document.getElementById('noteContent').value = '';
+        this.currentNoteId = null;
+    }
+}
+
+// ============================================
+// ✅ FORMULA SHEET TOOL
+// ============================================
+class FormulaSheet {
+    constructor() {
+        this.formulas = {
+            factorial: [
+                { name: 'Factorial Definition', formula: 'n! = n × (n-1) × (n-2) × ... × 1' },
+                { name: '0!', formula: '0! = 1' },
+                { name: 'Factorial of n', formula: 'n! = n × (n-1)!' },
+                { name: 'Double Factorial', formula: 'n!! = n × (n-2) × (n-4) × ...' }
+            ],
+            combinatorics: [
+                { name: 'Permutation', formula: 'P(n,r) = n! / (n-r)!' },
+                { name: 'Combination', formula: 'C(n,r) = n! / (r! × (n-r)!)' },
+                { name: 'Permutation with Repetition', formula: 'n^r' },
+                { name: 'Circular Permutation', formula: '(n-1)!' }
+            ],
+            probability: [
+                { name: 'Basic Probability', formula: 'P(A) = Number of favorable outcomes / Total outcomes' },
+                { name: 'Addition Rule', formula: 'P(A∪B) = P(A) + P(B) - P(A∩B)' },
+                { name: 'Multiplication Rule', formula: 'P(A∩B) = P(A) × P(B|A)' },
+                { name: 'Bayes Theorem', formula: 'P(A|B) = P(B|A) × P(A) / P(B)' }
+            ]
+        };
+        this.currentCategory = 'factorial';
+    }
+
+    onOpen() {
+        console.log('📚 Formula Sheet opened');
+        this.showCategory('factorial');
+        this.setupCategoryButtons();
+    }
+
+    setupCategoryButtons() {
+        const categoryBtns = document.querySelectorAll('.formula-categories button');
+        categoryBtns.forEach(btn => {
+            const newBtn = btn.cloneNode(true);
+            btn.parentNode.replaceChild(newBtn, btn);
+            
+            newBtn.addEventListener('click', (e) => {
+                e.preventDefault();
+                const category = newBtn.textContent.toLowerCase();
+                this.showCategory(category);
+                
+                document.querySelectorAll('.formula-categories button').forEach(b => {
+                    b.classList.remove('active');
+                });
+                newBtn.classList.add('active');
+            });
+        });
+    }
+
+    showCategory(category) {
+        this.currentCategory = category;
+        const formulas = this.formulas[category] || [];
+        const listEl = document.getElementById('formulaList');
+        if (!listEl) return;
+        
+        if (formulas.length === 0) {
+            listEl.innerHTML = '<p class="no-formulas">No formulas available for this category.</p>';
+            return;
+        }
+        
+        listEl.innerHTML = formulas.map(f => `
+            <div class="formula-item">
+                <div class="formula-name">${f.name}</div>
+                <div class="formula-expression">${f.formula}</div>
+            </div>
+        `).join('');
+    }
+}
+
+// ============================================
+// ✅ STUDY TIMER TOOL
+// ============================================
+class StudyTimer {
+    constructor() {
+        this.timeLeft = 25 * 60;
+        this.initialTime = 25 * 60;
+        this.timerId = null;
+        this.isRunning = false;
+        this.timerElement = null;
+    }
+
+    onOpen() {
+        this.timeLeft = this.initialTime;
+        this.isRunning = false;
+        if (this.timerId) {
+            clearInterval(this.timerId);
+            this.timerId = null;
+        }
+        
+        const findTimer = () => {
+            this.timerElement = document.getElementById('timerDisplay') || document.querySelector('.timer-display');
+            if (this.timerElement) {
+                this.updateDisplay();
+                this.attachEventListeners();
+            } else {
+                setTimeout(findTimer, 100);
+            }
+        };
+        findTimer();
+    }
+
+    updateDisplay() {
+        if (!this.timerElement) {
+            this.timerElement = document.getElementById('timerDisplay') || document.querySelector('.timer-display');
+        }
+        if (this.timerElement) {
+            const minutes = Math.floor(this.timeLeft / 60);
+            const seconds = this.timeLeft % 60;
+            this.timerElement.textContent = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+        }
+    }
+
+    attachEventListeners() {
+        const getButton = (id) => document.getElementById(id) || document.querySelector(`.${id}`);
+        
+        const startBtn = getButton('timerStartBtn');
+        const pauseBtn = getButton('timerPauseBtn');
+        const resetBtn = getButton('timerResetBtn');
+        const btn15 = getButton('timer15min');
+        const btn25 = getButton('timer25min');
+        const btn50 = getButton('timer50min');
+        
+        if (startBtn) {
+            const newBtn = startBtn.cloneNode(true);
+            startBtn.parentNode.replaceChild(newBtn, startBtn);
+            newBtn.addEventListener('click', (e) => { e.preventDefault(); this.start(); });
+        }
+        
+        if (pauseBtn) {
+            const newBtn = pauseBtn.cloneNode(true);
+            pauseBtn.parentNode.replaceChild(newBtn, pauseBtn);
+            newBtn.addEventListener('click', (e) => { e.preventDefault(); this.pause(); });
+        }
+        
+        if (resetBtn) {
+            const newBtn = resetBtn.cloneNode(true);
+            resetBtn.parentNode.replaceChild(newBtn, resetBtn);
+            newBtn.addEventListener('click', (e) => { e.preventDefault(); this.reset(); });
+        }
+        
+        if (btn15) {
+            const newBtn = btn15.cloneNode(true);
+            btn15.parentNode.replaceChild(newBtn, btn15);
+            newBtn.addEventListener('click', (e) => { e.preventDefault(); this.setTime(15); });
+        }
+        
+        if (btn25) {
+            const newBtn = btn25.cloneNode(true);
+            btn25.parentNode.replaceChild(newBtn, btn25);
+            newBtn.addEventListener('click', (e) => { e.preventDefault(); this.setTime(25); });
+        }
+        
+        if (btn50) {
+            const newBtn = btn50.cloneNode(true);
+            btn50.parentNode.replaceChild(newBtn, btn50);
+            newBtn.addEventListener('click', (e) => { e.preventDefault(); this.setTime(50); });
+        }
+    }
+
+    start() {
+        if (!this.isRunning && this.timeLeft > 0) {
+            this.isRunning = true;
+            this.updateDisplay();
+            this.timerId = setInterval(() => {
+                if (this.timeLeft > 0) {
+                    this.timeLeft--;
+                    this.updateDisplay();
+                    if (this.timeLeft <= 0) this.complete();
+                }
+            }, 1000);
+        }
+    }
+
+    pause() {
+        if (this.isRunning) {
+            clearInterval(this.timerId);
+            this.isRunning = false;
+            this.timerId = null;
+        }
+        this.updateDisplay();
+    }
+
+    reset() {
+        this.pause();
+        this.timeLeft = this.initialTime;
+        this.updateDisplay();
+    }
+
+    setTime(minutes) {
+        this.pause();
+        this.initialTime = minutes * 60;
+        this.timeLeft = this.initialTime;
+        this.updateDisplay();
+    }
+
+    complete() {
+        this.pause();
+        alert('🎉 Study session complete! Great job!');
+        try {
+            const audio = new Audio('https://www.soundjay.com/misc/sounds/bell-ringing-05.mp3');
+            audio.play();
+        } catch (e) {}
+        this.reset();
+    }
+}
+
+// ============================================
+// ✅ GRAPH TOOL
+// ============================================
+class GraphTool {
+    constructor() {
+        this.canvas = null;
+        this.ctx = null;
+        this.expression = 'gamma(x+1)';
+        this.range = { min: 0, max: 10 };
+        this.points = [];
+        this.isDarkMode = false;
+    }
+
+    onOpen() {
+        setTimeout(() => {
+            this.canvas = document.getElementById('graphCanvas');
+            if (this.canvas) {
+                this.ctx = this.canvas.getContext('2d');
+                this.setupCanvas();
+                this.setupEventListeners();
+                this.drawGrid();
+                this.plotFunction();
+            }
+        }, 100);
+    }
+
+    setupCanvas() {
+        this.canvas.width = this.canvas.offsetWidth || 600;
+        this.canvas.height = this.canvas.offsetHeight || 400;
+        this.ctx.lineWidth = 2;
+        this.ctx.strokeStyle = '#7a0000';
+        this.ctx.fillStyle = '#7a0000';
+        this.ctx.font = '12px Arial';
+    }
+
+    setupEventListeners() {
+        const exprInput = document.getElementById('graphExpression');
+        if (exprInput) {
+            exprInput.addEventListener('input', (e) => { this.expression = e.target.value; });
+        }
+        
+        const plotBtn = document.getElementById('plotGraphBtn');
+        if (plotBtn) {
+            plotBtn.addEventListener('click', () => { this.plotFunction(); });
+        }
+    }
+
+    f(x) {
+        try {
+            if (!this.expression || this.expression.trim() === '') return 0;
+            const fn = new Function('x', `return ${this.expression}`);
+            return fn(x);
+        } catch (e) {
+            return NaN;
+        }
+    }
+
+    generatePoints() {
+        this.points = [];
+        const step = (this.range.max - this.range.min) / 200;
+        for (let x = this.range.min; x <= this.range.max; x += step) {
+            try {
+                const y = this.f(x);
+                if (isFinite(y) && !isNaN(y) && Math.abs(y) < 1000) {
+                    this.points.push({ x, y });
+                }
+            } catch (e) {}
+        }
+    }
+
+    drawGrid() {
+        if (!this.ctx || !this.canvas) return;
+        const w = this.canvas.width;
+        const h = this.canvas.height;
+        
+        this.ctx.clearRect(0, 0, w, h);
+        this.ctx.fillStyle = this.isDarkMode ? '#1a1a1a' : '#fff';
+        this.ctx.fillRect(0, 0, w, h);
+        
+        let yMin = -10, yMax = 100;
+        if (this.points.length > 0) {
+            const yValues = this.points.map(p => p.y).filter(y => isFinite(y) && !isNaN(y) && Math.abs(y) < 1000);
+            if (yValues.length > 0) {
+                yMin = Math.min(...yValues);
+                yMax = Math.max(...yValues);
+                const padding = (yMax - yMin) * 0.1;
+                yMin -= padding;
+                yMax += padding;
+            }
+        }
+        
+        const yRange = yMax - yMin;
+        const xToPx = (x) => ((x - this.range.min) / (this.range.max - this.range.min)) * w;
+        const yToPx = (y) => h - ((y - yMin) / yRange) * h;
+        
+        this.ctx.strokeStyle = this.isDarkMode ? '#333' : '#ddd';
+        this.ctx.lineWidth = 0.5;
+        
+        for (let x = Math.ceil(this.range.min); x <= this.range.max; x++) {
+            if (x === 0) continue;
+            const px = xToPx(x);
+            if (px >= 0 && px <= w) {
+                this.ctx.beginPath();
+                this.ctx.moveTo(px, 0);
+                this.ctx.lineTo(px, h);
+                this.ctx.stroke();
+            }
+        }
+        
+        for (let y = Math.ceil(yMin / 10) * 10; y <= yMax; y += 10) {
+            if (y === 0) continue;
+            const py = yToPx(y);
+            if (py >= 0 && py <= h) {
+                this.ctx.beginPath();
+                this.ctx.moveTo(0, py);
+                this.ctx.lineTo(w, py);
+                this.ctx.stroke();
+            }
+        }
+        
+        this.ctx.strokeStyle = this.isDarkMode ? '#666' : '#999';
+        this.ctx.lineWidth = 2;
+        
+        const xZero = xToPx(0);
+        if (xZero >= 0 && xZero <= w) {
+            this.ctx.beginPath();
+            this.ctx.moveTo(xZero, 0);
+            this.ctx.lineTo(xZero, h);
+            this.ctx.stroke();
+        }
+        
+        const yZero = yToPx(0);
+        if (yZero >= 0 && yZero <= h) {
+            this.ctx.beginPath();
+            this.ctx.moveTo(0, yZero);
+            this.ctx.lineTo(w, yZero);
+            this.ctx.stroke();
+        }
+    }
+
+    plotFunction() {
+        this.generatePoints();
+        this.drawGrid();
+        if (this.points.length === 0) return;
+        
+        const w = this.canvas.width;
+        const h = this.canvas.height;
+        
+        let yMin = -10, yMax = 100;
+        const yValues = this.points.map(p => p.y).filter(y => isFinite(y) && !isNaN(y) && Math.abs(y) < 1000);
+        if (yValues.length > 0) {
+            yMin = Math.min(...yValues);
+            yMax = Math.max(...yValues);
+            const padding = (yMax - yMin) * 0.1;
+            yMin -= padding;
+            yMax += padding;
+        }
+        
+        const yRange = yMax - yMin;
+        const xToPx = (x) => ((x - this.range.min) / (this.range.max - this.range.min)) * w;
+        const yToPx = (y) => h - ((y - yMin) / yRange) * h;
+        
+        this.ctx.strokeStyle = '#667eea';
+        this.ctx.lineWidth = 3;
+        this.ctx.beginPath();
+        
+        let first = true;
+        for (const point of this.points) {
+            const px = xToPx(point.x);
+            const py = yToPx(point.y);
+            if (px >= 0 && px <= w && py >= 0 && py <= h) {
+                if (first) {
+                    this.ctx.moveTo(px, py);
+                    first = false;
+                } else {
+                    this.ctx.lineTo(px, py);
+                }
+            } else {
+                first = true;
+            }
+        }
+        this.ctx.stroke();
+    }
+}
+
+// ============================================
+// ✅ INITIALIZE TOOL MANAGER
+// ============================================
+window.toolManager = new ToolManager();
+console.log('✅ ToolManager initialized');
+
+// ============================================
+// ✅ CONNECT TOOL BUTTONS
+// ============================================
+function connectToolButtons() {
+    console.log('🔧 Connecting tool buttons...');
+
+    const tools = [
+        { id: 'openCalculator', name: 'calculator' },
+        { id: 'openGraphTools', name: 'graph' },
+        { id: 'openNotepad', name: 'notepad' },
+        { id: 'openFormulaSheet', name: 'formula' },
+        { id: 'openWhiteboard', name: 'whiteboard' },
+        { id: 'openTimer', name: 'timer' }
+    ];
+
+    tools.forEach(tool => {
+        const btn = document.getElementById(tool.id);
+        if (btn) {
+            const newBtn = btn.cloneNode(true);
+            btn.parentNode.replaceChild(newBtn, btn);
+            
+            newBtn.addEventListener('click', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                console.log(`🎯 Opening ${tool.name}`);
+                window.toolManager.openTool(tool.name);
+            });
+        } else {
+            console.warn(`⚠️ Button not found: ${tool.id}`);
+        }
+    });
+}
+
+// Run when DOM is ready
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', connectToolButtons);
+} else {
+    connectToolButtons();
+}
+
+// Also run after page load
+window.addEventListener('load', connectToolButtons);
 // lesson-tools-fix.js
 console.log('🔧 Lesson Tools Fix loaded');
 
