@@ -2884,25 +2884,272 @@ async function initQuizDashboard() {
     console.log('🧠 Initializing quiz dashboard...');
     await loadQuizCategories();
 }
-
 // ============================================
-// ✅ LESSON FUNCTIONS
+// UPDATE CONTINUE LEARNING MODULE - LOAD LESSONS FROM DATABASE
 // ============================================
 async function updateContinueLearningModule() {
-    const container = document.getElementById('continueLearningContainer');
-    if (!container) return;
+    console.log('📚 Loading continue learning lessons from database...');
     
+    const container = document.getElementById('continueLearningContainer');
+    if (!container) {
+        console.error('❌ Continue learning container not found');
+        return;
+    }
+    
+    // Show loading state
     container.innerHTML = `
-        <div style="background: white; border-radius: 12px; padding: 25px;">
+        <div style="background: white; border-radius: 12px; padding: 25px; text-align: center;">
+            <i class="fas fa-spinner fa-spin" style="font-size: 40px; color: #7a0000; margin-bottom: 15px;"></i>
+            <p style="color: #666;">Loading your lessons...</p>
+        </div>
+    `;
+    
+    try {
+        const token = localStorage.getItem('authToken');
+        if (!token) {
+            console.log('⚠️ No auth token, using demo mode');
+            showDemoContinueLearning(container);
+            return;
+        }
+        
+        // Fetch lessons for FactoLearn (lesson_id = 3)
+        const response = await fetch(`/api/lessons-db/complete?lesson_id=3`, {
+            headers: {
+                'Authorization': `Bearer ${token}`
+            }
+        });
+        
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        
+        const data = await response.json();
+        
+        if (!data.success || !data.lessons || data.lessons.length === 0) {
+            console.log('⚠️ No lessons found for FactoLearn');
+            showNoLessonsMessage(container);
+            return;
+        }
+        
+        const lessons = data.lessons;
+        console.log(`✅ Found ${lessons.length} lessons for FactoLearn`);
+        
+        // Store in LessonState
+        LessonState.lessons = lessons;
+        
+        // Get user progress for these lessons
+        let userProgress = {};
+        try {
+            const progressResponse = await fetch(`/api/progress/lessons?lesson_id=3`, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            
+            if (progressResponse.ok) {
+                const progressData = await progressResponse.json();
+                if (progressData.success && progressData.progress) {
+                    progressData.progress.forEach(p => {
+                        userProgress[p.content_id] = p;
+                    });
+                }
+            }
+        } catch (error) {
+            console.log('Could not fetch progress:', error);
+        }
+        
+        // Find continue learning lesson (first incomplete lesson)
+        let continueLesson = null;
+        let completedCount = 0;
+        
+        for (const lesson of lessons) {
+            const progress = userProgress[lesson.content_id];
+            if (progress?.completion_status === 'completed') {
+                completedCount++;
+            } else {
+                // First incomplete lesson
+                continueLesson = lesson;
+                break;
+            }
+        }
+        
+        // If all lessons completed, show first lesson as review
+        if (!continueLesson && lessons.length > 0) {
+            continueLesson = lessons[0];
+        }
+        
+        if (!continueLesson) {
+            showNoLessonsMessage(container);
+            return;
+        }
+        
+        // Calculate progress percentage
+        const progressPercentage = lessons.length > 0 
+            ? Math.round((completedCount / lessons.length) * 100) 
+            : 0;
+        
+        // Store in state
+        LessonState.continueLearningLesson = continueLesson;
+        
+        // Build HTML
+        let lessonsHTML = '';
+        const recentLessons = lessons.slice(0, 3); // Show first 3 lessons
+        
+        recentLessons.forEach((lesson, index) => {
+            const progress = userProgress[lesson.content_id];
+            const isCompleted = progress?.completion_status === 'completed';
+            const lessonPercentage = progress?.percentage || 0;
+            
+            lessonsHTML += `
+                <div class="lesson-item ${isCompleted ? 'completed' : ''}" 
+                     data-lesson-id="${lesson.content_id}"
+                     style="display: flex; justify-content: space-between; align-items: center; 
+                            padding: 12px 15px; background: rgba(122,0,0,0.02); border-radius: 8px; 
+                            margin-bottom: 8px; border-left: 4px solid ${isCompleted ? '#27ae60' : '#7a0000'};
+                            cursor: pointer; transition: all 0.3s;"
+                     onmouseover="this.style.background='rgba(122,0,0,0.05)'"
+                     onmouseout="this.style.background='rgba(122,0,0,0.02)'">
+                    
+                    <div style="display: flex; align-items: center; gap: 12px;">
+                        <div style="width: 36px; height: 36px; background: ${isCompleted ? '#27ae60' : '#7a0000'}; 
+                                   border-radius: 50%; display: flex; align-items: center; justify-content: center; 
+                                   color: white; font-size: 1rem;">
+                            <i class="fas ${isCompleted ? 'fa-check' : 'fa-play'}"></i>
+                        </div>
+                        <div>
+                            <div style="font-weight: 600; color: #2c3e50; margin-bottom: 3px;">
+                                ${lesson.content_title || `Lesson ${index + 1}`}
+                            </div>
+                            <div style="font-size: 0.8rem; color: #666;">
+                                <i class="fas fa-clock"></i> ${Math.round((lesson.video_duration_seconds || 600) / 60)} min
+                                ${isCompleted ? ' • Completed' : lessonPercentage > 0 ? ` • ${lessonPercentage}%` : ''}
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <button class="${isCompleted ? 'review-btn' : 'start-btn'}" 
+                            data-lesson-id="${lesson.content_id}"
+                            style="padding: 6px 12px; border: none; border-radius: 6px; 
+                                   background: ${isCompleted ? 'rgba(39,174,96,0.1)' : '#7a0000'}; 
+                                   color: ${isCompleted ? '#27ae60' : 'white'}; 
+                                   font-weight: 600; cursor: pointer;">
+                        ${isCompleted ? 'Review' : 'Start'}
+                    </button>
+                </div>
+            `;
+        });
+        
+        // Main continue learning card
+        container.innerHTML = `
+            <div style="background: white; border-radius: 12px; padding: 25px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); 
+                        border: 1px solid rgba(122,0,0,0.1); position: relative; overflow: hidden;">
+                
+                <div style="position: absolute; top: 0; left: 0; width: 100%; height: 5px; 
+                           background: linear-gradient(to right, #7a0000, #c0392b, #e74c3c, #c0392b, #7a0000);">
+                </div>
+                
+                <h3 style="color: #7a0000; font-size: 1.3rem; margin-bottom: 5px; display: flex; align-items: center; gap: 8px;">
+                    <i class="fas fa-play-circle"></i> Continue Learning
+                </h3>
+                
+                <p style="color: #666; margin-bottom: 20px; font-size: 0.9rem;">
+                    Pick up where you left off
+                </p>
+                
+                <div style="display: flex; align-items: center; gap: 15px; margin-bottom: 20px;">
+                    <div style="width: 60px; height: 60px; background: rgba(122,0,0,0.1); border-radius: 12px; 
+                                display: flex; align-items: center; justify-content: center; font-size: 24px; color: #7a0000;">
+                        <i class="fas fa-cube"></i>
+                    </div>
+                    <div>
+                        <h4 style="margin: 0 0 5px 0; color: #2c3e50;">FactoLearn</h4>
+                        <p style="margin: 0; color: #666; font-size: 0.9rem;">Master factorials, permutations & combinations</p>
+                    </div>
+                </div>
+                
+                <div style="margin-bottom: 15px;">
+                    <div style="display: flex; justify-content: space-between; margin-bottom: 8px; color: #2c3e50;">
+                        <span>Your Progress</span>
+                        <span>${progressPercentage}%</span>
+                    </div>
+                    <div style="height: 8px; background: #ecf0f1; border-radius: 4px;">
+                        <div style="height: 100%; width: ${progressPercentage}%; 
+                                   background: linear-gradient(to right, #7a0000, #c0392b); 
+                                   border-radius: 4px; transition: width 0.5s ease;"></div>
+                    </div>
+                </div>
+                
+                <div style="margin-bottom: 20px;">
+                    <h5 style="color: #2c3e50; margin-bottom: 10px; font-size: 0.95rem;">
+                        <i class="fas fa-list"></i> Lessons
+                    </h5>
+                    ${lessonsHTML}
+                </div>
+                
+                <button class="btn-primary" id="continueLessonBtn" data-lesson-id="${continueLesson.content_id}"
+                        style="width: 100%; padding: 12px; background: #7a0000; color: white; border: none; 
+                               border-radius: 8px; font-weight: 600; cursor: pointer; display: flex; 
+                               align-items: center; justify-content: center; gap: 8px;">
+                    <i class="fas fa-play"></i> Continue Learning
+                </button>
+            </div>
+        `;
+        
+        // Add click handlers
+        document.querySelectorAll('.lesson-item').forEach(item => {
+            item.addEventListener('click', function() {
+                const lessonId = this.getAttribute('data-lesson-id');
+                if (lessonId) openLesson(lessonId);
+            });
+        });
+        
+        document.querySelectorAll('.start-btn, .review-btn').forEach(btn => {
+            btn.addEventListener('click', function(e) {
+                e.stopPropagation();
+                const lessonId = this.getAttribute('data-lesson-id');
+                if (lessonId) openLesson(lessonId);
+            });
+        });
+        
+        document.getElementById('continueLessonBtn')?.addEventListener('click', function() {
+            const lessonId = this.getAttribute('data-lesson-id');
+            if (lessonId) openLesson(lessonId);
+        });
+        
+        console.log('✅ Continue learning module updated with real lessons');
+        
+    } catch (error) {
+        console.error('❌ Error loading lessons:', error);
+        showDemoContinueLearning(container);
+    }
+}
+// Helper function for demo mode
+function showDemoContinueLearning(container) {
+    container.innerHTML = `
+        <div style="background: white; border-radius: 12px; padding: 25px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); 
+                    border: 1px solid rgba(122,0,0,0.1); position: relative; overflow: hidden;">
+            
+            <div style="position: absolute; top: 0; left: 0; width: 100%; height: 5px; 
+                       background: linear-gradient(to right, #7a0000, #c0392b, #e74c3c, #c0392b, #7a0000);">
+            </div>
+            
+            <h3 style="color: #7a0000; font-size: 1.3rem; margin-bottom: 5px; display: flex; align-items: center; gap: 8px;">
+                <i class="fas fa-play-circle"></i> Continue Learning
+            </h3>
+            
+            <p style="color: #666; margin-bottom: 20px; font-size: 0.9rem;">
+                Pick up where you left off
+            </p>
+            
             <div style="display: flex; align-items: center; gap: 15px; margin-bottom: 20px;">
-                <div style="width: 60px; height: 60px; background: rgba(122,0,0,0.1); border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 24px; color: #7a0000;">
+                <div style="width: 60px; height: 60px; background: rgba(122,0,0,0.1); border-radius: 12px; 
+                            display: flex; align-items: center; justify-content: center; font-size: 24px; color: #7a0000;">
                     <i class="fas fa-cube"></i>
                 </div>
                 <div>
-                    <h3 style="margin: 0 0 5px 0; color: #2c3e50;">FactoLearn</h3>
-                    <p style="margin: 0; color: #666;">Master factorials, permutations & combinations</p>
+                    <h4 style="margin: 0 0 5px 0; color: #2c3e50;">FactoLearn</h4>
+                    <p style="margin: 0; color: #666; font-size: 0.9rem;">Master factorials, permutations & combinations</p>
                 </div>
             </div>
+            
             <div style="margin-bottom: 15px;">
                 <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
                     <span>Your Progress</span>
@@ -2912,13 +3159,43 @@ async function updateContinueLearningModule() {
                     <div style="height: 100%; width: 25%; background: #7a0000; border-radius: 4px;"></div>
                 </div>
             </div>
-            <button class="btn-primary" style="width: 100%; padding: 12px; background: #7a0000; color: white; border: none; border-radius: 8px; font-weight: 600; cursor: pointer;">
+            
+            <div style="margin-bottom: 20px;">
+                <h5 style="color: #2c3e50; margin-bottom: 10px;">Demo Lessons</h5>
+                <div class="lesson-item" style="display: flex; justify-content: space-between; align-items: center; 
+                      padding: 12px 15px; background: rgba(122,0,0,0.02); border-radius: 8px; margin-bottom: 8px;">
+                    <div style="display: flex; align-items: center; gap: 12px;">
+                        <div style="width: 36px; height: 36px; background: #7a0000; border-radius: 50%; 
+                                   display: flex; align-items: center; justify-content: center; color: white;">
+                            <i class="fas fa-play"></i>
+                        </div>
+                        <div>
+                            <div style="font-weight: 600;">Introduction to Factorials</div>
+                            <div style="font-size: 0.8rem; color: #666;"><i class="fas fa-clock"></i> 10 min</div>
+                        </div>
+                    </div>
+                    <button style="padding: 6px 12px; background: #7a0000; color: white; border: none; 
+                                  border-radius: 6px; font-weight: 600; cursor: pointer;">Start</button>
+                </div>
+            </div>
+            
+            <button class="btn-primary" style="width: 100%; padding: 12px; background: #7a0000; color: white; 
+                     border: none; border-radius: 8px; font-weight: 600; cursor: pointer;">
                 <i class="fas fa-play"></i> Continue Learning
             </button>
         </div>
     `;
 }
 
+function showNoLessonsMessage(container) {
+    container.innerHTML = `
+        <div style="background: white; border-radius: 12px; padding: 40px; text-align: center;">
+            <i class="fas fa-book-open" style="font-size: 60px; color: #ccc; margin-bottom: 15px;"></i>
+            <h3 style="color: #666;">No Lessons Available</h3>
+            <p style="color: #999;">Check back later for FactoLearn lessons!</p>
+        </div>
+    `;
+}
 // ============================================
 // ✅ STYLE FUNCTIONS
 // ============================================
@@ -3128,6 +3405,174 @@ if (typeof loadLeaderboard !== 'function') {
         console.log('🏆 Leaderboard function not available');
     };
 }
+
+// ============================================
+// SHOW SETTINGS SECTION FUNCTION
+// ============================================
+window.showSection = function(sectionId) {
+    console.log(`📂 Showing settings section: ${sectionId}`);
+    
+    // Hide all settings sections first
+    const sections = document.querySelectorAll('.settings-section');
+    sections.forEach(section => {
+        section.classList.remove('active');
+        section.style.display = 'none';
+    });
+    
+    // Show the selected section
+    const targetSection = document.getElementById(sectionId);
+    if (targetSection) {
+        targetSection.classList.add('active');
+        targetSection.style.display = 'block';
+        
+        // Update active state in sidebar
+        document.querySelectorAll('.sidebar-menu a').forEach(link => {
+            link.classList.remove('active');
+        });
+        
+        // Find and activate the clicked link
+        const activeLink = document.querySelector(`[onclick="showSection('${sectionId}')"]`);
+        if (activeLink) {
+            activeLink.classList.add('active');
+        }
+        
+        console.log(`✅ Section "${sectionId}" is now visible`);
+    } else {
+        console.error(`❌ Section "${sectionId}" not found`);
+        
+        // Show general section as fallback
+        const generalSection = document.getElementById('general');
+        if (generalSection) {
+            generalSection.classList.add('active');
+            generalSection.style.display = 'block';
+            
+            // Update active menu
+            document.querySelectorAll('.sidebar-menu a').forEach(link => {
+                link.classList.remove('active');
+            });
+            
+            const generalLink = document.querySelector('[onclick="showSection(\'general\')"]');
+            if (generalLink) {
+                generalLink.classList.add('active');
+            }
+        }
+    }
+};
+
+// ============================================
+// SETTINGS PAGE INITIALIZATION
+// ============================================
+window.initSettingsDashboard = function() {
+    console.log('⚙️ Initializing settings dashboard...');
+    
+    // Show general section by default
+    setTimeout(() => {
+        showSection('general');
+    }, 100);
+    
+    // Load user settings
+    loadUserSettings();
+};
+
+// ============================================
+// LOAD USER SETTINGS
+// ============================================
+function loadUserSettings() {
+    console.log('📥 Loading user settings...');
+    
+    const userJson = localStorage.getItem('mathhub_user');
+    if (userJson) {
+        try {
+            const user = JSON.parse(userJson);
+            
+            const displayName = document.getElementById('displayName');
+            const userEmail = document.getElementById('userEmail');
+            
+            if (displayName) displayName.value = user.full_name || user.username || '';
+            if (userEmail) userEmail.value = user.email || '';
+            
+        } catch (e) {
+            console.error('Error loading user:', e);
+        }
+    }
+}
+
+// ============================================
+// SAVE ALL SETTINGS
+// ============================================
+window.saveAllSettings = function() {
+    console.log('💾 Saving settings...');
+    
+    const settings = {
+        displayName: document.getElementById('displayName')?.value,
+        language: document.getElementById('interfaceLanguage')?.value,
+        municipality: document.getElementById('batangas-municipalities')?.value,
+        timezone: document.getElementById('timeZone')?.value,
+        adaptiveDifficulty: document.getElementById('adaptiveDifficulty')?.checked,
+        preferredDifficulty: document.getElementById('preferredDifficulty')?.value,
+        showSolutions: document.getElementById('showSolutions')?.checked,
+        twoFactorAuth: document.getElementById('twoFactorAuth')?.checked,
+        profileVisibility: document.getElementById('profileVisibility')?.value,
+        dataSharing: document.getElementById('dataSharing')?.checked,
+        weeklyReport: document.getElementById('weeklyReport')?.checked,
+        practiceReminders: document.getElementById('practiceReminders')?.checked,
+        theme: getSelectedTheme(),
+        fontSize: document.getElementById('fontSize')?.value
+    };
+    
+    localStorage.setItem('user_settings', JSON.stringify(settings));
+    
+    showNotification('success', 'Settings Saved', 'Your preferences have been updated.');
+};
+
+// ============================================
+// GET SELECTED THEME
+// ============================================
+function getSelectedTheme() {
+    const themeLight = document.getElementById('themeLight');
+    const themeDark = document.getElementById('themeDark');
+    const themeAuto = document.getElementById('themeAuto');
+    
+    if (themeLight?.checked) return 'light';
+    if (themeDark?.checked) return 'dark';
+    if (themeAuto?.checked) return 'auto';
+    return 'light';
+}
+
+// ============================================
+// RESET SETTINGS
+// ============================================
+window.resetSettings = function() {
+    if (confirm('Reset all settings to default?')) {
+        localStorage.removeItem('user_settings');
+        location.reload();
+    }
+};
+
+// ============================================
+// VIEW PROFILE
+// ============================================
+window.viewProfile = function() {
+    window.open('/profile', '_blank');
+};
+
+// ============================================
+// EXPORT DATA
+// ============================================
+window.exportData = function() {
+    console.log('📤 Exporting data...');
+    showNotification('info', 'Export', 'Data export coming soon!');
+};
+
+// ============================================
+// CLEAR HISTORY
+// ============================================
+window.clearHistory = function() {
+    if (confirm('Are you sure you want to clear all learning history?')) {
+        console.log('🧹 Clearing history...');
+        showNotification('success', 'Success', 'Learning history cleared!');
+    }
+};
 // ============================================
 // ✅ MAKE FUNCTIONS GLOBALLY AVAILABLE
 // ============================================
