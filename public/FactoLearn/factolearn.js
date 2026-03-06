@@ -8215,10 +8215,10 @@ function confirmLogout() {
 }
 
 // ============================================
-// LOGOUT FUNCTION - REDIRECT TO USER LOGIN PAGE
+// LOGOUT FUNCTION - REDIRECT TO MAIN LOGIN PAGE
 // ============================================
 function logoutAndRedirect() {
-    console.log('🚪 Logging out - redirecting to user login page...');
+    console.log('🚪 Logging out - redirecting to main login page...');
     
     // Clear all authentication data
     localStorage.removeItem('authToken');
@@ -8227,6 +8227,7 @@ function logoutAndRedirect() {
     localStorage.removeItem('selectedApp');
     localStorage.removeItem('currentLessonFilter');
     localStorage.removeItem('currentLessonId');
+    localStorage.removeItem('loginTime');
     sessionStorage.clear();
     
     // Reset app state
@@ -8236,28 +8237,35 @@ function logoutAndRedirect() {
     AppState.selectedApp = null;
     authToken = null;
     
-    // Hide footer navigation
-    hideFooterNavigation();
-    
-    // Show notification
+    // Show notification (optional)
     showNotification('👋 Logged out successfully!', 'info');
     
-    // Navigate to login page (WITH USER INTERFACE)
-    navigateTo('login');
+    // DETERMINE CORRECT PATH TO INDEX.HTML
+    // Get current path to know where we are
+    const currentPath = window.location.pathname;
+    console.log('Current path:', currentPath);
     
-    console.log('✅ Redirected to user login page');
-}
-
-// Make sure closeLogoutModal exists
-window.closeLogoutModal = function() {
-    console.log('🔒 Closing logout modal');
-    const modal = document.querySelector('.logout-modal, .modal-overlay');
-    if (modal) {
-        modal.remove();
+    let redirectUrl = '';
+    
+    // Check if we're in a subfolder
+    if (currentPath.includes('/FactoLearn/') || currentPath.includes('/factolearn/')) {
+        // We're in a subfolder - go up one level
+        redirectUrl = '../index.html';
+    } else if (currentPath.endsWith('factolearn.html')) {
+        // We're in the same folder as factolearn.html
+        redirectUrl = 'index.html';
+    } else {
+        // Default to root
+        redirectUrl = '/index.html';
     }
-    document.body.classList.remove('modal-open');
-    document.body.style.overflow = '';
-};
+    
+    console.log('Redirecting to:', redirectUrl);
+    
+    // Redirect after a short delay
+    setTimeout(() => {
+        window.location.href = redirectUrl;
+    }, 100);
+}
 
 // Make sure confirmLogout exists
 window.confirmLogout = function() {
@@ -8265,36 +8273,12 @@ window.confirmLogout = function() {
     closeLogoutModal();
     logoutAndRedirect();
 };
-
-// Create modal if missing
-function createLogoutModal() {
-    const modalHTML = `...`; // (use the HTML from Step 2)
-    document.body.insertAdjacentHTML('beforeend', modalHTML);
-    setTimeout(showLogoutConfirmation, 100);
-}
 
 // Make available globally
 window.showLogoutConfirmation = showLogoutConfirmation;
 window.closeLogoutModal = closeLogoutModal;
 window.confirmLogout = confirmLogout;
 
-// Make sure closeLogoutModal exists
-window.closeLogoutModal = function() {
-    console.log('🔒 Closing logout modal');
-    const modal = document.querySelector('.logout-modal, .modal-overlay');
-    if (modal) {
-        modal.remove();
-    }
-    document.body.classList.remove('modal-open');
-    document.body.style.overflow = '';
-};
-
-// Make sure confirmLogout exists
-window.confirmLogout = function() {
-    console.log('✅ Logout confirmed');
-    closeLogoutModal();
-    logoutAndRedirect();
-};
 
 function hideFooterNavigation() {
     const navigation = document.querySelector('.footer-nav');
@@ -8432,10 +8416,7 @@ function createLogoutModal() {
     showLogoutConfirmation(); // Try again
 }
 
-// Make functions globally available
-window.showLogoutConfirmation = showLogoutConfirmation;
-window.closeLogoutModal = closeLogoutModal;
-window.confirmLogout = confirmLogout;
+
 
 document.addEventListener('DOMContentLoaded', function() {
     console.log('📄 DOM loaded - initializing all features');
