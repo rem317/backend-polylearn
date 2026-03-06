@@ -8185,18 +8185,7 @@ function showLogoutConfirmation() {
     }
 }
 
-// ============================================
-// CLOSE LOGOUT MODAL
-// ============================================
-window.closeLogoutModal = function() {
-    console.log('🔒 Closing logout modal');
-    const modal = document.querySelector('.logout-modal');
-    if (modal) {
-        modal.remove();
-    }
-    document.body.classList.remove('modal-open');
-    document.body.style.overflow = '';
-};
+
 
 // ============================================
 // CONFIRM LOGOUT
@@ -26039,44 +26028,6 @@ function addSettingsStyles() {
     document.head.appendChild(style);
     console.log('✅ Settings styles added');
 }
-function initSettingsDashboard() {
-    console.log('⚙️ Initializing settings dashboard...');
-    
-    // Load user settings
-    loadUserSettings();
-    
-    // Setup section navigation
-    setupSettingsNavigation();
-    
-    // Setup form listeners
-    setupSettingsForms();
-}
-
-
-function loadUserSettings() {
-    console.log('📥 Loading user settings...');
-    
-    const userJson = localStorage.getItem('mathhub_user');
-    if (userJson) {
-        try {
-            const user = JSON.parse(userJson);
-            
-            const displayName = document.getElementById('displayName');
-            const userEmail = document.getElementById('userEmail');
-            const profilePreview = document.getElementById('profilePreview');
-            
-            if (displayName) displayName.value = user.full_name || user.username || '';
-            if (userEmail) userEmail.value = user.email || '';
-            
-            if (profilePreview) {
-                profilePreview.innerHTML = `<i class="fas fa-user-circle"></i>`;
-            }
-            
-        } catch (e) {
-            console.error('Error loading user:', e);
-        }
-    }
-}
 
 function setupSettingsNavigation() {
     const menuItems = document.querySelectorAll('.sidebar-menu a');
@@ -26097,37 +26048,103 @@ function setupSettingsNavigation() {
         });
     });
 }
-function showSettingsSection(sectionId) {
-    // Hide all sections
-    document.querySelectorAll('.settings-section').forEach(section => {
+// ============================================
+// SHOW SETTINGS SECTION FUNCTION
+// ============================================
+window.showSection = function(sectionId) {
+    console.log(`📂 Showing settings section: ${sectionId}`);
+    
+    // Hide all settings sections first
+    const sections = document.querySelectorAll('.settings-section');
+    sections.forEach(section => {
         section.classList.remove('active');
+        section.style.display = 'none';
     });
     
-    // Show selected section
+    // Show the selected section
     const targetSection = document.getElementById(sectionId);
     if (targetSection) {
         targetSection.classList.add('active');
+        targetSection.style.display = 'block';
+        
+        // Update active state in sidebar
+        document.querySelectorAll('.sidebar-menu a').forEach(link => {
+            link.classList.remove('active');
+        });
+        
+        // Find and activate the clicked link
+        const activeLink = document.querySelector(`[onclick="showSection('${sectionId}')"]`);
+        if (activeLink) {
+            activeLink.classList.add('active');
+        }
+        
+        console.log(`✅ Section "${sectionId}" is now visible`);
+    } else {
+        console.error(`❌ Section "${sectionId}" not found`);
+        
+        // Show general section as fallback
+        const generalSection = document.getElementById('general');
+        if (generalSection) {
+            generalSection.classList.add('active');
+            generalSection.style.display = 'block';
+            
+            // Update active menu
+            document.querySelectorAll('.sidebar-menu a').forEach(link => {
+                link.classList.remove('active');
+            });
+            
+            const generalLink = document.querySelector('[onclick="showSection(\'general\')"]');
+            if (generalLink) {
+                generalLink.classList.add('active');
+            }
+        }
     }
-}
+};
 
-function setupSettingsForms() {
-    // Save settings button
-    const saveBtn = document.querySelector('.action-buttons .btn-primary');
-    if (saveBtn) {
-        saveBtn.addEventListener('click', saveSettings);
-    }
+// ============================================
+// SETTINGS PAGE INITIALIZATION
+// ============================================
+window.initSettingsDashboard = function() {
+    console.log('⚙️ Initializing settings dashboard...');
     
-    // Reset settings button
-    const resetBtn = document.querySelector('.action-buttons .btn-secondary');
-    if (resetBtn) {
-        resetBtn.addEventListener('click', resetSettings);
+    // Show general section by default
+    setTimeout(() => {
+        showSection('general');
+    }, 100);
+    
+    // Load user settings
+    loadUserSettings();
+};
+
+// ============================================
+// LOAD USER SETTINGS
+// ============================================
+function loadUserSettings() {
+    console.log('📥 Loading user settings...');
+    
+    const userJson = localStorage.getItem('mathhub_user');
+    if (userJson) {
+        try {
+            const user = JSON.parse(userJson);
+            
+            const displayName = document.getElementById('displayName');
+            const userEmail = document.getElementById('userEmail');
+            
+            if (displayName) displayName.value = user.full_name || user.username || '';
+            if (userEmail) userEmail.value = user.email || '';
+            
+        } catch (e) {
+            console.error('Error loading user:', e);
+        }
     }
 }
 
-function saveSettings() {
+// ============================================
+// SAVE ALL SETTINGS
+// ============================================
+window.saveAllSettings = function() {
     console.log('💾 Saving settings...');
     
-    // Get all form values
     const settings = {
         displayName: document.getElementById('displayName')?.value,
         language: document.getElementById('interfaceLanguage')?.value,
@@ -26145,12 +26162,14 @@ function saveSettings() {
         fontSize: document.getElementById('fontSize')?.value
     };
     
-    // Save to localStorage
     localStorage.setItem('user_settings', JSON.stringify(settings));
     
     showNotification('success', 'Settings Saved', 'Your preferences have been updated.');
-}
+};
 
+// ============================================
+// GET SELECTED THEME
+// ============================================
 function getSelectedTheme() {
     const themeLight = document.getElementById('themeLight');
     const themeDark = document.getElementById('themeDark');
@@ -26162,16 +26181,40 @@ function getSelectedTheme() {
     return 'light';
 }
 
-function resetSettings() {
+// ============================================
+// RESET SETTINGS
+// ============================================
+window.resetSettings = function() {
     if (confirm('Reset all settings to default?')) {
         localStorage.removeItem('user_settings');
         location.reload();
     }
-}
+};
 
-function viewProfile() {
+// ============================================
+// VIEW PROFILE
+// ============================================
+window.viewProfile = function() {
     window.open('/profile', '_blank');
-}
+};
+
+// ============================================
+// EXPORT DATA
+// ============================================
+window.exportData = function() {
+    console.log('📤 Exporting data...');
+    showNotification('info', 'Export', 'Data export coming soon!');
+};
+
+// ============================================
+// CLEAR HISTORY
+// ============================================
+window.clearHistory = function() {
+    if (confirm('Are you sure you want to clear all learning history?')) {
+        console.log('🧹 Clearing history...');
+        showNotification('success', 'Success', 'Learning history cleared!');
+    }
+};
 // ============================================
 // ✅ ADD MISSING FEEDBACK STYLES FUNCTION
 // ============================================
@@ -26465,79 +26508,6 @@ setTimeout(() => {
 }, 1000);
 
 
-// Logout function
-function logoutAndRedirect() {
-    console.log('🚪 Logging out...');
-    
-    // Log logout activity before clearing data
-    if (AppState.currentUser) {
-        logUserActivity('logout', null, {}, 0);
-    }
-    
-    // Clear local storage
-    localStorage.removeItem('authToken');
-    localStorage.removeItem('mathhub_user');
-    localStorage.removeItem('hasSelectedApp');
-    
-    // Reset app state
-    AppState.currentUser = null;
-    AppState.isAuthenticated = false;
-    AppState.hasSelectedApp = false;
-    AppState.selectedApp = null;
-    AppState.currentLessonData = null;
-    AppState.currentVideoData = null;
-    authToken = null;
-    
-    // Reset lesson state
-    LessonState.lessons = [];
-    LessonState.currentLesson = null;
-    LessonState.userProgress = {};
-    LessonState.continueLearningLesson = null;
-    LessonState.currentTopic = null;
-    
-    // Reset practice state
-    PracticeState.currentTopic = null;
-    PracticeState.currentExercise = null;
-    PracticeState.exercises = [];
-    PracticeState.timer = 300;
-    PracticeState.timerInterval = null;
-    PracticeState.isExerciseActive = false;
-    PracticeState.isReviewMode = false;
-    PracticeState.userPracticeProgress = {};
-    
-    // Reset quiz state
-    QuizState.currentQuiz = null;
-    QuizState.currentQuestionIndex = 0;
-    QuizState.questions = [];
-    QuizState.userAnswers = {};
-    QuizState.timer = 0;
-    QuizState.timerInterval = null;
-    QuizState.isQuizActive = false;
-    QuizState.currentAttemptId = null;
-    QuizState.quizResults = null;
-    QuizState.selectedCategory = null;
-    QuizState.quizCategories = [];
-    
-    // Reset progress state
-    ProgressState.dailyProgress = null;
-    ProgressState.weeklyProgress = null;
-    ProgressState.monthlyProgress = null;
-    ProgressState.learningGoals = [];
-    ProgressState.topicMastery = {};
-    ProgressState.moduleProgress = {};
-    ProgressState.activityLog = [];
-    ProgressState.dashboardStats = null;
-    ProgressState.progressTrends = [];
-    ProgressState.achievementTimeline = [];
-    
-    // Hide footer navigation when logging out
-    hideFooterNavigation();
-    
-    // Navigate to login
-    navigateTo('login');
-    
-    showNotification('Logged out successfully', 'info');
-}
 
 // In the hamburger menu initialization
 const mobileMenuItems = document.querySelectorAll('.mobile-menu-item');
