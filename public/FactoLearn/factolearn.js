@@ -5734,36 +5734,48 @@ class ToolManager {
         this.setupEventListeners();
     }
 
-    createModals() {
+       createModals() {
         console.log('📦 Creating tool modals...');
-        
         // Check if modals already exist
+        const existingModals = [
+            'calculatorModal', 'graphModal', 'whiteboardModal', 
+            'notepadModal', 'formulaModal', 'timerModal'
+        ];
+        
+        let anyModalMissing = false;
+        existingModals.forEach(id => {
+            if (!document.getElementById(id)) {
+                anyModalMissing = true;
+            }
+        });
+        
+        // If any modal is missing, create them
+        if (anyModalMissing) {
+            this.injectModalHTML();
+        }
+    }
+
+    injectModalHTML() {
         const modalHTML = `
-            let calculatorModal = document.getElementById('calculatorModal');
-            if (!calculatorModal) {
-                calculatorModal = document.createElement('div');
-                calculatorModal.id = 'calculatorModal';
-                calculatorModal.className = 'modal-overlay';
-                calculatorModal.innerHTML = `
-                    <div class="modal-container">
-                        <div class="modal-header" style="background: #7a0000; color: white;">
-                            <h3 style="margin: 0;"><i class="fas fa-calculator"></i> Calculator</h3>
-                            <button class="modal-close" onclick="window.toolManager.closeTool()" style="color: white;">&times;</button>
-                        </div>
-                        <div class="modal-body">
-                            <div class="calculator-container">
-                                <div class="calculator-display" id="calcDisplay">0</div>
-                                <div class="calculator-buttons" id="calcButtons"></div>
-                                <div class="calculator-history">
-                                    <h3><i class="fas fa-history"></i> History</h3>
-                                    <div class="history-list" id="calcHistory"></div>
-                                </div>
+            <!-- Calculator Modal -->
+            <div id="calculatorModal" class="modal-overlay">
+                <div class="modal-container">
+                    <div class="modal-header" style="background: #7a0000; color: white;">
+                        <h3 style="margin: 0;"><i class="fas fa-calculator"></i> Calculator</h3>
+                        <button class="modal-close" onclick="window.toolManager.closeTool()" style="color: white;">&times;</button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="calculator-container">
+                            <div class="calculator-display" id="calcDisplay">0</div>
+                            <div class="calculator-buttons" id="calcButtons"></div>
+                            <div class="calculator-history">
+                                <h3><i class="fas fa-history"></i> History</h3>
+                                <div class="history-list" id="calcHistory"></div>
                             </div>
                         </div>
                     </div>
-                `;
-                this.modalsContainer.appendChild(calculatorModal);
-            }
+                </div>
+            </div>
             
             <!-- Graph Modal -->
             <div id="graphModal" class="modal-overlay">
