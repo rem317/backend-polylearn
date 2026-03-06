@@ -5970,6 +5970,92 @@ textarea.feedback-form-control {
     min-height: 0 !important;
 }
 
+
+/* ============================================
+   28. ULTRA-SAFE MODAL FIX - NO OVERLAP
+   ============================================ */
+
+/* Force all modals to use consistent z-index */
+.modal-overlay {
+    z-index: 10000 !important;
+}
+
+/* But give highest priority to the currently active modal */
+.modal-overlay.active,
+.modal-overlay[style*="display: flex"] {
+    z-index: 10001 !important;
+}
+
+/* Quiz modal gets slightly higher priority */
+#quizModal.modal-overlay.active,
+#quizModal.modal-overlay[style*="display: flex"] {
+    z-index: 10002 !important;
+}
+
+/* Forgot password modal gets normal priority */
+#forgotPasswordModal.modal-overlay.active,
+#forgotPasswordModal.modal-overlay[style*="display: flex"] {
+    z-index: 10001 !important;
+}
+
+/* Reset password modal gets normal priority */
+#resetPasswordModal.modal-overlay.active,
+#resetPasswordModal.modal-overlay[style*="display: flex"] {
+    z-index: 10001 !important;
+}
+
+/* Tool modals get normal priority */
+#calculatorModal.modal-overlay.active,
+#graphModal.modal-overlay.active,
+#whiteboardModal.modal-overlay.active,
+#notepadModal.modal-overlay.active,
+#formulaModal.modal-overlay.active,
+#timerModal.modal-overlay.active,
+#calculatorModal.modal-overlay[style*="display: flex"],
+#graphModal.modal-overlay[style*="display: flex"],
+#whiteboardModal.modal-overlay[style*="display: flex"],
+#notepadModal.modal-overlay[style*="display: flex"],
+#formulaModal.modal-overlay[style*="display: flex"],
+#timerModal.modal-overlay[style*="display: flex"] {
+    z-index: 10001 !important;
+}
+
+/* Ensure modals don't overlap with footer */
+.footer-nav {
+    z-index: 999 !important;
+}
+
+/* Mobile menu should be below modals */
+.mobile-menu-panel,
+.mobile-menu-overlay {
+    z-index: 998 !important;
+}
+
+/* Tooltips should be above modals */
+.tooltip {
+    z-index: 10002 !important;
+}
+
+/* Add this to ensure proper stacking context */
+body.modal-open {
+    overflow: hidden !important;
+}
+
+/* Prevent multiple modals from showing at once */
+.modal-overlay {
+    display: none !important;
+}
+
+.modal-overlay.active,
+.modal-overlay[style*="display: flex"] {
+    display: flex !important;
+}
+
+/* When one modal is active, hide others */
+.modal-overlay.active ~ .modal-overlay,
+.modal-overlay[style*="display: flex"] ~ .modal-overlay {
+    display: none !important;
+}
 /* ============================================
    END OF CSS
    ============================================ */
