@@ -8214,8 +8214,11 @@ function confirmLogout() {
     logoutAndRedirect();
 }
 
+// ============================================
+// LOGOUT FUNCTION - REDIRECT TO USER LOGIN PAGE
+// ============================================
 function logoutAndRedirect() {
-    console.log('🚪 Logging out - redirecting to main login page...');
+    console.log('🚪 Logging out - redirecting to user login page...');
     
     // Clear all authentication data
     localStorage.removeItem('authToken');
@@ -8224,7 +8227,6 @@ function logoutAndRedirect() {
     localStorage.removeItem('selectedApp');
     localStorage.removeItem('currentLessonFilter');
     localStorage.removeItem('currentLessonId');
-    localStorage.removeItem('loginTime'); // <- Add this line
     sessionStorage.clear();
     
     // Reset app state
@@ -8234,11 +8236,35 @@ function logoutAndRedirect() {
     AppState.selectedApp = null;
     authToken = null;
     
-   
+    // Hide footer navigation
+    hideFooterNavigation();
     
-    // REDIRECT TO MAIN LOGIN PAGE
-    window.location.href = '../index.html';
+    // Show notification
+    showNotification('👋 Logged out successfully!', 'info');
+    
+    // Navigate to login page (WITH USER INTERFACE)
+    navigateTo('login');
+    
+    console.log('✅ Redirected to user login page');
 }
+
+// Make sure closeLogoutModal exists
+window.closeLogoutModal = function() {
+    console.log('🔒 Closing logout modal');
+    const modal = document.querySelector('.logout-modal, .modal-overlay');
+    if (modal) {
+        modal.remove();
+    }
+    document.body.classList.remove('modal-open');
+    document.body.style.overflow = '';
+};
+
+// Make sure confirmLogout exists
+window.confirmLogout = function() {
+    console.log('✅ Logout confirmed');
+    closeLogoutModal();
+    logoutAndRedirect();
+};
 
 // Create modal if missing
 function createLogoutModal() {
@@ -24707,12 +24733,12 @@ window.showDashboardManually = function() {
 };
 
 // ============================================
-// 🧭 NAVIGATE TO PAGE - FIXED VERSION
+// NAVIGATION FUNCTION - FIXED
 // ============================================
 window.navigateTo = function(page) {
     console.log(`🧭 Navigating to: ${page}`);
     
-    // Define page elements - Tiyaking tama ang mga ID
+    // Define page elements - CHECK KUNG MAY LOGIN PAGE
     const pages = {
         'dashboard': document.getElementById('dashboard-page'),
         'practice': document.getElementById('practice-exercises-page'),
@@ -24722,7 +24748,7 @@ window.navigateTo = function(page) {
         'settings': document.getElementById('settings-page'),
         'moduleDashboard': document.getElementById('module-dashboard-page'),
         'appSelection': document.getElementById('app-selection-page'),
-        'login': document.getElementById('login-page'),
+        'login': document.getElementById('login-page'),        // ITO ANG USER LOGIN PAGE
         'signup': document.getElementById('signup-page'),
         'loading': document.getElementById('loading-page'),
         'landing': document.getElementById('landing-page')
@@ -24731,7 +24757,19 @@ window.navigateTo = function(page) {
     // Check if page exists
     if (!pages[page]) {
         console.error(`❌ Page "${page}" not found!`);
-        return;
+        
+        // Try to find any element with that ID
+        const element = document.getElementById(page);
+        if (element) {
+            console.log(`✅ Found element with id "${page}" but it's not in pages object`);
+            pages[page] = element;
+        } else {
+            // If login page doesn't exist, show alert
+            if (page === 'login') {
+                alert('Login page not found! Please check your HTML.');
+            }
+            return;
+        }
     }
     
     // Hide all pages
@@ -24751,27 +24789,6 @@ window.navigateTo = function(page) {
     window.scrollTo({ top: 0, behavior: 'smooth' });
     
     console.log(`✅ Navigated to ${page}`);
-    
-    // Initialize page-specific content
-    setTimeout(() => {
-        switch(page) {
-            case 'practice':
-                if (typeof initPracticePage === 'function') initPracticePage();
-                break;
-            case 'quizDashboard':
-                if (typeof initQuizDashboard === 'function') initQuizDashboard();
-                break;
-            case 'progress':
-                if (typeof initProgressDashboard === 'function') initProgressDashboard();
-                break;
-            case 'feedback':
-                if (typeof initFeedbackDashboard === 'function') initFeedbackDashboard();
-                break;
-            case 'settings':
-                if (typeof initSettingsDashboard === 'function') initSettingsDashboard();
-                break;
-        }
-    }, 100);
 };
 // ============================================
 // 🍔 MOBILE MENU - FIXED SCROLLING VERSION
@@ -26465,79 +26482,6 @@ setTimeout(() => {
 }, 1000);
 
 
-// Logout function
-function logoutAndRedirect() {
-    console.log('🚪 Logging out...');
-    
-    // Log logout activity before clearing data
-    if (AppState.currentUser) {
-        logUserActivity('logout', null, {}, 0);
-    }
-    
-    // Clear local storage
-    localStorage.removeItem('authToken');
-    localStorage.removeItem('mathhub_user');
-    localStorage.removeItem('hasSelectedApp');
-    
-    // Reset app state
-    AppState.currentUser = null;
-    AppState.isAuthenticated = false;
-    AppState.hasSelectedApp = false;
-    AppState.selectedApp = null;
-    AppState.currentLessonData = null;
-    AppState.currentVideoData = null;
-    authToken = null;
-    
-    // Reset lesson state
-    LessonState.lessons = [];
-    LessonState.currentLesson = null;
-    LessonState.userProgress = {};
-    LessonState.continueLearningLesson = null;
-    LessonState.currentTopic = null;
-    
-    // Reset practice state
-    PracticeState.currentTopic = null;
-    PracticeState.currentExercise = null;
-    PracticeState.exercises = [];
-    PracticeState.timer = 300;
-    PracticeState.timerInterval = null;
-    PracticeState.isExerciseActive = false;
-    PracticeState.isReviewMode = false;
-    PracticeState.userPracticeProgress = {};
-    
-    // Reset quiz state
-    QuizState.currentQuiz = null;
-    QuizState.currentQuestionIndex = 0;
-    QuizState.questions = [];
-    QuizState.userAnswers = {};
-    QuizState.timer = 0;
-    QuizState.timerInterval = null;
-    QuizState.isQuizActive = false;
-    QuizState.currentAttemptId = null;
-    QuizState.quizResults = null;
-    QuizState.selectedCategory = null;
-    QuizState.quizCategories = [];
-    
-    // Reset progress state
-    ProgressState.dailyProgress = null;
-    ProgressState.weeklyProgress = null;
-    ProgressState.monthlyProgress = null;
-    ProgressState.learningGoals = [];
-    ProgressState.topicMastery = {};
-    ProgressState.moduleProgress = {};
-    ProgressState.activityLog = [];
-    ProgressState.dashboardStats = null;
-    ProgressState.progressTrends = [];
-    ProgressState.achievementTimeline = [];
-    
-    // Hide footer navigation when logging out
-    hideFooterNavigation();
-    
-    // Navigate to login
-    navigateTo('login');
-    
-    showNotification('Logged out successfully', 'info');
-}
 
 // In the hamburger menu initialization
 const mobileMenuItems = document.querySelectorAll('.mobile-menu-item');
