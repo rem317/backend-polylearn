@@ -61,7 +61,59 @@ const CURRENT_APP_NAME = 'FactoPermCombi';
 function getCurrentApp() {
     return localStorage.getItem('selectedApp') || 'factorial'; // factorial na ang default
 }
-
+// ============================================
+// 🚨 EMERGENCY OVERRIDE - Force ALL lesson_id to 3
+// ============================================
+(function forceLessonId3() {
+    console.log('🚨 EMERGENCY: Forcing ALL lesson_id to 3 for FactoLearn ONLY');
+    
+    // Override the global fetch to always add lesson_id=3
+    const originalFetch = window.fetch;
+    window.fetch = function(url, options) {
+        // Only modify API calls that should have lesson_id
+        if (typeof url === 'string') {
+            // List of endpoints that need lesson_id filter
+            const endpointsThatNeedLessonId = [
+                '/api/progress/',
+                '/api/lessons',
+                '/api/practice/',
+                '/api/quiz/',
+                '/api/topics/',
+                '/api/admin/structure'
+            ];
+            
+            // Check if this URL needs lesson_id
+            const needsLessonId = endpointsThatNeedLessonId.some(endpoint => 
+                url.includes(endpoint)
+            );
+            
+            if (needsLessonId && !url.includes('lesson_id=')) {
+                // Add lesson_id=3 to the URL
+                const separator = url.includes('?') ? '&' : '?';
+                url = `${url}${separator}lesson_id=3`;
+                console.log(`🔧 Forced lesson_id=3: ${url.split('?')[0]}`);
+            }
+        }
+        return originalFetch.call(this, url, options);
+    };
+    
+    // Override the constants
+    window.FACTORIAL_LESSON_ID = 3;
+    window.POLYLEARN_LESSON_ID = 3; // Force to 3 to avoid confusion
+    window.MATHEASE_LESSON_ID = 3;   // Force to 3 to avoid confusion
+    
+    // Override getCurrentAppLessonId
+    window.getCurrentAppLessonId = function() {
+        return 3;
+    };
+    
+    // Set localStorage
+    localStorage.setItem('selectedApp', 'factorial');
+    localStorage.setItem('currentLessonFilter', '3');
+    localStorage.setItem('currentLessonId', '3');
+    
+    console.log('✅ Emergency override complete - All API calls will use lesson_id=3');
+})();
 function getCurrentAppLessonId() {
     // Kunin ang app selection ng user
     const selectedApp = localStorage.getItem('selectedApp') || 'factorial';
@@ -7093,247 +7145,16 @@ function forceUpdateProgressUI(progress) {
     
     console.log('✅ UI force updated with', percentage + '%');
 }
-// ============================================
-// ✅ FIXED: Load Progress Dashboard Data - FACTOLEARN ONLY (NO ERRORS)
-// ============================================
-async function loadProgressDashboardData() {
-    console.log('📊 Loading factorial progress dashboard data...');
-    
-    try {
-        // Show loading state
-        showProgressDashboardLoading();
-        
-        const token = localStorage.getItem('authToken') || authToken;
-        if (!token) {
-            console.error('❌ No auth token');
-            return;
-        }
-        
+// Inside openLesson function, after loading the lesson:
+setTimeout(async () => {
+    updateLessonUI(lesson);
+    setupNavigationButtons();
+    await loadVideoFromDatabase(lessonId);
+    setupCompleteLessonButton(); // ← ADD THIS LINE
+    console.log('✅ Lesson fully loaded');
+}, 500);
 
-        
-        // ===== FETCH ALL FACTOLEARN DATA =====
-        const [
-            lessonsProgress,
-            practiceStats,
-            quizStats,
-            totalLessonsCount
-        ] = await Promise.allSettled([
-            // 1. Get FactoLearn lessons progress
-            fetch(`/api/progress/lessons?lesson_id=${FACTORIAL_LESSON_ID}`, {
-                headers: { 'Authorization': `Bearer ${token}` }
-            }).then(res => res.json()).catch(() => ({ success: false })),
-            
-            // 2. Get FacttoLearn practice stats
-            fetch(`/api/progress/practice-attempts?lesson_id=${FACTORIAL_LESSON_ID}`, {
-                headers: { 'Authorization': `Bearer ${token}` }
-            }).then(res => res.json()).catch(() => ({ success: false })),
-            
-            // 3. Get FactoLearn quiz stats
-            fetch(`/api/quiz/user/attempts?lesson_id=${FACTORIAL_LESSON_ID}`, {
-                headers: { 'Authorization': `Bearer ${token}` }
-            }).then(res => res.json()).catch(() => ({ success: false })),
-            
-            // 4. Get total FactoLearn lessons
-            fetch(`/api/lessons-db/complete?lesson_id=${FACTORIAL_LESSON_ID}`, {
-                headers: { 'Authorization': `Bearer ${token}` }
-            }).then(res => res.json()).catch(() => ({ success: false }))
-        ]);
-        
-        // ===== PROCESS LESSONS DATA =====
-        let lessonsCompleted = 0;
-        let totalLessons = 10;
-        
-        if (lessonsProgress.status === 'fulfilled' && lessonsProgress.value?.success) {
-            const progress = lessonsProgress.value.progress || [];
-            lessonsCompleted = progress.filter(p => 
-                p.completion_status === 'completed' || p.status === 'completed'
-            ).length;
-            console.log(`✅ factorial lessons completed: ${lessonsCompleted}`);
-        }
-        
-        if (totalLessonsCount.status === 'fulfilled' && totalLessonsCount.value?.success) {
-            totalLessons = totalLessonsCount.value.lessons?.length || 10;
-        }
-        
-        // ===== PROCESS PRACTICE DATA =====
-        let exercisesCompleted = 0;
-        let totalPracticeSeconds = 0;
-        
-        if (practiceStats.status === 'fulfilled' && practiceStats.value?.success) {
-            const attempts = practiceStats.value.attempts || [];
-            exercisesCompleted = attempts.filter(a => 
-                a.completion_status === 'completed' || a.percentage >= 70
-            ).length;
-            
-            // Calculate total practice time in seconds
-            attempts.forEach(a => {
-                totalPracticeSeconds += a.time_spent_seconds || 0;
-            });
-            
-            console.log(`✅ factorial practice completed: ${exercisesCompleted}`);
-            console.log(`⏱️ Total practice seconds: ${totalPracticeSeconds}`);
-        }
-        
-        // ===== PROCESS QUIZ DATA =====
-        let quizPoints = 0;
-        let quizAttempts = 0;
-        
-        if (quizStats.status === 'fulfilled' && quizStats.value?.success) {
-            const attempts = quizStats.value.attempts || [];
-            quizAttempts = attempts.length;
-            
-            // Calculate points (10 points per correct answer)
-            attempts.forEach(attempt => {
-                const correctAnswers = attempt.correct_answers || 0;
-                quizPoints += correctAnswers * 10;
-            });
-            
-            console.log(`✅ factorial quiz points: ${quizPoints}`);
-        }
-        
-        // ===== CALCULATE OVERALL PROGRESS =====
-        // Base sa lessons lang dapat ang overall progress (0-100%)
-        const overallPercentage = totalLessons > 0 
-            ? Math.round((lessonsCompleted / totalLessons) * 100) 
-            : 0;
-        
-        console.log(`📊 Overall progress: ${overallPercentage}% (${lessonsCompleted}/${totalLessons} lessons)`);
-        
-        // ===== UPDATE OVERALL PROGRESS UI =====
-        const overallProgress = document.getElementById('overallProgress');
-        if (overallProgress) {
-             overallProgress.textContent = overallPercentage + '%';
-         }
-         
-         const progressBar = document.getElementById('overallProgressBar');
-         if (progressBar) {
-             progressBar.style.width = overallPercentage + '%';
-          }
-        
-        if (overallProgress) {
-            overallProgress.textContent = `${overallPercentage}%`;
-            
-            // Add animation
-            overallProgress.style.transition = 'all 0.3s';
-            overallProgress.style.transform = 'scale(1.1)';
-            overallProgress.style.color = '#7a0000';
-            setTimeout(() => {
-                overallProgress.style.transform = 'scale(1)';
-                overallProgress.style.color = '';
-            }, 300);
-        }
-        
-        if (overallProgressBar) {
-            overallProgressBar.style.width = `${overallPercentage}%`;
-            
-            // Set color based on progress
-            overallProgressBar.className = 'progress-fill';
-            if (overallPercentage >= 70) {
-                overallProgressBar.classList.add('progress-good');
-            } else if (overallPercentage >= 40) {
-                overallProgressBar.classList.add('progress-medium');
-            } else {
-                overallProgressBar.classList.add('progress-low');
-            }
-        }
-        
-        // ===== UPDATE TOTAL POINTS =====
-        const totalPointsProgress = document.getElementById('totalPointsProgress');
-        if (totalPointsProgress) {
-            totalPointsProgress.textContent = quizPoints;
-        }
-        
-        const pointsChange = document.getElementById('pointsChange');
-        if (pointsChange) {
-            // Compute points this week
-            const pointsThisWeek = Math.min(quizPoints, 10); // Sample computation
-            pointsChange.textContent = `+${pointsThisWeek} this week`;
-        }
-        
-        // ===== UPDATE TOTAL TIME =====
-        const totalTime = document.getElementById('totalTime');
-        if (totalTime) {
-            // Convert seconds to minutes
-            const totalMinutes = Math.floor(totalPracticeSeconds / 60);
-            
-            // Format display
-            let timeDisplay = '';
-            if (totalMinutes < 60) {
-                timeDisplay = `${totalMinutes}m`;
-            } else {
-                const hours = Math.floor(totalMinutes / 60);
-                const mins = totalMinutes % 60;
-                timeDisplay = `${hours}h ${mins}m`;
-            }
-            
-            totalTime.textContent = timeDisplay;
-            console.log(`⏱️ Display time: ${timeDisplay} (${totalMinutes} minutes)`);
-        }
-        
-        const timeChange = document.getElementById('timeChange');
-        if (timeChange) {
-            // Convert seconds to minutes for active days computation
-            const totalMinutes = Math.floor(totalPracticeSeconds / 60);
-            // Compute active days (1 day = 30 minutes of activity)
-            const activeDays = Math.max(1, Math.min(30, Math.ceil(totalMinutes / 30)));
-            timeChange.textContent = `${activeDays} days active`;
-        }
-        
-        // ===== UPDATE BADGES =====
-        const totalBadges = document.getElementById('totalBadges');
-        if (totalBadges) {
-            // Calculate badges based on achievements
-            let badgeCount = 0;
-            if (lessonsCompleted >= 1) badgeCount++;
-            if (lessonsCompleted >= 5) badgeCount++;
-            if (lessonsCompleted >= 10) badgeCount++;
-            if (exercisesCompleted >= 5) badgeCount++;
-            if (exercisesCompleted >= 15) badgeCount++;
-            if (quizAttempts >= 1) badgeCount++;
-            
-            totalBadges.textContent = `${badgeCount}/10`;
-        }
-        
-        const badgesChange = document.getElementById('badgesChange');
-        if (badgesChange) {
-            const badgesThisMonth = Math.floor(lessonsCompleted / 2) + Math.floor(exercisesCompleted / 5);
-            badgesChange.textContent = `+${badgesThisMonth} this month`;
-        }
-        
-        // Hide loading
-        hideProgressDashboardLoading();
-        
-        console.log('✅ FactoLearn progress dashboard updated');
-        
-        // Store in ProgressState
-        ProgressState.cumulativeProgress = {
-            total_lessons_completed: lessonsCompleted,
-            total_lessons: totalLessons,
-            overall_percentage: overallPercentage,
-            exercises_completed: exercisesCompleted,
-            total_quizzes_completed: quizAttempts,
-            total_points_earned: quizPoints,
-            total_time_spent_minutes: Math.floor(totalPracticeSeconds / 60)
-        };
-        
-    } catch (error) {
-        console.error('❌ Error loading progress dashboard:', error);
-        hideProgressDashboardLoading();
-        
-        // Set fallback values
-        const overallProgress = document.getElementById('overallProgress');
-        if (overallProgress) overallProgress.textContent = '0%';
-        
-        const totalPointsProgress = document.getElementById('totalPointsProgress');
-        if (totalPointsProgress) totalPointsProgress.textContent = '0';
-        
-        const totalTime = document.getElementById('totalTime');
-        if (totalTime) totalTime.textContent = '0m';
-        
-        const totalBadges = document.getElementById('totalBadges');
-        if (totalBadges) totalBadges.textContent = '0/10';
-    }
-}
+
 // ============================================
 // ✅ FIXED: HIDE PROGRESS DASHBOARD LOADING
 // ============================================
@@ -7356,7 +7177,64 @@ function hideProgressDashboardLoading() {
         }
     });
 }
-
+// ============================================
+// ✅ FIXED: Load Progress Dashboard - ONLY Lesson ID 3
+// ============================================
+async function loadProgressDashboardData() {
+    console.log('📊 Loading FactoLearn progress dashboard (lesson_id=3 ONLY)...');
+    
+    try {
+        showProgressDashboardLoading();
+        
+        const token = localStorage.getItem('authToken');
+        if (!token) return;
+        
+        const LESSON_ID = 3;
+        
+        // Get overall progress
+        const overallResponse = await fetch(`/api/progress/overall?lesson_id=${LESSON_ID}`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        
+        let overallPercentage = 0;
+        let totalPoints = 0;
+        let totalTime = 0;
+        
+        if (overallResponse.ok) {
+            const overallData = await overallResponse.json();
+            if (overallData.success) {
+                overallPercentage = overallData.overall?.percentage || 0;
+                totalPoints = overallData.overall?.total_points || 0;
+                totalTime = overallData.overall?.total_time_spent_minutes || 0;
+            }
+        }
+        
+        // Update UI
+        const overallProgress = document.getElementById('overallProgress');
+        if (overallProgress) overallProgress.textContent = overallPercentage + '%';
+        
+        const progressBar = document.getElementById('overallProgressBar');
+        if (progressBar) progressBar.style.width = overallPercentage + '%';
+        
+        const totalPointsProgress = document.getElementById('totalPointsProgress');
+        if (totalPointsProgress) totalPointsProgress.textContent = totalPoints;
+        
+        const totalTimeEl = document.getElementById('totalTime');
+        if (totalTimeEl) {
+            const minutes = Math.floor(totalTime / 60);
+            const hours = Math.floor(minutes / 60);
+            const mins = minutes % 60;
+            totalTimeEl.textContent = hours > 0 ? `${hours}h ${mins}m` : `${minutes}m`;
+        }
+        
+        hideProgressDashboardLoading();
+        console.log('✅ Progress dashboard updated with FactoLearn ONLY data');
+        
+    } catch (error) {
+        console.error('❌ Error:', error);
+        hideProgressDashboardLoading();
+    }
+}
 // ============================================
 // 🚀 DIRECT LOADING ON PAGE OPEN
 // ============================================
@@ -7435,30 +7313,31 @@ function updateProgressDashboardUI() {
     updateModuleProgressSection();
 }
 
-// ============================================
-// 📊 PROGRESS SUMMARY FUNCTIONS - FACTOREADY (lesson_id=3)
-// ============================================
 
+// ============================================
+// ✅ FIXED: Update Progress Summary - ONLY Lesson ID 3
+// ============================================
 async function updateProgressSummaryCards() {
-    console.log('📊 Updating FactoLearn progress summary cards (lesson_id = 3)...');
+    console.log('📊 Updating FactoLearn progress summary (lesson_id=3 ONLY)...');
     
     try {
-        const token = localStorage.getItem('authToken') || authToken;
+        const token = localStorage.getItem('authToken');
         if (!token) {
-            console.warn('No auth token, using fallback');
+            console.warn('No auth token');
             setDefaultProgressValues();
             return;
         }
         
-        const FACTORIAL_LESSON_ID = 3;  // FIXED to 3
+        // ONLY get data for lesson_id=3
+        const LESSON_ID = 3;
         
-        // ===== 1. GET LESSONS =====
+        // Get lessons completed count
         let lessonsCompleted = 0;
         let totalLessons = 0;
         
         try {
-            // Get total lessons count
-            const totalResponse = await fetch(`/api/lessons-db/complete?lesson_id=${FACTORIAL_LESSON_ID}`, {
+            // Get total lessons for lesson_id=3
+            const totalResponse = await fetch(`/api/lessons-db/complete?lesson_id=${LESSON_ID}`, {
                 headers: { 'Authorization': `Bearer ${token}` }
             });
             
@@ -7470,70 +7349,47 @@ async function updateProgressSummaryCards() {
                 }
             }
             
-            // Get lessons progress
-            const lessonsResponse = await fetch(`/api/progress/lessons?lesson_id=${FACTORIAL_LESSON_ID}`, {
+            // Get completed lessons count
+            const progressResponse = await fetch(`/api/progress/lessons?lesson_id=${LESSON_ID}`, {
                 headers: { 'Authorization': `Bearer ${token}` }
             });
             
-            if (lessonsResponse.ok) {
-                const lessonsData = await lessonsResponse.json();
-                if (lessonsData.success && lessonsData.progress) {
-                    lessonsCompleted = lessonsData.progress.filter(p => 
+            if (progressResponse.ok) {
+                const progressData = await progressResponse.json();
+                if (progressData.success && progressData.progress) {
+                    lessonsCompleted = progressData.progress.filter(p => 
                         p.completion_status === 'completed' || p.status === 'completed'
                     ).length;
-                    
-                    console.log(`✅ FactoLearn lessons completed: ${lessonsCompleted}/${totalLessons}`);
+                    console.log(`✅ Completed lessons: ${lessonsCompleted}`);
                 }
             }
         } catch (error) {
-            console.warn('⚠️ Could not fetch lessons:', error.message);
+            console.warn('Could not fetch lessons:', error);
         }
         
-        // ===== 2. GET PRACTICE EXERCISES =====
+        // Get exercises completed count
         let exercisesCompleted = 0;
-        let totalExercises = 0;
-        
         try {
-            // Get total practice exercises
-            const totalExercisesResponse = await fetch(`/api/practice/exercises/count?lesson_id=${FACTORIAL_LESSON_ID}`, {
-                headers: { 'Authorization': `Bearer ${token}` }
-            });
-            
-            if (totalExercisesResponse.ok) {
-                const totalData = await totalExercisesResponse.json();
-                if (totalData.success) {
-                    totalExercises = totalData.count || 0;
-                    console.log(`📝 Total FactoLearn practice exercises: ${totalExercises}`);
-                }
-            }
-            
-            // Get practice attempts
-            const practiceResponse = await fetch(`/api/progress/practice-attempts?lesson_id=${FACTORIAL_LESSON_ID}`, {
+            const practiceResponse = await fetch(`/api/progress/practice-attempts?lesson_id=${LESSON_ID}`, {
                 headers: { 'Authorization': `Bearer ${token}` }
             });
             
             if (practiceResponse.ok) {
                 const practiceData = await practiceResponse.json();
                 if (practiceData.success && practiceData.attempts) {
-                    exercisesCompleted = practiceData.attempts.filter(attempt => 
-                        attempt.completion_status === 'completed' || 
-                        attempt.percentage >= 70 ||
-                        attempt.score >= 70
+                    exercisesCompleted = practiceData.attempts.filter(a => 
+                        a.completion_status === 'completed' || a.percentage >= 70
                     ).length;
-                    
-                    console.log(`✅ FactoLearn completed exercises: ${exercisesCompleted}/${totalExercises}`);
                 }
             }
-            
         } catch (error) {
-            console.error('❌ Error fetching practice:', error.message);
+            console.warn('Could not fetch practice:', error);
         }
         
-        // ===== 3. GET QUIZ POINTS =====
-        let totalPoints = 0;
-        
+        // Get quiz points
+        let quizPoints = 0;
         try {
-            const quizResponse = await fetch(`/api/quiz/user/attempts?lesson_id=${FACTORIAL_LESSON_ID}`, {
+            const quizResponse = await fetch(`/api/quiz/user/attempts?lesson_id=${LESSON_ID}`, {
                 headers: { 'Authorization': `Bearer ${token}` }
             });
             
@@ -7541,60 +7397,44 @@ async function updateProgressSummaryCards() {
                 const quizData = await quizResponse.json();
                 if (quizData.success && quizData.attempts) {
                     quizData.attempts.forEach(attempt => {
-                        const correctAnswers = attempt.correct_answers || 0;
-                        totalPoints += correctAnswers * 10;
+                        quizPoints += (attempt.correct_answers || 0) * 10;
                     });
-                    console.log(`✅ FactoLearn quiz points: ${totalPoints}`);
                 }
             }
         } catch (error) {
-            console.warn('⚠️ Could not fetch quiz points:', error.message);
+            console.warn('Could not fetch quiz:', error);
         }
         
-        // ===== 4. UPDATE THE UI =====
-        
-        // Update lessons count
+        // Update the UI
         const lessonsCount = document.getElementById('lessonsCount');
         if (lessonsCount) {
             lessonsCount.innerHTML = `${lessonsCompleted}<span class="item-unit">/${totalLessons || 10}</span>`;
         }
         
-        // Update exercises count
         const exercisesCount = document.getElementById('exercisesCount');
         if (exercisesCount) {
-            exercisesCount.innerHTML = `${exercisesCompleted}<span class="item-unit">/${totalExercises || 15}</span>`;
+            exercisesCount.innerHTML = `${exercisesCompleted}<span class="item-unit">/20</span>`;
         }
         
-        // Update quiz score
         const quizScore = document.getElementById('quizScore');
         if (quizScore) {
-            quizScore.innerHTML = `${totalPoints}<span class="item-unit">pts</span>`;
+            quizScore.innerHTML = `${quizPoints}<span class="item-unit">pts</span>`;
         }
         
-        // Update avg time - Use calculateAverageTime from your cache system
         const avgTime = document.getElementById('avgTime');
         if (avgTime) {
-            const avgMinutes = calculateAverageTime(lessonsCompleted, exercisesCompleted, totalPoints);
+            const avgMinutes = Math.max(5, Math.min(30, lessonsCompleted * 3 + exercisesCompleted));
             avgTime.innerHTML = `${avgMinutes}<span class="item-unit">min/day</span>`;
         }
         
-        console.log('✅ FactoLearn progress summary cards updated');
-        console.log(`   FINAL - Lessons: ${lessonsCompleted}/${totalLessons}, Practice: ${exercisesCompleted}/${totalExercises}, Points: ${totalPoints}`);
-        
-        // Cache this data for quick load next time
-        cacheProgressData({
-            lessons: `${lessonsCompleted}<span class="item-unit">/${totalLessons || 10}</span>`,
-            exercises: `${exercisesCompleted}<span class="item-unit">/${totalExercises || 15}</span>`,
-            quizScore: `${totalPoints}<span class="item-unit">pts</span>`,
-            avgTime: `${calculateAverageTime(lessonsCompleted, exercisesCompleted, totalPoints)}<span class="item-unit">min/day</span>`
-        });
+        console.log('✅ Progress summary updated with FactoLearn ONLY data');
+        console.log(`   Lessons: ${lessonsCompleted}/${totalLessons}, Exercises: ${exercisesCompleted}, Points: ${quizPoints}`);
         
     } catch (error) {
-        console.error('❌ Error updating progress summary cards:', error);
+        console.error('❌ Error:', error);
         setDefaultProgressValues();
     }
 }
-
 function setDefaultProgressValues() {
     const lessonsCount = document.getElementById('lessonsCount');
     const exercisesCount = document.getElementById('exercisesCount');
@@ -18739,13 +18579,14 @@ async function openLesson(lessonId) {
         
         navigateTo('moduleDashboard');
         
-        setTimeout(async () => {
-            updateLessonUI(lesson);
-            setupNavigationButtons();
-            await loadVideoFromDatabase(lessonId);
-            await checkLessonCompletionStatus();  // ← Tawagin dito
-            console.log('✅ Lesson fully loaded');
-        }, 500);
+       // Inside openLesson function, after loading the lesson:
+      setTimeout(async () => {
+          updateLessonUI(lesson);
+          setupNavigationButtons();
+          await loadVideoFromDatabase(lessonId);
+          setupCompleteLessonButton(); // ← ADD THIS LINE
+          console.log('✅ Lesson fully loaded');
+      }, 500);
         
     } catch (error) {
         console.error('Error opening lesson:', error);
@@ -20532,37 +20373,33 @@ function setupPracticeButtons() {
 }
 
 // ============================================
-// ✅ FIXED: Setup Complete Lesson Button
+// ✅ SIMPLIFIED: Working Complete Lesson Button
 // ============================================
 function setupCompleteLessonButton() {
-    console.log('🔘 Setting up complete lesson button...');
+    console.log('🔧 Setting up complete lesson button...');
     
     const completeBtn = document.getElementById('completeLessonBtn');
     if (!completeBtn) {
-        console.warn('⚠️ Complete lesson button not found - will retry in 1 second');
-        setTimeout(setupCompleteLessonButton, 1000);
+        console.log('⚠️ Complete button not found, will retry...');
+        setTimeout(setupCompleteLessonButton, 500);
         return;
     }
     
-    console.log('✅ Complete lesson button found, setting up event listener...');
+    console.log('✅ Found complete button, attaching event...');
     
-    // Remove any existing listeners by cloning
-    const newCompleteBtn = completeBtn.cloneNode(true);
-    completeBtn.parentNode.replaceChild(newCompleteBtn, completeBtn);
+    // Remove all existing listeners by cloning
+    const newBtn = completeBtn.cloneNode(true);
+    completeBtn.parentNode.replaceChild(newBtn, completeBtn);
     
-    // Reset button to default state
-    newCompleteBtn.disabled = false;
-    newCompleteBtn.innerHTML = '<i class="fas fa-check-circle"></i> Mark Lesson Complete';
-    newCompleteBtn.classList.remove('btn-success');
-    newCompleteBtn.classList.add('btn-primary');
+    // Check initial status
+    checkButtonStatus(newBtn);
     
-    let isProcessing = false;
-    
-    newCompleteBtn.addEventListener('click', async function(e) {
+    // Add click handler
+    newBtn.addEventListener('click', async function(e) {
         e.preventDefault();
         e.stopPropagation();
         
-        console.log('🎯 Complete lesson button clicked!');
+        console.log('🎯 Complete button clicked!');
         
         const currentLesson = LessonState.currentLesson;
         if (!currentLesson) {
@@ -20571,50 +20408,30 @@ function setupCompleteLessonButton() {
         }
         
         const contentId = currentLesson.content_id;
-        console.log('📝 Marking lesson complete for ID:', contentId);
+        console.log('📝 Completing lesson ID:', contentId);
         
-        // Prevent double-clicking
-        if (isProcessing) {
-            console.log('⚠️ Already processing, please wait...');
-            return;
-        }
-        
-        isProcessing = true;
-        const originalText = newCompleteBtn.innerHTML;
-        
-        // Show loading state
-        newCompleteBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Saving...';
-        newCompleteBtn.disabled = true;
+        // Disable button and show loading
+        const originalText = this.innerHTML;
+        this.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Saving...';
+        this.disabled = true;
         
         try {
-            // Check if already completed (double-check)
-            if (LessonState.userProgress?.[contentId]?.status === 'completed') {
-                showNotification('info', 'Already Completed', 'Lesson already marked as complete!');
-                newCompleteBtn.innerHTML = '<i class="fas fa-check-double"></i> Already Completed';
-                newCompleteBtn.classList.remove('btn-primary');
-                newCompleteBtn.classList.add('btn-success');
-                return;
-            }
-            
-            // Calculate time spent watching video
-            let timeSpentSeconds = 300; // Default 5 minutes
+            // Calculate time spent
+            let timeSpentSeconds = 300; // default 5 minutes
             const videoElement = document.getElementById('lessonVideo');
             if (videoElement && videoElement.duration) {
-                // Use current time if video is playing, otherwise use duration
                 timeSpentSeconds = Math.floor(videoElement.currentTime || videoElement.duration || 300);
             }
             
-            console.log(`⏱️ Time spent: ${timeSpentSeconds} seconds`);
-            
-            // Get auth token
-            const token = localStorage.getItem('authToken') || authToken;
+            // Get token
+            const token = localStorage.getItem('authToken');
             if (!token) {
-                throw new Error('No authentication token found');
+                throw new Error('No auth token');
             }
             
-            console.log('📡 Sending completion request to server...');
+            console.log('📡 Sending to server...');
             
-            // Update progress in database
+            // Save to database
             const response = await fetch(`/api/lessons-db/${contentId}/progress`, {
                 method: 'POST',
                 headers: {
@@ -20629,90 +20446,111 @@ function setupCompleteLessonButton() {
             });
             
             if (!response.ok) {
-                const errorText = await response.text();
-                console.error('❌ Server response:', errorText);
                 throw new Error(`Server returned ${response.status}`);
             }
             
             const result = await response.json();
-            console.log('📥 Server response:', result);
+            console.log('✅ Server response:', result);
             
             if (result.success) {
                 // Update button to completed state
-                newCompleteBtn.innerHTML = '<i class="fas fa-check-double"></i> Lesson Completed!';
-                newCompleteBtn.classList.remove('btn-primary');
-                newCompleteBtn.classList.add('btn-success');
-                newCompleteBtn.disabled = true;
+                this.innerHTML = '<i class="fas fa-check-double"></i> Lesson Completed!';
+                this.classList.remove('btn-primary');
+                this.classList.add('btn-success');
+                this.disabled = true;
                 
                 showNotification('success', 'Success!', '🎉 Lesson marked as complete!');
                 
                 // Update local state
                 if (!LessonState.userProgress) LessonState.userProgress = {};
-                if (!LessonState.userProgress[contentId]) LessonState.userProgress[contentId] = {};
-                LessonState.userProgress[contentId].status = 'completed';
-                LessonState.userProgress[contentId].percentage = 100;
-                LessonState.userProgress[contentId].completion_status = 'completed';
+                LessonState.userProgress[contentId] = {
+                    status: 'completed',
+                    percentage: 100,
+                    completion_status: 'completed'
+                };
                 
-                console.log('✅ Local state updated:', LessonState.userProgress[contentId]);
-                
-                // Clear any watch time tracking
-                localStorage.removeItem(`video_watch_time_video_${contentId}`);
+                console.log('✅ Local state updated');
                 
                 // Update daily progress
-                await updateDailyProgress({ 
-                    lessons_completed: 1,
-                    time_spent_minutes: Math.floor(timeSpentSeconds / 60)
-                });
+                await fetch('/api/progress/update-daily', {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        lessons_completed: 1,
+                        time_spent_minutes: Math.floor(timeSpentSeconds / 60)
+                    })
+                }).catch(err => console.log('Daily progress update skipped:', err));
                 
-                // Update dashboard statistics
+                // Refresh displays
                 setTimeout(() => {
                     if (typeof updateProgressSummaryCards === 'function') {
                         updateProgressSummaryCards();
                     }
-                    if (AppState.currentPage === 'dashboard' && typeof updateContinueLearningModule === 'function') {
+                    if (typeof updateContinueLearningModule === 'function') {
                         updateContinueLearningModule();
                     }
-                    
-                    // Check if practice should be unlocked
-                    const topicId = currentLesson.topic_id;
-                    if (topicId) {
-                        checkPracticeUnlocked(topicId).then(unlocked => {
-                            if (unlocked) {
-                                showNotification('success', 'Practice Unlocked!', 'Practice exercises are now available!');
-                                // Add practice button to lesson content
-                                if (typeof addPracticeButtonToLesson === 'function') {
-                                    addPracticeButtonToLesson();
-                                }
-                            }
-                        });
-                    }
-                }, 1000);
+                }, 500);
                 
             } else {
-                throw new Error(result.message || 'Failed to save completion');
+                throw new Error(result.message || 'Failed to save');
             }
             
         } catch (error) {
-            console.error('❌ Error marking lesson complete:', error);
-            showNotification('error', 'Error', error.message || 'Failed to mark lesson as complete');
+            console.error('❌ Error:', error);
+            showNotification('error', 'Error', error.message);
             
-            // Restore button to original state
-            newCompleteBtn.innerHTML = originalText;
-            newCompleteBtn.disabled = false;
-            
-        } finally {
-            setTimeout(() => {
-                isProcessing = false;
-            }, 1000);
+            // Restore button
+            this.innerHTML = originalText;
+            this.disabled = false;
         }
     });
     
-    console.log('✅ Complete lesson button setup complete');
+    console.log('✅ Complete button setup done');
+}
+
+// Helper to check button status
+async function checkButtonStatus(btn) {
+    const currentLesson = LessonState.currentLesson;
+    if (!currentLesson) return;
     
-    // Check initial status after a short delay
-    setTimeout(() => {
-        checkLessonCompletionStatus();
-    }, 500);
+    const contentId = currentLesson.content_id;
+    
+    // Check if already completed in state
+    if (LessonState.userProgress?.[contentId]?.status === 'completed') {
+        btn.innerHTML = '<i class="fas fa-check-double"></i> Lesson Completed!';
+        btn.classList.remove('btn-primary');
+        btn.classList.add('btn-success');
+        btn.disabled = true;
+        console.log('📌 Lesson already completed');
+        return;
+    }
+    
+    // Check via API
+    try {
+        const token = localStorage.getItem('authToken');
+        const response = await fetch(`/api/lessons-db/${contentId}`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        
+        if (response.ok) {
+            const data = await response.json();
+            if (data.success && data.lesson?.progress?.status === 'completed') {
+                btn.innerHTML = '<i class="fas fa-check-double"></i> Lesson Completed!';
+                btn.classList.remove('btn-primary');
+                btn.classList.add('btn-success');
+                btn.disabled = true;
+                
+                // Update state
+                if (!LessonState.userProgress) LessonState.userProgress = {};
+                LessonState.userProgress[contentId] = data.lesson.progress;
+            }
+        }
+    } catch (error) {
+        console.log('Could not check status:', error);
+    }
 }
 // ============================================
 // FETCH ACTIVITY LOG - ADD THIS MISSING FUNCTION
