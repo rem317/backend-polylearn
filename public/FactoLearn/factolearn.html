@@ -1,4 +1,5 @@
 
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2015,8 +2016,8 @@
         <div id="module-dashboard-page" class="hidden">
             <!-- Page Container -->
             <div id="module-page-container">
-                <!-- Header (optional - add if needed) -->
-                
+                <!-- Header -->
+
                 <!-- Dashboard Content -->
                 <div class="dashboard-container">
                     <!-- Main Content -->
@@ -2074,22 +2075,17 @@
                                 <!-- Divider Line -->
                                 <div style="height: 1px; background: var(--border-color); margin: 30px 0;"></div>
                                 
-                                <!-- Practice CTA Container (appears when lesson is completed) -->
-                                <div id="practiceCTA" style="display: none; margin-top: 30px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 25px; border-radius: 10px; text-align: center;">
-                                    <h3><i class="fas fa-pencil-alt"></i> Ready to Practice?</h3>
-                                    <p id="practiceCTAMessage">You've completed the lesson! Test your knowledge with practice exercises.</p>
-                                    <button class="btn-success" id="goToPracticeBtn" style="background: white; color: var(--primary); border: none; padding: 12px 25px; border-radius: 5px; font-weight: bold; margin-top: 15px;">
-                                        <i class="fas fa-play-circle"></i> Start Practice Exercises
-                                    </button>
-                                </div>
                                 
-                                <!-- Lesson Navigation - REMOVED the duplicate complete button -->
+                                <!-- Lesson Navigation -->
                                 <div class="lesson-navigation">
                                     <button class="lesson-nav-btn nav-prev" id="prevLessonBtn" disabled>
                                         <i class="fas fa-arrow-left"></i> Previous Lesson
                                     </button>
                                     
-                                    <!-- 🚨 REMOVED: Duplicate complete button from here -->
+                                    <!-- CRITICAL: Admin Connection - data-lesson-id added for backend tracking -->
+                                    <button class="btn-primary" id="completeLessonBtn" data-lesson-id="1">
+                                        <i class="fas fa-check-circle"></i> Mark Lesson Complete
+                                    </button>
                                     
                                     <button class="lesson-nav-btn nav-next" id="nextLessonBtn" disabled>
                                         Next Lesson <i class="fas fa-arrow-right"></i>
@@ -2099,29 +2095,23 @@
                         </div>
                     </main>
                     
-                    <!-- Sidebar - WITH COMPLETE BUTTON (ONLY ONE) -->
+                    <!-- Sidebar -->
                     <aside class="sidebar">
                         <!-- Progress and Learning Tool -->
                         <div class="progress-learning-tool">
                             <h2 class="progress-title">
-                                <i class="fas fa-chart-line"></i> Your Progress
+                                <i class="fas fa-chart-line"></i> Your Progress & Learning
                             </h2>
                             
                             <!-- Current Lesson Progress -->
                             <div class="lesson-progress-section">
                                 <h3><i class="fas fa-book"></i> Current Lesson Progress</h3>
-                                
-                                <!-- Progress Circle -->
-                                <div class="progress-indicator">
-                                    <div class="progress-circle" id="lessonProgressCircle" style="--progress: 0%">
-                                        <span id="progressPercentage">0% Complete</span>
-                                    </div>
-                                    <div class="progress-time" id="progressTime">0:00 / 0:00</div>
-                                </div>
-                                
-                                <!-- Progress Bar -->
                                 <div class="progress-bar-container">
                                     <div class="progress-fill" id="lessonProgressFill" style="width: 0%"></div>
+                                </div>
+                                <div class="progress-details">
+                                    <span id="progressPercentage">0% Complete</span>
+                                    <span id="progressTime">0/0 min</span>
                                 </div>
                             </div>
                             
@@ -2155,14 +2145,7 @@
                                         <div class="stat-label">Exercises Completed</div>
                                     </div>
                                 </div>
-                            </div>
-                            
-                            <!-- ✅ COMPLETE LESSON BUTTON - ONLY ONE (in sidebar) -->
-                            <div style="margin-top: 25px;">
-                                <button class="btn-primary" id="completeLessonBtn" data-lesson-id="1" style="width: 100%;">
-                                    <i class="fas fa-check-circle"></i> Mark Lesson Complete
-                                </button>
-                            </div>
+                            </div>                      
                         </div>
                         
                         <!-- Learning Tools Container -->
@@ -2178,7 +2161,7 @@
                                         <i class="fas fa-calculator"></i>
                                     </div>
                                     <div class="tool-name">Calculator</div>
-                                    <div class="tool-description">Advanced math calculator</div>
+                                    <div class="tool-description">Advanced math calculator with functions</div>
                                 </div>
                                 
                                 <div class="tool-item" id="openGraphTools">
@@ -2186,7 +2169,7 @@
                                         <i class="fas fa-chart-line"></i>
                                     </div>
                                     <div class="tool-name">Graph Tools</div>
-                                    <div class="tool-description">Visualize functions</div>
+                                    <div class="tool-description">Visualize functions and equations</div>
                                 </div>
                                 
                                 <div class="tool-item" id="openNotepad">
@@ -2194,7 +2177,7 @@
                                         <i class="fas fa-sticky-note"></i>
                                     </div>
                                     <div class="tool-name">Notepad</div>
-                                    <div class="tool-description">Take notes</div>
+                                    <div class="tool-description">Take notes during lessons</div>
                                 </div>
                                 
                                 <div class="tool-item" id="openFormulaSheet">
@@ -2202,7 +2185,7 @@
                                         <i class="fas fa-book"></i>
                                     </div>
                                     <div class="tool-name">Formula Sheet</div>
-                                    <div class="tool-description">Quick reference</div>
+                                    <div class="tool-description">Quick reference for formulas</div>
                                 </div>
                                 
                                 <div class="tool-item" id="openWhiteboard">
@@ -2210,7 +2193,7 @@
                                         <i class="fas fa-paint-brush"></i>
                                     </div>
                                     <div class="tool-name">Whiteboard</div>
-                                    <div class="tool-description">Draw and solve</div>
+                                    <div class="tool-description">Draw and solve problems visually</div>
                                 </div>
                                 
                                 <div class="tool-item" id="openTimer">
@@ -2218,13 +2201,13 @@
                                         <i class="fas fa-stopwatch"></i>
                                     </div>
                                     <div class="tool-name">Timer</div>
-                                    <div class="tool-description">Study timer</div>
+                                    <div class="tool-description">Track your study sessions</div>
                                 </div>
                             </div>
                             
                             <div class="tool-info">
                                 <i class="fas fa-info-circle"></i>
-                                <p>Click any tool to open it. All tools save automatically.</p>
+                                <p>Click on any tool to open it in a new window. All tools save automatically.</p>
                             </div>
                         </div>
                     </aside>
