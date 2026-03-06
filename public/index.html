@@ -2291,92 +2291,70 @@
             </div>
         </div>
 
-        <!-- Module Dashboard Page - DATABASE DRIVEN -->
-        <div id="module-dashboard-page" class="hidden">
-            <!-- Page Container -->
-            <div id="module-page-container">
-                <!-- Header -->
+       <!-- Module Dashboard Page - DATABASE DRIVEN -->
+<div id="module-dashboard-page" class="hidden">
+    <!-- Page Container -->
+    <div id="module-page-container">
+        <!-- Header -->
 
-                <!-- Dashboard Content -->
-                <div class="dashboard-container">
-                    <!-- Main Content -->
-                    <main class="main-content">
-                        <!-- Lesson Content Card -->
-                        <div class="card">
-                            <div class="card-header">
-                                <h2 class="card-title">
-                                    <i class="fas fa-book-open"></i> Lesson: <span id="moduleTitle">Loading...</span>
-                                </h2>
-                                <p class="card-subtitle" id="moduleSubtitle">Loading lesson content...</p>
+        <!-- Dashboard Content -->
+        <div class="dashboard-container">
+            <!-- Main Content -->
+            <main class="main-content">
+                <!-- Lesson Content Card -->
+                <div class="card">
+                    <div class="card-header">
+                        <h2 class="card-title">
+                            <i class="fas fa-book-open"></i> Lesson: <span id="moduleTitle">Loading...</span>
+                        </h2>
+                        <p class="card-subtitle" id="moduleSubtitle">Loading lesson content...</p>
+                    </div>
+                    
+                    <div class="lesson-content">
+                        <!-- Video Section -->
+                        <div class="media-container">
+                            <div class="media-header">
+                                <span><i class="fas fa-video"></i> Lesson Video</span>
+                                <div class="media-controls">
+                                    <span id="videoTime" style="font-family: monospace; color: white;">0:00 / 0:00</span>
+                                    <button class="refresh-video-btn" id="refreshVideoBtn" title="Reload video">
+                                        <i class="fas fa-sync-alt"></i>
+                                    </button>
+                                </div>
                             </div>
-                            
-                            <div class="lesson-content">
-                                <!-- Video Section -->
-                                <div class="media-container">
-                                    <div class="media-header">
-                                        <span><i class="fas fa-video"></i> Lesson Video</span>
-                                        <div class="media-controls">
-                                            <span id="videoTime" style="font-family: monospace; color: white;">0:00 / 0:00</span>
-                                            <button class="refresh-video-btn" id="refreshVideoBtn" title="Reload video">
-                                                <i class="fas fa-sync-alt"></i>
-                                            </button>
-                                        </div>
-                                    </div>
-                                    <div class="video-container">
-                                        <!-- VIDEO: Loaded from database -->
-                                        <video id="lessonVideo" width="100%" height="100%" controls>
-                                            <source src="" type="video/mp4">
-                                            Your browser does not support the video tag.
-                                        </video>
-                                    </div>
-                                    <div class="video-info" id="videoInfo">
-                                        <p><i class="fas fa-info-circle"></i> Video loaded from database. Changes will appear automatically.</p>
-                                    </div>
-                                </div>
-                            
-                                <!-- Example Section -->
-                                <div class="step-container" id="exampleSection">
-                                    <div class="step-title">
-                                        <span class="step-number"><i class="fas fa-book"></i></span> Lesson Content
-                                    </div>
-                                    <div class="step-content" id="lessonContent">
-                                        <p>Loading lesson content from database...</p>
-                                        <div class="math-example">
-                                            <p><strong>Loading example...</strong></p>
-                                        </div>
-                                        <ol class="steps">
-                                            <li>Lesson steps will appear here</li>
-                                            <li>Loaded dynamically from database</li>
-                                        </ol>
-                                    </div>
-                                </div>
-                                
-                                <!-- Divider Line -->
-                                <div style="height: 1px; background: var(--border-color); margin: 30px 0;"></div>
-                                
-                                
-                                <!-- Lesson Navigation -->
-                                <div class="lesson-navigation">
-                                    <button class="lesson-nav-btn nav-prev" id="prevLessonBtn" disabled>
-                                        <i class="fas fa-arrow-left"></i> Previous Lesson
-                                    </button>
-                                    
-                                    <!-- CRITICAL: Admin Connection - data-lesson-id added for backend tracking -->
-                                    <button class="btn-primary" id="completeLessonBtn" data-lesson-id="1">
-                                        <i class="fas fa-check-circle"></i> Mark Lesson Complete
-                                    </button>
-                                    
-                                    <button class="lesson-nav-btn nav-next" id="nextLessonBtn" disabled>
-                                        Next Lesson <i class="fas fa-arrow-right"></i>
-                                    </button>
-                                </div>
+                            <div class="video-container">
+                                <!-- VIDEO: Loaded from database -->
+                                <video id="lessonVideo" width="100%" height="100%" controls>
+                                    <source src="" type="video/mp4">
+                                    Your browser does not support the video tag.
+                                </video>
+                            </div>
+                            <div class="video-info" id="videoInfo">
+                                <p><i class="fas fa-info-circle"></i> Video loaded from database. Changes will appear automatically.</p>
                             </div>
                         </div>
-                    </main>
                     
-                    <!-- Sidebar -->
-                    <aside class="sidebar">
-                        <!-- Progress and Learning Tool -->
+                        <!-- Example Section -->
+                        <div class="step-container" id="exampleSection">
+                            <div class="step-title">
+                                <span class="step-number"><i class="fas fa-book"></i></span> Lesson Content
+                            </div>
+                            <div class="step-content" id="lessonContent">
+                                <p>Loading lesson content from database...</p>
+                                <div class="math-example">
+                                    <p><strong>Loading example...</strong></p>
+                                </div>
+                                <ol class="steps">
+                                    <li>Lesson steps will appear here</li>
+                                    <li>Loaded dynamically from database</li>
+                                </ol>
+                            </div>
+                        </div>
+                        
+                        <!-- Divider Line -->
+                        <div style="height: 1px; background: var(--border-color); margin: 30px 0;"></div>
+                        
+                        <!-- Progress and Learning Tool - MOVED HERE -->
                         <div class="progress-learning-tool">
                             <h2 class="progress-title">
                                 <i class="fas fa-chart-line"></i> Your Progress & Learning
@@ -2426,9 +2404,33 @@
                                 </div>
                             </div>                      
                         </div>
-                    </aside>
+                        
+                        <!-- Lesson Navigation -->
+                        <div class="lesson-navigation">
+                            <button class="lesson-nav-btn nav-prev" id="prevLessonBtn" disabled>
+                                <i class="fas fa-arrow-left"></i> Previous Lesson
+                            </button>
+                            
+                            <!-- CRITICAL: Admin Connection - data-lesson-id added for backend tracking -->
+                            <button class="btn-primary" id="completeLessonBtn" data-lesson-id="1">
+                                <i class="fas fa-check-circle"></i> Mark Lesson Complete
+                            </button>
+                            
+                            <button class="lesson-nav-btn nav-next" id="nextLessonBtn" disabled>
+                                Next Lesson <i class="fas fa-arrow-right"></i>
+                            </button>
+                        </div>
+                    </div>
                 </div>
-            </div>
+            </main>
+            
+            <!-- Sidebar - Now EMPTY (can be removed if not needed) -->
+            <aside class="sidebar">
+                <!-- Sidebar content removed - Progress moved to main content -->
+            </aside>
+        </div>
+    </div>
+</div>
         </div>
 
         <!-- Practice Exercises Page -->
