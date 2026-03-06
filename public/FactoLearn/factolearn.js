@@ -7367,6 +7367,52 @@ document.addEventListener('DOMContentLoaded', function() {
         }, 500);
     }
 });
+
+// ============================================
+// MISSING NAVIGATION FUNCTIONS
+// ============================================
+
+window.showPracticeDashboard = function(e) {
+    if (e) e.preventDefault();
+    console.log('💪 Navigating to practice');
+    closeMobileMenu();
+    navigateTo('practice');
+};
+
+window.showQuizDashboard = function(e) {
+    if (e) e.preventDefault();
+    console.log('🧠 Navigating to quiz');
+    closeMobileMenu();
+    navigateTo('quizDashboard');
+};
+
+window.showProgressPage = function(e) {
+    if (e) e.preventDefault();
+    console.log('📊 Navigating to progress');
+    closeMobileMenu();
+    navigateTo('progress');
+};
+
+window.showFeedbackPage = function(e) {
+    if (e) e.preventDefault();
+    console.log('💬 Navigating to feedback');
+    closeMobileMenu();
+    navigateTo('feedback');
+};
+
+window.showSettingsPage = function(e) {
+    if (e) e.preventDefault();
+    console.log('⚙️ Navigating to settings');
+    closeMobileMenu();
+    navigateTo('settings');
+};
+
+window.goToModuleDashboard = function(e) {
+    if (e) e.preventDefault();
+    console.log('📚 Navigating to lessons');
+    closeMobileMenu();
+    navigateTo('moduleDashboard');
+};
 // ============================================
 // ✅ MAKE FUNCTIONS GLOBALLY AVAILABLE
 // ============================================
