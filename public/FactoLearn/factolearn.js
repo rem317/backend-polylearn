@@ -2355,9 +2355,13 @@ function hideDashboardLoading() {
 // ============================================
 // ✅ NAVIGATION FUNCTIONS
 // ============================================
+// ============================================
+// NAVIGATION FUNCTION - FIXED
+// ============================================
 window.navigateTo = function(page) {
     console.log(`🧭 Navigating to: ${page}`);
     
+    // Define page elements - CHECK KUNG MAY LOGIN PAGE
     const pages = {
         'dashboard': document.getElementById('dashboard-page'),
         'practice': document.getElementById('practice-exercises-page'),
@@ -2367,48 +2371,47 @@ window.navigateTo = function(page) {
         'settings': document.getElementById('settings-page'),
         'moduleDashboard': document.getElementById('module-dashboard-page'),
         'appSelection': document.getElementById('app-selection-page'),
-        'login': document.getElementById('login-page'),
+        'login': document.getElementById('login-page'),        // ITO ANG USER LOGIN PAGE
         'signup': document.getElementById('signup-page'),
         'loading': document.getElementById('loading-page'),
         'landing': document.getElementById('landing-page')
     };
     
+    // Check if page exists
     if (!pages[page]) {
         console.error(`❌ Page "${page}" not found!`);
-        return;
+        
+        // Try to find any element with that ID
+        const element = document.getElementById(page);
+        if (element) {
+            console.log(`✅ Found element with id "${page}" but it's not in pages object`);
+            pages[page] = element;
+        } else {
+            // If login page doesn't exist, show alert
+            if (page === 'login') {
+                alert('Login page not found! Please check your HTML.');
+            }
+            return;
+        }
     }
     
+    // Hide all pages
     Object.values(pages).forEach(p => {
         if (p) p.classList.add('hidden');
     });
     
+    // Show target page
     pages[page].classList.remove('hidden');
     
+    // Update current page in AppState
     if (window.AppState) {
         AppState.currentPage = page;
     }
     
+    // Scroll to top
     window.scrollTo({ top: 0, behavior: 'smooth' });
     
-    setTimeout(() => {
-        switch(page) {
-            case 'practice':
-                if (typeof initPracticePage === 'function') initPracticePage();
-                break;
-            case 'quizDashboard':
-                if (typeof initQuizDashboard === 'function') initQuizDashboard();
-                break;
-            case 'progress':
-                if (typeof initProgressDashboard === 'function') initProgressDashboard();
-                break;
-            case 'feedback':
-                if (typeof initFeedbackDashboard === 'function') initFeedbackDashboard();
-                break;
-            case 'settings':
-                if (typeof initSettingsDashboard === 'function') initSettingsDashboard();
-                break;
-        }
-    }, 100);
+    console.log(`✅ Navigated to ${page}`);
 };
 
 // ============================================
@@ -2652,25 +2655,55 @@ function confirmLogout() {
     }, 500);
 }
 
+// ============================================
+// LOGOUT FUNCTION - REDIRECT TO MAIN LOGIN PAGE
+// ============================================
 function logoutAndRedirect() {
-    console.log('🚪 Logging out...');
+    console.log('🚪 Logging out - redirecting to main login page...');
     
+    // Clear all authentication data
     localStorage.removeItem('authToken');
     localStorage.removeItem('mathhub_user');
     localStorage.removeItem('hasSelectedApp');
     localStorage.removeItem('selectedApp');
+    localStorage.removeItem('currentLessonFilter');
+    localStorage.removeItem('currentLessonId');
+    sessionStorage.clear();
     
+    // Reset app state
     AppState.currentUser = null;
     AppState.isAuthenticated = false;
     AppState.hasSelectedApp = false;
+    AppState.selectedApp = null;
     authToken = null;
     
-    hideFooterNavigation();
+    // Show notification
+    alert('👋 Logged out successfully! Redirecting to login page...');
     
-    navigateTo('login');
+    // REDIRECT TO MAIN LOGIN PAGE (parent directory)
+    // Assuming FactoLearn is in a subfolder like /FactoLearn/
+    window.location.href = '../index.html';
     
-    showNotification('Logged out successfully', 'info');
+    // Fallback: if that doesn't work, try root
+    // window.location.href = '/index.html';
 }
+// Make sure closeLogoutModal exists
+window.closeLogoutModal = function() {
+    console.log('🔒 Closing logout modal');
+    const modal = document.querySelector('.logout-modal, .modal-overlay');
+    if (modal) {
+        modal.remove();
+    }
+    document.body.classList.remove('modal-open');
+    document.body.style.overflow = '';
+};
+
+// Make sure confirmLogout exists
+window.confirmLogout = function() {
+    console.log('✅ Logout confirmed');
+    closeLogoutModal();
+    logoutAndRedirect();
+};
 
 function hideFooterNavigation() {
     const navigation = document.querySelector('.footer-nav');
