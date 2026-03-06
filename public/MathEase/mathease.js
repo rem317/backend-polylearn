@@ -39,7 +39,7 @@ const APP_LESSON_MAP = {
         lessonId: 1,
         name: 'MathEase'
     },
-    'mathease': {
+    'factolearn': {
         lessonId: 3,
         name: 'FactoPermCombi'  // Ito na ang gagamitin
     },
