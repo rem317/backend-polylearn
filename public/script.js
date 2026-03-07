@@ -29571,9 +29571,8 @@ async function updateProfile(updateData) {
     }
 }
 
-// Setup change password form - ULTRA CLEAN VERSION
 /**
- * Setup change password form with database connection
+ * Setup change password form
  */
 function setupChangePasswordForm() {
     console.log('🔐 Setting up change password form...');
@@ -29591,8 +29590,10 @@ function setupChangePasswordForm() {
             e.preventDefault();
             e.stopPropagation();
             console.log('🔑 Change password button clicked');
-            showChangePasswordModal();
+            window.showChangePasswordModal();
         });
+        
+        console.log('✅ Change password button handler attached');
     } else {
         console.error('❌ Change password button not found!');
         
@@ -29603,15 +29604,34 @@ function setupChangePasswordForm() {
                 console.log('✅ Found button on retry');
                 btn.addEventListener('click', function(e) {
                     e.preventDefault();
-                    showChangePasswordModal();
+                    window.showChangePasswordModal();
                 });
             }
         }, 1000);
     }
 }
-/**
- * Show change password modal
- */
+
+// Make sure to call setupChangePasswordForm when settings page initializes
+// Add this to your initSettingsDashboard function
+const originalInitSettingsDashboard = window.initSettingsDashboard;
+window.initSettingsDashboard = async function() {
+    console.log('⚙️ Initializing settings dashboard with password change...');
+    
+    // Call original function first
+    if (originalInitSettingsDashboard) {
+        await originalInitSettingsDashboard();
+    }
+    
+    // Setup password change form
+    setTimeout(() => {
+        setupChangePasswordForm();
+    }, 500);
+};
+
+// ============================================
+// 🔐 FIXED: Change Password Modal Functions - GLOBALLY ACCESSIBLE
+// ============================================
+
 /**
  * Show change password modal
  */
@@ -29640,7 +29660,7 @@ window.showChangePasswordModal = function() {
                     </p>
                 </div>
                 
-                <form id="passwordChangeForm" onsubmit="handlePasswordSubmit(event)">
+                <form id="passwordChangeForm" onsubmit="event.preventDefault(); handlePasswordSubmit()">
                     <div style="margin-bottom: 20px;">
                         <label style="display: block; margin-bottom: 8px; font-weight: 600; color: #2c3e50; font-size: 14px;">
                             <i class="fas fa-lock"></i> Current Password <span style="color: red;">*</span>
@@ -29710,7 +29730,7 @@ window.showChangePasswordModal = function() {
         }
     });
     
-    console.log('✅ Modal created and attached to DOM');
+    console.log('✅ Password change modal created and attached to DOM');
 };
 /**
  * Close password modal
@@ -29725,9 +29745,8 @@ window.closePasswordModal = function() {
 /**
  * Handle password form submission
  */
-window.handlePasswordSubmit = async function(event) {
-    event.preventDefault();
-    console.log('📝 Form submitted!');
+window.handlePasswordSubmit = async function() {
+    console.log('📝 Password form submitted!');
     
     const currentPassword = document.getElementById('currentPassword')?.value;
     const newPassword = document.getElementById('newPassword')?.value;
@@ -29755,7 +29774,7 @@ window.handlePasswordSubmit = async function(event) {
     submitBtn.disabled = true;
     
     try {
-        const token = localStorage.getItem('authToken') || window.authToken;
+        const token = localStorage.getItem('authToken') || authToken;
         
         if (!token) {
             showNotification('Please login again', 'error');
@@ -29763,9 +29782,9 @@ window.handlePasswordSubmit = async function(event) {
             return;
         }
         
-        console.log('📤 Sending request to:', '/api/user/change-password');
+        console.log('📤 Sending password change request to:', `${API_BASE_URL}/api/user/change-password`);
         
-        const response = await fetch('/api/user/change-password', {
+        const response = await fetch(`${API_BASE_URL}/api/user/change-password`, {
             method: 'POST',
             headers: {
                 'Authorization': `Bearer ${token}`,
@@ -29790,10 +29809,14 @@ window.handlePasswordSubmit = async function(event) {
             document.getElementById('newPassword').value = '';
             document.getElementById('confirmPassword').value = '';
             
-            // Close modal after 1 second
+            // Show success state on button
+            submitBtn.innerHTML = '<i class="fas fa-check"></i> Password Changed!';
+            submitBtn.style.background = '#27ae60';
+            
+            // Close modal after 2 seconds
             setTimeout(() => {
                 closePasswordModal();
-            }, 1000);
+            }, 2000);
             
         } else {
             showNotification(data.message || 'Failed to change password', 'error');
@@ -29802,12 +29825,13 @@ window.handlePasswordSubmit = async function(event) {
         }
         
     } catch (error) {
-        console.error('❌ Error:', error);
+        console.error('❌ Error changing password:', error);
         showNotification('Failed to change password. Please try again.', 'error');
         submitBtn.innerHTML = originalText;
         submitBtn.disabled = false;
     }
 };
+
 
 /**
  * Logout after password change
