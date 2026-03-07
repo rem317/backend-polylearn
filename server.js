@@ -5375,6 +5375,26 @@ app.get('/api/quizzes/available', authenticateUser, async (req, res) => {
     }
 });
 
+// I-ADD ITO SA IYONG BACKEND (Node.js/Express)
+app.get('/api/practice/lesson/:lessonId/topic/:topicId', async (req, res) => {
+    try {
+        const { lessonId, topicId } = req.params;
+        
+        const [exercises] = await pool.query(`
+            SELECT * FROM practice_exercises 
+            WHERE lesson_id = ? AND topic_id = ?
+        `, [lessonId, topicId]);
+        
+        res.json({
+            success: true,
+            exercises: exercises,
+            count: exercises.length
+        });
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+});
+
 // ============================================
 // ✅ FIXED: Get user badges
 // ============================================
