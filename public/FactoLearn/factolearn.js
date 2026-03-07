@@ -20380,7 +20380,7 @@ function updateLessonUI(lesson) {
     updateProgressDisplay(lesson);
 }
 // ============================================
-// ✅ FIXED: updateTopicProgressBreakdown - FactoLearn ONLY (lesson_id=3)
+// UPDATE TOPIC PROGRESS BREAKDOWN (Topics Progress)
 // ============================================
 function updateTopicProgressBreakdown() {
     const container = document.getElementById('topicsProgressDetailed');
@@ -20388,21 +20388,12 @@ function updateTopicProgressBreakdown() {
     
     const topics = ProgressState.topicMastery || [];
     
-    // 🎯 FILTER PARA LESSON_ID = 3 LANG
-    const factoLearnTopics = topics.filter(topic => {
-        // Check sa iba't ibang possible na property names
-        const lessonId = topic.lesson_id || topic.lessonId || topic.lessonid;
-        return lessonId == 3; // FactoLearn only
-    });
-    
-    console.log(`📊 Topic Breakdown - Total topics: ${topics.length}, FactoLearn: ${factoLearnTopics.length}`);
-    
-    if (!factoLearnTopics || factoLearnTopics.length === 0) {
+    if (!topics || topics.length === 0) {
         container.innerHTML = `
             <div class="no-data-message" style="text-align: center; padding: 30px;">
                 <i class="fas fa-chart-pie" style="font-size: 40px; color: #7a0000; margin-bottom: 15px;"></i>
-                <h4 style="color: #2c3e50; margin-bottom: 10px;">No FactoLearn Topic Data Available</h4>
-                <p style="color: #7f8c8d;">Complete FactoLearn lessons to see your topic progress.</p>
+                <h4 style="color: #2c3e50; margin-bottom: 10px;">No Topic Data Available</h4>
+                <p style="color: #7f8c8d;">Complete lessons to see your topic progress.</p>
             </div>
         `;
         return;
@@ -20410,7 +20401,7 @@ function updateTopicProgressBreakdown() {
     
     let html = '<div class="topic-breakdown">';
     
-    factoLearnTopics.slice(0, 5).forEach(topic => {
+    topics.slice(0, 5).forEach(topic => {
         const progress = topic.completion_rate || 0;
         const accuracy = topic.accuracy_rate || 0;
         const masteryLevel = topic.mastery_level || 'Beginner';
@@ -20420,18 +20411,10 @@ function updateTopicProgressBreakdown() {
         else if (masteryLevel === 'Advanced') masteryColor = '#9b59b6';
         else if (masteryLevel === 'Intermediate') masteryColor = '#3498db';
         
-        // Kunin ang lesson ID para sa debug
-        const lessonId = topic.lesson_id || topic.lessonId || 'N/A';
-        
         html += `
-            <div class="topic-item" style="margin-bottom: 20px; padding: 15px; background: #f8f9fa; border-radius: 8px; border-left: 4px solid ${masteryColor};">
+            <div class="topic-item" style="margin-bottom: 20px; padding: 15px; background: #f8f9fa; border-radius: 8px;">
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
-                    <div>
-                        <h4 style="margin: 0; color: #2c3e50;">${topic.topic_title || 'Topic'}</h4>
-                        <small style="color: #7a0000; font-size: 11px;">
-                            <i class="fas fa-tag"></i> Lesson ${lessonId}
-                        </small>
-                    </div>
+                    <h4 style="margin: 0; color: #2c3e50;">${topic.topic_title || 'Topic'}</h4>
                     <span style="background: ${masteryColor}; color: white; padding: 3px 10px; border-radius: 15px; font-size: 12px;">${masteryLevel}</span>
                 </div>
                 <div style="display: flex; gap: 20px; margin-bottom: 10px;">
@@ -20460,8 +20443,9 @@ function updateTopicProgressBreakdown() {
     html += '</div>';
     container.innerHTML = html;
 }
+
 // ============================================
-// ✅ FIXED: fetchTopicMastery - Store lesson_id
+// FETCH TOPIC MASTERY (for Accuracy Rate & Topics Progress)
 // ============================================
 async function fetchTopicMastery() {
     try {
@@ -20481,20 +20465,10 @@ async function fetchTopicMastery() {
         if (data.success && data.mastery) {
             console.log(`✅ Fetched mastery for ${data.mastery.length} topics`);
             
-            // Log kung anong lesson IDs ang meron
-            const lessonIds = [...new Set(data.mastery.map(t => t.lesson_id || t.lessonId))];
-            console.log('📊 Available lesson IDs:', lessonIds);
-            
-            // Count FactoLearn topics (lesson_id=3)
-            const factoLearnCount = data.mastery.filter(t => 
-                (t.lesson_id || t.lessonId) == 3
-            ).length;
-            console.log(`🎯 FactoLearn topics: ${factoLearnCount}/${data.mastery.length}`);
-            
             // Store in ProgressState
             ProgressState.topicMastery = data.mastery;
             
-            // Update UI with filtered topics
+            // Update UI
             updateTopicProgressBreakdown();
             updatePerformanceAnalytics();
             
@@ -20507,332 +20481,290 @@ async function fetchTopicMastery() {
         return {};
     }
 }
+
+
 // ============================================
-// 📊 UPDATE PERFORMANCE ANALYTICS - FactoLearn ONLY (lesson_id=3)
+// 📊 UPDATE PERFORMANCE ANALYTICS - PolyLearn Style
 // ============================================
-async function updatePerformanceAnalytics() {
-    console.log('📊 Updating FactoLearn performance analytics (lesson_id=3)...');
+function updatePerformanceAnalytics() {
+    console.log('📊 Updating performance analytics...');
     
     const container = document.getElementById('performanceAnalytics');
     if (!container) return;
     
-    try {
-        const token = localStorage.getItem('authToken') || authToken;
-        if (!token) {
-            container.innerHTML = '<div class="error-message">Please login to view analytics</div>';
-            return;
+    // Get data from various sources
+    const topics = ProgressState.topicMastery || [];
+    const cumulative = ProgressState.cumulativeProgress || {};
+    const daily = ProgressState.dailyProgress || {};
+    
+    // Calculate key metrics
+    const totalLessonsCompleted = cumulative.total_lessons_completed || 0;
+    const totalExercisesCompleted = cumulative.exercises_completed || 0;
+    const totalQuizzesCompleted = cumulative.total_quizzes_completed || 0;
+    
+    // Calculate accuracy rate (from topics)
+    let totalAccuracy = 0;
+    let topicCount = 0;
+    
+    topics.forEach(topic => {
+        if (topic.accuracy_rate) {
+            totalAccuracy += topic.accuracy_rate;
+            topicCount++;
         }
-        
-        // Show loading
-        container.innerHTML = `
-            <div style="text-align: center; padding: 40px;">
-                <i class="fas fa-spinner fa-spin" style="font-size: 40px; color: #7a0000;"></i>
-                <p style="margin-top: 15px;">Loading FactoLearn analytics...</p>
-            </div>
-        `;
-        
-        // ===== FETCH ALL FACTOLEARN DATA IN PARALLEL =====
-        const [topicsData, cumulativeData, practiceData, quizData] = await Promise.allSettled([
-            // 1. Get FactoLearn topics mastery (lesson_id=3)
-            fetch(`/api/progress/topic-mastery?lesson_id=3`, {
-                headers: { 'Authorization': `Bearer ${token}` }
-            }).then(res => res.json()).catch(() => ({ success: false, mastery: [] })),
-            
-            // 2. Get FactoLearn cumulative progress
-            fetch(`/api/progress/overall?lesson_id=3`, {
-                headers: { 'Authorization': `Bearer ${token}` }
-            }).then(res => res.json()).catch(() => ({ success: false, overall: {} })),
-            
-            // 3. Get FactoLearn practice stats
-            fetch(`/api/progress/practice-attempts?lesson_id=3`, {
-                headers: { 'Authorization': `Bearer ${token}` }
-            }).then(res => res.json()).catch(() => ({ success: false, attempts: [] })),
-            
-            // 4. Get FactoLearn quiz stats
-            fetch(`/api/quiz/user/stats?lesson_id=3`, {
-                headers: { 'Authorization': `Bearer ${token}` }
-            }).then(res => res.json()).catch(() => ({ success: false, stats: {} }))
-        ]);
-        
-        // ===== PROCESS TOPICS DATA =====
-        let topics = [];
-        if (topicsData.status === 'fulfilled' && topicsData.value.success) {
-            topics = topicsData.value.mastery || [];
-            console.log(`✅ Loaded ${topics.length} FactoLearn topics`);
-        }
-        
-        // ===== PROCESS CUMULATIVE DATA =====
-        let cumulative = { total_lessons_completed: 0, total_lessons: 10, streak_days: 0 };
-        if (cumulativeData.status === 'fulfilled' && cumulativeData.value.success) {
-            cumulative = cumulativeData.value.overall || cumulative;
-            console.log('✅ Loaded FactoLearn cumulative progress');
-        }
-        
-        // ===== PROCESS PRACTICE DATA =====
-        let exercisesCompleted = 0;
-        let totalPracticeTimeSeconds = 0;
-        if (practiceData.status === 'fulfilled' && practiceData.value.success) {
-            const attempts = practiceData.value.attempts || [];
-            exercisesCompleted = attempts.filter(a => 
-                a.completion_status === 'completed' || a.percentage >= 70
-            ).length;
-            
-            totalPracticeTimeSeconds = attempts.reduce((sum, a) => sum + (a.time_spent_seconds || 0), 0);
-            console.log(`✅ Loaded ${exercisesCompleted} completed FactoLearn exercises`);
-        }
-        
-        // ===== PROCESS QUIZ DATA =====
-        let quizzesCompleted = 0;
-        let quizAccuracy = 0;
-        if (quizData.status === 'fulfilled' && quizData.value.success) {
-            const stats = quizData.value.stats || {};
-            quizzesCompleted = stats.quizzes_taken || 0;
-            quizAccuracy = stats.average_score || 0;
-            console.log(`✅ Loaded FactoLearn quiz stats: ${quizzesCompleted} quizzes, ${quizAccuracy}% accuracy`);
-        }
-        
-        // ===== CALCULATE METRICS =====
-        const totalLessonsCompleted = cumulative.total_lessons_completed || 0;
-        const totalLessons = cumulative.total_lessons || 10;
-        const streakDays = cumulative.streak_days || 0;
-        
-        // Calculate accuracy rate from topics
-        let totalAccuracy = 0;
-        let topicCount = 0;
-        
-        topics.forEach(topic => {
-            if (topic.accuracy_rate) {
-                totalAccuracy += topic.accuracy_rate;
-                topicCount++;
-            }
-        });
-        
-        const averageAccuracy = topicCount > 0 ? Math.round(totalAccuracy / topicCount) : quizAccuracy || 0;
-        
-        // Calculate study time (convert seconds to minutes)
-        const totalTimeMinutes = Math.floor(totalPracticeTimeSeconds / 60);
-        const daysActive = Math.max(1, streakDays || 1);
-        const avgDailyTime = Math.round(totalTimeMinutes / daysActive);
-        
-        // Calculate mastery level (based on FactoLearn lessons)
-        let masteryLevel = 'Beginner';
-        let masteryColor = '#95a5a6';
-        let masteryProgress = 0;
-        
-        if (totalLessonsCompleted >= 8) {
-            masteryLevel = 'Expert';
-            masteryColor = '#f39c12';
-            masteryProgress = 100;
-        } else if (totalLessonsCompleted >= 6) {
-            masteryLevel = 'Advanced';
-            masteryColor = '#9b59b6';
-            masteryProgress = 75;
-        } else if (totalLessonsCompleted >= 3) {
-            masteryLevel = 'Intermediate';
-            masteryColor = '#3498db';
-            masteryProgress = 50;
-        } else if (totalLessonsCompleted >= 1) {
-            masteryLevel = 'Novice';
-            masteryColor = '#27ae60';
-            masteryProgress = 25;
-        }
-        
-        // Calculate completion rate
-        const completionRate = totalLessons > 0 ? Math.round((totalLessonsCompleted / totalLessons) * 100) : 0;
-        
-        // Generate FactoLearn-specific insights
-        const insights = [];
-        
-        if (averageAccuracy >= 90) {
-            insights.push('🌟 Excellent FactoLearn accuracy! You\'re mastering factorials, permutations, and combinations.');
-        } else if (averageAccuracy >= 75) {
-            insights.push('📈 Good progress in FactoLearn! Keep practicing to improve further.');
-        } else if (averageAccuracy >= 50) {
-            insights.push('💪 You\'re making progress in FactoLearn. Focus on reviewing factorial operations.');
-        } else {
-            insights.push('📚 Start with factorial basics and build a strong foundation.');
-        }
-        
-        if (exercisesCompleted > quizzesCompleted * 2) {
-            insights.push('✏️ You prefer practicing FactoLearn exercises. Great for building skills!');
-        } else if (quizzesCompleted > exercisesCompleted) {
-            insights.push('🧠 You enjoy testing your FactoLearn knowledge with quizzes. Keep challenging yourself!');
-        }
-        
-        if (avgDailyTime < 10) {
-            insights.push('⏱️ Try to study FactoLearn at least 10 minutes daily for better retention.');
-        } else if (avgDailyTime > 45) {
-            insights.push('🎯 Great dedication to FactoLearn! Remember to take breaks.');
-        }
-        
-        if (streakDays >= 7) {
-            insights.push('🔥 7-day FactoLearn streak! You\'re on fire!');
-        } else if (streakDays >= 3) {
-            insights.push('📅 3-day FactoLearn streak! Keep it going!');
-        }
-        
-        // Add topic-specific insight
-        if (topics.length > 0) {
-            const weakestTopic = topics.sort((a, b) => (a.accuracy_rate || 100) - (b.accuracy_rate || 100))[0];
-            if (weakestTopic && weakestTopic.accuracy_rate < 70) {
-                insights.push(`🎯 Focus on ${weakestTopic.topic_title || 'factorial topics'} to improve your overall score.`);
-            }
-        }
-        
-        // ===== BUILD HTML =====
-        let html = `
-            <!-- FactoLearn Header -->
-            <div style="margin-bottom: 20px; padding: 10px 15px; background: #f0f0f0; border-radius: 8px; display: flex; align-items: center; gap: 10px;">
-                <i class="fas fa-calculator" style="color: #7a0000;"></i>
-                <span><strong>FactoLearn Analytics</strong> (Lesson ID: 3)</span>
-                <span style="margin-left: auto; background: #7a0000; color: white; padding: 3px 10px; border-radius: 15px; font-size: 12px;">
-                    <i class="fas fa-database"></i> From Database
-                </span>
-            </div>
-            
-            <div class="analytics-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px; margin-bottom: 20px;">
-                
-                <!-- Mastery Card -->
-                <div class="analytics-card" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border-radius: 12px; padding: 25px;">
-                    <div style="display: flex; align-items: center; gap: 15px; margin-bottom: 15px;">
-                        <div style="width: 50px; height: 50px; background: rgba(255,255,255,0.2); border-radius: 12px; display: flex; align-items: center; justify-content: center;">
-                            <i class="fas fa-crown" style="font-size: 24px;"></i>
-                        </div>
-                        <div>
-                            <div style="font-size: 14px; opacity: 0.9;">FactoLearn Level</div>
-                            <div style="font-size: 24px; font-weight: bold;">${masteryLevel}</div>
-                        </div>
-                    </div>
-                    
-                    <div style="margin-bottom: 15px;">
-                        <div style="display: flex; justify-content: space-between; margin-bottom: 5px;">
-                            <span>Progress to next level</span>
-                            <span>${masteryProgress}%</span>
-                        </div>
-                        <div style="height: 8px; background: rgba(255,255,255,0.3); border-radius: 4px; overflow: hidden;">
-                            <div style="height: 100%; width: ${masteryProgress}%; background: white; border-radius: 4px;"></div>
-                        </div>
-                    </div>
-                    
-                    <div style="display: flex; gap: 15px; font-size: 13px; flex-wrap: wrap;">
-                        <div><i class="fas fa-book"></i> ${totalLessonsCompleted}/${totalLessons} lessons</div>
-                        <div><i class="fas fa-pencil-alt"></i> ${exercisesCompleted} exercises</div>
-                        <div><i class="fas fa-question-circle"></i> ${quizzesCompleted} quizzes</div>
-                    </div>
-                </div>
-                
-                <!-- Accuracy Card -->
-                <div class="analytics-card" style="background: white; border-radius: 12px; padding: 25px; box-shadow: 0 4px 12px rgba(0,0,0,0.1);">
-                    <div style="display: flex; align-items: center; gap: 15px; margin-bottom: 15px;">
-                        <div style="width: 50px; height: 50px; background: #27ae60; border-radius: 12px; display: flex; align-items: center; justify-content: center; color: white;">
-                            <i class="fas fa-bullseye" style="font-size: 24px;"></i>
-                        </div>
-                        <div>
-                            <div style="font-size: 14px; color: #666;">FactoLearn Accuracy</div>
-                            <div style="font-size: 32px; font-weight: bold; color: #2c3e50;">${averageAccuracy}%</div>
-                        </div>
-                    </div>
-                    
-                    <div style="height: 10px; background: #ecf0f1; border-radius: 5px; overflow: hidden; margin-bottom: 15px;">
-                        <div style="height: 100%; width: ${averageAccuracy}%; background: #27ae60; border-radius: 5px;"></div>
-                    </div>
-                    
-                    <div style="display: flex; justify-content: space-between; color: #666; font-size: 14px;">
-                        <span><i class="fas fa-check-circle" style="color: #27ae60;"></i> Correct: ${Math.round(totalLessonsCompleted * averageAccuracy / 100) || 0}</span>
-                        <span><i class="fas fa-times-circle" style="color: #e74c3c;"></i> Incorrect: ${Math.round(totalLessonsCompleted * (100 - averageAccuracy) / 100) || 0}</span>
-                    </div>
-                </div>
-                
-                <!-- Study Time Card -->
-                <div class="analytics-card" style="background: white; border-radius: 12px; padding: 25px; box-shadow: 0 4px 12px rgba(0,0,0,0.1);">
-                    <div style="display: flex; align-items: center; gap: 15px; margin-bottom: 15px;">
-                        <div style="width: 50px; height: 50px; background: #3498db; border-radius: 12px; display: flex; align-items: center; justify-content: center; color: white;">
-                            <i class="fas fa-clock" style="font-size: 24px;"></i>
-                        </div>
-                        <div>
-                            <div style="font-size: 14px; color: #666;">Study Time (FactoLearn)</div>
-                            <div style="font-size: 32px; font-weight: bold; color: #2c3e50;">${avgDailyTime} <span style="font-size: 16px;">min/day</span></div>
-                        </div>
-                    </div>
-                    
-                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-top: 10px;">
-                        <div style="text-align: center; padding: 10px; background: #f8f9fa; border-radius: 8px;">
-                            <div style="font-size: 20px; font-weight: bold; color: #2c3e50;">${streakDays}</div>
-                            <div style="font-size: 12px; color: #666;">Day Streak</div>
-                        </div>
-                        <div style="text-align: center; padding: 10px; background: #f8f9fa; border-radius: 8px;">
-                            <div style="font-size: 20px; font-weight: bold; color: #2c3e50;">${totalTimeMinutes}</div>
-                            <div style="font-size: 12px; color: #666;">Total Minutes</div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-            
-            <!-- FactoLearn Completion Progress -->
-            <div class="completion-card" style="background: white; border-radius: 12px; padding: 25px; margin-bottom: 20px; box-shadow: 0 4px 12px rgba(0,0,0,0.1);">
-                <h3 style="margin: 0 0 15px 0; color: #2c3e50; display: flex; align-items: center; gap: 8px;">
-                    <i class="fas fa-chart-line" style="color: #7a0000;"></i> FactoLearn Completion
-                </h3>
-                
-                <div style="margin-bottom: 20px;">
-                    <div style="display: flex; justify-content: space-between; margin-bottom: 5px;">
-                        <span>Lessons Completed</span>
-                        <span><strong>${totalLessonsCompleted}/${totalLessons}</strong> (${completionRate}%)</span>
-                    </div>
-                    <div style="height: 10px; background: #ecf0f1; border-radius: 5px; overflow: hidden;">
-                        <div style="height: 100%; width: ${completionRate}%; background: #7a0000; border-radius: 5px;"></div>
-                    </div>
-                </div>
-                
-                <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px; text-align: center;">
-                    <div>
-                        <div style="font-size: 14px; color: #666;">Lessons</div>
-                        <div style="font-size: 24px; font-weight: bold; color: #2c3e50;">${totalLessonsCompleted}</div>
-                    </div>
-                    <div>
-                        <div style="font-size: 14px; color: #666;">Exercises</div>
-                        <div style="font-size: 24px; font-weight: bold; color: #2c3e50;">${exercisesCompleted}</div>
-                    </div>
-                    <div>
-                        <div style="font-size: 14px; color: #666;">Quizzes</div>
-                        <div style="font-size: 24px; font-weight: bold; color: #2c3e50;">${quizzesCompleted}</div>
-                    </div>
-                </div>
-            </div>
-        `;
-        
-        // FactoLearn Learning Insights
-        html += `
-            <div class="insights-card" style="background: #f8f9fa; border-radius: 12px; padding: 25px; border-left: 4px solid #7a0000;">
-                <h4 style="margin: 0 0 15px 0; color: #2c3e50; display: flex; align-items: center; gap: 8px;">
-                    <i class="fas fa-lightbulb" style="color: #f39c12;"></i> FactoLearn Insights
-                </h4>
-                <ul style="list-style: none; padding: 0; margin: 0;">
-                    ${insights.map(insight => `
-                        <li style="padding: 8px 0; border-bottom: 1px solid #e0e0e0; display: flex; align-items: center; gap: 10px;">
-                            <i class="fas fa-check-circle" style="color: #27ae60; font-size: 14px;"></i>
-                            <span style="color: #2c3e50;">${insight}</span>
-                        </li>
-                    `).join('')}
-                </ul>
-            </div>
-        `;
-        
-        container.innerHTML = html;
-        
-    } catch (error) {
-        console.error('❌ Error updating FactoLearn analytics:', error);
-        container.innerHTML = `
-            <div class="error-message" style="text-align: center; padding: 40px;">
-                <i class="fas fa-exclamation-triangle" style="font-size: 60px; color: #e74c3c; margin-bottom: 20px;"></i>
-                <h3 style="color: #2c3e50;">Failed to load FactoLearn analytics</h3>
-                <p style="color: #7f8c8d;">${error.message}</p>
-                <button onclick="updatePerformanceAnalytics()" class="btn-primary" style="margin-top: 15px;">
-                    <i class="fas fa-redo"></i> Retry
-                </button>
-            </div>
-        `;
+    });
+    
+    const averageAccuracy = topicCount > 0 ? Math.round(totalAccuracy / topicCount) : 0;
+    
+    // Calculate study intensity (minutes per day)
+    const totalTimeMinutes = cumulative.total_time_spent_minutes || 0;
+    const daysActive = cumulative.streak_days || 1;
+    const avgDailyTime = Math.round(totalTimeMinutes / daysActive);
+    
+    // Calculate mastery level
+    let masteryLevel = 'Beginner';
+    let masteryColor = '#95a5a6';
+    let masteryProgress = 0;
+    
+    if (totalLessonsCompleted >= 20) {
+        masteryLevel = 'Expert';
+        masteryColor = '#f39c12';
+        masteryProgress = 100;
+    } else if (totalLessonsCompleted >= 10) {
+        masteryLevel = 'Advanced';
+        masteryColor = '#9b59b6';
+        masteryProgress = 75;
+    } else if (totalLessonsCompleted >= 5) {
+        masteryLevel = 'Intermediate';
+        masteryColor = '#3498db';
+        masteryProgress = 50;
+    } else if (totalLessonsCompleted >= 1) {
+        masteryLevel = 'Novice';
+        masteryColor = '#27ae60';
+        masteryProgress = 25;
     }
+    
+    // Calculate completion rate
+    const totalLessons = cumulative.total_lessons || 20;
+    const completionRate = totalLessons > 0 ? Math.round((totalLessonsCompleted / totalLessons) * 100) : 0;
+    
+    // Generate insights based on data
+    const insights = [];
+    
+    if (averageAccuracy >= 90) {
+        insights.push('🌟 Excellent accuracy! You\'re mastering the material.');
+    } else if (averageAccuracy >= 75) {
+        insights.push('📈 Good accuracy! Keep practicing to improve further.');
+    } else if (averageAccuracy >= 50) {
+        insights.push('💪 You\'re making progress. Focus on reviewing challenging topics.');
+    } else {
+        insights.push('📚 Start with the basics and build a strong foundation.');
+    }
+    
+    if (totalExercisesCompleted > totalQuizzesCompleted * 2) {
+        insights.push('✏️ You prefer practice exercises over quizzes. That\'s great for skill building!');
+    } else if (totalQuizzesCompleted > totalExercisesCompleted) {
+        insights.push('🧠 You enjoy testing your knowledge with quizzes. Keep challenging yourself!');
+    }
+    
+    if (avgDailyTime < 15) {
+        insights.push('⏱️ Try to study at least 15 minutes daily for better retention.');
+    } else if (avgDailyTime > 60) {
+        insights.push('🎯 Great dedication! Remember to take breaks to avoid burnout.');
+    }
+    
+    if (cumulative.streak_days >= 7) {
+        insights.push('🔥 You\'re on fire! A 7-day learning streak shows amazing commitment.');
+    } else if (cumulative.streak_days >= 3) {
+        insights.push('📅 You\'re building a good habit! Keep your streak alive.');
+    }
+    
+    // Build HTML
+    let html = `
+        <div class="analytics-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px; margin-bottom: 20px;">
+            
+            <!-- Mastery Card -->
+            <div class="analytics-card" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border-radius: 12px; padding: 25px;">
+                <div style="display: flex; align-items: center; gap: 15px; margin-bottom: 15px;">
+                    <div style="width: 50px; height: 50px; background: rgba(255,255,255,0.2); border-radius: 12px; display: flex; align-items: center; justify-content: center;">
+                        <i class="fas fa-crown" style="font-size: 24px;"></i>
+                    </div>
+                    <div>
+                        <div style="font-size: 14px; opacity: 0.9;">Current Level</div>
+                        <div style="font-size: 24px; font-weight: bold;">${masteryLevel}</div>
+                    </div>
+                </div>
+                
+                <div style="margin-bottom: 15px;">
+                    <div style="display: flex; justify-content: space-between; margin-bottom: 5px;">
+                        <span>Progress to next level</span>
+                        <span>${masteryProgress}%</span>
+                    </div>
+                    <div style="height: 8px; background: rgba(255,255,255,0.3); border-radius: 4px; overflow: hidden;">
+                        <div style="height: 100%; width: ${masteryProgress}%; background: white; border-radius: 4px;"></div>
+                    </div>
+                </div>
+                
+                <div style="display: flex; gap: 15px; font-size: 13px;">
+                    <div><i class="fas fa-book"></i> ${totalLessonsCompleted} lessons</div>
+                    <div><i class="fas fa-pencil-alt"></i> ${totalExercisesCompleted} exercises</div>
+                    <div><i class="fas fa-question-circle"></i> ${totalQuizzesCompleted} quizzes</div>
+                </div>
+            </div>
+            
+            <!-- Accuracy Card -->
+            <div class="analytics-card" style="background: white; border-radius: 12px; padding: 25px; box-shadow: 0 4px 12px rgba(0,0,0,0.1);">
+                <div style="display: flex; align-items: center; gap: 15px; margin-bottom: 15px;">
+                    <div style="width: 50px; height: 50px; background: #27ae60; border-radius: 12px; display: flex; align-items: center; justify-content: center; color: white;">
+                        <i class="fas fa-bullseye" style="font-size: 24px;"></i>
+                    </div>
+                    <div>
+                        <div style="font-size: 14px; color: #666;">Average Accuracy</div>
+                        <div style="font-size: 32px; font-weight: bold; color: #2c3e50;">${averageAccuracy}%</div>
+                    </div>
+                </div>
+                
+                <div style="height: 10px; background: #ecf0f1; border-radius: 5px; overflow: hidden; margin-bottom: 15px;">
+                    <div style="height: 100%; width: ${averageAccuracy}%; background: #27ae60; border-radius: 5px;"></div>
+                </div>
+                
+                <div style="display: flex; justify-content: space-between; color: #666; font-size: 14px;">
+                    <span><i class="fas fa-check-circle" style="color: #27ae60;"></i> Correct: ${Math.round(totalLessonsCompleted * averageAccuracy / 100) || 0}</span>
+                    <span><i class="fas fa-times-circle" style="color: #e74c3c;"></i> Incorrect: ${Math.round(totalLessonsCompleted * (100 - averageAccuracy) / 100) || 0}</span>
+                </div>
+            </div>
+            
+            <!-- Study Time Card -->
+            <div class="analytics-card" style="background: white; border-radius: 12px; padding: 25px; box-shadow: 0 4px 12px rgba(0,0,0,0.1);">
+                <div style="display: flex; align-items: center; gap: 15px; margin-bottom: 15px;">
+                    <div style="width: 50px; height: 50px; background: #3498db; border-radius: 12px; display: flex; align-items: center; justify-content: center; color: white;">
+                        <i class="fas fa-clock" style="font-size: 24px;"></i>
+                    </div>
+                    <div>
+                        <div style="font-size: 14px; color: #666;">Study Intensity</div>
+                        <div style="font-size: 32px; font-weight: bold; color: #2c3e50;">${avgDailyTime} <span style="font-size: 16px;">min/day</span></div>
+                    </div>
+                </div>
+                
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-top: 10px;">
+                    <div style="text-align: center; padding: 10px; background: #f8f9fa; border-radius: 8px;">
+                        <div style="font-size: 20px; font-weight: bold; color: #2c3e50;">${cumulative.streak_days || 0}</div>
+                        <div style="font-size: 12px; color: #666;">Day Streak</div>
+                    </div>
+                    <div style="text-align: center; padding: 10px; background: #f8f9fa; border-radius: 8px;">
+                        <div style="font-size: 20px; font-weight: bold; color: #2c3e50;">${totalTimeMinutes}</div>
+                        <div style="font-size: 12px; color: #666;">Total Minutes</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Completion Progress -->
+        <div class="completion-card" style="background: white; border-radius: 12px; padding: 25px; margin-bottom: 20px; box-shadow: 0 4px 12px rgba(0,0,0,0.1);">
+            <h3 style="margin: 0 0 15px 0; color: #2c3e50; display: flex; align-items: center; gap: 8px;">
+                <i class="fas fa-chart-line" style="color: #7a0000;"></i> Overall Completion
+            </h3>
+            
+            <div style="margin-bottom: 20px;">
+                <div style="display: flex; justify-content: space-between; margin-bottom: 5px;">
+                    <span>Lessons</span>
+                    <span><strong>${totalLessonsCompleted}/${totalLessons}</strong> (${completionRate}%)</span>
+                </div>
+                <div style="height: 10px; background: #ecf0f1; border-radius: 5px; overflow: hidden;">
+                    <div style="height: 100%; width: ${completionRate}%; background: #7a0000; border-radius: 5px;"></div>
+                </div>
+            </div>
+            
+            <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px; text-align: center;">
+                <div>
+                    <div style="font-size: 14px; color: #666;">Lessons</div>
+                    <div style="font-size: 24px; font-weight: bold; color: #2c3e50;">${totalLessonsCompleted}</div>
+                </div>
+                <div>
+                    <div style="font-size: 14px; color: #666;">Exercises</div>
+                    <div style="font-size: 24px; font-weight: bold; color: #2c3e50;">${totalExercisesCompleted}</div>
+                </div>
+                <div>
+                    <div style="font-size: 14px; color: #666;">Quizzes</div>
+                    <div style="font-size: 24px; font-weight: bold; color: #2c3e50;">${totalQuizzesCompleted}</div>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    // Learning Insights
+    html += `
+        <div class="insights-card" style="background: #f8f9fa; border-radius: 12px; padding: 25px; border-left: 4px solid #7a0000;">
+            <h4 style="margin: 0 0 15px 0; color: #2c3e50; display: flex; align-items: center; gap: 8px;">
+                <i class="fas fa-lightbulb" style="color: #f39c12;"></i> Learning Insights
+            </h4>
+            <ul style="list-style: none; padding: 0; margin: 0;">
+                ${insights.map(insight => `
+                    <li style="padding: 8px 0; border-bottom: 1px solid #e0e0e0; display: flex; align-items: center; gap: 10px;">
+                        <i class="fas fa-check-circle" style="color: #27ae60; font-size: 14px;"></i>
+                        <span style="color: #2c3e50;">${insight}</span>
+                    </li>
+                `).join('')}
+            </ul>
+        </div>
+    `;
+    
+    container.innerHTML = html;
+}
+
+// Add this to your addProgressStyles() function or create a new style block
+function addPerformanceAnalyticsStyles() {
+    const style = document.createElement('style');
+    style.textContent = `
+        /* Performance Analytics Styles */
+        .analytics-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+        
+        .analytics-card {
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+        
+        .analytics-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 8px 24px rgba(0,0,0,0.15) !important;
+        }
+        
+        .completion-card {
+            transition: all 0.3s ease;
+        }
+        
+        .completion-card:hover {
+            box-shadow: 0 8px 24px rgba(0,0,0,0.15);
+        }
+        
+        .insights-card ul li:last-child {
+            border-bottom: none !important;
+        }
+        
+        .insights-card ul li:hover {
+            background: rgba(122,0,0,0.05);
+            padding-left: 15px;
+            transition: all 0.3s ease;
+        }
+        
+        @media (max-width: 768px) {
+            .analytics-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .analytics-card {
+                padding: 20px !important;
+            }
+            
+            .analytics-card div[style*="font-size: 32px"] {
+                font-size: 24px !important;
+            }
+        }
+    `;
+    document.head.appendChild(style);
 }
 // ============================================
 // ✅ FIXED: updateProgressDisplay - Remove broken API call
@@ -22244,7 +22176,7 @@ function displayPracticeExercises(exercises) {
 function attachStartButtonHandlers() {
     console.log('🔧 Attaching start button handlers...');
     
-    const startButtons = document.querySelectorAll('.start-exercise-btn');
+    const startButtons = document.querySelectorAll('.start-exercise, .start-exercise-btn, .btn-primary.start-exercise');
     
     startButtons.forEach(btn => {
         // Remove any existing listeners by cloning
@@ -27396,60 +27328,6 @@ mobileMenuItems.forEach((item, index) => {
     });
 });
 
-// ============================================
-// ⚡ ULTRA MINIMAL - Direct onclick assignment
-// ============================================
-(function ultraMinimalFix() {
-    console.log('⚡ Ultra minimal fix...');
-    
-    function findAndFix() {
-        // Find all buttons
-        document.querySelectorAll('button').forEach(btn => {
-            // Check if it's a Start button
-            if (btn.textContent.includes('Start') || 
-                btn.innerHTML.includes('Start') ||
-                btn.classList.contains('start-exercise')) {
-                
-                console.log('Found Start button:', btn);
-                
-                // Direct onclick assignment (strongest)
-                btn.onclick = function(e) {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    
-                    console.log('✅ Start button clicked!');
-                    
-                    // Get exercise ID
-                    const exerciseId = this.getAttribute('data-exercise-id') || 
-                                      this.closest('[data-exercise-id]')?.getAttribute('data-exercise-id');
-                    
-                    // Try to call existing function
-                    if (typeof startPractice === 'function') {
-                        startPractice(exerciseId);
-                    } else {
-                        // Just show it's working
-                        alert(`✅ Start button is now working! Exercise ID: ${exerciseId || 'unknown'}`);
-                    }
-                    
-                    return false;
-                };
-                
-                // Make it look clickable
-                btn.style.cursor = 'pointer';
-                btn.style.backgroundColor = '#7a0000';
-                btn.style.color = 'white';
-                btn.disabled = false;
-                
-                console.log('✅ Fixed via onclick');
-            }
-        });
-    }
-    
-    findAndFix();
-    setTimeout(findAndFix, 1000);
-    
-    console.log('⚡ Fix applied!');
-})();
 // ============================================
 // 🎯 FORCE DISPLAY THE DATABASE CATEGORY
 // ============================================
