@@ -2654,3 +2654,49 @@ input:checked + .toggle-slider:before {
 
 .quick-tool-item.active {
     background: linear-gradient(135deg, var(--accent
+}
+
+
+/* Hide any stray modal content that shouldn't be visible */
+#forgotPasswordModal,
+#resetPasswordModal,
+#logoutModal {
+    display: none;
+}
+
+/* Only show when explicitly set to flex */
+#forgotPasswordModal[style*="display: flex"],
+#resetPasswordModal[style*="display: flex"],
+#logoutModal[style*="display: flex"] {
+    display: flex !important;
+}
+
+/* Ensure dashboard content doesn't show modals */
+#dashboard-page .modal-overlay,
+#module-dashboard-page .modal-overlay,
+#practice-exercises-page .modal-overlay {
+    display: none !important;
+}
+
+/* Fix for any modals that might be inside page containers */
+#page-container .modal-overlay {
+    position: fixed;
+    z-index: 10000;
+}
+
+/* Ensure proper stacking context */
+#toolModalsContainer {
+    position: relative;
+    z-index: 9999;
+}
+
+/* Fix for logout button responsiveness */
+.footer-hamburger,
+.footer-nav-item {
+    cursor: pointer;
+    pointer-events: auto !important;
+}
+
+.footer-nav-item[onclick*="showLogoutConfirmation"] {
+    cursor: pointer;
+}
