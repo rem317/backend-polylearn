@@ -1,5 +1,3 @@
-
-
 // script.js - MathHub Application with Complete Database-Driven Progress Tracking
 // Includes lesson management, practice exercises, quiz system, and full progress integration
 
@@ -10,7 +8,6 @@
 let authToken = localStorage.getItem('authToken') || null;
    
 const API_BASE_URL = window.location.origin;
-
 
 // Define default practice statistics function
 function getDefaultPracticeStats() {
@@ -27,21 +24,17 @@ function getDefaultPracticeStats() {
 }
 
 // ============================================
-// APP FILTERING SYSTEM - Add this near the top of your script.js
-// ============================================
-
-// ============================================
 // APP FILTERING SYSTEM - USING LESSON_ID
 // ============================================
 
 const APP_LESSON_MAP = {
     'mathease': {
         lessonId: 1,
-        name: 'mathease'
+        name: 'MathEase'  // MathEase uses lesson_id = 1
     },
     'factorial': {
         lessonId: 3,
-        name: 'Factolearn'  // Ito na ang gagamitin
+        name: 'FactoLearn'
     },
     'polylearn': {
         lessonId: 2,
@@ -52,16 +45,16 @@ const APP_LESSON_MAP = {
 // ============================================
 // MATHEASE CONSTANTS - FORCE LESSON_ID = 1
 // ============================================
-const MATHEASE_LESSON_ID = 1; // Fixed for mathease app
+const MATHEASE_LESSON_ID = 1; // Fixed for MathEase app
 const POLYLEARN_LESSON_ID = 2;
 const FACTORIAL_LESSON_ID = 3;
 
 // Para madaling gamitin
-const CURRENT_LESSON_ID = 1; // mathease only
-const CURRENT_APP_NAME = 'Mathease';
+const CURRENT_LESSON_ID = 1; // MathEase only
+const CURRENT_APP_NAME = 'MathEase';
 
 function getCurrentApp() {
-    return localStorage.getItem('selectedApp') || 'mathease'; // mathease na ang default
+    return localStorage.getItem('selectedApp') || 'mathease'; // MathEase ang default
 }
 
 function getCurrentAppLessonId() {
@@ -70,29 +63,30 @@ function getCurrentAppLessonId() {
     
     // Return appropriate lesson_id based on selected app
     const appMap = {
-        'mathease': 1,
-        'polylearn': 2,
-        'factorial': 3
+        'mathease': 1,      // MathEase = 1
+        'polylearn': 2,      // PolyLearn = 2
+        'factorial': 3       // FactoLearn = 3
     };
     
-    return appMap[selectedApp] || 1;
+    return appMap[selectedApp] || 1; // Default to 1 for MathEase
 }
 
-// Example API call - lahat ng user ay makakakita ng FactoLearn data
-// kung naka-select sila ng FactoLearn
+// Example API call - lahat ng user ay makakakita ng MathEase data
+// kung naka-select sila ng MathEase
 fetch(`/api/topics/progress?lesson_id=${getCurrentAppLessonId()}`, {
     headers: { 'Authorization': `Bearer ${authToken}` }
-})
+});
+
 // Get the filter parameter for API calls
 function getAppFilterParam() {
     const app = getCurrentApp();
-    return APP_LESSON_MAP[app]?.filter || 'factolearn';
+    return APP_LESSON_MAP[app]?.name.toLowerCase() || 'mathease';
 }
 
 function addAppFilterToUrl(url) {
     const separator = url.includes('?') ? '&' : '?';
-    // FORCE factorial: Laging lesson_id=3
-    return `${url}${separator}lesson_id=${FACTORIAL_LESSON_ID}`;
+    // FORCE MathEase: Laging lesson_id=1
+    return `${url}${separator}lesson_id=${MATHEASE_LESSON_ID}`;
 }
 
 // ============================================
@@ -4471,6 +4465,31 @@ async function loadVideoLesson(lessonId) {
         console.error('❌ Error loading video lesson:', error);
     }
 }
+// Update welcome message with student name
+function updateWelcomeMessage() {
+    const userJson = localStorage.getItem('mathhub_user');
+    if (userJson) {
+        try {
+            const user = JSON.parse(userJson);
+            const studentName = user.full_name || user.username || 'Student';
+            
+            const welcomeElement = document.getElementById('dashboardUserName');
+            if (welcomeElement) {
+                welcomeElement.innerHTML = `Welcome back, <span style="color: var(--primary);">${studentName}</span>!`;
+            }
+            
+            const userInitial = document.getElementById('userInitial');
+            if (userInitial) {
+                userInitial.textContent = studentName.charAt(0).toUpperCase();
+            }
+        } catch (e) {
+            console.error('Error parsing user:', e);
+        }
+    }
+}
+
+// Call this when the page loads
+document.addEventListener('DOMContentLoaded', updateWelcomeMessage);
 
 // ============================================
 // HELPER FUNCTION: Extract YouTube ID
