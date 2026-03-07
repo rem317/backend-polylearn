@@ -7497,7 +7497,7 @@ async function updateProgressSummaryCards() {
             return;
         }
         
-        const MATHEASE_LESSON_ID = 3;  // FIXED to 3
+        const MATHEASE_LESSON_ID = 1;  // FIXED to 3
         
         // ===== 1. GET LESSONS =====
         let lessonsCompleted = 0;
@@ -11211,7 +11211,7 @@ async function startQuizSystem(quizId) {
 // Helper function to manually load PolyLearn quizzes (Category 2)
 // ============================================
 function loadmatheaseQuizzes() {
-    console.log('📚 Loading FactoPermCombi quizzes (Category 3)...');
+    console.log('📚 Loading MathEase quizzes (Category 1)...');
     
     // Find PolyLearn category (ID 3)
     const mathEaseCategory = QuizState.quizCategories.find(c => c.category_id == 1);
@@ -12772,14 +12772,14 @@ function displayQuizCategories(categories, isHardcoded = false) {
     }
     
     // Filter for MathEase (lesson_id = 1)
-    const matheaseCategories = categories.filter(cat => {
+    const mathEaseCategories = categories.filter(cat => {
         const catLessonId = cat.lesson_id || cat.lessonId;
         return catLessonId == 1;
     });
     
     quizzesContainer.innerHTML = '';
     
-    if (matheaseCategories.length === 0) {
+    if (mathEaseCategories.length === 0) {
         quizzesContainer.innerHTML = `
             <div class="card" style="padding: 40px; text-align: center;">
                 <div style="font-size: 60px; color: #ccc; margin-bottom: 20px;">
@@ -12821,7 +12821,7 @@ function displayQuizCategories(categories, isHardcoded = false) {
     
     html += `<div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 20px;">`;
     
-    matheaseCategories.forEach(category => {
+    mathEaseCategories.forEach(category => {
         const categoryId = category.category_id || category.id;
         const categoryName = category.category_name || category.name || 'MathEase Quiz';
         const categoryDesc = category.description || 'Test your MathEase knowledge.';
@@ -13083,7 +13083,7 @@ function handleCategoriesResponse(data, filterOnClient = false) {
 // ✅ FIXED: Display quiz categories na parang dashboard card
 // ============================================
 function displayQuizCategories(categories, isHardcoded = false) {
-    console.log('📋 Displaying FactoPermCombi quiz categories:', categories);
+    console.log('📋 Displaying MathEase quiz categories:', categories);
     
     const quizzesContainer = document.getElementById('userQuizzesContainer');
     if (!quizzesContainer) {
@@ -13148,7 +13148,7 @@ function displayQuizCategories(categories, isHardcoded = false) {
     // Grid ng categories - gaya ng sa ibang grids
     html += `<div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 20px;">`;
     
-    matheaseCategories.forEach(category => {
+    mathEaseCategories.forEach(category => {
         const categoryId = category.category_id || category.id;
         const categoryName = category.category_name || category.name || 'FactoPermCombi Quiz';
         const categoryDesc = category.description || 'Test your FactoPermCombi knowledge.';
@@ -21383,7 +21383,7 @@ async function initPracticePage() {
     }
     
     // Force lesson_id = 3 for FactoLearn
-    const currentLessonId = MATHEASE_LESSON_ID || 3;
+    const currentLessonId = MATHEASE_LESSON_ID || 1;
     console.log(`🎯 Practice page for lesson_id = ${currentLessonId}`);
     
     // Show loading
