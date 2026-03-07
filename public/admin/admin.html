@@ -2264,19 +2264,7 @@
                         </div>
                     </div>
                     
-                    <!-- Teacher Assignment -->
-                    <div style="margin-bottom: 20px; background: #f8f9fa; padding: 15px; border-radius: 8px;">
-                        <h4 style="color: #7a0000; margin-bottom: 10px;">
-                            <i class="fas fa-chalkboard-teacher"></i> Teacher Assignment
-                        </h4>
-                        <select id="practiceAssignedTeacherId" class="form-control" style="padding: 10px; border: 2px solid #e0e0e0; border-radius: 6px;">
-                            <option value="">-- Assign to myself (default) --</option>
-                            <!-- Teachers will be loaded here -->
-                        </select>
-                        <p style="font-size: 0.8rem; color: #666; margin-top: 5px;">
-                            <i class="fas fa-info-circle"></i> Assign to specific teacher (optional)
-                        </p>
-                    </div>
+                   
                     
                     <!-- Questions Section -->
                     <div style="margin-bottom: 20px;">
@@ -2443,17 +2431,7 @@
                                 <strong>IMPORTANT:</strong> You must select a topic. Click "New Topic" if you need to create one.
                             </small>
                         </div>
-                        <!-- Add this inside the create lesson modal, after topic selection -->
-                        <div class="form-group" style="margin-bottom: 15px;">
-                            <label class="form-label mobile-font-smaller">
-                                <i class="fas fa-chalkboard-teacher"></i> Assign to Teacher (Optional)
-                            </label>
-                            <select class="form-control mobile-font-smaller" id="assignedTeacherId">
-                                <option value="">-- Select Teacher (Leave empty for self) --</option>
-                                <!-- Options will be populated dynamically -->
-                            </select>
-                            <small style="color: #666;">If not selected, lesson will be assigned to you (admin)</small>
-                        </div>
+                       
                         
                         <!-- QUICK CREATE TOPIC PANEL - Integrated directly into the modal -->
                         <div id="quickTopicPanel" style="display: none; margin-top: 20px; padding: 20px; background: white; border-radius: 8px; border: 2px solid #7a0000;">
@@ -2993,18 +2971,7 @@
                                     </div>
                                 </div>
 
-                                <div class="role-option" onclick="selectRole('teacher')" id="roleTeacher">
-                                    <div class="role-icon teacher">
-                                        <i class="fas fa-chalkboard-teacher"></i>
-                                    </div>
-                                    <div class="role-info">
-                                        <h4>Teacher</h4>
-                                        <p>Can create lessons, assignments, and grade students</p>
-                                    </div>
-                                    <div class="role-check">
-                                        <i class="fas fa-check"></i>
-                                    </div>
-                                </div>
+                            
 
                                 <div class="role-option" onclick="selectRole('admin')" id="roleAdmin">
                                     <div class="role-icon admin">
@@ -3235,15 +3202,7 @@
                 <!-- Quiz Settings -->
                 <div class="form-section">
                     <h4><i class="fas fa-cog"></i> Quiz Settings</h4>
-
-                    <!-- Add this in quiz settings section -->
-<div class="form-group">
-    <label class="form-label"><i class="fas fa-chalkboard-teacher"></i> Assign to Teacher</label>
-    <select class="form-control" id="quizAssignedTeacherId">
-        <option value="">-- Select Teacher (Optional) --</option>
-    </select>
-</div>
-                    
+              
                     <div class="form-row">
                         <div class="form-group half">
                             <label class="form-label">Time Limit (minutes)</label>
