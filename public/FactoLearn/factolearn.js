@@ -2547,60 +2547,17 @@ async function checkLessonCompletionStatus() {
             return;
         }
         
-        // Get progress from state or server
+        // Get progress from state only
         let isCompleted = false;
         let percentage = 0;
-        let status = 'not_started';
-        
-        console.log('📊 Checking progress for lesson ID:', contentId);
-        console.log('📊 Current LessonState:', LessonState);
         
         if (LessonState.userProgress && LessonState.userProgress[contentId]) {
             const progress = LessonState.userProgress[contentId];
             isCompleted = progress.status === 'completed' || progress.completion_status === 'completed';
             percentage = progress.percentage || 0;
-            status = progress.status || 'not_started';
-            
-            console.log('✅ Progress found in state:', { isCompleted, percentage, status });
+            console.log('✅ Progress found in state:', { isCompleted, percentage });
         } else {
-            console.log('📡 No progress in state, fetching from server...');
-            
-            // Try to fetch from server
-            try {
-                const token = localStorage.getItem('authToken') || authToken;
-                if (!token) {
-                    console.log('⚠️ No auth token available');
-                    return;
-                }
-                
-                const response = await fetch(`/api/lessons-db/${contentId}`, {
-                    headers: {
-                        'Authorization': `Bearer ${token}`,
-                        'Content-Type': 'application/json'
-                    }
-                });
-                
-                if (response.ok) {
-                    const data = await response.json();
-                    console.log('📥 Server response:', data);
-                    
-                    if (data.success && data.lesson && data.lesson.progress) {
-                        const progress = data.lesson.progress;
-                        isCompleted = progress.status === 'completed' || 
-                                     progress.completion_status === 'completed';
-                        percentage = progress.percentage || 0;
-                        status = progress.status || 'not_started';
-                        
-                        // Save to state
-                        if (!LessonState.userProgress) LessonState.userProgress = {};
-                        LessonState.userProgress[contentId] = progress;
-                        
-                        console.log('✅ Progress loaded from server:', { isCompleted, percentage, status });
-                    }
-                }
-            } catch (error) {
-                console.error('❌ Error fetching progress:', error);
-            }
+            console.log('ℹ️ No progress in state for lesson', contentId);
         }
         
         // Update button based on status
@@ -2611,13 +2568,11 @@ async function checkLessonCompletionStatus() {
             completeBtn.disabled = true;
             console.log('✅ Lesson already completed - button disabled');
         } else {
-            // Reset button to default state
             completeBtn.innerHTML = '<i class="fas fa-check-circle"></i> Mark Lesson Complete';
             completeBtn.classList.remove('btn-success');
             completeBtn.classList.add('btn-primary');
             completeBtn.disabled = false;
             
-            // If percentage is high, change button text
             if (percentage >= 90) {
                 completeBtn.innerHTML = '<i class="fas fa-check-circle"></i> Complete Lesson (90%+)';
             } else if (percentage > 0) {
@@ -2626,8 +2581,6 @@ async function checkLessonCompletionStatus() {
             
             console.log(`📊 Lesson progress: ${percentage}% - button enabled`);
         }
-        
-        console.log(`✅ Completion status checked: ${isCompleted ? 'COMPLETED' : 'NOT COMPLETED'} (${percentage}%)`);
         
     } catch (error) {
         console.error('❌ Error checking completion status:', error);
@@ -18740,11 +18693,13 @@ async function openLesson(lessonId) {
         navigateTo('moduleDashboard');
         
         // Inside openLesson function, after loading the video:
+      // Inside openLesson function
       setTimeout(async () => {
           updateLessonUI(lesson);
           setupNavigationButtons();
           await loadVideoFromDatabase(lessonId);
-          await checkLessonCompletionStatus();  // ← MAKE SURE THIS LINE EXISTS
+          setupCompleteLessonButton();  // ← ADD THIS LINE
+          await checkLessonCompletionStatus();
           console.log('✅ Lesson fully loaded');
       }, 500);
         
@@ -18753,6 +18708,24 @@ async function openLesson(lessonId) {
         showNotification('Error loading lesson: ' + error.message, 'error');
     }
 }
+// ============================================
+// 🔍 DEBUG: Check Lesson Button
+// ============================================
+window.debugLessonButton = function() {
+    console.log('🔍 LESSON BUTTON DEBUG:');
+    console.log('- Button exists:', !!document.getElementById('completeLessonBtn'));
+    console.log('- Current Lesson:', LessonState.currentLesson);
+    console.log('- User Progress:', LessonState.userProgress);
+    
+    if (LessonState.currentLesson) {
+        const contentId = LessonState.currentLesson.content_id;
+        console.log('- Progress for current lesson:', LessonState.userProgress?.[contentId]);
+    }
+    
+    // Force setup
+    setupCompleteLessonButton();
+    console.log('✅ Button setup forced');
+};
 // Update navigation buttons function - FIXED VERSION
 function updateNavigationButtons(adjacent) {
     console.log('🔄 Updating navigation buttons with adjacent:', adjacent);
@@ -20533,7 +20506,7 @@ function setupPracticeButtons() {
 }
 
 // ============================================
-// ✅ FIXED: Setup Complete Lesson Button
+// ✅ WORKING: Setup Complete Lesson Button
 // ============================================
 function setupCompleteLessonButton() {
     console.log('🔘 Setting up complete lesson button...');
@@ -20588,7 +20561,7 @@ function setupCompleteLessonButton() {
         newCompleteBtn.disabled = true;
         
         try {
-            // Check if already completed (double-check)
+            // Check if already completed
             if (LessonState.userProgress?.[contentId]?.status === 'completed') {
                 showNotification('info', 'Already Completed', 'Lesson already marked as complete!');
                 newCompleteBtn.innerHTML = '<i class="fas fa-check-double"></i> Already Completed';
@@ -20597,18 +20570,17 @@ function setupCompleteLessonButton() {
                 return;
             }
             
-            // Calculate time spent watching video
+            // Calculate time spent
             let timeSpentSeconds = 300; // Default 5 minutes
             const videoElement = document.getElementById('lessonVideo');
             if (videoElement && videoElement.duration) {
-                // Use current time if video is playing, otherwise use duration
                 timeSpentSeconds = Math.floor(videoElement.currentTime || videoElement.duration || 300);
             }
             
             console.log(`⏱️ Time spent: ${timeSpentSeconds} seconds`);
             
             // Get auth token
-            const token = localStorage.getItem('authToken') || authToken;
+            const token = localStorage.getItem('authToken');
             if (!token) {
                 throw new Error('No authentication token found');
             }
@@ -20649,15 +20621,13 @@ function setupCompleteLessonButton() {
                 
                 // Update local state
                 if (!LessonState.userProgress) LessonState.userProgress = {};
-                if (!LessonState.userProgress[contentId]) LessonState.userProgress[contentId] = {};
-                LessonState.userProgress[contentId].status = 'completed';
-                LessonState.userProgress[contentId].percentage = 100;
-                LessonState.userProgress[contentId].completion_status = 'completed';
+                LessonState.userProgress[contentId] = {
+                    status: 'completed',
+                    percentage: 100,
+                    completion_status: 'completed'
+                };
                 
-                console.log('✅ Local state updated:', LessonState.userProgress[contentId]);
-                
-                // Clear any watch time tracking
-                localStorage.removeItem(`video_watch_time_video_${contentId}`);
+                console.log('✅ Local state updated');
                 
                 // Update daily progress
                 await updateDailyProgress({ 
@@ -20665,27 +20635,13 @@ function setupCompleteLessonButton() {
                     time_spent_minutes: Math.floor(timeSpentSeconds / 60)
                 });
                 
-                // Update dashboard statistics
+                // Update dashboard
                 setTimeout(() => {
                     if (typeof updateProgressSummaryCards === 'function') {
                         updateProgressSummaryCards();
                     }
-                    if (AppState.currentPage === 'dashboard' && typeof updateContinueLearningModule === 'function') {
+                    if (typeof updateContinueLearningModule === 'function') {
                         updateContinueLearningModule();
-                    }
-                    
-                    // Check if practice should be unlocked
-                    const topicId = currentLesson.topic_id;
-                    if (topicId) {
-                        checkPracticeUnlocked(topicId).then(unlocked => {
-                            if (unlocked) {
-                                showNotification('success', 'Practice Unlocked!', 'Practice exercises are now available!');
-                                // Add practice button to lesson content
-                                if (typeof addPracticeButtonToLesson === 'function') {
-                                    addPracticeButtonToLesson();
-                                }
-                            }
-                        });
                     }
                 }, 1000);
                 
@@ -20697,7 +20653,7 @@ function setupCompleteLessonButton() {
             console.error('❌ Error marking lesson complete:', error);
             showNotification('error', 'Error', error.message || 'Failed to mark lesson as complete');
             
-            // Restore button to original state
+            // Restore button
             newCompleteBtn.innerHTML = originalText;
             newCompleteBtn.disabled = false;
             
@@ -20710,10 +20666,8 @@ function setupCompleteLessonButton() {
     
     console.log('✅ Complete lesson button setup complete');
     
-    // Check initial status after a short delay
-    setTimeout(() => {
-        checkLessonCompletionStatus();
-    }, 500);
+    // Check initial status
+    setTimeout(checkLessonCompletionStatus, 500);
 }
 // ============================================
 // FETCH ACTIVITY LOG - ADD THIS MISSING FUNCTION
