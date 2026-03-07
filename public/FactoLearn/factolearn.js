@@ -18263,6 +18263,9 @@ async function updateContinueLearningModule() {
                     <p>Check back later for new lessons!</p>
                 </div>
             `;
+            
+            // Still update today's learning even if no lessons
+            updateTodaysLearningStats();
             return;
         }
         
@@ -18290,6 +18293,8 @@ async function updateContinueLearningModule() {
                 navigateTo('moduleDashboard');
             });
             
+            // Still update today's learning
+            updateTodaysLearningStats();
             return;
         }
         
@@ -18302,93 +18307,77 @@ async function updateContinueLearningModule() {
         const topicId = continueLesson.topic_id || 1;
         LessonState.currentTopic = topicId;
         
-        // Check if practice is unlocked for this topic
-        let practiceUnlocked = false;
-        let practiceAvailable = false;
-        
-        if (percentage >= 80) {
-            practiceUnlocked = await checkPracticeUnlocked(topicId);
-            practiceAvailable = true;
-        }
-        
         // Render continue learning module
         container.innerHTML = `
-            <div class="module-header">
-                <h3 class="module-title">
-                    <i class="fas fa-cube"></i> 
-                    ${continueLesson.module_name || 'Module'}: ${continueLesson.topic_title || 'Topic'}
-                </h3>
-                <span class="module-status status-${status}">
-                    ${status === 'completed' ? 'Completed' : 
-                      status === 'in_progress' ? 'In Progress' : 'Start Learning'}
-                </span>
-            </div>
-            
-            <p style="color: var(--text-light); margin-bottom: 15px;">
-                ${continueLesson.content_title || 'Continue your learning journey.'}
-            </p>
-            
-            <div class="module-progress">
-                <div class="progress-label">
-                    <span>Progress</span>
-                    <span>${percentage}%</span>
+            <div class="current-lesson-card" style="background: white; border-radius: 12px; padding: 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                    <h3 style="margin: 0; color: #2c3e50; font-size: 16px;">
+                        <i class="fas fa-play-circle" style="color: #7a0000;"></i> 
+                        Current Lesson
+                    </h3>
+                    <span class="lesson-status ${status === 'completed' ? 'status-completed' : status === 'in_progress' ? 'status-in-progress' : 'status-not-started'}" 
+                          style="padding: 4px 10px; border-radius: 20px; font-size: 12px; background: ${status === 'completed' ? '#d4edda' : status === 'in_progress' ? '#fff3cd' : '#f8f9fa'}; color: ${status === 'completed' ? '#155724' : status === 'in_progress' ? '#856404' : '#6c757d'};">
+                        ${status === 'completed' ? 'Completed' : status === 'in_progress' ? 'In Progress' : 'Not Started'}
+                    </span>
                 </div>
-                <div class="progress-bar-container">
-                    <div class="progress-fill" style="width: ${percentage}%"></div>
+                
+                <h4 class="lesson-title" style="margin: 0 0 10px 0; color: #2c3e50; font-size: 18px;">${continueLesson.content_title}</h4>
+                
+                <p style="color: #666; margin-bottom: 15px;">${continueLesson.content_description || 'Continue your learning journey.'}</p>
+                
+                <div style="margin-bottom: 15px;">
+                    <div style="display: flex; justify-content: space-between; font-size: 14px; color: #666; margin-bottom: 5px;">
+                        <span>Progress</span>
+                        <span class="progress-text">${percentage}%</span>
+                    </div>
+                    <div style="height: 8px; background: #ecf0f1; border-radius: 4px; overflow: hidden;">
+                        <div class="progress-fill" style="height: 100%; width: ${percentage}%; background: #7a0000; border-radius: 4px;"></div>
+                    </div>
                 </div>
-            </div>
-            
-            <div class="module-lessons" id="recentLessonsList">
-                <!-- Recent lessons will be loaded here -->
-            </div>
-            
-            <div style="text-align: center; margin-top: 20px;">
-                <button class="btn-primary" id="continueLessonBtn" data-lesson-id="${continueLesson.content_id}">
-                    <i class="fas fa-play"></i> ${status === 'not_started' ? 'Start Lesson' : 
-                     status === 'in_progress' ? 'Continue Lesson' : 'Review Lesson'}
+                
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                    <span class="lesson-duration" style="color: #7f8c8d; font-size: 14px;">
+                        <i class="fas fa-clock"></i> ${Math.floor((continueLesson.video_duration_seconds || 600) / 60)} min
+                    </span>
+                    <span style="color: #7f8c8d; font-size: 14px;">
+                        <i class="fas fa-video"></i> Video Lesson
+                    </span>
+                </div>
+                
+                <button class="btn-primary continue-lesson-btn" data-lesson-id="${continueLesson.content_id}" 
+                        style="width: 100%; padding: 12px; background: #7a0000; color: white; border: none; border-radius: 8px; font-weight: 600; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px;">
+                    <i class="fas fa-play-circle"></i> 
+                    ${status === 'completed' ? 'Review Lesson' : 'Continue Lesson'}
                 </button>
-                ${practiceAvailable ? `
-                    <button class="btn-success ${practiceUnlocked ? '' : 'disabled'}" 
-                            id="practiceTopicBtn" 
-                            style="margin-left: 10px;" 
-                            data-topic-id="${topicId}"
-                            ${practiceUnlocked ? '' : 'disabled'}>
-                        <i class="fas fa-pencil-alt"></i> 
-                        ${practiceUnlocked ? 'Practice Now' : 'Practice Locked'}
-                    </button>
-                ` : ''}
             </div>
         `;
         
-        // Load recent lessons
-        await loadRecentLessons(container.querySelector('#recentLessonsList'), lessons, progress);
-        
-        // Setup continue button
-        document.getElementById('continueLessonBtn')?.addEventListener('click', function() {
+        // Add event listener to continue button
+        document.querySelector('.continue-lesson-btn')?.addEventListener('click', function() {
             const lessonId = this.getAttribute('data-lesson-id');
             openLesson(lessonId);
         });
         
-        // Setup practice button
-        const practiceBtn = document.getElementById('practiceTopicBtn');
-        if (practiceBtn) {
-            practiceBtn.addEventListener('click', function() {
-                const topicId = this.getAttribute('data-topic-id');
-                openPracticeForTopic(topicId);
-            });
-        }
+        // Update today's learning stats
+        updateTodaysLearningStats();
         
         console.log('✅ Continue learning module updated');
         
     } catch (error) {
         console.error('Error updating continue learning module:', error);
-        container.innerHTML = `
-            <div class="error-message">
-                <i class="fas fa-exclamation-triangle"></i>
-                <h3>Failed to load lessons</h3>
-                <p>Please try again later</p>
-            </div>
-        `;
+        const container = document.getElementById('continueLearningContainer');
+        if (container) {
+            container.innerHTML = `
+                <div class="error-message" style="text-align: center; padding: 30px;">
+                    <i class="fas fa-exclamation-triangle" style="font-size: 40px; color: #e74c3c; margin-bottom: 15px;"></i>
+                    <h3 style="color: #2c3e50; margin-bottom: 10px;">Failed to load lessons</h3>
+                    <p style="color: #666;">Please try refreshing the page</p>
+                </div>
+            `;
+        }
+        
+        // Still try to update today's learning
+        updateTodaysLearningStats();
     }
 }
 // ============================================
@@ -18441,7 +18430,19 @@ async function updateProgressDashboardFromDatabase() {
         hideProgressDashboardLoading();
     }
 }
-
+// When dashboard becomes visible
+async function onDashboardVisible() {
+    console.log('📊 Dashboard became visible - updating all sections');
+    
+    // Update continue learning
+    await updateContinueLearningModule();
+    
+    // Update today's learning stats
+    await updateTodaysLearningStats();
+    
+    // Update progress summary
+    await updateProgressSummaryCards();
+}
 // ============================================
 // 🚨 ULTIMATE SAFETY: Force lesson_id=3 for ALL
 // ============================================
@@ -20324,12 +20325,18 @@ function updateLessonUI(lesson) {
 }
 
 // ============================================
-// ✅ FIXED: updateProgressDisplay - Remove broken API call
+// ✅ FIXED: Update Progress Display - No broken API calls
 // ============================================
 async function updateProgressDisplay(lesson) {
-    const contentId = lesson.content_id;
+    console.log('📊 Updating progress display for lesson:', lesson?.content_id);
     
-    // Get progress from state only - don't call broken API
+    const contentId = lesson?.content_id;
+    if (!contentId) {
+        console.log('⚠️ No content ID provided');
+        return;
+    }
+    
+    // Get progress from state only
     let percentage = 0;
     let status = 'not_started';
     
@@ -20339,6 +20346,24 @@ async function updateProgressDisplay(lesson) {
         console.log('📊 Progress from state:', { percentage, status });
     } else {
         console.log('ℹ️ No progress in state for lesson', contentId);
+        
+        // Try to get from localStorage as fallback
+        try {
+            const savedProgress = localStorage.getItem(`lesson_progress_${contentId}`);
+            if (savedProgress) {
+                const progress = JSON.parse(savedProgress);
+                percentage = progress.percentage || 0;
+                status = progress.status || 'not_started';
+                
+                // Save to state
+                if (!LessonState.userProgress) LessonState.userProgress = {};
+                LessonState.userProgress[contentId] = progress;
+                
+                console.log('📊 Progress loaded from localStorage:', { percentage, status });
+            }
+        } catch (e) {
+            console.warn('Could not load from localStorage:', e);
+        }
     }
     
     // Update progress bar
@@ -20355,19 +20380,236 @@ async function updateProgressDisplay(lesson) {
     
     // Update time display
     const progressTime = document.getElementById('progressTime');
-    if (progressTime && lesson.video_duration_seconds) {
+    if (progressTime && lesson?.video_duration_seconds) {
         const durationMinutes = Math.floor(lesson.video_duration_seconds / 60);
         const durationSeconds = lesson.video_duration_seconds % 60;
         progressTime.textContent = `0:00 / ${durationMinutes}:${durationSeconds.toString().padStart(2, '0')}`;
     }
     
-    // Store in LessonState for button to use
-    if (!LessonState.userProgress) LessonState.userProgress = {};
-    if (!LessonState.userProgress[contentId]) LessonState.userProgress[contentId] = {};
-    LessonState.userProgress[contentId].percentage = percentage;
-    LessonState.userProgress[contentId].status = status;
+    // Update today's learning stats
+    updateTodaysLearningStats();
+    
+    console.log('✅ Progress display updated');
 }
-
+// ============================================
+// ✅ NEW: Update Today's Learning Stats
+// ============================================
+async function updateTodaysLearningStats() {
+    console.log('📅 Updating Today\'s Learning stats...');
+    
+    try {
+        // Get elements
+        const lessonsToday = document.getElementById('lessonsToday');
+        const exercisesToday = document.getElementById('exercisesToday');
+        const timeToday = document.getElementById('timeToday');
+        
+        if (!lessonsToday && !exercisesToday && !timeToday) {
+            console.log('ℹ️ Today\'s learning elements not found');
+            return;
+        }
+        
+        // Get today's date (YYYY-MM-DD)
+        const today = new Date().toISOString().split('T')[0];
+        
+        // Try to get from localStorage first (fast)
+        let lessonsCompletedToday = 0;
+        let exercisesCompletedToday = 0;
+        let minutesSpentToday = 0;
+        
+        try {
+            const savedToday = localStorage.getItem('todays_learning');
+            if (savedToday) {
+                const data = JSON.parse(savedToday);
+                if (data.date === today) {
+                    lessonsCompletedToday = data.lessons || 0;
+                    exercisesCompletedToday = data.exercises || 0;
+                    minutesSpentToday = data.minutes || 0;
+                    console.log('📊 Today\'s stats from localStorage:', { 
+                        lessons: lessonsCompletedToday, 
+                        exercises: exercisesCompletedToday,
+                        minutes: minutesSpentToday
+                    });
+                }
+            }
+        } catch (e) {
+            console.warn('Could not load from localStorage:', e);
+        }
+        
+        // Try to get from server (if available)
+        try {
+            const token = localStorage.getItem('authToken');
+            if (token) {
+                const response = await fetch('/api/progress/daily?lesson_id=3', {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    if (data.success && data.progress) {
+                        lessonsCompletedToday = data.progress.lessons_completed || lessonsCompletedToday;
+                        exercisesCompletedToday = data.progress.exercises_completed || exercisesCompletedToday;
+                        minutesSpentToday = data.progress.time_spent_minutes || minutesSpentToday;
+                        
+                        console.log('📊 Today\'s stats from server:', { 
+                            lessons: lessonsCompletedToday, 
+                            exercises: exercisesCompletedToday,
+                            minutes: minutesSpentToday
+                        });
+                        
+                        // Save to localStorage
+                        localStorage.setItem('todays_learning', JSON.stringify({
+                            date: today,
+                            lessons: lessonsCompletedToday,
+                            exercises: exercisesCompletedToday,
+                            minutes: minutesSpentToday
+                        }));
+                    }
+                }
+            }
+        } catch (error) {
+            console.warn('Could not fetch from server:', error);
+        }
+        
+        // Update UI
+        if (lessonsToday) {
+            lessonsToday.textContent = lessonsCompletedToday;
+        }
+        
+        if (exercisesToday) {
+            exercisesToday.textContent = exercisesCompletedToday;
+        }
+        
+        if (timeToday) {
+            const hours = Math.floor(minutesSpentToday / 60);
+            const mins = minutesSpentToday % 60;
+            
+            if (hours > 0) {
+                timeToday.textContent = `${hours}h ${mins}m`;
+            } else {
+                timeToday.textContent = `${mins}m`;
+            }
+        }
+        
+        console.log('✅ Today\'s learning stats updated');
+        
+    } catch (error) {
+        console.error('❌ Error updating today\'s learning:', error);
+        
+        // Set default values on error
+        const lessonsToday = document.getElementById('lessonsToday');
+        const exercisesToday = document.getElementById('exercisesToday');
+        const timeToday = document.getElementById('timeToday');
+        
+        if (lessonsToday) lessonsToday.textContent = '0';
+        if (exercisesToday) exercisesToday.textContent = '0';
+        if (timeToday) timeToday.textContent = '0m';
+    }
+}
+// ============================================
+// ✅ NEW: Update Current Lesson Progress in Dashboard
+// ============================================
+async function updateCurrentLessonProgress() {
+    console.log('📚 Updating current lesson progress in dashboard...');
+    
+    const currentLessonCard = document.querySelector('.current-lesson-card');
+    if (!currentLessonCard) {
+        console.log('ℹ️ Current lesson card not found');
+        return;
+    }
+    
+    try {
+        // Get continue learning lesson
+        let continueLesson = LessonState.continueLearningLesson;
+        
+        if (!continueLesson && LessonState.lessons.length > 0) {
+            // Find first incomplete lesson
+            for (const lesson of LessonState.lessons) {
+                const progress = LessonState.userProgress?.[lesson.content_id] || {};
+                if (progress.status !== 'completed') {
+                    continueLesson = lesson;
+                    break;
+                }
+            }
+        }
+        
+        if (!continueLesson && LessonState.lessons.length > 0) {
+            // All completed, show first lesson for review
+            continueLesson = LessonState.lessons[0];
+        }
+        
+        if (!continueLesson) {
+            console.log('⚠️ No lesson to display');
+            currentLessonCard.innerHTML = `
+                <div style="padding: 20px; text-align: center;">
+                    <i class="fas fa-book-open" style="font-size: 40px; color: #ccc;"></i>
+                    <h4 style="margin: 10px 0; color: #666;">No Lessons Available</h4>
+                    <p style="color: #999;">Check back later for new lessons!</p>
+                </div>
+            `;
+            return;
+        }
+        
+        // Get progress for this lesson
+        const progress = LessonState.userProgress?.[continueLesson.content_id] || {};
+        const percentage = progress.percentage || 0;
+        const status = progress.status || 'not_started';
+        
+        // Get video duration
+        const durationMinutes = Math.floor((continueLesson.video_duration_seconds || 600) / 60);
+        
+        // Update the card
+        const titleElement = currentLessonCard.querySelector('.lesson-title');
+        const progressBar = currentLessonCard.querySelector('.progress-fill');
+        const progressText = currentLessonCard.querySelector('.progress-text');
+        const durationElement = currentLessonCard.querySelector('.lesson-duration');
+        const statusElement = currentLessonCard.querySelector('.lesson-status');
+        const continueBtn = currentLessonCard.querySelector('.continue-lesson-btn');
+        
+        if (titleElement) {
+            titleElement.textContent = continueLesson.content_title || 'Continue Learning';
+        }
+        
+        if (progressBar) {
+            progressBar.style.width = `${percentage}%`;
+        }
+        
+        if (progressText) {
+            progressText.textContent = `${percentage}% Complete`;
+        }
+        
+        if (durationElement) {
+            durationElement.innerHTML = `<i class="fas fa-clock"></i> ${durationMinutes} min`;
+        }
+        
+        if (statusElement) {
+            let statusText = 'Not Started';
+            let statusClass = 'status-not-started';
+            
+            if (status === 'completed') {
+                statusText = 'Completed';
+                statusClass = 'status-completed';
+            } else if (status === 'in_progress' || percentage > 0) {
+                statusText = 'In Progress';
+                statusClass = 'status-in-progress';
+            }
+            
+            statusElement.textContent = statusText;
+            statusElement.className = `lesson-status ${statusClass}`;
+        }
+        
+        if (continueBtn) {
+            continueBtn.setAttribute('data-lesson-id', continueLesson.content_id);
+            continueBtn.innerHTML = status === 'completed' ? 
+                '<i class="fas fa-redo"></i> Review Lesson' : 
+                '<i class="fas fa-play"></i> Continue Lesson';
+        }
+        
+        console.log('✅ Current lesson progress updated:', continueLesson.content_title);
+        
+    } catch (error) {
+        console.error('❌ Error updating current lesson progress:', error);
+    }
+}
 // ============================================
 // HELPER: Setup back button
 // ============================================
@@ -21662,35 +21904,153 @@ function getFactoLearnDemoTopics() {
     ];
 }
 // ============================================
-// ✅ Add missing startExercise function
+// ✅ FIXED: Start Exercise Function
 // ============================================
 window.startExercise = function(exerciseId) {
     console.log('▶️ Starting exercise:', exerciseId);
     
-    // Find the exercise
-    const exercise = PracticeState.exercises?.find(ex => 
-        ex.exercise_id == exerciseId || ex.id == exerciseId
-    );
+    // Convert to number for comparison
+    exerciseId = parseInt(exerciseId);
+    console.log('🔍 Looking for exercise ID:', exerciseId);
     
-    if (exercise) {
-        // Check if it's FactoLearn
-        const lessonId = exercise.lesson_id || exercise.lessonId;
-        if (lessonId && lessonId != 3) {
-            alert('This exercise belongs to another app');
+    // Check PracticeState first
+    if (PracticeState.exercises && PracticeState.exercises.length > 0) {
+        console.log('📋 Searching in PracticeState.exercises:', PracticeState.exercises.length, 'exercises');
+        
+        // Try to find by exercise_id or id
+        const exercise = PracticeState.exercises.find(ex => 
+            ex.exercise_id == exerciseId || ex.id == exerciseId
+        );
+        
+        if (exercise) {
+            console.log('✅ Exercise found in PracticeState:', exercise);
+            
+            // Check if it's FactoLearn (lesson_id=3)
+            const lessonId = exercise.lesson_id || exercise.lessonId;
+            if (lessonId && lessonId != 3) {
+                console.warn('⚠️ Exercise belongs to lesson_id:', lessonId);
+                showNotification('warning', 'Wrong App', 'This exercise belongs to another app');
+                return;
+            }
+            
+            // Set as current exercise
+            PracticeState.currentExercise = exercise;
+            
+            // Show practice modal
+            if (typeof showPracticeModal === 'function') {
+                showPracticeModal(exercise);
+            } else {
+                console.error('❌ showPracticeModal function not found');
+                alert(`Starting exercise: ${exercise.title || 'Practice Exercise'}`);
+            }
+            return;
+        }
+    }
+    
+    // If not found in PracticeState, check if there's a currentExercise
+    if (PracticeState.currentExercise && 
+        (PracticeState.currentExercise.exercise_id == exerciseId || 
+         PracticeState.currentExercise.id == exerciseId)) {
+        console.log('✅ Using currentExercise:', PracticeState.currentExercise);
+        showPracticeModal(PracticeState.currentExercise);
+        return;
+    }
+    
+    // Try to fetch from server
+    console.log('📡 Exercise not found locally, fetching from server...');
+    fetchExerciseFromServer(exerciseId);
+};
+
+// ============================================
+// ✅ Helper: Fetch Exercise from Server
+// ============================================
+async function fetchExerciseFromServer(exerciseId) {
+    try {
+        const token = localStorage.getItem('authToken');
+        if (!token) {
+            showNotification('error', 'Auth Error', 'Please login first');
             return;
         }
         
-        // Show practice modal
-        if (typeof showPracticeModal === 'function') {
-            showPracticeModal(exercise);
-        } else {
-            alert(`Starting exercise: ${exercise.title || 'Practice'}`);
+        console.log('📡 Fetching exercise', exerciseId, 'from server...');
+        
+        // Try multiple endpoints
+        const endpoints = [
+            `/api/practice/exercises/${exerciseId}`,
+            `/api/practice/${exerciseId}`,
+            `/api/exercises/${exerciseId}`,
+            `/api/practice/get/${exerciseId}`
+        ];
+        
+        for (const endpoint of endpoints) {
+            try {
+                const response = await fetch(endpoint, {
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Accept': 'application/json'
+                    }
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    console.log('✅ Server response:', data);
+                    
+                    let exercise = null;
+                    
+                    // Extract exercise from different response formats
+                    if (data.success && data.exercise) {
+                        exercise = data.exercise;
+                    } else if (data.exercise) {
+                        exercise = data.exercise;
+                    } else if (data.data) {
+                        exercise = data.data;
+                    }
+                    
+                    if (exercise) {
+                        console.log('✅ Exercise fetched from server:', exercise);
+                        
+                        // Check lesson_id
+                        const lessonId = exercise.lesson_id || exercise.lessonId;
+                        if (lessonId && lessonId != 3) {
+                            showNotification('warning', 'Wrong App', 'This exercise belongs to another app');
+                            return;
+                        }
+                        
+                        // Add to PracticeState for future use
+                        if (!PracticeState.exercises) PracticeState.exercises = [];
+                        PracticeState.exercises.push(exercise);
+                        PracticeState.currentExercise = exercise;
+                        
+                        // Show modal
+                        if (typeof showPracticeModal === 'function') {
+                            showPracticeModal(exercise);
+                        }
+                        return;
+                    }
+                }
+            } catch (e) {
+                console.log(`⚠️ Endpoint ${endpoint} failed:`, e.message);
+            }
         }
-    } else {
-        console.error('❌ Exercise not found:', exerciseId);
-        alert('Exercise not found');
+        
+        // If all endpoints fail, use demo exercise
+        console.log('⚠️ Using demo exercise for ID:', exerciseId);
+        const demoExercise = getDemoExerciseById(exerciseId);
+        
+        if (demoExercise) {
+            PracticeState.currentExercise = demoExercise;
+            showPracticeModal(demoExercise);
+        } else {
+            showNotification('error', 'Error', `Exercise ${exerciseId} not found`);
+        }
+        
+    } catch (error) {
+        console.error('❌ Error fetching exercise:', error);
+        showNotification('error', 'Error', 'Failed to load exercise');
     }
-};
+}
+
+
 // ============================================
 // ✅ HELPER: Get current platform topic ID
 // ============================================
@@ -21988,26 +22348,211 @@ async function loadPracticeExercisesForTopic(topicId) {
     }
 }
 
-// Demo exercises with lesson_id=3
+// ============================================
+// ✅ FIXED: Get Demo Exercises with complete data
+// ============================================
 function getDemoExercises() {
+    console.log('📋 Generating demo exercises for FactoLearn (lesson_id=3)');
+    
     return [
         {
             exercise_id: 1,
+            id: 1,
             lesson_id: 3,
-            title: 'Factorial Basics',
-            description: 'Practice basic factorial calculations'
+            title: '📐 Factorial Basics',
+            description: 'Practice basic factorial calculations and simplifications',
+            difficulty: 'easy',
+            points: 10,
+            questions: [
+                {
+                    text: 'What is 5! (5 factorial)?',
+                    options: [
+                        { text: '120', correct: true },
+                        { text: '60', correct: false },
+                        { text: '24', correct: false },
+                        { text: '720', correct: false }
+                    ]
+                },
+                {
+                    text: 'Simplify: 6! / 4!',
+                    options: [
+                        { text: '30', correct: true },
+                        { text: '20', correct: false },
+                        { text: '15', correct: false },
+                        { text: '25', correct: false }
+                    ]
+                },
+                {
+                    text: 'What is 3! + 4! ?',
+                    options: [
+                        { text: '30', correct: true },
+                        { text: '24', correct: false },
+                        { text: '26', correct: false },
+                        { text: '34', correct: false }
+                    ]
+                }
+            ]
         },
         {
             exercise_id: 2,
+            id: 2,
             lesson_id: 3,
-            title: 'Permutations',
-            description: 'Learn permutation concepts'
+            title: '🧮 Permutation Fundamentals',
+            description: 'Learn and practice permutation concepts',
+            difficulty: 'medium',
+            points: 15,
+            questions: [
+                {
+                    text: 'How many ways can you arrange 5 different books on a shelf?',
+                    options: [
+                        { text: '120', correct: true },
+                        { text: '60', correct: false },
+                        { text: '24', correct: false },
+                        { text: '720', correct: false }
+                    ]
+                },
+                {
+                    text: 'Calculate 7P3 (permutations of 7 items taken 3 at a time)',
+                    options: [
+                        { text: '210', correct: true },
+                        { text: '35', correct: false },
+                        { text: '840', correct: false },
+                        { text: '5040', correct: false }
+                    ]
+                },
+                {
+                    text: 'In how many ways can 4 people sit in 4 chairs?',
+                    options: [
+                        { text: '24', correct: true },
+                        { text: '16', correct: false },
+                        { text: '12', correct: false },
+                        { text: '48', correct: false }
+                    ]
+                }
+            ]
         },
         {
             exercise_id: 3,
+            id: 3,
             lesson_id: 3,
-            title: 'Combinations',
-            description: 'Master combination problems'
+            title: '🔄 Combination Concepts',
+            description: 'Master combination problems and formulas',
+            difficulty: 'medium',
+            points: 15,
+            questions: [
+                {
+                    text: 'How many ways to choose 3 items from 10 items? (10C3)',
+                    options: [
+                        { text: '120', correct: true },
+                        { text: '240', correct: false },
+                        { text: '720', correct: false },
+                        { text: '5040', correct: false }
+                    ]
+                },
+                {
+                    text: 'Calculate 8C2',
+                    options: [
+                        { text: '28', correct: true },
+                        { text: '56', correct: false },
+                        { text: '16', correct: false },
+                        { text: '40320', correct: false }
+                    ]
+                },
+                {
+                    text: 'A committee of 4 is to be chosen from 9 people. How many ways?',
+                    options: [
+                        { text: '126', correct: true },
+                        { text: '3024', correct: false },
+                        { text: '84', correct: false },
+                        { text: '252', correct: false }
+                    ]
+                }
+            ]
+        },
+        {
+            exercise_id: 4,
+            id: 4,
+            lesson_id: 3,
+            title: '📊 Advanced Factorials',
+            description: 'Complex factorial problems and applications',
+            difficulty: 'hard',
+            points: 20,
+            questions: [
+                {
+                    text: 'What is 0! (zero factorial)?',
+                    options: [
+                        { text: '1', correct: true },
+                        { text: '0', correct: false },
+                        { text: 'Undefined', correct: false },
+                        { text: 'Infinity', correct: false }
+                    ]
+                },
+                {
+                    text: 'Simplify: (n+1)! / n!',
+                    options: [
+                        { text: 'n+1', correct: true },
+                        { text: 'n', correct: false },
+                        { text: '1', correct: false },
+                        { text: '(n+1)n', correct: false }
+                    ]
+                },
+                {
+                    text: 'If 7! = 5040, what is 8! ?',
+                    options: [
+                        { text: '40320', correct: true },
+                        { text: '35280', correct: false },
+                        { text: '60480', correct: false },
+                        { text: '45360', correct: false }
+                    ]
+                }
+            ]
+        },
+        {
+            exercise_id: 5,
+            id: 5,
+            lesson_id: 3,
+            title: '🔢 Mixed Practice',
+            description: 'Combination of factorial, permutation and combination problems',
+            difficulty: 'hard',
+            points: 25,
+            questions: [
+                {
+                    text: 'Evaluate: 7P3 (permutation)',
+                    options: [
+                        { text: '210', correct: true },
+                        { text: '35', correct: false },
+                        { text: '5040', correct: false },
+                        { text: '840', correct: false }
+                    ]
+                },
+                {
+                    text: 'Evaluate: 8C3 (combination)',
+                    options: [
+                        { text: '56', correct: true },
+                        { text: '336', correct: false },
+                        { text: '40320', correct: false },
+                        { text: '112', correct: false }
+                    ]
+                },
+                {
+                    text: 'How many different 4-digit PIN codes can be formed from digits 0-9 if repetition is allowed?',
+                    options: [
+                        { text: '10000', correct: true },
+                        { text: '5040', correct: false },
+                        { text: '151200', correct: false },
+                        { text: '6561', correct: false }
+                    ]
+                },
+                {
+                    text: 'In how many ways can 6 people be arranged in a circle?',
+                    options: [
+                        { text: '120', correct: true },
+                        { text: '720', correct: false },
+                        { text: '24', correct: false },
+                        { text: '5040', correct: false }
+                    ]
+                }
+            ]
         }
     ];
 }
@@ -22094,6 +22639,31 @@ function displayPracticeExercises(exercises) {
     
     exerciseArea.innerHTML = html;
 }
+// ============================================
+// 🔍 Debug: Check Available Exercises
+// ============================================
+window.debugExercises = function() {
+    console.log('🔍 EXERCISE DEBUG:');
+    console.log('PracticeState:', PracticeState);
+    
+    if (PracticeState.exercises && PracticeState.exercises.length > 0) {
+        console.log('📋 Exercises in PracticeState:');
+        PracticeState.exercises.forEach((ex, i) => {
+            console.log(`  ${i+1}. ID: ${ex.exercise_id || ex.id}, Title: ${ex.title || ex.exercise_title}`);
+        });
+    } else {
+        console.log('❌ No exercises in PracticeState');
+    }
+    
+    // Check demo exercises
+    console.log('📋 Demo exercises available:');
+    for (let i = 1; i <= 5; i++) {
+        const demo = getDemoExerciseById(i);
+        if (demo) {
+            console.log(`  ${i}. ${demo.title}`);
+        }
+    }
+};
 // ============================================
 // 🔍 Test Database Connection
 // ============================================
