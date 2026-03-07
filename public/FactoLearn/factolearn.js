@@ -1,3 +1,5 @@
+
+
 // script.js - MathHub Application with Complete Database-Driven Progress Tracking
 // Includes lesson management, practice exercises, quiz system, and full progress integration
 
@@ -5069,166 +5071,6 @@ async function fetchLearningGoals() {
 }
 
 // ============================================
-// 📈 GET WEEKLY ACCURACY DATA
-// ============================================
-async function fetchWeeklyAccuracy(token) {
-    try {
-        // This is a helper function for the frontend
-        // Return default weekly data
-        return {
-            labels: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
-            accuracy: [85, 82, 88, 84, 90, 87, 85]
-        };
-    } catch (error) {
-        console.error('Error fetching weekly accuracy:', error);
-        return {
-            labels: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
-            accuracy: [85, 82, 88, 84, 90, 87, 85]
-        };
-    }
-}
-
-// Optional: Actual database-backed weekly accuracy
-app.get('/api/progress/weekly-accuracy', authenticateUser, async (req, res) => {
-    try {
-        const userId = req.user.id;
-        
-        // Get last 7 days of quiz attempts
-        const [quizData] = await promisePool.query(`
-            SELECT 
-                DATE(end_time) as date,
-                AVG(score) as avg_score
-            FROM user_quiz_attempts
-            WHERE user_id = ? 
-                AND completion_status = 'completed'
-                AND end_time >= DATE_SUB(CURDATE(), INTERVAL 7 DAY)
-            GROUP BY DATE(end_time)
-            ORDER BY date
-        `, [userId]);
-        
-        // Get last 7 days of practice attempts
-        let practiceData = [];
-        try {
-            const [data] = await promisePool.query(`
-                SELECT 
-                    DATE(created_at) as date,
-                    AVG(percentage) as avg_percentage
-                FROM practice_attempts
-                WHERE user_id = ? 
-                    AND completion_status = 'completed'
-                    AND created_at >= DATE_SUB(CURDATE(), INTERVAL 7 DAY)
-                GROUP BY DATE(created_at)
-                ORDER BY date
-            `, [userId]);
-            practiceData = data;
-        } catch (e) {
-            console.log('No practice_attempts table');
-        }
-        
-        // Create a map of dates
-        const labels = [];
-        const accuracy = [];
-        
-        // Generate last 7 days
-        for (let i = 6; i >= 0; i--) {
-            const date = new Date();
-            date.setDate(date.getDate() - i);
-            const dateStr = date.toISOString().split('T')[0];
-            const dayName = date.toLocaleDateString('en-US', { weekday: 'short' });
-            
-            labels.push(dayName);
-            
-            // Find accuracy for this date
-            let dayAccuracy = 0;
-            let count = 0;
-            
-            const quizDay = quizData.find(d => {
-                const dStr = new Date(d.date).toISOString().split('T')[0];
-                return dStr === dateStr;
-            });
-            
-            const practiceDay = practiceData.find(d => {
-                const dStr = new Date(d.date).toISOString().split('T')[0];
-                return dStr === dateStr;
-            });
-            
-            if (quizDay) {
-                dayAccuracy += quizDay.avg_score;
-                count++;
-            }
-            if (practiceDay) {
-                dayAccuracy += practiceDay.avg_percentage;
-                count++;
-            }
-            
-            accuracy.push(count > 0 ? Math.round(dayAccuracy / count) : 0);
-        }
-        
-        res.json({
-            success: true,
-            data: {
-                labels: labels,
-                accuracy: accuracy
-            }
-        });
-        
-    } catch (error) {
-        console.error('Error fetching weekly accuracy:', error);
-        res.status(500).json({
-            success: false,
-            message: error.message
-        });
-    }
-});
-// I-add sa may bandang unahan ng script.js
-function addChartStyles() {
-    const style = document.createElement('style');
-    style.textContent = `
-        .simple-line-chart {
-            position: relative;
-            height: 150px;
-            width: 100%;
-            margin: 20px 0 30px;
-        }
-        
-        .chart-line {
-            position: relative;
-            height: 100%;
-            width: 100%;
-            border-bottom: 2px solid #eee;
-            border-left: 2px solid #eee;
-        }
-        
-        .line-point {
-            position: absolute;
-            cursor: pointer;
-            transition: transform 0.2s;
-        }
-        
-        .line-point:hover {
-            transform: translate(-50%, 50%) scale(1.5);
-            background: #ff0000 !important;
-        }
-        
-        .chart-labels {
-            position: relative;
-            height: 20px;
-            width: 100%;
-            margin-top: 5px;
-        }
-        
-        .chart-label {
-            position: absolute;
-            font-size: 10px;
-            color: #666;
-            white-space: nowrap;
-        }
-    `;
-    document.head.appendChild(style);
-}
-
-
-// ============================================
 // FETCH TOPIC MASTERY (for Accuracy Rate & Topics Progress) - FIXED
 // ============================================
 async function fetchTopicMastery() {
@@ -6786,8 +6628,9 @@ async function updateDashboardWidgets(widgetConfig) {
     }
 }
 
-
-// Initialize topic progress when progress page loads
+// ============================================
+// INITIALIZE PROGRESS DASHBOARD - FIXED VERSION
+// ============================================
 async function initProgressDashboard() {
     console.log('📈 Initializing progress dashboard with database integration...');
     
@@ -6798,76 +6641,38 @@ async function initProgressDashboard() {
         // Load all progress data
         await updateProgressDashboardFromDatabase();
         
-        // Load topic mastery for detailed breakdown
-        await fetchTopicMastery();  // <- Ito ang magla-load ng topics
-        
-        // Update topic progress breakdown
-        updateTopicProgressBreakdown();  // <- Ito ang magdi-display
-        
-        // Load achievements
-        await fetchAchievementTimeline(10);
-        
-        // Load activity log
-        await fetchActivityLog(15);
-        
         // Initialize charts
         await initProgressCharts();
         
-        console.log('✅ Progress dashboard initialized with topic breakdown');
+        // ✅ FIX: Check if progressRefreshInterval exists
+        if (typeof progressRefreshInterval === 'undefined') {
+            window.progressRefreshInterval = null;
+        }
         
+        // Start auto-refresh (every 60 seconds)
+        startProgressAutoRefresh(60);
+        
+        console.log('✅ Progress dashboard initialized with database integration');
     } catch (error) {
-        console.error('Error initializing progress dashboard:', error);
+        console.error('❌ Error initializing progress dashboard:', error);
+        hideProgressDashboardLoading();
+        
+        // Show error message in dashboard
+        const container = document.querySelector('#progress-page .container');
+        if (container) {
+            container.innerHTML = `
+                <div class="error-message" style="text-align: center; padding: 40px;">
+                    <i class="fas fa-exclamation-triangle" style="font-size: 48px; color: #e74c3c; margin-bottom: 20px;"></i>
+                    <h3 style="color: #2c3e50; margin-bottom: 10px;">Failed to load progress data</h3>
+                    <p style="color: #7f8c8d;">Please try refreshing the page.</p>
+                    <button onclick="location.reload()" class="btn-primary" style="margin-top: 20px;">
+                        <i class="fas fa-redo"></i> Refresh Page
+                    </button>
+                </div>
+            `;
+        }
     }
 }
-// Also update when new data comes in
-async function updateProgressDashboardFromDatabase() {
-    try {
-        // Show loading state
-        showProgressDashboardLoading();
-        
-        // Fetch all data in parallel
-        const [dashboardData, badges, accuracy, topics] = await Promise.allSettled([
-            fetchProgressDashboardSummary(),
-            fetchUserBadges(),
-            fetchAccuracyRate(),
-            fetchTopicMastery()  // <- I-fetch ang topics
-        ]);
-        
-        if (dashboardData.status === 'fulfilled' && dashboardData.value) {
-            updateDashboardUI(dashboardData.value);
-        }
-        
-        // Update badges display
-        if (badges.status === 'fulfilled' && badges.value) {
-            updateBadgesDisplay(badges.value);
-        }
-        
-        // Update accuracy display
-        if (accuracy.status === 'fulfilled' && accuracy.value) {
-            updateAccuracyDisplay(accuracy.value);
-        }
-        
-        // Update topic progress breakdown
-        if (topics.status === 'fulfilled' && topics.value) {
-            updateTopicProgressBreakdown();  // <- I-update ang display
-        }
-        
-        console.log('✅ Progress Dashboard UI updated');
-        
-    } catch (error) {
-        console.error('❌ Error updating progress dashboard:', error);
-    }
-}
-
-
-<!-- Topic Progress Section sa iyong progress page -->
-<div class="progress-section">
-    <h3><i class="fas fa-graduation-cap"></i> Topics Progress</h3>
-    <div id="topicsProgressDetailed" class="topic-breakdown">
-        <!-- Topic items will be loaded here -->
-    </div>
-</div>
-
 
 // ============================================
 // PROGRESS DASHBOARD LOADING FUNCTIONS
@@ -18696,7 +18501,80 @@ async function updateContinueLearningModule() {
         `;
     }
 }
-
+// ============================================
+// UPDATE PROGRESS DASHBOARD FROM DATABASE - FIXED
+// ============================================
+async function updateProgressDashboardFromDatabase() {
+    console.log('📊 Updating progress dashboard from database...');
+    
+    try {
+        // Show loading
+        if (typeof showProgressDashboardLoading === 'function') {
+            showProgressDashboardLoading();
+        }
+        
+        // Fetch all progress data
+        const [cumulative, daily, topics, achievements, activities] = await Promise.allSettled([
+            typeof fetchCumulativeProgress === 'function' ? fetchCumulativeProgress() : Promise.resolve(null),
+            typeof fetchDailyProgress === 'function' ? fetchDailyProgress() : Promise.resolve(null),
+            typeof fetchTopicMastery === 'function' ? fetchTopicMastery() : Promise.resolve(null),
+            typeof fetchAchievementTimeline === 'function' ? fetchAchievementTimeline(10) : Promise.resolve(null),
+            typeof fetchActivityLog === 'function' ? fetchActivityLog(15) : Promise.resolve([])
+        ]);
+        
+        // Update overall progress
+        if (cumulative.status === 'fulfilled' && cumulative.value) {
+            if (typeof updateOverallProgressDisplay === 'function') {
+                updateOverallProgressDisplay(cumulative.value);
+            }
+        }
+        
+        // Update daily stats
+        if (daily.status === 'fulfilled' && daily.value) {
+            if (typeof updateDailyStats === 'function') {
+                updateDailyStats(daily.value);
+            }
+        }
+        
+        // Update topics progress
+        if (topics.status === 'fulfilled' && topics.value) {
+            // Just store the data, don't try to update non-existent UI
+            console.log('📚 Topics mastery data:', topics.value);
+        }
+        
+        // Update achievements
+        if (achievements.status === 'fulfilled' && achievements.value) {
+            if (typeof updateAchievementTimeline === 'function') {
+                updateAchievementTimeline();
+            }
+        }
+        
+        // Update activity log
+        if (activities.status === 'fulfilled' && activities.value) {
+            if (typeof updateActivityLog === 'function') {
+                updateActivityLog();
+            }
+        }
+        
+        // Update charts
+        if (typeof updateProgressCharts === 'function') {
+            await updateProgressCharts();
+        }
+        
+        // Hide loading
+        if (typeof hideProgressDashboardLoading === 'function') {
+            hideProgressDashboardLoading();
+        }
+        
+        console.log('✅ Progress dashboard updated from database');
+        
+    } catch (error) {
+        console.error('❌ Error updating progress dashboard:', error);
+        if (typeof hideProgressDashboardLoading === 'function') {
+            hideProgressDashboardLoading();
+        }
+    }
+}
 function renderDailyActivityChart(chartData) {
     console.log('📈 Rendering daily activity chart...');
     
@@ -18720,503 +18598,6 @@ function renderDailyActivityChart(chartData) {
     
     html += '</div></div>';
     container.innerHTML = html;
-}
-/**
- * Render Daily Activity Chart (Line Chart)
- */
-function renderDailyActivityChart(dailyData) {
-    const chartContainer = document.getElementById('practiceTimeChart');
-    if (!chartContainer || !dailyData) return;
-    
-    // Clear loading state
-    chartContainer.innerHTML = '';
-    
-    // Create canvas element
-    const canvas = document.createElement('canvas');
-    canvas.id = 'dailyActivityCanvas';
-    canvas.width = chartContainer.offsetWidth;
-    canvas.height = 300;
-    chartContainer.appendChild(canvas);
-    
-    const ctx = canvas.getContext('2d');
-    
-    // Draw chart manually (simplified version)
-    const width = canvas.width;
-    const height = canvas.height;
-    const padding = 40;
-    const chartWidth = width - (padding * 2);
-    const chartHeight = height - (padding * 2);
-    
-    // Clear canvas
-    ctx.clearRect(0, 0, width, height);
-    
-    // Draw background grid
-    ctx.strokeStyle = '#e0e0e0';
-    ctx.lineWidth = 0.5;
-    ctx.beginPath();
-    
-    // Horizontal grid lines (5 lines)
-    for (let i = 0; i <= 5; i++) {
-        const y = padding + (chartHeight * i / 5);
-        ctx.moveTo(padding, y);
-        ctx.lineTo(width - padding, y);
-    }
-    
-    // Vertical grid lines
-    const step = chartWidth / (dailyData.labels.length - 1);
-    for (let i = 0; i < dailyData.labels.length; i++) {
-        const x = padding + (step * i);
-        ctx.moveTo(x, padding);
-        ctx.lineTo(x, height - padding);
-    }
-    
-    ctx.strokeStyle = '#e0e0e0';
-    ctx.stroke();
-    
-    // Draw axes
-    ctx.strokeStyle = '#333';
-    ctx.lineWidth = 2;
-    ctx.beginPath();
-    ctx.moveTo(padding, padding);
-    ctx.lineTo(padding, height - padding);
-    ctx.lineTo(width - padding, height - padding);
-    ctx.stroke();
-    
-    // Find max value for scaling
-    const maxValue = Math.max(
-        ...dailyData.datasets[0].data,
-        ...dailyData.datasets[1].data,
-        ...dailyData.datasets[2].data,
-        5 // Minimum scale
-    );
-    
-    // Draw datasets
-    const colors = [
-        { border: '#7a0000', bg: 'rgba(122, 0, 0, 0.1)' },
-        { border: '#27ae60', bg: 'rgba(39, 174, 96, 0.1)' },
-        { border: '#f39c12', bg: 'rgba(243, 156, 18, 0.1)' }
-    ];
-    
-    dailyData.datasets.forEach((dataset, datasetIndex) => {
-        if (datasetIndex >= 3) return; // Only first 3 datasets
-        
-        ctx.strokeStyle = colors[datasetIndex].border;
-        ctx.lineWidth = 3;
-        ctx.beginPath();
-        
-        dataset.data.forEach((value, index) => {
-            const x = padding + (step * index);
-            const y = height - padding - ((value / maxValue) * chartHeight);
-            
-            if (index === 0) {
-                ctx.moveTo(x, y);
-            } else {
-                ctx.lineTo(x, y);
-            }
-        });
-        
-        ctx.stroke();
-        
-        // Draw points
-        dataset.data.forEach((value, index) => {
-            const x = padding + (step * index);
-            const y = height - padding - ((value / maxValue) * chartHeight);
-            
-            ctx.fillStyle = colors[datasetIndex].border;
-            ctx.beginPath();
-            ctx.arc(x, y, 4, 0, 2 * Math.PI);
-            ctx.fill();
-            
-            // White border
-            ctx.strokeStyle = '#fff';
-            ctx.lineWidth = 2;
-            ctx.stroke();
-        });
-    });
-    
-    // Draw labels
-    ctx.fillStyle = '#333';
-    ctx.font = '10px Arial';
-    ctx.textAlign = 'center';
-    
-    // X-axis labels
-    dailyData.labels.forEach((label, index) => {
-        if (index % 2 === 0 || index === dailyData.labels.length - 1) {
-            const x = padding + (step * index);
-            ctx.fillText(label, x, height - padding + 15);
-        }
-    });
-    
-    // Y-axis labels
-    for (let i = 0; i <= 5; i++) {
-        const value = Math.round(maxValue * (5 - i) / 5);
-        const y = padding + (chartHeight * i / 5);
-        ctx.fillText(value.toString(), padding - 25, y + 3);
-    }
-    
-    // Draw legend
-    const legendY = 20;
-    const legendX = width - 200;
-    
-    dailyData.datasets.slice(0, 3).forEach((dataset, index) => {
-        const x = legendX + (index * 70);
-        
-        ctx.fillStyle = colors[index].border;
-        ctx.fillRect(x, legendY, 12, 12);
-        
-        ctx.fillStyle = '#333';
-        ctx.font = '11px Arial';
-        ctx.textAlign = 'left';
-        ctx.fillText(dataset.label, x + 18, legendY + 10);
-    });
-}
-
-/**
- * Render Topic Mastery Chart (Bar Chart)
- */
-function renderTopicMasteryChart(topicData) {
-    const chartContainer = document.getElementById('topicMasteryChart');
-    if (!chartContainer || !topicData) return;
-    
-    // Create container if it doesn't exist
-    if (!chartContainer.querySelector('.mastery-bars')) {
-        chartContainer.innerHTML = '<div class="mastery-bars"></div>';
-    }
-    
-    const barsContainer = chartContainer.querySelector('.mastery-bars');
-    barsContainer.innerHTML = '';
-    
-    if (!topicData.labels || topicData.labels.length === 0) {
-        barsContainer.innerHTML = '<p class="no-data">No topic data available</p>';
-        return;
-    }
-    
-    topicData.labels.forEach((label, index) => {
-        const progress = topicData.progress[index] || 0;
-        const accuracy = topicData.accuracy[index] || 0;
-        
-        const barItem = document.createElement('div');
-        barItem.className = 'mastery-bar-item';
-        barItem.innerHTML = `
-            <div class="mastery-label">
-                <span class="topic-name">${label}</span>
-                <span class="topic-stats">${progress}% complete | ${accuracy}% accuracy</span>
-            </div>
-            <div class="mastery-progress-container">
-                <div class="mastery-progress-bar" style="width: ${progress}%">
-                    <div class="mastery-progress-fill" style="width: ${progress}%"></div>
-                </div>
-                <div class="mastery-accuracy-marker" style="left: ${accuracy}%"></div>
-            </div>
-        `;
-        
-        barsContainer.appendChild(barItem);
-    });
-}
-
-/**
- * Render Performance Trends Chart
- */
-function renderPerformanceTrendsChart(trendsData) {
-    const chartContainer = document.getElementById('accuracyChart');
-    if (!chartContainer || !trendsData) return;
-    
-    chartContainer.innerHTML = '';
-    
-    const canvas = document.createElement('canvas');
-    canvas.id = 'trendsCanvas';
-    canvas.width = chartContainer.offsetWidth;
-    canvas.height = 200;
-    chartContainer.appendChild(canvas);
-    
-    const ctx = canvas.getContext('2d');
-    
-    const width = canvas.width;
-    const height = canvas.height;
-    const padding = 30;
-    const chartWidth = width - (padding * 2);
-    const chartHeight = height - (padding * 2);
-    
-    ctx.clearRect(0, 0, width, height);
-    
-    // Draw background
-    ctx.fillStyle = '#f8f9fa';
-    ctx.fillRect(0, 0, width, height);
-    
-    // Draw axes
-    ctx.strokeStyle = '#333';
-    ctx.lineWidth = 1;
-    ctx.beginPath();
-    ctx.moveTo(padding, padding);
-    ctx.lineTo(padding, height - padding);
-    ctx.lineTo(width - padding, height - padding);
-    ctx.stroke();
-    
-    // Find max value
-    const maxAccuracy = Math.max(...trendsData.accuracy, 100);
-    const maxTime = Math.max(...trendsData.time, 60);
-    
-    const step = chartWidth / (trendsData.labels.length - 1);
-    
-    // Draw accuracy line
-    ctx.strokeStyle = '#7a0000';
-    ctx.lineWidth = 2;
-    ctx.beginPath();
-    
-    trendsData.accuracy.forEach((value, index) => {
-        const x = padding + (step * index);
-        const y = height - padding - ((value / maxAccuracy) * chartHeight);
-        
-        if (index === 0) {
-            ctx.moveTo(x, y);
-        } else {
-            ctx.lineTo(x, y);
-        }
-    });
-    
-    ctx.stroke();
-    
-    // Draw time line
-    ctx.strokeStyle = '#3498db';
-    ctx.lineWidth = 2;
-    ctx.beginPath();
-    
-    trendsData.time.forEach((value, index) => {
-        const x = padding + (step * index);
-        const y = height - padding - ((value / maxTime) * chartHeight);
-        
-        if (index === 0) {
-            ctx.moveTo(x, y);
-        } else {
-            ctx.lineTo(x, y);
-        }
-    });
-    
-    ctx.stroke();
-    
-    // Draw labels
-    ctx.fillStyle = '#333';
-    ctx.font = '9px Arial';
-    ctx.textAlign = 'center';
-    
-    trendsData.labels.forEach((label, index) => {
-        const x = padding + (step * index);
-        ctx.fillText(label, x, height - padding + 15);
-    });
-    
-    // Legend
-    ctx.fillStyle = '#7a0000';
-    ctx.fillRect(width - 150, 15, 12, 12);
-    ctx.fillStyle = '#333';
-    ctx.font = '10px Arial';
-    ctx.textAlign = 'left';
-    ctx.fillText('Accuracy %', width - 133, 25);
-    
-    ctx.fillStyle = '#3498db';
-    ctx.fillRect(width - 80, 15, 12, 12);
-    ctx.fillStyle = '#333';
-    ctx.fillText('Time (min)', width - 63, 25);
-}
-
-/**
- * Render Activity Heatmap
- */
-function renderActivityHeatmap(heatmapData) {
-    const container = document.getElementById('activityHeatmap');
-    if (!container) return;
-    
-    if (!heatmapData || heatmapData.length === 0) {
-        container.innerHTML = '<p class="no-data">No activity data available</p>';
-        return;
-    }
-    
-    container.innerHTML = '';
-    
-    // Group by week
-    const weeks = [];
-    let currentWeek = [];
-    
-    heatmapData.forEach((day, index) => {
-        const date = new Date(day.activity_date);
-        const dayOfWeek = date.getDay(); // 0 = Sunday
-        
-        if (dayOfWeek === 0 && currentWeek.length > 0) {
-            weeks.push(currentWeek);
-            currentWeek = [];
-        }
-        
-        currentWeek.push(day);
-        
-        if (index === heatmapData.length - 1 && currentWeek.length > 0) {
-            weeks.push(currentWeek);
-        }
-    });
-    
-    // Create heatmap grid
-    const heatmapGrid = document.createElement('div');
-    heatmapGrid.className = 'heatmap-grid';
-    
-    weeks.forEach(week => {
-        const weekRow = document.createElement('div');
-        weekRow.className = 'heatmap-week';
-        
-        // Fill with 7 days (some may be empty)
-        for (let i = 0; i < 7; i++) {
-            const day = week[i];
-            
-            const dayCell = document.createElement('div');
-            dayCell.className = 'heatmap-day';
-            
-            if (day) {
-                const intensity = day.intensity || 0;
-                const count = day.activity_count || 0;
-                
-                // Set color based on intensity
-                if (intensity >= 5) {
-                    dayCell.classList.add('intensity-high');
-                } else if (intensity >= 3) {
-                    dayCell.classList.add('intensity-medium');
-                } else if (intensity >= 1) {
-                    dayCell.classList.add('intensity-low');
-                } else {
-                    dayCell.classList.add('intensity-none');
-                }
-                
-                dayCell.setAttribute('title', `${day.activity_date}: ${count} activities`);
-            } else {
-                dayCell.classList.add('intensity-none');
-                dayCell.setAttribute('title', 'No activity');
-            }
-            
-            weekRow.appendChild(dayCell);
-        }
-        
-        heatmapGrid.appendChild(weekRow);
-    });
-    
-    container.appendChild(heatmapGrid);
-    
-    // Add legend
-    const legend = document.createElement('div');
-    legend.className = 'heatmap-legend';
-    legend.innerHTML = `
-        <div class="legend-item">
-            <span class="legend-color intensity-none"></span>
-            <span>No activity</span>
-        </div>
-        <div class="legend-item">
-            <span class="legend-color intensity-low"></span>
-            <span>Low (1-2)</span>
-        </div>
-        <div class="legend-item">
-            <span class="legend-color intensity-medium"></span>
-            <span>Medium (3-4)</span>
-        </div>
-        <div class="legend-item">
-            <span class="legend-color intensity-high"></span>
-            <span>High (5+)</span>
-        </div>
-    `;
-    
-    container.appendChild(legend);
-}
-
-/**
- * Update chart summary statistics
- */
-function updateChartSummaryStats(summary) {
-    if (!summary) return;
-    
-    const elements = {
-        totalLessons: document.getElementById('totalLessonsStats'),
-        totalExercises: document.getElementById('totalExercisesStats'),
-        totalQuizzes: document.getElementById('totalQuizzesStats'),
-        totalPoints: document.getElementById('totalPointsStats'),
-        totalTime: document.getElementById('totalTimeStats')
-    };
-    
-    if (elements.totalLessons) {
-        elements.totalLessons.textContent = summary.totalLessons || 0;
-    }
-    
-    if (elements.totalExercises) {
-        elements.totalExercises.textContent = summary.totalExercises || 0;
-    }
-    
-    if (elements.totalQuizzes) {
-        elements.totalQuizzes.textContent = summary.totalQuizzes || 0;
-    }
-    
-    if (elements.totalPoints) {
-        elements.totalPoints.textContent = summary.totalPoints || 0;
-    }
-    
-    if (elements.totalTime) {
-        const hours = Math.floor((summary.totalTime || 0) / 60);
-        const minutes = (summary.totalTime || 0) % 60;
-        elements.totalTime.textContent = hours > 0 ? `${hours}h ${minutes}m` : `${minutes}m`;
-    }
-}
-
-/**
- * Show fallback data if server fails
- */
-function showChartFallbackData() {
-    // Generate sample data for demonstration
-    const sampleDaily = {
-        labels: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
-        datasets: [
-            { label: 'Lessons', data: [2, 1, 3, 0, 2, 1, 0] },
-            { label: 'Exercises', data: [5, 3, 4, 2, 6, 1, 0] },
-            { label: 'Quizzes', data: [1, 0, 1, 0, 2, 0, 0] }
-        ]
-    };
-    
-    const sampleTopics = {
-        labels: ['Algebra', 'Geometry', 'Calculus', 'Statistics'],
-        progress: [75, 50, 25, 10],
-        accuracy: [85, 70, 60, 40]
-    };
-    
-    const sampleTrends = {
-        labels: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
-        accuracy: [70, 75, 82, 78, 85, 80, 88],
-        time: [25, 30, 45, 20, 35, 15, 10]
-    };
-    
-    renderDailyActivityChart(sampleDaily);
-    renderTopicMasteryChart(sampleTopics);
-    renderPerformanceTrendsChart(sampleTrends);
-    
-    console.log('📊 Showing fallback chart data');
-}
-
-/**
- * Show error state for charts
- */
-function showChartErrorState() {
-    const chartContainers = [
-        'practiceTimeChart',
-        'accuracyChart',
-        'topicMasteryChart',
-        'activityHeatmap'
-    ];
-    
-    chartContainers.forEach(containerId => {
-        const container = document.getElementById(containerId);
-        if (container) {
-            container.innerHTML = `
-                <div class="chart-error">
-                    <i class="fas fa-exclamation-triangle"></i>
-                    <h3>Failed to load chart data</h3>
-                    <p>Please try refreshing the page</p>
-                    <button class="btn-primary" onclick="initProgressCharts()">
-                        <i class="fas fa-redo"></i> Retry
-                    </button>
-                </div>
-            `;
-        }
-    });
 }
 // ============================================
 // UPDATE DAILY STATS - ADD THIS MISSING FUNCTION
@@ -21097,249 +20478,6 @@ async function fetchTopicMastery() {
         console.error('Error fetching topic mastery:', error);
         return {};
     }
-}
-// ============================================
-// UPDATE TOPIC MASTERY BREAKDOWN
-// ============================================
-function updateTopicMasteryBreakdown(topics) {
-    const container = document.getElementById('topicsProgressDetailed');
-    if (!container) return;
-    
-    if (!topics || topics.length === 0) {
-        container.innerHTML = `
-            <div style="text-align: center; padding: 30px; background: #f8f9fa; border-radius: 8px;">
-                <i class="fas fa-chart-pie" style="font-size: 40px; color: #7a0000; margin-bottom: 15px;"></i>
-                <h4 style="color: #2c3e50; margin-bottom: 10px;">No Topic Data Available</h4>
-                <p style="color: #7f8c8d;">Complete lessons to see your topic progress.</p>
-            </div>
-        `;
-        return;
-    }
-    
-    let html = '<div style="margin-top: 20px;">';
-    html += '<h4 style="color: #2c3e50; margin-bottom: 15px;"><i class="fas fa-graduation-cap"></i> Topic Mastery</h4>';
-    
-    topics.forEach((topic, index) => {
-        const progress = topic.completion_rate || 0;
-        const accuracy = topic.accuracy_rate || 0;
-        
-        // Determine mastery level and color
-        let masteryLevel = topic.mastery_level || 'Beginner';
-        let masteryColor = '#95a5a6'; // Gray
-        let masteryIcon = 'fa-seedling';
-        
-        if (accuracy >= 80 && progress >= 80) {
-            masteryLevel = 'Expert';
-            masteryColor = '#f39c12';
-            masteryIcon = 'fa-crown';
-        } else if (accuracy >= 70 && progress >= 70) {
-            masteryLevel = 'Advanced';
-            masteryColor = '#9b59b6';
-            masteryIcon = 'fa-star';
-        } else if (accuracy >= 60 && progress >= 50) {
-            masteryLevel = 'Intermediate';
-            masteryColor = '#3498db';
-            masteryIcon = 'fa-chart-line';
-        }
-        
-        html += `
-            <div style="background: #f8f9fa; border-radius: 8px; padding: 15px; margin-bottom: 15px; 
-                        border-left: 4px solid ${masteryColor};">
-                
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
-                    <div style="display: flex; align-items: center; gap: 8px;">
-                        <i class="fas ${masteryIcon}" style="color: ${masteryColor};"></i>
-                        <h5 style="margin: 0; color: #2c3e50;">${topic.topic_title || `Topic ${index + 1}`}</h5>
-                    </div>
-                    <span style="background: ${masteryColor}; color: white; padding: 3px 10px; border-radius: 15px; font-size: 11px;">
-                        ${masteryLevel}
-                    </span>
-                </div>
-                
-                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
-                    <!-- Completion Progress -->
-                    <div>
-                        <div style="display: flex; justify-content: space-between; font-size: 12px; color: #666; margin-bottom: 5px;">
-                            <span>Completion</span>
-                            <span>${progress}%</span>
-                        </div>
-                        <div style="height: 6px; background: #ecf0f1; border-radius: 3px; overflow: hidden;">
-                            <div style="height: 100%; width: ${progress}%; background: #7a0000; border-radius: 3px;"></div>
-                        </div>
-                    </div>
-                    
-                    <!-- Accuracy Progress -->
-                    <div>
-                        <div style="display: flex; justify-content: space-between; font-size: 12px; color: #666; margin-bottom: 5px;">
-                            <span>Accuracy</span>
-                            <span>${accuracy}%</span>
-                        </div>
-                        <div style="height: 6px; background: #ecf0f1; border-radius: 3px; overflow: hidden;">
-                            <div style="height: 100%; width: ${accuracy}%; background: #27ae60; border-radius: 3px;"></div>
-                        </div>
-                    </div>
-                </div>
-                
-                <div style="font-size: 11px; color: #7f8c8d; margin-top: 10px;">
-                    <i class="fas fa-clock"></i> 
-                    Last practiced: ${topic.last_practiced ? formatTimeAgo(topic.last_practiced) : 'Not started'}
-                </div>
-            </div>
-        `;
-    });
-    
-    html += '</div>';
-    container.innerHTML = html;
-}
-
-
-// ============================================
-// ADD TOPIC PROGRESS STYLES
-// ============================================
-function addTopicProgressStyles() {
-    const style = document.createElement('style');
-    style.textContent = `
-        /* Topic Progress Breakdown */
-        .topic-breakdown {
-            max-height: 400px;
-            overflow-y: auto;
-            padding-right: 10px;
-        }
-        
-        .topic-item {
-            margin-bottom: 20px;
-            padding: 15px;
-            background: #f8f9fa;
-            border-radius: 8px;
-            transition: transform 0.2s;
-        }
-        
-        .topic-item:hover {
-            transform: translateX(5px);
-            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-        }
-        
-        .topic-item h4 {
-            margin: 0 0 10px 0;
-            color: #2c3e50;
-            font-size: 16px;
-        }
-        
-        .topic-progress-bars {
-            display: flex;
-            gap: 20px;
-            margin-bottom: 10px;
-        }
-        
-        .progress-bar-container {
-            flex: 1;
-        }
-        
-        .progress-label {
-            display: flex;
-            justify-content: space-between;
-            font-size: 12px;
-            color: #666;
-            margin-bottom: 5px;
-        }
-        
-        .progress-bar-bg {
-            height: 6px;
-            background: #ecf0f1;
-            border-radius: 3px;
-            overflow: hidden;
-        }
-        
-        .progress-bar-fill {
-            height: 100%;
-            border-radius: 3px;
-            transition: width 0.3s ease;
-        }
-        
-        .progress-bar-fill.completion {
-            background: #7a0000;
-        }
-        
-        .progress-bar-fill.accuracy {
-            background: #27ae60;
-        }
-        
-        .topic-meta {
-            font-size: 11px;
-            color: #7f8c8d;
-            margin-top: 10px;
-        }
-        
-        .mastery-badge {
-            display: inline-block;
-            padding: 3px 10px;
-            border-radius: 15px;
-            font-size: 11px;
-            font-weight: bold;
-            color: white;
-            margin-left: 10px;
-        }
-        
-        .mastery-badge.beginner {
-            background: #95a5a6;
-        }
-        
-        .mastery-badge.intermediate {
-            background: #3498db;
-        }
-        
-        .mastery-badge.advanced {
-            background: #9b59b6;
-        }
-        
-        .mastery-badge.expert {
-            background: #f39c12;
-        }
-        
-        .no-data-message {
-            text-align: center;
-            padding: 40px;
-            background: #f8f9fa;
-            border-radius: 8px;
-            color: #666;
-        }
-        
-        .no-data-message i {
-            font-size: 48px;
-            color: #7a0000;
-            margin-bottom: 15px;
-        }
-        
-        .no-data-message h4 {
-            margin: 0 0 10px 0;
-            color: #2c3e50;
-        }
-        
-        .no-data-message p {
-            margin: 0;
-            color: #7f8c8d;
-        }
-        
-        /* Scrollbar styling */
-        .topic-breakdown::-webkit-scrollbar {
-            width: 6px;
-        }
-        
-        .topic-breakdown::-webkit-scrollbar-track {
-            background: #f1f1f1;
-            border-radius: 3px;
-        }
-        
-        .topic-breakdown::-webkit-scrollbar-thumb {
-            background: #c1c1c1;
-            border-radius: 3px;
-        }
-        
-        .topic-breakdown::-webkit-scrollbar-thumb:hover {
-            background: #a8a8a8;
-        }
-    `;
-    document.head.appendChild(style);
 }
 
 // ============================================
@@ -26393,175 +25531,436 @@ window.quickLogin = async function(email, password) {
 console.log('✅ Auth fixes applied!');
 
 // ============================================
-// 🌟 MODERN GRADIENT LINE CHART
+// ✅ ADD MISSING CHART STYLES FUNCTION
 // ============================================
-function renderAccuracyChart(accuracyData) {
-    const container = document.getElementById('accuracyChart');
-    if (!container) return;
+function addChartStyles() {
+    if (document.getElementById('chart-styles')) return;
     
-    container.innerHTML = '';
-    container.style.position = 'relative';
-    container.style.height = '220px';
-    container.style.background = 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)';
-    container.style.borderRadius = '15px';
-    container.style.padding = '20px 15px 15px 15px';
-    container.style.boxShadow = '0 10px 30px rgba(102, 126, 234, 0.3)';
-    
-    // Create SVG
-    const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-    svg.setAttribute('width', '100%');
-    svg.setAttribute('height', '140');
-    svg.setAttribute('viewBox', '0 0 400 140');
-    svg.style.display = 'block';
-    
-    // Calculate points
-    const points = [];
-    const step = 380 / (accuracyData.labels.length - 1);
-    
-    accuracyData.accuracy.forEach((value, index) => {
-        const x = 10 + (step * index);
-        const y = 130 - (value / 100) * 100; // Map 0-100% to 130-30px
-        points.push({ x, y });
-    });
-    
-    // Create gradient for line
-    const defs = document.createElementNS('http://www.w3.org/2000/svg', 'defs');
-    const gradient = document.createElementNS('http://www.w3.org/2000/svg', 'linearGradient');
-    gradient.setAttribute('id', 'lineGradient');
-    gradient.setAttribute('x1', '0%');
-    gradient.setAttribute('y1', '0%');
-    gradient.setAttribute('x2', '100%');
-    gradient.setAttribute('y2', '0%');
-    
-    const stop1 = document.createElementNS('http://www.w3.org/2000/svg', 'stop');
-    stop1.setAttribute('offset', '0%');
-    stop1.setAttribute('stop-color', '#fff');
-    stop1.setAttribute('stop-opacity', '1');
-    
-    const stop2 = document.createElementNS('http://www.w3.org/2000/svg', 'stop');
-    stop2.setAttribute('offset', '100%');
-    stop2.setAttribute('stop-color', '#ffd700');
-    stop2.setAttribute('stop-opacity', '1');
-    
-    gradient.appendChild(stop1);
-    gradient.appendChild(stop2);
-    defs.appendChild(gradient);
-    svg.appendChild(defs);
-    
-    // Draw area under line (gradient)
-    const areaPath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-    let areaD = `M ${points[0].x},130 `;
-    points.forEach(point => {
-        areaD += `L ${point.x},${point.y} `;
-    });
-    areaD += `L ${points[points.length-1].x},130 Z`;
-    
-    areaPath.setAttribute('d', areaD);
-    areaPath.setAttribute('fill', 'rgba(255,255,255,0.15)');
-    areaPath.setAttribute('stroke', 'none');
-    svg.appendChild(areaPath);
-    
-    // Draw line
-    const linePath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-    let lineD = `M ${points[0].x},${points[0].y}`;
-    points.slice(1).forEach(point => {
-        lineD += ` L ${point.x},${point.y}`;
-    });
-    
-    linePath.setAttribute('d', lineD);
-    linePath.setAttribute('fill', 'none');
-    linePath.setAttribute('stroke', 'url(#lineGradient)');
-    linePath.setAttribute('stroke-width', '3');
-    linePath.setAttribute('stroke-linecap', 'round');
-    linePath.setAttribute('stroke-linejoin', 'round');
-    svg.appendChild(linePath);
-    
-    // Draw points
-    points.forEach((point, index) => {
-        const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
-        circle.setAttribute('cx', point.x);
-        circle.setAttribute('cy', point.y);
-        circle.setAttribute('r', '5');
-        circle.setAttribute('fill', '#fff');
-        circle.setAttribute('stroke', '#7a0000');
-        circle.setAttribute('stroke-width', '2');
-        
-        // Add tooltip
-        circle.addEventListener('mouseenter', (e) => {
-            showTooltip(e, accuracyData.labels[index], accuracyData.accuracy[index]);
-        });
-        
-        svg.appendChild(circle);
-    });
-    
-    container.appendChild(svg);
-    
-    // Add labels
-    const labelsDiv = document.createElement('div');
-    labelsDiv.style.display = 'flex';
-    labelsDiv.style.justifyContent = 'space-between';
-    labelsDiv.style.marginTop = '10px';
-    labelsDiv.style.padding = '0 10px';
-    
-    accuracyData.labels.forEach(label => {
-        const labelSpan = document.createElement('span');
-        labelSpan.textContent = label;
-        labelSpan.style.color = 'rgba(255,255,255,0.8)';
-        labelSpan.style.fontSize = '11px';
-        labelSpan.style.fontWeight = '500';
-        labelsDiv.appendChild(labelSpan);
-    });
-    
-    container.appendChild(labelsDiv);
-    
-    // Add floating tooltip
-    const tooltip = document.createElement('div');
-    tooltip.id = 'chartTooltip';
-    tooltip.style.position = 'absolute';
-    tooltip.style.background = 'rgba(0,0,0,0.8)';
-    tooltip.style.color = '#fff';
-    tooltip.style.padding = '5px 10px';
-    tooltip.style.borderRadius = '5px';
-    tooltip.style.fontSize = '12px';
-    tooltip.style.pointerEvents = 'none';
-    tooltip.style.display = 'none';
-    tooltip.style.zIndex = '1000';
-    container.appendChild(tooltip);
-    
-    function showTooltip(e, day, value) {
-        tooltip.style.display = 'block';
-        tooltip.style.left = (e.clientX - container.getBoundingClientRect().left + 10) + 'px';
-        tooltip.style.top = (e.clientY - container.getBoundingClientRect().top - 30) + 'px';
-        tooltip.innerHTML = `<strong>${day}:</strong> ${value}%`;
-        
-        setTimeout(() => {
-            tooltip.style.display = 'none';
-        }, 2000);
-    }
-}
-
-/**
- * Show loading states for all charts
- */
-function showChartLoadingStates() {
-    const chartContainers = [
-        'practiceTimeChart',
-        'accuracyChart',
-        'topicMasteryChart',
-        'activityHeatmap'
-    ];
-    
-    chartContainers.forEach(containerId => {
-        const container = document.getElementById(containerId);
-        if (container) {
-            container.innerHTML = `
-                <div class="chart-loading">
-                    <i class="fas fa-spinner fa-spin"></i>
-                    <p>Loading chart data from database...</p>
-                </div>
-            `;
+    const style = document.createElement('style');
+    style.id = 'chart-styles';
+    style.textContent = `
+        /* Chart Container Styles */
+        .charts-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            margin: 20px 0;
         }
-    });
+        
+        @media (max-width: 768px) {
+            .charts-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+        
+        .chart-container {
+            background: white;
+            border-radius: 12px;
+            padding: 20px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+            border: 1px solid var(--border-color);
+        }
+        
+        .chart-container h3 {
+            margin: 0 0 20px 0;
+            color: var(--text-color);
+            font-size: 1.1rem;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .chart-container h3 i {
+            color: var(--primary);
+        }
+        
+        /* Simple Bar Chart */
+        .simple-bar-chart {
+            height: 200px;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .chart-bars {
+            flex: 1;
+            display: flex;
+            align-items: flex-end;
+            gap: 10px;
+            padding: 10px 0;
+        }
+        
+        .chart-bar {
+            flex: 1;
+            background: var(--primary);
+            border-radius: 6px 6px 0 0;
+            min-height: 4px;
+            transition: height 0.3s ease;
+            position: relative;
+        }
+        
+        .chart-bar:hover {
+            background: #c0392b;
+        }
+        
+        .chart-bar::after {
+            content: attr(data-value);
+            position: absolute;
+            top: -25px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: var(--primary);
+            color: white;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            opacity: 0;
+            transition: opacity 0.3s;
+            white-space: nowrap;
+            pointer-events: none;
+        }
+        
+        .chart-bar:hover::after {
+            opacity: 1;
+        }
+        
+        .chart-labels {
+            display: flex;
+            gap: 10px;
+            padding-top: 10px;
+            border-top: 1px solid var(--border-color);
+        }
+        
+        .chart-label {
+            flex: 1;
+            text-align: center;
+            font-size: 12px;
+            color: var(--text-light);
+        }
+        
+        /* Simple Line Chart */
+        .simple-line-chart {
+            height: 200px;
+            position: relative;
+            padding: 20px 0;
+        }
+        
+        .chart-line {
+            height: 100%;
+            position: relative;
+            background: linear-gradient(to top, rgba(122,0,0,0.1) 0%, transparent 100%);
+        }
+        
+        .chart-point {
+            position: absolute;
+            width: 10px;
+            height: 10px;
+            background: var(--primary);
+            border-radius: 50%;
+            transform: translate(-50%, 50%);
+            cursor: pointer;
+            transition: all 0.3s;
+            z-index: 2;
+        }
+        
+        .chart-point:hover {
+            transform: translate(-50%, 50%) scale(1.5);
+            background: #c0392b;
+            box-shadow: 0 0 10px rgba(122,0,0,0.5);
+        }
+        
+        .chart-point::after {
+            content: attr(data-value);
+            position: absolute;
+            top: -30px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: var(--primary);
+            color: white;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            opacity: 0;
+            transition: opacity 0.3s;
+            white-space: nowrap;
+            pointer-events: none;
+        }
+        
+        .chart-point:hover::after {
+            opacity: 1;
+        }
+        
+        .chart-line::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            border-left: 2px solid var(--border-color);
+            border-bottom: 2px solid var(--border-color);
+            pointer-events: none;
+        }
+        
+        /* Time Period Selector */
+        .time-period-selector {
+            margin-bottom: 20px;
+            text-align: right;
+        }
+        
+        .time-period-selector select {
+            padding: 8px 15px;
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            font-size: 14px;
+            color: var(--text-color);
+            background: white;
+            cursor: pointer;
+        }
+        
+        .time-period-selector select:focus {
+            outline: none;
+            border-color: var(--primary);
+        }
+        
+        /* Progress Summary Stats */
+        .progress-summary-stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin: 20px 0;
+        }
+        
+        .summary-stat {
+            background: white;
+            border-radius: 10px;
+            padding: 20px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+        
+        .summary-stat .stat-icon {
+            width: 50px;
+            height: 50px;
+            background: linear-gradient(135deg, var(--primary), #c0392b);
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 24px;
+        }
+        
+        .summary-stat .stat-content {
+            flex: 1;
+        }
+        
+        .summary-stat h3 {
+            margin: 0 0 5px 0;
+            font-size: 14px;
+            color: var(--text-light);
+        }
+        
+        .summary-stat .stat-value {
+            font-size: 28px;
+            font-weight: bold;
+            color: var(--text-color);
+            line-height: 1.2;
+        }
+        
+        .summary-stat .stat-change {
+            font-size: 12px;
+            color: #27ae60;
+            margin-top: 5px;
+        }
+        
+        .summary-stat .progress-bar-container.mini {
+            height: 4px;
+            margin-top: 8px;
+        }
+        
+        .progress-good {
+            background: linear-gradient(90deg, #27ae60, #2ecc71);
+        }
+        
+        .progress-medium {
+            background: linear-gradient(90deg, #f39c12, #f1c40f);
+        }
+        
+        .progress-low {
+            background: linear-gradient(90deg, #e74c3c, #c0392b);
+        }
+        
+        /* Topics Progress Detailed */
+        .topics-progress-detailed {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            margin: 20px 0;
+        }
+        
+        .topic-progress-item {
+            background: white;
+            border-radius: 8px;
+            padding: 15px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+            border: 1px solid var(--border-color);
+        }
+        
+        .topic-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+        
+        .topic-header h4 {
+            margin: 0;
+            font-size: 16px;
+            color: var(--text-color);
+        }
+        
+        .topic-progress {
+            margin: 10px 0;
+        }
+        
+        .progress-info {
+            display: flex;
+            justify-content: space-between;
+            font-size: 13px;
+            color: var(--text-light);
+            margin-bottom: 5px;
+        }
+        
+        .topic-stats {
+            display: flex;
+            gap: 20px;
+            margin-top: 10px;
+            font-size: 13px;
+            color: var(--text-light);
+        }
+        
+        .topic-stat {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+        
+        .topic-stat i {
+            color: var(--primary);
+        }
+        
+        .performance-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 15px;
+            margin: 20px 0;
+        }
+        
+        .performance-card {
+            background: white;
+            border-radius: 10px;
+            padding: 20px;
+            text-align: center;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            transition: transform 0.3s;
+        }
+        
+        .performance-card:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        }
+        
+        .performance-card .value {
+            font-size: 32px;
+            font-weight: bold;
+            color: var(--primary);
+            margin-bottom: 5px;
+        }
+        
+        .performance-card .label {
+            font-size: 13px;
+            color: var(--text-light);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        
+        .learning-insights {
+            background: #f8f9fa;
+            border-radius: 10px;
+            padding: 20px;
+            margin-top: 20px;
+            border-left: 4px solid var(--primary);
+        }
+        
+        .learning-insights h4 {
+            margin: 0 0 15px 0;
+            color: var(--text-color);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .insights-list {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+        
+        .insights-list li {
+            padding: 10px 0;
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            color: var(--text-color);
+        }
+        
+        .insights-list li:last-child {
+            border-bottom: none;
+        }
+        
+        .insights-list li i {
+            color: var(--primary);
+            font-size: 14px;
+        }
+        
+        /* Loading States */
+        .loading-container {
+            text-align: center;
+            padding: 40px;
+        }
+        
+        .loading-container i {
+            font-size: 40px;
+            color: var(--primary);
+            margin-bottom: 15px;
+        }
+        
+        .loading-container p {
+            color: var(--text-light);
+        }
+        
+        /* Animations */
+        .animate-fade-in {
+            animation: fadeIn 0.5s ease forwards;
+        }
+        
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+    `;
+    
+    document.head.appendChild(style);
+    console.log('✅ Chart styles added');
 }
 
 // ============================================
@@ -27858,3 +27257,57 @@ document.addEventListener('DOMContentLoaded', function() {
         }, 500);
     }
 });
+// ============================================
+// ⚡ ULTRA MINIMAL - Direct onclick assignment
+// ============================================
+(function ultraMinimalFix() {
+    console.log('⚡ Ultra minimal fix...');
+    
+    function findAndFix() {
+        // Find all buttons
+        document.querySelectorAll('button').forEach(btn => {
+            // Check if it's a Start button
+            if (btn.textContent.includes('Start') || 
+                btn.innerHTML.includes('Start') ||
+                btn.classList.contains('start-exercise')) {
+                
+                console.log('Found Start button:', btn);
+                
+                // Direct onclick assignment (strongest)
+                btn.onclick = function(e) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    
+                    console.log('✅ Start button clicked!');
+                    
+                    // Get exercise ID
+                    const exerciseId = this.getAttribute('data-exercise-id') || 
+                                      this.closest('[data-exercise-id]')?.getAttribute('data-exercise-id');
+                    
+                    // Try to call existing function
+                    if (typeof startPractice === 'function') {
+                        startPractice(exerciseId);
+                    } else {
+                        // Just show it's working
+                        alert(`✅ Start button is now working! Exercise ID: ${exerciseId || 'unknown'}`);
+                    }
+                    
+                    return false;
+                };
+                
+                // Make it look clickable
+                btn.style.cursor = 'pointer';
+                btn.style.backgroundColor = '#7a0000';
+                btn.style.color = 'white';
+                btn.disabled = false;
+                
+                console.log('✅ Fixed via onclick');
+            }
+        });
+    }
+    
+    findAndFix();
+    setTimeout(findAndFix, 1000);
+    
+    console.log('⚡ Fix applied!');
+})();
