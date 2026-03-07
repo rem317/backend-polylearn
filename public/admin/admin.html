@@ -1024,174 +1024,8 @@
                 </div>
             </div>
 
-            <!-- Feedback & Reports Dashboard -->
-            <div id="feedbackDashboardSection" class="dashboard-section">
-                <div class="feedback-dashboard">
-                    <!-- Feedback Header -->
-                    <div class="admin-header">
-                        <h2><i class="fas fa-comments"></i> Feedback & Reports </h2>
-                        <div class="admin-actions">
-                            <div class="admin-search">
-                                <input type="text" placeholder="Search feedback..." id="searchFeedbackInput">
-                                <button><i class="fas fa-search"></i></button>
-                            </div>
-                            <button class="btn btn-primary" onclick="generateFeedbackReport()">
-                                <i class="fas fa-file-pdf"></i> Generate Report
-                            </button>
-                        </div>
-                    </div>
 
-                    <!-- Feedback Stats -->
-                    <div class="feedback-stats">
-                        <div class="feedback-stat-card ratings">
-                            <div class="feedback-stat-icon ratings">
-                                <i class="fas fa-star"></i>
-                            </div>
-                            <div class="feedback-stat-content">
-                                <h3 id="totalRatings">0</h3>
-                                <p>Average Rating</p>
-                            </div>
-                        </div>
-                        
-                        <div class="feedback-stat-card complaints">
-                            <div class="feedback-stat-icon complaints">
-                                <i class="fas fa-exclamation-triangle"></i>
-                            </div>
-                            <div class="feedback-stat-content">
-                                <h3 id="totalComplaints">0</h3>
-                                <p>Open Complaints</p>
-                            </div>
-                        </div>
-                        
-                        <div class="feedback-stat-card suggestions">
-                            <div class="feedback-stat-icon suggestions">
-                                <i class="fas fa-lightbulb"></i>
-                            </div>
-                            <div class="feedback-stat-content">
-                                <h3 id="totalSuggestions">0</h3>
-                                <p>New Suggestions</p>
-                            </div>
-                        </div>
-                        
-                        <div class="feedback-stat-card resolved">
-                            <div class="feedback-stat-icon resolved">
-                                <i class="fas fa-check-circle"></i>
-                            </div>
-                            <div class="feedback-stat-content">
-                                <h3 id="resolvedFeedbacks">0</h3>
-                                <p>Resolved This Month</p>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Feedback Charts -->
-                    <div class="feedback-charts-container">
-                        <div class="feedback-chart-card">
-                            <div class="feedback-chart-header">
-                                <h3><i class="fas fa-chart-pie"></i> Feedback Distribution</h3>
-                                <select class="form-control small" onchange="updateFeedbackDistribution()" id="feedbackTimeRange">
-                                    <option value="week">Last 7 Days</option>
-                                    <option value="month" selected>Last 30 Days</option>
-                                    <option value="quarter">Last 3 Months</option>
-                                </select>
-                            </div>
-                            <div class="chart-container">
-                                <canvas id="feedbackDistributionChart"></canvas>
-                            </div>
-                        </div>
-                        
-                        <div class="feedback-chart-card">
-                            <div class="feedback-chart-header">
-                                <h3><i class="fas fa-chart-line"></i> Feedback Trend</h3>
-                                <select class="form-control small" onchange="updateFeedbackTrendChart()" id="feedbackTrendFilter">
-                                    <option value="all">All Feedback</option>
-                                    <option value="rating">Ratings</option>
-                                    <option value="complaint">Complaints</option>
-                                    <option value="suggestion">Suggestions</option>
-                                </select>
-                            </div>
-                            <div class="chart-container">
-                                <canvas id="feedbackTrendChart"></canvas>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Feedback Filters -->
-                    <div class="feedback-filters">
-                        <div class="filter-group">
-                            <label><i class="fas fa-filter"></i> Type:</label>
-                            <select class="form-control small" onchange="filterFeedbackTable()" id="feedbackTypeFilter">
-                                <option value="all">All Types</option>
-                                <option value="rating">Ratings</option>
-                                <option value="complaint">Complaints</option>
-                                <option value="suggestion">Suggestions</option>
-                                <option value="question">Questions</option>
-                            </select>
-                        </div>
-                        
-                        <div class="filter-group">
-                            <label><i class="fas fa-flag"></i> Priority:</label>
-                            <select class="form-control small" onchange="filterFeedbackTable()" id="feedbackPriorityFilter">
-                                <option value="all">All Priorities</option>
-                                <option value="high">High</option>
-                                <option value="medium">Medium</option>
-                                <option value="low">Low</option>
-                            </select>
-                        </div>
-                        
-                        <div class="filter-group">
-                            <label><i class="fas fa-check-circle"></i> Status:</label>
-                            <select class="form-control small" onchange="filterFeedbackTable()" id="feedbackStatusFilter">
-                                <option value="all">All Status</option>
-                                <option value="open">Open</option>
-                                <option value="in-progress">In Progress</option>
-                                <option value="resolved">Resolved</option>
-                            </select>
-                        </div>
-                        
-                        <button class="btn btn-secondary" onclick="exportFeedbackData()">
-                            <i class="fas fa-file-export"></i> Export Data
-                        </button>
-                    </div>
-
-                    <!-- Feedback Table -->
-                    <div class="feedback-table-container">
-                        <div class="feedback-table-header">
-                            <h3><i class="fas fa-list"></i> Recent Feedback</h3>
-                            <div class="filter-group">
-                                <label><i class="fas fa-sort"></i> Sort by:</label>
-                                <select class="form-control small" onchange="sortFeedbackTable()" id="feedbackSortSelect">
-                                    <option value="date-desc">Newest First</option>
-                                    <option value="date-asc">Oldest First</option>
-                                    <option value="priority">Priority</option>
-                                    <option value="rating">Rating</option>
-                                </select>
-                            </div>
-                        </div>
-                        
-                        <div class="users-table-container">
-                            <table class="feedback-table">
-                                <thead>
-                                    <tr>
-                                        <th style="width: 40px;">ID</th>
-                                        <th>User</th>
-                                        <th>Type</th>
-                                        <th>Subject</th>
-                                        <th>Priority</th>
-                                        <th>Status</th>
-                                        <th>Date</th>
-                                        <th style="width: 120px;">Actions</th>
-                                    </tr>
-                                </thead>
-                                <tbody id="feedbackTableBody">
-                                    <!-- Feedback items will be dynamically loaded here -->
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
+    
             <!-- Analytics Dashboard Section -->
             <div id="analyticsDashboardSection" class="dashboard-section">
                 <div class="analytics-dashboard">
@@ -2265,10 +2099,6 @@
                 <i class="fas fa-bars"></i>
                 <span>Menu</span>
             </button>
-            <a href="#" class="footer-nav-item" onclick="showFeedbackDashboard(event)">
-                <i class="fas fa-comments"></i>
-                <span>Feedback</span>
-            </a>
             <a href="#" class="footer-nav-item" onclick="showSettings(event)">
                 <i class="fas fa-cog"></i>
                 <span>Settings</span>
@@ -2305,12 +2135,7 @@
             <span>Performance</span>
         </a>
         
-        <!-- Feedback -->
-        <a href="#" class="mobile-menu-item" onclick="showFeedbackDashboard(event)" data-nav="feedback">
-            <i class="fas fa-comments"></i>
-            <span>Feedback</span>
-        </a>
-        
+       
         <!-- Analytics -->
         <a href="#" class="mobile-menu-item" onclick="showAnalytics(event)" data-nav="analytics">
             <i class="fas fa-chart-bar"></i>
