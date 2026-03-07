@@ -2794,18 +2794,316 @@ function copyResetLink() {
 // INITIALIZATION
 // ============================================
 
+// ============================================
+// COMPLETE FIXED DOMContentLoaded FUNCTION
+// ============================================
 document.addEventListener('DOMContentLoaded', function() {
+    console.log('MathEase DOM Content Loaded - Applying fixes...');
+    
+    // Initialize the main app
     initApp();
     
+    // ============================================
+    // FIX 1: Setup App Selection to prevent login loop
+    // ============================================
+    function setupAppSelection() {
+        const appCards = document.querySelectorAll('.app-card');
+        appCards.forEach(card => {
+            // Remove any existing listeners by cloning
+            const newCard = card.cloneNode(true);
+            card.parentNode.replaceChild(newCard, card);
+            
+            newCard.addEventListener('click', function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                
+                const app = this.getAttribute('data-app');
+                console.log('App selected:', app);
+                
+                if (app === 'mathease') {
+                    // Check if user is already authenticated
+                    const savedUser = localStorage.getItem('mathEase_user');
+                    const token = localStorage.getItem('authToken');
+                    
+                    if (savedUser && token) {
+                        try {
+                            AppState.currentUser = JSON.parse(savedUser);
+                            AppState.isAuthenticated = true;
+                            authToken = token;
+                            navigateTo('dashboard');
+                        } catch (error) {
+                            console.error('Error parsing user data:', error);
+                            navigateTo('login');
+                        }
+                    } else {
+                        navigateTo('login');
+                    }
+                }
+            });
+        });
+    }
+    
+    // Call setupAppSelection
+    setupAppSelection();
+    
+    // ============================================
+    // FIX 2: Clean up any stray modals on page load
+    // ============================================
+    function cleanupModals() {
+        // Hide all modal overlays that shouldn't be visible
+        document.querySelectorAll('.modal-overlay').forEach(modal => {
+            // Only allow specific modals to potentially be visible
+            const allowedModals = ['logoutModal', 'forgotPasswordModal', 'resetPasswordModal'];
+            
+            if (!modal.id || !allowedModals.includes(modal.id)) {
+                modal.style.display = 'none';
+            } else {
+                // Ensure these modals are hidden by default
+                modal.style.display = 'none';
+            }
+        });
+        
+        // Remove any modal-open class from body
+        document.body.classList.remove('modal-open');
+    }
+    
+    cleanupModals();
+    
+    // ============================================
+    // FIX 3: Ensure footer buttons are responsive
+    // ============================================
+    function fixFooterButtons() {
+        // Fix hamburger menu button
+        const hamburgerBtn = document.getElementById('footerHamburgerBtn');
+        if (hamburgerBtn) {
+            const newHamburger = hamburgerBtn.cloneNode(true);
+            hamburgerBtn.parentNode.replaceChild(newHamburger, hamburgerBtn);
+            
+            newHamburger.addEventListener('click', function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                
+                const overlay = document.getElementById('mobileMenuOverlay');
+                const panel = document.getElementById('mobileMenuPanel');
+                
+                if (overlay && panel) {
+                    overlay.classList.toggle('active');
+                    panel.classList.toggle('active');
+                    document.body.style.overflow = overlay.classList.contains('active') ? 'hidden' : '';
+                }
+            });
+        }
+        
+        // Fix all footer nav items
+        document.querySelectorAll('.footer-nav-item').forEach(item => {
+            const newItem = item.cloneNode(true);
+            item.parentNode.replaceChild(newItem, item);
+            
+            newItem.addEventListener('click', function(e) {
+                e.preventDefault();
+                
+                const page = this.getAttribute('data-page');
+                const onclick = this.getAttribute('onclick');
+                
+                if (onclick && onclick.includes('showLogoutConfirmation')) {
+                    showLogoutConfirmation();
+                } else if (page) {
+                    switch(page) {
+                        case 'dashboard':
+                            showDashboard(e);
+                            break;
+                        case 'practice':
+                            showPracticeDashboard(e);
+                            break;
+                        case 'quiz':
+                            showQuizDashboard(e);
+                            break;
+                        case 'settings':
+                            showSettingsPage(e);
+                            break;
+                        default:
+                            navigateTo(page);
+                    }
+                }
+            });
+        });
+    }
+    
+    fixFooterButtons();
+    
+    // ============================================
+    // FIX 4: Enhanced Logout Modal Functions
+    // ============================================
+    window.showLogoutConfirmation = function() {
+        // Close any open menus first
+        const overlay = document.getElementById('mobileMenuOverlay');
+        const panel = document.getElementById('mobileMenuPanel');
+        if (overlay && panel) {
+            overlay.classList.remove('active');
+            panel.classList.remove('active');
+            document.body.style.overflow = '';
+        }
+        
+        // Check if modal exists, create if not
+        let modal = document.getElementById('logoutModal');
+        
+        if (!modal) {
+            // Create modal if it doesn't exist
+            modal = document.createElement('div');
+            modal.id = 'logoutModal';
+            modal.className = 'modal-overlay';
+            modal.style.cssText = 'display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); align-items: center; justify-content: center; z-index: 10000;';
+            modal.innerHTML = `
+                <div class="modal-container" style="max-width: 380px; width: 90%; background: white; border-radius: 10px; overflow: hidden; box-shadow: 0 10px 30px rgba(0,0,0,0.3);">
+                    <div class="modal-header" style="background: #8B0000; padding: 15px 20px; display: flex; justify-content: space-between; align-items: center;">
+                        <h3 style="margin: 0; color: white; font-size: 18px;"><i class="fas fa-sign-out-alt"></i> Confirm Logout</h3>
+                        <button class="modal-close" onclick="closeLogoutModal()" style="background: none; border: none; color: white; font-size: 24px; cursor: pointer;">&times;</button>
+                    </div>
+                    
+                    <div class="modal-body" style="padding: 25px; text-align: center;">
+                        <div style="width: 70px; height: 70px; background: #f8f9fa; border-radius: 50%; margin: 0 auto 15px; display: flex; align-items: center; justify-content: center;">
+                            <i class="fas fa-exclamation-triangle" style="font-size: 35px; color: #8B0000;"></i>
+                        </div>
+                        
+                        <h4 style="margin: 0 0 8px; color: #2c3e50;">Are you sure you want to logout?</h4>
+                        <p style="color: #7f8c8d; margin-bottom: 20px;">Your progress is automatically saved.</p>
+                        
+                        <div style="display: flex; gap: 10px; justify-content: center;">
+                            <button onclick="closeLogoutModal()" class="btn-secondary" style="padding: 10px 20px; margin: 0; background: #95a5a6; color: white; border: none; border-radius: 6px; cursor: pointer;">
+                                <i class="fas fa-times"></i> Cancel
+                            </button>
+                            <button onclick="confirmLogout()" class="btn-primary" style="padding: 10px 20px; margin: 0; background: #8B0000; color: white; border: none; border-radius: 6px; cursor: pointer;">
+                                <i class="fas fa-sign-out-alt"></i> Logout
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            `;
+            document.body.appendChild(modal);
+        }
+        
+        // Hide any other modals that might be showing
+        document.querySelectorAll('.modal-overlay').forEach(m => {
+            if (m.id !== 'logoutModal') {
+                m.style.display = 'none';
+            }
+        });
+        
+        // Show logout modal
+        modal.style.display = 'flex';
+        document.body.classList.add('modal-open');
+    };
+    
+    window.closeLogoutModal = function() {
+        const modal = document.getElementById('logoutModal');
+        if (modal) {
+            modal.style.display = 'none';
+        }
+        document.body.classList.remove('modal-open');
+    };
+    
+    window.confirmLogout = function() {
+        closeLogoutModal();
+        logoutAndRedirect();
+    };
+    
+    // ============================================
+    // FIX 5: Prevent modal propagation and escape key handling
+    // ============================================
+    document.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape') {
+            const logoutModal = document.getElementById('logoutModal');
+            if (logoutModal && logoutModal.style.display === 'flex') {
+                closeLogoutModal();
+            }
+        }
+    });
+    
+    // Prevent clicks inside modal from closing it
+    document.addEventListener('click', function(e) {
+        const logoutModal = document.getElementById('logoutModal');
+        if (logoutModal && logoutModal.style.display === 'flex') {
+            const modalContainer = logoutModal.querySelector('.modal-container');
+            if (modalContainer && !modalContainer.contains(e.target) && !e.target.classList.contains('modal-close')) {
+                // Click outside modal - do nothing or you can choose to close
+                // Uncomment next line if you want to close when clicking outside
+                // closeLogoutModal();
+            }
+        }
+    });
+    
+    // ============================================
+    // FIX 6: Ensure tool buttons work properly
+    // ============================================
     setTimeout(connectToolButtons, 500);
     setTimeout(connectToolButtons, 1000);
+    setTimeout(connectToolButtons, 2000); // Extra safety
     
+    // ============================================
+    // Setup feedback form
+    // ============================================
     setupFeedbackForm();
     
-    window.showLogoutConfirmation = showLogoutConfirmation;
-    window.closeLogoutModal = closeLogoutModal;
-    window.confirmLogout = confirmLogout;
+    // ============================================
+    // FIX 7: Fix for mobile menu items
+    // ============================================
+    document.querySelectorAll('.mobile-menu-item').forEach(item => {
+        const newItem = item.cloneNode(true);
+        item.parentNode.replaceChild(newItem, item);
+        
+        newItem.addEventListener('click', function(e) {
+            e.preventDefault();
+            
+            const onclick = this.getAttribute('onclick');
+            if (onclick) {
+                // Close mobile menu
+                const overlay = document.getElementById('mobileMenuOverlay');
+                const panel = document.getElementById('mobileMenuPanel');
+                if (overlay && panel) {
+                    overlay.classList.remove('active');
+                    panel.classList.remove('active');
+                    document.body.style.overflow = '';
+                }
+                
+                // Execute the onclick function
+                if (onclick.includes('showLogoutConfirmation')) {
+                    showLogoutConfirmation();
+                } else if (onclick.includes('showDashboard')) {
+                    showDashboard(e);
+                } else if (onclick.includes('showPracticeDashboard')) {
+                    showPracticeDashboard(e);
+                } else if (onclick.includes('showQuizDashboard')) {
+                    showQuizDashboard(e);
+                } else if (onclick.includes('showProgressPage')) {
+                    showProgressPage(e);
+                } else if (onclick.includes('showFeedbackPage')) {
+                    showFeedbackPage(e);
+                } else if (onclick.includes('showSettingsPage')) {
+                    showSettingsPage(e);
+                } else if (onclick.includes('goToModuleDashboard')) {
+                    goToLesson1(e);
+                }
+            }
+        });
+    });
     
+    // ============================================
+    // FIX 8: Handle forgot password links
+    // ============================================
+    const forgotPasswordLink = document.getElementById('forgotPasswordLink');
+    if (forgotPasswordLink) {
+        const newLink = forgotPasswordLink.cloneNode(true);
+        forgotPasswordLink.parentNode.replaceChild(newLink, forgotPasswordLink);
+        
+        newLink.addEventListener('click', function(e) {
+            e.preventDefault();
+            showForgotPasswordModal();
+        });
+    }
+    
+    // ============================================
+    // Expose necessary functions to window
+    // ============================================
     window.showDashboard = showDashboard;
     window.showPracticeDashboard = showPracticeDashboard;
     window.showQuizDashboard = showQuizDashboard;
@@ -2840,49 +3138,8 @@ document.addEventListener('DOMContentLoaded', function() {
     window.closeQuizPopup = function() {
         document.getElementById('quizPopup')?.classList.add('hidden');
     };
-});
-
-// Add this function after the navigateTo function
-function handleAppSelection(appName) {
-    console.log('App selected:', appName);
     
-    if (appName === 'mathease') {
-        // Check if user is already authenticated
-        const savedUser = localStorage.getItem('mathEase_user');
-        const token = localStorage.getItem('authToken');
-        
-        if (savedUser && token) {
-            try {
-                AppState.currentUser = JSON.parse(savedUser);
-                AppState.isAuthenticated = true;
-                authToken = token;
-                navigateTo('dashboard');
-            } catch (error) {
-                // If error parsing user, go to login
-                navigateTo('login');
-            }
-        } else {
-            navigateTo('login');
-        }
-    }
-}
-
-// Add event listeners for app cards in the init function
-function setupAppSelection() {
-    const appCards = document.querySelectorAll('.app-card');
-    appCards.forEach(card => {
-        card.addEventListener('click', function(e) {
-            e.preventDefault();
-            const app = this.getAttribute('data-app');
-            if (app) {
-                handleAppSelection(app);
-            }
-        });
-    });
-}
-
-// Call this in DOMContentLoaded
-
-console.log('MathEase Application Loaded - Lesson 1 Only (Connected to Database)');
+    console.log('MathEase DOMContentLoaded fixes applied successfully');
+});
 
 
