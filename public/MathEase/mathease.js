@@ -2026,10 +2026,10 @@ window.StudyTimer = StudyTimer;
 console.log('✅ Tools globally available');
 
 // ============================================
-// ✅ UPDATED: apiRequest - FORCED lesson_id=3 FOR FACTOLEARN
+// ✅ UPDATED: apiRequest - FORCED lesson_id=1 FOR FACTOLEARN
 // ============================================
 async function apiRequest(endpoint, options = {}) {
-    // ===== FORCE lesson_id=3 FOR ALL FACTOLEARN API CALLS =====
+    // ===== FORCE lesson_id=1 FOR ALL FACTOLEARN API CALLS =====
 // Check if this is a Mathease endpoint that needs lesson_id
 const isMatheaseEndpoint = endpoint.includes('/api/progress/') || 
                            endpoint.includes('/api/lessons') || 
@@ -6199,10 +6199,10 @@ window.goToNextPractice = function() {
 // Call this function when initializing practice page
 addPracticeResultModalStyles();
 // ============================================
-// ✅ FIXED: Use topic_id=5 for lesson_id=3
+// ✅ FIXED: Use topic_id=5 for lesson_id=1
 // ============================================
 async function fetchPracticeExercisesFromDB(topicId) {
-    console.log(`📝 Getting practice exercises for lesson_id=3, topic ${topicId}`);
+    console.log(`📝 Getting practice exercises for lesson_id=1, topic ${topicId}`);
     
     try {
         const token = localStorage.getItem('authToken') || authToken;
@@ -6215,7 +6215,7 @@ async function fetchPracticeExercisesFromDB(topicId) {
         const ACTUAL_TOPIC_ID = 5;
         
         // Use the working endpoint with correct topic_id
-        const endpoint = `/api/practice/topic/${ACTUAL_TOPIC_ID}?lesson_id=3`;
+        const endpoint = `/api/practice/topic/${ACTUAL_TOPIC_ID}?lesson_id=1`;
         
         console.log(`📡 Fetching from: ${endpoint}`);
         
@@ -6234,7 +6234,7 @@ async function fetchPracticeExercisesFromDB(topicId) {
             if (data.success && data.exercises && data.exercises.length > 0) {
                 console.log(`✅ Found ${data.exercises.length} exercises from database for topic_id=5`);
                 
-                // Ensure lesson_id=3
+                // Ensure lesson_id=1
                 return data.exercises.map(ex => ({
                     ...ex,
                     lesson_id: 3
@@ -7483,11 +7483,11 @@ function updateProgressDashboardUI() {
 }
 
 // ============================================
-// 📊 PROGRESS SUMMARY FUNCTIONS - FACTOREADY (lesson_id=3)
+// 📊 PROGRESS SUMMARY FUNCTIONS - FACTOREADY (lesson_id=1)
 // ============================================
 
 async function updateProgressSummaryCards() {
-    console.log('📊 Updating FactoLearn progress summary cards (lesson_id = 3)...');
+    console.log('📊 Updating MathEase progress summary cards (lesson_id = 1)...');
     
     try {
         const token = localStorage.getItem('authToken') || authToken;
@@ -7497,7 +7497,7 @@ async function updateProgressSummaryCards() {
             return;
         }
         
-        const MATHEASE_LESSON_ID = 3;  // FIXED to 3
+        const MATHEASE_LESSON_ID = 1;  // FIXED to 3
         
         // ===== 1. GET LESSONS =====
         let lessonsCompleted = 0;
@@ -7717,7 +7717,7 @@ const ProgressCache = {
     TTL: 30000 // 30 seconds cache
 };
 async function loadProgressSummary() {
-    console.log('📊 Loading REAL progress data (lesson_id=3) - 1 sec max...');
+    console.log('📊 Loading REAL progress data (lesson_id=1) - 1 sec max...');
     
     const elements = {
         lessons: document.getElementById('lessonsCount'),
@@ -10094,17 +10094,17 @@ async function fetchPracticeStatistics() {
         
         // ===== GET ALL PRACTICE STATS FROM DATABASE IN PARALLEL =====
         const [lessonsData, attemptsData, totalExercisesData] = await Promise.allSettled([
-            // Get lessons progress (lesson_id=3)
+            // Get lessons progress (lesson_id=1)
             fetch(`/api/progress/lessons?lesson_id=${MATHEASE_LESSON_ID}`, {
                 headers: { 'Authorization': `Bearer ${token}` }
             }).then(res => res.json()).catch(err => ({ success: false, error: err })),
             
-            // Get practice attempts (lesson_id=3)
+            // Get practice attempts (lesson_id=1)
              fetch(`/api/progress/practice-attempts?lesson_id=${MATHEASE_LESSON_ID}`, {
                 headers: { 'Authorization': `Bearer ${token}` }
             }).then(res => res.json()).catch(err => ({ success: false, error: err })),
             
-            // Get total exercises count (lesson_id=3)
+            // Get total exercises count (lesson_id=1)
             fetch(`/api/practice/exercises/count?lesson_id=${MATHEASE_LESSON_ID}`, {
                 headers: { 'Authorization': `Bearer ${token}` }
             }).then(res => res.json()).catch(err => ({ success: false, error: err }))
@@ -12772,14 +12772,14 @@ function displayQuizCategories(categories, isHardcoded = false) {
     }
     
     // Filter for MathEase (lesson_id = 1)
-    const matheaseCategories = categories.filter(cat => {
+    const mathEaseCategories = categories.filter(cat => {
         const catLessonId = cat.lesson_id || cat.lessonId;
         return catLessonId == 1;
     });
     
     quizzesContainer.innerHTML = '';
     
-    if (matheaseCategories.length === 0) {
+    if (mathEaseCategories.length === 0) {
         quizzesContainer.innerHTML = `
             <div class="card" style="padding: 40px; text-align: center;">
                 <div style="font-size: 60px; color: #ccc; margin-bottom: 20px;">
@@ -12821,7 +12821,7 @@ function displayQuizCategories(categories, isHardcoded = false) {
     
     html += `<div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 20px;">`;
     
-    matheaseCategories.forEach(category => {
+    mathEaseCategories.forEach(category => {
         const categoryId = category.category_id || category.id;
         const categoryName = category.category_name || category.name || 'MathEase Quiz';
         const categoryDesc = category.description || 'Test your MathEase knowledge.';
@@ -13148,7 +13148,7 @@ function displayQuizCategories(categories, isHardcoded = false) {
     // Grid ng categories - gaya ng sa ibang grids
     html += `<div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 20px;">`;
     
-    matheaseCategories.forEach(category => {
+    mathEaseCategories.forEach(category => {
         const categoryId = category.category_id || category.id;
         const categoryName = category.category_name || category.name || 'FactoPermCombi Quiz';
         const categoryDesc = category.description || 'Test your FactoPermCombi knowledge.';
@@ -13305,7 +13305,7 @@ async function loadQuizzesForCategory(categoryId) {
         `;
         
         // Fetch quizzes
-        const response = await fetch(`/api/quiz/category/${categoryId}/quizzes?lesson_id=3`, {
+        const response = await fetch(`/api/quiz/category/${categoryId}/quizzes?lesson_id=1`, {
             headers: {
                 'Authorization': `Bearer ${token}`,
                 'Content-Type': 'application/json'
@@ -14240,7 +14240,7 @@ async function fetchAccuracyRate() {
 }
 
 // ============================================
-// 🔍 DEBUG: Check only lesson_id=3 data
+// 🔍 DEBUG: Check only lesson_id=1 data
 // ============================================
 window.debugMatheaseData = async function() {
     console.log('🔍 DEBUGGING lesson_id=1 (mathease) DATA ONLY');
@@ -14253,8 +14253,8 @@ window.debugMatheaseData = async function() {
         return;
     }
     
-    // Force lesson_id=3
-    const LESSON_ID = 3;
+    // Force lesson_id=1
+    const LESSON_ID = 1;
     
     console.log(`\n📚 FETCHING DATA FOR LESSON_ID = ${LESSON_ID}...\n`);
     
@@ -14339,7 +14339,7 @@ window.debugMatheaseData = async function() {
         console.error('Progress fetch error:', e);
     }
     
-    console.log('\n✅ Debug complete for lesson_id=3');
+    console.log('\n✅ Debug complete for lesson_id=1');
 };
 
 // Run it immediately
@@ -20258,11 +20258,11 @@ window.debugLessonId3 = async function() {
     // 1. Check lesson data
     console.log('\n📚 CHECKING LESSON DATA:');
     try {
-        const lessonRes = await fetch('/api/lessons-db/complete?lesson_id=3', {
+        const lessonRes = await fetch('/api/lessons-db/complete?lesson_id=1', {
             headers: { 'Authorization': `Bearer ${token}` }
         });
         const lessonData = await lessonRes.json();
-        console.log('Lessons for lesson_id=3:', lessonData);
+        console.log('Lessons for lesson_id=1:', lessonData);
     } catch (e) {
         console.error('Lesson fetch error:', e);
     }
@@ -20270,7 +20270,7 @@ window.debugLessonId3 = async function() {
     // 2. Check practice exercises
     console.log('\n💪 CHECKING PRACTICE EXERCISES:');
     try {
-        const practiceRes = await fetch('/api/practice/exercises/count?lesson_id=3', {
+        const practiceRes = await fetch('/api/practice/exercises/count?lesson_id=1', {
             headers: { 'Authorization': `Bearer ${token}` }
         });
         const practiceData = await practiceRes.json();
@@ -20282,11 +20282,11 @@ window.debugLessonId3 = async function() {
     // 3. Check user progress
     console.log('\n📊 CHECKING USER PROGRESS:');
     try {
-        const progressRes = await fetch('/api/progress/lessons?lesson_id=3', {
+        const progressRes = await fetch('/api/progress/lessons?lesson_id=1', {
             headers: { 'Authorization': `Bearer ${token}` }
         });
         const progressData = await progressRes.json();
-        console.log('User progress for lesson_id=3:', progressData);
+        console.log('User progress for lesson_id=1:', progressData);
     } catch (e) {
         console.error('Progress fetch error:', e);
     }
@@ -20294,11 +20294,11 @@ window.debugLessonId3 = async function() {
     // 4. Check quizzes
     console.log('\n🧠 CHECKING QUIZZES:');
     try {
-        const quizRes = await fetch('/api/quiz/categories?lesson_id=3', {
+        const quizRes = await fetch('/api/quiz/categories?lesson_id=1', {
             headers: { 'Authorization': `Bearer ${token}` }
         });
         const quizData = await quizRes.json();
-        console.log('Quiz categories for lesson_id=3:', quizData);
+        console.log('Quiz categories for lesson_id=1:', quizData);
     } catch (e) {
         console.error('Quiz fetch error:', e);
     }
@@ -21383,7 +21383,7 @@ async function initPracticePage() {
     }
     
     // Force lesson_id = 3 for FactoLearn
-    const currentLessonId = MATHEASE_LESSON_ID || 3;
+    const currentLessonId = MATHEASE_LESSON_ID || 1;
     console.log(`🎯 Practice page for lesson_id = ${currentLessonId}`);
     
     // Show loading
@@ -21518,7 +21518,7 @@ async function loadTopicsProgress() {
         if (data.success && data.topics) {
             console.log(`✅ Received ${data.topics.length} topics from server`);
             
-            // ✅ STRICT FILTER - lesson_id=3 LANG
+            // ✅ STRICT FILTER - lesson_id=1 LANG
             const filteredTopics = data.topics.filter(topic => {
                 const topicLessonId = topic.lesson_id || topic.lessonId;
                 return topicLessonId == MATHEASE_LESSON_ID;
@@ -21969,7 +21969,7 @@ function displayPracticeExercises(exercises) {
     html += '</div>';
     exerciseArea.innerHTML = html;
     
-    console.log(`✅ Displayed ${exercises.length} practice exercises (all lesson_id=3)`);
+    console.log(`✅ Displayed ${exercises.length} practice exercises (all lesson_id=1)`);
 }
 // ============================================
 // 🔍 Test Database Connection
@@ -21988,7 +21988,7 @@ window.testDatabaseConnection = async function() {
         '/api/practice/list',
         '/api/exercises',
         '/api/practice/topic/1',
-        '/api/practice?lesson_id=3'
+        '/api/practice?lesson_id=1'
     ];
     
     for (const endpoint of endpoints) {
@@ -22016,7 +22016,7 @@ window.testDatabaseConnection = async function() {
     }
 };
 // ============================================
-// ✅ UPDATED: getDemoPracticeExercises - WITH lesson_id=3
+// ✅ UPDATED: getDemoPracticeExercises - WITH lesson_id=1
 // ============================================
 function getDemoPracticeExercises(topicId) {
     console.log(`📚 Generating demo exercises for lesson_id=1, topic ${topicId}`);
@@ -24798,7 +24798,7 @@ setTimeout(() => {
     loadMatheaseData();
 }, 500);
     
-    console.log('🎮 FactoLearn Application Initialized - lesson_id=3 forced');
+    console.log('🎮 MathEase Application Initialized - lesson_id=1 forced');
 }
 function updateUserInfo() {
     if (!AppState.currentUser) return;
@@ -25538,10 +25538,10 @@ window.checkDatabase = async function() {
     }
     
     const endpoints = [
-        { name: 'Lessons', url: '/api/lessons-db/complete?lesson_id=3' },
-        { name: 'Practice Exercises', url: '/api/practice/exercises/count?lesson_id=3' },
-        { name: 'User Progress', url: '/api/progress/lessons?lesson_id=3' },
-        { name: 'Quiz Categories', url: '/api/quiz/categories?lesson_id=3' }
+        { name: 'Lessons', url: '/api/lessons-db/complete?lesson_id=1' },
+        { name: 'Practice Exercises', url: '/api/practice/exercises/count?lesson_id=1' },
+        { name: 'User Progress', url: '/api/progress/lessons?lesson_id=1' },
+        { name: 'Quiz Categories', url: '/api/quiz/categories?lesson_id=1' }
     ];
     
     for (const ep of endpoints) {
@@ -27104,10 +27104,10 @@ mobileMenuItems.forEach((item, index) => {
 
 
 // ============================================
-// 🔍 DEBUG: Fetch practice exercises for lesson_id=3
+// 🔍 DEBUG: Fetch practice exercises for lesson_id=1
 // ============================================
 window.fetchPracticeForLesson3 = async function() {
-    console.log('🔍 FETCHING PRACTICE EXERCISES FOR LESSON_ID=3');
+    console.log('🔍 FETCHING PRACTICE EXERCISES FOR LESSON_ID=1');
     console.log('==============================================');
     
     const token = localStorage.getItem('authToken');
@@ -27118,9 +27118,9 @@ window.fetchPracticeForLesson3 = async function() {
     
     // Try multiple endpoints
     const endpoints = [
-        '/api/practice/exercises?lesson_id=3',
-        '/api/practice/list?lesson_id=3',
-        '/api/exercises?lesson_id=3',
+        '/api/practice/exercises?lesson_id=1',
+        '/api/practice/list?lesson_id=1',
+        '/api/exercises?lesson_id=1',
         '/api/practice/lesson/3'
     ];
     
@@ -27170,7 +27170,7 @@ document.addEventListener('DOMContentLoaded', function() {
     const practicePage = document.getElementById('practice-exercises-page');
     if (practicePage && !practicePage.classList.contains('hidden')) {
         setTimeout(() => {
-            console.log('🎯 Auto-fetching practice exercises for lesson_id=3');
+            console.log('🎯 Auto-fetching practice exercises for lesson_id=1');
             loadPracticeExercisesForTopic(PracticeState.currentTopic || 1);
         }, 500);
     }
