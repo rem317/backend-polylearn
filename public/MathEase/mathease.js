@@ -23556,35 +23556,20 @@ function handleAppSelection(appName) {
     localStorage.setItem('currentLessonFilter', lessonId.toString());
     console.log(`🔍 Setting lesson filter: ${lessonId} for ${appName}`);
     
-    // IMPORTANT: PolyLearn stays in the main app (index.html)
-    // MathEase and FactoLearn redirect to their folders
+    // ALL APPS NOW STAY IN THE MAIN APP
+    console.log(`🎯 ${appName} selected - staying in main app`);
+    showNotification(`Opening ${appName}...`, 'info');
+    
+    // Navigate to dashboard within the same page
+    navigateTo('dashboard');
+    
+    // Update the dashboard based on which app was selected
     if (appName === 'polylearn') {
-        console.log('🎯 PolyLearn selected - staying in main app');
-        showNotification('Opening PolyLearn...', 'info');
-        
-        // Just navigate to dashboard within the same page
-        navigateTo('dashboard');
-        
-        // Update the dashboard for PolyLearn
         updateDashboardForPolyLearn();
-    } 
-    else if (appName === 'mathease') {
-        console.log('🎯 MathEase selected - redirecting to MathEase folder');
-        showNotification('Opening MathEase...', 'info');
-        
-        // Redirect to MathEase folder
-        setTimeout(() => {
-            window.location.href = 'MathEase/mathease.html';
-        }, 500);
-    }
-    else if (appName === 'factolearn' || appName === 'factorial') {
-        console.log('🎯 FactoLearn selected - redirecting to FactoLearn folder');
-        showNotification('Opening FactoLearn...', 'info');
-        
-        // Redirect to FactoLearn folder
-        setTimeout(() => {
-            window.location.href = 'FactoLearn/factolearn.html';
-        }, 500);
+    } else if (appName === 'mathease') {
+        updateDashboardForMathEase();
+    } else if (appName === 'factolearn' || appName === 'factorial') {
+        updateDashboardForFactoLearn();
     }
 }
 // Initialize app selection page
