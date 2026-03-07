@@ -12531,7 +12531,7 @@ async function loadQuizCategories() {
             return [];
         }
         
-        const POLYLEARN_LESSON_ID = 3;
+        const FACTOEARN_LESSON_ID = 3;
         
         // Show loading state
         const quizzesContainer = document.getElementById('userQuizzesContainer');
@@ -12547,7 +12547,7 @@ async function loadQuizCategories() {
         }
         
         // Fetch categories from server with lesson_id filter
-        const response = await fetch(`/api/quiz/categories?lesson_id=${POLYLEARN_LESSON_ID}`, {
+        const response = await fetch(`/api/quiz/categories?lesson_id=${FACTOLEARN_LESSON_ID}`, {
             headers: {
                 'Authorization': `Bearer ${token}`,
                 'Accept': 'application/json'
@@ -12781,17 +12781,17 @@ function displayQuizCategories(categories, isHardcoded = false) {
     }
     
     // STRICT FILTER - lesson_id=2 LANG
-    const polyLearnCategories = categories.filter(cat => {
+    const factoLearnCategories = categories.filter(cat => {
         const catLessonId = cat.lesson_id || cat.lessonId;
         return catLessonId == 3;
     });
     
-    console.log('🎯 After strict filtering:', polyLearnCategories.length, 'categories');
+    console.log('🎯 After strict filtering:', factoLearnCategories.length, 'categories');
     
     // I-clear ang container
     quizzesContainer.innerHTML = '';
     
-    if (!polyLearnCategories || polyLearnCategories.length === 0) {
+    if (!FfactoLearnCategories || factoLearnCategories.length === 0) {
         quizzesContainer.innerHTML = `
             <div class="card" style="padding: 40px; text-align: center;">
                 <div style="font-size: 60px; color: #ccc; margin-bottom: 20px;">
@@ -12837,7 +12837,7 @@ function displayQuizCategories(categories, isHardcoded = false) {
     // Grid ng categories - gaya ng sa ibang grids
     html += `<div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 20px;">`;
     
-    polyLearnCategories.forEach(category => {
+    factoLearnCategories.forEach(category => {
         const categoryId = category.category_id || category.id;
         const categoryName = category.category_name || category.name || 'FactoPermCombi Quiz';
         const categoryDesc = category.description || 'Test your FactoPermCombi knowledge.';
