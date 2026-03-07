@@ -12625,45 +12625,118 @@ async function loadQuizCategories() {
             return [];
         }
         
-        const FACTOEARN_LESSON_ID = 3;
+        const MATHEASE_LESSON_ID = 1;
         
         // Show loading state
         const quizzesContainer = document.getElementById('userQuizzesContainer');
         if (quizzesContainer) {
             quizzesContainer.innerHTML = `
-                <div class="card" style="padding: 40px; text-align: center;">
+                <div class="loading-container" style="text-align: center; padding: 40px;">
                     <div style="font-size: 40px; color: #7a0000; margin-bottom: 20px;">
                         <i class="fas fa-spinner fa-spin"></i>
                     </div>
-                    <p style="color: #666;">Loading FactoPermCombi categories from database...</p>
+                    <p style="color: #666;">Loading MathEase categories...</p>
                 </div>
             `;
         }
         
-        // Fetch categories from server with lesson_id filter
-        const response = await fetch(`/api/quiz/categories?lesson_id=${FACTOLEARN_LESSON_ID}`, {
-            headers: {
-                'Authorization': `Bearer ${token}`,
-                'Accept': 'application/json'
+        // Try multiple endpoints to fetch categories
+        let categories = [];
+        let success = false;
+        
+        // Endpoint 1: With lesson_id filter
+        try {
+            const response = await fetch(`/api/quiz/categories?lesson_id=${MATHEASE_LESSON_ID}`, {
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Accept': 'application/json'
+                }
+            });
+            
+            if (response.ok) {
+                const data = await response.json();
+                if (data.success && data.categories) {
+                    categories = data.categories;
+                    success = true;
+                    console.log(`✅ Found ${categories.length} categories from database`);
+                }
             }
-        });
-        
-        if (!response.ok) {
-            throw new Error(`Failed to fetch categories: ${response.status}`);
+        } catch (e) {
+            console.log('⚠️ First endpoint failed:', e.message);
         }
         
-        const data = await response.json();
-        console.log('📥 Server response:', data);
-        
-        if (data.success && data.categories) {
-            console.log(`✅ Found ${data.categories.length} categories from database`);
-            displayQuizCategories(data.categories, false);
-            return data.categories;
-        } else {
-            console.log('ℹ️ No categories returned from database');
-            displayQuizCategories([], false);
-            return [];
+        // Endpoint 2: Without filter (then filter client-side)
+        if (!success) {
+            try {
+                const response = await fetch(`/api/quiz/categories`, {
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Accept': 'application/json'
+                    }
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    if (data.success && data.categories) {
+                        categories = data.categories.filter(cat => 
+                            (cat.lesson_id || cat.lessonId) == MATHEASE_LESSON_ID
+                        );
+                        success = true;
+                        console.log(`✅ Found ${categories.length} categories (filtered)`);
+                    }
+                }
+            } catch (e) {
+                console.log('⚠️ Second endpoint failed:', e.message);
+            }
         }
+        
+        // If still no categories, use hardcoded MathEase categories
+        if (!success || categories.length === 0) {
+            console.log('📚 Using hardcoded MathEase categories');
+            categories = [
+                {
+                    category_id: 1,
+                    category_name: 'Algebra Basics',
+                    description: 'Master the fundamentals of algebra',
+                    icon: 'fa-square-root-alt',
+                    color: '#7a0000',
+                    quiz_count: 3,
+                    lesson_id: 1
+                },
+                {
+                    category_id: 2,
+                    category_name: 'Linear Equations',
+                    description: 'Solve linear equations step by step',
+                    icon: 'fa-chart-line',
+                    color: '#27ae60',
+                    quiz_count: 2,
+                    lesson_id: 1
+                },
+                {
+                    category_id: 3,
+                    category_name: 'Quadratic Equations',
+                    description: 'Master quadratic formula and factoring',
+                    icon: 'fa-calculator',
+                    color: '#3498db',
+                    quiz_count: 2,
+                    lesson_id: 1
+                },
+                {
+                    category_id: 4,
+                    category_name: 'Systems of Equations',
+                    description: 'Solve systems of linear equations',
+                    icon: 'fa-pencil-alt',
+                    color: '#f39c12',
+                    quiz_count: 3,
+                    lesson_id: 1
+                }
+            ];
+        }
+        
+        // Display the categories
+        displayQuizCategories(categories, !success);
+        
+        return categories;
         
     } catch (error) {
         console.error('❌ Error loading quiz categories:', error);
@@ -12672,10 +12745,8 @@ async function loadQuizCategories() {
         const quizzesContainer = document.getElementById('userQuizzesContainer');
         if (quizzesContainer) {
             quizzesContainer.innerHTML = `
-                <div class="card" style="padding: 40px; text-align: center;">
-                    <div style="font-size: 60px; color: #e74c3c; margin-bottom: 20px;">
-                        <i class="fas fa-exclamation-triangle"></i>
-                    </div>
+                <div style="text-align: center; padding: 40px;">
+                    <i class="fas fa-exclamation-triangle" style="font-size: 60px; color: #e74c3c; margin-bottom: 20px;"></i>
                     <h3 style="color: #666; margin-bottom: 10px;">Failed to load categories</h3>
                     <p style="color: #999; margin-bottom: 20px;">${error.message}</p>
                     <button class="btn-primary" onclick="loadQuizCategories()" style="background: #7a0000; color: white; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer;">
@@ -12687,6 +12758,152 @@ async function loadQuizCategories() {
         
         return [];
     }
+}
+// ============================================
+// ✅ Display quiz categories
+// ============================================
+function displayQuizCategories(categories, isHardcoded = false) {
+    console.log('📋 Displaying MathEase quiz categories:', categories);
+    
+    const quizzesContainer = document.getElementById('userQuizzesContainer');
+    if (!quizzesContainer) {
+        console.error('❌ userQuizzesContainer not found');
+        return;
+    }
+    
+    // Filter for MathEase (lesson_id = 1)
+    const matheaseCategories = categories.filter(cat => {
+        const catLessonId = cat.lesson_id || cat.lessonId;
+        return catLessonId == 1;
+    });
+    
+    quizzesContainer.innerHTML = '';
+    
+    if (matheaseCategories.length === 0) {
+        quizzesContainer.innerHTML = `
+            <div class="card" style="padding: 40px; text-align: center;">
+                <div style="font-size: 60px; color: #ccc; margin-bottom: 20px;">
+                    <i class="fas fa-folder-open"></i>
+                </div>
+                <h3 style="color: #666; margin-bottom: 10px;">No MathEase Categories Available</h3>
+                <p style="color: #999; margin-bottom: 20px;">Check back later for new quizzes!</p>
+                <button class="btn-primary" onclick="loadQuizCategories()" style="background: #7a0000; color: white; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer;">
+                    <i class="fas fa-redo"></i> Refresh
+                </button>
+            </div>
+        `;
+        return;
+    }
+    
+    let html = `
+        <div class="card full-width-card" style="margin-bottom: 20px;">
+            <div class="card-header" style="padding: 20px 25px 0;">
+                <h2 class="card-title" style="display: flex; align-items: center; gap: 10px; font-size: 1.4rem; color: var(--text-color); margin-bottom: 5px;">
+                    <i class="fas fa-folder" style="color: #7a0000;"></i> 
+                    MathEase Quiz Categories
+                </h2>
+                <p class="card-subtitle" style="color: var(--text-light); font-size: 0.95rem;">
+                    Select a category to start practicing
+                </p>
+            </div>
+            
+            <div style="padding: 20px 25px 25px;">
+    `;
+    
+    if (isHardcoded) {
+        html += `
+            <div style="background: #f39c12; color: white; padding: 10px 15px; border-radius: 8px; margin-bottom: 20px; display: flex; align-items: center; gap: 10px;">
+                <i class="fas fa-info-circle"></i>
+                <span>Using sample data (offline mode)</span>
+            </div>
+        `;
+    }
+    
+    html += `<div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 20px;">`;
+    
+    matheaseCategories.forEach(category => {
+        const categoryId = category.category_id || category.id;
+        const categoryName = category.category_name || category.name || 'MathEase Quiz';
+        const categoryDesc = category.description || 'Test your MathEase knowledge.';
+        const totalQuizzes = category.quiz_count || category.total_quizzes || 3;
+        const categoryColor = category.color || '#7a0000';
+        const categoryIcon = category.icon || 'fa-square-root-alt';
+        
+        html += `
+            <div class="quiz-category-card" data-category-id="${categoryId}" 
+                 style="cursor: pointer; background: white; border-radius: 12px; overflow: hidden;
+                        box-shadow: 0 4px 12px rgba(0,0,0,0.1); border: 1px solid var(--border-color);
+                        transition: all 0.3s ease;">
+                
+                <div style="height: 6px; background: ${categoryColor}; width: 100%;"></div>
+                
+                <div style="padding: 20px;">
+                    <div style="display: flex; align-items: center; gap: 15px; margin-bottom: 15px;">
+                        <div style="width: 50px; height: 50px; background: ${categoryColor}20; 
+                                    border-radius: 12px; display: flex; align-items: center; 
+                                    justify-content: center; font-size: 24px; color: ${categoryColor};">
+                            <i class="fas ${categoryIcon}"></i>
+                        </div>
+                        <div style="flex: 1;">
+                            <h3 style="margin: 0 0 5px 0; color: #2c3e50; font-size: 18px; font-weight: 600;">
+                                ${categoryName}
+                            </h3>
+                            <div style="display: flex; align-items: center; gap: 10px;">
+                                <span style="background: ${categoryColor}10; color: ${categoryColor}; 
+                                           padding: 4px 10px; border-radius: 20px; font-size: 12px;">
+                                    <i class="fas fa-graduation-cap"></i> MathEase
+                                </span>
+                                <span style="color: #7f8c8d; font-size: 13px;">
+                                    <i class="fas fa-question-circle"></i> ${totalQuizzes} quizzes
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <p style="color: #6c757d; font-size: 14px; line-height: 1.5; margin: 0 0 20px 0;">
+                        ${categoryDesc}
+                    </p>
+                    
+                    <button class="quiz-category-btn" data-category-id="${categoryId}" 
+                            style="width: 100%; padding: 12px; background: ${categoryColor}; 
+                                   color: white; border: none; border-radius: 8px; 
+                                   font-weight: 600; cursor: pointer; display: flex;
+                                   align-items: center; justify-content: center; gap: 8px;
+                                   transition: all 0.3s ease;">
+                        <i class="fas fa-play-circle"></i> Browse Quizzes
+                        <i class="fas fa-arrow-right"></i>
+                    </button>
+                </div>
+            </div>
+        `;
+    });
+    
+    html += `</div></div></div>`;
+    quizzesContainer.innerHTML = html;
+    
+    // Add event listeners
+    document.querySelectorAll('.quiz-category-card').forEach(card => {
+        card.addEventListener('click', function(e) {
+            if (e.target.closest('.quiz-category-btn')) return;
+            const categoryId = this.getAttribute('data-category-id');
+            if (categoryId) {
+                console.log('🎯 Category card clicked:', categoryId);
+                loadQuizzesForCategory(categoryId);
+            }
+        });
+    });
+    
+    document.querySelectorAll('.quiz-category-btn').forEach(btn => {
+        btn.addEventListener('click', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            const categoryId = this.getAttribute('data-category-id');
+            if (categoryId) {
+                console.log('🎯 Browse button clicked:', categoryId);
+                loadQuizzesForCategory(categoryId);
+            }
+        });
+    });
 }
 // ============================================
 // 🆘 OFFLINE CATEGORIES - Gumagana kahit walang internet
@@ -19814,252 +20031,215 @@ async function testVideoAccessibility(url) {
 }
 
 // ============================================
-// RAILWAY FIX: Load video from database with better error handling
+// ✅ FIXED: Load video from database with lesson info
 // ============================================
 async function loadVideoFromDatabase(contentId = null) {
     console.log('🎬 loadVideoFromDatabase called with contentId:', contentId);
     
-    // Try multiple selectors for video container - use LET instead of CONST
-    let videoContainer = document.getElementById('videoContainer') || 
-                         document.querySelector('.video-container') ||
-                         document.querySelector('#module-dashboard-page .video-section');
-    
-    const videoInfo = document.getElementById('videoInfo');
-    const refreshVideoBtn = document.getElementById('refreshVideoBtn');
-    
-    if (!videoContainer) {
-        console.error('❌ Video container not found! DOM structure:', {
-            videoContainer: document.getElementById('videoContainer'),
-            moduleDashboard: document.getElementById('module-dashboard-page'),
-            videoSection: document.querySelector('.video-section')
-        });
-        
-        // Create video container if it doesn't exist
-        const moduleDashboard = document.getElementById('module-dashboard-page');
-        if (moduleDashboard) {
-            const videoSection = moduleDashboard.querySelector('.video-section');
-            if (videoSection) {
-                console.log('🔄 Creating video container dynamically...');
-                videoSection.innerHTML = `
-                    <div id="videoContainer" style="background: #000; min-height: 300px; width: 100%;">
-                        <div style="background: #f0f0f0; height: 400px; display: flex; align-items: center; justify-content: center; flex-direction: column;">
-                            <i class="fas fa-spinner fa-spin" style="font-size: 40px; color: #7a0000; margin-bottom: 20px;"></i>
-                            <p style="color: #666;">Loading video...</p>
-                        </div>
-                    </div>
-                `;
-            }
-        }
-        
-        // Try to get container again - reassign to LET variable
-        videoContainer = document.getElementById('videoContainer');
-        if (!videoContainer) {
-            console.error('❌ Still cannot find video container');
-            return null;
-        }
+    if (!contentId && LessonState.currentLesson) {
+        contentId = LessonState.currentLesson.content_id;
     }
     
+    if (!contentId) {
+        const urlParams = new URLSearchParams(window.location.search);
+        contentId = urlParams.get('lessonId') || urlParams.get('id') || 1;
+    }
+    
+    console.log(`🎬 Loading lesson for ID: ${contentId}`);
+    
+    // Get elements
+    const videoContainer = document.getElementById('videoContainer');
+    const videoInfo = document.getElementById('videoInfo');
+    const moduleTitle = document.getElementById('moduleTitle');
+    const moduleSubtitle = document.getElementById('moduleSubtitle');
+    const lessonContent = document.getElementById('lessonContent');
+    
     try {
-        // Use provided contentId or get from current lesson
-        if (!contentId && LessonState.currentLesson) {
-            contentId = LessonState.currentLesson.content_id;
-        }
-        
-        // If still no contentId, try from URL
-        if (!contentId) {
-            const urlParams = new URLSearchParams(window.location.search);
-            contentId = urlParams.get('lessonId') || urlParams.get('id') || urlParams.get('contentId') || 1;
-        }
-        
-        console.log(`🎬 Loading video for lesson ID: ${contentId} on Railway`);
+        const token = localStorage.getItem('authToken') || authToken;
         
         // Show loading
-        videoContainer.innerHTML = `
-            <div style="background: #f0f0f0; height: 400px; display: flex; align-items: center; justify-content: center; flex-direction: column;">
-                <i class="fas fa-spinner fa-spin" style="font-size: 40px; color: #7a0000; margin-bottom: 20px;"></i>
-                <p style="color: #666;">Loading video from database...</p>
-            </div>
-        `;
-        
-        if (videoInfo) {
-            videoInfo.innerHTML = '<p><i class="fas fa-spinner fa-spin"></i> Fetching video data...</p>';
+        if (videoContainer) {
+            videoContainer.innerHTML = `
+                <div style="background: #f0f0f0; height: 400px; display: flex; align-items: center; justify-content: center; flex-direction: column;">
+                    <i class="fas fa-spinner fa-spin" style="font-size: 40px; color: #7a0000; margin-bottom: 20px;"></i>
+                    <p style="color: #666;">Loading lesson from database...</p>
+                </div>
+            `;
         }
         
-        if (refreshVideoBtn) {
-            refreshVideoBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
-            refreshVideoBtn.disabled = true;
+        if (lessonContent) {
+            lessonContent.innerHTML = `
+                <div class="loading-content">
+                    <i class="fas fa-spinner fa-spin"></i>
+                    <p>Loading lesson content...</p>
+                </div>
+            `;
         }
         
-        // Use apiRequest for consistency
-        const lessonData = await apiRequest(`/api/lessons-db/${contentId}`);
+        // Fetch lesson data
+        const response = await fetch(`/api/lessons-db/${contentId}`, {
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+            }
+        });
         
-        if (!lessonData.success || !lessonData.lesson) {
+        if (!response.ok) {
+            throw new Error(`Failed to fetch lesson: ${response.status}`);
+        }
+        
+        const data = await response.json();
+        
+        if (!data.success || !data.lesson) {
             throw new Error('Lesson not found');
         }
         
-        const lesson = lessonData.lesson;
-        console.log('✅ Lesson data loaded:', lesson.content_title);
+        const lesson = data.lesson;
+        console.log('✅ Lesson loaded:', lesson);
         
-        // Update lesson info
-        const titleElement = document.getElementById('videoLessonTitle');
-        if (titleElement) {
-            titleElement.textContent = lesson.content_title || 'Video Lesson';
+        // ===== UPDATE LESSON TITLE AND DESCRIPTION =====
+        if (moduleTitle) {
+            moduleTitle.textContent = lesson.content_title || 'MathEase Lesson';
         }
         
-        const descElement = document.getElementById('videoLessonDescription');
-        if (descElement) {
-            descElement.textContent = lesson.content_description || '';
+        if (moduleSubtitle) {
+            const description = lesson.content_description || 
+                               lesson.description || 
+                               'Learn mathematics concepts with interactive lessons.';
+            moduleSubtitle.textContent = description.substring(0, 100) + 
+                                        (description.length > 100 ? '...' : '');
         }
         
-        // Determine video source
-        let videoUrl = null;
-        let videoType = 'none';
-        
-        // Check for YouTube URL first
-        if (lesson.content_url && (lesson.content_url.includes('youtube') || lesson.content_url.includes('youtu.be'))) {
-            videoUrl = lesson.content_url;
-            videoType = 'youtube';
-            console.log('🔗 Using YouTube video:', videoUrl);
-        }
-        // Check for video_filename (uploaded video)
-        else if (lesson.video_filename) {
-            if (lesson.video_filename.startsWith('http')) {
-                videoUrl = lesson.video_filename;
-            } else {
-                // For Railway, use absolute URL
-                videoUrl = `${window.location.origin}/videos/${lesson.video_filename}`;
-            }
-            videoType = 'uploaded';
-            console.log('🎬 Using uploaded video:', videoUrl);
-        }
-        // Check for video_path
-        else if (lesson.video_path) {
-            if (lesson.video_path.startsWith('http')) {
-                videoUrl = lesson.video_path;
-            } else {
-                const filename = lesson.video_path.split('/').pop();
-                videoUrl = `${window.location.origin}/videos/${filename}`;
-            }
-            videoType = 'path';
-            console.log('📁 Using video path:', videoUrl);
-        }
-        
-        // Clear container
-        videoContainer.innerHTML = '';
-        
-        // Handle YouTube videos
-        if (videoType === 'youtube' && videoUrl) {
-            const videoId = extractYoutubeId(videoUrl);
-            if (videoId) {
-                const iframe = document.createElement('iframe');
-                iframe.width = '100%';
-                iframe.height = '400';
-                iframe.src = `https://www.youtube.com/embed/${videoId}`;
-                iframe.frameBorder = '0';
-                iframe.allowFullscreen = true;
-                iframe.allow = 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture';
-                videoContainer.appendChild(iframe);
-                
-                if (videoInfo) {
-                    videoInfo.innerHTML = `
-                        <p><i class="fab fa-youtube" style="color: #ff0000;"></i> <strong>YouTube Video</strong></p>
-                        <p>${lesson.content_title || ''}</p>
-                    `;
-                }
-                return;
-            }
-        }
-        
-        // Handle uploaded videos
-        if (videoUrl) {
-            const video = document.createElement('video');
-            video.id = 'lessonVideo';
-            video.controls = true;
-            video.style.width = '100%';
-            video.style.maxHeight = '400px';
-            video.style.backgroundColor = '#000';
+        // ===== UPDATE LESSON CONTENT =====
+        if (lessonContent) {
+            const contentDescription = lesson.content_description || 
+                                      lesson.description || 
+                                      'No description available for this lesson.';
             
-            const source = document.createElement('source');
-            source.src = videoUrl + '?v=' + Date.now(); // Cache buster
-            source.type = 'video/mp4';
-            
-            video.appendChild(source);
-            video.appendChild(document.createTextNode('Your browser does not support the video tag.'));
-            
-            // Success handler
-            video.onloadeddata = function() {
-                console.log(`✅ Video loaded successfully: ${videoUrl}`);
-                if (videoInfo) {
-                    videoInfo.innerHTML = `
-                        <p><i class="fas fa-check-circle" style="color: #27ae60;"></i> <strong>${lesson.content_title || 'Video Lesson'}</strong></p>
-                        <p><i class="fas fa-clock"></i> Duration: ${Math.floor((lesson.video_duration_seconds || 600) / 60)} min</p>
-                    `;
-                }
-                // Initialize progress tracking
-                initVideoProgressTracking(video, contentId);
-            };
-            
-            // Error handler
-            video.onerror = function() {
-                console.error('❌ Video failed to load:', videoUrl);
-                videoContainer.innerHTML = `
-                    <div style="background: #fee; height: 400px; display: flex; align-items: center; justify-content: center; flex-direction: column;">
-                        <i class="fas fa-exclamation-triangle" style="font-size: 60px; color: #e74c3c; margin-bottom: 20px;"></i>
-                        <h3 style="color: #c0392b;">Video not found</h3>
-                        <p style="color: #e74c3c;">The video file may be missing or inaccessible.</p>
-                        <p style="color: #666; font-size: 12px; margin-top: 10px;">Path: ${videoUrl}</p>
+            lessonContent.innerHTML = `
+                <div class="lesson-content-wrapper">
+                    <h2 class="lesson-subtitle">About This Lesson</h2>
+                    <p class="lesson-paragraph">${contentDescription}</p>
+                    
+                    <h2 class="lesson-subtitle">Learning Objectives</h2>
+                    <ul class="lesson-list">
+                        <li>Understand key mathematical concepts</li>
+                        <li>Apply formulas and techniques</li>
+                        <li>Solve practice problems</li>
+                        <li>Test your knowledge with quizzes</li>
+                    </ul>
+                    
+                    <h2 class="lesson-subtitle">Key Concepts</h2>
+                    <div class="example-box">
+                        <p>This lesson covers essential MathEase concepts. Complete the video and practice exercises to master the material.</p>
                     </div>
-                `;
-                if (videoInfo) {
-                    videoInfo.innerHTML = `
-                        <p style="color: #e74c3c;">
-                            <i class="fas fa-exclamation-triangle"></i> 
-                            Video failed to load. Please check if the file exists.
-                        </p>
-                    `;
-                }
-            };
-            
-            videoContainer.appendChild(video);
-            video.load();
-        } else {
-            // No video available
-            videoContainer.innerHTML = `
-                <div style="background: #f0f0f0; height: 400px; display: flex; align-items: center; justify-content: center; flex-direction: column;">
-                    <i class="fas fa-video-slash" style="font-size: 60px; color: #999; margin-bottom: 20px;"></i>
-                    <h3 style="color: #666;">No video available for this lesson</h3>
-                    <p style="color: #999;">The video will appear here once uploaded.</p>
                 </div>
             `;
+        }
+        
+        // ===== UPDATE VIDEO =====
+        if (videoContainer) {
+            videoContainer.innerHTML = '';
             
-            if (videoInfo) {
-                videoInfo.innerHTML = `
-                    <p style="color: #f39c12;">
-                        <i class="fas fa-info-circle"></i> 
-                        This lesson has no video assigned.
-                    </p>
+            // Determine video source
+            let videoUrl = null;
+            
+            if (lesson.content_url && (lesson.content_url.includes('youtube') || lesson.content_url.includes('youtu.be'))) {
+                // YouTube video
+                const videoId = extractYoutubeId(lesson.content_url);
+                if (videoId) {
+                    const iframe = document.createElement('iframe');
+                    iframe.width = '100%';
+                    iframe.height = '400';
+                    iframe.src = `https://www.youtube.com/embed/${videoId}`;
+                    iframe.frameBorder = '0';
+                    iframe.allowFullscreen = true;
+                    videoContainer.appendChild(iframe);
+                }
+            } else if (lesson.video_filename) {
+                // Uploaded video
+                let videoPath = lesson.video_filename;
+                if (!videoPath.startsWith('http')) {
+                    videoPath = `/videos/${videoPath}`;
+                }
+                
+                const video = document.createElement('video');
+                video.id = 'lessonVideo';
+                video.controls = true;
+                video.style.width = '100%';
+                video.style.maxHeight = '400px';
+                video.style.backgroundColor = '#000';
+                
+                const source = document.createElement('source');
+                source.src = videoPath;
+                source.type = 'video/mp4';
+                
+                video.appendChild(source);
+                video.appendChild(document.createTextNode('Your browser does not support the video tag.'));
+                videoContainer.appendChild(video);
+                
+                // Initialize progress tracking
+                initVideoProgressTracking(video, contentId);
+            } else {
+                // No video
+                videoContainer.innerHTML = `
+                    <div style="background: #f0f0f0; height: 400px; display: flex; align-items: center; justify-content: center; flex-direction: column;">
+                        <i class="fas fa-video-slash" style="font-size: 60px; color: #999; margin-bottom: 20px;"></i>
+                        <h3 style="color: #666;">No video available</h3>
+                        <p style="color: #999;">The video will appear here once uploaded.</p>
+                    </div>
                 `;
             }
         }
         
-    } catch (error) {
-        console.error('❌ Error loading video:', error);
-        
-        videoContainer.innerHTML = `
-            <div style="background: #fee; height: 400px; display: flex; align-items: center; justify-content: center; flex-direction: column;">
-                <i class="fas fa-exclamation-triangle" style="font-size: 60px; color: #e74c3c; margin-bottom: 20px;"></i>
-                <h3 style="color: #c0392b;">Failed to load video</h3>
-                <p style="color: #e74c3c;">${error.message}</p>
-                <button onclick="location.reload()" class="btn-primary" style="margin-top: 20px; padding: 10px 20px;">
-                    <i class="fas fa-redo"></i> Reload Page
-                </button>
-            </div>
-        `;
-    } finally {
-        if (refreshVideoBtn) {
-            refreshVideoBtn.innerHTML = '<i class="fas fa-sync-alt"></i>';
-            refreshVideoBtn.disabled = false;
+        // Update video info
+        if (videoInfo) {
+            const duration = lesson.video_duration_seconds ? 
+                `${Math.floor(lesson.video_duration_seconds / 60)} min` : 
+                'N/A';
+            
+            videoInfo.innerHTML = `
+                <p><i class="fas fa-check-circle" style="color: #27ae60;"></i> <strong>${lesson.content_title || 'Lesson'}</strong></p>
+                <p><i class="fas fa-clock"></i> Duration: ${duration}</p>
+                <p><i class="fas fa-calendar"></i> Last updated: ${new Date().toLocaleDateString()}</p>
+            `;
         }
+        
+        // Store in LessonState
+        LessonState.currentLesson = lesson;
+        
+        // Update progress display
+        await updateProgressDisplay(lesson);
+        
+        return lesson;
+        
+    } catch (error) {
+        console.error('❌ Error loading lesson:', error);
+        
+        if (lessonContent) {
+            lessonContent.innerHTML = `
+                <div class="error-content">
+                    <i class="fas fa-exclamation-triangle" style="font-size: 48px; color: #e74c3c; margin-bottom: 15px;"></i>
+                    <h3 style="color: #2c3e50; margin-bottom: 10px;">Failed to load lesson</h3>
+                    <p style="color: #7f8c8d; margin-bottom: 20px;">${error.message}</p>
+                    <button onclick="location.reload()" class="btn-primary" style="padding: 10px 20px;">
+                        <i class="fas fa-redo"></i> Reload Page
+                    </button>
+                </div>
+            `;
+        }
+        
+        if (videoContainer) {
+            videoContainer.innerHTML = `
+                <div style="background: #fee; height: 400px; display: flex; align-items: center; justify-content: center; flex-direction: column;">
+                    <i class="fas fa-exclamation-triangle" style="font-size: 60px; color: #e74c3c; margin-bottom: 20px;"></i>
+                    <h3 style="color: #c0392b;">Failed to load video</h3>
+                    <p style="color: #e74c3c;">${error.message}</p>
+                </div>
+            `;
+        }
+        
+        return null;
     }
 }
 
