@@ -6178,7 +6178,7 @@ window.goToNextPractice = function() {
 // Call this function when initializing practice page
 addPracticeResultModalStyles();
 // ============================================
-// ✅ FIXED: Fetch Practice Exercises from Database - REMOVE 404 ENDPOINTS
+// ✅ FIXED: Fetch Practice Exercises from Database - USING TOPICS DATA
 // ============================================
 async function fetchPracticeExercisesFromDB(topicId) {
     console.log(`📝 Getting practice exercises for topic ${topicId} from database`);
@@ -6190,110 +6190,132 @@ async function fetchPracticeExercisesFromDB(topicId) {
             return getDemoPracticeExercises(topicId);
         }
         
-        // ✅ FORCE LESSON_ID = 3 (OVERRIDE ANYTHING)
+        // ✅ FORCE LESSON_ID = 3
         const FORCED_LESSON_ID = 3;
         console.log(`🔧 FORCING lesson_id=${FORCED_LESSON_ID} for all practice exercises`);
         
-        // ===== TRY ONLY WORKING ENDPOINTS (REMOVE THOSE THAT CAUSE 404) =====
-        const endpoints = [
-            // Primary endpoint with forced lesson_id
-            `/api/practice/topic/${topicId}?lesson_id=${FORCED_LESSON_ID}`,
+        // ===== TRY TOPICS PROGRESS ENDPOINT (WORKING) =====
+        try {
+            console.log(`📡 Fetching topics for lesson_id=${FORCED_LESSON_ID}`);
+            const topicsResponse = await fetch(`/api/topics/progress?lesson_id=${FORCED_LESSON_ID}`, {
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Accept': 'application/json'
+                }
+            });
             
-            // Alternative endpoints that might work
-            `/api/practice/list?topic=${topicId}&lesson_id=${FORCED_LESSON_ID}`,
-            
-            // Progress endpoints (to get exercise data)
-            `/api/progress/practice-attempts?lesson_id=${FORCED_LESSON_ID}`,
-            `/api/topics/progress?lesson_id=${FORCED_LESSON_ID}`,
-            
-            // Lesson-based endpoints
-            `/api/lessons-db/complete?lesson_id=${FORCED_LESSON_ID}`
-        ];
-        
-        let allExercises = [];
-        
-        for (const endpoint of endpoints) {
-            try {
-                console.log(`📡 Fetching from: ${endpoint}`);
+            if (topicsResponse.ok) {
+                const topicsData = await topicsResponse.json();
+                console.log('📥 Topics response:', topicsData);
                 
-                const response = await fetch(endpoint, {
-                    headers: {
-                        'Authorization': `Bearer ${token}`,
-                        'Accept': 'application/json'
-                    }
-                });
-                
-                console.log(`📥 Response status: ${response.status}`);
-                
-                if (response.ok) {
-                    const data = await response.json();
-                    console.log(`📥 Server response:`, data);
+                if (topicsData.success && topicsData.topics) {
+                    // Find the specific topic
+                    const topic = topicsData.topics.find(t => t.topic_id == topicId);
                     
-                    // Extract exercises from various response formats
-                    let exercises = [];
-                    
-                    if (data.success && data.exercises) {
-                        exercises = data.exercises;
-                    } else if (data.exercises) {
-                        exercises = data.exercises;
-                    } else if (Array.isArray(data)) {
-                        exercises = data;
-                    } else if (data.data && Array.isArray(data.data)) {
-                        exercises = data.data;
-                    } else if (endpoint.includes('/topics/progress') && data.topics) {
-                        // Generate exercises from topics
-                        const topic = data.topics.find(t => t.topic_id == topicId);
-                        if (topic) {
-                            exercises = generateExercisesFromTopic(topic, FORCED_LESSON_ID);
+                    if (topic) {
+                        console.log(`✅ Found topic: ${topic.topic_title}`);
+                        
+                        // Generate exercises from topic data
+                        const exercises = generateExercisesFromTopicData(topic, FORCED_LESSON_ID);
+                        
+                        if (exercises.length > 0) {
+                            console.log(`✅ Generated ${exercises.length} exercises from topic data`);
+                            return exercises;
                         }
-                    } else if (endpoint.includes('/lessons-db/complete') && data.lessons) {
-                        // Generate exercises from lessons
-                        exercises = generateExercisesFromLessons(data.lessons, FORCED_LESSON_ID);
-                    }
-                    
-                    // ✅ STRICT FILTER - LESSON_ID MUST BE 3
-                    const filteredExercises = exercises.filter(ex => {
-                        const exLessonId = ex.lesson_id || ex.lessonId;
-                        return exLessonId == FORCED_LESSON_ID;
-                    });
-                    
-                    console.log(`📊 Found ${filteredExercises.length} exercises with lesson_id=${FORCED_LESSON_ID}`);
-                    
-                    if (filteredExercises.length > 0) {
-                        allExercises = [...allExercises, ...filteredExercises];
+                    } else {
+                        console.log(`⚠️ Topic ${topicId} not found in topics list`);
                     }
                 }
-            } catch (e) {
-                console.log(`⚠️ Endpoint ${endpoint} failed:`, e.message);
             }
+        } catch (error) {
+            console.log('⚠️ Topics endpoint failed:', error.message);
         }
         
-        // Remove duplicates by exercise_id
-        const uniqueExercises = [];
-        const seenIds = new Set();
-        
-        allExercises.forEach(ex => {
-            const exId = ex.exercise_id || ex.id;
-            if (!seenIds.has(exId)) {
-                seenIds.add(exId);
-                uniqueExercises.push(ex);
+        // ===== TRY PRACTICE ATTEMPTS ENDPOINT =====
+        try {
+            console.log(`📡 Fetching practice attempts for lesson_id=${FORCED_LESSON_ID}`);
+            const attemptsResponse = await fetch(`/api/progress/practice-attempts?lesson_id=${FORCED_LESSON_ID}`, {
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Accept': 'application/json'
+                }
+            });
+            
+            if (attemptsResponse.ok) {
+                const attemptsData = await attemptsResponse.json();
+                console.log('📥 Attempts response:', attemptsData);
+                
+                if (attemptsData.success && attemptsData.attempts && attemptsData.attempts.length > 0) {
+                    // Get unique exercise IDs from attempts
+                    const exerciseIds = [...new Set(attemptsData.attempts.map(a => a.exercise_id))];
+                    
+                    if (exerciseIds.length > 0) {
+                        console.log(`✅ Found ${exerciseIds.length} exercise IDs from attempts`);
+                        
+                        // Generate exercises from attempt data
+                        const exercises = exerciseIds.map((id, index) => ({
+                            exercise_id: id,
+                            lesson_id: FORCED_LESSON_ID,
+                            topic_id: topicId,
+                            title: `Practice Exercise ${index + 1}`,
+                            description: 'Practice your factorial and permutation skills.',
+                            difficulty: index === 0 ? 'easy' : (index === 1 ? 'medium' : 'hard'),
+                            points: (index + 1) * 10,
+                            user_progress: {
+                                attempts: attemptsData.attempts.filter(a => a.exercise_id === id).length,
+                                best_score: Math.max(...attemptsData.attempts.filter(a => a.exercise_id === id).map(a => a.score || 0))
+                            }
+                        }));
+                        
+                        return exercises;
+                    }
+                }
             }
-        });
-        
-        if (uniqueExercises.length > 0) {
-            console.log(`✅ TOTAL: ${uniqueExercises.length} unique exercises for lesson_id=${FORCED_LESSON_ID}`);
-            
-            // Force add lesson_id=3 to all exercises (double safety)
-            const finalExercises = uniqueExercises.map(ex => ({
-                ...ex,
-                lesson_id: FORCED_LESSON_ID
-            }));
-            
-            return finalExercises;
+        } catch (error) {
+            console.log('⚠️ Attempts endpoint failed:', error.message);
         }
         
-        // If no exercises found, use demo data
-        console.log('⚠️ No exercises found in database, using demo data');
+        // ===== TRY LESSONS ENDPOINT =====
+        try {
+            console.log(`📡 Fetching lessons for lesson_id=${FORCED_LESSON_ID}`);
+            const lessonsResponse = await fetch(`/api/lessons-db/complete?lesson_id=${FORCED_LESSON_ID}`, {
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Accept': 'application/json'
+                }
+            });
+            
+            if (lessonsResponse.ok) {
+                const lessonsData = await lessonsResponse.json();
+                console.log('📥 Lessons response:', lessonsData);
+                
+                if (lessonsData.success && lessonsData.lessons) {
+                    const topicLessons = lessonsData.lessons.filter(l => l.topic_id == topicId);
+                    
+                    if (topicLessons.length > 0) {
+                        console.log(`✅ Found ${topicLessons.length} lessons for topic ${topicId}`);
+                        
+                        // Generate exercises from lessons
+                        const exercises = topicLessons.map((lesson, index) => ({
+                            exercise_id: parseInt(`3${index + 1}01`),
+                            lesson_id: FORCED_LESSON_ID,
+                            topic_id: topicId,
+                            title: `Practice: ${lesson.content_title || `Lesson ${index + 1}`}`,
+                            description: lesson.content_description || 'Practice what you learned in this lesson.',
+                            difficulty: index < 2 ? 'easy' : (index < 4 ? 'medium' : 'hard'),
+                            points: (index + 1) * 10
+                        }));
+                        
+                        return exercises;
+                    }
+                }
+            }
+        } catch (error) {
+            console.log('⚠️ Lessons endpoint failed:', error.message);
+        }
+        
+        // ===== FALLBACK TO DEMO DATA =====
+        console.log('⚠️ No data found in database, using demo data');
         return getDemoPracticeExercises(topicId);
         
     } catch (error) {
@@ -6301,6 +6323,49 @@ async function fetchPracticeExercisesFromDB(topicId) {
         return getDemoPracticeExercises(topicId);
     }
 }
+
+// ============================================
+// ✅ HELPER: Generate exercises from topic data
+// ============================================
+function generateExercisesFromTopicData(topic, lessonId = 3) {
+    if (!topic) return [];
+    
+    const exercises = [];
+    const topicTitle = topic.topic_title || 'Factorial Topic';
+    const lessonsCompleted = topic.lessons_completed || 0;
+    const totalLessons = topic.total_lessons || 3;
+    
+    // Generate exercises based on topic difficulty
+    const exerciseCount = Math.min(3, totalLessons);
+    
+    for (let i = 1; i <= exerciseCount; i++) {
+        // Determine difficulty based on lesson progress
+        let difficulty = 'easy';
+        if (i === 2) difficulty = 'medium';
+        if (i === 3) difficulty = 'hard';
+        
+        // Only unlock exercises if enough lessons completed
+        const isUnlocked = i <= lessonsCompleted;
+        
+        exercises.push({
+            exercise_id: parseInt(`${topic.topic_id || 1}0${i}`),
+            lesson_id: lessonId,
+            topic_id: topic.topic_id || 1,
+            title: `${topicTitle} - Exercise ${i}`,
+            description: `Practice ${topicTitle.toLowerCase()} concepts with this exercise.`,
+            difficulty: difficulty,
+            points: i * 10,
+            is_unlocked: isUnlocked,
+            user_progress: {
+                completion_status: i <= lessonsCompleted ? 'available' : 'locked',
+                attempts: 0
+            }
+        });
+    }
+    
+    return exercises;
+}
+
 
 // ============================================
 // ✅ HELPER: Generate exercises from topic
@@ -21894,100 +21959,109 @@ window.testDatabaseConnection = async function() {
     }
 };
 // ============================================
-// Helper: Get demo practice exercises
+// ✅ UPDATED: getDemoPracticeExercises - WITH lesson_id=3
 // ============================================
 function getDemoPracticeExercises(topicId) {
-    // Demo exercises for different topics
-    const demoExercises = {
-        1: [ // Polynomial Division
-            {
-                exercise_id: 101,
-                title: 'Basic Polynomial Division',
-                description: 'Practice dividing polynomials using long division',
-                difficulty: 'easy',
-                points: 10,
-                questions: [
-                    {
-                        text: 'Divide (x² + 5x + 6) by (x + 2)',
-                        options: [
-                            { text: 'x + 3', correct: true },
-                            { text: 'x - 3', correct: false },
-                            { text: 'x + 2', correct: false },
-                            { text: 'x² + 3', correct: false }
-                        ]
-                    },
-                    {
-                        text: 'What is the remainder when (x³ - 8) is divided by (x - 2)?',
-                        options: [
-                            { text: '0', correct: true },
-                            { text: '4', correct: false },
-                            { text: '8', correct: false },
-                            { text: '16', correct: false }
-                        ]
-                    }
-                ]
-            },
-            {
-                exercise_id: 102,
-                title: 'Synthetic Division',
-                description: 'Practice synthetic division with linear divisors',
-                difficulty: 'medium',
-                points: 15,
-                questions: [
-                    {
-                        text: 'Use synthetic division to divide (2x³ + 3x² - 4x + 5) by (x + 1)',
-                        options: [
-                            { text: '2x² + x - 5 + 10/(x+1)', correct: true },
-                            { text: '2x² + x - 5', correct: false },
-                            { text: '2x² + 5x - 9', correct: false },
-                            { text: '2x² - x + 5', correct: false }
-                        ]
-                    }
-                ]
-            },
-            {
-                exercise_id: 103,
-                title: 'Long Division Challenge',
-                description: 'Practice complex polynomial long division',
-                difficulty: 'hard',
-                points: 20,
-                questions: [
-                    {
-                        text: 'Divide (x⁴ - 3x³ + 2x² - x + 1) by (x² + 1)',
-                        options: [
-                            { text: 'x² - 3x + 1 + (2x)/(x²+1)', correct: true },
-                            { text: 'x² - 3x', correct: false },
-                            { text: 'x² - 3x + 2', correct: false },
-                            { text: 'x² + 3x - 1', correct: false }
-                        ]
-                    }
-                ]
-            }
-        ],
-        2: [ // Factoring
-            {
-                exercise_id: 201,
-                title: 'Factoring Basics',
-                description: 'Practice factoring simple polynomials',
-                difficulty: 'easy',
-                points: 10,
-                questions: [
-                    {
-                        text: 'Factor x² - 9',
-                        options: [
-                            { text: '(x - 3)(x + 3)', correct: true },
-                            { text: '(x - 9)(x + 1)', correct: false },
-                            { text: '(x - 3)²', correct: false },
-                            { text: '(x + 3)²', correct: false }
-                        ]
-                    }
-                ]
-            }
-        ]
-    };
+    console.log(`📚 Generating demo exercises for lesson_id=3, topic ${topicId}`);
     
-    // Return exercises for the requested topic, or default to topic 1
-    return demoExercises[topicId] || demoExercises[1];
+    return [
+        {
+            exercise_id: 301,
+            lesson_id: 3,
+            topic_id: topicId || 1,
+            title: 'Factorial Basics',
+            description: 'Practice calculating and simplifying basic factorial expressions',
+            difficulty: 'easy',
+            points: 10,
+            is_unlocked: true,
+            questions: [
+                {
+                    question_id: 1,
+                    text: 'Calculate 5! (5 factorial)',
+                    options: [
+                        { id: 1, text: '120', correct: true },
+                        { id: 2, text: '60', correct: false },
+                        { id: 3, text: '24', correct: false },
+                        { id: 4, text: '720', correct: false }
+                    ]
+                },
+                {
+                    question_id: 2,
+                    text: 'Simplify: 6! / 4!',
+                    options: [
+                        { id: 1, text: '30', correct: true },
+                        { id: 2, text: '720', correct: false },
+                        { id: 3, text: '120', correct: false },
+                        { id: 4, text: '24', correct: false }
+                    ]
+                }
+            ]
+        },
+        {
+            exercise_id: 302,
+            lesson_id: 3,
+            topic_id: topicId || 1,
+            title: 'Factorial Operations',
+            description: 'Perform operations with factorial expressions',
+            difficulty: 'medium',
+            points: 15,
+            is_unlocked: true,
+            questions: [
+                {
+                    question_id: 3,
+                    text: 'Simplify: (n+2)! / n!',
+                    options: [
+                        { id: 1, text: '(n+2)(n+1)', correct: true },
+                        { id: 2, text: 'n² + 3n + 2', correct: false },
+                        { id: 3, text: 'n+2', correct: false },
+                        { id: 4, text: 'n! + 2', correct: false }
+                    ]
+                },
+                {
+                    question_id: 4,
+                    text: 'If 7! = 5040, what is 8! ?',
+                    options: [
+                        { id: 1, text: '40320', correct: true },
+                        { id: 2, text: '4032', correct: false },
+                        { id: 3, text: '403200', correct: false },
+                        { id: 4, text: '5040', correct: false }
+                    ]
+                }
+            ]
+        },
+        {
+            exercise_id: 303,
+            lesson_id: 3,
+            topic_id: topicId || 1,
+            title: 'Permutations & Combinations',
+            description: 'Apply factorials in permutation and combination problems',
+            difficulty: 'hard',
+            points: 20,
+            is_unlocked: true,
+            questions: [
+                {
+                    question_id: 5,
+                    text: 'Calculate P(5,3) using factorial formula',
+                    options: [
+                        { id: 1, text: '60', correct: true },
+                        { id: 2, text: '120', correct: false },
+                        { id: 3, text: '20', correct: false },
+                        { id: 4, text: '10', correct: false }
+                    ]
+                },
+                {
+                    question_id: 6,
+                    text: 'Calculate C(10,2)',
+                    options: [
+                        { id: 1, text: '45', correct: true },
+                        { id: 2, text: '90', correct: false },
+                        { id: 3, text: '10', correct: false },
+                        { id: 4, text: '20', correct: false }
+                    ]
+                }
+            ]
+        }
+    ];
 }
 // ============================================
 // ✅ UPDATED: loadPracticeStatistics - WITH FORCED REFRESH
