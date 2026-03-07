@@ -34996,3 +34996,300 @@ navButtonStyle.textContent = `
     }
 `;
 document.head.appendChild(navButtonStyle);
+
+// ============================================
+// 🚨 ULTIMATE FIX: Previous/Next Buttons - DIRECT IMPLEMENTATION
+// ============================================
+
+console.log('🔧 ULTIMATE FIX: Loading navigation button fix...');
+
+// Direct function to update navigation buttons
+function updateNavButtonsDirect() {
+    console.log('🔄 Updating navigation buttons directly...');
+    
+    const prevBtn = document.getElementById('prevLessonBtn');
+    const nextBtn = document.getElementById('nextLessonBtn');
+    
+    if (!prevBtn || !nextBtn) {
+        console.log('❌ Buttons not found yet');
+        return false;
+    }
+    
+    const currentLesson = LessonState.currentLesson;
+    
+    if (!currentLesson) {
+        console.log('❌ No current lesson found');
+        return false;
+    }
+    
+    console.log('📖 Current lesson:', currentLesson.content_title);
+    console.log('📋 Adjacent lessons:', currentLesson.adjacent);
+    
+    // Remove all existing event listeners by cloning
+    const newPrev = prevBtn.cloneNode(true);
+    const newNext = nextBtn.cloneNode(true);
+    
+    if (prevBtn.parentNode) prevBtn.parentNode.replaceChild(newPrev, prevBtn);
+    if (nextBtn.parentNode) nextBtn.parentNode.replaceChild(newNext, nextBtn);
+    
+    // PREVIOUS BUTTON
+    if (currentLesson.adjacent && currentLesson.adjacent.previous) {
+        newPrev.disabled = false;
+        newPrev.innerHTML = `<i class="fas fa-arrow-left"></i> Previous: ${currentLesson.adjacent.previous.title}`;
+        newPrev.style.background = '#7a0000';
+        newPrev.style.color = 'white';
+        newPrev.style.cursor = 'pointer';
+        newPrev.style.opacity = '1';
+        
+        newPrev.onclick = async function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            
+            const prevId = currentLesson.adjacent.previous.id;
+            console.log('⬅️ Previous button clicked - loading lesson:', prevId);
+            
+            // Show loading
+            newPrev.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Loading...';
+            newPrev.disabled = true;
+            newNext.disabled = true;
+            
+            try {
+                await loadLessonDirect(prevId);
+            } catch (error) {
+                console.error('❌ Error:', error);
+                alert('Failed to load previous lesson');
+                newPrev.innerHTML = `<i class="fas fa-arrow-left"></i> Previous: ${currentLesson.adjacent.previous.title}`;
+                newPrev.disabled = false;
+                newNext.disabled = false;
+            }
+        };
+        
+        console.log('✅ Previous button ENABLED');
+    } else {
+        newPrev.disabled = true;
+        newPrev.innerHTML = '<i class="fas fa-arrow-left"></i> No Previous Lesson';
+        newPrev.style.background = '#95a5a6';
+        newPrev.style.cursor = 'not-allowed';
+        newPrev.style.opacity = '0.6';
+        console.log('ℹ️ Previous button DISABLED');
+    }
+    
+    // NEXT BUTTON
+    if (currentLesson.adjacent && currentLesson.adjacent.next) {
+        newNext.disabled = false;
+        newNext.innerHTML = `Next: ${currentLesson.adjacent.next.title} <i class="fas fa-arrow-right"></i>`;
+        newNext.style.background = '#7a0000';
+        newNext.style.color = 'white';
+        newNext.style.cursor = 'pointer';
+        newNext.style.opacity = '1';
+        
+        newNext.onclick = async function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            
+            const nextId = currentLesson.adjacent.next.id;
+            console.log('➡️ Next button clicked - loading lesson:', nextId);
+            
+            // Show loading
+            newNext.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Loading...';
+            newPrev.disabled = true;
+            newNext.disabled = true;
+            
+            try {
+                await loadLessonDirect(nextId);
+            } catch (error) {
+                console.error('❌ Error:', error);
+                alert('Failed to load next lesson');
+                newNext.innerHTML = `Next: ${currentLesson.adjacent.next.title} <i class="fas fa-arrow-right"></i>`;
+                newPrev.disabled = false;
+                newNext.disabled = false;
+            }
+        };
+        
+        console.log('✅ Next button ENABLED');
+    } else {
+        newNext.disabled = true;
+        newNext.innerHTML = 'No Next Lesson <i class="fas fa-arrow-right"></i>';
+        newNext.style.background = '#95a5a6';
+        newNext.style.cursor = 'not-allowed';
+        newNext.style.opacity = '0.6';
+        console.log('ℹ️ Next button DISABLED');
+    }
+    
+    return true;
+}
+
+// Direct lesson loader
+async function loadLessonDirect(lessonId) {
+    console.log('📖 Loading lesson directly:', lessonId);
+    
+    try {
+        const token = localStorage.getItem('authToken');
+        const response = await fetch(`/api/lessons-db/${lessonId}`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        
+        const data = await response.json();
+        if (!data.success || !data.lesson) throw new Error('Lesson not found');
+        
+        const lesson = data.lesson;
+        console.log('✅ Lesson loaded:', lesson.content_title);
+        
+        // Update state
+        LessonState.currentLesson = lesson;
+        LessonState.currentTopic = lesson.topic_id || 1;
+        
+        // Log activity
+        await logUserActivity('lesson_started', lessonId, {
+            lesson_title: lesson.content_title
+        });
+        
+        // Navigate
+        navigateTo('moduleDashboard');
+        
+        // Wait for page to load then update
+        setTimeout(async () => {
+            // Update UI
+            const titleEl = document.getElementById('moduleTitle');
+            if (titleEl) titleEl.textContent = lesson.content_title;
+            
+            const lessonTitleEl = document.getElementById('moduleLessonTitle');
+            if (lessonTitleEl) lessonTitleEl.innerHTML = `<i class="fas fa-book"></i> ${lesson.content_title}`;
+            
+            // Load video
+            await loadVideoFromDatabase(lessonId);
+            
+            // Update navigation buttons
+            updateNavButtonsDirect();
+            
+            // Update complete button
+            await checkLessonCompletionStatus();
+            
+            console.log('✅ Lesson UI updated');
+        }, 500);
+        
+    } catch (error) {
+        console.error('❌ Error loading lesson:', error);
+        throw error;
+    }
+}
+
+// Force update buttons every time module dashboard becomes visible
+function forceNavigationFix() {
+    console.log('🔧 Applying force navigation fix...');
+    
+    const modulePage = document.getElementById('module-dashboard-page');
+    
+    if (!modulePage) {
+        console.log('❌ Module page not found');
+        return;
+    }
+    
+    // Update when page becomes visible
+    const observer = new MutationObserver(function(mutations) {
+        mutations.forEach(function(mutation) {
+            if (mutation.type === 'attributes' && mutation.attributeName === 'class') {
+                if (!modulePage.classList.contains('hidden')) {
+                    console.log('📚 Module page visible - updating nav buttons');
+                    setTimeout(updateNavButtonsDirect, 300);
+                    setTimeout(updateNavButtonsDirect, 600);
+                    setTimeout(updateNavButtonsDirect, 1000);
+                }
+            }
+        });
+    });
+    
+    observer.observe(modulePage, { attributes: true });
+    
+    // Also update on navigation
+    const originalNavigate = window.navigateTo;
+    window.navigateTo = function(page) {
+        originalNavigate(page);
+        if (page === 'moduleDashboard') {
+            setTimeout(updateNavButtonsDirect, 500);
+            setTimeout(updateNavButtonsDirect, 1000);
+        }
+    };
+    
+    // Initial update if already visible
+    if (!modulePage.classList.contains('hidden')) {
+        setTimeout(updateNavButtonsDirect, 500);
+    }
+}
+
+// Emergency function to manually update
+window.forceUpdateNavButtons = function() {
+    console.log('🚨 Manually updating navigation buttons');
+    updateNavButtonsDirect();
+};
+
+// Add click handlers directly to buttons (as backup)
+document.addEventListener('click', function(e) {
+    // Check if clicked on previous button
+    if (e.target.closest('#prevLessonBtn')) {
+        e.preventDefault();
+        e.stopPropagation();
+        
+        const btn = e.target.closest('#prevLessonBtn');
+        if (btn.disabled) {
+            console.log('⛔ Previous button is disabled');
+            return;
+        }
+        
+        const currentLesson = LessonState.currentLesson;
+        if (currentLesson && currentLesson.adjacent && currentLesson.adjacent.previous) {
+            console.log('🎯 Previous button clicked via delegation');
+            loadLessonDirect(currentLesson.adjacent.previous.id);
+        }
+    }
+    
+    // Check if clicked on next button
+    if (e.target.closest('#nextLessonBtn')) {
+        e.preventDefault();
+        e.stopPropagation();
+        
+        const btn = e.target.closest('#nextLessonBtn');
+        if (btn.disabled) {
+            console.log('⛔ Next button is disabled');
+            return;
+        }
+        
+        const currentLesson = LessonState.currentLesson;
+        if (currentLesson && currentLesson.adjacent && currentLesson.adjacent.next) {
+            console.log('🎯 Next button clicked via delegation');
+            loadLessonDirect(currentLesson.adjacent.next.id);
+        }
+    }
+}, true); // Use capture phase
+
+// Debug function
+window.debugNavigation = function() {
+    console.log('🔍 NAVIGATION DEBUG:');
+    console.log('Current lesson:', LessonState.currentLesson);
+    console.log('Prev button:', document.getElementById('prevLessonBtn'));
+    console.log('Next button:', document.getElementById('nextLessonBtn'));
+    console.log('Module page visible:', !document.getElementById('module-dashboard-page')?.classList.contains('hidden'));
+    
+    if (LessonState.currentLesson && LessonState.currentLesson.adjacent) {
+        console.log('Previous lesson:', LessonState.currentLesson.adjacent.previous);
+        console.log('Next lesson:', LessonState.currentLesson.adjacent.next);
+    }
+    
+    updateNavButtonsDirect();
+};
+
+// Initialize
+document.addEventListener('DOMContentLoaded', function() {
+    console.log('🚀 Starting navigation fix...');
+    forceNavigationFix();
+    
+    // Try multiple times
+    setTimeout(updateNavButtonsDirect, 1000);
+    setTimeout(updateNavButtonsDirect, 2000);
+    setTimeout(updateNavButtonsDirect, 3000);
+});
+
+console.log('✅ Ultimate navigation fix applied!');
+console.log('💡 Commands: forceUpdateNavButtons(), debugNavigation()');
