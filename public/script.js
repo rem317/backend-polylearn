@@ -120,7 +120,7 @@ class ToolManager {
                 <div class="modal-container">
                     <div class="modal-header" style="background: #7a0000; color: white;">
                         <h3 style="margin: 0;"><i class="fas fa-calculator"></i> Calculator</h3>
-                        <button class="modal-close" onclick="window.toolManager.closeTool()" style="color: white;">&times;</button>
+                        <button class="modal-close" onclick="window.toolManager.closeTool()" style="color: black;">&times;</button>
                     </div>
                     <div class="modal-body">
                         <div class="calculator-container">
