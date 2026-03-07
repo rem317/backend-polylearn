@@ -6178,7 +6178,7 @@ window.goToNextPractice = function() {
 // Call this function when initializing practice page
 addPracticeResultModalStyles();
 // ============================================
-// ✅ FIXED: Fetch Practice Exercises from Database - USING TOPICS DATA
+// ✅ FIXED: Fetch Practice Exercises from Database - DIRECT DB CALL
 // ============================================
 async function fetchPracticeExercisesFromDB(topicId) {
     console.log(`📝 Getting practice exercises for topic ${topicId} from database`);
@@ -6194,41 +6194,31 @@ async function fetchPracticeExercisesFromDB(topicId) {
         const FORCED_LESSON_ID = 3;
         console.log(`🔧 FORCING lesson_id=${FORCED_LESSON_ID} for all practice exercises`);
         
-        // ===== TRY TOPICS PROGRESS ENDPOINT (WORKING) =====
+        // ===== TRY DIRECT PRACTICE EXERCISES ENDPOINT =====
+        // Ito ang dapat mong i-create sa backend
+        const directEndpoint = `/api/practice/lesson/${FORCED_LESSON_ID}/topic/${topicId}`;
+        
         try {
-            console.log(`📡 Fetching topics for lesson_id=${FORCED_LESSON_ID}`);
-            const topicsResponse = await fetch(`/api/topics/progress?lesson_id=${FORCED_LESSON_ID}`, {
+            console.log(`📡 Fetching from: ${directEndpoint}`);
+            
+            const response = await fetch(directEndpoint, {
                 headers: {
                     'Authorization': `Bearer ${token}`,
                     'Accept': 'application/json'
                 }
             });
             
-            if (topicsResponse.ok) {
-                const topicsData = await topicsResponse.json();
-                console.log('📥 Topics response:', topicsData);
+            if (response.ok) {
+                const data = await response.json();
+                console.log('📥 Direct endpoint response:', data);
                 
-                if (topicsData.success && topicsData.topics) {
-                    // Find the specific topic
-                    const topic = topicsData.topics.find(t => t.topic_id == topicId);
-                    
-                    if (topic) {
-                        console.log(`✅ Found topic: ${topic.topic_title}`);
-                        
-                        // Generate exercises from topic data
-                        const exercises = generateExercisesFromTopicData(topic, FORCED_LESSON_ID);
-                        
-                        if (exercises.length > 0) {
-                            console.log(`✅ Generated ${exercises.length} exercises from topic data`);
-                            return exercises;
-                        }
-                    } else {
-                        console.log(`⚠️ Topic ${topicId} not found in topics list`);
-                    }
+                if (data.success && data.exercises && data.exercises.length > 0) {
+                    console.log(`✅ Found ${data.exercises.length} exercises from direct endpoint`);
+                    return data.exercises.map(ex => ({ ...ex, lesson_id: FORCED_LESSON_ID }));
                 }
             }
-        } catch (error) {
-            console.log('⚠️ Topics endpoint failed:', error.message);
+        } catch (e) {
+            console.log('⚠️ Direct endpoint failed:', e.message);
         }
         
         // ===== TRY PRACTICE ATTEMPTS ENDPOINT =====
@@ -6252,20 +6242,27 @@ async function fetchPracticeExercisesFromDB(topicId) {
                     if (exerciseIds.length > 0) {
                         console.log(`✅ Found ${exerciseIds.length} exercise IDs from attempts`);
                         
-                        // Generate exercises from attempt data
-                        const exercises = exerciseIds.map((id, index) => ({
-                            exercise_id: id,
-                            lesson_id: FORCED_LESSON_ID,
-                            topic_id: topicId,
-                            title: `Practice Exercise ${index + 1}`,
-                            description: 'Practice your factorial and permutation skills.',
-                            difficulty: index === 0 ? 'easy' : (index === 1 ? 'medium' : 'hard'),
-                            points: (index + 1) * 10,
-                            user_progress: {
-                                attempts: attemptsData.attempts.filter(a => a.exercise_id === id).length,
-                                best_score: Math.max(...attemptsData.attempts.filter(a => a.exercise_id === id).map(a => a.score || 0))
-                            }
-                        }));
+                        // Create exercise objects from attempt data
+                        const exercises = exerciseIds.map((id, index) => {
+                            const attemptsForExercise = attemptsData.attempts.filter(a => a.exercise_id === id);
+                            const bestScore = Math.max(...attemptsForExercise.map(a => a.score || 0));
+                            
+                            return {
+                                exercise_id: id,
+                                lesson_id: FORCED_LESSON_ID,
+                                topic_id: topicId,
+                                title: `Practice Exercise ${index + 1}`,
+                                description: 'Practice your factorial and permutation skills.',
+                                difficulty: index === 0 ? 'easy' : (index === 1 ? 'medium' : 'hard'),
+                                points: (index + 1) * 10,
+                                user_progress: {
+                                    attempts: attemptsForExercise.length,
+                                    best_score: bestScore,
+                                    completion_status: bestScore >= 70 ? 'completed' : 'in_progress'
+                                },
+                                questions: generateQuestionsForExercise(index + 1)
+                            };
+                        });
                         
                         return exercises;
                     }
@@ -6275,43 +6272,55 @@ async function fetchPracticeExercisesFromDB(topicId) {
             console.log('⚠️ Attempts endpoint failed:', error.message);
         }
         
-        // ===== TRY LESSONS ENDPOINT =====
+        // ===== TRY TOPICS ENDPOINT TO GET TOPIC INFO =====
         try {
-            console.log(`📡 Fetching lessons for lesson_id=${FORCED_LESSON_ID}`);
-            const lessonsResponse = await fetch(`/api/lessons-db/complete?lesson_id=${FORCED_LESSON_ID}`, {
+            console.log(`📡 Fetching topics for lesson_id=${FORCED_LESSON_ID}`);
+            const topicsResponse = await fetch(`/api/topics/progress?lesson_id=${FORCED_LESSON_ID}`, {
                 headers: {
                     'Authorization': `Bearer ${token}`,
                     'Accept': 'application/json'
                 }
             });
             
-            if (lessonsResponse.ok) {
-                const lessonsData = await lessonsResponse.json();
-                console.log('📥 Lessons response:', lessonsData);
+            if (topicsResponse.ok) {
+                const topicsData = await topicsResponse.json();
+                console.log('📥 Topics response:', topicsData);
                 
-                if (lessonsData.success && lessonsData.lessons) {
-                    const topicLessons = lessonsData.lessons.filter(l => l.topic_id == topicId);
+                if (topicsData.success && topicsData.topics) {
+                    const topic = topicsData.topics.find(t => t.topic_id == topicId);
                     
-                    if (topicLessons.length > 0) {
-                        console.log(`✅ Found ${topicLessons.length} lessons for topic ${topicId}`);
+                    if (topic) {
+                        console.log(`✅ Found topic: ${topic.topic_title}`);
                         
-                        // Generate exercises from lessons
-                        const exercises = topicLessons.map((lesson, index) => ({
-                            exercise_id: parseInt(`3${index + 1}01`),
-                            lesson_id: FORCED_LESSON_ID,
-                            topic_id: topicId,
-                            title: `Practice: ${lesson.content_title || `Lesson ${index + 1}`}`,
-                            description: lesson.content_description || 'Practice what you learned in this lesson.',
-                            difficulty: index < 2 ? 'easy' : (index < 4 ? 'medium' : 'hard'),
-                            points: (index + 1) * 10
-                        }));
+                        // Generate exercises based on topic
+                        const exercises = [];
+                        const lessonCount = topic.total_lessons || 3;
                         
+                        for (let i = 1; i <= 3; i++) {
+                            let difficulty = 'easy';
+                            if (i === 2) difficulty = 'medium';
+                            if (i === 3) difficulty = 'hard';
+                            
+                            exercises.push({
+                                exercise_id: parseInt(`3${topicId}0${i}`),
+                                lesson_id: FORCED_LESSON_ID,
+                                topic_id: topicId,
+                                title: `${topic.topic_title || 'Factorial'} - Exercise ${i}`,
+                                description: `Practice ${topic.topic_title?.toLowerCase() || 'factorial'} concepts.`,
+                                difficulty: difficulty,
+                                points: i * 10,
+                                is_unlocked: i <= (topic.lessons_completed || 1),
+                                questions: generateQuestionsForExercise(i)
+                            });
+                        }
+                        
+                        console.log(`✅ Generated ${exercises.length} exercises from topic data`);
                         return exercises;
                     }
                 }
             }
         } catch (error) {
-            console.log('⚠️ Lessons endpoint failed:', error.message);
+            console.log('⚠️ Topics endpoint failed:', error.message);
         }
         
         // ===== FALLBACK TO DEMO DATA =====
