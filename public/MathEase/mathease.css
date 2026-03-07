@@ -2738,3 +2738,224 @@ input:checked + .toggle-slider:before {
 .modal-container {
     z-index: 10000;
 }
+/* ============================================
+   ADDITIONAL STYLES TO MATCH INDEX.HTML
+   ============================================ */
+
+/* Quiz Modal Styles */
+#quizModal .modal-container {
+    max-width: 800px;
+}
+
+.quiz-option-modal {
+    background: white;
+    border: 2px solid #e0e0e0;
+    border-radius: 8px;
+    padding: 15px 20px;
+    margin: 10px 0;
+    cursor: pointer;
+    transition: all 0.3s;
+    display: flex;
+    align-items: center;
+    gap: 15px;
+}
+
+.quiz-option-modal:hover {
+    background: #f5f5f5;
+    border-color: #8B0000;
+}
+
+.quiz-option-modal.selected {
+    background: #e8f5e9 !important;
+    border-color: #8B0000 !important;
+}
+
+.quiz-option-modal.selected div:first-child {
+    background: #8B0000 !important;
+    color: white !important;
+}
+
+/* Quiz Progress Dots */
+#quizProgressDotsModal {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin-bottom: 20px;
+    padding: 10px 0;
+}
+
+.progress-dot {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    cursor: pointer;
+    transition: all 0.3s;
+}
+
+/* Feedback History Styles */
+.feedback-history-list {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+    max-height: 400px;
+    overflow-y: auto;
+    padding-right: 5px;
+}
+
+.feedback-history-item {
+    background: #f8f9fa;
+    border-radius: 8px;
+    padding: 15px;
+    border-left: 4px solid #3498db;
+    transition: all 0.3s;
+}
+
+.feedback-history-item.status-pending {
+    border-left-color: #3498db;
+}
+
+.feedback-history-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 10px;
+}
+
+.feedback-type-badge {
+    background: #e3f2fd;
+    color: #1976d2;
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: 12px;
+    font-weight: 500;
+    margin-right: 8px;
+}
+
+.local-badge {
+    background: #f39c12;
+    color: white;
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: 11px;
+    font-weight: bold;
+}
+
+.feedback-date {
+    font-size: 12px;
+    color: #6c757d;
+}
+
+.feedback-history-body {
+    font-size: 14px;
+}
+
+.feedback-message {
+    color: #2c3e50;
+    line-height: 1.5;
+    margin-bottom: 10px;
+}
+
+.feedback-rating-display {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 10px;
+}
+
+.rating-stars {
+    color: #f39c12;
+    font-size: 16px;
+}
+
+.rating-value {
+    font-size: 12px;
+    color: #6c757d;
+}
+
+.no-feedback {
+    text-align: center;
+    padding: 30px 20px;
+    color: #6c757d;
+}
+
+.no-feedback i {
+    font-size: 48px;
+    margin-bottom: 15px;
+    color: #3498db;
+}
+
+/* Rating Stars */
+.rating {
+    display: flex;
+    gap: 8px;
+    margin: 10px 0;
+}
+
+.star {
+    font-size: 28px;
+    color: #ddd;
+    cursor: pointer;
+    transition: all 0.2s;
+    user-select: none;
+}
+
+.star:hover,
+.star.hover,
+.star.active {
+    color: #f39c12;
+}
+
+/* Success Message */
+.success-message {
+    background: #d4edda;
+    color: #155724;
+    padding: 15px;
+    border-radius: 8px;
+    margin-top: 20px;
+    text-align: center;
+    border: 1px solid #c3e6cb;
+    animation: fadeIn 0.3s ease;
+}
+
+.success-message i {
+    font-size: 20px;
+    margin-right: 10px;
+    color: #28a745;
+}
+
+/* Scrollable containers */
+.continue-learning-module::-webkit-scrollbar {
+    width: 8px;
+}
+
+.continue-learning-module::-webkit-scrollbar-track {
+    background: #f1f1f1;
+    border-radius: 4px;
+}
+
+.continue-learning-module::-webkit-scrollbar-thumb {
+    background: #8B0000;
+    border-radius: 4px;
+}
+
+/* Animation */
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(-10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes slideInRight {
+    from { transform: translateX(100%); opacity: 0; }
+    to { transform: translateX(0); opacity: 1; }
+}
+
+/* Ensure proper modal stacking */
+#quizModal.modal-overlay {
+    z-index: 10000 !important;
+}
+
+#forgotPasswordModal.modal-overlay,
+#resetPasswordModal.modal-overlay,
+#logoutModal.modal-overlay {
+    z-index: 10001 !important;
+}
