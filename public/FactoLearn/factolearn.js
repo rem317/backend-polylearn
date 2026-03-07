@@ -6827,30 +6827,7 @@ async function fetchProgressChartData(days = 14) {
     }
 }
 
-function renderPracticeTimeChart(data) {
-    const barsContainer = document.getElementById('practiceTimeBars');
-    const labelsContainer = document.getElementById('practiceTimeLabels');
-    
-    if (!barsContainer || !labelsContainer || !data || !data.length) {
-        // Create sample data if none exists
-        createSampleChartData();
-        return;
-    }
-    
-    const maxValue = Math.max(...data.map(d => d.value)) || 60;
-    
-    let barsHTML = '';
-    let labelsHTML = '';
-    
-    data.forEach(item => {
-        const height = (item.value / maxValue) * 100;
-        barsHTML += `<div class="chart-bar" style="height: ${height}%;" data-value="${item.value}m"></div>`;
-        labelsHTML += `<div class="chart-label">${item.label}</div>`;
-    });
-    
-    barsContainer.innerHTML = barsHTML;
-    labelsContainer.innerHTML = labelsHTML;
-}
+
 // ============================================
 // FIXED: Accuracy Chart - Blue Line Chart (Like in the Picture)
 // ============================================
@@ -7089,52 +7066,7 @@ function showPolyLearnTooltip(e, day, value) {
     }, 2000);
 }
 
-function createSampleChartData() {
-    console.log('📊 Creating sample chart data...');
-    
-    // Sample practice time data (last 7 days)
-    const days = ['M', 'T', 'W', 'Th', 'F', 'Sa', 'Su'];
-    const practiceTimes = [25, 40, 15, 60, 45, 30, 55];
-    
-    const barsContainer = document.getElementById('practiceTimeBars');
-    const labelsContainer = document.getElementById('practiceTimeLabels');
-    
-    if (barsContainer && labelsContainer) {
-        const maxTime = Math.max(...practiceTimes);
-        
-        let barsHTML = '';
-        let labelsHTML = '';
-        
-        practiceTimes.forEach((time, i) => {
-            const height = (time / maxTime) * 100;
-            barsHTML += `<div class="chart-bar" style="height: ${height}%;" data-value="${time}m"></div>`;
-            labelsHTML += `<div class="chart-label">${days[i]}</div>`;
-        });
-        
-        barsContainer.innerHTML = barsHTML;
-        labelsContainer.innerHTML = labelsHTML;
-    }
-    
-    // Sample accuracy data
-    const accuracyData = [65, 72, 68, 85, 78, 82, 90];
-    
-    const lineContainer = document.getElementById('accuracyLine');
-    const accuracyLabels = document.getElementById('accuracyLabels');
-    
-    if (lineContainer && accuracyLabels) {
-        let pointsHTML = '';
-        let labelsHTML = '';
-        
-        accuracyData.forEach((value, i) => {
-            const left = (i / (accuracyData.length - 1)) * 100;
-            pointsHTML += `<div class="chart-point" style="left: ${left}%; bottom: ${value}%;" data-value="${value}%"></div>`;
-            labelsHTML += `<div class="chart-label">${days[i]}</div>`;
-        });
-        
-        lineContainer.innerHTML = pointsHTML;
-        accuracyLabels.innerHTML = labelsHTML;
-    }
-}
+
 // ============================================
 // CHECK AND AWARD BADGES AUTOMATICALLY
 // ============================================
@@ -18946,6 +18878,7 @@ function showDailyTooltip(e, day, minutes) {
 // ============================================
 // DRAW CHART GRID
 // ============================================
+/*
 function drawChartGrid(ctx, width, height, padding, topPadding, bottomPadding, chartWidth, chartHeight) {
     // Draw axes
     ctx.strokeStyle = '#333';
@@ -18979,7 +18912,7 @@ function drawChartGrid(ctx, width, height, padding, topPadding, bottomPadding, c
     ctx.lineTo(width - padding - 5, topPadding + chartHeight + 5);
     ctx.fill();
 }
-
+*/
 // ============================================
 // DRAW CHART LEGEND
 // ============================================
@@ -19229,17 +19162,79 @@ function updateTopicsProgressDetailed(topics) {
 async function updateProgressCharts() {
     console.log('📊 Updating progress charts...');
     
-    const chartData = await fetchProgressChartData(14);
-    
-    if (chartData) {
-        renderPracticeTimeChart(chartData.practiceTime);
-        renderAccuracyChart(chartData.accuracy);
-    } else {
-        createSampleChartData();
+    try {
+        const token = localStorage.getItem('authToken') || authToken;
+        if (!token) return;
+        
+        // Fetch chart data
+        const response = await fetch(`/api/progress/chart-data`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        
+        if (!response.ok) {
+            console.log('⚠️ Using sample chart data');
+            createSampleLineChartData();
+            return;
+        }
+        
+        const data = await response.json();
+        
+        if (data.success && data.chartData) {
+            // Use the new LINE CHART function
+            renderDailyActivityLineChart(data.chartData);
+        } else {
+            createSampleLineChartData();
+        }
+        
+        // Fetch accuracy data
+        const accuracyResponse = await fetch(`/api/progress/accuracy-rate`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        
+        if (accuracyResponse.ok) {
+            const accuracyData = await accuracyResponse.json();
+            if (accuracyData.success) {
+                const weeklyAccuracy = {
+                    labels: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
+                    accuracy: [
+                        accuracyData.accuracy.weekly?.mon || 85,
+                        accuracyData.accuracy.weekly?.tue || 82,
+                        accuracyData.accuracy.weekly?.wed || 88,
+                        accuracyData.accuracy.weekly?.thu || 84,
+                        accuracyData.accuracy.weekly?.fri || 90,
+                        accuracyData.accuracy.weekly?.sat || 87,
+                        accuracyData.accuracy.weekly?.sun || 85
+                    ]
+                };
+                renderAccuracyChart(weeklyAccuracy);
+            }
+        }
+        
+    } catch (error) {
+        console.error('Error updating progress charts:', error);
+        createSampleLineChartData();
     }
 }
-
-
+// ============================================
+// Create Sample Line Chart Data (for testing)
+// ============================================
+function createSampleLineChartData() {
+    console.log('📊 Creating sample line chart data...');
+    
+    const sampleData = {
+        labels: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
+        practice: [25, 40, 15, 60, 45, 30, 55]
+    };
+    
+    renderDailyActivityLineChart(sampleData);
+    
+    const accuracyData = {
+        labels: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
+        accuracy: [65, 72, 68, 85, 78, 82, 90]
+    };
+    
+    renderAccuracyChart(accuracyData);
+}
 // ============================================
 // FIXED: openLesson function - RAILWAY VERSION
 // ============================================
@@ -20899,9 +20894,8 @@ function updateLessonUI(lesson) {
     updateProgressDisplay(lesson);
 }
 // ============================================
-// UPDATE TOPIC PROGRESS BREAKDOWN
+// UPDATE TOPIC PROGRESS BREAKDOWN (Topics Progress)
 // ============================================
-
 function updateTopicProgressBreakdown() {
     const container = document.getElementById('topicsProgressDetailed');
     if (!container) return;
@@ -20910,10 +20904,10 @@ function updateTopicProgressBreakdown() {
     
     if (!topics || topics.length === 0) {
         container.innerHTML = `
-            <div class="no-data-message">
-                <i class="fas fa-chart-pie"></i>
-                <h4>No Topic Data Available</h4>
-                <p>Complete lessons to see your topic progress.</p>
+            <div class="no-data-message" style="text-align: center; padding: 30px;">
+                <i class="fas fa-chart-pie" style="font-size: 40px; color: #7a0000; margin-bottom: 15px;"></i>
+                <h4 style="color: #2c3e50; margin-bottom: 10px;">No Topic Data Available</h4>
+                <p style="color: #7f8c8d;">Complete lessons to see your topic progress.</p>
             </div>
         `;
         return;
@@ -20932,34 +20926,29 @@ function updateTopicProgressBreakdown() {
         else if (masteryLevel === 'Intermediate') masteryColor = '#3498db';
         
         html += `
-            <div class="topic-item">
-                <div class="topic-header">
-                    <h4>${topic.topic_title || 'Topic'}</h4>
-                    <span class="mastery-badge" style="background: ${masteryColor}">${masteryLevel}</span>
+            <div class="topic-item" style="margin-bottom: 20px; padding: 15px; background: #f8f9fa; border-radius: 8px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                    <h4 style="margin: 0; color: #2c3e50;">${topic.topic_title || 'Topic'}</h4>
+                    <span style="background: ${masteryColor}; color: white; padding: 3px 10px; border-radius: 15px; font-size: 12px;">${masteryLevel}</span>
                 </div>
-                <div class="topic-progress-bars">
-                    <div class="progress-bar-container">
-                        <div class="progress-label">
-                            <span>Completion</span>
-                            <span>${progress}%</span>
+                <div style="display: flex; gap: 20px; margin-bottom: 10px;">
+                    <div style="flex: 1;">
+                        <div style="font-size: 12px; color: #666;">Completion</div>
+                        <div style="height: 6px; background: #ecf0f1; border-radius: 3px; overflow: hidden; margin: 5px 0;">
+                            <div style="height: 100%; width: ${progress}%; background: #7a0000; border-radius: 3px;"></div>
                         </div>
-                        <div class="progress-bar-bg">
-                            <div class="progress-bar-fill completion" style="width: ${progress}%"></div>
-                        </div>
+                        <div style="font-size: 14px; font-weight: bold;">${progress}%</div>
                     </div>
-                    <div class="progress-bar-container">
-                        <div class="progress-label">
-                            <span>Accuracy</span>
-                            <span>${accuracy}%</span>
+                    <div style="flex: 1;">
+                        <div style="font-size: 12px; color: #666;">Accuracy</div>
+                        <div style="height: 6px; background: #ecf0f1; border-radius: 3px; overflow: hidden; margin: 5px 0;">
+                            <div style="height: 100%; width: ${accuracy}%; background: #27ae60; border-radius: 3px;"></div>
                         </div>
-                        <div class="progress-bar-bg">
-                            <div class="progress-bar-fill accuracy" style="width: ${accuracy}%"></div>
-                        </div>
+                        <div style="font-size: 14px; font-weight: bold;">${accuracy}%</div>
                     </div>
                 </div>
-                <div class="topic-meta">
-                    <i class="fas fa-clock"></i> 
-                    Last: ${topic.last_practiced ? formatTimeAgo(topic.last_practiced) : 'Not started'}
+                <div style="font-size: 12px; color: #7f8c8d;">
+                    <i class="fas fa-clock"></i> Last: ${topic.last_practiced ? formatTimeAgo(topic.last_practiced) : 'Not started'}
                 </div>
             </div>
         `;
@@ -20968,10 +20957,11 @@ function updateTopicProgressBreakdown() {
     html += '</div>';
     container.innerHTML = html;
 }
-// ============================================
-// FETCH TOPIC MASTERY
-// ============================================
 
+
+// ============================================
+// FETCH TOPIC MASTERY (for Accuracy Rate & Topics Progress)
+// ============================================
 async function fetchTopicMastery() {
     try {
         const token = localStorage.getItem('authToken') || authToken;
@@ -20995,6 +20985,7 @@ async function fetchTopicMastery() {
             
             // Update UI
             updateTopicProgressBreakdown();
+            updatePerformanceAnalytics();
             
             return data.mastery;
         } else {
@@ -21005,9 +20996,6 @@ async function fetchTopicMastery() {
         return {};
     }
 }
-
-
-
 // ============================================
 // 📊 UPDATE PERFORMANCE ANALYTICS - PolyLearn Style
 // ============================================
