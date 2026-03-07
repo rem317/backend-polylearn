@@ -61,7 +61,7 @@ const CURRENT_LESSON_ID = 3; // factorial only
 const CURRENT_APP_NAME = 'Factolearn';
 
 function getCurrentApp() {
-    return localStorage.getItem('selectedApp') || 'factolearn'; // factorial na ang default
+    return localStorage.getItem('selectedApp') || 'factorial'; // factorial na ang default
 }
 
 function getCurrentAppLessonId() {
