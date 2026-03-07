@@ -6552,35 +6552,73 @@ async function updateDashboardWidgets(widgetConfig) {
 }
 
 // ============================================
+// ✅ Ensure Chart Containers Exist
+// ============================================
+function ensureChartContainers() {
+    const progressPage = document.getElementById('progress-page');
+    if (!progressPage) return;
+    
+    // Check if containers exist
+    const containers = {
+        practiceTimeBars: document.getElementById('practiceTimeBars'),
+        practiceTimeLabels: document.getElementById('practiceTimeLabels'),
+        accuracyChart: document.getElementById('accuracyChart'),
+        accuracyLine: document.getElementById('accuracyLine'),
+        accuracyLabels: document.getElementById('accuracyLabels')
+    };
+    
+    // Log missing containers
+    for (const [name, el] of Object.entries(containers)) {
+        if (!el) {
+            console.log(`⚠️ Missing container: ${name}`);
+        }
+    }
+}
+// ============================================
 // ✅ FIXED: Initialize Progress Dashboard
 // ============================================
 async function initProgressDashboard() {
-    console.log('📈 Initializing progress dashboard with lesson_id=3 ONLY...');
+    console.log('📈 Initializing progress dashboard...');
     
     try {
-        // Show loading state
         showProgressDashboardLoading();
         
-        // Load all progress data for lesson_id=3
+        // Load all progress data
         await updateProgressDashboardFromDatabase();
         
-        // Initialize charts with safety
-        await updateProgressCharts();
+        // Initialize charts (with error handling)
+        try {
+            await updateProgressCharts();
+        } catch (chartError) {
+            console.error('❌ Charts error:', chartError);
+            // Show default charts
+            renderPracticeTimeChart(getDefaultChartData().practiceTime);
+            renderAccuracyChart(getDefaultChartData().accuracy);
+        }
         
         // Start auto-refresh
         startProgressAutoRefresh(60);
         
-        console.log('✅ Progress dashboard initialized with lesson_id=3');
+        hideProgressDashboardLoading();
+        console.log('✅ Progress dashboard initialized');
         
     } catch (error) {
         console.error('❌ Error initializing progress dashboard:', error);
         hideProgressDashboardLoading();
         
-        // Try to show charts anyway with demo data
-        try {
-            await updateProgressCharts();
-        } catch (chartError) {
-            console.error('❌ Charts still failing:', chartError);
+        // Show error message in dashboard
+        const container = document.querySelector('#progress-page .container');
+        if (container) {
+            container.innerHTML = `
+                <div style="text-align: center; padding: 50px;">
+                    <i class="fas fa-exclamation-triangle" style="font-size: 60px; color: #e74c3c; margin-bottom: 20px;"></i>
+                    <h3 style="color: #2c3e50;">Unable to Load Progress Data</h3>
+                    <p style="color: #7f8c8d; margin-bottom: 20px;">Please check your connection and try again.</p>
+                    <button onclick="location.reload()" class="btn-primary">
+                        <i class="fas fa-redo"></i> Refresh
+                    </button>
+                </div>
+            `;
         }
     }
 }
@@ -6678,49 +6716,67 @@ async function initProgressCharts() {
     }
 }
 
+// ============================================
+// ✅ FIXED: Fetch Progress Chart Data - Correct URL
+// ============================================
 async function fetchProgressChartData(days = 14) {
     try {
         const token = localStorage.getItem('authToken');
-        if (!token) return null;
+        if (!token) {
+            console.warn('No auth token available');
+            return getDefaultChartData();
+        }
         
-        const response = await fetch(`/api/progress/chart-data?days=${days}`, {
-            headers: { 'Authorization': `Bearer ${token}` }
+        console.log(`📊 Fetching chart data for last ${days} days...`);
+        
+        // ✅ FIXED: Use ? instead of & for first parameter
+        const response = await fetch(`/api/progress/chart-data?days=${days}&lesson_id=3`, {
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Accept': 'application/json'
+            }
         });
         
-        if (!response.ok) return null;
+        // Check if response is JSON
+        const contentType = response.headers.get('content-type');
+        if (!contentType || !contentType.includes('application/json')) {
+            console.warn('⚠️ Server returned non-JSON response');
+            return getDefaultChartData();
+        }
+        
+        if (!response.ok) {
+            throw new Error(`HTTP ${response.status}`);
+        }
         
         const data = await response.json();
-        return data;
+        
+        if (data.success && data.chartData) {
+            console.log('✅ Chart data received:', data.chartData);
+            return data.chartData;
+        } else {
+            console.warn('No chart data returned, using defaults');
+            return getDefaultChartData();
+        }
         
     } catch (error) {
-        console.error('Error fetching chart data:', error);
-        return null;
+        console.error('❌ Error fetching chart data:', error);
+        return getDefaultChartData();
     }
 }
-
-function renderPracticeTimeChart(data) {
-    const barsContainer = document.getElementById('practiceTimeBars');
-    const labelsContainer = document.getElementById('practiceTimeLabels');
-    
-    if (!barsContainer || !labelsContainer || !data || !data.length) {
-        // Create sample data if none exists
-        createSampleChartData();
-        return;
-    }
-    
-    const maxValue = Math.max(...data.map(d => d.value)) || 60;
-    
-    let barsHTML = '';
-    let labelsHTML = '';
-    
-    data.forEach(item => {
-        const height = (item.value / maxValue) * 100;
-        barsHTML += `<div class="chart-bar" style="height: ${height}%;" data-value="${item.value}m"></div>`;
-        labelsHTML += `<div class="chart-label">${item.label}</div>`;
-    });
-    
-    barsContainer.innerHTML = barsHTML;
-    labelsContainer.innerHTML = labelsHTML;
+// ============================================
+// ✅ Default Chart Data (fallback)
+// ============================================
+function getDefaultChartData() {
+    return {
+        practiceTime: {
+            labels: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
+            values: [25, 40, 15, 60, 45, 30, 55]
+        },
+        accuracy: {
+            labels: ['Week 1', 'Week 2', 'Week 3', 'Week 4'],
+            values: [65, 72, 78, 85]
+        }
+    };
 }
 
 
@@ -18607,60 +18663,33 @@ function updateTopicsProgressDetailed(topics) {
     container.innerHTML = html;
 }
 
-
 // ============================================
 // ✅ FIXED: Update Progress Charts
 // ============================================
 async function updateProgressCharts() {
-    console.log('📊 Updating progress charts with lesson_id=3 data...');
+    console.log('📊 Updating progress charts...');
     
     try {
-        const token = localStorage.getItem('authToken');
+        // Try to fetch real data
+        const chartData = await fetchProgressChartData(14);
         
-        // Fetch chart data with lesson_id=3
-        const response = await fetch('/api/progress/chart-data?lesson_id=3&days=14', {
-            headers: {
-                'Authorization': `Bearer ${token}`,
-                'Accept': 'application/json'
-            }
-        });
-        
-        let chartData;
-        if (response.ok) {
-            const data = await response.json();
-            chartData = data.success ? data.data : null;
+        if (chartData) {
+            renderPracticeTimeChart(chartData.practiceTime);
+            renderAccuracyChart(chartData.accuracy);
+        } else {
+            // Use default data
+            renderPracticeTimeChart(getDefaultChartData().practiceTime);
+            renderAccuracyChart(getDefaultChartData().accuracy);
         }
         
-        // Use demo data if no real data
-        if (!chartData) {
-            chartData = {
-                practiceTime: {
-                    labels: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
-                    values: [25, 40, 15, 60, 45, 30, 55]
-                },
-                accuracy: {
-                    labels: ['Week 1', 'Week 2', 'Week 3', 'Week 4'],
-                    values: [65, 72, 78, 85]
-                }
-            };
-        }
-        
-        // Render charts with safety checks
-        renderPracticeTimeChart(chartData.practiceTime);
-        renderAccuracyChart(chartData.accuracy);
+        console.log('✅ Progress charts updated');
         
     } catch (error) {
         console.error('❌ Error updating charts:', error);
         
-        // Show demo data on error
-        renderPracticeTimeChart({
-            labels: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
-            values: [25, 40, 15, 60, 45, 30, 55]
-        });
-        renderAccuracyChart({
-            labels: ['Week 1', 'Week 2', 'Week 3', 'Week 4'],
-            values: [65, 72, 78, 85]
-        });
+        // Show default charts on error
+        renderPracticeTimeChart(getDefaultChartData().practiceTime);
+        renderAccuracyChart(getDefaultChartData().accuracy);
     }
 }
 
@@ -21631,6 +21660,9 @@ function getDemoAnalytics() {
     };
 }
 
+// ============================================
+// ✅ FIXED: Render Accuracy Chart - With safety checks
+// ============================================
 function renderAccuracyChart(data) {
     console.log('📊 Rendering accuracy chart with data:', data);
     
@@ -21640,49 +21672,85 @@ function renderAccuracyChart(data) {
         return;
     }
     
-    // SAFETY CHECK: Siguraduhing may data at may values
-    if (!data || !data.values || !Array.isArray(data.values) || data.values.length === 0) {
-        console.log('⚠️ No accuracy data available, showing demo data');
-        // Use demo data
+    // SAFETY CHECK: Ensure data exists
+    if (!data || !data.labels || !data.values) {
+        console.log('⚠️ No accuracy data, using default');
         data = {
             labels: ['Week 1', 'Week 2', 'Week 3', 'Week 4'],
             values: [65, 72, 78, 85]
         };
     }
     
-    const maxValue = Math.max(...data.values, 100);
+    // Clear container
+    container.innerHTML = '';
     
-    let html = '<div style="height: 200px; display: flex; align-items: flex-end; gap: 10px; padding: 20px 0;">';
+    // Create chart container
+    const chartDiv = document.createElement('div');
+    chartDiv.style.cssText = `
+        height: 200px;
+        display: flex;
+        align-items: flex-end;
+        gap: 10px;
+        padding: 20px 0;
+    `;
+    
+    const maxValue = Math.max(...data.values, 100);
     
     data.values.forEach((value, i) => {
         const height = (value / maxValue) * 180;
-        html += `
-            <div style="flex: 1; display: flex; flex-direction: column; align-items: center;">
-                <div style="width: 100%; background: #7a0000; height: ${height}px; border-radius: 5px 5px 0 0;" 
-                     title="${value}%"></div>
-                <div style="margin-top: 10px; font-size: 12px; color: #666;">${data.labels[i] || 'Week ' + (i+1)}</div>
-            </div>
+        
+        const barContainer = document.createElement('div');
+        barContainer.style.cssText = `
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
         `;
+        
+        const bar = document.createElement('div');
+        bar.style.cssText = `
+            width: 100%;
+            background: #7a0000;
+            height: ${height}px;
+            border-radius: 5px 5px 0 0;
+            transition: height 0.3s ease;
+        `;
+        bar.title = `${value}%`;
+        
+        const label = document.createElement('div');
+        label.style.cssText = `
+            margin-top: 10px;
+            font-size: 12px;
+            color: #666;
+        `;
+        label.textContent = data.labels[i] || `Week ${i+1}`;
+        
+        barContainer.appendChild(bar);
+        barContainer.appendChild(label);
+        chartDiv.appendChild(barContainer);
     });
     
-    html += '</div>';
-    container.innerHTML = html;
+    container.appendChild(chartDiv);
     console.log('✅ Accuracy chart rendered');
 }
 
-
+// ============================================
+// ✅ FIXED: Render Practice Time Chart
+// ============================================
 function renderPracticeTimeChart(data) {
     console.log('📊 Rendering practice time chart with data:', data);
     
-    const container = document.getElementById('practiceTimeBars');
-    if (!container) {
-        console.log('⚠️ practiceTimeBars container not found');
+    const barsContainer = document.getElementById('practiceTimeBars');
+    const labelsContainer = document.getElementById('practiceTimeLabels');
+    
+    if (!barsContainer || !labelsContainer) {
+        console.log('⚠️ Chart containers not found');
         return;
     }
     
     // SAFETY CHECK
-    if (!data || !data.values || !Array.isArray(data.values) || data.values.length === 0) {
-        console.log('⚠️ No practice time data available, showing demo data');
+    if (!data || !data.labels || !data.values) {
+        console.log('⚠️ No practice time data, using default');
         data = {
             labels: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
             values: [25, 40, 15, 60, 45, 30, 55]
@@ -21691,33 +21759,42 @@ function renderPracticeTimeChart(data) {
     
     const maxValue = Math.max(...data.values, 60);
     
-    let html = '<div style="display: flex; align-items: flex-end; gap: 8px; height: 100%;">';
+    // Clear containers
+    barsContainer.innerHTML = '';
+    labelsContainer.innerHTML = '';
     
-    data.values.forEach((value, i) => {
+    // Create bars
+    data.values.forEach(value => {
         const height = (value / maxValue) * 100;
-        html += `
-            <div style="flex: 1; display: flex; flex-direction: column; align-items: center;">
-                <div class="chart-bar" style="height: ${height}%; background: #7a0000; width: 100%; border-radius: 4px 4px 0 0;" 
-                     data-value="${value}m"></div>
-                <div style="margin-top: 5px; font-size: 10px; color: #666;">${data.labels[i] || ''}</div>
-            </div>
+        const bar = document.createElement('div');
+        bar.className = 'chart-bar';
+        bar.style.cssText = `
+            height: ${height}%;
+            background: #7a0000;
+            width: 100%;
+            border-radius: 4px 4px 0 0;
+            transition: height 0.3s ease;
         `;
+        bar.setAttribute('data-value', `${value}m`);
+        barsContainer.appendChild(bar);
     });
     
-    html += '</div>';
-    container.innerHTML = html;
-    
-    // Update labels container
-    const labelsContainer = document.getElementById('practiceTimeLabels');
-    if (labelsContainer) {
-        labelsContainer.innerHTML = data.labels.map(label => 
-            `<div class="chart-label">${label}</div>`
-        ).join('');
-    }
+    // Create labels
+    data.labels.forEach(label => {
+        const labelDiv = document.createElement('div');
+        labelDiv.className = 'chart-label';
+        labelDiv.style.cssText = `
+            flex: 1;
+            text-align: center;
+            font-size: 11px;
+            color: #666;
+        `;
+        labelDiv.textContent = label;
+        labelsContainer.appendChild(labelDiv);
+    });
     
     console.log('✅ Practice time chart rendered');
 }
-
 function renderTopicsChart(data) {
     const container = document.getElementById('topicsChart');
     if (!container) return;
@@ -22288,7 +22365,7 @@ async function selectTopicForPractice(topicId) {
 
 
 // ============================================
-// ✅ Load Practice Exercises - Lesson ID 3 Only
+// ✅ FIXED: Load Practice Exercises - Lesson ID 3 Only
 // ============================================
 async function loadPracticeExercisesForTopic(topicId) {
     console.log(`📥 Loading exercises for topic ${topicId} - Lesson ID 3 ONLY`);
@@ -22296,55 +22373,107 @@ async function loadPracticeExercisesForTopic(topicId) {
     const exerciseArea = document.getElementById('exerciseArea');
     if (!exerciseArea) return;
     
-    exerciseArea.innerHTML = '<div style="text-align: center; padding: 40px;"><i class="fas fa-spinner fa-spin"></i> Loading...</div>';
+    exerciseArea.innerHTML = `
+        <div style="text-align: center; padding: 40px;">
+            <i class="fas fa-spinner fa-spin" style="font-size: 40px; color: #7a0000;"></i>
+            <p style="margin-top: 15px; color: #666;">Loading FactoLearn exercises from database...</p>
+        </div>
+    `;
     
     try {
         const token = localStorage.getItem('authToken');
         
-        // Try different endpoints with lesson_id=3
+        // Only use endpoints that are likely to exist
         const endpoints = [
             `/api/practice/exercises?lesson_id=3&topic_id=${topicId}`,
             `/api/practice/list?lesson_id=3&topic=${topicId}`,
-            `/api/exercises?lesson_id=3&topic=${topicId}`,
             `/api/practice/topic/${topicId}?lesson_id=3`
         ];
         
         let exercises = [];
+        let foundData = false;
         
         for (const endpoint of endpoints) {
             try {
+                console.log(`📡 Trying: ${endpoint}`);
                 const res = await fetch(endpoint, {
-                    headers: { 'Authorization': `Bearer ${token}` }
+                    headers: { 
+                        'Authorization': `Bearer ${token}`,
+                        'Accept': 'application/json'
+                    }
                 });
                 
                 if (res.ok) {
                     const data = await res.json();
+                    console.log(`✅ Response from ${endpoint}:`, data);
                     
-                    // Extract exercises
-                    if (data.success && data.exercises) exercises = data.exercises;
-                    else if (data.exercises) exercises = data.exercises;
-                    else if (Array.isArray(data)) exercises = data;
+                    // Extract exercises from different response formats
+                    if (data.success && data.exercises) {
+                        exercises = data.exercises;
+                        foundData = true;
+                    } else if (data.exercises) {
+                        exercises = data.exercises;
+                        foundData = true;
+                    } else if (Array.isArray(data)) {
+                        exercises = data;
+                        foundData = true;
+                    } else if (data.data && Array.isArray(data.data)) {
+                        exercises = data.data;
+                        foundData = true;
+                    }
                     
-                    if (exercises.length) break;
+                    if (exercises.length) {
+                        console.log(`✅ Found ${exercises.length} exercises from ${endpoint}`);
+                        break;
+                    }
+                } else {
+                    console.log(`⚠️ ${endpoint} returned ${res.status}`);
                 }
-            } catch (e) {}
+            } catch (e) {
+                console.log(`⚠️ Endpoint ${endpoint} failed:`, e.message);
+            }
         }
         
-        // Double filter for lesson_id=3
-        exercises = exercises.filter(ex => (ex.lesson_id || ex.lessonId) == 3);
+        // Filter for lesson_id=3
+        if (exercises.length > 0) {
+            exercises = exercises.filter(ex => {
+                const lessonId = ex.lesson_id || ex.lessonId;
+                return lessonId == 3;
+            });
+            console.log(`✅ After filtering: ${exercises.length} exercises with lesson_id=3`);
+        }
         
-        if (exercises.length) {
+        if (exercises.length > 0) {
+            console.log('📊 Using exercises from database');
             displayPracticeExercises(exercises);
         } else {
-            // Use demo exercises with lesson_id=3
-            exercises = getDemoExercises();
+            console.log('ℹ️ No exercises from database, using enhanced demo data');
+            
+            // Show a notice
+            exerciseArea.innerHTML = `
+                <div style="background: #fff3cd; color: #856404; padding: 12px; border-radius: 8px; margin-bottom: 15px; display: flex; align-items: center; gap: 10px;">
+                    <i class="fas fa-info-circle"></i>
+                    <span>Using sample exercises (database connection limited)</span>
+                </div>
+            `;
+            
+            // Use enhanced demo exercises
+            exercises = getEnhancedDemoExercises(topicId);
             displayPracticeExercises(exercises);
         }
         
     } catch (error) {
-        console.error('Error:', error);
-        const demo = getDemoExercises();
-        displayPracticeExercises(demo);
+        console.error('❌ Error loading exercises:', error);
+        
+        exerciseArea.innerHTML = `
+            <div style="background: #fee; color: #c00; padding: 12px; border-radius: 8px; margin-bottom: 15px;">
+                <i class="fas fa-exclamation-triangle"></i> Error loading exercises: ${error.message}
+            </div>
+        `;
+        
+        // Fallback to demo data
+        const exercises = getEnhancedDemoExercises(topicId);
+        displayPracticeExercises(exercises);
     }
 }
 
