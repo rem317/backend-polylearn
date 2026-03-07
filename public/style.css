@@ -10239,5 +10239,351 @@ body {
 }
 
 /* ============================================
+   FOOTER NAVIGATION - WITH SPACING
+   ============================================ */
+
+/* Main Footer Container */
+.footer-nav {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    width: 100%;
+    background: var(--white);
+    box-shadow: 0 -5px 20px rgba(0, 0, 0, 0.1);
+    z-index: 1000;
+    padding: 12px 0 15px 0 !important; /* Dagdag padding sa ilalim */
+    border-top: 1px solid var(--border-color);
+    transition: all 0.3s;
+}
+
+/* Footer Content - may spacing sa pagitan ng items */
+.footer-nav-content {
+    display: flex;
+    justify-content: space-around;
+    align-items: center;
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 0 25px !important; /* Dagdag horizontal padding */
+    gap: 20px !important; /* Space sa pagitan ng mga items */
+}
+
+/* Footer Navigation Items */
+.footer-nav-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px !important; /* Space sa pagitan ng icon at text */
+    color: var(--medium-gray);
+    text-decoration: none;
+    font-size: 12px;
+    padding: 12px 15px !important; /* Dagdag padding sa loob ng item */
+    border-radius: 12px;
+    transition: all 0.3s ease;
+    flex: 0 1 auto;
+    min-width: 70px;
+    position: relative;
+}
+
+/* Hover effect na may background */
+.footer-nav-item:hover {
+    background-color: rgba(139, 0, 0, 0.08);
+    transform: translateY(-3px);
+}
+
+/* Active state */
+.footer-nav-item.active {
+    color: var(--primary);
+    font-weight: 600;
+    background-color: rgba(139, 0, 0, 0.05);
+}
+
+.footer-nav-item.active::after {
+    content: '';
+    position: absolute;
+    bottom: -5px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 30px;
+    height: 3px;
+    background: var(--gold-gradient);
+    border-radius: 3px;
+}
+
+/* Icons sa footer */
+.footer-nav-item i {
+    font-size: 22px !important; /* Medyo pinalaki */
+    margin-bottom: 2px;
+}
+
+/* Text sa footer */
+.footer-nav-item span {
+    font-size: 11px;
+    font-weight: 500;
+    letter-spacing: 0.3px;
+}
+
+/* Footer Hamburger Button - may sariling spacing */
+.footer-hamburger {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    background: linear-gradient(135deg, var(--primary) 0%, var(--primary-light) 100%);
+    color: white;
+    border: none;
+    padding: 12px 8px !important;
+    border-radius: 16px !important; /* Medyo naging parisukat */
+    width: 70px;
+    height: 60px;
+    cursor: pointer;
+    font-size: 12px;
+    transition: all 0.3s ease;
+    box-shadow: 0 6px 15px rgba(122, 0, 0, 0.3);
+    position: relative;
+    z-index: 1001;
+    margin: -5px 0; /* Para tumaas ng kaunti */
+}
+
+.footer-hamburger:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 10px 25px rgba(122, 0, 0, 0.4);
+}
+
+.footer-hamburger i {
+    font-size: 26px !important;
+    margin-bottom: 2px;
+}
+
+.footer-hamburger span {
+    font-size: 10px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+/* Mobile Menu Panel - adjusted spacing */
+.mobile-menu-panel {
+    position: fixed;
+    bottom: 90px !important; /* Mas mataas para hindi sumabit sa footer */
+    left: 50%;
+    transform: translateX(-50%) translateY(20px);
+    width: 90%;
+    max-width: 500px;
+    background: var(--white);
+    border-radius: 24px;
+    padding: 20px 15px !important;
+    z-index: 1000;
+    box-shadow: 0 15px 40px rgba(0, 0, 0, 0.2);
+    opacity: 0;
+    visibility: hidden;
+    transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.1);
+}
+
+.mobile-menu-panel.active {
+    opacity: 1;
+    visibility: visible;
+    transform: translateX(-50%) translateY(0);
+}
+
+/* Mobile Menu Header */
+.mobile-menu-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.mobile-menu-header h3 {
+    color: var(--primary);
+    font-size: 18px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+/* Mobile Menu Grid - may spacing */
+.mobile-menu-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 12px !important; /* Space sa pagitan ng menu items */
+}
+
+/* Mobile Menu Items */
+.mobile-menu-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    padding: 15px 10px !important;
+    background: var(--light-bg);
+    border-radius: 16px;
+    text-decoration: none;
+    color: var(--dark);
+    transition: all 0.3s ease;
+    border: 1px solid transparent;
+}
+
+.mobile-menu-item:hover {
+    background: rgba(122, 0, 0, 0.1);
+    transform: translateY(-3px);
+    border-color: var(--primary-light);
+}
+
+.mobile-menu-item.active {
+    background: rgba(122, 0, 0, 0.1);
+    color: var(--primary);
+    font-weight: 600;
+    border-color: var(--primary);
+}
+
+.mobile-menu-item i {
+    font-size: 22px;
+    color: var(--primary);
+}
+
+.mobile-menu-item span {
+    font-size: 12px;
+    text-align: center;
+    font-weight: 500;
+}
+
+/* Close Menu Button */
+.close-menu-btn {
+    background: var(--light-bg);
+    border: none;
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    font-size: 18px;
+    color: var(--medium-gray);
+    transition: all 0.3s ease;
+}
+
+.close-menu-btn:hover {
+    background: var(--border-color);
+    transform: rotate(90deg);
+}
+
+/* Responsive adjustments para sa mobile */
+@media (max-width: 768px) {
+    .footer-nav-content {
+        padding: 0 15px !important;
+        gap: 8px !important;
+    }
+    
+    .footer-nav-item {
+        padding: 8px 10px !important;
+        min-width: 60px;
+    }
+    
+    .footer-nav-item i {
+        font-size: 20px !important;
+    }
+    
+    .footer-nav-item span {
+        font-size: 10px;
+    }
+    
+    .footer-hamburger {
+        width: 60px;
+        height: 55px;
+        padding: 8px 5px !important;
+    }
+    
+    .footer-hamburger i {
+        font-size: 22px !important;
+    }
+    
+    .mobile-menu-panel {
+        bottom: 80px !important;
+        padding: 15px !important;
+    }
+    
+    .mobile-menu-grid {
+        gap: 8px !important;
+    }
+    
+    .mobile-menu-item {
+        padding: 12px 8px !important;
+    }
+    
+    .mobile-menu-item i {
+        font-size: 20px;
+    }
+    
+    .mobile-menu-item span {
+        font-size: 11px;
+    }
+}
+
+/* Extra small devices */
+@media (max-width: 480px) {
+    .footer-nav-content {
+        padding: 0 10px !important;
+        gap: 5px !important;
+    }
+    
+    .footer-nav-item {
+        padding: 6px 8px !important;
+        min-width: 50px;
+    }
+    
+    .footer-nav-item i {
+        font-size: 18px !important;
+    }
+    
+    .footer-nav-item span {
+        font-size: 9px;
+    }
+    
+    .footer-hamburger {
+        width: 55px;
+        height: 50px;
+    }
+    
+    .footer-hamburger i {
+        font-size: 20px !important;
+    }
+    
+    .footer-hamburger span {
+        font-size: 8px;
+    }
+}
+
+/* Safe area insets para sa notched phones */
+@supports (padding: max(0px)) {
+    .footer-nav {
+        padding-bottom: max(15px, env(safe-area-inset-bottom)) !important;
+    }
+    
+    .mobile-menu-panel {
+        bottom: max(90px, calc(env(safe-area-inset-bottom) + 70px)) !important;
+    }
+}
+
+/* Animation para sa pag-appear ng menu */
+@keyframes menuSlideUp {
+    from {
+        opacity: 0;
+        transform: translateX(-50%) translateY(30px);
+    }
+    to {
+        opacity: 1;
+        transform: translateX(-50%) translateY(0);
+    }
+}
+
+.mobile-menu-panel.active {
+    animation: menuSlideUp 0.4s ease forwards;
+}
+
+/* ============================================
    END OF CSS
    ============================================ */
