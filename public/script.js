@@ -34815,6 +34815,206 @@ function setupLessonNavigation() {
     }
 }
 
+// ============================================
+// 🚨 EMERGENCY FIX: Previous/Next Buttons
+// ============================================
+
+// Direct function to fix navigation buttons
+function fixNavigationButtons() {
+    console.log('🔧 EMERGENCY FIX: Reattaching navigation buttons...');
+    
+    const prevBtn = document.getElementById('prevLessonBtn');
+    const nextBtn = document.getElementById('nextLessonBtn');
+    
+    if (!prevBtn || !nextBtn) {
+        console.error('❌ Navigation buttons not found in DOM');
+        return false;
+    }
+    
+    const currentLesson = LessonState.currentLesson;
+    if (!currentLesson) {
+        console.error('❌ No current lesson found');
+        return false;
+    }
+    
+    console.log('📖 Current lesson:', currentLesson.content_title);
+    console.log('📋 Adjacent lessons:', currentLesson.adjacent);
+    
+    // ===== PREVIOUS BUTTON =====
+    // Remove all existing listeners
+    const newPrevBtn = prevBtn.cloneNode(true);
+    if (prevBtn.parentNode) {
+        prevBtn.parentNode.replaceChild(newPrevBtn, prevBtn);
+    }
+    
+    // Configure and add new listener
+    if (currentLesson.adjacent?.previous) {
+        newPrevBtn.disabled = false;
+        newPrevBtn.innerHTML = `<i class="fas fa-arrow-left"></i> Previous: ${currentLesson.adjacent.previous.title}`;
+        
+        newPrevBtn.addEventListener('click', async function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            
+            const prevId = currentLesson.adjacent.previous.id;
+            console.log('⬅️ Loading previous lesson:', prevId);
+            
+            // Disable both buttons
+            this.disabled = true;
+            document.getElementById('nextLessonBtn').disabled = true;
+            
+            // Show loading
+            const originalText = this.innerHTML;
+            this.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Loading...';
+            
+            try {
+                // Use your existing openLesson function
+                await openLesson(prevId);
+            } catch (error) {
+                console.error('❌ Error loading previous lesson:', error);
+                showNotification('Failed to load previous lesson', 'error');
+                
+                // Restore button
+                this.innerHTML = originalText;
+                this.disabled = false;
+                document.getElementById('nextLessonBtn').disabled = false;
+            }
+        });
+        
+        console.log('✅ Previous button ENABLED');
+    } else {
+        newPrevBtn.disabled = true;
+        newPrevBtn.innerHTML = '<i class="fas fa-arrow-left"></i> No Previous Lesson';
+        console.log('ℹ️ Previous button DISABLED');
+    }
+    
+    // ===== NEXT BUTTON =====
+    // Get the next button again (after potential replacement)
+    const nextBtnElement = document.getElementById('nextLessonBtn');
+    const newNextBtn = nextBtnElement.cloneNode(true);
+    if (nextBtnElement.parentNode) {
+        nextBtnElement.parentNode.replaceChild(newNextBtn, nextBtnElement);
+    }
+    
+    // Configure and add new listener
+    if (currentLesson.adjacent?.next) {
+        newNextBtn.disabled = false;
+        newNextBtn.innerHTML = `Next: ${currentLesson.adjacent.next.title} <i class="fas fa-arrow-right"></i>`;
+        
+        newNextBtn.addEventListener('click', async function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            
+            const nextId = currentLesson.adjacent.next.id;
+            console.log('➡️ Loading next lesson:', nextId);
+            
+            // Disable both buttons
+            this.disabled = true;
+            document.getElementById('prevLessonBtn').disabled = true;
+            
+            // Show loading
+            const originalText = this.innerHTML;
+            this.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Loading...';
+            
+            try {
+                // Use your existing openLesson function
+                await openLesson(nextId);
+            } catch (error) {
+                console.error('❌ Error loading next lesson:', error);
+                showNotification('Failed to load next lesson', 'error');
+                
+                // Restore button
+                this.innerHTML = originalText;
+                this.disabled = false;
+                document.getElementById('prevLessonBtn').disabled = false;
+            }
+        });
+        
+        console.log('✅ Next button ENABLED');
+    } else {
+        newNextBtn.disabled = true;
+        newNextBtn.innerHTML = 'No Next Lesson <i class="fas fa-arrow-right"></i>';
+        console.log('ℹ️ Next button DISABLED');
+    }
+    
+    return true;
+}
+
+// Force fix when module dashboard becomes visible
+function initNavigationFix() {
+    console.log('🚀 Initializing navigation fix...');
+    
+    const modulePage = document.getElementById('module-dashboard-page');
+    if (!modulePage) {
+        console.error('❌ Module dashboard page not found');
+        return;
+    }
+    
+    // Fix when page becomes visible
+    const observer = new MutationObserver(function(mutations) {
+        mutations.forEach(function(mutation) {
+            if (mutation.type === 'attributes' && mutation.attributeName === 'class') {
+                if (!modulePage.classList.contains('hidden')) {
+                    console.log('📚 Module dashboard visible - fixing navigation');
+                    setTimeout(fixNavigationButtons, 300);
+                    setTimeout(fixNavigationButtons, 600);
+                }
+            }
+        });
+    });
+    
+    observer.observe(modulePage, { attributes: true });
+    
+    // Fix immediately if already visible
+    if (!modulePage.classList.contains('hidden')) {
+        setTimeout(fixNavigationButtons, 500);
+    }
+}
+
+// Override the navigateTo function to fix navigation when returning to module dashboard
+const originalNavigateTo = window.navigateTo;
+window.navigateTo = function(page) {
+    originalNavigateTo(page);
+    
+    if (page === 'moduleDashboard') {
+        setTimeout(fixNavigationButtons, 500);
+        setTimeout(fixNavigationButtons, 1000);
+    }
+};
+
+// Manual fix function (can be called from console)
+window.fixNavButtons = function() {
+    console.log('🔧 Manually fixing navigation buttons...');
+    return fixNavigationButtons();
+};
+
+// Debug function
+window.debugNav = function() {
+    console.log('🔍 NAVIGATION DEBUG:');
+    console.log('Current lesson:', LessonState.currentLesson);
+    console.log('Prev button exists:', !!document.getElementById('prevLessonBtn'));
+    console.log('Next button exists:', !!document.getElementById('nextLessonBtn'));
+    
+    if (LessonState.currentLesson) {
+        console.log('Adjacent lessons:', LessonState.currentLesson.adjacent);
+    }
+    
+    console.log('Module page visible:', 
+        !document.getElementById('module-dashboard-page')?.classList.contains('hidden'));
+};
+
+// Initialize when DOM is ready
+document.addEventListener('DOMContentLoaded', function() {
+    initNavigationFix();
+    
+    // Try multiple times to ensure it works
+    setTimeout(fixNavigationButtons, 1000);
+    setTimeout(fixNavigationButtons, 2000);
+    setTimeout(fixNavigationButtons, 3000);
+});
+
+console.log('✅ Navigation fix loaded! Type fixNavButtons() in console to manually fix.');
+
 // Override the openLesson function to update navigation after loading
 const originalOpenLesson = window.openLesson;
 window.openLesson = async function(lessonId) {
