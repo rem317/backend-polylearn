@@ -1,5 +1,3 @@
-
-
 // script.js - MathHub Application with Complete Database-Driven Progress Tracking
 // Includes lesson management, practice exercises, quiz system, and full progress integration
 
@@ -26884,7 +26882,206 @@ mobileMenuItems.forEach((item, index) => {
     });
 });
 
-
+// ============================================
+// 🎯 FORCE DISPLAY THE DATABASE CATEGORY
+// ============================================
+(function forceDisplayDatabaseCategory() {
+    console.log('🔧 Forcing display of database category...');
+    
+    // Override ang display function
+    window.displayQuizCategories = function(categories) {
+        console.log('📋 Displaying categories from database:', categories);
+        
+        const container = document.getElementById('userQuizzesContainer');
+        if (!container) return;
+        
+        // Filter para lesson_id=3 lang (kahit isa lang)
+        const factoLearnCategories = categories.filter(cat => {
+            const lessonId = cat.lesson_id || cat.lessonId;
+            return lessonId == 3;
+        });
+        
+        console.log(`🎯 Filtered to ${factoLearnCategories.length} FactoLearn categories`);
+        
+        if (factoLearnCategories.length === 0) {
+            container.innerHTML = `
+                <div style="text-align: center; padding: 40px;">
+                    <i class="fas fa-database" style="font-size: 60px; color: #ccc;"></i>
+                    <h3>No FactoLearn categories</h3>
+                    <p>Please add categories with lesson_id=3 to database.</p>
+                </div>
+            `;
+            return;
+        }
+        
+        // I-display ang categories
+        let html = `
+            <div class="card full-width-card">
+                <div class="card-header" style="padding: 20px 25px 0;">
+                    <h2 class="card-title" style="display: flex; align-items: center; gap: 10px;">
+                        <i class="fas fa-folder" style="color: #7a0000;"></i> 
+                        FactoLearn Quiz Categories
+                    </h2>
+                    <p style="color: #666;">
+                        <i class="fas fa-database" style="color: #27ae60;"></i> 
+                        Loaded from database (${factoLearnCategories.length} categories)
+                    </p>
+                </div>
+                
+                <div style="padding: 20px 25px 25px;">
+                    <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(350px, 1fr)); gap: 20px;">
+        `;
+        
+        factoLearnCategories.forEach(cat => {
+            const categoryId = cat.category_id || cat.id;
+            const categoryName = cat.category_name || cat.name || 'FactoLearn Quiz';
+            const description = cat.description || 'Test your knowledge with these quizzes';
+            const quizCount = cat.quiz_count || cat.total_quizzes || 0;
+            
+            html += `
+                <div class="quiz-category-card" data-category-id="${categoryId}" 
+                     style="cursor: pointer; background: white; border-radius: 12px; overflow: hidden;
+                            box-shadow: 0 4px 12px rgba(0,0,0,0.1); border: 2px solid #7a0000;">
+                    
+                    <div style="height: 8px; background: #7a0000; width: 100%;"></div>
+                    
+                    <div style="padding: 20px;">
+                        <div style="display: flex; align-items: center; gap: 15px; margin-bottom: 15px;">
+                            <div style="width: 60px; height: 60px; background: #7a0000; 
+                                        border-radius: 12px; display: flex; align-items: center; 
+                                        justify-content: center; font-size: 28px; color: white;">
+                                <i class="fas fa-graduation-cap"></i>
+                            </div>
+                            <div style="flex: 1;">
+                                <h3 style="margin: 0 0 5px 0; color: #2c3e50; font-size: 20px;">
+                                    ${categoryName}
+                                </h3>
+                                <div style="display: flex; gap: 10px;">
+                                    <span style="background: #7a0000; color: white; 
+                                               padding: 4px 10px; border-radius: 20px; font-size: 12px;">
+                                        <i class="fas fa-database"></i> Lesson 3
+                                    </span>
+                                    <span style="background: #27ae60; color: white; 
+                                               padding: 4px 10px; border-radius: 20px; font-size: 12px;">
+                                        <i class="fas fa-check-circle"></i> From DB
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <p style="color: #666; font-size: 14px; margin: 0 0 20px 0;">
+                            ${description}
+                        </p>
+                        
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                            <span style="font-size: 16px; color: #7a0000; font-weight: bold;">
+                                <i class="fas fa-question-circle"></i> ${quizCount} Quizzes Available
+                            </span>
+                            <span style="color: #7f8c8d;">
+                                <i class="fas fa-tag"></i> ID: ${categoryId}
+                            </span>
+                        </div>
+                        
+                        <button class="browse-quizzes-btn" data-category-id="${categoryId}"
+                                style="width: 100%; padding: 14px; background: #7a0000; 
+                                       color: white; border: none; border-radius: 8px; 
+                                       font-weight: bold; font-size: 16px; cursor: pointer;
+                                       display: flex; align-items: center; justify-content: center; gap: 8px;">
+                            <i class="fas fa-play-circle"></i> Browse Quizzes
+                            <i class="fas fa-arrow-right"></i>
+                        </button>
+                    </div>
+                </div>
+            `;
+        });
+        
+        html += `
+                    </div>
+                    
+                    <!-- Database Info -->
+                    <div style="margin-top: 30px; padding: 15px; background: #f8f9fa; border-radius: 8px; border-left: 4px solid #7a0000;">
+                        <div style="display: flex; align-items: center; gap: 10px;">
+                            <i class="fas fa-database" style="color: #7a0000; font-size: 20px;"></i>
+                            <div>
+                                <strong style="color: #2c3e50;">Database Status:</strong>
+                                <span style="color: #27ae60; margin-left: 10px;">
+                                    <i class="fas fa-check-circle"></i> Connected
+                                </span>
+                            </div>
+                        </div>
+                        <p style="margin: 10px 0 0 0; color: #666; font-size: 13px;">
+                            Loaded ${factoLearnCategories.length} categories from database with lesson_id = 3
+                        </p>
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        container.innerHTML = html;
+        
+        // Add click handlers
+        document.querySelectorAll('.browse-quizzes-btn').forEach(btn => {
+            btn.addEventListener('click', function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                
+                const categoryId = this.getAttribute('data-category-id');
+                console.log(`🎯 Loading quizzes for category ${categoryId}`);
+                
+                // Call the existing function
+                if (typeof loadQuizzesForCategory === 'function') {
+                    loadQuizzesForCategory(categoryId);
+                } else {
+                    alert(`Loading quizzes for category ${categoryId}`);
+                }
+            });
+        });
+        
+        // Also make the whole card clickable
+        document.querySelectorAll('.quiz-category-card').forEach(card => {
+            card.addEventListener('click', function(e) {
+                if (e.target.closest('button')) return;
+                
+                const categoryId = this.getAttribute('data-category-id');
+                console.log(`🎯 Category card clicked: ${categoryId}`);
+                
+                if (typeof loadQuizzesForCategory === 'function') {
+                    loadQuizzesForCategory(categoryId);
+                }
+            });
+        });
+    };
+    
+    // Force reload ng categories
+    async function forceReload() {
+        console.log('🔄 Force reloading categories...');
+        
+        const token = localStorage.getItem('authToken');
+        
+        try {
+            // Fetch directly
+            const response = await fetch('/api/quiz/categories?lesson_id=3', {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            
+            const data = await response.json();
+            console.log('📥 Fetched categories:', data);
+            
+            if (data.success && data.categories) {
+                // Call our fixed display function
+                displayQuizCategories(data.categories);
+            }
+            
+        } catch (error) {
+            console.error('Error:', error);
+        }
+    }
+    
+    // Run after a short delay
+    setTimeout(forceReload, 1000);
+    
+    console.log('✅ Fix applied! The database category should now appear.');
+})();
 // ============================================
 // 🔍 DEBUG: Fetch practice exercises for lesson_id=3
 // ============================================
