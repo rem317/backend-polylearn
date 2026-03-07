@@ -1,3 +1,5 @@
+
+
 // script.js - MathHub Application with Complete Database-Driven Progress Tracking
 // Includes lesson management, practice exercises, quiz system, and full progress integration
 
@@ -21092,10 +21094,10 @@ async function loadPracticeExercises() {
     }
 }
 // ============================================
-// ✅ FIXED: Initialize practice page with lesson_id=3 filter
+// ✅ FIXED: Initialize Practice Page
 // ============================================
 async function initPracticePage() {
-    console.log('💪 Initializing practice page with FactoLearn filter (lesson_id=3)...');
+    console.log('💪 Initializing practice page...');
     
     // Update date
     const practiceDate = document.getElementById('practiceDate');
@@ -21110,7 +21112,7 @@ async function initPracticePage() {
     
     // Force lesson_id = 3 for FactoLearn
     const currentLessonId = FACTORIAL_LESSON_ID || 3;
-    console.log(`🎯 Practice page filtering for lesson_id = ${currentLessonId}`);
+    console.log(`🎯 Practice page for lesson_id = ${currentLessonId}`);
     
     // Show loading
     const exerciseArea = document.getElementById('exerciseArea');
@@ -21118,80 +21120,26 @@ async function initPracticePage() {
         exerciseArea.innerHTML = `
             <div class="loading-container" style="text-align: center; padding: 40px;">
                 <i class="fas fa-spinner fa-spin" style="font-size: 40px; color: #7a0000; margin-bottom: 15px;"></i>
-                <p style="color: #666;">Loading FactoLearn practice exercises from database...</p>
+                <p style="color: #666;">Connecting to database...</p>
             </div>
         `;
     }
     
-    try {
-        // Load practice statistics
-        await loadPracticeStatistics();
-        
-        // Load topics progress with lesson_id=3 filter
-        await loadTopicsProgress();
-        
-        // Get the first available FactoLearn topic
-        const topicsContainer = document.getElementById('topicsContainer');
-        if (topicsContainer) {
-            // Wait for topics to load
-            setTimeout(async () => {
-                // Find the first unlocked FactoLearn topic
-                const firstTopic = document.querySelector('.topic-card.unlocked');
-                if (firstTopic) {
-                    const topicId = firstTopic.getAttribute('data-topic-id');
-                    console.log(`🎯 Auto-selecting topic ${topicId} for FactoLearn`);
-                    
-                    // Select this topic
-                    PracticeState.currentTopic = topicId;
-                    firstTopic.classList.add('selected');
-                    
-                    // Load exercises for this topic
-                    await loadPracticeExercisesForTopic(topicId);
-                    
-                    // Update topic title
-                    const practiceTopicTitle = document.getElementById('practiceTopicTitle');
-                    if (practiceTopicTitle) {
-                        const topicTitle = firstTopic.querySelector('.topic-title')?.textContent || 'FactoLearn Practice';
-                        practiceTopicTitle.textContent = `Practicing: ${topicTitle}`;
-                    }
-                } else {
-                    // If no unlocked topics, show message
-                    if (exerciseArea) {
-                        exerciseArea.innerHTML = `
-                            <div class="no-exercises" style="text-align: center; padding: 60px 20px;">
-                                <i class="fas fa-lock" style="font-size: 60px; color: #ccc; margin-bottom: 20px;"></i>
-                                <h3 style="color: #666; margin-bottom: 15px;">No FactoLearn Topics Available</h3>
-                                <p style="color: #999; margin-bottom: 25px;">Complete lessons first to unlock FactoLearn practice exercises.</p>
-                                <button class="btn-primary" onclick="navigateTo('dashboard')" style="padding: 12px 25px;">
-                                    <i class="fas fa-book"></i> Go to Lessons
-                                </button>
-                            </div>
-                        `;
-                    }
-                }
-            }, 1000); // Wait for topics to load
-        }
-        
-    } catch (error) {
-        console.error('❌ Error initializing practice page:', error);
-        if (exerciseArea) {
-            exerciseArea.innerHTML = `
-                <div class="error-container" style="text-align: center; padding: 40px;">
-                    <i class="fas fa-exclamation-triangle" style="font-size: 50px; color: #e74c3c; margin-bottom: 15px;"></i>
-                    <h3 style="color: #2c3e50; margin-bottom: 10px;">Failed to load practice exercises</h3>
-                    <p style="color: #7f8c8d; margin-bottom: 20px;">${error.message || 'Could not connect to database'}</p>
-                    <button class="btn-primary" onclick="initPracticePage()" style="padding: 10px 20px;">
-                        <i class="fas fa-redo"></i> Retry
-                    </button>
-                </div>
-            `;
-        }
-    }
+    // Load practice statistics
+    await loadPracticeStatistics();
+    
+    // Load topics progress
+    await loadTopicsProgress();
+    
+    // Load practice exercises for current topic
+    const topicId = PracticeState.currentTopic || '1';
+    console.log(`🎯 Loading exercises for topic: ${topicId}`);
+    await loadPracticeExercisesForTopic(topicId);
     
     // Add practice styles
     addPracticeStyles();
     
-    console.log('✅ Practice page initialized with FactoLearn filter');
+    console.log('✅ Practice page initialized');
 }
 // ============================================
 // 🔍 DEBUG: Check what's being filtered
@@ -22522,30 +22470,25 @@ function showPracticeModal(exercise, isReview = false) {
 // Add this to your DOMContentLoaded event or wherever you initialize the dashboard
 document.addEventListener('DOMContentLoaded', function() {
     // Load practice statistics when practice page is shown
-    // Initialize practice page if visible
-const practicePage = document.getElementById('practice-exercises-page');
-if (practicePage) {
-    if (!practicePage.classList.contains('hidden')) {
-        setTimeout(() => {
-            initPracticePage(); // ← Make sure this calls the fixed function
-        }, 300);
+    const practicePage = document.getElementById('practice-exercises-page');
+    if (practicePage) {
+        const observer = new MutationObserver(function(mutations) {
+            mutations.forEach(function(mutation) {
+                if (mutation.type === 'attributes' && mutation.attributeName === 'class') {
+                    if (!practicePage.classList.contains('hidden')) {
+                        console.log('📊 Practice page became visible, loading statistics...');
+                        loadPracticeStatistics();
+                    }
+                }
+            });
+        });
+        
+        observer.observe(practicePage, { attributes: true });
     }
     
-    const practiceObserver = new MutationObserver(function(mutations) {
-        mutations.forEach(function(mutation) {
-            if (mutation.type === 'attributes' && mutation.attributeName === 'class') {
-                if (!practicePage.classList.contains('hidden')) {
-                    console.log('💪 Practice page became visible - loading FactoLearn exercises');
-                    setTimeout(() => {
-                        initPracticePage(); // ← This will now use lesson_id=3
-                    }, 300);
-                }
-            }
-        });
-    });
-    
-    practiceObserver.observe(practicePage, { attributes: true });
-}
+    // Also load when navigation happens
+    const originalNavigateTo = window.navigateTo;
+});
 // Submit practice answers to server
 // ============================================
 // ✅ ENHANCED: Submit Practice Answers to Server
@@ -26895,12 +26838,3 @@ mobileMenuItems.forEach((item, index) => {
         else if (index === 7) logoutUser(e); // Logout is the 8th item
     });
 });
-
-// ============================================
-// CLOSING BRACKETS - ADD THESE LINES
-// ============================================
-        });
-    });
-})();
-
-console.log('✅ FactoLearn.js loaded successfully - ' + new Date().toISOString());
