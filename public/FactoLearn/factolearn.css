@@ -1,6 +1,5 @@
-
 /* ============================================
-   MATHHUB APPLICATION - ORGANIZED CSS
+   MATHHUB APPLICATION - COMPLETE RESPONSIVE CSS
    ============================================
 
    TABLE OF CONTENTS:
@@ -27,8 +26,8 @@
    21. Animations
    22. Responsive Design
    23. Utility Classes
-   24. ENHANCED TOOL BUTTONS UI
-   25. ENHANCED TOOL CONTENT UI (NEW)
+   24. Enhanced Tool Buttons UI
+   25. Enhanced Tool Content UI
 
    ============================================ */
 
@@ -160,114 +159,6 @@ body:not(.dark-theme) {
     --primary-dark: #5a0000;
 }
 
-
-/* ===== ULTIMATE MODAL FIX - ILAGAY ITO SA PINAKA-ITAAS ===== */
-.modal-overlay {
-    display: none !important;
-    position: fixed !important;
-    top: 0 !important;
-    left: 0 !important;
-    width: 100% !important;
-    height: 100% !important;
-    background-color: rgba(0, 0, 0, 0.8) !important;
-    backdrop-filter: blur(5px) !important;
-    -webkit-backdrop-filter: blur(5px) !important;
-    z-index: 2147483647 !important; /* Maximum z-index */
-    align-items: center !important;
-    justify-content: center !important;
-    margin: 0 !important;
-    padding: 20px !important;
-    box-sizing: border-box !important;
-}
-
-.modal-overlay[style*="display: flex"],
-.modal-overlay.active,
-.modal-overlay[data-visible="true"] {
-    display: flex !important;
-}
-
-.modal-container {
-    background: white !important;
-    border-radius: 16px !important;
-    max-width: 500px !important;
-    width: 100% !important;
-    max-height: 90vh !important;
-    overflow-y: auto !important;
-    box-shadow: 0 25px 60px rgba(0, 0, 0, 0.3) !important;
-    animation: modalAppear 0.3s ease-out !important;
-    position: relative !important;
-    margin: auto !important;
-}
-
-@keyframes modalAppear {
-    from {
-        opacity: 0;
-        transform: translateY(-50px) scale(0.95);
-    }
-    to {
-        opacity: 1;
-        transform: translateY(0) scale(1);
-    }
-}
-
-.modal-header {
-    background: #7a0000 !important;
-    color: white !important;
-    padding: 18px 25px !important;
-    border-radius: 16px 16px 0 0 !important;
-    display: flex !important;
-    justify-content: space-between !important;
-    align-items: center !important;
-    position: sticky !important;
-    top: 0 !important;
-    z-index: 10 !important;
-}
-
-.modal-header h3 {
-    margin: 0 !important;
-    font-size: 20px !important;
-    font-weight: 600 !important;
-    display: flex !important;
-    align-items: center !important;
-    gap: 10px !important;
-}
-
-.modal-close {
-    background: rgba(255, 255, 255, 0.2) !important;
-    border: none !important;
-    color: white !important;
-    width: 36px !important;
-    height: 36px !important;
-    border-radius: 50% !important;
-    font-size: 24px !important;
-    cursor: pointer !important;
-    display: flex !important;
-    align-items: center !important;
-    justify-content: center !important;
-    transition: all 0.2s !important;
-    line-height: 1 !important;
-    padding: 0 !important;
-}
-
-.modal-close:hover {
-    background: rgba(255, 255, 255, 0.3) !important;
-    transform: rotate(90deg) !important;
-}
-
-.modal-body {
-    padding: 25px !important;
-}
-
-/* Override any other styles */
-body.modal-open {
-    overflow: hidden !important;
-}
-
-/* Force hide any conflicting elements */
-.modal-overlay * {
-    box-sizing: border-box !important;
-}
-
 /* ============================================
    2. GLOBAL STYLES & RESET
    ============================================ */
@@ -304,6 +195,7 @@ body.dark-theme {
 .container {
     max-width: 1200px;
     margin: 0 auto;
+    padding: 0 20px;
 }
 
 /* Main Dashboard Containers */
@@ -6342,17 +6234,46 @@ input:checked + .toggle-slider:before {
 }
 
 .faq-answer {
-    padding: 0 20px;
-    max-height: 0;
-    overflow: hidden;
-    transition: max-height 0.3s ease;
-    font-size: 0.9rem;
-    color: var(--text-light);
+    display: none;
+    padding: 15px 20px;
+    background: #f8f9fa;
+    border-radius: 0 0 8px 8px;
+    margin-top: 0;
+    border-top: 1px solid #eee;
+    line-height: 1.6;
+}
+
+.faq-answer[style*="display: block"] {
+    display: block !important;
+}
+
+.faq-item .faq-answer {
+    display: none;
 }
 
 .faq-answer.open {
     padding: 15px 20px;
     max-height: 500px;
+}
+
+.faq-item.active .faq-answer {
+    display: block !important;
+}
+
+.faq-question .fas.fa-chevron-down {
+    transition: transform 0.3s ease;
+}
+
+.faq-question.active .fas.fa-chevron-down {
+    transform: rotate(180deg);
+}
+
+.faq-item {
+    overflow: visible !important;
+}
+
+.faq-item .card-body {
+    overflow: visible !important;
 }
 
 .feedback-form-group {
@@ -6559,13 +6480,18 @@ textarea.feedback-form-control {
     bottom: 0;
     background: rgba(0, 0, 0, 0.7);
     z-index: 10000;
-    display: flex;
+    display: none;
     align-items: center;
     justify-content: center;
     padding: 20px;
 }
 
-.modal-content {
+.modal-overlay.active,
+.modal-overlay[style*="display: flex"] {
+    display: flex !important;
+}
+
+.modal-container {
     background-color: var(--bg-card, var(--white));
     color: var(--text-primary, var(--text));
     padding: 25px !important;
@@ -6580,7 +6506,7 @@ textarea.feedback-form-control {
     text-align: left;
 }
 
-.modal-content::before {
+.modal-container::before {
     content: '';
     position: absolute;
     top: 0;
@@ -6590,7 +6516,7 @@ textarea.feedback-form-control {
     background: linear-gradient(to right, var(--primary), var(--accent), var(--primary));
 }
 
-.modal-content.centered {
+.modal-container.centered {
     text-align: center;
     max-width: 350px;
 }
@@ -6608,12 +6534,30 @@ textarea.feedback-form-control {
     align-items: center;
 }
 
+.modal-header h3 {
+    margin: 0;
+    font-size: 18px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
 .modal-close {
     background: none;
     border: none;
     color: white;
     font-size: 24px;
     cursor: pointer;
+    padding: 0;
+    width: 30px;
+    height: 30px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.modal-close:hover {
+    opacity: 0.8;
 }
 
 .modal-body {
@@ -6723,6 +6667,42 @@ textarea.feedback-form-control {
     width: 90%;
 }
 
+/* Forgot Password Modal */
+#forgotPasswordModal.modal-overlay,
+#resetPasswordModal.modal-overlay {
+    z-index: 10000 !important;
+}
+
+#forgotPasswordModal .modal-container,
+#resetPasswordModal .modal-container {
+    max-width: 450px;
+}
+
+.strength-meter {
+    height: 4px;
+    background: #ecf0f1;
+    margin-top: 8px;
+    border-radius: 2px;
+    overflow: hidden;
+}
+
+.strength-fill {
+    height: 100%;
+    width: 0;
+    transition: all 0.3s;
+}
+
+.strength-fill.weak { background: #e74c3c; }
+.strength-fill.medium { background: #f39c12; }
+.strength-fill.strong { background: #27ae60; }
+
+code {
+    background: #f8f9fa;
+    padding: 2px 5px;
+    border-radius: 3px;
+    font-family: monospace;
+}
+
 /* ============================================
    18. LOADING PAGE
    ============================================ */
@@ -6741,7 +6721,7 @@ textarea.feedback-form-control {
     backdrop-filter: blur(10px);
     border-radius: 20px;
     box-shadow: 0 15px 35px rgba(139, 0, 0, 0.3);
-    margin-bottom: 50px;
+    margin: 0 auto;
 }
 
 .logo-card {
@@ -6885,15 +6865,11 @@ textarea.feedback-form-control {
    19. LOGIN & SIGNUP PAGES
    ============================================ */
 
-/* ============================================
-   19. LOGIN & SIGNUP PAGES - MOBILE OPTIMIZED (PORTRAIT)
-   ORIGINAL COLORS PRESERVED
-   ============================================ */
-
 /* Login Page Container - Full Screen */
-#login-page {
+#login-page,
+#signup-page {
     min-height: 100vh;
-    background: linear-gradient(to bottom, #8B0000, #D3D3D3); /* ← ORIGINAL COLOR */
+    background: linear-gradient(to bottom, #8B0000, #D3D3D3);
     position: relative;
     overflow: hidden;
     display: flex;
@@ -6902,8 +6878,9 @@ textarea.feedback-form-control {
     padding: 15px;
 }
 
-/* Animated Background Elements - Preserved */
-#login-page::before {
+/* Animated Background Elements */
+#login-page::before,
+#signup-page::before {
     content: '';
     position: absolute;
     top: -50%;
@@ -6914,7 +6891,8 @@ textarea.feedback-form-control {
     animation: rotate 30s linear infinite;
 }
 
-#login-page::after {
+#login-page::after,
+#signup-page::after {
     content: '';
     position: absolute;
     bottom: 0;
@@ -6939,12 +6917,11 @@ textarea.feedback-form-control {
     background: var(--white, #FFFFFF);
     border-radius: 30px;
     overflow: hidden;
-    box-shadow: 0 20px 40px -12px rgba(139, 0, 0, 0.4); /* ← ORIGINAL PRIMARY COLOR SHADOW */
+    box-shadow: 0 20px 40px -12px rgba(139, 0, 0, 0.4);
     position: relative;
     z-index: 10;
     animation: slideUp 0.8s cubic-bezier(0.34, 1.56, 0.64, 1);
-    margin-top: 20px;
-    margin-bottom: 20px;
+    margin: 20px auto;
 }
 
 @keyframes slideUp {
@@ -6958,9 +6935,7 @@ textarea.feedback-form-control {
     }
 }
 
-/* ============================================
-   WELCOME SECTION - ORIGINAL COLORS
-   ============================================ */
+/* Welcome Section */
 .welcome-section {
     background: linear-gradient(135deg, var(--primary, #8B0000) 0%, var(--primary-light, #A52A2A) 100%);
     color: var(--text-white, #FFFFFF);
@@ -6969,7 +6944,6 @@ textarea.feedback-form-control {
     overflow: hidden;
 }
 
-/* Decorative Elements - Subtle for Mobile */
 .welcome-section::before {
     content: '✧';
     position: absolute;
@@ -6992,43 +6966,11 @@ textarea.feedback-form-control {
     transform: rotate(-10deg);
 }
 
-/* Floating Math Symbols - Minimal for Mobile */
-.welcome-section .math-symbols span {
-    position: absolute;
-    color: rgba(255, 255, 255, 0.08);
-    font-size: 30px;
-    font-weight: bold;
-    animation: float 6s ease-in-out infinite;
-}
-
-.welcome-section .math-symbols span:nth-child(1) { 
-    top: 5%; left: 5%; font-size: 35px; 
-    content: 'π';
-}
-.welcome-section .math-symbols span:nth-child(2) { 
-    top: 15%; right: 5%; font-size: 40px; 
-    content: '∑';
-}
-.welcome-section .math-symbols span:nth-child(3) { 
-    bottom: 5%; left: 10%; font-size: 30px; 
-    content: '∫';
-}
-.welcome-section .math-symbols span:nth-child(4) { 
-    bottom: 10%; right: 8%; font-size: 35px; 
-    content: '√';
-}
-
-@keyframes float {
-    0%, 100% { transform: translateY(0) rotate(0deg); }
-    50% { transform: translateY(-10px) rotate(5deg); }
-}
-
-/* Welcome Title - Mobile Size */
 .welcome-section h1 {
     font-size: 2.2rem;
     font-weight: 800;
     margin-bottom: 5px;
-    text-shadow: 2px 2px 4px rgba(139, 0, 0, 0.3); /* ← ORIGINAL PRIMARY SHADOW */
+    text-shadow: 2px 2px 4px rgba(139, 0, 0, 0.3);
     position: relative;
     z-index: 2;
     animation: fadeInUp 0.8s ease-out;
@@ -7048,7 +6990,6 @@ textarea.feedback-form-control {
     }
 }
 
-/* Tagline - Mobile Optimized */
 .welcome-section .tagline {
     font-size: 1.2rem;
     font-weight: 500;
@@ -7069,7 +7010,7 @@ textarea.feedback-form-control {
     backdrop-filter: blur(5px);
 }
 
-/* Features List - Compact Grid for Mobile */
+/* Features List */
 .features {
     list-style: none;
     margin-top: 15px;
@@ -7114,16 +7055,14 @@ textarea.feedback-form-control {
     flex-shrink: 0;
 }
 
-/* ============================================
-   FORM SECTION - ORIGINAL COLORS
-   ============================================ */
+/* Form Section */
 .form-section {
     padding: 25px 20px 30px 20px;
     background: var(--white, #FFFFFF);
     position: relative;
 }
 
-/* Form Header - Mobile Size */
+/* Form Header */
 .form-header {
     text-align: center;
     margin-bottom: 25px;
@@ -7131,21 +7070,9 @@ textarea.feedback-form-control {
 
 .form-header h2 {
     font-size: 1.8rem;
-    color: var(--primary, #8B0000); /* ← ORIGINAL PRIMARY COLOR */
+    color: var(--primary, #8B0000);
     margin-bottom: 5px;
     font-weight: 700;
-}
-
-.form-header h2::after {
-    content: '';
-    position: absolute;
-    bottom: -8px;
-    left: 50%;
-    transform: translateX(-50%);
-    width: 40px;
-    height: 3px;
-    background: linear-gradient(to right, var(--primary, #8B0000), var(--accent, #FFD700));
-    border-radius: 3px;
 }
 
 .form-header p {
@@ -7154,7 +7081,7 @@ textarea.feedback-form-control {
     margin-top: 10px;
 }
 
-/* Form Groups - Mobile Spacing */
+/* Form Groups */
 .form-group {
     margin-bottom: 18px;
 }
@@ -7167,25 +7094,29 @@ textarea.feedback-form-control {
     font-size: 0.9rem;
 }
 
-/* Input with Icon - Touch Friendly */
+/* Input with Icon - Icons on the right */
 .input-with-icon {
     position: relative;
+    display: flex;
+    align-items: center;
 }
 
 .input-with-icon i {
     position: absolute;
-    left: 12px;
+    right: 15px;
+    left: auto;
     top: 50%;
     transform: translateY(-50%);
-    color: var(--primary, #8B0000); /* ← ORIGINAL PRIMARY COLOR */
+    color: var(--primary, #8B0000);
     font-size: 1rem;
     transition: all 0.3s ease;
+    z-index: 2;
 }
 
 .form-control {
     width: 100%;
-    padding: 14px 14px 14px 40px;
-    border: 1.5px solid var(--neutral, #D3D3D3); /* ← ORIGINAL NEUTRAL COLOR */
+    padding: 14px 45px 14px 15px;
+    border: 1.5px solid var(--neutral, #D3D3D3);
     border-radius: 12px;
     font-size: 0.95rem;
     transition: all 0.3s ease;
@@ -7195,11 +7126,20 @@ textarea.feedback-form-control {
 
 .form-control:focus {
     outline: none;
-    border-color: var(--primary, #8B0000); /* ← ORIGINAL PRIMARY COLOR */
+    border-color: var(--primary, #8B0000);
     box-shadow: 0 0 0 3px rgba(139, 0, 0, 0.1);
 }
 
-/* Forgot Password - Mobile */
+.input-with-icon:hover i {
+    color: var(--primary-dark, #5a0000);
+}
+
+.input-with-icon:focus-within i {
+    color: var(--primary-dark, #5a0000);
+    transform: translateY(-50%) scale(1.1);
+}
+
+/* Forgot Password */
 .forgot-password {
     text-align: right;
     margin-bottom: 20px;
@@ -7218,7 +7158,7 @@ textarea.feedback-form-control {
     color: var(--primary, #8B0000);
 }
 
-/* Login Button - ORIGINAL COLORS */
+/* Login Button */
 .btn-primary {
     background: linear-gradient(135deg, var(--primary, #8B0000), var(--primary-light, #A52A2A));
     color: var(--text-white, #FFFFFF);
@@ -7250,7 +7190,7 @@ textarea.feedback-form-control {
     color: var(--accent, #FFD700);
 }
 
-/* Switch Link - Mobile */
+/* Switch Link */
 .switch-link {
     text-align: center;
     margin-top: 20px;
@@ -7259,7 +7199,7 @@ textarea.feedback-form-control {
 }
 
 .switch-link a {
-    color: var(--primary, #8B0000); /* ← ORIGINAL PRIMARY COLOR */
+    color: var(--primary, #8B0000);
     text-decoration: none;
     font-weight: 600;
     margin-left: 5px;
@@ -7271,23 +7211,19 @@ textarea.feedback-form-control {
 
 /* Error Message */
 .error-message {
-    color: var(--error, #C41E3A); /* ← ORIGINAL ERROR COLOR */
+    color: var(--error, #C41E3A);
     font-size: 0.8rem;
     margin-top: 4px;
     display: none;
-    padding-left: 40px;
+    padding-left: 15px;
 }
 
-/* ============================================
-   SIGNUP PAGE SPECIFIC - MOBILE OPTIMIZED
-   ============================================ */
-
-/* Signup Page Container */
+/* Signup Page Specific */
 #signup-page .container {
     max-width: 420px;
 }
 
-/* Form Row - Stack for Mobile */
+/* Form Row */
 .form-row {
     display: flex;
     flex-direction: column;
@@ -7295,7 +7231,7 @@ textarea.feedback-form-control {
     margin-bottom: 0;
 }
 
-/* Role Options - Grid for Mobile */
+/* Role Options */
 .role-options {
     display: grid;
     grid-template-columns: 1fr;
@@ -7367,7 +7303,7 @@ textarea.feedback-form-control {
     margin-top: 15px;
 }
 
-/* Terms Checkbox - Mobile */
+/* Terms Checkbox */
 .terms-checkbox {
     display: flex;
     align-items: flex-start;
@@ -7403,121 +7339,6 @@ textarea.feedback-form-control {
     overflow: hidden;
 }
 
-.strength-meter {
-    height: 100%;
-    width: 0%;
-    transition: width 0.3s;
-    border-radius: 2px;
-}
-
-/* ============================================
-   ULTRA SMALL DEVICES (under 360px)
-   ============================================ */
-@media (max-width: 359px) {
-    .welcome-section h1 {
-        font-size: 1.8rem;
-    }
-    
-    .welcome-section .tagline {
-        font-size: 1rem;
-    }
-    
-    .features {
-        grid-template-columns: 1fr;
-    }
-    
-    .features li {
-        font-size: 0.8rem;
-        padding: 8px 10px;
-    }
-    
-    .form-header h2 {
-        font-size: 1.6rem;
-    }
-    
-    .btn-primary {
-        padding: 14px;
-        font-size: 1rem;
-    }
-}
-
-/* ============================================
-   LANDSCAPE MODE SUPPORT
-   ============================================ */
-@media (max-height: 600px) and (orientation: landscape) {
-    #login-page {
-        align-items: center;
-        padding: 10px;
-    }
-    
-    #login-page .container {
-        max-width: 600px;
-        flex-direction: row;
-    }
-    
-    .welcome-section {
-        padding: 20px 15px;
-        flex: 1;
-    }
-    
-    .welcome-section h1 {
-        font-size: 1.6rem;
-    }
-    
-    .welcome-section .tagline {
-        font-size: 1rem;
-        margin-bottom: 10px;
-    }
-    
-    .features {
-        grid-template-columns: 1fr 1fr;
-        margin-top: 10px;
-    }
-    
-    .features li {
-        padding: 6px 8px;
-        font-size: 0.75rem;
-    }
-    
-    .form-section {
-        padding: 20px 15px;
-        flex: 1;
-    }
-    
-    .form-header {
-        margin-bottom: 15px;
-    }
-    
-    .form-header h2 {
-        font-size: 1.4rem;
-    }
-    
-    .form-group {
-        margin-bottom: 12px;
-    }
-    
-    .form-control {
-        padding: 10px 10px 10px 35px;
-    }
-    
-    .btn-primary {
-        padding: 12px;
-        font-size: 0.95rem;
-    }
-}
-
-/* ============================================
-   SAFE AREA INSETS FOR NOTCHED PHONES
-   ============================================ */
-@supports (padding: max(0px)) {
-    #login-page {
-        padding-left: max(15px, env(safe-area-inset-left));
-        padding-right: max(15px, env(safe-area-inset-right));
-        padding-top: max(15px, env(safe-area-inset-top));
-        padding-bottom: max(15px, env(safe-area-inset-bottom));
-    }
-}
-
 /* ============================================
    20. APP SELECTION PAGE
    ============================================ */
@@ -7536,7 +7357,7 @@ textarea.feedback-form-control {
     display: flex;
     flex-direction: column;
     min-height: 600px;
-    margin-bottom: 50px;
+    margin: 0 auto;
 }
 
 #app-selection-page header {
@@ -7759,7 +7580,7 @@ textarea.feedback-form-control {
     padding: 15px;
     width: 100%;
     max-width: 1000px;
-    margin-bottom: 30px;
+    margin: 0 auto 30px;
 }
 
 .external-footer .logo-text-small {
@@ -8273,6 +8094,11 @@ textarea.feedback-form-control {
     .module-title {
         font-size: 1.2rem;
     }
+    
+    /* Continue Learning Scrollable */
+    .continue-learning-module {
+        max-height: 350px;
+    }
 }
 
 /* Small mobile devices (max-width: 480px) */
@@ -8318,6 +8144,114 @@ textarea.feedback-form-control {
         justify-content: flex-start;
         padding: 15px 20px;
     }
+    
+    .form-control {
+        padding: 12px 40px 12px 12px;
+        font-size: 0.9rem;
+    }
+    
+    .input-with-icon i {
+        right: 12px;
+        font-size: 0.9rem;
+    }
+    
+    #signup-page .form-control {
+        padding: 12px 40px 12px 12px;
+    }
+}
+
+/* Ultra Small Devices (under 360px) */
+@media (max-width: 359px) {
+    .welcome-section h1 {
+        font-size: 1.8rem;
+    }
+    
+    .welcome-section .tagline {
+        font-size: 1rem;
+    }
+    
+    .features {
+        grid-template-columns: 1fr;
+    }
+    
+    .features li {
+        font-size: 0.8rem;
+        padding: 8px 10px;
+    }
+    
+    .form-header h2 {
+        font-size: 1.6rem;
+    }
+    
+    .btn-primary {
+        padding: 14px;
+        font-size: 1rem;
+    }
+}
+
+/* Landscape Mode Support */
+@media (max-height: 600px) and (orientation: landscape) {
+    #login-page,
+    #signup-page {
+        align-items: center;
+        padding: 10px;
+    }
+    
+    #login-page .container,
+    #signup-page .container {
+        max-width: 600px;
+        flex-direction: row;
+    }
+    
+    .welcome-section {
+        padding: 20px 15px;
+        flex: 1;
+    }
+    
+    .welcome-section h1 {
+        font-size: 1.6rem;
+    }
+    
+    .welcome-section .tagline {
+        font-size: 1rem;
+        margin-bottom: 10px;
+    }
+    
+    .features {
+        grid-template-columns: 1fr 1fr;
+        margin-top: 10px;
+    }
+    
+    .features li {
+        padding: 6px 8px;
+        font-size: 0.75rem;
+    }
+    
+    .form-section {
+        padding: 20px 15px;
+        flex: 1;
+    }
+    
+    .form-header {
+        margin-bottom: 15px;
+    }
+    
+    .form-header h2 {
+        font-size: 1.4rem;
+    }
+    
+    .form-group {
+        margin-bottom: 12px;
+    }
+    
+    .form-control {
+        padding: 10px 35px 10px 10px;
+    }
+    
+    .btn-primary {
+        padding: 12px;
+        font-size: 0.95rem;
+    }
 }
 
 /* Desktop adjustments (min-width: 769px) */
@@ -8361,6 +8295,21 @@ textarea.feedback-form-control {
     }
 }
 
+/* Safe Area Insets for Notched Phones */
+@supports (padding: max(0px)) {
+    #login-page,
+    #signup-page {
+        padding-left: max(15px, env(safe-area-inset-left));
+        padding-right: max(15px, env(safe-area-inset-right));
+        padding-top: max(15px, env(safe-area-inset-top));
+        padding-bottom: max(15px, env(safe-area-inset-bottom));
+    }
+    
+    .footer-nav {
+        padding-bottom: max(10px, env(safe-area-inset-bottom));
+    }
+}
+
 /* ============================================
    23. UTILITY CLASSES
    ============================================ */
@@ -8399,6 +8348,114 @@ textarea.feedback-form-control {
 .p-4 { padding: 1.5rem; }
 .p-5 { padding: 2rem; }
 
+/* Scrollable Continue Learning */
+.continue-learning-module {
+    max-height: 400px;
+    overflow-y: auto;
+    padding-right: 10px;
+    scrollbar-width: thin;
+    scrollbar-color: var(--primary) var(--border-color);
+}
+
+.continue-learning-module::-webkit-scrollbar {
+    width: 8px;
+}
+
+.continue-learning-module::-webkit-scrollbar-track {
+    background: var(--border-color);
+    border-radius: 10px;
+}
+
+.continue-learning-module::-webkit-scrollbar-thumb {
+    background: var(--primary);
+    border-radius: 10px;
+    transition: all 0.3s ease;
+}
+
+.continue-learning-module::-webkit-scrollbar-thumb:hover {
+    background: var(--primary-dark);
+}
+
+.module-lessons {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    margin: 15px 0;
+}
+
+.continue-learning-module::after {
+    content: '';
+    position: sticky;
+    bottom: 0;
+    left: 0;
+    width: 100%;
+    height: 30px;
+    background: linear-gradient(to top, rgba(255,255,255,0.9), transparent);
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+}
+
+.continue-learning-module.scrollable-bottom::after {
+    opacity: 1;
+}
+
+.scroll-indicator {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    margin-top: 10px;
+    color: var(--text-light);
+    font-size: 0.85rem;
+    animation: bounce 2s infinite;
+}
+
+.scroll-indicator i {
+    color: var(--primary);
+}
+
+/* Hide icons in continue learning start buttons */
+#continueLearningContainer .start-btn i,
+#continueLearningContainer .start-btn .fas,
+#continueLearningContainer .start-btn .far,
+#continueLearningContainer .start-btn .lesson-icon {
+    display: none !important;
+}
+
+#continueLearningContainer .start-btn {
+    gap: 0 !important;
+    padding-left: 15px !important;
+}
+
+/* Progress Summary Cards */
+.stat-card {
+    background: white;
+    border-radius: 10px;
+    padding: 20px;
+    text-align: center;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+}
+
+.stat-card .stat-value {
+    font-size: 32px;
+    font-weight: bold;
+    color: #7a0000;
+}
+
+.stat-card .stat-label {
+    font-size: 14px;
+    color: #666;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.stat-card .stat-subtext {
+    font-size: 12px;
+    color: #999;
+    margin-top: 5px;
+}
+
 /* Print Styles */
 @media print {
     .header,
@@ -8408,7 +8465,8 @@ textarea.feedback-form-control {
     .modal,
     .btn-secondary,
     .footer-nav,
-    .mobile-menu-panel {
+    .mobile-menu-panel,
+    .footer-hamburger {
         display: none !important;
     }
     
@@ -8443,173 +8501,6 @@ textarea.feedback-form-control {
     .help-dashboard-card::before {
         height: 3px;
     }
-}
-
-/* Progress Summary Cards */
-.stat-card {
-    background: white;
-    border-radius: 10px;
-    padding: 20px;
-    text-align: center;
-    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-}
-
-.stat-card .stat-value {
-    font-size: 32px;
-    font-weight: bold;
-    color: #7a0000;
-}
-
-.stat-card .stat-label {
-    font-size: 14px;
-    color: #666;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-}
-
-.stat-card .stat-subtext {
-    font-size: 12px;
-    color: #999;
-    margin-top: 5px;
-}
-
-/* Progress Bars */
-.progress-bar-container {
-    width: 100%;
-    height: 10px;
-    background: #f0f0f0;
-    border-radius: 5px;
-    overflow: hidden;
-    margin: 10px 0;
-}
-
-.progress-fill {
-    height: 100%;
-    background: #7a0000;
-    border-radius: 5px;
-    transition: width 0.3s ease;
-}
-
-.progress-good {
-    background: linear-gradient(90deg, #7a0000, #c0392b);
-}
-
-/* Topics Container */
-.topics-container {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-    gap: 20px;
-    margin-top: 20px;
-}
-
-.topic-card {
-    background: white;
-    border-radius: 10px;
-    padding: 20px;
-    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-    border: 2px solid transparent;
-    transition: all 0.3s;
-}
-
-.topic-card.unlocked {
-    border-color: #27ae60;
-}
-
-.topic-card.locked {
-    opacity: 0.7;
-    border-color: #95a5a6;
-}
-
-.topic-card.selected {
-    border-color: #7a0000;
-    background: #fdf5f5;
-}
-
-.topic-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 10px;
-}
-
-.topic-title {
-    font-size: 18px;
-    font-weight: bold;
-    margin: 0;
-}
-
-.topic-status {
-    padding: 5px 10px;
-    border-radius: 15px;
-    font-size: 12px;
-    font-weight: bold;
-}
-
-.topic-status.unlocked {
-    background: #d4edda;
-    color: #155724;
-}
-
-.topic-status.locked {
-    background: #f8d7da;
-    color: #721c24;
-}
-
-.topic-progress {
-    margin: 15px 0;
-}
-
-.progress-info {
-    display: flex;
-    justify-content: space-between;
-    font-size: 13px;
-    color: #666;
-    margin-bottom: 5px;
-}
-
-/* Practice Area */
-.exercise-area {
-    min-height: 300px;
-    background: #f8f9fa;
-    border-radius: 10px;
-    padding: 20px;
-}
-
-.no-topic-selected {
-    text-align: center;
-    padding: 60px 20px;
-    color: #999;
-}
-
-.no-topic-selected i {
-    font-size: 50px;
-    margin-bottom: 15px;
-    color: #7a0000;
-}
-
-/* Loading States */
-.loading-container {
-    text-align: center;
-    padding: 40px;
-    color: #666;
-}
-
-.loading-container i {
-    font-size: 30px;
-    color: #7a0000;
-    margin-bottom: 10px;
-}
-
-/* Error Message */
-.error-message {
-    text-align: center;
-    padding: 40px;
-    color: #e74c3c;
-}
-
-.error-message i {
-    font-size: 40px;
-    margin-bottom: 10px;
 }
 
 /* ============================================
@@ -8802,104 +8693,6 @@ textarea.feedback-form-control {
 
 .tool-item:hover .tool-description {
     color: #34495e;
-}
-
-/* Floating Particles Effect */
-.tool-item .particles {
-    position: absolute;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    pointer-events: none;
-    z-index: 1;
-}
-
-.tool-item .particle {
-    position: absolute;
-    width: 4px;
-    height: 4px;
-    background: rgba(122, 0, 0, 0.2);
-    border-radius: 50%;
-    opacity: 0;
-    transition: opacity 0.3s ease;
-}
-
-.tool-item:hover .particle {
-    opacity: 1;
-    animation: float 3s ease-in-out infinite;
-}
-
-/* Shimmer Effect on Hover */
-.tool-item .shimmer {
-    position: absolute;
-    top: 0;
-    left: -100%;
-    width: 50%;
-    height: 100%;
-    background: linear-gradient(
-        90deg,
-        transparent,
-        rgba(255, 255, 255, 0.3),
-        transparent
-    );
-    transform: skewX(-15deg);
-    transition: left 0.5s ease;
-    pointer-events: none;
-    z-index: 3;
-}
-
-.tool-item:hover .shimmer {
-    left: 150%;
-}
-
-/* Dark Mode Support */
-body.dark-theme .tool-item {
-    background: linear-gradient(145deg, #2d2d2d, #1a1a1a);
-    border-color: rgba(255, 255, 255, 0.1);
-}
-
-body.dark-theme .tool-item .tool-name {
-    color: #ecf0f1;
-}
-
-body.dark-theme .tool-item:hover .tool-name {
-    color: #e74c3c;
-}
-
-body.dark-theme .tool-item .tool-description {
-    color: #95a5a6;
-}
-
-body.dark-theme .tool-item:hover .tool-description {
-    color: #bdc3c7;
-}
-
-/* Responsive Design */
-@media (max-width: 768px) {
-    .tools-grid {
-        grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
-        gap: 15px;
-    }
-    
-    .tool-item {
-        padding: 20px 10px 15px;
-    }
-    
-    .tool-item .tool-icon {
-        width: 60px;
-        height: 60px;
-        font-size: 1.8rem;
-    }
-    
-    .tool-item .tool-name {
-        font-size: 1rem;
-    }
-    
-    .tool-item .tool-description {
-        font-size: 0.75rem;
-        padding: 0 5px;
-    }
 }
 
 /* Loading State Animation */
@@ -9106,7 +8899,7 @@ body.dark-theme .tool-item:hover .tool-description {
 .tool-item:nth-child(6) { --tool-index: 6; }
 
 /* ============================================
-   25. ENHANCED TOOL CONTENT UI - NEW SECTION
+   25. ENHANCED TOOL CONTENT UI
    ============================================ */
 
 /* Calculator Tool Styles */
@@ -9751,29 +9544,20 @@ body.dark-theme .timer-preset {
     }
 }
 
-
-/* SIMPLE SCROLLABLE QUIZ OPTIONS */
-#quizOptionsGridModal {
-    overflow-y: auto;
-    max-height: 400px;
-}
-
-/* ADJUSTED SCROLLABLE QUIZ OPTIONS */
+/* Simple Scrollable Quiz Options */
 #quizOptionsGridModal {
     overflow-y: auto;
     max-height: 450px;
     padding: 10px;
     margin: 10px 0;
     border-radius: 8px;
-    background: #f9f9f9; /* Para kita ang boundaries */
+    background: #f9f9f9;
 }
 
-/* Para sa mga options para hindi masyadong magkadikit */
 .quiz-option-modal {
     margin-bottom: 10px;
 }
 
-/* Scrollbar styling - optional */
 #quizOptionsGridModal::-webkit-scrollbar {
     width: 8px;
 }
@@ -9784,676 +9568,1021 @@ body.dark-theme .timer-preset {
 }
 
 /* ============================================
-   19. LOGIN & SIGNUP PAGES - ICONS ON RIGHT SIDE
+   MODULE DASHBOARD - REDUCED PADDING
    ============================================ */
 
-/* Input with Icon - Modified for icons on the right */
-.input-with-icon {
-    position: relative;
-    display: flex;
-    align-items: center;
+/* Lesson Content Card - Reduced Padding */
+#module-page-container .card {
+    padding: 12px 15px !important; /* from 18px 20px */
 }
 
-.input-with-icon i {
-    position: absolute;
-    right: 15px; /* Changed from left to right */
-    left: auto; /* Reset left position */
-    top: 50%;
-    transform: translateY(-50%);
-    color: var(--primary, #8B0000);
-    font-size: 1rem;
-    transition: all 0.3s ease;
-    z-index: 2;
+#module-page-container .card-header {
+    padding: 8px 0 0 0 !important; /* from 25px 25px 0 */
+    margin-bottom: 8px; /* from 20px */
 }
 
-/* Adjust input padding for right icon */
-.form-control {
-    width: 100%;
-    padding: 14px 45px 14px 15px; /* Right padding increased to accommodate icon */
-    border: 1.5px solid var(--neutral, #D3D3D3);
-    border-radius: 12px;
-    font-size: 0.95rem;
-    transition: all 0.3s ease;
-    background: var(--white, #FFFFFF);
-    color: var(--text, #333333);
+#module-page-container .lesson-content {
+    padding: 10px !important; /* from 25px */
 }
 
-/* Error message adjustment to account for icon */
-.error-message {
-    color: var(--error, #C41E3A);
+/* Video Container - Reduced Spacing */
+#module-page-container .media-container {
+    margin-bottom: 12px; /* from 30px */
+}
+
+#module-page-container .media-header {
+    padding: 8px 12px; /* from 15px 20px */
+}
+
+#module-page-container .media-header span {
+    font-size: 0.9rem;
+}
+
+#module-page-container .media-controls {
+    gap: 8px; /* from 15px */
+}
+
+#module-page-container .refresh-video-btn {
+    width: 28px;
+    height: 28px;
     font-size: 0.8rem;
-    margin-top: 4px;
-    padding-left: 15px; /* Align with input text */
 }
 
-/* Password strength meter adjustment */
-.password-strength {
-    margin-top: 8px;
-    height: 4px;
-    background: var(--neutral, #D3D3D3);
-    border-radius: 2px;
-    overflow: hidden;
-    width: 100%; /* Full width */
+#module-page-container .video-info {
+    padding: 6px 12px; /* from 15px 20px */
+    font-size: 0.8rem;
 }
 
-/* Forgot password link - keep as is */
-.forgot-password {
-    text-align: right;
-    margin-bottom: 20px;
+#module-page-container .video-info p {
+    margin: 2px 0;
 }
 
-/* Responsive adjustment for smaller screens */
+/* Step Container - Reduced Spacing */
+#module-page-container .step-container {
+    margin-bottom: 15px; /* from 30px */
+}
+
+#module-page-container .step-title {
+    margin-bottom: 8px; /* from 15px */
+    padding-bottom: 5px; /* from 10px */
+}
+
+#module-page-container .step-title span {
+    font-size: 1rem; /* from 1.2rem */
+    gap: 5px; /* from 10px */
+}
+
+#module-page-container .step-number {
+    width: 24px; /* from 30px */
+    height: 24px; /* from 30px */
+    font-size: 0.8rem;
+}
+
+#module-page-container .step-content {
+    padding-left: 8px; /* from 15px */
+}
+
+/* Math Example - Reduced Padding */
+#module-page-container .math-example {
+    padding: 10px; /* from 20px */
+    margin: 8px 0; /* from 15px 0 */
+    font-size: 0.9rem; /* from 1.1rem */
+}
+
+/* Steps List - Reduced Spacing */
+#module-page-container .steps {
+    padding-left: 15px; /* from 20px */
+    margin-top: 8px; /* from 15px */
+}
+
+#module-page-container .steps li {
+    margin-bottom: 4px; /* from 8px */
+    font-size: 0.9rem;
+}
+
+/* Divider Line - Reduced Margin */
+#module-page-container [style*="height: 1px;"] {
+    margin: 15px 0 !important; /* from 30px 0 */
+}
+
+/* Lesson Navigation - Reduced Padding/Margin */
+#module-page-container .lesson-navigation {
+    margin-top: 15px; /* from 30px */
+    padding-top: 10px; /* from 20px */
+    gap: 8px; /* add gap between buttons */
+}
+
+#module-page-container .lesson-nav-btn {
+    padding: 8px 16px; /* from 12px 24px */
+    font-size: 0.85rem;
+    gap: 5px; /* from 10px */
+}
+
+#module-page-container .btn-primary {
+    padding: 8px 16px; /* from 12px 24px */
+    font-size: 0.85rem;
+    gap: 5px; /* from 10px */
+}
+
+/* Progress Learning Tool - Reduced Padding/Margin */
+#module-page-container .progress-learning-tool {
+    margin-top: 15px !important; /* from 25px */
+    padding: 15px !important; /* from 25px */
+}
+
+#module-page-container .progress-title {
+    font-size: 1.1rem !important; /* from 1.3rem */
+    margin-bottom: 12px !important; /* from 20px */
+    padding-bottom: 8px !important; /* from 15px */
+    gap: 5px !important; /* from 10px */
+}
+
+#module-page-container .lesson-progress-section {
+    margin-bottom: 15px !important; /* from 25px */
+}
+
+#module-page-container .lesson-progress-section h3 {
+    font-size: 0.95rem !important; /* from 1.1rem */
+    margin-bottom: 8px !important; /* from 15px */
+    gap: 5px !important; /* from 10px */
+}
+
+#module-page-container .progress-details {
+    font-size: 0.8rem; /* from 0.9rem */
+    margin-top: 4px; /* from 8px */
+}
+
+#module-page-container .learning-stats h3 {
+    font-size: 0.95rem !important; /* from 1.1rem */
+    margin-bottom: 10px !important; /* from 15px */
+    gap: 5px !important; /* from 10px */
+}
+
+#module-page-container .stat-item {
+    gap: 10px !important; /* from 15px */
+    margin-bottom: 10px !important; /* from 15px */
+    padding-bottom: 8px !important; /* from 15px */
+}
+
+#module-page-container .stat-icon {
+    width: 35px !important; /* from 45px */
+    height: 35px !important; /* from 45px */
+    font-size: 1rem !important; /* from 1.2rem */
+}
+
+#module-page-container .stat-value {
+    font-size: 1.1rem !important; /* from 1.3rem */
+}
+
+#module-page-container .stat-label {
+    font-size: 0.75rem; /* from 0.85rem */
+}
+
+/* Mobile Responsive Adjustments */
+@media (max-width: 768px) {
+    #module-page-container .card {
+        padding: 10px !important;
+    }
+    
+    #module-page-container .lesson-content {
+        padding: 8px !important;
+    }
+    
+    #module-page-container .media-header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 5px;
+    }
+    
+    #module-page-container .lesson-navigation {
+        flex-direction: column;
+    }
+    
+    #module-page-container .lesson-nav-btn,
+    #module-page-container .btn-primary {
+        width: 100%;
+    }
+}
+
+/* Ultra Small Devices */
 @media (max-width: 480px) {
-    .form-control {
-        padding: 12px 40px 12px 12px;
+    #module-page-container .card {
+        padding: 8px !important;
+    }
+    
+    #module-page-container .lesson-content {
+        padding: 5px !important;
+    }
+    
+    #module-page-container .step-title span {
         font-size: 0.9rem;
     }
     
-    .input-with-icon i {
-        right: 12px;
-        font-size: 0.9rem;
+    #module-page-container .math-example {
+        padding: 8px;
+        font-size: 0.85rem;
     }
-}
-
-/* Ensure the eye icon for password toggle (if any) doesn't overlap */
-.input-with-icon .password-toggle {
-    right: 45px; /* Position for password toggle if needed */
-    cursor: pointer;
-}
-
-/* For signup page - maintain consistency */
-#signup-page .input-with-icon i {
-    right: 15px;
-    left: auto;
-}
-
-#signup-page .form-control {
-    padding: 14px 45px 14px 15px;
-}
-
-/* If you have multiple icons (like validation icons) */
-.input-with-icon .validation-icon {
-    right: 45px; /* Position validation icons separately */
-}
-
-/* Hover effect - icon color change */
-.input-with-icon:hover i {
-    color: var(--primary-dark, #5a0000);
-}
-
-/* Focus effect - icon color change */
-.form-control:focus + i {
-    color: var(--primary-dark, #5a0000);
-}
-
-/* Additional polish for better UX */
-.input-with-icon {
-    transition: all 0.3s ease;
-}
-
-.input-with-icon:focus-within i {
-    color: var(--primary-dark, #5a0000);
-    transform: translateY(-50%) scale(1.1);
-}
-
-/* Modal Styles - ENSURE VISIBILITY */
-.modal-overlay {
-    display: none !important;
-    position: fixed !important;
-    top: 0 !important;
-    left: 0 !important;
-    width: 100% !important;
-    height: 100% !important;
-    background: rgba(0, 0, 0, 0.8) !important;
-    backdrop-filter: blur(5px) !important;
-    -webkit-backdrop-filter: blur(5px) !important;
-    z-index: 999999 !important;
-    align-items: center !important;
-    justify-content: center !important;
-}
-
-.modal-overlay.active,
-.modal-overlay[style*="display: flex"] {
-    display: flex !important;
-}
-
-.modal-container {
-    background: white !important;
-    border-radius: 12px !important;
-    max-width: 450px !important;
-    width: 90% !important;
-    max-height: 90vh !important;
-    overflow-y: auto !important;
-    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3) !important;
-    animation: modalSlideIn 0.3s ease !important;
-}
-
-@keyframes modalSlideIn {
-    from {
-        opacity: 0;
-        transform: translateY(-30px);
-    }
-    to {
-        opacity: 1;
-        transform: translateY(0);
-    }
-}
-
-.modal-header {
-    background: #7a0000 !important;
-    color: white !important;
-    padding: 15px 20px !important;
-    border-radius: 12px 12px 0 0 !important;
-    display: flex !important;
-    justify-content: space-between !important;
-    align-items: center !important;
-}
-
-.modal-header h3 {
-    margin: 0 !important;
-    font-size: 18px !important;
-    display: flex !important;
-    align-items: center !important;
-    gap: 10px !important;
-}
-
-.modal-close {
-    background: none !important;
-    border: none !important;
-    color: white !important;
-    font-size: 24px !important;
-    cursor: pointer !important;
-    padding: 0 !important;
-    width: 30px !important;
-    height: 30px !important;
-    display: flex !important;
-    align-items: center !important;
-    justify-content: center !important;
-}
-
-.modal-close:hover {
-    opacity: 0.8 !important;
-}
-
-.modal-body {
-    padding: 25px !important;
-}
-
-/* Ensure no other styles are hiding the modal */
-.modal-overlay * {
-    box-sizing: border-box !important;
-}
-
-
-/* Modal Styles - Add to your CSS */
-.modal-overlay {
-    position: fixed;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    background: rgba(0, 0, 0, 0.7);
-    display: none;
-    align-items: center;
-    justify-content: center;
-    z-index: 10000;
-    padding: 20px;
-}
-
-.modal-container {
-    background: white;
-    border-radius: 10px;
-    max-width: 500px;
-    width: 100%;
-    max-height: 90vh;
-    overflow-y: auto;
-    box-shadow: 0 10px 30px rgba(0,0,0,0.3);
-    animation: slideIn 0.3s ease;
-}
-
-@keyframes slideIn {
-    from {
-        opacity: 0;
-        transform: translateY(-30px);
-    }
-    to {
-        opacity: 1;
-        transform: translateY(0);
-    }
-}
-
-.modal-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 15px 20px;
-    background: #7a0000;
-    color: white;
-    border-radius: 10px 10px 0 0;
-}
-
-.modal-header h3 {
-    margin: 0;
-    font-size: 18px;
-    display: flex;
-    align-items: center;
-    gap: 8px;
-}
-
-.modal-close {
-    background: none;
-    border: none;
-    color: white;
-    font-size: 24px;
-    cursor: pointer;
-    line-height: 1;
-    padding: 0;
-}
-
-.modal-body {
-    padding: 25px;
-}
-
-.modal-footer {
-    padding: 15px 20px;
-    border-top: 1px solid #eee;
-    display: flex;
-    justify-content: flex-end;
-    gap: 10px;
-}
-
-.strength-meter {
-    height: 4px;
-    background: #ecf0f1;
-    margin-top: 8px;
-    border-radius: 2px;
-    overflow: hidden;
-}
-
-.strength-fill {
-    height: 100%;
-    width: 0;
-    transition: all 0.3s;
-}
-
-.strength-fill.weak { background: #e74c3c; }
-.strength-fill.medium { background: #f39c12; }
-.strength-fill.strong { background: #27ae60; }
-
-.forgot-password {
-    text-align: right;
-    margin: 10px 0 20px;
-}
-
-.forgot-password a {
-    color: #7a0000;
-    text-decoration: none;
-    font-size: 14px;
-}
-
-.forgot-password a:hover {
-    text-decoration: underline;
-}
-
-code {
-    background: #f8f9fa;
-    padding: 2px 5px;
-    border-radius: 3px;
-    font-family: monospace;
 }
 
 /* ============================================
-   VERTICAL DASHBOARD LAYOUT - MAS MABAIT NA SPACE SA GILID (1000px)
+   GLOBAL PADDING ADJUSTMENT - 8px ONLY
    ============================================ */
 
-/* I-override lahat ng existing containers */
-.dashboard-vertical-container,
-#dashboard-page .dashboard-vertical-container,
-#practice-exercises-page .dashboard-vertical-container,
-#quiz-dashboard-page .dashboard-vertical-container,
-#progress-page .dashboard-vertical-container,
-#settings-page .dashboard-vertical-container,
-#feedback-page .dashboard-vertical-container {
-    display: flex !important;
-    flex-direction: column !important;
-    gap: 20px !important;
-    max-width: 1000px !important; /* 1000px - mas maliit na space sa gilid */
-    margin: 0 auto 80px auto !important;
-    padding: 20px !important;
-    width: 100% !important;
+/* Main body container padding */
+body {
+    padding: 8px !important;
+    padding-bottom: 60px !important; /* Keep space for footer */
 }
 
-/* Force hide original grid layouts */
+/* All page containers */
+#loading-page,
+#login-page,
+#signup-page,
+#app-selection-page,
+#dashboard-page,
+#module-dashboard-page,
+#practice-exercises-page,
+#quiz-dashboard-page,
+#progress-page,
+#settings-page,
+#feedback-page {
+    padding: 8px !important;
+}
+
+/* Main containers */
+.container,
 .dashboard-container,
 .practice-container,
 .quiz-container,
 .progress-container,
 .settings-container,
 .help-dashboard-container {
-    display: block !important;
-    grid-template-columns: 1fr !important;
-    max-width: 1000px !important;
-    margin-left: auto !important;
-    margin-right: auto !important;
+    padding: 8px !important;
+    margin: 0 auto !important;
+    max-width: calc(100% - 16px) !important; /* Account for 8px padding on both sides */
 }
 
-/* Para sa mga hindi gumagamit ng dashboard-card class */
-#dashboard-page .card,
-#practice-exercises-page .card,
-#quiz-dashboard-page .card,
-#progress-page .card,
-#settings-page .card,
-#feedback-page .card {
-    max-width: 1000px !important;
-    margin-left: auto !important;
-    margin-right: auto !important;
-    width: 100% !important;
-}
-
-/* Universal card style */
-.dashboard-card {
-    width: 100% !important;
-    background: var(--white, #ffffff);
-    border-radius: 16px;
-    padding: 24px;
-    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
-    border: 1px solid var(--border-color, #e0e0e0);
-}
-
-/* Progress items vertical */
-.progress-items-vertical {
-    display: flex;
-    flex-direction: column;
-    gap: 12px;
-}
-
-.progress-item-vertical {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 16px 18px;
-    background: rgba(139, 0, 0, 0.02);
-    border-radius: 12px;
-    border-left: 4px solid var(--primary, #8B0000);
-}
-
-/* Tools vertical stack */
-.tools-vertical-stack {
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
-}
-
-.tool-item-vertical {
-    display: flex;
-    align-items: center;
-    gap: 16px;
-    padding: 16px 18px;
-    background: var(--sidebar-bg, #f8f9fa);
-    border-radius: 12px;
-    cursor: pointer;
-    transition: all 0.3s ease;
-    border: 1px solid var(--border-color, #e0e0e0);
-    width: 100%;
-}
-
-.tool-item-vertical:hover {
-    transform: translateX(5px);
-    border-color: var(--primary, #8B0000);
-    background: var(--white, #ffffff);
-}
-
-.tool-item-vertical .tool-icon {
-    width: 48px;
-    height: 48px;
-    background: linear-gradient(135deg, var(--primary, #8B0000), #c0392b);
-    border-radius: 12px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    color: white;
-    font-size: 1.3rem;
-    flex-shrink: 0;
-}
-
-/* Topics vertical */
-.topics-container-vertical {
-    display: flex;
-    flex-direction: column;
-    gap: 15px;
-}
-
-/* Quiz stats vertical */
-.quiz-stats-vertical {
-    display: flex;
-    flex-direction: column;
-    gap: 12px;
-}
-
-.quiz-stat-card {
-    width: 100%;
-    background: var(--white, #ffffff);
-    border-radius: 12px;
-    padding: 18px 20px;
-    box-shadow: 0 2px 10px rgba(0,0,0,0.05);
-    border: 1px solid rgba(139, 0, 0, 0.1);
-}
-
-/* Quizzes vertical */
-.quizzes-vertical {
-    display: flex;
-    flex-direction: column;
-    gap: 15px;
-}
-
-/* Leaderboard vertical */
-.leaderboard-vertical {
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
-}
-
-/* Progress summary vertical */
-.progress-summary-stats-vertical {
-    display: flex;
-    flex-direction: column;
-    gap: 15px;
-}
-
-.summary-stat {
-    width: 100%;
-}
-
-/* Charts vertical */
-.charts-vertical {
-    display: flex;
-    flex-direction: column;
-    gap: 20px;
-}
-
-/* Topics progress vertical */
-.topics-progress-vertical {
-    display: flex;
-    flex-direction: column;
-    gap: 12px;
-}
-
-/* Performance vertical */
-.performance-vertical {
-    display: flex;
-    flex-direction: column;
-    gap: 15px;
-}
-
-/* Timeline vertical */
-.timeline-vertical {
-    display: flex;
-    flex-direction: column;
-    gap: 20px;
-    padding-left: 20px;
-}
-
-/* Settings navigation vertical */
-.settings-nav-vertical {
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-}
-
-.settings-nav-btn {
-    width: 100%;
-    text-align: left;
-    padding: 14px 16px;
-    background: transparent;
-    border: 1px solid rgba(139, 0, 0, 0.1);
-    border-radius: 10px;
-    font-size: 1rem;
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    transition: all 0.3s ease;
-}
-
-.settings-nav-btn:hover {
-    background: rgba(139, 0, 0, 0.05);
-    transform: translateX(5px);
-}
-
-.settings-nav-btn.active {
-    background: var(--primary, #8B0000);
-    color: white;
-    border-color: var(--primary, #8B0000);
-}
-
-/* Settings sections vertical */
-.settings-section-vertical {
-    display: none;
-    width: 100%;
-}
-
-.settings-section-vertical.active {
-    display: block;
-}
-
-/* Settings vertical list */
-.settings-vertical-list {
-    display: flex;
-    flex-direction: column;
-    gap: 15px;
-}
-
-.setting-item {
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-    padding: 16px 0;
-    border-bottom: 1px solid rgba(0,0,0,0.05);
-}
-
-.setting-item:last-child {
-    border-bottom: none;
-}
-
-/* Action buttons vertical */
-.action-buttons-vertical {
-    display: flex;
-    flex-direction: column;
-    gap: 12px;
-}
-
-/* FAQ vertical list */
-.faq-vertical-list {
-    display: flex;
-    flex-direction: column;
-    gap: 15px;
-}
-
-/* Contact methods vertical */
-.contact-methods-vertical {
-    display: flex;
-    flex-direction: column;
-    gap: 15px;
-}
-
-/* Responsive */
-@media (max-width: 768px) {
-    .dashboard-vertical-container,
-    #dashboard-page .dashboard-vertical-container,
-    #practice-exercises-page .dashboard-vertical-container,
-    #quiz-dashboard-page .dashboard-vertical-container,
-    #progress-page .dashboard-vertical-container,
-    #settings-page .dashboard-vertical-container,
-    #feedback-page .dashboard-vertical-container {
-        padding: 15px !important;
-        max-width: 100% !important; /* Full width sa mobile */
-    }
-    
-    .dashboard-card,
-    #dashboard-page .card,
-    #practice-exercises-page .card,
-    #quiz-dashboard-page .card,
-    #progress-page .card,
-    #settings-page .card,
-    #feedback-page .card {
-        padding: 18px !important;
-    }
-}
-
-/* ============================================
-   URGENT FIX - REMOVE ALL FIXED HEIGHTS
-   ============================================ */
-
-/* Remove fixed heights from all containers */
-.dashboard-container,
-.practice-container,
-.quiz-container,
-.progress-container,
-.settings-container,
-.help-dashboard-container,
-.page-container,
-.main-content,
-.sidebar,
-.card-container,
-.content-area {
-    height: auto !important;
-    min-height: 0 !important;
-    max-height: none !important;
-}
-
-/* Specifically target the containers from your console output */
-.dashboard-container,
-.practice-container,
-.quiz-container,
-.progress-container {
-    height: auto !important;
-    min-height: 0 !important;
-}
-
-/* I-ensure na ang mga card ay hindi rin may fixed height */
+/* Card containers */
 .card,
 .progress-card,
 .settings-card,
 .help-dashboard-card,
+.sidebar-card,
 .welcome-card,
-.stat-card,
-.topic-card,
-.quiz-card {
-    height: auto !important;
-    min-height: 0 !important;
+.progress-welcome-card {
+    padding: 8px !important;
+    margin-bottom: 12px !important;
 }
 
-/* I-fix ang page containers */
-#dashboard-page,
-#practice-exercises-page,
-#quiz-dashboard-page,
-#progress-page,
-#settings-page,
-#feedback-page {
-    height: auto !important;
-    min-height: 100vh !important;
-    overflow-y: auto !important;
-}   
+/* Card header */
+.card-header,
+.progress-card-header,
+.settings-card-header,
+.help-dashboard-card-header {
+    padding: 8px 8px 0 8px !important;
+    margin-bottom: 8px !important;
+}
+
+/* Card content */
+.card-content,
+.lesson-content,
+.practice-content,
+.quiz-content,
+.progress-content,
+.settings-content,
+.feedback-content {
+    padding: 8px !important;
+}
+
+/* Form sections */
+.form-section,
+.welcome-section {
+    padding: 8px !important;
+}
+
+/* Form groups */
+.form-group {
+    margin-bottom: 12px !important;
+    padding: 0 8px !important;
+}
+
+/* Form controls */
+.form-control {
+    padding: 10px 12px !important; /* Slightly larger for better UX */
+}
+
+/* Input with icon */
+.input-with-icon i {
+    right: 12px !important;
+}
+
+.form-control {
+    padding: 10px 35px 10px 12px !important;
+}
+
+/* Buttons container */
+.action-buttons {
+    padding: 8px !important;
+    margin-top: 15px !important;
+}
+
+/* Progress items */
+.progress-item,
+.progress-dashboard-item,
+.stat-item,
+.goal-item {
+    padding: 8px !important;
+    margin-bottom: 8px !important;
+}
+
+/* Topic cards */
+.topic-card {
+    padding: 8px !important;
+}
+
+/* Quiz cards */
+.quiz-stat-card,
+.quiz-category-card {
+    padding: 8px !important;
+}
+
+/* Tool containers */
+.toolbox-container,
+.quick-tools-container,
+.learning-tools-container,
+.progress-learning-tool {
+    padding: 8px !important;
+    margin: 8px 0 !important;
+}
+
+/* Tool items */
+.tool-item,
+.quick-tool-item,
+.learning-tool-item,
+.tool-item-compact {
+    padding: 8px !important;
+}
+
+/* Tool icons */
+.tool-icon,
+.quick-tool-icon,
+.tool-icon-large {
+    margin-bottom: 5px !important;
+}
+
+/* Module containers */
+#module-page-container .card,
+#module-page-container .progress-learning-tool {
+    padding: 8px !important;
+}
+
+#module-page-container .card-header {
+    padding: 8px 8px 0 8px !important;
+    margin-bottom: 8px !important;
+}
+
+#module-page-container .lesson-content {
+    padding: 8px !important;
+}
+
+/* Media containers */
+.media-container {
+    margin-bottom: 8px !important;
+}
+
+.media-header {
+    padding: 6px 8px !important;
+}
+
+.video-info {
+    padding: 4px 8px !important;
+}
+
+/* Step containers */
+.step-container {
+    margin-bottom: 8px !important;
+}
+
+.step-title {
+    margin-bottom: 5px !important;
+    padding-bottom: 3px !important;
+}
+
+.step-content {
+    padding-left: 5px !important;
+}
+
+/* Math example */
+.math-example {
+    padding: 8px !important;
+    margin: 5px 0 !important;
+}
+
+/* Divider */
+[style*="height: 1px;"] {
+    margin: 8px 0 !important;
+}
+
+/* Navigation */
+.lesson-navigation {
+    margin-top: 8px !important;
+    padding-top: 5px !important;
+    gap: 5px !important;
+}
+
+.lesson-nav-btn,
+.btn-primary {
+    padding: 6px 12px !important;
+}
+
+/* Footer navigation */
+.footer-nav {
+    padding: 5px 0 !important;
+}
+
+.footer-nav-content {
+    padding: 0 5px !important;
+}
+
+.footer-nav-item {
+    padding: 5px !important;
+}
+
+.footer-hamburger {
+    padding: 8px !important;
+    width: 50px !important;
+    height: 50px !important;
+}
+
+/* Mobile menu */
+.mobile-menu-panel {
+    padding: 8px !important;
+}
+
+.mobile-menu-grid {
+    gap: 8px !important;
+}
+
+.mobile-menu-item {
+    padding: 10px 8px !important;
+}
+
+/* Loading page */
+.splash-container {
+    padding: 8px !important;
+    gap: 1rem !important;
+}
+
+/* App selection */
+#app-selection-page .app-card {
+    padding: 8px !important;
+}
+
+/* Modal containers */
+.modal-container {
+    padding: 8px !important;
+}
+
+.modal-header {
+    padding: 8px 12px !important;
+}
+
+.modal-body {
+    padding: 8px !important;
+}
+
+.modal-footer {
+    padding: 8px !important;
+}
+
+/* Leaderboard */
+.leaderboard-item {
+    padding: 6px 8px !important;
+}
+
+/* Timeline */
+.timeline {
+    padding-left: 15px !important;
+}
+
+/* Stats grid */
+.stats-grid {
+    gap: 8px !important;
+}
+
+/* Charts */
+.chart-container {
+    padding: 8px !important;
+}
+
+/* Performance cards */
+.performance-card {
+    padding: 8px !important;
+}
+
+/* Recommendations */
+.recommendation-item {
+    padding: 8px !important;
+}
+
+/* FAQ */
+.faq-item {
+    margin-bottom: 8px !important;
+}
+
+.faq-question {
+    padding: 8px 10px !important;
+}
+
+.faq-answer {
+    padding: 8px 10px !important;
+}
+
+/* Contact methods */
+.contact-method {
+    padding: 8px !important;
+}
+
+/* Resource items */
+.resource-item {
+    padding: 8px !important;
+}
+
+/* Issue categories */
+.issue-category {
+    padding: 8px !important;
+}
+
+/* Tool modals */
+.tool-modal-content {
+    padding: 0 !important;
+}
+
+.tool-modal-header {
+    padding: 8px 12px !important;
+}
+
+.tool-modal-body {
+    padding: 8px !important;
+}
+
+/* Quiz popup */
+.quiz-popup-header {
+    padding: 12px 15px !important;
+}
+
+.quiz-popup-body {
+    padding: 12px !important;
+}
+
+.quiz-popup-footer {
+    padding: 10px 15px !important;
+}
+
+/* Scrollable containers */
+.continue-learning-module {
+    padding: 8px !important;
+    padding-right: 5px !important;
+}
+
+/* Dashboard board */
+.dashboard-board .card {
+    padding: 8px !important;
+    min-width: 200px !important;
+}
+
+/* Progress dashboard board */
+.progress-dashboard-board .progress-card {
+    padding: 8px !important;
+}
+
+/* Module progress */
+.module-progress-card {
+    padding: 8px !important;
+}
+
+.module-item {
+    padding: 10px !important;
+}
+
+/* Daily goals */
+.daily-goals-card {
+    padding: 8px !important;
+}
+
+.goals-progress-overview {
+    padding: 8px !important;
+    gap: 8px !important;
+}
+
+.goal-item {
+    padding: 8px !important;
+}
+
+/* Tool preview */
+.tool-preview-sidebar {
+    padding: 8px !important;
+}
+
+/* Mobile responsive adjustments */
+@media (max-width: 768px) {
+    body {
+        padding: 5px !important;
+        padding-bottom: 60px !important;
+    }
+    
+    .container,
+    .dashboard-container,
+    .practice-container,
+    .quiz-container,
+    .progress-container,
+    .settings-container,
+    .help-dashboard-container {
+        padding: 5px !important;
+        max-width: calc(100% - 10px) !important;
+    }
+    
+    .card,
+    .progress-card,
+    .settings-card,
+    .help-dashboard-card {
+        padding: 5px !important;
+    }
+}
+
+@media (max-width: 480px) {
+    body {
+        padding: 3px !important;
+        padding-bottom: 60px !important;
+    }
+    
+    .container,
+    .dashboard-container,
+    .practice-container,
+    .quiz-container,
+    .progress-container,
+    .settings-container,
+    .help-dashboard-container {
+        padding: 3px !important;
+        max-width: calc(100% - 6px) !important;
+    }
+}
+
+/* Safe area insets for notched phones */
+@supports (padding: max(0px)) {
+    body {
+        padding-left: max(8px, env(safe-area-inset-left)) !important;
+        padding-right: max(8px, env(safe-area-inset-right)) !important;
+        padding-top: max(8px, env(safe-area-inset-top)) !important;
+        padding-bottom: max(60px, env(safe-area-inset-bottom)) !important;
+    }
+}
+
+/* ============================================
+   FOOTER NAVIGATION - WITH SPACING
+   ============================================ */
+
+/* Main Footer Container */
+.footer-nav {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    width: 100%;
+    background: var(--white);
+    box-shadow: 0 -5px 20px rgba(0, 0, 0, 0.1);
+    z-index: 1000;
+    padding: 12px 0 15px 0 !important; /* Dagdag padding sa ilalim */
+    border-top: 1px solid var(--border-color);
+    transition: all 0.3s;
+}
+
+/* Footer Content - may spacing sa pagitan ng items */
+.footer-nav-content {
+    display: flex;
+    justify-content: space-around;
+    align-items: center;
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 0 25px !important; /* Dagdag horizontal padding */
+    gap: 20px !important; /* Space sa pagitan ng mga items */
+}
+
+/* Footer Navigation Items */
+.footer-nav-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px !important; /* Space sa pagitan ng icon at text */
+    color: var(--medium-gray);
+    text-decoration: none;
+    font-size: 12px;
+    padding: 12px 15px !important; /* Dagdag padding sa loob ng item */
+    border-radius: 12px;
+    transition: all 0.3s ease;
+    flex: 0 1 auto;
+    min-width: 70px;
+    position: relative;
+}
+
+/* Hover effect na may background */
+.footer-nav-item:hover {
+    background-color: rgba(139, 0, 0, 0.08);
+    transform: translateY(-3px);
+}
+
+/* Active state */
+.footer-nav-item.active {
+    color: var(--primary);
+    font-weight: 600;
+    background-color: rgba(139, 0, 0, 0.05);
+}
+
+.footer-nav-item.active::after {
+    content: '';
+    position: absolute;
+    bottom: -5px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 30px;
+    height: 3px;
+    background: var(--gold-gradient);
+    border-radius: 3px;
+}
+
+/* Icons sa footer */
+.footer-nav-item i {
+    font-size: 22px !important; /* Medyo pinalaki */
+    margin-bottom: 2px;
+}
+
+/* Text sa footer */
+.footer-nav-item span {
+    font-size: 11px;
+    font-weight: 500;
+    letter-spacing: 0.3px;
+}
+
+/* Footer Hamburger Button - may sariling spacing */
+.footer-hamburger {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    background: linear-gradient(135deg, var(--primary) 0%, var(--primary-light) 100%);
+    color: white;
+    border: none;
+    padding: 12px 8px !important;
+    border-radius: 16px !important; /* Medyo naging parisukat */
+    width: 70px;
+    height: 60px;
+    cursor: pointer;
+    font-size: 12px;
+    transition: all 0.3s ease;
+    box-shadow: 0 6px 15px rgba(122, 0, 0, 0.3);
+    position: relative;
+    z-index: 1001;
+    margin: -5px 0; /* Para tumaas ng kaunti */
+}
+
+.footer-hamburger:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 10px 25px rgba(122, 0, 0, 0.4);
+}
+
+.footer-hamburger i {
+    font-size: 26px !important;
+    margin-bottom: 2px;
+}
+
+.footer-hamburger span {
+    font-size: 10px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+/* Mobile Menu Panel - adjusted spacing */
+.mobile-menu-panel {
+    position: fixed;
+    bottom: 90px !important; /* Mas mataas para hindi sumabit sa footer */
+    left: 50%;
+    transform: translateX(-50%) translateY(20px);
+    width: 90%;
+    max-width: 500px;
+    background: var(--white);
+    border-radius: 24px;
+    padding: 20px 15px !important;
+    z-index: 1000;
+    box-shadow: 0 15px 40px rgba(0, 0, 0, 0.2);
+    opacity: 0;
+    visibility: hidden;
+    transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.1);
+}
+
+.mobile-menu-panel.active {
+    opacity: 1;
+    visibility: visible;
+    transform: translateX(-50%) translateY(0);
+}
+
+/* Mobile Menu Header */
+.mobile-menu-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.mobile-menu-header h3 {
+    color: var(--primary);
+    font-size: 18px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+/* Mobile Menu Grid - may spacing */
+.mobile-menu-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 12px !important; /* Space sa pagitan ng menu items */
+}
+
+/* Mobile Menu Items */
+.mobile-menu-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    padding: 15px 10px !important;
+    background: var(--light-bg);
+    border-radius: 16px;
+    text-decoration: none;
+    color: var(--dark);
+    transition: all 0.3s ease;
+    border: 1px solid transparent;
+}
+
+.mobile-menu-item:hover {
+    background: rgba(122, 0, 0, 0.1);
+    transform: translateY(-3px);
+    border-color: var(--primary-light);
+}
+
+.mobile-menu-item.active {
+    background: rgba(122, 0, 0, 0.1);
+    color: var(--primary);
+    font-weight: 600;
+    border-color: var(--primary);
+}
+
+.mobile-menu-item i {
+    font-size: 22px;
+    color: var(--primary);
+}
+
+.mobile-menu-item span {
+    font-size: 12px;
+    text-align: center;
+    font-weight: 500;
+}
+
+/* Close Menu Button */
+.close-menu-btn {
+    background: var(--light-bg);
+    border: none;
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    font-size: 18px;
+    color: var(--medium-gray);
+    transition: all 0.3s ease;
+}
+
+.close-menu-btn:hover {
+    background: var(--border-color);
+    transform: rotate(90deg);
+}
+
+/* Responsive adjustments para sa mobile */
+@media (max-width: 768px) {
+    .footer-nav-content {
+        padding: 0 15px !important;
+        gap: 8px !important;
+    }
+    
+    .footer-nav-item {
+        padding: 8px 10px !important;
+        min-width: 60px;
+    }
+    
+    .footer-nav-item i {
+        font-size: 20px !important;
+    }
+    
+    .footer-nav-item span {
+        font-size: 10px;
+    }
+    
+    .footer-hamburger {
+        width: 60px;
+        height: 55px;
+        padding: 8px 5px !important;
+    }
+    
+    .footer-hamburger i {
+        font-size: 22px !important;
+    }
+    
+    .mobile-menu-panel {
+        bottom: 80px !important;
+        padding: 15px !important;
+    }
+    
+    .mobile-menu-grid {
+        gap: 8px !important;
+    }
+    
+    .mobile-menu-item {
+        padding: 12px 8px !important;
+    }
+    
+    .mobile-menu-item i {
+        font-size: 20px;
+    }
+    
+    .mobile-menu-item span {
+        font-size: 11px;
+    }
+}
+
+/* Extra small devices */
+@media (max-width: 480px) {
+    .footer-nav-content {
+        padding: 0 10px !important;
+        gap: 5px !important;
+    }
+    
+    .footer-nav-item {
+        padding: 6px 8px !important;
+        min-width: 50px;
+    }
+    
+    .footer-nav-item i {
+        font-size: 18px !important;
+    }
+    
+    .footer-nav-item span {
+        font-size: 9px;
+    }
+    
+    .footer-hamburger {
+        width: 55px;
+        height: 50px;
+    }
+    
+    .footer-hamburger i {
+        font-size: 20px !important;
+    }
+    
+    .footer-hamburger span {
+        font-size: 8px;
+    }
+}
+
+/* Safe area insets para sa notched phones */
+@supports (padding: max(0px)) {
+    .footer-nav {
+        padding-bottom: max(15px, env(safe-area-inset-bottom)) !important;
+    }
+    
+    .mobile-menu-panel {
+        bottom: max(90px, calc(env(safe-area-inset-bottom) + 70px)) !important;
+    }
+}
+
+/* Animation para sa pag-appear ng menu */
+@keyframes menuSlideUp {
+    from {
+        opacity: 0;
+        transform: translateX(-50%) translateY(30px);
+    }
+    to {
+        opacity: 1;
+        transform: translateX(-50%) translateY(0);
+    }
+}
+
+.mobile-menu-panel.active {
+    animation: menuSlideUp 0.4s ease forwards;
+}
 
 /* ============================================
    END OF CSS
