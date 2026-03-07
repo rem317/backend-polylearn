@@ -26895,3 +26895,12 @@ mobileMenuItems.forEach((item, index) => {
         else if (index === 7) logoutUser(e); // Logout is the 8th item
     });
 });
+
+// ============================================
+// CLOSING BRACKETS - ADD THESE LINES
+// ============================================
+        });
+    });
+})();
+
+console.log('✅ FactoLearn.js loaded successfully - ' + new Date().toISOString());
