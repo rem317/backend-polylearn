@@ -2547,60 +2547,17 @@ async function checkLessonCompletionStatus() {
             return;
         }
         
-        // Get progress from state or server
+        // Get progress from state only
         let isCompleted = false;
         let percentage = 0;
-        let status = 'not_started';
-        
-        console.log('📊 Checking progress for lesson ID:', contentId);
-        console.log('📊 Current LessonState:', LessonState);
         
         if (LessonState.userProgress && LessonState.userProgress[contentId]) {
             const progress = LessonState.userProgress[contentId];
             isCompleted = progress.status === 'completed' || progress.completion_status === 'completed';
             percentage = progress.percentage || 0;
-            status = progress.status || 'not_started';
-            
-            console.log('✅ Progress found in state:', { isCompleted, percentage, status });
+            console.log('✅ Progress found in state:', { isCompleted, percentage });
         } else {
-            console.log('📡 No progress in state, fetching from server...');
-            
-            // Try to fetch from server
-            try {
-                const token = localStorage.getItem('authToken') || authToken;
-                if (!token) {
-                    console.log('⚠️ No auth token available');
-                    return;
-                }
-                
-                const response = await fetch(`/api/lessons-db/${contentId}`, {
-                    headers: {
-                        'Authorization': `Bearer ${token}`,
-                        'Content-Type': 'application/json'
-                    }
-                });
-                
-                if (response.ok) {
-                    const data = await response.json();
-                    console.log('📥 Server response:', data);
-                    
-                    if (data.success && data.lesson && data.lesson.progress) {
-                        const progress = data.lesson.progress;
-                        isCompleted = progress.status === 'completed' || 
-                                     progress.completion_status === 'completed';
-                        percentage = progress.percentage || 0;
-                        status = progress.status || 'not_started';
-                        
-                        // Save to state
-                        if (!LessonState.userProgress) LessonState.userProgress = {};
-                        LessonState.userProgress[contentId] = progress;
-                        
-                        console.log('✅ Progress loaded from server:', { isCompleted, percentage, status });
-                    }
-                }
-            } catch (error) {
-                console.error('❌ Error fetching progress:', error);
-            }
+            console.log('ℹ️ No progress in state for lesson', contentId);
         }
         
         // Update button based on status
@@ -2611,13 +2568,11 @@ async function checkLessonCompletionStatus() {
             completeBtn.disabled = true;
             console.log('✅ Lesson already completed - button disabled');
         } else {
-            // Reset button to default state
             completeBtn.innerHTML = '<i class="fas fa-check-circle"></i> Mark Lesson Complete';
             completeBtn.classList.remove('btn-success');
             completeBtn.classList.add('btn-primary');
             completeBtn.disabled = false;
             
-            // If percentage is high, change button text
             if (percentage >= 90) {
                 completeBtn.innerHTML = '<i class="fas fa-check-circle"></i> Complete Lesson (90%+)';
             } else if (percentage > 0) {
@@ -2626,8 +2581,6 @@ async function checkLessonCompletionStatus() {
             
             console.log(`📊 Lesson progress: ${percentage}% - button enabled`);
         }
-        
-        console.log(`✅ Completion status checked: ${isCompleted ? 'COMPLETED' : 'NOT COMPLETED'} (${percentage}%)`);
         
     } catch (error) {
         console.error('❌ Error checking completion status:', error);
@@ -6599,47 +6552,35 @@ async function updateDashboardWidgets(widgetConfig) {
 }
 
 // ============================================
-// INITIALIZE PROGRESS DASHBOARD - FIXED VERSION
+// ✅ FIXED: Initialize Progress Dashboard
 // ============================================
 async function initProgressDashboard() {
-    console.log('📈 Initializing progress dashboard with database integration...');
+    console.log('📈 Initializing progress dashboard with lesson_id=3 ONLY...');
     
     try {
         // Show loading state
         showProgressDashboardLoading();
         
-        // Load all progress data
+        // Load all progress data for lesson_id=3
         await updateProgressDashboardFromDatabase();
         
-        // Initialize charts
-        await initProgressCharts();
+        // Initialize charts with safety
+        await updateProgressCharts();
         
-        // ✅ FIX: Check if progressRefreshInterval exists
-        if (typeof progressRefreshInterval === 'undefined') {
-            window.progressRefreshInterval = null;
-        }
-        
-        // Start auto-refresh (every 60 seconds)
+        // Start auto-refresh
         startProgressAutoRefresh(60);
         
-        console.log('✅ Progress dashboard initialized with database integration');
+        console.log('✅ Progress dashboard initialized with lesson_id=3');
+        
     } catch (error) {
         console.error('❌ Error initializing progress dashboard:', error);
         hideProgressDashboardLoading();
         
-        // Show error message in dashboard
-        const container = document.querySelector('#progress-page .container');
-        if (container) {
-            container.innerHTML = `
-                <div class="error-message" style="text-align: center; padding: 40px;">
-                    <i class="fas fa-exclamation-triangle" style="font-size: 48px; color: #e74c3c; margin-bottom: 20px;"></i>
-                    <h3 style="color: #2c3e50; margin-bottom: 10px;">Failed to load progress data</h3>
-                    <p style="color: #7f8c8d;">Please try refreshing the page.</p>
-                    <button onclick="location.reload()" class="btn-primary" style="margin-top: 20px;">
-                        <i class="fas fa-redo"></i> Refresh Page
-                    </button>
-                </div>
-            `;
+        // Try to show charts anyway with demo data
+        try {
+            await updateProgressCharts();
+        } catch (chartError) {
+            console.error('❌ Charts still failing:', chartError);
         }
     }
 }
@@ -18451,79 +18392,90 @@ async function updateContinueLearningModule() {
     }
 }
 // ============================================
-// UPDATE PROGRESS DASHBOARD FROM DATABASE - FIXED
+// ✅ FIXED: Update Progress Dashboard from Database
 // ============================================
 async function updateProgressDashboardFromDatabase() {
-    console.log('📊 Updating progress dashboard from database...');
+    console.log('📊 Updating progress dashboard from database (lesson_id=3)...');
     
     try {
-        // Show loading
-        if (typeof showProgressDashboardLoading === 'function') {
-            showProgressDashboardLoading();
-        }
+        showProgressDashboardLoading();
         
-        // Fetch all progress data
-        const [cumulative, daily, topics, achievements, activities] = await Promise.allSettled([
-            typeof fetchCumulativeProgress === 'function' ? fetchCumulativeProgress() : Promise.resolve(null),
-            typeof fetchDailyProgress === 'function' ? fetchDailyProgress() : Promise.resolve(null),
-            typeof fetchTopicMastery === 'function' ? fetchTopicMastery() : Promise.resolve(null),
-            typeof fetchAchievementTimeline === 'function' ? fetchAchievementTimeline(10) : Promise.resolve(null),
-            typeof fetchActivityLog === 'function' ? fetchActivityLog(15) : Promise.resolve([])
-        ]);
+        const token = localStorage.getItem('authToken');
         
-        // Update overall progress
-        if (cumulative.status === 'fulfilled' && cumulative.value) {
-            if (typeof updateOverallProgressDisplay === 'function') {
-                updateOverallProgressDisplay(cumulative.value);
+        // Fetch cumulative progress for lesson_id=3
+        const cumulativeResponse = await fetch('/api/progress/overall?lesson_id=3', {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        
+        if (cumulativeResponse.ok) {
+            const data = await cumulativeResponse.json();
+            if (data.success && data.overall) {
+                updateOverallProgressDisplay(data.overall);
             }
         }
         
-        // Update daily stats
-        if (daily.status === 'fulfilled' && daily.value) {
-            if (typeof updateDailyStats === 'function') {
-                updateDailyStats(daily.value);
+        // Fetch daily progress
+        const dailyResponse = await fetch('/api/progress/daily?lesson_id=3', {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        
+        if (dailyResponse.ok) {
+            const data = await dailyResponse.json();
+            if (data.success && data.progress) {
+                updateDailyStats(data.progress);
             }
         }
         
-        // Update topics progress
-        if (topics.status === 'fulfilled' && topics.value) {
-            // Just store the data, don't try to update non-existent UI
-            console.log('📚 Topics mastery data:', topics.value);
-        }
-        
-        // Update achievements
-        if (achievements.status === 'fulfilled' && achievements.value) {
-            if (typeof updateAchievementTimeline === 'function') {
-                updateAchievementTimeline();
-            }
-        }
-        
-        // Update activity log
-        if (activities.status === 'fulfilled' && activities.value) {
-            if (typeof updateActivityLog === 'function') {
-                updateActivityLog();
-            }
-        }
-        
-        // Update charts
-        if (typeof updateProgressCharts === 'function') {
+        // Update charts (with error handling)
+        try {
             await updateProgressCharts();
+        } catch (chartError) {
+            console.error('❌ Charts error:', chartError);
         }
         
-        // Hide loading
-        if (typeof hideProgressDashboardLoading === 'function') {
-            hideProgressDashboardLoading();
-        }
-        
-        console.log('✅ Progress dashboard updated from database');
+        hideProgressDashboardLoading();
+        console.log('✅ Progress dashboard updated');
         
     } catch (error) {
-        console.error('❌ Error updating progress dashboard:', error);
-        if (typeof hideProgressDashboardLoading === 'function') {
-            hideProgressDashboardLoading();
-        }
+        console.error('❌ Error updating dashboard:', error);
+        hideProgressDashboardLoading();
     }
 }
+
+// ============================================
+// 🚨 ULTIMATE SAFETY: Force lesson_id=3 for ALL
+// ============================================
+(function forceLesson3ForAll() {
+    console.log('🚨 FORCING LESSON_ID=3 FOR ALL REQUESTS');
+    
+    const originalFetch = window.fetch;
+    window.fetch = function(url, options = {}) {
+        if (typeof url === 'string') {
+            // List of endpoints that need lesson_id
+            const apiEndpoints = [
+                '/api/progress',
+                '/api/lessons',
+                '/api/practice',
+                '/api/quiz',
+                '/api/topics'
+            ];
+            
+            const needsLessonId = apiEndpoints.some(ep => url.includes(ep));
+            
+            if (needsLessonId) {
+                // Remove any existing lesson_id
+                url = url.replace(/[?&]lesson_id=\d+/g, '');
+                
+                // Add lesson_id=3
+                const separator = url.includes('?') ? '&' : '?';
+                url = `${url}${separator}lesson_id=3`;
+            }
+        }
+        return originalFetch.call(this, url, options);
+    };
+    
+    console.log('✅ ALL API calls now use lesson_id=3');
+})();
 function renderDailyActivityChart(chartData) {
     console.log('📈 Rendering daily activity chart...');
     
@@ -18655,19 +18607,61 @@ function updateTopicsProgressDetailed(topics) {
 }
 
 
+// ============================================
+// ✅ FIXED: Update Progress Charts
+// ============================================
 async function updateProgressCharts() {
-    console.log('📊 Updating progress charts...');
+    console.log('📊 Updating progress charts with lesson_id=3 data...');
     
-    const chartData = await fetchProgressChartData(14);
-    
-    if (chartData) {
+    try {
+        const token = localStorage.getItem('authToken');
+        
+        // Fetch chart data with lesson_id=3
+        const response = await fetch('/api/progress/chart-data?lesson_id=3&days=14', {
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Accept': 'application/json'
+            }
+        });
+        
+        let chartData;
+        if (response.ok) {
+            const data = await response.json();
+            chartData = data.success ? data.data : null;
+        }
+        
+        // Use demo data if no real data
+        if (!chartData) {
+            chartData = {
+                practiceTime: {
+                    labels: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
+                    values: [25, 40, 15, 60, 45, 30, 55]
+                },
+                accuracy: {
+                    labels: ['Week 1', 'Week 2', 'Week 3', 'Week 4'],
+                    values: [65, 72, 78, 85]
+                }
+            };
+        }
+        
+        // Render charts with safety checks
         renderPracticeTimeChart(chartData.practiceTime);
         renderAccuracyChart(chartData.accuracy);
-    } else {
-        createSampleChartData();
+        
+    } catch (error) {
+        console.error('❌ Error updating charts:', error);
+        
+        // Show demo data on error
+        renderPracticeTimeChart({
+            labels: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
+            values: [25, 40, 15, 60, 45, 30, 55]
+        });
+        renderAccuracyChart({
+            labels: ['Week 1', 'Week 2', 'Week 3', 'Week 4'],
+            values: [65, 72, 78, 85]
+        });
     }
 }
-
 
 // ============================================
 // FIXED: openLesson function - RAILWAY VERSION
@@ -18718,12 +18712,14 @@ async function openLesson(lessonId) {
         
         navigateTo('moduleDashboard');
         
-        // Inside openLesson function, after loading the video:
+        
+      // Inside openLesson function
       setTimeout(async () => {
           updateLessonUI(lesson);
           setupNavigationButtons();
           await loadVideoFromDatabase(lessonId);
-          await checkLessonCompletionStatus();  // ← MAKE SURE THIS LINE EXISTS
+          setupCompleteLessonButton();  // ← ADD THIS LINE
+          await checkLessonCompletionStatus();
           console.log('✅ Lesson fully loaded');
       }, 500);
         
@@ -18732,6 +18728,25 @@ async function openLesson(lessonId) {
         showNotification('Error loading lesson: ' + error.message, 'error');
     }
 }
+
+// ============================================
+// 🔍 DEBUG: Check Lesson Button
+// ============================================
+window.debugLessonButton = function() {
+    console.log('🔍 LESSON BUTTON DEBUG:');
+    console.log('- Button exists:', !!document.getElementById('completeLessonBtn'));
+    console.log('- Current Lesson:', LessonState.currentLesson);
+    console.log('- User Progress:', LessonState.userProgress);
+    
+    if (LessonState.currentLesson) {
+        const contentId = LessonState.currentLesson.content_id;
+        console.log('- Progress for current lesson:', LessonState.userProgress?.[contentId]);
+    }
+    
+    // Force setup
+    setupCompleteLessonButton();
+    console.log('✅ Button setup forced');
+};
 // Update navigation buttons function - FIXED VERSION
 function updateNavigationButtons(adjacent) {
     console.log('🔄 Updating navigation buttons with adjacent:', adjacent);
@@ -20512,7 +20527,7 @@ function setupPracticeButtons() {
 }
 
 // ============================================
-// ✅ FIXED: Setup Complete Lesson Button
+// ✅ WORKING: Setup Complete Lesson Button
 // ============================================
 function setupCompleteLessonButton() {
     console.log('🔘 Setting up complete lesson button...');
@@ -20567,7 +20582,7 @@ function setupCompleteLessonButton() {
         newCompleteBtn.disabled = true;
         
         try {
-            // Check if already completed (double-check)
+            // Check if already completed
             if (LessonState.userProgress?.[contentId]?.status === 'completed') {
                 showNotification('info', 'Already Completed', 'Lesson already marked as complete!');
                 newCompleteBtn.innerHTML = '<i class="fas fa-check-double"></i> Already Completed';
@@ -20576,18 +20591,17 @@ function setupCompleteLessonButton() {
                 return;
             }
             
-            // Calculate time spent watching video
+            // Calculate time spent
             let timeSpentSeconds = 300; // Default 5 minutes
             const videoElement = document.getElementById('lessonVideo');
             if (videoElement && videoElement.duration) {
-                // Use current time if video is playing, otherwise use duration
                 timeSpentSeconds = Math.floor(videoElement.currentTime || videoElement.duration || 300);
             }
             
             console.log(`⏱️ Time spent: ${timeSpentSeconds} seconds`);
             
             // Get auth token
-            const token = localStorage.getItem('authToken') || authToken;
+            const token = localStorage.getItem('authToken');
             if (!token) {
                 throw new Error('No authentication token found');
             }
@@ -20628,15 +20642,13 @@ function setupCompleteLessonButton() {
                 
                 // Update local state
                 if (!LessonState.userProgress) LessonState.userProgress = {};
-                if (!LessonState.userProgress[contentId]) LessonState.userProgress[contentId] = {};
-                LessonState.userProgress[contentId].status = 'completed';
-                LessonState.userProgress[contentId].percentage = 100;
-                LessonState.userProgress[contentId].completion_status = 'completed';
+                LessonState.userProgress[contentId] = {
+                    status: 'completed',
+                    percentage: 100,
+                    completion_status: 'completed'
+                };
                 
-                console.log('✅ Local state updated:', LessonState.userProgress[contentId]);
-                
-                // Clear any watch time tracking
-                localStorage.removeItem(`video_watch_time_video_${contentId}`);
+                console.log('✅ Local state updated');
                 
                 // Update daily progress
                 await updateDailyProgress({ 
@@ -20644,27 +20656,13 @@ function setupCompleteLessonButton() {
                     time_spent_minutes: Math.floor(timeSpentSeconds / 60)
                 });
                 
-                // Update dashboard statistics
+                // Update dashboard
                 setTimeout(() => {
                     if (typeof updateProgressSummaryCards === 'function') {
                         updateProgressSummaryCards();
                     }
-                    if (AppState.currentPage === 'dashboard' && typeof updateContinueLearningModule === 'function') {
+                    if (typeof updateContinueLearningModule === 'function') {
                         updateContinueLearningModule();
-                    }
-                    
-                    // Check if practice should be unlocked
-                    const topicId = currentLesson.topic_id;
-                    if (topicId) {
-                        checkPracticeUnlocked(topicId).then(unlocked => {
-                            if (unlocked) {
-                                showNotification('success', 'Practice Unlocked!', 'Practice exercises are now available!');
-                                // Add practice button to lesson content
-                                if (typeof addPracticeButtonToLesson === 'function') {
-                                    addPracticeButtonToLesson();
-                                }
-                            }
-                        });
                     }
                 }, 1000);
                 
@@ -20676,7 +20674,7 @@ function setupCompleteLessonButton() {
             console.error('❌ Error marking lesson complete:', error);
             showNotification('error', 'Error', error.message || 'Failed to mark lesson as complete');
             
-            // Restore button to original state
+            // Restore button
             newCompleteBtn.innerHTML = originalText;
             newCompleteBtn.disabled = false;
             
@@ -20689,10 +20687,8 @@ function setupCompleteLessonButton() {
     
     console.log('✅ Complete lesson button setup complete');
     
-    // Check initial status after a short delay
-    setTimeout(() => {
-        checkLessonCompletionStatus();
-    }, 500);
+    // Check initial status
+    setTimeout(checkLessonCompletionStatus, 500);
 }
 // ============================================
 // FETCH ACTIVITY LOG - ADD THIS MISSING FUNCTION
@@ -21394,8 +21390,23 @@ function getDemoAnalytics() {
 }
 
 function renderAccuracyChart(data) {
+    console.log('📊 Rendering accuracy chart with data:', data);
+    
     const container = document.getElementById('accuracyChart');
-    if (!container) return;
+    if (!container) {
+        console.log('⚠️ accuracyChart container not found');
+        return;
+    }
+    
+    // SAFETY CHECK: Siguraduhing may data at may values
+    if (!data || !data.values || !Array.isArray(data.values) || data.values.length === 0) {
+        console.log('⚠️ No accuracy data available, showing demo data');
+        // Use demo data
+        data = {
+            labels: ['Week 1', 'Week 2', 'Week 3', 'Week 4'],
+            values: [65, 72, 78, 85]
+        };
+    }
     
     const maxValue = Math.max(...data.values, 100);
     
@@ -21407,36 +21418,62 @@ function renderAccuracyChart(data) {
             <div style="flex: 1; display: flex; flex-direction: column; align-items: center;">
                 <div style="width: 100%; background: #7a0000; height: ${height}px; border-radius: 5px 5px 0 0;" 
                      title="${value}%"></div>
-                <div style="margin-top: 10px; font-size: 12px; color: #666;">${data.labels[i]}</div>
+                <div style="margin-top: 10px; font-size: 12px; color: #666;">${data.labels[i] || 'Week ' + (i+1)}</div>
             </div>
         `;
     });
     
     html += '</div>';
     container.innerHTML = html;
+    console.log('✅ Accuracy chart rendered');
 }
 
-function renderTimeChart(data) {
-    const container = document.getElementById('timeChart');
-    if (!container) return;
+
+function renderPracticeTimeChart(data) {
+    console.log('📊 Rendering practice time chart with data:', data);
+    
+    const container = document.getElementById('practiceTimeBars');
+    if (!container) {
+        console.log('⚠️ practiceTimeBars container not found');
+        return;
+    }
+    
+    // SAFETY CHECK
+    if (!data || !data.values || !Array.isArray(data.values) || data.values.length === 0) {
+        console.log('⚠️ No practice time data available, showing demo data');
+        data = {
+            labels: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
+            values: [25, 40, 15, 60, 45, 30, 55]
+        };
+    }
     
     const maxValue = Math.max(...data.values, 60);
     
-    let html = '<div style="height: 200px; display: flex; align-items: flex-end; gap: 8px; padding: 20px 0;">';
+    let html = '<div style="display: flex; align-items: flex-end; gap: 8px; height: 100%;">';
     
     data.values.forEach((value, i) => {
-        const height = (value / maxValue) * 180;
+        const height = (value / maxValue) * 100;
         html += `
             <div style="flex: 1; display: flex; flex-direction: column; align-items: center;">
-                <div style="width: 100%; background: #3498db; height: ${height}px; border-radius: 5px 5px 0 0;" 
-                     title="${value} min"></div>
-                <div style="margin-top: 10px; font-size: 11px; color: #666;">${data.labels[i]}</div>
+                <div class="chart-bar" style="height: ${height}%; background: #7a0000; width: 100%; border-radius: 4px 4px 0 0;" 
+                     data-value="${value}m"></div>
+                <div style="margin-top: 5px; font-size: 10px; color: #666;">${data.labels[i] || ''}</div>
             </div>
         `;
     });
     
     html += '</div>';
     container.innerHTML = html;
+    
+    // Update labels container
+    const labelsContainer = document.getElementById('practiceTimeLabels');
+    if (labelsContainer) {
+        labelsContainer.innerHTML = data.labels.map(label => 
+            `<div class="chart-label">${label}</div>`
+        ).join('');
+    }
+    
+    console.log('✅ Practice time chart rendered');
 }
 
 function renderTopicsChart(data) {
@@ -21499,35 +21536,14 @@ function createChartContainers() {
     console.log('✅ Created chart containers');
 }
 // ============================================
-// ✅ FIXED: Load Topics Progress - Lesson ID 3 Only
+// ✅ FIXED: Load Topics Progress - Lesson ID 3 ONLY
 // ============================================
 async function loadTopicsProgress() {
-    console.log('📊 Loading topics progress for Lesson ID 3...');
+    console.log('📊 Loading topics progress for Lesson ID 3 ONLY...');
     
     const topicsContainer = document.getElementById('topicsContainer');
     if (!topicsContainer) {
-        console.error('❌ topicsContainer NOT FOUND in HTML!');
-        // Create it if missing
-        const practicePage = document.getElementById('practice-exercises-page');
-        if (practicePage) {
-            const newContainer = document.createElement('div');
-            newContainer.id = 'topicsContainer';
-            newContainer.className = 'topics-container';
-            
-            // Find where to insert (look for existing section)
-            const existingSection = practicePage.querySelector('.topics-section');
-            if (existingSection) {
-                existingSection.appendChild(newContainer);
-            } else {
-                // Create a section for topics
-                const section = document.createElement('div');
-                section.className = 'topics-section';
-                section.innerHTML = '<h3><i class="fas fa-tasks"></i> Topics Progress</h3>';
-                section.appendChild(newContainer);
-                practicePage.querySelector('.container').appendChild(section);
-            }
-            console.log('✅ Created topicsContainer dynamically');
-        }
+        console.error('❌ topicsContainer NOT FOUND!');
         return;
     }
     
@@ -21535,7 +21551,7 @@ async function loadTopicsProgress() {
     topicsContainer.innerHTML = `
         <div style="text-align: center; padding: 30px;">
             <i class="fas fa-spinner fa-spin" style="font-size: 30px; color: #7a0000;"></i>
-            <p style="margin-top: 10px;">Loading topics...</p>
+            <p style="margin-top: 10px; color: #666;">Loading FactoLearn topics...</p>
         </div>
     `;
     
@@ -21546,7 +21562,7 @@ async function loadTopicsProgress() {
             return;
         }
         
-        // Fetch topics with lesson_id=3
+        // FORCE lesson_id=3
         const response = await fetch('/api/topics/progress?lesson_id=3', {
             headers: {
                 'Authorization': `Bearer ${token}`,
@@ -21559,13 +21575,32 @@ async function loadTopicsProgress() {
         }
         
         const data = await response.json();
-        console.log('📥 Topics data:', data);
+        console.log('📥 Topics data from server:', data);
         
-        if (data.success && data.topics && data.topics.length > 0) {
-            displayTopicsProgress(data.topics);
+        if (data.success && data.topics) {
+            // FILTER: Lesson ID 3 lang (double safety)
+            const factolearnTopics = data.topics.filter(topic => {
+                const lessonId = topic.lesson_id || topic.lessonId;
+                return lessonId == 3;
+            });
+            
+            console.log(`🎯 Found ${factolearnTopics.length} topics for Lesson ID 3`);
+            
+            if (factolearnTopics.length > 0) {
+                displayTopicsProgress(factolearnTopics);
+            } else {
+                // No topics for lesson 3, show demo data
+                const demoTopics = getFactoLearnDemoTopics();
+                displayTopicsProgress(demoTopics);
+                topicsContainer.innerHTML += `
+                    <div style="background: #fff3cd; color: #856404; padding: 10px; border-radius: 5px; margin-top: 10px; font-size: 12px;">
+                        <i class="fas fa-info-circle"></i> Using sample FactoLearn topics
+                    </div>
+                `;
+            }
         } else {
-            // No topics yet - show demo data
-            const demoTopics = getDemoTopics();
+            // No data, use demo
+            const demoTopics = getFactoLearnDemoTopics();
             displayTopicsProgress(demoTopics);
         }
         
@@ -21573,56 +21608,89 @@ async function loadTopicsProgress() {
         console.error('❌ Error loading topics:', error);
         
         // Show demo data on error
-        const demoTopics = getDemoTopics();
+        const demoTopics = getFactoLearnDemoTopics();
         displayTopicsProgress(demoTopics);
         
         topicsContainer.innerHTML += `
-            <div style="background: #fff3cd; color: #856404; padding: 10px; border-radius: 5px; margin-top: 10px; font-size: 12px;">
-                <i class="fas fa-info-circle"></i> Using sample data (API error: ${error.message})
+            <div style="background: #fee; color: #c00; padding: 10px; border-radius: 5px; margin-top: 10px; font-size: 12px;">
+                <i class="fas fa-exclamation-triangle"></i> Using sample data (Error: ${error.message})
             </div>
         `;
     }
 }
 
-// Demo topics for FactoLearn
-function getDemoTopics() {
+
+// Demo topics for FactoLearn (Lesson ID 3)
+function getFactoLearnDemoTopics() {
     return [
         {
             topic_id: 1,
             topic_title: 'Factorial Basics',
-            module_name: 'Introduction',
+            module_name: 'Introduction to Factorials',
             lessons_completed: 2,
             total_lessons: 3,
             progress_percentage: 66,
             practice_unlocked: true,
             practice_completed: false,
-            accuracy_rate: 75
+            accuracy_rate: 75,
+            lesson_id: 3
         },
         {
             topic_id: 2,
-            topic_title: 'Permutations',
+            topic_title: 'Permutation Fundamentals',
             module_name: 'Counting Principles',
             lessons_completed: 1,
             total_lessons: 4,
             progress_percentage: 25,
             practice_unlocked: false,
             practice_completed: false,
-            accuracy_rate: 0
+            accuracy_rate: 0,
+            lesson_id: 3
         },
         {
             topic_id: 3,
-            topic_title: 'Combinations',
+            topic_title: 'Combination Concepts',
             module_name: 'Advanced Topics',
             lessons_completed: 0,
             total_lessons: 3,
             progress_percentage: 0,
             practice_unlocked: false,
             practice_completed: false,
-            accuracy_rate: 0
+            accuracy_rate: 0,
+            lesson_id: 3
         }
     ];
 }
-
+// ============================================
+// ✅ Add missing startExercise function
+// ============================================
+window.startExercise = function(exerciseId) {
+    console.log('▶️ Starting exercise:', exerciseId);
+    
+    // Find the exercise
+    const exercise = PracticeState.exercises?.find(ex => 
+        ex.exercise_id == exerciseId || ex.id == exerciseId
+    );
+    
+    if (exercise) {
+        // Check if it's FactoLearn
+        const lessonId = exercise.lesson_id || exercise.lessonId;
+        if (lessonId && lessonId != 3) {
+            alert('This exercise belongs to another app');
+            return;
+        }
+        
+        // Show practice modal
+        if (typeof showPracticeModal === 'function') {
+            showPracticeModal(exercise);
+        } else {
+            alert(`Starting exercise: ${exercise.title || 'Practice'}`);
+        }
+    } else {
+        console.error('❌ Exercise not found:', exerciseId);
+        alert('Exercise not found');
+    }
+};
 // ============================================
 // ✅ HELPER: Get current platform topic ID
 // ============================================
