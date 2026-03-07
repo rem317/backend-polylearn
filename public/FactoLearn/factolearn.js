@@ -6852,7 +6852,7 @@ function renderPracticeTimeChart(data) {
     labelsContainer.innerHTML = labelsHTML;
 }
 // ============================================
-// RENDER ACCURACY CHART - POLYLEARN COLOR SCHEME
+// FIXED: Accuracy Chart - Blue Line Chart (Like in the Picture)
 // ============================================
 function renderAccuracyChart(accuracyData) {
     const container = document.getElementById('accuracyChart');
@@ -6861,13 +6861,13 @@ function renderAccuracyChart(accuracyData) {
     // Clear container
     container.innerHTML = '';
     
-    // Set container styles - PolyLearn theme
+    // Set container styles - Blue theme like in the picture
     container.style.position = 'relative';
     container.style.height = '220px';
-    container.style.background = 'linear-gradient(135deg, #7a0000 0%, #c0392b 100%)'; // PolyLearn maroon gradient
+    container.style.background = 'linear-gradient(135deg, #3498db 0%, #2980b9 100%)'; // Blue gradient
     container.style.borderRadius = '15px';
     container.style.padding = '20px 15px 15px 15px';
-    container.style.boxShadow = '0 10px 30px rgba(122, 0, 0, 0.3)'; // Maroon shadow
+    container.style.boxShadow = '0 10px 30px rgba(52, 152, 219, 0.3)'; // Blue shadow
     
     // Create SVG
     const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
@@ -6886,12 +6886,12 @@ function renderAccuracyChart(accuracyData) {
         points.push({ x, y });
     });
     
-    // Create gradient for line - POLYLEARN COLORS
+    // Create gradient for line - BLUE THEME
     const defs = document.createElementNS('http://www.w3.org/2000/svg', 'defs');
     
-    // Line gradient
+    // Line gradient (light blue to dark blue)
     const lineGradient = document.createElementNS('http://www.w3.org/2000/svg', 'linearGradient');
-    lineGradient.setAttribute('id', 'lineGradient');
+    lineGradient.setAttribute('id', 'accuracyLineGradient');
     lineGradient.setAttribute('x1', '0%');
     lineGradient.setAttribute('y1', '0%');
     lineGradient.setAttribute('x2', '100%');
@@ -6904,16 +6904,16 @@ function renderAccuracyChart(accuracyData) {
     
     const lineStop2 = document.createElementNS('http://www.w3.org/2000/svg', 'stop');
     lineStop2.setAttribute('offset', '100%');
-    lineStop2.setAttribute('stop-color', '#ffd700'); // Gold end
+    lineStop2.setAttribute('stop-color', '#e0f7fa'); // Light blue end
     lineStop2.setAttribute('stop-opacity', '1');
     
     lineGradient.appendChild(lineStop1);
     lineGradient.appendChild(lineStop2);
     defs.appendChild(lineGradient);
     
-    // Area gradient - POLYLEARN SEMI-TRANSPARENT
+    // Area gradient - LIGHT BLUE
     const areaGradient = document.createElementNS('http://www.w3.org/2000/svg', 'linearGradient');
-    areaGradient.setAttribute('id', 'areaGradient');
+    areaGradient.setAttribute('id', 'accuracyAreaGradient');
     areaGradient.setAttribute('x1', '0%');
     areaGradient.setAttribute('y1', '0%');
     areaGradient.setAttribute('x2', '0%');
@@ -6921,13 +6921,13 @@ function renderAccuracyChart(accuracyData) {
     
     const areaStop1 = document.createElementNS('http://www.w3.org/2000/svg', 'stop');
     areaStop1.setAttribute('offset', '0%');
-    areaStop1.setAttribute('stop-color', '#ffffff');
+    areaStop1.setAttribute('stop-color', 'rgba(255, 255, 255, 0.3)');
     areaStop1.setAttribute('stop-opacity', '0.3');
     
     const areaStop2 = document.createElementNS('http://www.w3.org/2000/svg', 'stop');
     areaStop2.setAttribute('offset', '100%');
-    areaStop2.setAttribute('stop-color', '#ffffff');
-    areaStop2.setAttribute('stop-opacity', '0.1');
+    areaStop2.setAttribute('stop-color', 'rgba(255, 255, 255, 0.05)');
+    areaStop2.setAttribute('stop-opacity', '0.05');
     
     areaGradient.appendChild(areaStop1);
     areaGradient.appendChild(areaStop2);
@@ -6944,11 +6944,11 @@ function renderAccuracyChart(accuracyData) {
     areaD += `L ${points[points.length-1].x},130 Z`;
     
     areaPath.setAttribute('d', areaD);
-    areaPath.setAttribute('fill', 'url(#areaGradient)'); // Use gradient
+    areaPath.setAttribute('fill', 'url(#accuracyAreaGradient)');
     areaPath.setAttribute('stroke', 'none');
     svg.appendChild(areaPath);
     
-    // Draw line
+    // Draw line - SOLID BLUE
     const linePath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
     let lineD = `M ${points[0].x},${points[0].y}`;
     points.slice(1).forEach(point => {
@@ -6957,13 +6957,13 @@ function renderAccuracyChart(accuracyData) {
     
     linePath.setAttribute('d', lineD);
     linePath.setAttribute('fill', 'none');
-    linePath.setAttribute('stroke', 'url(#lineGradient)'); // Use white to gold gradient
+    linePath.setAttribute('stroke', '#3498db'); // SOLID BLUE
     linePath.setAttribute('stroke-width', '3');
     linePath.setAttribute('stroke-linecap', 'round');
     linePath.setAttribute('stroke-linejoin', 'round');
     svg.appendChild(linePath);
     
-    // Draw points - POLYLEARN STYLE
+    // Draw points - BLUE THEME
     points.forEach((point, index) => {
         // Outer white circle
         const outerCircle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
@@ -6974,24 +6974,24 @@ function renderAccuracyChart(accuracyData) {
         outerCircle.setAttribute('stroke', 'none');
         svg.appendChild(outerCircle);
         
-        // Inner maroon circle
+        // Inner blue circle
         const innerCircle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
         innerCircle.setAttribute('cx', point.x);
         innerCircle.setAttribute('cy', point.y);
         innerCircle.setAttribute('r', '4');
-        innerCircle.setAttribute('fill', '#7a0000'); // Maroon
+        innerCircle.setAttribute('fill', '#3498db'); // Blue
         innerCircle.setAttribute('stroke', 'none');
         svg.appendChild(innerCircle);
         
         // Add tooltip
         innerCircle.addEventListener('mouseenter', (e) => {
-            showPolyLearnTooltip(e, accuracyData.labels[index], accuracyData.accuracy[index]);
+            showBlueTooltip(e, accuracyData.labels[index], accuracyData.accuracy[index]);
         });
     });
     
     container.appendChild(svg);
     
-    // Add labels - POLYLEARN STYLE
+    // Add labels
     const labelsDiv = document.createElement('div');
     labelsDiv.style.display = 'flex';
     labelsDiv.style.justifyContent = 'space-between';
@@ -7013,9 +7013,9 @@ function renderAccuracyChart(accuracyData) {
     
     // Add floating tooltip
     const tooltip = document.createElement('div');
-    tooltip.id = 'polyLearnTooltip';
+    tooltip.id = 'blueTooltip';
     tooltip.style.position = 'absolute';
-    tooltip.style.background = '#7a0000'; // Maroon background
+    tooltip.style.background = '#3498db'; // Blue background
     tooltip.style.color = 'white';
     tooltip.style.padding = '8px 12px';
     tooltip.style.borderRadius = '8px';
@@ -7024,13 +7024,41 @@ function renderAccuracyChart(accuracyData) {
     tooltip.style.pointerEvents = 'none';
     tooltip.style.display = 'none';
     tooltip.style.zIndex = '1000';
-    tooltip.style.boxShadow = '0 4px 15px rgba(122, 0, 0, 0.4)';
+    tooltip.style.boxShadow = '0 4px 15px rgba(52, 152, 219, 0.4)';
     tooltip.style.border = '1px solid rgba(255,255,255,0.2)';
     
     // Add arrow
-    tooltip.innerHTML = '<div class="tooltip-arrow" style="position: absolute; bottom: -5px; left: 50%; transform: translateX(-50%); width: 0; height: 0; border-left: 6px solid transparent; border-right: 6px solid transparent; border-top: 6px solid #7a0000;"></div>';
+    tooltip.innerHTML = '<div class="tooltip-arrow" style="position: absolute; bottom: -5px; left: 50%; transform: translateX(-50%); width: 0; height: 0; border-left: 6px solid transparent; border-right: 6px solid transparent; border-top: 6px solid #3498db;"></div>';
     
     container.appendChild(tooltip);
+}
+
+// ============================================
+// Helper: Show Blue Tooltip
+// ============================================
+function showBlueTooltip(e, day, value) {
+    const tooltip = document.getElementById('blueTooltip');
+    if (!tooltip) return;
+    
+    const container = document.getElementById('accuracyChart');
+    if (!container) return;
+    
+    const rect = container.getBoundingClientRect();
+    const mouseX = e.clientX - rect.left;
+    const mouseY = e.clientY - rect.top;
+    
+    tooltip.style.display = 'block';
+    tooltip.style.left = mouseX + 'px';
+    tooltip.style.top = (mouseY - 40) + 'px';
+    tooltip.innerHTML = `
+        <strong>${day}:</strong> ${value}% accuracy
+        <div class="tooltip-arrow" style="position: absolute; bottom: -5px; left: 50%; transform: translateX(-50%); width: 0; height: 0; border-left: 6px solid transparent; border-right: 6px solid transparent; border-top: 6px solid #3498db;"></div>
+    `;
+    
+    // Hide after 2 seconds
+    setTimeout(() => {
+        tooltip.style.display = 'none';
+    }, 2000);
 }
 
 // ============================================
@@ -18654,10 +18682,10 @@ async function updateProgressDashboardFromDatabase() {
     }
 }
 // ============================================
-// RENDER DAILY ACTIVITY CHART - COMPLETE VERSION
+// FIXED: Daily Practice Time - Line Chart (NOT Bar Graph)
 // ============================================
 function renderDailyActivityChart(chartData) {
-    console.log('📊 Rendering daily activity chart with data:', chartData);
+    console.log('📊 Rendering daily activity line chart with data:', chartData);
     
     const chartContainer = document.getElementById('practiceTimeChart');
     if (!chartContainer) {
@@ -18674,209 +18702,247 @@ function renderDailyActivityChart(chartData) {
         return;
     }
     
-    // Create canvas element
-    const canvas = document.createElement('canvas');
-    canvas.id = 'dailyActivityCanvas';
-    canvas.width = chartContainer.offsetWidth || 800;
-    canvas.height = chartContainer.offsetHeight || 300;
-    canvas.style.width = '100%';
-    canvas.style.height = '100%';
-    chartContainer.appendChild(canvas);
+    // Set container styles
+    chartContainer.style.position = 'relative';
+    chartContainer.style.height = '250px';
+    chartContainer.style.background = 'white';
+    chartContainer.style.borderRadius = '12px';
+    chartContainer.style.padding = '15px';
+    chartContainer.style.boxShadow = '0 4px 12px rgba(0,0,0,0.1)';
     
-    const ctx = canvas.getContext('2d');
+    // Create SVG
+    const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    svg.setAttribute('width', '100%');
+    svg.setAttribute('height', '180');
+    svg.setAttribute('viewBox', '0 0 500 180');
+    svg.style.display = 'block';
     
-    // Set dimensions
-    const width = canvas.width;
-    const height = canvas.height;
-    const padding = 50; // Left/right padding
-    const topPadding = 30; // Top padding
-    const bottomPadding = 40; // Bottom padding for labels
-    const chartWidth = width - (padding * 2);
-    const chartHeight = height - (topPadding + bottomPadding);
+    // Extract data
+    const labels = chartData.labels || [];
+    let practiceData = [];
     
-    // Clear canvas
-    ctx.clearRect(0, 0, width, height);
-    
-    // Draw background
-    ctx.fillStyle = '#ffffff';
-    ctx.fillRect(0, 0, width, height);
-    
-    // Draw title
-    ctx.fillStyle = '#2c3e50';
-    ctx.font = 'bold 14px Arial, sans-serif';
-    ctx.textAlign = 'center';
-    ctx.fillText('Daily Practice Activity', width / 2, 20);
-    
-    // Draw grid and axes
-    drawChartGrid(ctx, width, height, padding, topPadding, bottomPadding, chartWidth, chartHeight);
-    
-    // Find max value for scaling (with minimum of 5)
-    const allValues = [
-        ...(chartData.datasets?.[0]?.data || []),
-        ...(chartData.datasets?.[1]?.data || []),
-        ...(chartData.datasets?.[2]?.data || []),
-        ...(chartData.practice || []),
-        ...(chartData.quizzes || []),
-        ...(chartData.lessons || [])
-    ];
-    
-    const maxValue = Math.max(...allValues, 5);
-    const yStep = Math.ceil(maxValue / 5); // 5 grid lines
-    
-    // Define datasets based on chartData structure
-    let datasets = [];
-    
-    if (chartData.datasets) {
-        // Chart.js format
-        datasets = chartData.datasets;
-    } else {
-        // Custom format
-        datasets = [
-            { label: 'Practice', data: chartData.practice || [], color: '#7a0000' },
-            { label: 'Quizzes', data: chartData.quizzes || [], color: '#3498db' },
-            { label: 'Lessons', data: chartData.lessons || [], color: '#27ae60' }
-        ].filter(d => d.data.length > 0);
+    // Handle different data formats
+    if (chartData.datasets && chartData.datasets[0]) {
+        practiceData = chartData.datasets[0].data || [];
+    } else if (chartData.practice) {
+        practiceData = chartData.practice;
+    } else if (Array.isArray(chartData)) {
+        practiceData = chartData;
     }
     
-    // Define colors for datasets
-    const colors = [
-        { border: '#7a0000', bg: 'rgba(122, 0, 0, 0.1)', fill: 'rgba(122, 0, 0, 0.05)' },
-        { border: '#3498db', bg: 'rgba(52, 152, 219, 0.1)', fill: 'rgba(52, 152, 219, 0.05)' },
-        { border: '#27ae60', bg: 'rgba(39, 174, 96, 0.1)', fill: 'rgba(39, 174, 96, 0.05)' },
-        { border: '#f39c12', bg: 'rgba(243, 156, 18, 0.1)', fill: 'rgba(243, 156, 18, 0.05)' },
-        { border: '#9b59b6', bg: 'rgba(155, 89, 182, 0.1)', fill: 'rgba(155, 89, 182, 0.05)' }
-    ];
+    // Calculate points
+    const points = [];
+    const maxValue = Math.max(...practiceData, 5);
+    const step = 460 / (labels.length - 1);
     
-    // Calculate step between points
-    const labels = chartData.labels || [];
-    const step = labels.length > 1 ? chartWidth / (labels.length - 1) : 0;
-    
-    // Draw lines for each dataset
-    datasets.forEach((dataset, datasetIndex) => {
-        const color = colors[datasetIndex % colors.length];
-        const data = dataset.data || [];
-        
-        if (data.length === 0) return;
-        
-        // Draw filled area
-        ctx.fillStyle = color.fill;
-        ctx.beginPath();
-        
-        let firstPoint = true;
-        let firstX = 0, firstY = 0;
-        
-        data.forEach((value, index) => {
-            const x = padding + (step * index);
-            const y = topPadding + chartHeight - ((value / maxValue) * chartHeight);
-            
-            if (firstPoint) {
-                ctx.moveTo(x, y);
-                firstX = x;
-                firstY = y;
-                firstPoint = false;
-            } else {
-                ctx.lineTo(x, y);
-            }
-        });
-        
-        // Close the path to the bottom
-        if (data.length > 0) {
-            const lastX = padding + (step * (data.length - 1));
-            ctx.lineTo(lastX, topPadding + chartHeight);
-            ctx.lineTo(firstX, topPadding + chartHeight);
-            ctx.lineTo(firstX, firstY);
-            ctx.fill();
-        }
-        
-        // Draw line
-        ctx.strokeStyle = color.border;
-        ctx.lineWidth = 3;
-        ctx.beginPath();
-        
-        data.forEach((value, index) => {
-            const x = padding + (step * index);
-            const y = topPadding + chartHeight - ((value / maxValue) * chartHeight);
-            
-            if (index === 0) {
-                ctx.moveTo(x, y);
-            } else {
-                ctx.lineTo(x, y);
-            }
-        });
-        
-        ctx.stroke();
-        
-        // Draw points
-        data.forEach((value, index) => {
-            const x = padding + (step * index);
-            const y = topPadding + chartHeight - ((value / maxValue) * chartHeight);
-            
-            // Outer glow
-            ctx.shadowColor = color.border;
-            ctx.shadowBlur = 8;
-            
-            // Main point
-            ctx.fillStyle = color.border;
-            ctx.beginPath();
-            ctx.arc(x, y, 5, 0, 2 * Math.PI);
-            ctx.fill();
-            
-            // Inner white dot
-            ctx.shadowBlur = 0;
-            ctx.fillStyle = '#ffffff';
-            ctx.beginPath();
-            ctx.arc(x, y, 2, 0, 2 * Math.PI);
-            ctx.fill();
-            
-            // Add value label on hover (will be handled by tooltip)
-            storePointData(x, y, value, dataset.label, index);
-        });
+    practiceData.forEach((value, index) => {
+        const x = 20 + (step * index);
+        const y = 150 - (value / maxValue) * 120; // Scale to 150-30px
+        points.push({ x, y, value, label: labels[index] });
     });
     
-    // Draw X-axis labels
-    ctx.fillStyle = '#666';
-    ctx.font = '11px Arial, sans-serif';
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'top';
+    // Create gradients
+    const defs = document.createElementNS('http://www.w3.org/2000/svg', 'defs');
     
-    labels.forEach((label, index) => {
-        // Show every other label to avoid crowding
-        if (labels.length > 10 && index % 2 !== 0 && index !== labels.length - 1) return;
-        
-        const x = padding + (step * index);
-        ctx.fillText(label, x, topPadding + chartHeight + 10);
-    });
+    // Area gradient
+    const areaGradient = document.createElementNS('http://www.w3.org/2000/svg', 'linearGradient');
+    areaGradient.setAttribute('id', 'dailyAreaGradient');
+    areaGradient.setAttribute('x1', '0%');
+    areaGradient.setAttribute('y1', '0%');
+    areaGradient.setAttribute('x2', '0%');
+    areaGradient.setAttribute('y2', '100%');
     
-    // Draw Y-axis labels
-    ctx.textAlign = 'right';
-    ctx.textBaseline = 'middle';
+    const areaStop1 = document.createElementNS('http://www.w3.org/2000/svg', 'stop');
+    areaStop1.setAttribute('offset', '0%');
+    areaStop1.setAttribute('stop-color', 'rgba(122, 0, 0, 0.3)');
+    
+    const areaStop2 = document.createElementNS('http://www.w3.org/2000/svg', 'stop');
+    areaStop2.setAttribute('offset', '100%');
+    areaStop2.setAttribute('stop-color', 'rgba(122, 0, 0, 0.05)');
+    
+    areaGradient.appendChild(areaStop1);
+    areaGradient.appendChild(areaStop2);
+    defs.appendChild(areaGradient);
+    
+    // Line gradient
+    const lineGradient = document.createElementNS('http://www.w3.org/2000/svg', 'linearGradient');
+    lineGradient.setAttribute('id', 'dailyLineGradient');
+    lineGradient.setAttribute('x1', '0%');
+    lineGradient.setAttribute('y1', '0%');
+    lineGradient.setAttribute('x2', '100%');
+    lineGradient.setAttribute('y2', '0%');
+    
+    const lineStop1 = document.createElementNS('http://www.w3.org/2000/svg', 'stop');
+    lineStop1.setAttribute('offset', '0%');
+    lineStop1.setAttribute('stop-color', '#7a0000');
+    
+    const lineStop2 = document.createElementNS('http://www.w3.org/2000/svg', 'stop');
+    lineStop2.setAttribute('offset', '100%');
+    lineStop2.setAttribute('stop-color', '#c0392b');
+    
+    lineGradient.appendChild(lineStop1);
+    lineGradient.appendChild(lineStop2);
+    defs.appendChild(lineGradient);
+    
+    svg.appendChild(defs);
+    
+    // Draw grid lines
+    const gridGroup = document.createElementNS('http://www.w3.org/2000/svg', 'g');
     
     for (let i = 0; i <= 5; i++) {
+        const y = 30 + (i * 30);
         const value = Math.round((maxValue * (5 - i)) / 5);
-        const y = topPadding + (chartHeight * i / 5);
         
-        ctx.fillStyle = '#666';
-        ctx.font = '10px Arial, sans-serif';
-        ctx.fillText(value.toString(), padding - 10, y);
+        // Horizontal grid line
+        const gridLine = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+        gridLine.setAttribute('x1', '20');
+        gridLine.setAttribute('y1', y);
+        gridLine.setAttribute('x2', '480');
+        gridLine.setAttribute('y2', y);
+        gridLine.setAttribute('stroke', '#f0f0f0');
+        gridLine.setAttribute('stroke-width', '1');
+        gridLine.setAttribute('stroke-dasharray', '5,5');
+        gridGroup.appendChild(gridLine);
         
-        // Draw horizontal grid line
-        ctx.strokeStyle = '#f0f0f0';
-        ctx.lineWidth = 0.5;
-        ctx.beginPath();
-        ctx.moveTo(padding, y);
-        ctx.lineTo(width - padding, y);
-        ctx.stroke();
+        // Value label
+        const valueLabel = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+        valueLabel.setAttribute('x', '10');
+        valueLabel.setAttribute('y', y + 4);
+        valueLabel.setAttribute('fill', '#999');
+        valueLabel.setAttribute('font-size', '10');
+        valueLabel.textContent = value;
+        gridGroup.appendChild(valueLabel);
     }
     
-    // Draw legend
-    drawChartLegend(ctx, width, datasets, colors);
+    svg.appendChild(gridGroup);
     
-    // Setup tooltip
-    setupChartTooltip(chartContainer, canvas);
+    // Draw area under line
+    if (points.length > 0) {
+        const areaPath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+        let areaD = `M ${points[0].x},150 `;
+        points.forEach(point => {
+            areaD += `L ${point.x},${point.y} `;
+        });
+        areaD += `L ${points[points.length-1].x},150 Z`;
+        
+        areaPath.setAttribute('d', areaD);
+        areaPath.setAttribute('fill', 'url(#dailyAreaGradient)');
+        svg.appendChild(areaPath);
+    }
     
-    console.log('✅ Daily activity chart rendered successfully');
+    // Draw line
+    if (points.length > 0) {
+        const linePath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+        let lineD = `M ${points[0].x},${points[0].y}`;
+        points.slice(1).forEach(point => {
+            lineD += ` L ${point.x},${point.y}`;
+        });
+        
+        linePath.setAttribute('d', lineD);
+        linePath.setAttribute('fill', 'none');
+        linePath.setAttribute('stroke', 'url(#dailyLineGradient)');
+        linePath.setAttribute('stroke-width', '3');
+        svg.appendChild(linePath);
+    }
+    
+    // Draw points
+    points.forEach((point, index) => {
+        const pointGroup = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+        pointGroup.setAttribute('class', 'chart-point-group');
+        
+        // Outer white circle
+        const outerCircle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+        outerCircle.setAttribute('cx', point.x);
+        outerCircle.setAttribute('cy', point.y);
+        outerCircle.setAttribute('r', '6');
+        outerCircle.setAttribute('fill', 'white');
+        outerCircle.setAttribute('stroke', '#7a0000');
+        outerCircle.setAttribute('stroke-width', '2');
+        pointGroup.appendChild(outerCircle);
+        
+        // Inner circle
+        const innerCircle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+        innerCircle.setAttribute('cx', point.x);
+        innerCircle.setAttribute('cy', point.y);
+        innerCircle.setAttribute('r', '3');
+        innerCircle.setAttribute('fill', '#7a0000');
+        pointGroup.appendChild(innerCircle);
+        
+        // Add tooltip on hover
+        pointGroup.addEventListener('mouseenter', (e) => {
+            showDailyTooltip(e, point.label, point.value);
+        });
+        
+        svg.appendChild(pointGroup);
+    });
+    
+    chartContainer.appendChild(svg);
+    
+    // Add X-axis labels
+    const labelsDiv = document.createElement('div');
+    labelsDiv.style.display = 'flex';
+    labelsDiv.style.justifyContent = 'space-between';
+    labelsDiv.style.marginTop = '10px';
+    labelsDiv.style.padding = '0 20px';
+    
+    labels.forEach(label => {
+        const labelSpan = document.createElement('span');
+        labelSpan.textContent = label;
+        labelSpan.style.color = '#666';
+        labelSpan.style.fontSize = '11px';
+        labelSpan.style.fontWeight = '500';
+        labelsDiv.appendChild(labelSpan);
+    });
+    
+    chartContainer.appendChild(labelsDiv);
+    
+    // Add floating tooltip
+    const tooltip = document.createElement('div');
+    tooltip.id = 'dailyTooltip';
+    tooltip.style.position = 'absolute';
+    tooltip.style.background = '#7a0000';
+    tooltip.style.color = 'white';
+    tooltip.style.padding = '8px 12px';
+    tooltip.style.borderRadius = '8px';
+    tooltip.style.fontSize = '12px';
+    tooltip.style.fontWeight = 'bold';
+    tooltip.style.pointerEvents = 'none';
+    tooltip.style.display = 'none';
+    tooltip.style.zIndex = '1000';
+    tooltip.style.boxShadow = '0 4px 15px rgba(122,0,0,0.3)';
+    
+    tooltip.innerHTML = '<div class="tooltip-arrow" style="position: absolute; bottom: -5px; left: 50%; transform: translateX(-50%); width: 0; height: 0; border-left: 6px solid transparent; border-right: 6px solid transparent; border-top: 6px solid #7a0000;"></div>';
+    
+    chartContainer.appendChild(tooltip);
 }
 
+// ============================================
+// Helper: Show Daily Tooltip
+// ============================================
+function showDailyTooltip(e, day, minutes) {
+    const tooltip = document.getElementById('dailyTooltip');
+    if (!tooltip) return;
+    
+    const chartContainer = document.getElementById('practiceTimeChart');
+    if (!chartContainer) return;
+    
+    const rect = chartContainer.getBoundingClientRect();
+    const mouseX = e.clientX - rect.left;
+    const mouseY = e.clientY - rect.top;
+    
+    tooltip.style.display = 'block';
+    tooltip.style.left = mouseX + 'px';
+    tooltip.style.top = (mouseY - 40) + 'px';
+    tooltip.innerHTML = `
+        <strong>${day}:</strong> ${minutes} minutes
+        <div class="tooltip-arrow" style="position: absolute; bottom: -5px; left: 50%; transform: translateX(-50%); width: 0; height: 0; border-left: 6px solid transparent; border-right: 6px solid transparent; border-top: 6px solid #7a0000;"></div>
+    `;
+    
+    // Hide after 2 seconds
+    setTimeout(() => {
+        tooltip.style.display = 'none';
+    }, 2000);
+}
 // ============================================
 // DRAW CHART GRID
 // ============================================
