@@ -18496,7 +18496,7 @@ function setupBackButton() {
 }
 
 // ============================================
-// FIXED: Lesson Navigation Functions - Add this to script.js
+// ENHANCED: Lesson Navigation Functions with Fallback
 // ============================================
 
 // Function to navigate to previous lesson
@@ -18504,20 +18504,23 @@ async function goToPreviousLesson() {
     console.log('⬅️ Going to previous lesson...');
     
     const currentLesson = LessonState.currentLesson;
-    if (!currentLesson || !currentLesson.adjacent || !currentLesson.adjacent.previous) {
-        console.log('No previous lesson available');
-        showNotification('No previous lesson available', 'info');
+    if (!currentLesson) {
+        console.log('No current lesson found');
+        showNotification('No current lesson found', 'error');
         return;
     }
     
-    const prevLessonId = currentLesson.adjacent.previous.id;
-    console.log(`📖 Opening previous lesson ID: ${prevLessonId}`);
+    // Try to use adjacent data first
+    if (currentLesson.adjacent && currentLesson.adjacent.previous) {
+        const prevLessonId = currentLesson.adjacent.previous.id;
+        console.log(`📖 Opening previous lesson ID: ${prevLessonId} from adjacent data`);
+        await openLesson(prevLessonId);
+        return;
+    }
     
-    // Show loading state
-    showNotification('Loading previous lesson...', 'info');
-    
-    // Open the previous lesson
-    await openLesson(prevLessonId);
+    // Fallback: Try to find previous lesson from the lessons list
+    console.log('No adjacent data, trying fallback navigation...');
+    await navigateToPreviousLessonFallback();
 }
 
 // Function to navigate to next lesson
@@ -18525,24 +18528,116 @@ async function goToNextLesson() {
     console.log('➡️ Going to next lesson...');
     
     const currentLesson = LessonState.currentLesson;
-    if (!currentLesson || !currentLesson.adjacent || !currentLesson.adjacent.next) {
-        console.log('No next lesson available');
-        showNotification('No next lesson available', 'info');
+    if (!currentLesson) {
+        console.log('No current lesson found');
+        showNotification('No current lesson found', 'error');
         return;
     }
     
-    const nextLessonId = currentLesson.adjacent.next.id;
-    console.log(`📖 Opening next lesson ID: ${nextLessonId}`);
+    // Try to use adjacent data first
+    if (currentLesson.adjacent && currentLesson.adjacent.next) {
+        const nextLessonId = currentLesson.adjacent.next.id;
+        console.log(`📖 Opening next lesson ID: ${nextLessonId} from adjacent data`);
+        await openLesson(nextLessonId);
+        return;
+    }
     
-    // Show loading state
-    showNotification('Loading next lesson...', 'info');
-    
-    // Open the next lesson
-    await openLesson(nextLessonId);
+    // Fallback: Try to find next lesson from the lessons list
+    console.log('No adjacent data, trying fallback navigation...');
+    await navigateToNextLessonFallback();
 }
 
+// Fallback function for previous lesson
+async function navigateToPreviousLessonFallback() {
+    try {
+        const currentLesson = LessonState.currentLesson;
+        if (!currentLesson) return;
+        
+        // Fetch all lessons for PolyLearn
+        const token = localStorage.getItem('authToken') || authToken;
+        const response = await fetch('/api/lessons-db/complete?lesson_id=2', {
+            headers: {
+                'Authorization': `Bearer ${token}`
+            }
+        });
+        
+        if (!response.ok) {
+            throw new Error('Failed to fetch lessons');
+        }
+        
+        const data = await response.json();
+        
+        if (data.success && data.lessons && data.lessons.length > 0) {
+            const lessons = data.lessons;
+            
+            // Find current lesson index
+            const currentIndex = lessons.findIndex(l => l.content_id == currentLesson.content_id);
+            
+            if (currentIndex > 0) {
+                // There is a previous lesson
+                const prevLesson = lessons[currentIndex - 1];
+                console.log(`✅ Found previous lesson via fallback:`, prevLesson.content_title);
+                await openLesson(prevLesson.content_id);
+            } else {
+                console.log('No previous lesson found');
+                showNotification('This is the first lesson', 'info');
+            }
+        } else {
+            showNotification('Cannot find previous lesson', 'error');
+        }
+    } catch (error) {
+        console.error('Error in previous lesson fallback:', error);
+        showNotification('Failed to load previous lesson', 'error');
+    }
+}
+
+// Fallback function for next lesson
+async function navigateToNextLessonFallback() {
+    try {
+        const currentLesson = LessonState.currentLesson;
+        if (!currentLesson) return;
+        
+        // Fetch all lessons for PolyLearn
+        const token = localStorage.getItem('authToken') || authToken;
+        const response = await fetch('/api/lessons-db/complete?lesson_id=2', {
+            headers: {
+                'Authorization': `Bearer ${token}`
+            }
+        });
+        
+        if (!response.ok) {
+            throw new Error('Failed to fetch lessons');
+        }
+        
+        const data = await response.json();
+        
+        if (data.success && data.lessons && data.lessons.length > 0) {
+            const lessons = data.lessons;
+            
+            // Find current lesson index
+            const currentIndex = lessons.findIndex(l => l.content_id == currentLesson.content_id);
+            
+            if (currentIndex >= 0 && currentIndex < lessons.length - 1) {
+                // There is a next lesson
+                const nextLesson = lessons[currentIndex + 1];
+                console.log(`✅ Found next lesson via fallback:`, nextLesson.content_title);
+                await openLesson(nextLesson.content_id);
+            } else {
+                console.log('No next lesson found');
+                showNotification('This is the last lesson', 'info');
+            }
+        } else {
+            showNotification('Cannot find next lesson', 'error');
+        }
+    } catch (error) {
+        console.error('Error in next lesson fallback:', error);
+        showNotification('Failed to load next lesson', 'error');
+    }
+}
+
+
 // ============================================
-// FIXED: Setup Navigation Buttons - Replace the existing function
+// ENHANCED: Setup Navigation Buttons
 // ============================================
 function setupNavigationButtons() {
     console.log('🔘 Setting up navigation buttons...');
@@ -18556,72 +18651,112 @@ function setupNavigationButtons() {
     console.log('📖 Current lesson:', currentLesson.content_title, 'ID:', currentLesson.content_id);
     console.log('📋 Adjacent lessons:', currentLesson.adjacent);
     
-    // ===== PREVIOUS BUTTON =====
-    const prevBtn = document.getElementById('prevLessonBtn');
-    if (prevBtn) {
-        // Remove all existing listeners by cloning
-        const newPrevBtn = prevBtn.cloneNode(true);
-        prevBtn.parentNode.replaceChild(newPrevBtn, prevBtn);
+    // Fetch all lessons to check if there are more lessons
+    fetchAllLessonsCount().then(lessonCount => {
+        console.log(`📚 Total lessons in PolyLearn: ${lessonCount}`);
         
-        if (currentLesson.adjacent?.previous) {
-            // Enable button and add text
-            newPrevBtn.disabled = false;
-            newPrevBtn.innerHTML = `<i class="fas fa-arrow-left"></i> Previous: ${currentLesson.adjacent.previous.title}`;
-            newPrevBtn.title = `Go to previous lesson: ${currentLesson.adjacent.previous.title}`;
+        // ===== PREVIOUS BUTTON =====
+        const prevBtn = document.getElementById('prevLessonBtn');
+        if (prevBtn) {
+            // Remove all existing listeners by cloning
+            const newPrevBtn = prevBtn.cloneNode(true);
+            prevBtn.parentNode.replaceChild(newPrevBtn, prevBtn);
             
-            // Add click handler
-            newPrevBtn.addEventListener('click', async function(e) {
-                e.preventDefault();
-                e.stopPropagation();
-                await goToPreviousLesson();
-            });
+            // Check if there's a previous lesson (either from adjacent or we can find one)
+            const hasPrevious = currentLesson.adjacent?.previous || currentLesson.content_id > 1;
             
-            console.log('✅ Previous button enabled');
-        } else {
-            // Disable button
-            newPrevBtn.disabled = true;
-            newPrevBtn.innerHTML = `<i class="fas fa-arrow-left"></i> Previous`;
-            newPrevBtn.title = 'No previous lesson available';
-            console.log('ℹ️ No previous lesson available');
+            if (hasPrevious) {
+                // Enable button
+                newPrevBtn.disabled = false;
+                
+                if (currentLesson.adjacent?.previous) {
+                    newPrevBtn.innerHTML = `<i class="fas fa-arrow-left"></i> Previous: ${currentLesson.adjacent.previous.title}`;
+                    newPrevBtn.title = `Go to previous lesson: ${currentLesson.adjacent.previous.title}`;
+                } else {
+                    newPrevBtn.innerHTML = `<i class="fas fa-arrow-left"></i> Previous Lesson`;
+                    newPrevBtn.title = 'Go to previous lesson';
+                }
+                
+                // Add click handler
+                newPrevBtn.addEventListener('click', async function(e) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    await goToPreviousLesson();
+                });
+                
+                console.log('✅ Previous button enabled');
+            } else {
+                // Disable button
+                newPrevBtn.disabled = true;
+                newPrevBtn.innerHTML = `<i class="fas fa-arrow-left"></i> Previous`;
+                newPrevBtn.title = 'No previous lesson available';
+                console.log('ℹ️ No previous lesson available');
+            }
         }
-    } else {
-        console.warn('⚠️ Previous button not found in DOM');
-    }
-    
-    // ===== NEXT BUTTON =====
-    const nextBtn = document.getElementById('nextLessonBtn');
-    if (nextBtn) {
-        // Remove all existing listeners by cloning
-        const newNextBtn = nextBtn.cloneNode(true);
-        nextBtn.parentNode.replaceChild(newNextBtn, nextBtn);
         
-        if (currentLesson.adjacent?.next) {
-            // Enable button and add text
-            newNextBtn.disabled = false;
-            newNextBtn.innerHTML = `Next: ${currentLesson.adjacent.next.title} <i class="fas fa-arrow-right"></i>`;
-            newNextBtn.title = `Go to next lesson: ${currentLesson.adjacent.next.title}`;
+        // ===== NEXT BUTTON =====
+        const nextBtn = document.getElementById('nextLessonBtn');
+        if (nextBtn) {
+            // Remove all existing listeners by cloning
+            const newNextBtn = nextBtn.cloneNode(true);
+            nextBtn.parentNode.replaceChild(newNextBtn, nextBtn);
             
-            // Add click handler
-            newNextBtn.addEventListener('click', async function(e) {
-                e.preventDefault();
-                e.stopPropagation();
-                await goToNextLesson();
-            });
+            // Check if there's a next lesson (either from adjacent or we can find one)
+            const hasNext = currentLesson.adjacent?.next || currentLesson.content_id < lessonCount;
             
-            console.log('✅ Next button enabled');
-        } else {
-            // Disable button
-            newNextBtn.disabled = true;
-            newNextBtn.innerHTML = `Next <i class="fas fa-arrow-right"></i>`;
-            newNextBtn.title = 'No next lesson available';
-            console.log('ℹ️ No next lesson available');
+            if (hasNext) {
+                // Enable button
+                newNextBtn.disabled = false;
+                
+                if (currentLesson.adjacent?.next) {
+                    newNextBtn.innerHTML = `Next: ${currentLesson.adjacent.next.title} <i class="fas fa-arrow-right"></i>`;
+                    newNextBtn.title = `Go to next lesson: ${currentLesson.adjacent.next.title}`;
+                } else {
+                    newNextBtn.innerHTML = `Next Lesson <i class="fas fa-arrow-right"></i>`;
+                    newNextBtn.title = 'Go to next lesson';
+                }
+                
+                // Add click handler
+                newNextBtn.addEventListener('click', async function(e) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    await goToNextLesson();
+                });
+                
+                console.log('✅ Next button enabled');
+            } else {
+                // Disable button
+                newNextBtn.disabled = true;
+                newNextBtn.innerHTML = `Next <i class="fas fa-arrow-right"></i>`;
+                newNextBtn.title = 'No next lesson available';
+                console.log('ℹ️ No next lesson available');
+            }
         }
-    } else {
-        console.warn('⚠️ Next button not found in DOM');
-    }
+    });
     
     console.log('✅ Navigation buttons setup complete');
 }
+
+// Helper function to get total lessons count
+async function fetchAllLessonsCount() {
+    try {
+        const token = localStorage.getItem('authToken') || authToken;
+        const response = await fetch('/api/lessons-db/complete?lesson_id=2', {
+            headers: {
+                'Authorization': `Bearer ${token}`
+            }
+        });
+        
+        if (!response.ok) return 0;
+        
+        const data = await response.json();
+        return data.success && data.lessons ? data.lessons.length : 0;
+    } catch (error) {
+        console.error('Error fetching lessons count:', error);
+        return 0;
+    }
+}
+
 
 // ============================================
 // Make functions globally available
