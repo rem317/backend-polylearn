@@ -4648,7 +4648,7 @@ async function fetchDailyProgress() {
         
     } catch (error) {
         console.error('❌ Error fetching daily progress:', error);
-        return getDefaultfactorialDailyProgress();
+        return getDefaultMatheaseDailyProgress();
     }
 }
 
@@ -7877,7 +7877,7 @@ function cacheProgressData(data) {
             timestamp: Date.now(),
             lesson_id: 3
         };
-        localStorage.setItem('factolearn_progress', JSON.stringify(cacheEntry));
+        localStorage.setItem('mathease_progress', JSON.stringify(cacheEntry));
         ProgressCache.data = data;
         ProgressCache.timestamp = Date.now();
     } catch (e) {
@@ -7896,7 +7896,7 @@ function getCachedProgress() {
     
     // Check localStorage
     try {
-        const cached = localStorage.getItem('factolearn_progress');
+        const cached = localStorage.getItem('mathease_progress');
         if (cached) {
             const { data, timestamp, lesson_id } = JSON.parse(cached);
             const age = Date.now() - timestamp;
@@ -7916,7 +7916,7 @@ function getCachedProgress() {
 
 function getStaleCache() {
     try {
-        const cached = localStorage.getItem('factolearn_progress');
+        const cached = localStorage.getItem('mathease_progress');
         if (cached) {
             const { data, lesson_id } = JSON.parse(cached);
             // Use any cache if lesson_id is correct
@@ -8404,10 +8404,10 @@ function logoutAndRedirect() {
     let redirectUrl = '';
     
     // Check if we're in a subfolder
-    if (currentPath.includes('/FactoLearn/') || currentPath.includes('/factolearn/')) {
+    if (currentPath.includes('/MathEase/') || currentPath.includes('/mathease/')) {
         // We're in a subfolder - go up one level
         redirectUrl = '../index.html';
-    } else if (currentPath.endsWith('factolearn.html')) {
+    } else if (currentPath.endsWith('mathease.html')) {
         // We're in the same folder as factolearn.html
         redirectUrl = 'index.html';
     } else {
@@ -11214,9 +11214,9 @@ function loadmatheaseQuizzes() {
     console.log('📚 Loading FactoPermCombi quizzes (Category 3)...');
     
     // Find PolyLearn category (ID 3)
-    const factoLearnCategory = QuizState.quizCategories.find(c => c.category_id == 1);
+    const mathEaseCategory = QuizState.quizCategories.find(c => c.category_id == 1);
     
-    if (factoLearnCategory) {
+    if (mathEaseCategory) {
         loadQuizzesForCategory(1);
     } else {
         // If categories not loaded yet, load them first
@@ -12980,7 +12980,7 @@ function useOfflineCategories() {
 function useHardcodedCategories() {
     console.log('📚 Using hardcoded FactoLearn categories');
     
-    const factoLearnCategories = [
+    const mathEaseCategories = [
         {
             category_id: 1,
             category_name: 'Polynomial Division Basics',
@@ -13017,12 +13017,12 @@ function useHardcodedCategories() {
     
     // Store in QuizState
     if (!window.QuizState) window.QuizState = {};
-    window.QuizState.quizCategories = factoLearnCategories;
+    window.QuizState.quizCategories = mathEaseCategories;
     
     // Display the categories
-    displayQuizCategories(factoLearnCategories);
+    displayQuizCategories(mathEaseCategories);
     
-    return factoLearnCategories;
+    return mathEaseCategories;
 }
 
 // ============================================
@@ -13092,17 +13092,17 @@ function displayQuizCategories(categories, isHardcoded = false) {
     }
     
     // STRICT FILTER - lesson_id=2 LANG
-    const factoLearnCategories = categories.filter(cat => {
+    const mathEaseCategories = categories.filter(cat => {
         const catLessonId = cat.lesson_id || cat.lessonId;
-        return catLessonId == 3;
+        return catLessonId == 1;
     });
     
-    console.log('🎯 After strict filtering:', factoLearnCategories.length, 'categories');
+    console.log('🎯 After strict filtering:', mathEaseCategories.length, 'categories');
     
     // I-clear ang container
     quizzesContainer.innerHTML = '';
     
-    if (!factoLearnCategories || factoLearnCategories.length === 0) {
+    if (!mathEaseCategories || mathEaseCategories.length === 0) {
         quizzesContainer.innerHTML = `
             <div class="card" style="padding: 40px; text-align: center;">
                 <div style="font-size: 60px; color: #ccc; margin-bottom: 20px;">
@@ -24768,9 +24768,9 @@ setTimeout(() => {
     console.log('📱 No existing session, using demo user for FactoLearn');
     const demoUser = {
         id: 1,
-        username: 'factolearn_user',
-        email: 'demo@factolearn.com',
-        full_name: 'FactoLearn Student',
+        username: 'mathease_user',
+        email: 'demo@mathease.com',
+        full_name: 'MathEase Student',
         role: 'student'
     };
     
