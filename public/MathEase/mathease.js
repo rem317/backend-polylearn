@@ -2544,12 +2544,54 @@ function closeMobileMenu() {
 // ============================================
 
 function showLogoutConfirmation() {
-    const modal = document.getElementById('logoutModal');
+    // Close any open menus first
+    closeMobileMenu();
+    
+    // Check if modal exists, create if not
+    let modal = document.getElementById('logoutModal');
+    
     if (!modal) {
-        createLogoutModal();
-        return;
+        // Create modal if it doesn't exist
+        modal = document.createElement('div');
+        modal.id = 'logoutModal';
+        modal.className = 'modal-overlay';
+        modal.innerHTML = `
+            <div class="modal-container" style="max-width: 380px;">
+                <div class="modal-header" style="background: #8B0000; padding: 15px 20px; border-radius: 10px 10px 0 0;">
+                    <h3 style="margin: 0; color: white;"><i class="fas fa-sign-out-alt"></i> Confirm Logout</h3>
+                    <button class="modal-close" onclick="closeLogoutModal()" style="background: none; border: none; color: white; font-size: 24px; cursor: pointer;">&times;</button>
+                </div>
+                
+                <div class="modal-body" style="padding: 25px; text-align: center; background: white;">
+                    <div style="width: 70px; height: 70px; background: #f8f9fa; border-radius: 50%; margin: 0 auto 15px; display: flex; align-items: center; justify-content: center;">
+                        <i class="fas fa-exclamation-triangle" style="font-size: 35px; color: #8B0000;"></i>
+                    </div>
+                    
+                    <h4 style="margin: 0 0 8px; color: #2c3e50;">Are you sure you want to logout?</h4>
+                    <p style="color: #7f8c8d; margin-bottom: 20px;">Your progress is automatically saved.</p>
+                    
+                    <div style="display: flex; gap: 10px; justify-content: center;">
+                        <button onclick="closeLogoutModal()" class="btn-secondary" style="padding: 10px 20px; margin: 0; background: #95a5a6; color: white; border: none; border-radius: 6px; cursor: pointer;">
+                            <i class="fas fa-times"></i> Cancel
+                        </button>
+                        <button onclick="confirmLogout()" class="btn-primary" style="padding: 10px 20px; margin: 0; background: #8B0000; color: white; border: none; border-radius: 6px; cursor: pointer;">
+                            <i class="fas fa-sign-out-alt"></i> Logout
+                        </button>
+                    </div>
+                </div>
+            </div>
+        `;
+        document.body.appendChild(modal);
     }
     
+    // Hide any other modals that might be showing
+    document.querySelectorAll('.modal-overlay').forEach(m => {
+        if (m.id !== 'logoutModal') {
+            m.style.display = 'none';
+        }
+    });
+    
+    // Show logout modal
     modal.style.display = 'flex';
     document.body.classList.add('modal-open');
 }
@@ -2558,8 +2600,8 @@ function closeLogoutModal() {
     const modal = document.getElementById('logoutModal');
     if (modal) {
         modal.style.display = 'none';
-        document.body.classList.remove('modal-open');
     }
+    document.body.classList.remove('modal-open');
 }
 
 function confirmLogout() {
@@ -2800,4 +2842,47 @@ document.addEventListener('DOMContentLoaded', function() {
     };
 });
 
+// Add this function after the navigateTo function
+function handleAppSelection(appName) {
+    console.log('App selected:', appName);
+    
+    if (appName === 'mathease') {
+        // Check if user is already authenticated
+        const savedUser = localStorage.getItem('mathEase_user');
+        const token = localStorage.getItem('authToken');
+        
+        if (savedUser && token) {
+            try {
+                AppState.currentUser = JSON.parse(savedUser);
+                AppState.isAuthenticated = true;
+                authToken = token;
+                navigateTo('dashboard');
+            } catch (error) {
+                // If error parsing user, go to login
+                navigateTo('login');
+            }
+        } else {
+            navigateTo('login');
+        }
+    }
+}
+
+// Add event listeners for app cards in the init function
+function setupAppSelection() {
+    const appCards = document.querySelectorAll('.app-card');
+    appCards.forEach(card => {
+        card.addEventListener('click', function(e) {
+            e.preventDefault();
+            const app = this.getAttribute('data-app');
+            if (app) {
+                handleAppSelection(app);
+            }
+        });
+    });
+}
+
+// Call this in DOMContentLoaded
+
 console.log('MathEase Application Loaded - Lesson 1 Only (Connected to Database)');
+
+
