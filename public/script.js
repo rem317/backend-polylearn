@@ -29571,9 +29571,7 @@ async function updateProfile(updateData) {
     }
 }
 
-/**
- * Setup change password form
- */
+// Setup change password form (with immediate function definition)
 function setupChangePasswordForm() {
     console.log('🔐 Setting up change password form...');
     
@@ -29582,34 +29580,41 @@ function setupChangePasswordForm() {
     if (changePasswordBtn) {
         console.log('✅ Change password button found');
         
-        // Remove existing listeners to avoid duplicates
+        // Remove all existing listeners
         const newBtn = changePasswordBtn.cloneNode(true);
         changePasswordBtn.parentNode.replaceChild(newBtn, changePasswordBtn);
         
+        // Add click handler
         newBtn.addEventListener('click', function(e) {
             e.preventDefault();
             e.stopPropagation();
             console.log('🔑 Change password button clicked');
-            window.showChangePasswordModal();
+            
+            // Call the function directly
+            if (typeof window.showChangePasswordModal === 'function') {
+                window.showChangePasswordModal();
+            } else {
+                console.error('❌ showChangePasswordModal is not a function');
+                alert('Error: Password change function not available. Please refresh the page.');
+            }
         });
         
-        console.log('✅ Change password button handler attached');
+        console.log('✅ Change password handler attached');
     } else {
-        console.error('❌ Change password button not found!');
-        
-        // Try to find it again after a short delay
-        setTimeout(() => {
-            const btn = document.getElementById('changePasswordBtn');
-            if (btn) {
-                console.log('✅ Found button on retry');
-                btn.addEventListener('click', function(e) {
-                    e.preventDefault();
-                    window.showChangePasswordModal();
-                });
-            }
-        }, 1000);
+        console.error('❌ Change password button not found');
     }
 }
+
+// Also add a direct test function
+window.testPasswordModal = function() {
+    console.log('🧪 Testing password modal');
+    if (typeof window.showChangePasswordModal === 'function') {
+        window.showChangePasswordModal();
+    } else {
+        console.error('❌ Function not available');
+        alert('Password modal function not loaded yet');
+    }
+};
 
 // Make sure to call setupChangePasswordForm when settings page initializes
 // Add this to your initSettingsDashboard function
@@ -29629,124 +29634,125 @@ window.initSettingsDashboard = async function() {
 };
 
 // ============================================
-// 🔐 FIXED: Change Password Modal Functions - GLOBALLY ACCESSIBLE
+// 🔐 ULTRA FIX: Change Password Modal Functions
 // ============================================
 
-/**
- * Show change password modal
- */
+// Define the function immediately and attach to window
 window.showChangePasswordModal = function() {
-    console.log('📝 Showing change password modal');
+    console.log('📝 showChangePasswordModal CALLED');
     
-    // Remove existing modal if any
-    const existingModal = document.getElementById('passwordModal');
-    if (existingModal) {
-        existingModal.remove();
-    }
-    
-    // Create modal HTML
-    const modalHTML = `
-        <div class="change-password-modal" style="background: white; border-radius: 10px; max-width: 500px; width: 100%;">
-            <div class="modal-header" style="background: #7a0000; color: white; padding: 15px 20px; border-radius: 10px 10px 0 0; position: relative;">
-                <h3 style="margin: 0; font-size: 18px;"><i class="fas fa-key"></i> Change Password</h3>
-                <button onclick="closePasswordModal()" style="background: none; border: none; color: white; font-size: 24px; cursor: pointer; position: absolute; top: 10px; right: 15px;">&times;</button>
-            </div>
-            
-            <div class="modal-body" style="padding: 25px;">
-                <div class="info-box" style="background: #f8f9fa; padding: 12px 15px; border-radius: 6px; margin-bottom: 20px; border-left: 4px solid #7a0000;">
-                    <p style="margin: 0; color: #2c3e50; font-size: 14px;">
-                        <i class="fas fa-info-circle" style="color: #7a0000;"></i> 
-                        Password must be at least 6 characters long.
-                    </p>
+    try {
+        // Remove existing modal if any
+        const existingModal = document.getElementById('passwordModal');
+        if (existingModal) {
+            existingModal.remove();
+        }
+        
+        // Create modal HTML
+        const modalHTML = `
+            <div id="passwordModalContent" style="background: white; border-radius: 10px; max-width: 500px; width: 100%;">
+                <div style="background: #7a0000; color: white; padding: 15px 20px; border-radius: 10px 10px 0 0; position: relative;">
+                    <h3 style="margin: 0; font-size: 18px;"><i class="fas fa-key"></i> Change Password</h3>
+                    <button onclick="window.closePasswordModal()" style="background: none; border: none; color: white; font-size: 24px; cursor: pointer; position: absolute; top: 10px; right: 15px;">&times;</button>
                 </div>
                 
-                <form id="passwordChangeForm" onsubmit="event.preventDefault(); handlePasswordSubmit()">
-                    <div style="margin-bottom: 20px;">
-                        <label style="display: block; margin-bottom: 8px; font-weight: 600; color: #2c3e50; font-size: 14px;">
-                            <i class="fas fa-lock"></i> Current Password <span style="color: red;">*</span>
-                        </label>
-                        <input type="password" id="currentPassword" class="form-control" 
-                               placeholder="Enter your current password" required
-                               style="width: 100%; padding: 12px 15px; border: 1px solid #ddd; border-radius: 6px; font-size: 14px;">
+                <div style="padding: 25px;">
+                    <div style="background: #f8f9fa; padding: 12px 15px; border-radius: 6px; margin-bottom: 20px; border-left: 4px solid #7a0000;">
+                        <p style="margin: 0; color: #2c3e50; font-size: 14px;">
+                            <i class="fas fa-info-circle" style="color: #7a0000;"></i> 
+                            Password must be at least 6 characters long.
+                        </p>
                     </div>
                     
-                    <div style="margin-bottom: 20px;">
-                        <label style="display: block; margin-bottom: 8px; font-weight: 600; color: #2c3e50; font-size: 14px;">
-                            <i class="fas fa-lock"></i> New Password <span style="color: red;">*</span>
-                        </label>
-                        <input type="password" id="newPassword" class="form-control" 
-                               placeholder="Enter new password (min. 6 characters)" required
-                               style="width: 100%; padding: 12px 15px; border: 1px solid #ddd; border-radius: 6px; font-size: 14px;">
-                    </div>
-                    
-                    <div style="margin-bottom: 25px;">
-                        <label style="display: block; margin-bottom: 8px; font-weight: 600; color: #2c3e50; font-size: 14px;">
-                            <i class="fas fa-check-circle"></i> Confirm New Password <span style="color: red;">*</span>
-                        </label>
-                        <input type="password" id="confirmPassword" class="form-control" 
-                               placeholder="Re-enter new password" required
-                               style="width: 100%; padding: 12px 15px; border: 1px solid #ddd; border-radius: 6px; font-size: 14px;">
-                    </div>
-                    
-                    <div style="display: flex; gap: 10px; justify-content: flex-end;">
-                        <button type="button" onclick="closePasswordModal()" 
-                                style="padding: 10px 20px; border: none; border-radius: 6px; cursor: pointer; background: #95a5a6; color: white; font-size: 14px;">
-                            <i class="fas fa-times"></i> Cancel
-                        </button>
-                        <button type="submit" id="submitPasswordChange" 
-                                style="padding: 10px 20px; border: none; border-radius: 6px; cursor: pointer; background: #7a0000; color: white; font-size: 14px;">
-                            <i class="fas fa-save"></i> Save Password
-                        </button>
-                    </div>
-                </form>
+                    <form id="passwordChangeFormDirect" onsubmit="event.preventDefault(); window.handlePasswordSubmit();">
+                        <div style="margin-bottom: 20px;">
+                            <label style="display: block; margin-bottom: 8px; font-weight: 600; color: #2c3e50; font-size: 14px;">
+                                <i class="fas fa-lock"></i> Current Password <span style="color: red;">*</span>
+                            </label>
+                            <input type="password" id="currentPassword"  
+                                   placeholder="Enter your current password" required
+                                   style="width: 100%; padding: 12px 15px; border: 1px solid #ddd; border-radius: 6px; font-size: 14px;">
+                        </div>
+                        
+                        <div style="margin-bottom: 20px;">
+                            <label style="display: block; margin-bottom: 8px; font-weight: 600; color: #2c3e50; font-size: 14px;">
+                                <i class="fas fa-lock"></i> New Password <span style="color: red;">*</span>
+                            </label>
+                            <input type="password" id="newPassword"  
+                                   placeholder="Enter new password (min. 6 characters)" required
+                                   style="width: 100%; padding: 12px 15px; border: 1px solid #ddd; border-radius: 6px; font-size: 14px;">
+                        </div>
+                        
+                        <div style="margin-bottom: 25px;">
+                            <label style="display: block; margin-bottom: 8px; font-weight: 600; color: #2c3e50; font-size: 14px;">
+                                <i class="fas fa-check-circle"></i> Confirm New Password <span style="color: red;">*</span>
+                            </label>
+                            <input type="password" id="confirmPassword"  
+                                   placeholder="Re-enter new password" required
+                                   style="width: 100%; padding: 12px 15px; border: 1px solid #ddd; border-radius: 6px; font-size: 14px;">
+                        </div>
+                        
+                        <div style="display: flex; gap: 10px; justify-content: flex-end;">
+                            <button type="button" onclick="window.closePasswordModal()" 
+                                    style="padding: 10px 20px; border: none; border-radius: 6px; cursor: pointer; background: #95a5a6; color: white; font-size: 14px;">
+                                <i class="fas fa-times"></i> Cancel
+                            </button>
+                            <button type="submit" id="submitPasswordChangeDirect" 
+                                    style="padding: 10px 20px; border: none; border-radius: 6px; cursor: pointer; background: #7a0000; color: white; font-size: 14px;">
+                                <i class="fas fa-save"></i> Save Password
+                            </button>
+                        </div>
+                    </form>
+                </div>
             </div>
-        </div>
-    `;
-    
-    // Create modal container
-    const modalContainer = document.createElement('div');
-    modalContainer.id = 'passwordModal';
-    modalContainer.style.cssText = `
-        position: fixed;
-        top: 0;
-        left: 0;
-        right: 0;
-        bottom: 0;
-        background: rgba(0, 0, 0, 0.7);
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        z-index: 10000;
-        padding: 20px;
-    `;
-    
-    modalContainer.innerHTML = modalHTML;
-    document.body.appendChild(modalContainer);
-    
-    // Close modal when clicking outside
-    modalContainer.addEventListener('click', function(e) {
-        if (e.target === modalContainer) {
-            closePasswordModal();
-        }
-    });
-    
-    console.log('✅ Password change modal created and attached to DOM');
+        `;
+        
+        // Create modal container
+        const modalContainer = document.createElement('div');
+        modalContainer.id = 'passwordModal';
+        modalContainer.style.cssText = `
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.7);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 100000;
+            padding: 20px;
+        `;
+        
+        modalContainer.innerHTML = modalHTML;
+        document.body.appendChild(modalContainer);
+        
+        // Close modal when clicking outside
+        modalContainer.addEventListener('click', function(e) {
+            if (e.target === modalContainer) {
+                window.closePasswordModal();
+            }
+        });
+        
+        console.log('✅ Password change modal created');
+        
+    } catch (error) {
+        console.error('❌ Error creating modal:', error);
+        alert('Could not open password change modal. Please try again.');
+    }
 };
-/**
- * Close password modal
- */
+// Close password modal
 window.closePasswordModal = function() {
+    console.log('🔒 Closing password modal');
     const modal = document.getElementById('passwordModal');
     if (modal) {
         modal.remove();
     }
 };
 
-/**
- * Handle password form submission
- */
+// Handle password submission
 window.handlePasswordSubmit = async function() {
-    console.log('📝 Password form submitted!');
+    console.log('📝 Password form submitted');
     
     const currentPassword = document.getElementById('currentPassword')?.value;
     const newPassword = document.getElementById('newPassword')?.value;
@@ -29754,21 +29760,23 @@ window.handlePasswordSubmit = async function() {
     
     // Validation
     if (!currentPassword || !newPassword || !confirmPassword) {
-        showNotification('All fields are required', 'error');
+        showNotification('error', 'Error', 'All fields are required');
         return;
     }
     
     if (newPassword !== confirmPassword) {
-        showNotification('New passwords do not match', 'error');
+        showNotification('error', 'Error', 'New passwords do not match');
         return;
     }
     
     if (newPassword.length < 6) {
-        showNotification('Password must be at least 6 characters', 'error');
+        showNotification('error', 'Error', 'Password must be at least 6 characters');
         return;
     }
     
-    const submitBtn = document.getElementById('submitPasswordChange');
+    const submitBtn = document.getElementById('submitPasswordChangeDirect');
+    if (!submitBtn) return;
+    
     const originalText = submitBtn.innerHTML;
     submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Updating...';
     submitBtn.disabled = true;
@@ -29777,12 +29785,12 @@ window.handlePasswordSubmit = async function() {
         const token = localStorage.getItem('authToken') || authToken;
         
         if (!token) {
-            showNotification('Please login again', 'error');
+            showNotification('error', 'Error', 'Please login again');
             navigateTo('login');
             return;
         }
         
-        console.log('📤 Sending password change request to:', `${API_BASE_URL}/api/user/change-password`);
+        console.log('📤 Sending password change request...');
         
         const response = await fetch(`${API_BASE_URL}/api/user/change-password`, {
             method: 'POST',
@@ -29801,37 +29809,36 @@ window.handlePasswordSubmit = async function() {
         console.log('📥 Response:', data);
         
         if (response.ok && data.success) {
-            // Show success message
-            showNotification('✅ Password changed successfully!', 'success');
+            // Show success
+            showNotification('success', 'Success!', 'Password changed successfully!');
             
             // Clear form
             document.getElementById('currentPassword').value = '';
             document.getElementById('newPassword').value = '';
             document.getElementById('confirmPassword').value = '';
             
-            // Show success state on button
+            // Show success on button
             submitBtn.innerHTML = '<i class="fas fa-check"></i> Password Changed!';
             submitBtn.style.background = '#27ae60';
             
             // Close modal after 2 seconds
             setTimeout(() => {
-                closePasswordModal();
+                window.closePasswordModal();
             }, 2000);
             
         } else {
-            showNotification(data.message || 'Failed to change password', 'error');
+            showNotification('error', 'Error', data.message || 'Failed to change password');
             submitBtn.innerHTML = originalText;
             submitBtn.disabled = false;
         }
         
     } catch (error) {
-        console.error('❌ Error changing password:', error);
-        showNotification('Failed to change password. Please try again.', 'error');
+        console.error('❌ Error:', error);
+        showNotification('error', 'Error', 'Failed to change password');
         submitBtn.innerHTML = originalText;
         submitBtn.disabled = false;
     }
 };
-
 
 /**
  * Logout after password change
