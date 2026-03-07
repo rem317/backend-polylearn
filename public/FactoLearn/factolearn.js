@@ -6190,12 +6190,19 @@ async function fetchPracticeExercisesFromDB(topicId) {
             return getDemoPracticeExercises(topicId);
         }
         
-        // Try multiple possible endpoints
+        // ✅ FORCE LESSON_ID = 3
+        const LESSON_ID = 3;
+        console.log(`🎯 Forcing lesson_id=${LESSON_ID} for all practice exercises`);
+        
+        // Try multiple possible endpoints with lesson_id filter
         const endpoints = [
-            `/api/practice/topic/${topicId}`,
-            `/api/practice/exercises?topic_id=${topicId}`,
-            `/api/practice/list?topic=${topicId}`,
-            `/api/exercises/topic/${topicId}`
+            `/api/practice/topic/${topicId}?lesson_id=${LESSON_ID}`,
+            `/api/practice/exercises?topic_id=${topicId}&lesson_id=${LESSON_ID}`,
+            `/api/practice/list?topic=${topicId}&lesson_id=${LESSON_ID}`,
+            `/api/exercises/topic/${topicId}?lesson_id=${LESSON_ID}`,
+            // Fallback to lesson-based endpoints
+            `/api/practice/lesson/${LESSON_ID}/topic/${topicId}`,
+            `/api/practice/exercises?lesson_id=${LESSON_ID}`
         ];
         
         for (const endpoint of endpoints) {
@@ -6226,8 +6233,14 @@ async function fetchPracticeExercisesFromDB(topicId) {
                         exercises = data.data;
                     }
                     
+                    // Double-check lesson_id filter
+                    exercises = exercises.filter(ex => {
+                        const exLessonId = ex.lesson_id || ex.lessonId;
+                        return exLessonId == LESSON_ID;
+                    });
+                    
                     if (exercises.length > 0) {
-                        console.log(`✅ Found ${exercises.length} exercises from database`);
+                        console.log(`✅ Found ${exercises.length} exercises from database (lesson_id=${LESSON_ID})`);
                         return exercises;
                     }
                 }
@@ -21551,10 +21564,9 @@ async function loadPracticeExercisesForTopic(topicId) {
     try {
         console.log(`📝 Loading practice exercises for topic ${topicId}`);
         
-        // Force lesson_id = 3 for FactoLearn
-        const currentLessonId = FACTORIAL_LESSON_ID || 3;
-        
-        console.log(`🎯 Loading exercises for FactoLearn, lesson_id: ${currentLessonId}`);
+        // ✅ FORCE lesson_id = 3 for FactoLearn
+        const LESSON_ID = 3;
+        console.log(`🎯 Loading exercises for FactoLearn, lesson_id: ${LESSON_ID}`);
         
         // Get the exercise area
         const exerciseArea = document.getElementById('exerciseArea');
@@ -21566,7 +21578,7 @@ async function loadPracticeExercisesForTopic(topicId) {
         exerciseArea.innerHTML = `
             <div class="loading-container" style="text-align: center; padding: 40px;">
                 <i class="fas fa-spinner fa-spin" style="font-size: 40px; color: #7a0000; margin-bottom: 15px;"></i>
-                <p style="color: #666;">Loading practice exercises from database...</p>
+                <p style="color: #666;">Loading practice exercises from database (Lesson ${LESSON_ID})...</p>
             </div>
         `;
         
@@ -21576,11 +21588,18 @@ async function loadPracticeExercisesForTopic(topicId) {
         if (exercises && exercises.length > 0) {
             console.log(`✅ Found ${exercises.length} exercises for topic ${topicId}`);
             
+            // ✅ Add lesson_id badge sa bawat exercise
+            const exercisesWithBadge = exercises.map(ex => ({
+                ...ex,
+                lesson_id: LESSON_ID,
+                lesson_badge: true
+            }));
+            
             // Store in PracticeState
-            PracticeState.exercises = exercises;
+            PracticeState.exercises = exercisesWithBadge;
             
             // Display exercises
-            displayPracticeExercises(exercises);
+            displayPracticeExercises(exercisesWithBadge);
         } else {
             console.log('⚠️ No exercises found, showing demo data');
             
@@ -21648,6 +21667,7 @@ function displayPracticeExercises(exercises) {
         const description = exercise.description || exercise.exercise_description || 'Practice your skills with this exercise.';
         const difficulty = exercise.difficulty || exercise.difficulty_level || 'medium';
         const points = exercise.points || exercise.max_score || 10;
+        const lessonId = exercise.lesson_id || exercise.lessonId || 3;
         
         // Parse questions from content_json if it exists
         let questionCount = 0;
@@ -21685,10 +21705,15 @@ function displayPracticeExercises(exercises) {
                         <i class="fas fa-pencil-alt" style="color: #7a0000; margin-right: 8px;"></i>
                         ${title}
                     </h3>
-                    <span style="background: ${difficultyColor}; color: white; padding: 4px 12px; 
-                               border-radius: 20px; font-size: 12px; font-weight: bold; text-transform: uppercase;">
-                        ${difficulty}
-                    </span>
+                    <div style="display: flex; gap: 8px;">
+                        <span style="background: #7a0000; color: white; padding: 4px 8px; border-radius: 4px; font-size: 11px;">
+                            Lesson ${lessonId}
+                        </span>
+                        <span style="background: ${difficultyColor}; color: white; padding: 4px 12px; 
+                                   border-radius: 20px; font-size: 12px; font-weight: bold; text-transform: uppercase;">
+                            ${difficulty}
+                        </span>
+                    </div>
                 </div>
                 
                 <p style="color: #666; margin: 0 0 15px 0; line-height: 1.5;">${description}</p>
@@ -21736,7 +21761,7 @@ function displayPracticeExercises(exercises) {
     html += '</div>';
     exerciseArea.innerHTML = html;
     
-    console.log(`✅ Displayed ${exercises.length} practice exercises`);
+    console.log(`✅ Displayed ${exercises.length} practice exercises (all lesson_id=3)`);
 }
 // ============================================
 // 🔍 Test Database Connection
@@ -26837,4 +26862,78 @@ mobileMenuItems.forEach((item, index) => {
         else if (index === 6) goToModuleDashboard(e);
         else if (index === 7) logoutUser(e); // Logout is the 8th item
     });
+});
+
+
+// ============================================
+// 🔍 DEBUG: Fetch practice exercises for lesson_id=3
+// ============================================
+window.fetchPracticeForLesson3 = async function() {
+    console.log('🔍 FETCHING PRACTICE EXERCISES FOR LESSON_ID=3');
+    console.log('==============================================');
+    
+    const token = localStorage.getItem('authToken');
+    if (!token) {
+        console.error('❌ No auth token found');
+        return;
+    }
+    
+    // Try multiple endpoints
+    const endpoints = [
+        '/api/practice/exercises?lesson_id=3',
+        '/api/practice/list?lesson_id=3',
+        '/api/exercises?lesson_id=3',
+        '/api/practice/lesson/3'
+    ];
+    
+    for (const endpoint of endpoints) {
+        try {
+            console.log(`\n📡 Testing: ${endpoint}`);
+            const response = await fetch(endpoint, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            
+            console.log(`Status: ${response.status}`);
+            
+            if (response.ok) {
+                const data = await response.json();
+                console.log('✅ Response:', data);
+                
+                // Extract exercises
+                let exercises = [];
+                if (data.success && data.exercises) exercises = data.exercises;
+                else if (data.exercises) exercises = data.exercises;
+                else if (Array.isArray(data)) exercises = data;
+                else if (data.data) exercises = data.data;
+                
+                console.log(`📊 Found ${exercises.length} exercises`);
+                
+                if (exercises.length > 0) {
+                    console.log('📝 First exercise:', exercises[0]);
+                }
+            } else {
+                console.log('❌ Failed:', await response.text().then(t => t.substring(0, 200)));
+            }
+        } catch (error) {
+            console.error('❌ Error:', error.message);
+        }
+    }
+    
+    // Also try to load into UI
+    console.log('\n🔄 Loading exercises into UI...');
+    await loadPracticeExercisesForTopic(PracticeState.currentTopic || 1);
+    
+    console.log('\n✅ Debug complete');
+};
+
+// Auto-run when practice page loads
+document.addEventListener('DOMContentLoaded', function() {
+    // Check if we're on practice page
+    const practicePage = document.getElementById('practice-exercises-page');
+    if (practicePage && !practicePage.classList.contains('hidden')) {
+        setTimeout(() => {
+            console.log('🎯 Auto-fetching practice exercises for lesson_id=3');
+            loadPracticeExercisesForTopic(PracticeState.currentTopic || 1);
+        }, 500);
+    }
 });
