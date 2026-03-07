@@ -11214,14 +11214,14 @@ function loadmatheaseQuizzes() {
     console.log('📚 Loading FactoPermCombi quizzes (Category 3)...');
     
     // Find PolyLearn category (ID 3)
-    const factoLearnCategory = QuizState.quizCategories.find(c => c.category_id == 3);
+    const factoLearnCategory = QuizState.quizCategories.find(c => c.category_id == 1);
     
     if (factoLearnCategory) {
-        loadQuizzesForCategory(3);
+        loadQuizzesForCategory(1);
     } else {
         // If categories not loaded yet, load them first
         loadQuizCategories().then(() => {
-            loadQuizzesForCategory(3);
+            loadQuizzesForCategory(1);
         });
     }
 }
