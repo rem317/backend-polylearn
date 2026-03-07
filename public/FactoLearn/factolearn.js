@@ -27041,7 +27041,104 @@ mobileMenuItems.forEach((item, index) => {
         else if (index === 7) logoutUser(e); // Logout is the 8th item
     });
 });
-
+// ============================================
+// ⚡ PERMANENT FIX FOR START BUTTONS
+// ============================================
+(function permanentStartButtonFix() {
+    console.log('🔧 Installing permanent Start button fix...');
+    
+    // Global function to fix all start buttons
+    window.fixStartButtons = function() {
+        console.log('🔧 Running start button fix...');
+        
+        // Find all potential start buttons
+        document.querySelectorAll('button').forEach(btn => {
+            // Check if it's a Start button
+            const isStartButton = 
+                btn.textContent.includes('Start') || 
+                btn.innerHTML.includes('Start') ||
+                btn.classList.contains('start-exercise') ||
+                btn.classList.contains('start-exercise-btn') ||
+                (btn.closest('.exercise-card') && btn.textContent.includes('Start'));
+            
+            if (isStartButton) {
+                // Get exercise ID
+                const exerciseId = btn.getAttribute('data-exercise-id') || 
+                                  btn.closest('[data-exercise-id]')?.getAttribute('data-exercise-id');
+                
+                if (!exerciseId) return;
+                
+                // Remove old listeners by replacing with clone
+                const newBtn = btn.cloneNode(true);
+                btn.parentNode.replaceChild(newBtn, btn);
+                
+                // Add click handler
+                newBtn.onclick = function(e) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    
+                    console.log(`🎯 Start button clicked for exercise: ${exerciseId}`);
+                    
+                    if (typeof startPractice === 'function') {
+                        startPractice(exerciseId);
+                    } else if (typeof window.startPractice === 'function') {
+                        window.startPractice(exerciseId);
+                    } else {
+                        console.error('startPractice function not found');
+                        alert('Error: Cannot start exercise. Please refresh the page.');
+                    }
+                    
+                    return false;
+                };
+                
+                // Style the button
+                newBtn.style.cursor = 'pointer';
+                newBtn.style.backgroundColor = '#7a0000';
+                newBtn.style.color = 'white';
+                newBtn.style.border = 'none';
+                newBtn.style.padding = '10px 20px';
+                newBtn.style.borderRadius = '5px';
+                newBtn.style.fontWeight = 'bold';
+                newBtn.disabled = false;
+            }
+        });
+    };
+    
+    // Run when page loads
+    document.addEventListener('DOMContentLoaded', function() {
+        setTimeout(window.fixStartButtons, 500);
+        setTimeout(window.fixStartButtons, 1000);
+        setTimeout(window.fixStartButtons, 2000);
+    });
+    
+    // Run whenever new content is added
+    const observer = new MutationObserver(function() {
+        setTimeout(window.fixStartButtons, 100);
+    });
+    
+    observer.observe(document.body, {
+        childList: true,
+        subtree: true
+    });
+    
+    // Also run when practice page becomes visible
+    const practicePage = document.getElementById('practice-exercises-page');
+    if (practicePage) {
+        const pageObserver = new MutationObserver(function(mutations) {
+            mutations.forEach(function(mutation) {
+                if (mutation.type === 'attributes' && mutation.attributeName === 'class') {
+                    if (!practicePage.classList.contains('hidden')) {
+                        setTimeout(window.fixStartButtons, 300);
+                    }
+                }
+            });
+        });
+        
+        pageObserver.observe(practicePage, { attributes: true });
+    }
+    
+    console.log('✅ Permanent Start button fix installed!');
+})();
 // ============================================
 // 🎯 FORCE DISPLAY THE DATABASE CATEGORY
 // ============================================
@@ -27314,57 +27411,3 @@ document.addEventListener('DOMContentLoaded', function() {
         }, 500);
     }
 });
-// ============================================
-// ⚡ ULTRA MINIMAL - Direct onclick assignment
-// ============================================
-(function ultraMinimalFix() {
-    console.log('⚡ Ultra minimal fix...');
-    
-    function findAndFix() {
-        // Find all buttons
-        document.querySelectorAll('button').forEach(btn => {
-            // Check if it's a Start button
-            if (btn.textContent.includes('Start') || 
-                btn.innerHTML.includes('Start') ||
-                btn.classList.contains('start-exercise')) {
-                
-                console.log('Found Start button:', btn);
-                
-                // Direct onclick assignment (strongest)
-                btn.onclick = function(e) {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    
-                    console.log('✅ Start button clicked!');
-                    
-                    // Get exercise ID
-                    const exerciseId = this.getAttribute('data-exercise-id') || 
-                                      this.closest('[data-exercise-id]')?.getAttribute('data-exercise-id');
-                    
-                    // Try to call existing function
-                    if (typeof startPractice === 'function') {
-                        startPractice(exerciseId);
-                    } else {
-                        // Just show it's working
-                        alert(`✅ Start button is now working! Exercise ID: ${exerciseId || 'unknown'}`);
-                    }
-                    
-                    return false;
-                };
-                
-                // Make it look clickable
-                btn.style.cursor = 'pointer';
-                btn.style.backgroundColor = '#7a0000';
-                btn.style.color = 'white';
-                btn.disabled = false;
-                
-                console.log('✅ Fixed via onclick');
-            }
-        });
-    }
-    
-    findAndFix();
-    setTimeout(findAndFix, 1000);
-    
-    console.log('⚡ Fix applied!');
-})();
