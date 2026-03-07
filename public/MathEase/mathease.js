@@ -44,7 +44,7 @@ const PracticeState = {
     userPracticeProgress: {}
 };
 
-// Quiz System State - For Lesson 1 only
+// Quiz System State
 const QuizSystem = {
     currentQuiz: null,
     currentAttemptId: null,
@@ -59,7 +59,9 @@ const QuizSystem = {
         correct: 0,
         wrong: 0,
         score: 0
-    }
+    },
+    submittedAnswers: {},
+    answerResults: {}
 };
 
 // Progress State
@@ -2717,47 +2719,304 @@ function toggleFAQ(element) {
 }
 
 function setupFeedbackForm() {
+    console.log('📝 Setting up feedback form - FIXED VERSION');
+    
     const feedbackForm = document.getElementById('feedbackForm');
+    const feedbackSuccess = document.getElementById('feedbackSuccess');
+    
     if (!feedbackForm) return;
     
-    feedbackForm.addEventListener('submit', function(e) {
+    const newForm = feedbackForm.cloneNode(true);
+    feedbackForm.parentNode.replaceChild(newForm, feedbackForm);
+    
+    newForm.addEventListener('submit', async function(e) {
         e.preventDefault();
         
-        const message = document.getElementById('feedbackMessage')?.value;
-        const rating = currentRating;
+        const feedbackType = document.getElementById('feedbackType')?.value;
+        const feedbackMessage = document.getElementById('feedbackMessage')?.value.trim();
+        const rating = parseInt(document.getElementById('ratingValue')?.value) || 0;
         
-        if (!message) {
-            alert('Please enter your feedback');
+        let userId = null;
+        const userJson = localStorage.getItem('mathEase_user');
+        if (userJson) {
+            try {
+                const user = JSON.parse(userJson);
+                userId = user.id || user.user_id;
+            } catch (e) {}
+        }
+        
+        if (!feedbackMessage) {
+            alert('Please enter your feedback message');
             return;
         }
         
-        alert('Thank you for your feedback!');
-        feedbackForm.reset();
+        const submitBtn = newForm.querySelector('button[type="submit"]');
+        const originalText = submitBtn.innerHTML;
+        submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Submitting...';
+        submitBtn.disabled = true;
         
-        const stars = document.querySelectorAll('.star');
-        stars.forEach(star => {
-            star.classList.remove('active');
-            star.innerHTML = '☆';
-        });
-        currentRating = 0;
+        try {
+            const token = localStorage.getItem('authToken') || authToken;
+            
+            const feedbackData = {
+                feedback_type: feedbackType || 'general',
+                feedback_message: feedbackMessage,
+                rating: rating,
+                user_id: userId,
+                page_url: window.location.href,
+                user_agent: navigator.userAgent
+            };
+            
+            const response = await fetch(`${API_BASE_URL}/feedback/submit`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    ...(token && { 'Authorization': `Bearer ${token}` })
+                },
+                body: JSON.stringify(feedbackData)
+            });
+            
+            if (response.ok) {
+                const data = await response.json();
+                if (data.success) {
+                    if (feedbackSuccess) {
+                        feedbackSuccess.style.display = 'block';
+                        feedbackSuccess.innerHTML = `<i class="fas fa-check-circle"></i> Thank you! Your feedback has been saved.`;
+                        setTimeout(() => {
+                            feedbackSuccess.style.display = 'none';
+                        }, 3000);
+                    }
+                    
+                    newForm.reset();
+                    
+                    const stars = document.querySelectorAll('.star');
+                    stars.forEach(star => {
+                        star.classList.remove('active');
+                        star.innerHTML = '☆';
+                    });
+                    document.getElementById('ratingValue').value = 0;
+                    
+                    alert('Thank you for your feedback!');
+                }
+            } else {
+                // Fallback local save
+                saveFeedbackLocally(feedbackData);
+                alert('Feedback saved locally!');
+                newForm.reset();
+            }
+        } catch (error) {
+            console.error('Error submitting feedback:', error);
+            saveFeedbackLocally({
+                feedback_type: feedbackType,
+                feedback_message: feedbackMessage,
+                rating: rating,
+                user_id: userId,
+                page_url: window.location.href,
+                user_agent: navigator.userAgent
+            });
+            alert('Feedback saved locally!');
+            newForm.reset();
+        } finally {
+            submitBtn.innerHTML = originalText;
+            submitBtn.disabled = false;
+        }
     });
 }
+function saveFeedbackLocally(feedbackData) {
+    try {
+        let existingFeedback = JSON.parse(localStorage.getItem('mathEase_feedback') || '[]');
+        
+        const newFeedback = {
+            ...feedbackData,
+            id: Date.now(),
+            created_at: new Date().toISOString(),
+            status: 'pending'
+        };
+        
+        existingFeedback.push(newFeedback);
+        
+        if (existingFeedback.length > 50) {
+            existingFeedback = existingFeedback.slice(-50);
+        }
+        
+        localStorage.setItem('mathEase_feedback', JSON.stringify(existingFeedback));
+        
+        displayLocalFeedbackHistory();
+    } catch (e) {}
+}
 
+function displayLocalFeedbackHistory() {
+    const historyContainer = document.getElementById('feedbackHistory');
+    if (!historyContainer) return;
+    
+    try {
+        const localFeedback = JSON.parse(localStorage.getItem('mathEase_feedback') || '[]');
+        
+        if (!localFeedback || localFeedback.length === 0) {
+            historyContainer.innerHTML = `
+                <div class="no-feedback">
+                    <i class="fas fa-comment-slash"></i>
+                    <h4>No feedback submitted yet</h4>
+                    <p>Your submitted feedback will appear here</p>
+                </div>
+            `;
+            return;
+        }
+        
+        let html = '<div class="feedback-history-list">';
+        
+        localFeedback.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+        
+        localFeedback.slice(0, 10).forEach(item => {
+            const date = item.created_at ? new Date(item.created_at) : new Date();
+            const formattedDate = !isNaN(date) ? date.toLocaleDateString('en-US', { 
+                month: 'short', day: 'numeric', year: 'numeric',
+                hour: '2-digit', minute: '2-digit'
+            }) : 'Unknown date';
+            
+            const ratingStars = '★'.repeat(item.rating || 0) + '☆'.repeat(5 - (item.rating || 0));
+            
+            html += `
+                <div class="feedback-history-item status-pending">
+                    <div class="feedback-history-header">
+                        <div>
+                            <span class="feedback-type-badge">${item.feedback_type || 'feedback'}</span>
+                            <span class="local-badge">(Saved locally)</span>
+                        </div>
+                        <span class="feedback-date">${formattedDate}</span>
+                    </div>
+                    
+                    <div class="feedback-history-body">
+                        <p class="feedback-message">${escapeHtml(item.feedback_message || '')}</p>
+                        
+                        ${item.rating > 0 ? `
+                            <div class="feedback-rating-display">
+                                <span class="rating-stars">${ratingStars}</span>
+                                <span class="rating-value">${item.rating}/5</span>
+                            </div>
+                        ` : ''}
+                    </div>
+                </div>
+            `;
+        });
+        
+        html += '</div>';
+        historyContainer.innerHTML = html;
+    } catch (e) {}
+}
+function escapeHtml(text) {
+    if (!text) return '';
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
 // ============================================
 // FORGOT PASSWORD FUNCTIONS
 // ============================================
+function createForgotPasswordModal() {
+    const modalHTML = `
+        <div id="forgotPasswordModal" class="modal-overlay">
+            <div class="modal-container" style="max-width: 450px;">
+                <div class="modal-header" style="background: #7a0000; color: white; padding: 15px 20px; border-radius: 10px 10px 0 0;">
+                    <h3 style="margin: 0; font-size: 18px;"><i class="fas fa-key"></i> Reset Password</h3>
+                    <button class="modal-close" onclick="closeForgotPasswordModal()" style="background: none; border: none; color: white; font-size: 24px; cursor: pointer;">&times;</button>
+                </div>
+                
+                <div class="modal-body" style="padding: 25px;">
+                    <div id="forgotStep1" style="display: block;">
+                        <p style="margin-bottom: 20px; color: #2c3e50;">Enter your email address and we'll send you a link to reset your password.</p>
+                        
+                        <div style="margin-bottom: 20px;">
+                            <label style="display: block; margin-bottom: 8px; font-weight: 600; color: #2c3e50;">
+                                <i class="fas fa-envelope"></i> Email Address
+                            </label>
+                            <input type="email" id="resetEmail" class="form-control" 
+                                   placeholder="your@email.com" 
+                                   style="width: 100%; padding: 12px 15px; border: 1px solid #ddd; border-radius: 6px;">
+                        </div>
+                        
+                        <div id="forgotError" style="display: none; background: #fee9e7; color: #e74c3c; padding: 10px; border-radius: 6px; margin-bottom: 15px; font-size: 14px;"></div>
+                        
+                        <div style="display: flex; gap: 10px; justify-content: flex-end;">
+                            <button class="btn-secondary" onclick="closeForgotPasswordModal()" style="padding: 10px 20px; border: none; border-radius: 6px; cursor: pointer; background: #95a5a6; color: white;">
+                                <i class="fas fa-times"></i> Cancel
+                            </button>
+                            <button class="btn-primary" onclick="requestPasswordReset()" style="padding: 10px 20px; border: none; border-radius: 6px; cursor: pointer; background: #7a0000; color: white;">
+                                <i class="fas fa-paper-plane"></i> Send Reset Link
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <div id="forgotStep2" style="display: none;">
+                        <div style="text-align: center; margin-bottom: 20px;">
+                            <div style="width: 80px; height: 80px; background: #27ae60; border-radius: 50%; margin: 0 auto 15px; display: flex; align-items: center; justify-content: center;">
+                                <i class="fas fa-check" style="font-size: 40px; color: white;"></i>
+                            </div>
+                            <h4 style="color: #2c3e50; margin-bottom: 10px;">Reset Link Generated!</h4>
+                            <p style="color: #7f8c8d; margin-bottom: 5px;" id="resetEmailDisplay"></p>
+                        </div>
+                        
+                        <div style="background: #f8f9fa; border-radius: 8px; padding: 15px; margin-bottom: 20px; border-left: 4px solid #7a0000;">
+                            <p style="margin: 0 0 5px 0; font-weight: bold; color: #2c3e50;">
+                                <i class="fas fa-info-circle"></i> DEMO MODE (No Email Configured)
+                            </p>
+                            <p style="margin: 5px 0; color: #34495e; font-size: 14px;">
+                                Since email is not connected, use this reset link:
+                            </p>
+                            <div style="background: white; padding: 10px; border-radius: 5px; border: 1px solid #ddd; margin: 10px 0;">
+                                <code id="resetLinkDisplay" style="word-break: break-all; font-size: 12px;"></code>
+                            </div>
+                            <button class="btn-secondary" onclick="copyResetLink()" style="width: 100%; padding: 8px; background: #3498db; color: white; border: none; border-radius: 5px; cursor: pointer;">
+                                <i class="fas fa-copy"></i> Copy Reset Link
+                            </button>
+                        </div>
+                        
+                        <div style="display: flex; gap: 10px; justify-content: center;">
+                            <button class="btn-primary" onclick="closeForgotPasswordModal()" style="padding: 10px 20px; background: #7a0000; color: white; border: none; border-radius: 6px; cursor: pointer;">
+                                <i class="fas fa-check"></i> OK, Got It
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    document.body.insertAdjacentHTML('beforeend', modalHTML);
+}
 
 function showForgotPasswordModal() {
-    const modal = document.getElementById('forgotPasswordModal');
-    if (!modal) return;
+    console.log('🔑 Opening forgot password modal');
     
-    document.getElementById('forgotStep1').style.display = 'block';
-    document.getElementById('forgotStep2').style.display = 'none';
-    document.getElementById('resetEmail').value = '';
-    document.getElementById('forgotError').style.display = 'none';
+    const modal = document.getElementById('forgotPasswordModal');
+    if (!modal) {
+        createForgotPasswordModal();
+        return;
+    }
+    
+    const step1 = document.getElementById('forgotStep1');
+    const step2 = document.getElementById('forgotStep2');
+    const resetEmail = document.getElementById('resetEmail');
+    const forgotError = document.getElementById('forgotError');
+    
+    if (step1) step1.style.display = 'block';
+    if (step2) step2.style.display = 'none';
+    if (resetEmail) resetEmail.value = '';
+    if (forgotError) forgotError.style.display = 'none';
     
     modal.style.display = 'flex';
+    modal.style.zIndex = '2147483647';
+    modal.style.position = 'fixed';
+    modal.style.top = '0';
+    modal.style.left = '0';
+    modal.style.width = '100%';
+    modal.style.height = '100%';
+    modal.style.backgroundColor = 'rgba(0, 0, 0, 0.8)';
+    modal.style.alignItems = 'center';
+    modal.style.justifyContent = 'center';
+    
     document.body.classList.add('modal-open');
+    document.body.style.overflow = 'hidden';
 }
 
 function closeForgotPasswordModal() {
@@ -2765,6 +3024,7 @@ function closeForgotPasswordModal() {
     if (modal) {
         modal.style.display = 'none';
         document.body.classList.remove('modal-open');
+        document.body.style.overflow = '';
     }
 }
 
@@ -2791,11 +3051,694 @@ function copyResetLink() {
 }
 
 // ============================================
-// INITIALIZATION
+// ✅ ADD ENHANCED QUIZ SYSTEM FUNCTIONS
 // ============================================
 
+async function startQuizSystem(quizId) {
+    console.log("🎯 Starting QUIZ ID:", quizId);
+    
+    try {
+        const token = localStorage.getItem('authToken') || authToken;
+        const userJson = localStorage.getItem('mathEase_user');
+        
+        if (!token || !userJson) {
+            alert('Please login first');
+            return;
+        }
+        
+        const user = JSON.parse(userJson);
+        
+        // Get questions from database or use default
+        let questions = [];
+        try {
+            const response = await fetch(`${API_BASE_URL}/api/quiz/${quizId}/questions`, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            
+            if (response.ok) {
+                const data = await response.json();
+                if (data.success && data.questions) {
+                    questions = data.questions;
+                }
+            }
+        } catch (e) {
+            console.log('Using default quiz questions');
+        }
+        
+        // Default questions if none from database
+        if (questions.length === 0) {
+            questions = [
+                {
+                    question_id: 1,
+                    question_text: 'What is 15 + 23?',
+                    question_type: 'multiple_choice',
+                    options: [
+                        { id: 1, text: '38', is_correct: true },
+                        { id: 2, text: '39', is_correct: false },
+                        { id: 3, text: '37', is_correct: false },
+                        { id: 4, text: '40', is_correct: false }
+                    ]
+                },
+                {
+                    question_id: 2,
+                    question_text: 'What is 45 - 18?',
+                    question_type: 'multiple_choice',
+                    options: [
+                        { id: 5, text: '27', is_correct: true },
+                        { id: 6, text: '28', is_correct: false },
+                        { id: 7, text: '26', is_correct: false },
+                        { id: 8, text: '29', is_correct: false }
+                    ]
+                },
+                {
+                    question_id: 3,
+                    question_text: 'What is 7 × 9?',
+                    question_type: 'multiple_choice',
+                    options: [
+                        { id: 9, text: '63', is_correct: true },
+                        { id: 10, text: '64', is_correct: false },
+                        { id: 11, text: '62', is_correct: false },
+                        { id: 12, text: '65', is_correct: false }
+                    ]
+                },
+                {
+                    question_id: 4,
+                    question_text: 'What is 56 ÷ 8?',
+                    question_type: 'multiple_choice',
+                    options: [
+                        { id: 13, text: '7', is_correct: true },
+                        { id: 14, text: '8', is_correct: false },
+                        { id: 15, text: '6', is_correct: false },
+                        { id: 16, text: '9', is_correct: false }
+                    ]
+                },
+                {
+                    question_id: 5,
+                    question_text: 'What is 4 + 3 × 2?',
+                    question_type: 'multiple_choice',
+                    options: [
+                        { id: 17, text: '10', is_correct: true },
+                        { id: 18, text: '14', is_correct: false },
+                        { id: 19, text: '12', is_correct: false },
+                        { id: 20, text: '8', is_correct: false }
+                    ]
+                }
+            ];
+        }
+        
+        // Create local attempt
+        const attemptId = Date.now();
+        
+        QuizSystem.currentQuiz = quizId;
+        QuizSystem.currentAttemptId = attemptId;
+        QuizSystem.questions = questions;
+        QuizSystem.currentIndex = 0;
+        QuizSystem.userAnswers = {};
+        QuizSystem.startTime = Date.now();
+        QuizSystem.timeLeft = questions.length * 60;
+        QuizSystem.totalTime = questions.length * 60;
+        QuizSystem.stats = { correct: 0, wrong: 0, score: 0 };
+        QuizSystem.submittedAnswers = {};
+        QuizSystem.answerResults = {};
+        
+        // Save attempt to localStorage
+        const attempts = JSON.parse(localStorage.getItem('mathEase_quiz_attempts') || '[]');
+        attempts.push({
+            attempt_id: attemptId,
+            quiz_id: quizId,
+            start_time: new Date().toISOString(),
+            completion_status: 'in_progress'
+        });
+        localStorage.setItem('mathEase_quiz_attempts', JSON.stringify(attempts));
+        
+        showQuizSystemModal();
+        loadQuizSystemQuestion(0);
+        startQuizSystemTimer();
+        
+    } catch (error) {
+        console.error('❌ Error starting quiz:', error);
+        alert('Failed to start quiz: ' + error.message);
+    }
+}
+
+function showQuizSystemModal() {
+    const modal = document.getElementById('quizModal');
+    if (!modal) return;
+    
+    document.getElementById('quizModalTitle').textContent = 'MathEase Quiz';
+    
+    modal.style.display = 'flex';
+    document.body.classList.add('modal-open');
+    
+    const optionsGrid = document.getElementById('quizOptionsGridModal');
+    if (optionsGrid) {
+        optionsGrid.style.overflowY = 'auto';
+        optionsGrid.style.maxHeight = '450px';
+        optionsGrid.style.padding = '10px';
+    }
+    
+    document.getElementById('submitQuizBtn').style.display = 'none';
+}
+
+function loadQuizSystemQuestion(index) {
+    if (!QuizSystem.questions || QuizSystem.questions.length === 0) return;
+    
+    const question = QuizSystem.questions[index];
+    QuizSystem.currentIndex = index;
+    
+    document.getElementById('quizCurrentNum').textContent = index + 1;
+    document.getElementById('quizTotalNum').textContent = QuizSystem.questions.length;
+    document.getElementById('quizQuestionTextModal').textContent = question.question_text || 'Question text not available';
+    
+    updateQuizSystemProgressDots();
+    
+    const allAnswered = QuizSystem.questions.every((q, i) => 
+        QuizSystem.userAnswers[q.question_id || i] !== undefined
+    );
+    
+    const submitBtn = document.getElementById('submitQuizBtn');
+    if (submitBtn) {
+        if (index === QuizSystem.questions.length - 1 || allAnswered) {
+            submitBtn.style.display = 'block';
+        } else {
+            submitBtn.style.display = 'none';
+        }
+    }
+    
+    const optionsGrid = document.getElementById('quizOptionsGridModal');
+    if (!optionsGrid) return;
+    
+    optionsGrid.innerHTML = '';
+    
+    if (question.options && question.options.length > 0) {
+        question.options.forEach((option, i) => {
+            const optionId = option.id || i + 1;
+            const optionText = option.text || option.option_text || `Option ${String.fromCharCode(65 + i)}`;
+            const letter = String.fromCharCode(65 + i);
+            const questionId = question.question_id || index;
+            const isSelected = QuizSystem.userAnswers[questionId] == optionId;
+            
+            const optionDiv = document.createElement('div');
+            optionDiv.className = 'quiz-option-modal' + (isSelected ? ' selected' : '');
+            optionDiv.setAttribute('data-option-id', optionId);
+            optionDiv.setAttribute('data-question-id', questionId);
+            
+            optionDiv.innerHTML = `
+                <div class="option-letter" style="
+                    width: 30px; height: 30px; border: 2px solid #7a0000; border-radius: 50%; 
+                    display: flex; align-items: center; justify-content: center; font-weight: bold;
+                    background: ${isSelected ? '#7a0000' : 'transparent'}; 
+                    color: ${isSelected ? 'white' : '#7a0000'};
+                ">
+                    ${letter}
+                </div>
+                <div style="flex: 1; font-size: 16px;">${optionText}</div>
+            `;
+            
+            optionDiv.addEventListener('click', function() {
+                document.querySelectorAll('.quiz-option-modal').forEach(opt => {
+                    opt.classList.remove('selected');
+                    opt.querySelector('.option-letter').style.background = 'transparent';
+                    opt.querySelector('.option-letter').style.color = '#7a0000';
+                });
+                
+                this.classList.add('selected');
+                this.querySelector('.option-letter').style.background = '#7a0000';
+                this.querySelector('.option-letter').style.color = 'white';
+                
+                const questionId = question.question_id || index;
+                const optionId = this.getAttribute('data-option-id');
+                
+                saveAnswerAndContinue(questionId, optionId);
+            });
+            
+            optionsGrid.appendChild(optionDiv);
+        });
+    } else {
+        optionsGrid.innerHTML = '<p class="no-options">No options available for this question.</p>';
+    }
+}
+
+function updateQuizSystemProgressDots() {
+    const dotsContainer = document.getElementById('quizProgressDotsModal');
+    if (!dotsContainer || !QuizSystem.questions) return;
+    
+    let dotsHTML = '';
+    QuizSystem.questions.forEach((q, i) => {
+        const questionId = q.question_id || i;
+        const isAnswered = QuizSystem.userAnswers[questionId] !== undefined;
+        const isCurrent = i === QuizSystem.currentIndex;
+        
+        dotsHTML += `
+            <div style="
+                width: 12px; 
+                height: 12px; 
+                border-radius: 50%; 
+                background: ${isAnswered ? '#7a0000' : (isCurrent ? '#ff6b6b' : '#ddd')};
+                cursor: pointer;
+                transition: all 0.3s;
+                transform: ${isCurrent ? 'scale(1.2)' : 'scale(1)'};
+            " onclick="jumpToQuizQuestion(${i})"></div>
+        `;
+    });
+    
+    dotsContainer.innerHTML = dotsHTML;
+}
+
+window.jumpToQuizQuestion = function(index) {
+    if (index >= 0 && index < QuizSystem.questions.length) {
+        loadQuizSystemQuestion(index);
+    }
+};
+
+async function saveAnswerAndContinue(questionId, answer) {
+    try {
+        QuizSystem.userAnswers[questionId] = answer;
+        
+        QuizSystem.submittedAnswers = QuizSystem.submittedAnswers || {};
+        QuizSystem.submittedAnswers[questionId] = true;
+        
+        updateQuizSystemProgressDots();
+        
+        if (QuizSystem.currentIndex < QuizSystem.questions.length - 1) {
+            setTimeout(() => {
+                loadQuizSystemQuestion(QuizSystem.currentIndex + 1);
+            }, 300);
+        } else {
+            const submitBtn = document.getElementById('submitQuizBtn');
+            if (submitBtn) submitBtn.style.display = 'block';
+        }
+    } catch (error) {
+        console.error('Error saving answer:', error);
+    }
+}
+
+function startQuizSystemTimer() {
+    if (QuizSystem.timerInterval) {
+        clearInterval(QuizSystem.timerInterval);
+    }
+    
+    QuizSystem.timerInterval = setInterval(() => {
+        if (QuizSystem.timeLeft > 0) {
+            QuizSystem.timeLeft--;
+            
+            const minutes = Math.floor(QuizSystem.timeLeft / 60);
+            const seconds = QuizSystem.timeLeft % 60;
+            
+            const timerDisplay = document.getElementById('quizTimerDisplay');
+            if (timerDisplay) {
+                timerDisplay.textContent = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+            }
+            
+            if (QuizSystem.timeLeft <= 0) {
+                clearInterval(QuizSystem.timerInterval);
+                submitQuizSystem();
+            }
+        }
+    }, 1000);
+}
+
+async function submitQuizSystem() {
+    console.log('📝 Submitting quiz...');
+    
+    try {
+        if (QuizSystem.timerInterval) {
+            clearInterval(QuizSystem.timerInterval);
+            QuizSystem.timerInterval = null;
+        }
+        
+        const timeSpentSeconds = Math.floor((Date.now() - QuizSystem.startTime) / 1000);
+        
+        let correctCount = 0;
+        let totalQuestions = QuizSystem.questions.length;
+        
+        QuizSystem.questions.forEach((q, index) => {
+            const questionId = q.question_id || index;
+            const userAnswer = QuizSystem.userAnswers[questionId];
+            
+            if (userAnswer !== undefined && q.options) {
+                const correctOption = q.options.find(opt => opt.is_correct === true);
+                if (correctOption && userAnswer == correctOption.id) {
+                    correctCount++;
+                }
+            }
+        });
+        
+        const wrongCount = totalQuestions - correctCount;
+        const score = Math.round((correctCount / totalQuestions) * 100);
+        const pointsEarned = correctCount * 10;
+        
+        // Save attempt to localStorage as completed
+        const attempts = JSON.parse(localStorage.getItem('mathEase_quiz_attempts') || '[]');
+        const attemptIndex = attempts.findIndex(a => a.attempt_id === QuizSystem.currentAttemptId);
+        if (attemptIndex !== -1) {
+            attempts[attemptIndex].completion_status = 'completed';
+            attempts[attemptIndex].score = score;
+            attempts[attemptIndex].correct_answers = correctCount;
+            attempts[attemptIndex].time_spent_seconds = timeSpentSeconds;
+            attempts[attemptIndex].end_time = new Date().toISOString();
+            localStorage.setItem('mathEase_quiz_attempts', JSON.stringify(attempts));
+        }
+        
+        // Update user progress
+        const progress = JSON.parse(localStorage.getItem('mathEase_progress') || '{}');
+        progress.quizScore = Math.max(progress.quizScore || 0, score);
+        progress.quizAttempts = (progress.quizAttempts || 0) + 1;
+        localStorage.setItem('mathEase_progress', JSON.stringify(progress));
+        
+        const quizContainer = document.getElementById('quizContainer');
+        const resultsContainer = document.getElementById('quizResultsContainer');
+        
+        if (quizContainer) quizContainer.style.display = 'none';
+        if (resultsContainer) {
+            resultsContainer.style.display = 'block';
+            
+            resultsContainer.innerHTML = `
+                <div class="modal-body" style="padding: 20px; background: white; border-radius: 12px;">
+                    <div style="text-align: center; max-width: 400px; margin: 0 auto;">
+                        
+                        <div style="
+                            width: 80px;
+                            height: 80px;
+                            background: ${score >= 75 ? '#27ae60' : '#e74c3c'}20;
+                            border-radius: 50%;
+                            display: flex;
+                            align-items: center;
+                            justify-content: center;
+                            margin: 0 auto 15px;
+                            border: 3px solid ${score >= 75 ? '#27ae60' : '#e74c3c'};
+                        ">
+                            <i class="fas ${score >= 75 ? 'fa-trophy' : 'fa-smile'}" style="font-size: 40px; color: ${score >= 75 ? '#27ae60' : '#e74c3c'};"></i>
+                        </div>
+                        
+                        <h2 style="color: #2c3e50; margin-bottom: 10px;">Quiz Completed!</h2>
+                        
+                        <div style="position: relative; width: 150px; height: 150px; margin: 15px auto;">
+                            <svg viewBox="0 0 36 36" style="width: 150px; height: 150px;">
+                                <path d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" 
+                                      fill="none" stroke="#e0e0e0" stroke-width="3"></path>
+                                <path d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" 
+                                      fill="none" stroke="${score >= 75 ? '#27ae60' : '#e74c3c'}" stroke-width="3" 
+                                      stroke-dasharray="${score}, 100" stroke-linecap="round"></path>
+                            </svg>
+                            <div style="
+                                position: absolute;
+                                top: 50%;
+                                left: 50%;
+                                transform: translate(-50%, -50%);
+                                font-size: 36px;
+                                font-weight: bold;
+                                color: ${score >= 75 ? '#27ae60' : '#e74c3c'};
+                            ">
+                                ${score}%
+                            </div>
+                        </div>
+                        
+                        <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin: 15px 0;">
+                            <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 15px; border-radius: 10px; color: white;">
+                                <div style="font-size: 28px; font-weight: bold;">${correctCount}</div>
+                                <div style="font-size: 12px;">Correct</div>
+                            </div>
+                            <div style="background: linear-gradient(135deg, #e74c3c 0%, #c0392b 100%); padding: 15px; border-radius: 10px; color: white;">
+                                <div style="font-size: 28px; font-weight: bold;">${wrongCount}</div>
+                                <div style="font-size: 12px;">Wrong</div>
+                            </div>
+                            <div style="background: linear-gradient(135deg, #3498db 0%, #2980b9 100%); padding: 15px; border-radius: 10px; color: white;">
+                                <div style="font-size: 28px; font-weight: bold;">${totalQuestions}</div>
+                                <div style="font-size: 12px;">Total</div>
+                            </div>
+                            <div style="background: linear-gradient(135deg, #f39c12 0%, #e67e22 100%); padding: 15px; border-radius: 10px; color: white;">
+                                <div style="font-size: 28px; font-weight: bold;">${Math.floor(timeSpentSeconds/60)}:${(timeSpentSeconds%60).toString().padStart(2,'0')}</div>
+                                <div style="font-size: 12px;">Time</div>
+                            </div>
+                        </div>
+                        
+                        <div style="background: #f8f9fa; padding: 15px; border-radius: 10px; margin: 15px 0;">
+                            <div style="font-size: 20px; font-weight: bold; color: #7a0000;">+${pointsEarned}</div>
+                            <div style="font-size: 12px; color: #666;">Points Earned</div>
+                        </div>
+                        
+                        <div style="display: flex; gap: 10px; justify-content: center; margin-top: 20px;">
+                            <button onclick="closeQuizSystemModal()" class="btn-secondary" 
+                                    style="padding: 10px 20px; border: 2px solid #7a0000; background: white; color: #7a0000; border-radius: 6px; cursor: pointer;">
+                                <i class="fas fa-times"></i> Close
+                            </button>
+                            <button onclick="window.location.reload()" class="btn-primary" 
+                                    style="padding: 10px 20px; background: #3498db; color: white; border: none; border-radius: 6px; cursor: pointer;">
+                                <i class="fas fa-tachometer-alt"></i> Dashboard
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+        
+        updateQuizStats();
+        
+    } catch (error) {
+        console.error('❌ Error submitting quiz:', error);
+        alert('Error submitting quiz. Please try again.');
+    }
+}
+
+function closeQuizSystemModal() {
+    const modal = document.getElementById('quizModal');
+    if (modal) {
+        modal.style.display = 'none';
+        document.body.classList.remove('modal-open');
+    }
+    
+    if (QuizSystem.timerInterval) {
+        clearInterval(QuizSystem.timerInterval);
+        QuizSystem.timerInterval = null;
+    }
+    
+    const quizInterface = document.getElementById('quizInterfaceContainer');
+    const quizCards = document.getElementById('userQuizzesContainer');
+    const leaderboardContainer = document.getElementById('leaderboardContainer');
+    
+    if (quizInterface) {
+        quizInterface.classList.add('hidden');
+        quizInterface.style.display = 'none';
+    }
+    
+    if (quizCards) {
+        quizCards.classList.remove('hidden');
+        quizCards.style.display = 'block';
+    }
+    
+    if (leaderboardContainer) {
+        leaderboardContainer.classList.remove('hidden');
+        leaderboardContainer.style.display = 'block';
+    }
+    
+    QuizSystem.currentQuiz = null;
+    QuizSystem.currentAttemptId = null;
+    QuizSystem.questions = [];
+    QuizSystem.currentIndex = 0;
+    QuizSystem.userAnswers = {};
+    QuizSystem.startTime = null;
+    QuizSystem.timeLeft = 0;
+    QuizSystem.stats = { correct: 0, wrong: 0, score: 0 };
+}
+
+window.exitQuiz = function() {
+    closeQuizSystemModal();
+};
+
 // ============================================
-// COMPLETE FIXED DOMContentLoaded FUNCTION
+// ✅ ADD LEADERBOARD FUNCTIONS
+// ============================================
+
+function loadLeaderboard() {
+    const leaderboardList = document.getElementById('leaderboardList');
+    if (!leaderboardList) return;
+    
+    // Get current user
+    const userJson = localStorage.getItem('mathEase_user');
+    let currentUser = null;
+    if (userJson) {
+        try {
+            currentUser = JSON.parse(userJson);
+        } catch (e) {}
+    }
+    
+    // Get attempts from localStorage
+    const attempts = JSON.parse(localStorage.getItem('mathEase_quiz_attempts') || '[]');
+    const completedAttempts = attempts.filter(a => a.completion_status === 'completed');
+    
+    // Group by user (in localStorage, we only have one user)
+    const userScores = [];
+    
+    if (completedAttempts.length > 0) {
+        // Calculate best score
+        const bestScore = Math.max(...completedAttempts.map(a => a.score || 0));
+        
+        userScores.push({
+            user_id: currentUser?.id || 1,
+            username: currentUser?.username || 'You',
+            full_name: currentUser?.full_name || 'You',
+            total_points: bestScore,
+            quizzes_completed: completedAttempts.length,
+            highest_score: bestScore,
+            avg_score: bestScore
+        });
+    }
+    
+    // Add some sample data for demonstration
+    if (userScores.length === 0) {
+        userScores.push(
+            {
+                user_id: 1,
+                username: 'Maria Santos',
+                full_name: 'Maria Santos',
+                total_points: 85,
+                quizzes_completed: 1,
+                highest_score: 85,
+                avg_score: 85
+            },
+            {
+                user_id: 2,
+                username: 'Juan Dela Cruz',
+                full_name: 'Juan Dela Cruz',
+                total_points: 70,
+                quizzes_completed: 1,
+                highest_score: 70,
+                avg_score: 70
+            }
+        );
+        
+        if (currentUser) {
+            userScores.unshift({
+                user_id: currentUser.id || 999,
+                username: currentUser.username || 'You',
+                full_name: currentUser.full_name || 'You',
+                total_points: 0,
+                quizzes_completed: 0,
+                highest_score: 0,
+                avg_score: 0
+            });
+        }
+    }
+    
+    // Sort by highest score
+    userScores.sort((a, b) => b.highest_score - a.highest_score);
+    
+    let html = '';
+    
+    userScores.forEach((entry, index) => {
+        const isCurrentUser = entry.user_id === (currentUser?.id || 999);
+        const rankClass = index === 0 ? 'first' : 
+                        index === 1 ? 'second' : 
+                        index === 2 ? 'third' : '';
+        
+        let rankDisplay = index + 1;
+        if (index === 0) rankDisplay = '🥇';
+        else if (index === 1) rankDisplay = '🥈';
+        else if (index === 2) rankDisplay = '🥉';
+        
+        html += `
+            <div class="leaderboard-item ${isCurrentUser ? 'current-user' : ''}">
+                <div class="leaderboard-rank ${rankClass}">${rankDisplay}</div>
+                <div class="leaderboard-user">
+                    <div class="leaderboard-user-name">${entry.full_name || entry.username}</div>
+                    <div class="leaderboard-user-stats">
+                        <span class="leaderboard-stat">
+                            <i class="fas fa-star"></i> ${entry.total_points} pts
+                        </span>
+                        <span class="leaderboard-stat">
+                            <i class="fas fa-trophy"></i> ${entry.quizzes_completed} quizzes
+                        </span>
+                        <span class="leaderboard-stat">
+                            <i class="fas fa-chart-line"></i> ${entry.avg_score}% avg
+                        </span>
+                    </div>
+                </div>
+                <div class="leaderboard-score">${entry.highest_score}%</div>
+            </div>
+        `;
+    });
+    
+    leaderboardList.innerHTML = html;
+}
+
+// ============================================
+// ✅ UPDATE QUIZ STATS FUNCTION
+// ============================================
+
+function updateQuizStats() {
+    const progress = JSON.parse(localStorage.getItem('mathEase_progress') || '{}');
+    const quizScore = progress.quizScore || 0;
+    const quizAttempts = progress.quizAttempts || 0;
+    
+    document.getElementById('quizCurrentScore').textContent = quizScore + '%';
+    document.getElementById('quizAccuracy').textContent = (quizAttempts > 0 ? quizScore : 0) + '%';
+    document.getElementById('quizTimeSpent').textContent = '0m';
+    document.getElementById('quizRank').textContent = quizAttempts > 0 ? '#12' : '#--';
+}
+
+// ============================================
+// ✅ UPDATE LOAD QUIZZES FUNCTION
+// ============================================
+
+function loadQuizzes() {
+    const container = document.getElementById('userQuizzesContainer');
+    if (!container) return;
+    
+    const progress = JSON.parse(localStorage.getItem('mathEase_progress') || '{}');
+    const completedTopics = progress.completedTopics?.length || 0;
+    const canTakeQuiz = completedTopics >= 5;
+    
+    if (!canTakeQuiz) {
+        container.innerHTML = `
+            <div class="card" style="padding: 30px; text-align: center;">
+                <i class="fas fa-lock" style="font-size: 50px; color: #ccc; margin-bottom: 15px;"></i>
+                <h3>Quiz Locked</h3>
+                <p>Complete all 5 topics to unlock the Lesson 1 Assessment.</p>
+                <p>Topics completed: ${completedTopics}/5</p>
+                <button class="btn-primary" onclick="navigateTo('practice')" style="margin-top: 15px;">
+                    <i class="fas fa-pencil-alt"></i> Go to Practice
+                </button>
+            </div>
+        `;
+        return;
+    }
+    
+    container.innerHTML = `
+        <div class="card full-width-card">
+            <div class="card-header">
+                <h2 class="card-title">
+                    <i class="fas fa-question-circle"></i> Lesson 1 Assessment
+                </h2>
+                <p class="card-subtitle">Test your knowledge of basic mathematical operations</p>
+            </div>
+            
+            <div style="padding: 20px 25px;">
+                <div class="quiz-category-card" style="display: flex; align-items: center; gap: 20px; background: #f8f9fa; border-radius: 12px; padding: 20px;">
+                    <div style="width: 60px; height: 60px; background: #8B0000; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: white; font-size: 24px;">
+                        <i class="fas fa-graduation-cap"></i>
+                    </div>
+                    <div style="flex: 1;">
+                        <h3 style="margin: 0 0 5px 0;">Lesson 1 Assessment</h3>
+                        <p style="margin: 0; color: #666;">5 questions • 70% to pass</p>
+                    </div>
+                    <button class="btn-primary" id="startQuizBtn" style="width: auto; margin: 0; padding: 12px 25px;">
+                        <i class="fas fa-play"></i> Start Quiz
+                    </button>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    document.getElementById('startQuizBtn')?.addEventListener('click', () => {
+        startQuizSystem(1);
+    });
+}
+// ============================================
+// INITIALIZATION
+// ============================================
+// ============================================
+// COMPLETE DOMContentLoaded FUNCTION
 // ============================================
 document.addEventListener('DOMContentLoaded', function() {
     console.log('MathEase DOM Content Loaded - Applying fixes...');
@@ -2804,12 +3747,11 @@ document.addEventListener('DOMContentLoaded', function() {
     initApp();
     
     // ============================================
-    // FIX 1: Setup App Selection to prevent login loop
+    // Setup App Selection to prevent login loop
     // ============================================
     function setupAppSelection() {
         const appCards = document.querySelectorAll('.app-card');
         appCards.forEach(card => {
-            // Remove any existing listeners by cloning
             const newCard = card.cloneNode(true);
             card.parentNode.replaceChild(newCard, card);
             
@@ -2821,7 +3763,6 @@ document.addEventListener('DOMContentLoaded', function() {
                 console.log('App selected:', app);
                 
                 if (app === 'mathease') {
-                    // Check if user is already authenticated
                     const savedUser = localStorage.getItem('mathEase_user');
                     const token = localStorage.getItem('authToken');
                     
@@ -2832,48 +3773,44 @@ document.addEventListener('DOMContentLoaded', function() {
                             authToken = token;
                             navigateTo('dashboard');
                         } catch (error) {
-                            console.error('Error parsing user data:', error);
                             navigateTo('login');
                         }
                     } else {
                         navigateTo('login');
                     }
+                } else if (app === 'polylearn') {
+                    window.location.href = '../index.html';
+                } else if (app === 'factolearn') {
+                    window.location.href = '../FactoLearn/factolearn.html';
                 }
             });
         });
     }
     
-    // Call setupAppSelection
     setupAppSelection();
     
     // ============================================
-    // FIX 2: Clean up any stray modals on page load
+    // Clean up any stray modals on page load
     // ============================================
     function cleanupModals() {
-        // Hide all modal overlays that shouldn't be visible
         document.querySelectorAll('.modal-overlay').forEach(modal => {
-            // Only allow specific modals to potentially be visible
-            const allowedModals = ['logoutModal', 'forgotPasswordModal', 'resetPasswordModal'];
+            const allowedModals = ['logoutModal', 'forgotPasswordModal', 'resetPasswordModal', 'quizModal'];
             
             if (!modal.id || !allowedModals.includes(modal.id)) {
                 modal.style.display = 'none';
             } else {
-                // Ensure these modals are hidden by default
                 modal.style.display = 'none';
             }
         });
-        
-        // Remove any modal-open class from body
         document.body.classList.remove('modal-open');
     }
     
     cleanupModals();
     
     // ============================================
-    // FIX 3: Ensure footer buttons are responsive
+    // Ensure footer buttons are responsive
     // ============================================
     function fixFooterButtons() {
-        // Fix hamburger menu button
         const hamburgerBtn = document.getElementById('footerHamburgerBtn');
         if (hamburgerBtn) {
             const newHamburger = hamburgerBtn.cloneNode(true);
@@ -2881,7 +3818,6 @@ document.addEventListener('DOMContentLoaded', function() {
             
             newHamburger.addEventListener('click', function(e) {
                 e.preventDefault();
-                e.stopPropagation();
                 
                 const overlay = document.getElementById('mobileMenuOverlay');
                 const panel = document.getElementById('mobileMenuPanel');
@@ -2894,7 +3830,6 @@ document.addEventListener('DOMContentLoaded', function() {
             });
         }
         
-        // Fix all footer nav items
         document.querySelectorAll('.footer-nav-item').forEach(item => {
             const newItem = item.cloneNode(true);
             item.parentNode.replaceChild(newItem, item);
@@ -2903,11 +3838,8 @@ document.addEventListener('DOMContentLoaded', function() {
                 e.preventDefault();
                 
                 const page = this.getAttribute('data-page');
-                const onclick = this.getAttribute('onclick');
                 
-                if (onclick && onclick.includes('showLogoutConfirmation')) {
-                    showLogoutConfirmation();
-                } else if (page) {
+                if (page) {
                     switch(page) {
                         case 'dashboard':
                             showDashboard(e);
@@ -2932,10 +3864,9 @@ document.addEventListener('DOMContentLoaded', function() {
     fixFooterButtons();
     
     // ============================================
-    // FIX 4: Enhanced Logout Modal Functions
+    // Enhanced Logout Modal Functions
     // ============================================
     window.showLogoutConfirmation = function() {
-        // Close any open menus first
         const overlay = document.getElementById('mobileMenuOverlay');
         const panel = document.getElementById('mobileMenuPanel');
         if (overlay && panel) {
@@ -2944,15 +3875,12 @@ document.addEventListener('DOMContentLoaded', function() {
             document.body.style.overflow = '';
         }
         
-        // Check if modal exists, create if not
         let modal = document.getElementById('logoutModal');
         
         if (!modal) {
-            // Create modal if it doesn't exist
             modal = document.createElement('div');
             modal.id = 'logoutModal';
             modal.className = 'modal-overlay';
-            modal.style.cssText = 'display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); align-items: center; justify-content: center; z-index: 10000;';
             modal.innerHTML = `
                 <div class="modal-container" style="max-width: 380px; width: 90%; background: white; border-radius: 10px; overflow: hidden; box-shadow: 0 10px 30px rgba(0,0,0,0.3);">
                     <div class="modal-header" style="background: #8B0000; padding: 15px 20px; display: flex; justify-content: space-between; align-items: center;">
@@ -2982,14 +3910,12 @@ document.addEventListener('DOMContentLoaded', function() {
             document.body.appendChild(modal);
         }
         
-        // Hide any other modals that might be showing
         document.querySelectorAll('.modal-overlay').forEach(m => {
             if (m.id !== 'logoutModal') {
                 m.style.display = 'none';
             }
         });
         
-        // Show logout modal
         modal.style.display = 'flex';
         document.body.classList.add('modal-open');
     };
@@ -3008,7 +3934,7 @@ document.addEventListener('DOMContentLoaded', function() {
     };
     
     // ============================================
-    // FIX 5: Prevent modal propagation and escape key handling
+    // Escape key handling
     // ============================================
     document.addEventListener('keydown', function(e) {
         if (e.key === 'Escape') {
@@ -3016,28 +3942,24 @@ document.addEventListener('DOMContentLoaded', function() {
             if (logoutModal && logoutModal.style.display === 'flex') {
                 closeLogoutModal();
             }
-        }
-    });
-    
-    // Prevent clicks inside modal from closing it
-    document.addEventListener('click', function(e) {
-        const logoutModal = document.getElementById('logoutModal');
-        if (logoutModal && logoutModal.style.display === 'flex') {
-            const modalContainer = logoutModal.querySelector('.modal-container');
-            if (modalContainer && !modalContainer.contains(e.target) && !e.target.classList.contains('modal-close')) {
-                // Click outside modal - do nothing or you can choose to close
-                // Uncomment next line if you want to close when clicking outside
-                // closeLogoutModal();
+            
+            const forgotModal = document.getElementById('forgotPasswordModal');
+            if (forgotModal && forgotModal.style.display === 'flex') {
+                closeForgotPasswordModal();
+            }
+            
+            const quizModal = document.getElementById('quizModal');
+            if (quizModal && quizModal.style.display === 'flex') {
+                closeQuizSystemModal();
             }
         }
     });
     
     // ============================================
-    // FIX 6: Ensure tool buttons work properly
+    // Ensure tool buttons work properly
     // ============================================
     setTimeout(connectToolButtons, 500);
     setTimeout(connectToolButtons, 1000);
-    setTimeout(connectToolButtons, 2000); // Extra safety
     
     // ============================================
     // Setup feedback form
@@ -3045,7 +3967,7 @@ document.addEventListener('DOMContentLoaded', function() {
     setupFeedbackForm();
     
     // ============================================
-    // FIX 7: Fix for mobile menu items
+    // Fix for mobile menu items
     // ============================================
     document.querySelectorAll('.mobile-menu-item').forEach(item => {
         const newItem = item.cloneNode(true);
@@ -3056,7 +3978,6 @@ document.addEventListener('DOMContentLoaded', function() {
             
             const onclick = this.getAttribute('onclick');
             if (onclick) {
-                // Close mobile menu
                 const overlay = document.getElementById('mobileMenuOverlay');
                 const panel = document.getElementById('mobileMenuPanel');
                 if (overlay && panel) {
@@ -3065,7 +3986,6 @@ document.addEventListener('DOMContentLoaded', function() {
                     document.body.style.overflow = '';
                 }
                 
-                // Execute the onclick function
                 if (onclick.includes('showLogoutConfirmation')) {
                     showLogoutConfirmation();
                 } else if (onclick.includes('showDashboard')) {
@@ -3088,7 +4008,7 @@ document.addEventListener('DOMContentLoaded', function() {
     });
     
     // ============================================
-    // FIX 8: Handle forgot password links
+    // Handle forgot password links
     // ============================================
     const forgotPasswordLink = document.getElementById('forgotPasswordLink');
     if (forgotPasswordLink) {
@@ -3122,17 +4042,13 @@ document.addEventListener('DOMContentLoaded', function() {
     window.requestPasswordReset = requestPasswordReset;
     window.copyResetLink = copyResetLink;
     
-    window.submitQuiz = submitQuiz;
-    window.exitQuiz = function() {
-        document.getElementById('quizInterfaceContainer')?.classList.add('hidden');
-        document.getElementById('userQuizzesContainer')?.classList.remove('hidden');
-        document.getElementById('leaderboardContainer')?.classList.remove('hidden');
-        document.getElementById('quizResults')?.classList.add('hidden');
-    };
+    window.submitQuizSystem = submitQuizSystem;
+    window.exitQuiz = exitQuiz;
+    window.closeQuizSystemModal = closeQuizSystemModal;
     
     window.restartQuiz = function() {
         document.getElementById('quizResults')?.classList.add('hidden');
-        startQuiz();
+        startQuizSystem(1);
     };
     
     window.closeQuizPopup = function() {
@@ -3141,5 +4057,3 @@ document.addEventListener('DOMContentLoaded', function() {
     
     console.log('MathEase DOMContentLoaded fixes applied successfully');
 });
-
-
