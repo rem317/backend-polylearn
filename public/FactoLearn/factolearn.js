@@ -6178,10 +6178,10 @@ window.goToNextPractice = function() {
 // Call this function when initializing practice page
 addPracticeResultModalStyles();
 // ============================================
-// ✅ FIXED: Fetch Practice Exercises from Database
+// ✅ FIXED: Fetch Practice Exercises from Database - REMOVE 404 ENDPOINTS
 // ============================================
 async function fetchPracticeExercisesFromDB(topicId) {
-    console.log(`📥 Fetching practice exercises for topic ${topicId} from database...`);
+    console.log(`📝 Getting practice exercises for topic ${topicId} from database`);
     
     try {
         const token = localStorage.getItem('authToken') || authToken;
@@ -6190,24 +6190,31 @@ async function fetchPracticeExercisesFromDB(topicId) {
             return getDemoPracticeExercises(topicId);
         }
         
-        // ✅ FORCE LESSON_ID = 3
-        const LESSON_ID = 3;
-        console.log(`🎯 Forcing lesson_id=${LESSON_ID} for all practice exercises`);
+        // ✅ FORCE LESSON_ID = 3 (OVERRIDE ANYTHING)
+        const FORCED_LESSON_ID = 3;
+        console.log(`🔧 FORCING lesson_id=${FORCED_LESSON_ID} for all practice exercises`);
         
-        // Try multiple possible endpoints with lesson_id filter
+        // ===== TRY ONLY WORKING ENDPOINTS (REMOVE THOSE THAT CAUSE 404) =====
         const endpoints = [
-            `/api/practice/topic/${topicId}?lesson_id=${LESSON_ID}`,
-            `/api/practice/exercises?topic_id=${topicId}&lesson_id=${LESSON_ID}`,
-            `/api/practice/list?topic=${topicId}&lesson_id=${LESSON_ID}`,
-            `/api/exercises/topic/${topicId}?lesson_id=${LESSON_ID}`,
-            // Fallback to lesson-based endpoints
-            `/api/practice/lesson/${LESSON_ID}/topic/${topicId}`,
-            `/api/practice/exercises?lesson_id=${LESSON_ID}`
+            // Primary endpoint with forced lesson_id
+            `/api/practice/topic/${topicId}?lesson_id=${FORCED_LESSON_ID}`,
+            
+            // Alternative endpoints that might work
+            `/api/practice/list?topic=${topicId}&lesson_id=${FORCED_LESSON_ID}`,
+            
+            // Progress endpoints (to get exercise data)
+            `/api/progress/practice-attempts?lesson_id=${FORCED_LESSON_ID}`,
+            `/api/topics/progress?lesson_id=${FORCED_LESSON_ID}`,
+            
+            // Lesson-based endpoints
+            `/api/lessons-db/complete?lesson_id=${FORCED_LESSON_ID}`
         ];
+        
+        let allExercises = [];
         
         for (const endpoint of endpoints) {
             try {
-                console.log(`📡 Trying endpoint: ${endpoint}`);
+                console.log(`📡 Fetching from: ${endpoint}`);
                 
                 const response = await fetch(endpoint, {
                     headers: {
@@ -6216,11 +6223,13 @@ async function fetchPracticeExercisesFromDB(topicId) {
                     }
                 });
                 
+                console.log(`📥 Response status: ${response.status}`);
+                
                 if (response.ok) {
                     const data = await response.json();
-                    console.log(`✅ Success from ${endpoint}:`, data);
+                    console.log(`📥 Server response:`, data);
                     
-                    // Handle different response formats
+                    // Extract exercises from various response formats
                     let exercises = [];
                     
                     if (data.success && data.exercises) {
@@ -6231,17 +6240,27 @@ async function fetchPracticeExercisesFromDB(topicId) {
                         exercises = data;
                     } else if (data.data && Array.isArray(data.data)) {
                         exercises = data.data;
+                    } else if (endpoint.includes('/topics/progress') && data.topics) {
+                        // Generate exercises from topics
+                        const topic = data.topics.find(t => t.topic_id == topicId);
+                        if (topic) {
+                            exercises = generateExercisesFromTopic(topic, FORCED_LESSON_ID);
+                        }
+                    } else if (endpoint.includes('/lessons-db/complete') && data.lessons) {
+                        // Generate exercises from lessons
+                        exercises = generateExercisesFromLessons(data.lessons, FORCED_LESSON_ID);
                     }
                     
-                    // Double-check lesson_id filter
-                    exercises = exercises.filter(ex => {
+                    // ✅ STRICT FILTER - LESSON_ID MUST BE 3
+                    const filteredExercises = exercises.filter(ex => {
                         const exLessonId = ex.lesson_id || ex.lessonId;
-                        return exLessonId == LESSON_ID;
+                        return exLessonId == FORCED_LESSON_ID;
                     });
                     
-                    if (exercises.length > 0) {
-                        console.log(`✅ Found ${exercises.length} exercises from database (lesson_id=${LESSON_ID})`);
-                        return exercises;
+                    console.log(`📊 Found ${filteredExercises.length} exercises with lesson_id=${FORCED_LESSON_ID}`);
+                    
+                    if (filteredExercises.length > 0) {
+                        allExercises = [...allExercises, ...filteredExercises];
                     }
                 }
             } catch (e) {
@@ -6249,7 +6268,32 @@ async function fetchPracticeExercisesFromDB(topicId) {
             }
         }
         
-        console.log('⚠️ No working endpoint found, using demo data');
+        // Remove duplicates by exercise_id
+        const uniqueExercises = [];
+        const seenIds = new Set();
+        
+        allExercises.forEach(ex => {
+            const exId = ex.exercise_id || ex.id;
+            if (!seenIds.has(exId)) {
+                seenIds.add(exId);
+                uniqueExercises.push(ex);
+            }
+        });
+        
+        if (uniqueExercises.length > 0) {
+            console.log(`✅ TOTAL: ${uniqueExercises.length} unique exercises for lesson_id=${FORCED_LESSON_ID}`);
+            
+            // Force add lesson_id=3 to all exercises (double safety)
+            const finalExercises = uniqueExercises.map(ex => ({
+                ...ex,
+                lesson_id: FORCED_LESSON_ID
+            }));
+            
+            return finalExercises;
+        }
+        
+        // If no exercises found, use demo data
+        console.log('⚠️ No exercises found in database, using demo data');
         return getDemoPracticeExercises(topicId);
         
     } catch (error) {
@@ -6257,6 +6301,48 @@ async function fetchPracticeExercisesFromDB(topicId) {
         return getDemoPracticeExercises(topicId);
     }
 }
+
+// ============================================
+// ✅ HELPER: Generate exercises from topic
+// ============================================
+function generateExercisesFromTopic(topic, lessonId = 3) {
+    if (!topic) return [];
+    
+    const exercises = [];
+    const topicId = topic.topic_id || 1;
+    const topicTitle = topic.topic_title || 'Factorial Topic';
+    
+    for (let i = 1; i <= 3; i++) {
+        exercises.push({
+            exercise_id: parseInt(`${topicId}0${i}`),
+            lesson_id: lessonId,
+            topic_id: topicId,
+            title: `${topicTitle} - Exercise ${i}`,
+            description: `Practice ${topicTitle.toLowerCase()} concepts with this exercise.`,
+            difficulty: i === 1 ? 'easy' : (i === 2 ? 'medium' : 'hard'),
+            points: i * 10
+        });
+    }
+    
+    return exercises;
+}
+
+// ============================================
+// ✅ HELPER: Generate exercises from lessons
+// ============================================
+function generateExercisesFromLessons(lessons, lessonId = 3) {
+    if (!lessons || lessons.length === 0) return [];
+    
+    return lessons.map((lesson, index) => ({
+        exercise_id: parseInt(`3${index + 1}01`),
+        lesson_id: lessonId,
+        title: `Practice: ${lesson.content_title || `Lesson ${index + 1}`}`,
+        description: lesson.content_description || 'Practice what you learned in this lesson.',
+        difficulty: index < 2 ? 'easy' : (index < 4 ? 'medium' : 'hard'),
+        points: (index + 1) * 10
+    }));
+}
+
 // ============================================
 // ✅ FIXED: fetchPracticeStatistics - WITH CORRECT ENDPOINTS
 // ============================================
