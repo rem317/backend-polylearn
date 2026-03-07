@@ -24564,8 +24564,13 @@ function initApp() {
             initHamburgerMenu();
             
             // Navigate to dashboard
-            navigateTo('dashboard');
-            
+navigateTo('dashboard');
+
+// Update user info immediately
+setTimeout(() => {
+    updateUserInfo();
+}, 100);
+
 // Load all Mathease data
 setTimeout(() => {
     loadMatheaseData();
@@ -24615,9 +24620,33 @@ setTimeout(() => {
     
     console.log('🎮 FactoLearn Application Initialized - lesson_id=3 forced');
 }
-
+function updateUserInfo() {
+    if (!AppState.currentUser) return;
+    
+    // Update dashboard welcome
+    const dashboardUserName = document.getElementById('dashboardUserName');
+    if (dashboardUserName) {
+        const studentName = AppState.currentUser.full_name || AppState.currentUser.username || 'Student';
+        dashboardUserName.innerHTML = `Welcome back, <span style="color: var(--primary);">${studentName}</span>!`;
+    }
+    
+    // Update welcome title
+    const welcomeTitle = document.getElementById('dashboardWelcomeTitle');
+    if (welcomeTitle) {
+        welcomeTitle.textContent = `Welcome to Mathease!`;
+    }
+    
+    // Update user initial in avatar
+    const userInitial = document.getElementById('userInitial');
+    if (userInitial) {
+        const name = AppState.currentUser.full_name || AppState.currentUser.username || 'U';
+        userInitial.textContent = name.charAt(0).toUpperCase();
+    }
+    
+    console.log('✅ User info updated for Mathease');
+}
 // ============================================
-// NEW: Load all FactoLearn data
+// NEW: Load all Mathease data
 // ============================================
 async function loadMatheaseData() {
     console.log('📥 Loading ALL Mathease data (lesson_id=1)...');
@@ -24637,16 +24666,8 @@ async function loadMatheaseData() {
             loadLeaderboard('weekly')
         ]);
         
-        // Update specific elements
-        const welcomeTitle = document.getElementById('dashboardWelcomeTitle');
-        if (welcomeTitle) {
-            welcomeTitle.innerHTML = 'Welcome to <span class="app-title">Mathease</span>!';
-        }
-        
-        const userMessage = document.getElementById('dashboardUserMessage');
-        if (userMessage) {
-            userMessage.textContent = 'You\'re making excellent progress in your Mathease journey. Keep up the great work!';
-        }
+        // Update user info again after data loads
+        updateUserInfo();
         
         hideDashboardLoading();
         console.log('✅ All Mathease data loaded successfully');
