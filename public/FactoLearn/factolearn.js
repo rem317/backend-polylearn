@@ -6829,7 +6829,7 @@ async function fetchProgressChartData(days = 14) {
 
 
 // ============================================
-// FIXED: Accuracy Chart - Blue Line Chart (Like in the Picture)
+// FIXED: Accuracy Chart - Blue Line Chart
 // ============================================
 function renderAccuracyChart(accuracyData) {
     const container = document.getElementById('accuracyChart');
@@ -6838,13 +6838,13 @@ function renderAccuracyChart(accuracyData) {
     // Clear container
     container.innerHTML = '';
     
-    // Set container styles - Blue theme like in the picture
+    // Set container styles - Blue theme
     container.style.position = 'relative';
     container.style.height = '220px';
-    container.style.background = 'linear-gradient(135deg, #3498db 0%, #2980b9 100%)'; // Blue gradient
+    container.style.background = 'linear-gradient(135deg, #3498db 0%, #2980b9 100%)';
     container.style.borderRadius = '15px';
     container.style.padding = '20px 15px 15px 15px';
-    container.style.boxShadow = '0 10px 30px rgba(52, 152, 219, 0.3)'; // Blue shadow
+    container.style.boxShadow = '0 10px 30px rgba(52, 152, 219, 0.3)';
     
     // Create SVG
     const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
@@ -6859,71 +6859,9 @@ function renderAccuracyChart(accuracyData) {
     
     accuracyData.accuracy.forEach((value, index) => {
         const x = 10 + (step * index);
-        const y = 130 - (value / 100) * 100; // Map 0-100% to 130-30px
+        const y = 130 - (value / 100) * 100;
         points.push({ x, y });
     });
-    
-    // Create gradient for line - BLUE THEME
-    const defs = document.createElementNS('http://www.w3.org/2000/svg', 'defs');
-    
-    // Line gradient (light blue to dark blue)
-    const lineGradient = document.createElementNS('http://www.w3.org/2000/svg', 'linearGradient');
-    lineGradient.setAttribute('id', 'accuracyLineGradient');
-    lineGradient.setAttribute('x1', '0%');
-    lineGradient.setAttribute('y1', '0%');
-    lineGradient.setAttribute('x2', '100%');
-    lineGradient.setAttribute('y2', '0%');
-    
-    const lineStop1 = document.createElementNS('http://www.w3.org/2000/svg', 'stop');
-    lineStop1.setAttribute('offset', '0%');
-    lineStop1.setAttribute('stop-color', '#ffffff'); // White start
-    lineStop1.setAttribute('stop-opacity', '1');
-    
-    const lineStop2 = document.createElementNS('http://www.w3.org/2000/svg', 'stop');
-    lineStop2.setAttribute('offset', '100%');
-    lineStop2.setAttribute('stop-color', '#e0f7fa'); // Light blue end
-    lineStop2.setAttribute('stop-opacity', '1');
-    
-    lineGradient.appendChild(lineStop1);
-    lineGradient.appendChild(lineStop2);
-    defs.appendChild(lineGradient);
-    
-    // Area gradient - LIGHT BLUE
-    const areaGradient = document.createElementNS('http://www.w3.org/2000/svg', 'linearGradient');
-    areaGradient.setAttribute('id', 'accuracyAreaGradient');
-    areaGradient.setAttribute('x1', '0%');
-    areaGradient.setAttribute('y1', '0%');
-    areaGradient.setAttribute('x2', '0%');
-    areaGradient.setAttribute('y2', '100%');
-    
-    const areaStop1 = document.createElementNS('http://www.w3.org/2000/svg', 'stop');
-    areaStop1.setAttribute('offset', '0%');
-    areaStop1.setAttribute('stop-color', 'rgba(255, 255, 255, 0.3)');
-    areaStop1.setAttribute('stop-opacity', '0.3');
-    
-    const areaStop2 = document.createElementNS('http://www.w3.org/2000/svg', 'stop');
-    areaStop2.setAttribute('offset', '100%');
-    areaStop2.setAttribute('stop-color', 'rgba(255, 255, 255, 0.05)');
-    areaStop2.setAttribute('stop-opacity', '0.05');
-    
-    areaGradient.appendChild(areaStop1);
-    areaGradient.appendChild(areaStop2);
-    defs.appendChild(areaGradient);
-    
-    svg.appendChild(defs);
-    
-    // Draw area under line (gradient)
-    const areaPath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-    let areaD = `M ${points[0].x},130 `;
-    points.forEach(point => {
-        areaD += `L ${point.x},${point.y} `;
-    });
-    areaD += `L ${points[points.length-1].x},130 Z`;
-    
-    areaPath.setAttribute('d', areaD);
-    areaPath.setAttribute('fill', 'url(#accuracyAreaGradient)');
-    areaPath.setAttribute('stroke', 'none');
-    svg.appendChild(areaPath);
     
     // Draw line - SOLID BLUE
     const linePath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
@@ -6934,13 +6872,13 @@ function renderAccuracyChart(accuracyData) {
     
     linePath.setAttribute('d', lineD);
     linePath.setAttribute('fill', 'none');
-    linePath.setAttribute('stroke', '#3498db'); // SOLID BLUE
+    linePath.setAttribute('stroke', '#3498db');
     linePath.setAttribute('stroke-width', '3');
     linePath.setAttribute('stroke-linecap', 'round');
     linePath.setAttribute('stroke-linejoin', 'round');
     svg.appendChild(linePath);
     
-    // Draw points - BLUE THEME
+    // Draw points
     points.forEach((point, index) => {
         // Outer white circle
         const outerCircle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
@@ -6948,7 +6886,6 @@ function renderAccuracyChart(accuracyData) {
         outerCircle.setAttribute('cy', point.y);
         outerCircle.setAttribute('r', '6');
         outerCircle.setAttribute('fill', '#ffffff');
-        outerCircle.setAttribute('stroke', 'none');
         svg.appendChild(outerCircle);
         
         // Inner blue circle
@@ -6956,14 +6893,8 @@ function renderAccuracyChart(accuracyData) {
         innerCircle.setAttribute('cx', point.x);
         innerCircle.setAttribute('cy', point.y);
         innerCircle.setAttribute('r', '4');
-        innerCircle.setAttribute('fill', '#3498db'); // Blue
-        innerCircle.setAttribute('stroke', 'none');
+        innerCircle.setAttribute('fill', '#3498db');
         svg.appendChild(innerCircle);
-        
-        // Add tooltip
-        innerCircle.addEventListener('mouseenter', (e) => {
-            showBlueTooltip(e, accuracyData.labels[index], accuracyData.accuracy[index]);
-        });
     });
     
     container.appendChild(svg);
@@ -6980,34 +6911,10 @@ function renderAccuracyChart(accuracyData) {
         labelSpan.textContent = label;
         labelSpan.style.color = 'rgba(255,255,255,0.9)';
         labelSpan.style.fontSize = '11px';
-        labelSpan.style.fontWeight = '500';
-        labelSpan.style.textTransform = 'uppercase';
-        labelSpan.style.letterSpacing = '0.5px';
         labelsDiv.appendChild(labelSpan);
     });
     
     container.appendChild(labelsDiv);
-    
-    // Add floating tooltip
-    const tooltip = document.createElement('div');
-    tooltip.id = 'blueTooltip';
-    tooltip.style.position = 'absolute';
-    tooltip.style.background = '#3498db'; // Blue background
-    tooltip.style.color = 'white';
-    tooltip.style.padding = '8px 12px';
-    tooltip.style.borderRadius = '8px';
-    tooltip.style.fontSize = '12px';
-    tooltip.style.fontWeight = 'bold';
-    tooltip.style.pointerEvents = 'none';
-    tooltip.style.display = 'none';
-    tooltip.style.zIndex = '1000';
-    tooltip.style.boxShadow = '0 4px 15px rgba(52, 152, 219, 0.4)';
-    tooltip.style.border = '1px solid rgba(255,255,255,0.2)';
-    
-    // Add arrow
-    tooltip.innerHTML = '<div class="tooltip-arrow" style="position: absolute; bottom: -5px; left: 50%; transform: translateX(-50%); width: 0; height: 0; border-left: 6px solid transparent; border-right: 6px solid transparent; border-top: 6px solid #3498db;"></div>';
-    
-    container.appendChild(tooltip);
 }
 
 // ============================================
@@ -19158,13 +19065,19 @@ function updateTopicsProgressDetailed(topics) {
     container.innerHTML = html;
 }
 
-
+// ============================================
+// UPDATE PROGRESS CHARTS - FIXED VERSION
+// ============================================
 async function updateProgressCharts() {
     console.log('📊 Updating progress charts...');
     
     try {
         const token = localStorage.getItem('authToken') || authToken;
-        if (!token) return;
+        if (!token) {
+            console.log('⚠️ No token, using sample data');
+            createSampleLineChartData();
+            return;
+        }
         
         // Fetch chart data
         const response = await fetch(`/api/progress/chart-data`, {
@@ -19180,8 +19093,8 @@ async function updateProgressCharts() {
         const data = await response.json();
         
         if (data.success && data.chartData) {
-            // Use the new LINE CHART function
-            renderDailyActivityLineChart(data.chartData);
+            // Use the LINE CHART function
+            renderDailyActivityChart(data.chartData);
         } else {
             createSampleLineChartData();
         }
@@ -19207,12 +19120,17 @@ async function updateProgressCharts() {
                     ]
                 };
                 renderAccuracyChart(weeklyAccuracy);
+            } else {
+                createSampleAccuracyData();
             }
+        } else {
+            createSampleAccuracyData();
         }
         
     } catch (error) {
         console.error('Error updating progress charts:', error);
         createSampleLineChartData();
+        createSampleAccuracyData();
     }
 }
 // ============================================
@@ -19226,7 +19144,14 @@ function createSampleLineChartData() {
         practice: [25, 40, 15, 60, 45, 30, 55]
     };
     
-    renderDailyActivityLineChart(sampleData);
+    renderDailyActivityChart(sampleData);
+}
+
+// ============================================
+// Create Sample Accuracy Data (for testing)
+// ============================================
+function createSampleAccuracyData() {
+    console.log('📊 Creating sample accuracy data...');
     
     const accuracyData = {
         labels: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
