@@ -2654,31 +2654,3 @@ input:checked + .toggle-slider:before {
 
 .quick-tool-item.active {
     background: linear-gradient(135deg, var(--accent
-
-/* Make MathEase look like PolyLearn */
-#app-selection-page .mathease .app-icon {
-    background: linear-gradient(135deg, #ff7e5f, #feb47b) !important; /* Orange gradient like PolyLearn */
-}
-
-#app-selection-page .mathease .app-formula {
-    color: var(--error) !important;
-    font-size: 1.3rem !important;
-    font-weight: bold !important;
-    background-color: rgba(196, 30, 58, 0.08) !important;
-}
-
-/* Optional: Add VN badge like PolyLearn */
-#app-selection-page .mathease .vn-badge {
-    position: absolute;
-    top: 12px;
-    right: 12px;
-    background: linear-gradient(to right, var(--error), #ff6b6b);
-    color: var(--white);
-    font-weight: bold;
-    font-size: 0.8rem;
-    padding: 4px 10px;
-    border-radius: 15px;
-    letter-spacing: 0.5px;
-    box-shadow: 0 3px 6px rgba(196, 30, 58, 0.3);
-    z-index: 3;
-}
