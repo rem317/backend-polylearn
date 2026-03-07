@@ -642,23 +642,49 @@ class Calculator {
         }
     }
 
-    updateHistory() {
-        const historyEl = document.getElementById('calcHistory');
-        if (!historyEl) return;
+   updateHistory() {
+    const historyEl = document.getElementById('calcHistory');
+    if (!historyEl) return;
 
-        if (this.history.length === 0) {
-            historyEl.innerHTML = '<div class="history-empty">No calculations yet</div>';
-            return;
-        }
-
-        historyEl.innerHTML = this.history.map(item => `
-            <div class="history-item" onclick="window.toolManager.tools.calculator.useHistory('${item.expression}')">
-                <div class="history-expression">${item.expression} =</div>
-                <div class="history-result">${item.result}</div>
-                <div class="history-time">${item.timestamp}</div>
-            </div>
-        `).join('');
+    if (this.history.length === 0) {
+        historyEl.innerHTML = '<div class="history-empty"><i class="fas fa-history" style="margin-right: 8px;"></i>No calculations yet</div>';
+        return;
     }
+
+    historyEl.innerHTML = this.history.map(item => `
+        <div class="history-item" onclick="window.toolManager.tools.calculator.useHistory('${item.expression}')" style="
+            background: #f8f9fa;
+            border-radius: 6px;
+            margin-bottom: 8px;
+            padding: 12px 15px;
+            border-left: 4px solid #7a0000;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+        ">
+            <div style="
+                font-size: 16px;
+                font-weight: 600;
+                color: #2c3e50;
+                margin-bottom: 4px;
+                font-family: 'Courier New', monospace;
+            ">${item.expression} =</div>
+            <div style="
+                font-size: 18px;
+                font-weight: bold;
+                color: #7a0000;
+                margin-bottom: 2px;
+            ">${item.result}</div>
+            <div style="
+                font-size: 11px;
+                color: #6c757d;
+                text-align: right;
+                margin-top: 2px;
+                font-style: italic;
+            ">${item.timestamp}</div>
+        </div>
+    `).join('');
+}
 
     useHistory(expression) {
         this.display = expression;
