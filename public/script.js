@@ -18496,7 +18496,53 @@ function setupBackButton() {
 }
 
 // ============================================
-// HELPER: Setup navigation buttons (PREV/NEXT) - UPDATED
+// FIXED: Lesson Navigation Functions - Add this to script.js
+// ============================================
+
+// Function to navigate to previous lesson
+async function goToPreviousLesson() {
+    console.log('⬅️ Going to previous lesson...');
+    
+    const currentLesson = LessonState.currentLesson;
+    if (!currentLesson || !currentLesson.adjacent || !currentLesson.adjacent.previous) {
+        console.log('No previous lesson available');
+        showNotification('No previous lesson available', 'info');
+        return;
+    }
+    
+    const prevLessonId = currentLesson.adjacent.previous.id;
+    console.log(`📖 Opening previous lesson ID: ${prevLessonId}`);
+    
+    // Show loading state
+    showNotification('Loading previous lesson...', 'info');
+    
+    // Open the previous lesson
+    await openLesson(prevLessonId);
+}
+
+// Function to navigate to next lesson
+async function goToNextLesson() {
+    console.log('➡️ Going to next lesson...');
+    
+    const currentLesson = LessonState.currentLesson;
+    if (!currentLesson || !currentLesson.adjacent || !currentLesson.adjacent.next) {
+        console.log('No next lesson available');
+        showNotification('No next lesson available', 'info');
+        return;
+    }
+    
+    const nextLessonId = currentLesson.adjacent.next.id;
+    console.log(`📖 Opening next lesson ID: ${nextLessonId}`);
+    
+    // Show loading state
+    showNotification('Loading next lesson...', 'info');
+    
+    // Open the next lesson
+    await openLesson(nextLessonId);
+}
+
+// ============================================
+// FIXED: Setup Navigation Buttons - Replace the existing function
 // ============================================
 function setupNavigationButtons() {
     console.log('🔘 Setting up navigation buttons...');
@@ -18513,65 +18559,75 @@ function setupNavigationButtons() {
     // ===== PREVIOUS BUTTON =====
     const prevBtn = document.getElementById('prevLessonBtn');
     if (prevBtn) {
-        // Remove all existing listeners
+        // Remove all existing listeners by cloning
         const newPrevBtn = prevBtn.cloneNode(true);
         prevBtn.parentNode.replaceChild(newPrevBtn, prevBtn);
         
         if (currentLesson.adjacent?.previous) {
+            // Enable button and add text
             newPrevBtn.disabled = false;
             newPrevBtn.innerHTML = `<i class="fas fa-arrow-left"></i> Previous: ${currentLesson.adjacent.previous.title}`;
+            newPrevBtn.title = `Go to previous lesson: ${currentLesson.adjacent.previous.title}`;
             
+            // Add click handler
             newPrevBtn.addEventListener('click', async function(e) {
                 e.preventDefault();
                 e.stopPropagation();
-                
-                const prevId = currentLesson.adjacent.previous.id;
-                console.log('⬅️ Loading previous lesson:', prevId);
-                
-                // Open the previous lesson
-                await openLesson(prevId);
+                await goToPreviousLesson();
             });
             
             console.log('✅ Previous button enabled');
         } else {
+            // Disable button
             newPrevBtn.disabled = true;
             newPrevBtn.innerHTML = `<i class="fas fa-arrow-left"></i> Previous`;
-            console.log('ℹ️previous');
+            newPrevBtn.title = 'No previous lesson available';
+            console.log('ℹ️ No previous lesson available');
         }
+    } else {
+        console.warn('⚠️ Previous button not found in DOM');
     }
     
     // ===== NEXT BUTTON =====
     const nextBtn = document.getElementById('nextLessonBtn');
     if (nextBtn) {
-        // Remove all existing listeners
+        // Remove all existing listeners by cloning
         const newNextBtn = nextBtn.cloneNode(true);
         nextBtn.parentNode.replaceChild(newNextBtn, nextBtn);
         
         if (currentLesson.adjacent?.next) {
+            // Enable button and add text
             newNextBtn.disabled = false;
             newNextBtn.innerHTML = `Next: ${currentLesson.adjacent.next.title} <i class="fas fa-arrow-right"></i>`;
+            newNextBtn.title = `Go to next lesson: ${currentLesson.adjacent.next.title}`;
             
+            // Add click handler
             newNextBtn.addEventListener('click', async function(e) {
                 e.preventDefault();
                 e.stopPropagation();
-                
-                const nextId = currentLesson.adjacent.next.id;
-                console.log('➡️ Loading next lesson:', nextId);
-                
-                // Open the next lesson
-                await openLesson(nextId);
+                await goToNextLesson();
             });
             
             console.log('✅ Next button enabled');
         } else {
+            // Disable button
             newNextBtn.disabled = true;
-            newNextBtn.innerHTML = `Next<i class="fas fa-arrow-right"></i>`;
-            console.log('ℹ️next');
+            newNextBtn.innerHTML = `Next <i class="fas fa-arrow-right"></i>`;
+            newNextBtn.title = 'No next lesson available';
+            console.log('ℹ️ No next lesson available');
         }
+    } else {
+        console.warn('⚠️ Next button not found in DOM');
     }
     
     console.log('✅ Navigation buttons setup complete');
 }
+
+// ============================================
+// Make functions globally available
+// ============================================
+window.goToPreviousLesson = goToPreviousLesson;
+window.goToNextLesson = goToNextLesson;
 
 // ============================================
 // HELPER: Setup practice buttons
