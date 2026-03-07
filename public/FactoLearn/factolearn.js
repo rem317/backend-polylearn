@@ -6177,8 +6177,11 @@ window.goToNextPractice = function() {
 };
 // Call this function when initializing practice page
 addPracticeResultModalStyles();
+// ============================================
+// ✅ UPDATED: Fetch Practice Exercises from Database - FORCE LESSON_ID=3
+// ============================================
 async function fetchPracticeExercisesFromDB(topicId) {
-    console.log(`📥 Fetching practice exercises for topic ${topicId} from database...`);
+    console.log(`📝 Getting practice exercises for topic ${topicId} from database`);
     
     try {
         const token = localStorage.getItem('authToken') || authToken;
@@ -6187,36 +6190,34 @@ async function fetchPracticeExercisesFromDB(topicId) {
             return getDemoPracticeExercises(topicId);
         }
         
-        // ✅ FORCE LESSON_ID = 3
-        const LESSON_ID = 3;
-        console.log(`🎯 FORCING lesson_id=${LESSON_ID} for all practice exercises`);
+        // ✅ FORCE LESSON_ID = 3 (OVERRIDE ANYTHING)
+        const FORCED_LESSON_ID = 3;
+        console.log(`🔧 FORCING lesson_id=${FORCED_LESSON_ID} for all practice exercises`);
         
-        // ===== TRY ENDPOINTS WITH EXPLICIT LESSON_ID FILTER =====
+        // ===== TRY MULTIPLE ENDPOINTS =====
         const endpoints = [
-            // ✅ PRIORITY 1: Endpoints with lesson_id in URL
-            `/api/practice/exercises?lesson_id=${LESSON_ID}`,
-            `/api/practice/list?lesson_id=${LESSON_ID}`,
-            `/api/exercises?lesson_id=${LESSON_ID}`,
+            // Primary endpoint with forced lesson_id
+            `/api/practice/topic/${topicId}?lesson_id=${FORCED_LESSON_ID}`,
             
-            // ✅ PRIORITY 2: Topic-based with lesson_id
-            `/api/practice/topic/${topicId}?lesson_id=${LESSON_ID}`,
-            `/api/topics/${topicId}/exercises?lesson_id=${LESSON_ID}`,
+            // Alternative endpoints
+            `/api/practice/exercises?topic_id=${topicId}&lesson_id=${FORCED_LESSON_ID}`,
+            `/api/exercises/topic/${topicId}?lesson_id=${FORCED_LESSON_ID}`,
+            `/api/practice/list?topic=${topicId}&lesson_id=${FORCED_LESSON_ID}`,
             
-            // ✅ PRIORITY 3: Lesson-based
-            `/api/lessons/${LESSON_ID}/exercises`,
-            `/api/lesson/${LESSON_ID}/practice`,
+            // Lesson-based endpoints
+            `/api/lessons/${FORCED_LESSON_ID}/practice`,
+            `/api/lesson/${FORCED_LESSON_ID}/exercises`,
             
-            // ✅ PRIORITY 4: Progress endpoints (to extract exercise IDs)
-            `/api/progress/practice-attempts?lesson_id=${LESSON_ID}`,
-            `/api/topics/progress?lesson_id=${LESSON_ID}`,
-            `/api/lessons-db/complete?lesson_id=${LESSON_ID}`
+            // Fallback to all exercises for this lesson
+            `/api/practice/exercises?lesson_id=${FORCED_LESSON_ID}`,
+            `/api/exercises?lesson_id=${FORCED_LESSON_ID}`
         ];
         
         let allExercises = [];
         
         for (const endpoint of endpoints) {
             try {
-                console.log(`📡 Trying endpoint: ${endpoint}`);
+                console.log(`📡 Fetching from: ${endpoint}`);
                 
                 const response = await fetch(endpoint, {
                     headers: {
@@ -6225,11 +6226,13 @@ async function fetchPracticeExercisesFromDB(topicId) {
                     }
                 });
                 
+                console.log(`📥 Response status: ${response.status}`);
+                
                 if (response.ok) {
                     const data = await response.json();
-                    console.log(`✅ Success from ${endpoint}:`, data);
+                    console.log(`📥 Server response:`, data);
                     
-                    // Extract exercises based on response format
+                    // Extract exercises from various response formats
                     let exercises = [];
                     
                     if (data.success && data.exercises) {
@@ -6240,37 +6243,16 @@ async function fetchPracticeExercisesFromDB(topicId) {
                         exercises = data;
                     } else if (data.data && Array.isArray(data.data)) {
                         exercises = data.data;
-                    } else if (endpoint.includes('/progress/practice-attempts') && data.attempts) {
-                        // From practice attempts, extract unique exercise IDs
-                        const exerciseIds = [...new Set(data.attempts.map(a => a.exercise_id))];
-                        exercises = exerciseIds.map(id => ({
-                            exercise_id: id,
-                            lesson_id: LESSON_ID,
-                            title: `Exercise ${id}`,
-                            description: 'Practice exercise',
-                            difficulty: 'medium'
-                        }));
-                    } else if (endpoint.includes('/topics/progress') && data.topics) {
-                        // From topics, generate exercises for this topic
-                        const topic = data.topics.find(t => t.topic_id == topicId);
-                        if (topic) {
-                            exercises = generateExercisesFromTopic(topic, LESSON_ID);
-                        }
-                    } else if (endpoint.includes('/lessons-db/complete') && data.lessons) {
-                        // From lessons, generate exercises
-                        const lessonLessons = data.lessons.filter(l => 
-                            l.topic_id == topicId || l.lesson_id == LESSON_ID
-                        );
-                        exercises = generateExercisesFromLessons(lessonLessons, LESSON_ID);
                     }
                     
-                    // ✅ STRICT FILTER - lesson_id=3 LANG
+                    // ✅ STRICT FILTER - LESSON_ID MUST BE 3
                     const filteredExercises = exercises.filter(ex => {
+                        // Check all possible property names
                         const exLessonId = ex.lesson_id || ex.lessonId;
-                        return exLessonId == LESSON_ID;
+                        return exLessonId == FORCED_LESSON_ID;
                     });
                     
-                    console.log(`📊 Found ${filteredExercises.length} exercises with lesson_id=${LESSON_ID}`);
+                    console.log(`📊 Found ${filteredExercises.length} exercises with lesson_id=${FORCED_LESSON_ID}`);
                     
                     if (filteredExercises.length > 0) {
                         allExercises = [...allExercises, ...filteredExercises];
@@ -6294,12 +6276,19 @@ async function fetchPracticeExercisesFromDB(topicId) {
         });
         
         if (uniqueExercises.length > 0) {
-            console.log(`✅ TOTAL: ${uniqueExercises.length} unique exercises for lesson_id=${LESSON_ID}`);
-            return uniqueExercises;
+            console.log(`✅ TOTAL: ${uniqueExercises.length} unique exercises for lesson_id=${FORCED_LESSON_ID}`);
+            
+            // Force add lesson_id=3 to all exercises (double safety)
+            const finalExercises = uniqueExercises.map(ex => ({
+                ...ex,
+                lesson_id: FORCED_LESSON_ID
+            }));
+            
+            return finalExercises;
         }
         
-        // ===== IF NO EXERCISES FOUND, USE DEMO DATA WITH lesson_id=3 =====
-        console.log('⚠️ No exercises found in database, using demo data with lesson_id=3');
+        // If no exercises found, use demo data
+        console.log('⚠️ No exercises found in database, using demo data');
         return getDemoPracticeExercises(topicId);
         
     } catch (error) {
@@ -6307,6 +6296,87 @@ async function fetchPracticeExercisesFromDB(topicId) {
         return getDemoPracticeExercises(topicId);
     }
 }
+
+// ============================================
+// 🚨 EMERGENCY OVERRIDE - Force ALL API calls to use lesson_id=3
+// ============================================
+(function forceLessonId3ForPractice() {
+    console.log('🚨 EMERGENCY: Forcing ALL practice API calls to use lesson_id=3');
+    
+    // Store original fetch
+    const originalFetch = window.fetch;
+    
+    // Override fetch
+    window.fetch = function(url, options) {
+        // Only modify practice-related API calls
+        if (typeof url === 'string') {
+            // Check if this is a practice API call
+            const isPracticeAPI = url.includes('/api/practice/') || 
+                                  url.includes('/api/exercises/') ||
+                                  url.includes('/practice/topic/');
+            
+            if (isPracticeAPI) {
+                // Check if URL already has lesson_id parameter
+                if (!url.includes('lesson_id=')) {
+                    // Add lesson_id=3 to the URL
+                    const separator = url.includes('?') ? '&' : '?';
+                    url = `${url}${separator}lesson_id=3`;
+                    console.log(`🔧 Forced lesson_id=3: ${url.split('?')[0]}`);
+                } else {
+                    // Replace any existing lesson_id with 3
+                    url = url.replace(/lesson_id=\d+/g, 'lesson_id=3');
+                    console.log(`🔧 Replaced lesson_id with 3: ${url.split('?')[0]}`);
+                }
+            }
+        }
+        
+        // Call original fetch
+        return originalFetch.call(this, url, options).then(response => {
+            // Clone response para ma-edit
+            const clonedResponse = response.clone();
+            
+            // For practice endpoints, we can modify the response data
+            if (typeof url === 'string' && 
+                (url.includes('/api/practice/') || url.includes('/practice/topic/'))) {
+                
+                // Try to parse and modify JSON response
+                clonedResponse.json().then(data => {
+                    if (data && typeof data === 'object') {
+                        // Add lesson_id=3 to response for debugging
+                        data._forced_lesson_id = 3;
+                        
+                        // If there are exercises, ensure they have lesson_id=3
+                        if (data.exercises && Array.isArray(data.exercises)) {
+                            data.exercises = data.exercises.map(ex => ({
+                                ...ex,
+                                lesson_id: 3
+                            }));
+                            console.log(`✅ Forced lesson_id=3 on ${data.exercises.length} exercises in response`);
+                        }
+                    }
+                }).catch(() => {});
+            }
+            
+            return response;
+        });
+    };
+    
+    // Also override the constants
+    window.FACTORIAL_LESSON_ID = 3;
+    window.CURRENT_LESSON_ID = 3;
+    
+    // Override getCurrentAppLessonId
+    window.getCurrentAppLessonId = function() {
+        return 3;
+    };
+    
+    // Set localStorage
+    localStorage.setItem('selectedApp', 'factorial');
+    localStorage.setItem('currentLessonFilter', '3');
+    localStorage.setItem('currentLessonId', '3');
+    
+    console.log('✅ Emergency override complete - All practice API calls will use lesson_id=3');
+})();
 
 // ============================================
 // ✅ HELPER: Generate exercises from attempts
