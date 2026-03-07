@@ -18576,29 +18576,405 @@ async function updateProgressDashboardFromDatabase() {
         }
     }
 }
+// ============================================
+// RENDER DAILY ACTIVITY CHART - COMPLETE VERSION
+// ============================================
 function renderDailyActivityChart(chartData) {
-    console.log('📈 Rendering daily activity chart...');
+    console.log('📊 Rendering daily activity chart with data:', chartData);
     
-    const container = document.getElementById('dailyActivityChart');
-    if (!container || !chartData) return;
+    const chartContainer = document.getElementById('practiceTimeChart');
+    if (!chartContainer) {
+        console.error('❌ Chart container not found: practiceTimeChart');
+        return;
+    }
     
-    // Simple bar chart rendering
-    let html = '<div class="simple-bar-chart">';
-    html += '<div class="chart-bars">';
+    // Clear loading state
+    chartContainer.innerHTML = '';
     
-    const maxValue = Math.max(...chartData.values, 1);
-    chartData.values.forEach(value => {
-        const height = (value / maxValue) * 100;
-        html += `<div class="chart-bar" style="height: ${height}%;" data-value="${value}"></div>`;
+    // If no data or empty data, show no data message
+    if (!chartData || !chartData.labels || chartData.labels.length === 0) {
+        showChartNoData(chartContainer);
+        return;
+    }
+    
+    // Create canvas element
+    const canvas = document.createElement('canvas');
+    canvas.id = 'dailyActivityCanvas';
+    canvas.width = chartContainer.offsetWidth || 800;
+    canvas.height = chartContainer.offsetHeight || 300;
+    canvas.style.width = '100%';
+    canvas.style.height = '100%';
+    chartContainer.appendChild(canvas);
+    
+    const ctx = canvas.getContext('2d');
+    
+    // Set dimensions
+    const width = canvas.width;
+    const height = canvas.height;
+    const padding = 50; // Left/right padding
+    const topPadding = 30; // Top padding
+    const bottomPadding = 40; // Bottom padding for labels
+    const chartWidth = width - (padding * 2);
+    const chartHeight = height - (topPadding + bottomPadding);
+    
+    // Clear canvas
+    ctx.clearRect(0, 0, width, height);
+    
+    // Draw background
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0, 0, width, height);
+    
+    // Draw title
+    ctx.fillStyle = '#2c3e50';
+    ctx.font = 'bold 14px Arial, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('Daily Practice Activity', width / 2, 20);
+    
+    // Draw grid and axes
+    drawChartGrid(ctx, width, height, padding, topPadding, bottomPadding, chartWidth, chartHeight);
+    
+    // Find max value for scaling (with minimum of 5)
+    const allValues = [
+        ...(chartData.datasets?.[0]?.data || []),
+        ...(chartData.datasets?.[1]?.data || []),
+        ...(chartData.datasets?.[2]?.data || []),
+        ...(chartData.practice || []),
+        ...(chartData.quizzes || []),
+        ...(chartData.lessons || [])
+    ];
+    
+    const maxValue = Math.max(...allValues, 5);
+    const yStep = Math.ceil(maxValue / 5); // 5 grid lines
+    
+    // Define datasets based on chartData structure
+    let datasets = [];
+    
+    if (chartData.datasets) {
+        // Chart.js format
+        datasets = chartData.datasets;
+    } else {
+        // Custom format
+        datasets = [
+            { label: 'Practice', data: chartData.practice || [], color: '#7a0000' },
+            { label: 'Quizzes', data: chartData.quizzes || [], color: '#3498db' },
+            { label: 'Lessons', data: chartData.lessons || [], color: '#27ae60' }
+        ].filter(d => d.data.length > 0);
+    }
+    
+    // Define colors for datasets
+    const colors = [
+        { border: '#7a0000', bg: 'rgba(122, 0, 0, 0.1)', fill: 'rgba(122, 0, 0, 0.05)' },
+        { border: '#3498db', bg: 'rgba(52, 152, 219, 0.1)', fill: 'rgba(52, 152, 219, 0.05)' },
+        { border: '#27ae60', bg: 'rgba(39, 174, 96, 0.1)', fill: 'rgba(39, 174, 96, 0.05)' },
+        { border: '#f39c12', bg: 'rgba(243, 156, 18, 0.1)', fill: 'rgba(243, 156, 18, 0.05)' },
+        { border: '#9b59b6', bg: 'rgba(155, 89, 182, 0.1)', fill: 'rgba(155, 89, 182, 0.05)' }
+    ];
+    
+    // Calculate step between points
+    const labels = chartData.labels || [];
+    const step = labels.length > 1 ? chartWidth / (labels.length - 1) : 0;
+    
+    // Draw lines for each dataset
+    datasets.forEach((dataset, datasetIndex) => {
+        const color = colors[datasetIndex % colors.length];
+        const data = dataset.data || [];
+        
+        if (data.length === 0) return;
+        
+        // Draw filled area
+        ctx.fillStyle = color.fill;
+        ctx.beginPath();
+        
+        let firstPoint = true;
+        let firstX = 0, firstY = 0;
+        
+        data.forEach((value, index) => {
+            const x = padding + (step * index);
+            const y = topPadding + chartHeight - ((value / maxValue) * chartHeight);
+            
+            if (firstPoint) {
+                ctx.moveTo(x, y);
+                firstX = x;
+                firstY = y;
+                firstPoint = false;
+            } else {
+                ctx.lineTo(x, y);
+            }
+        });
+        
+        // Close the path to the bottom
+        if (data.length > 0) {
+            const lastX = padding + (step * (data.length - 1));
+            ctx.lineTo(lastX, topPadding + chartHeight);
+            ctx.lineTo(firstX, topPadding + chartHeight);
+            ctx.lineTo(firstX, firstY);
+            ctx.fill();
+        }
+        
+        // Draw line
+        ctx.strokeStyle = color.border;
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        
+        data.forEach((value, index) => {
+            const x = padding + (step * index);
+            const y = topPadding + chartHeight - ((value / maxValue) * chartHeight);
+            
+            if (index === 0) {
+                ctx.moveTo(x, y);
+            } else {
+                ctx.lineTo(x, y);
+            }
+        });
+        
+        ctx.stroke();
+        
+        // Draw points
+        data.forEach((value, index) => {
+            const x = padding + (step * index);
+            const y = topPadding + chartHeight - ((value / maxValue) * chartHeight);
+            
+            // Outer glow
+            ctx.shadowColor = color.border;
+            ctx.shadowBlur = 8;
+            
+            // Main point
+            ctx.fillStyle = color.border;
+            ctx.beginPath();
+            ctx.arc(x, y, 5, 0, 2 * Math.PI);
+            ctx.fill();
+            
+            // Inner white dot
+            ctx.shadowBlur = 0;
+            ctx.fillStyle = '#ffffff';
+            ctx.beginPath();
+            ctx.arc(x, y, 2, 0, 2 * Math.PI);
+            ctx.fill();
+            
+            // Add value label on hover (will be handled by tooltip)
+            storePointData(x, y, value, dataset.label, index);
+        });
     });
     
-    html += '</div><div class="chart-labels">';
-    chartData.labels.forEach(label => {
-        html += `<div class="chart-label">${label}</div>`;
+    // Draw X-axis labels
+    ctx.fillStyle = '#666';
+    ctx.font = '11px Arial, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'top';
+    
+    labels.forEach((label, index) => {
+        // Show every other label to avoid crowding
+        if (labels.length > 10 && index % 2 !== 0 && index !== labels.length - 1) return;
+        
+        const x = padding + (step * index);
+        ctx.fillText(label, x, topPadding + chartHeight + 10);
     });
     
-    html += '</div></div>';
-    container.innerHTML = html;
+    // Draw Y-axis labels
+    ctx.textAlign = 'right';
+    ctx.textBaseline = 'middle';
+    
+    for (let i = 0; i <= 5; i++) {
+        const value = Math.round((maxValue * (5 - i)) / 5);
+        const y = topPadding + (chartHeight * i / 5);
+        
+        ctx.fillStyle = '#666';
+        ctx.font = '10px Arial, sans-serif';
+        ctx.fillText(value.toString(), padding - 10, y);
+        
+        // Draw horizontal grid line
+        ctx.strokeStyle = '#f0f0f0';
+        ctx.lineWidth = 0.5;
+        ctx.beginPath();
+        ctx.moveTo(padding, y);
+        ctx.lineTo(width - padding, y);
+        ctx.stroke();
+    }
+    
+    // Draw legend
+    drawChartLegend(ctx, width, datasets, colors);
+    
+    // Setup tooltip
+    setupChartTooltip(chartContainer, canvas);
+    
+    console.log('✅ Daily activity chart rendered successfully');
+}
+
+// ============================================
+// DRAW CHART GRID
+// ============================================
+function drawChartGrid(ctx, width, height, padding, topPadding, bottomPadding, chartWidth, chartHeight) {
+    // Draw axes
+    ctx.strokeStyle = '#333';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    
+    // Y-axis
+    ctx.moveTo(padding, topPadding);
+    ctx.lineTo(padding, topPadding + chartHeight);
+    
+    // X-axis
+    ctx.moveTo(padding, topPadding + chartHeight);
+    ctx.lineTo(width - padding, topPadding + chartHeight);
+    
+    ctx.stroke();
+    
+    // Draw axis arrows
+    ctx.fillStyle = '#333';
+    
+    // Y-axis arrow
+    ctx.beginPath();
+    ctx.moveTo(padding - 5, topPadding + 5);
+    ctx.lineTo(padding, topPadding);
+    ctx.lineTo(padding + 5, topPadding + 5);
+    ctx.fill();
+    
+    // X-axis arrow
+    ctx.beginPath();
+    ctx.moveTo(width - padding - 5, topPadding + chartHeight - 5);
+    ctx.lineTo(width - padding, topPadding + chartHeight);
+    ctx.lineTo(width - padding - 5, topPadding + chartHeight + 5);
+    ctx.fill();
+}
+
+// ============================================
+// DRAW CHART LEGEND
+// ============================================
+function drawChartLegend(ctx, width, datasets, colors) {
+    const legendX = width - 200;
+    const legendY = 10;
+    
+    datasets.forEach((dataset, index) => {
+        if (index >= 3) return; // Limit to 3 datasets
+        
+        const x = legendX + (index * 70);
+        const color = colors[index % colors.length];
+        
+        // Draw color box
+        ctx.fillStyle = color.border;
+        ctx.fillRect(x, legendY, 12, 12);
+        
+        // Draw label
+        ctx.fillStyle = '#333';
+        ctx.font = '11px Arial, sans-serif';
+        ctx.textAlign = 'left';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(dataset.label || `Dataset ${index + 1}`, x + 18, legendY + 6);
+    });
+}
+
+// ============================================
+// STORE POINT DATA FOR TOOLTIP
+// ============================================
+let chartPoints = [];
+
+function storePointData(x, y, value, label, index) {
+    chartPoints.push({ x, y, value, label, index });
+}
+
+// ============================================
+// SETUP CHART TOOLTIP
+// ============================================
+function setupChartTooltip(container, canvas) {
+    // Remove existing tooltip if any
+    const existingTooltip = document.getElementById('chartTooltip');
+    if (existingTooltip) existingTooltip.remove();
+    
+    // Create tooltip element
+    const tooltip = document.createElement('div');
+    tooltip.id = 'chartTooltip';
+    tooltip.style.cssText = `
+        position: absolute;
+        background: rgba(0, 0, 0, 0.8);
+        color: white;
+        padding: 8px 12px;
+        border-radius: 6px;
+        font-size: 12px;
+        pointer-events: none;
+        z-index: 1000;
+        display: none;
+        transform: translate(-50%, -100%);
+        white-space: nowrap;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+    `;
+    
+    // Add arrow
+    tooltip.innerHTML = '<div class="tooltip-arrow" style="position: absolute; bottom: -5px; left: 50%; transform: translateX(-50%); width: 0; height: 0; border-left: 6px solid transparent; border-right: 6px solid transparent; border-top: 6px solid rgba(0,0,0,0.8);"></div>';
+    
+    container.style.position = 'relative';
+    container.appendChild(tooltip);
+    
+    // Mouse move handler
+    canvas.addEventListener('mousemove', (e) => {
+        const rect = canvas.getBoundingClientRect();
+        const scaleX = canvas.width / rect.width;
+        const scaleY = canvas.height / rect.height;
+        
+        const mouseX = (e.clientX - rect.left) * scaleX;
+        const mouseY = (e.clientY - rect.top) * scaleY;
+        
+        // Find nearest point
+        let minDist = 20;
+        let nearestPoint = null;
+        
+        chartPoints.forEach(point => {
+            const dist = Math.sqrt(
+                Math.pow(mouseX - point.x, 2) + 
+                Math.pow(mouseY - point.y, 2)
+            );
+            
+            if (dist < minDist) {
+                minDist = dist;
+                nearestPoint = point;
+            }
+        });
+        
+        if (nearestPoint) {
+            tooltip.style.display = 'block';
+            tooltip.style.left = (nearestPoint.x / scaleX) + 'px';
+            tooltip.style.top = (nearestPoint.y / scaleY) - 10 + 'px';
+            tooltip.innerHTML = `
+                <strong>${nearestPoint.label}:</strong> ${nearestPoint.value} min
+                <div class="tooltip-arrow" style="position: absolute; bottom: -5px; left: 50%; transform: translateX(-50%); width: 0; height: 0; border-left: 6px solid transparent; border-right: 6px solid transparent; border-top: 6px solid rgba(0,0,0,0.8);"></div>
+            `;
+        } else {
+            tooltip.style.display = 'none';
+        }
+    });
+    
+    // Hide tooltip when leaving canvas
+    canvas.addEventListener('mouseleave', () => {
+        tooltip.style.display = 'none';
+    });
+}
+
+// ============================================
+// SHOW CHART NO DATA MESSAGE
+// ============================================
+function showChartNoData(container) {
+    container.innerHTML = `
+        <div style="
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 300px;
+            background: #f8f9fa;
+            border-radius: 8px;
+            color: #7f8c8d;
+        ">
+            <i class="fas fa-chart-line" style="font-size: 48px; color: #95a5a6; margin-bottom: 15px;"></i>
+            <h4 style="margin: 0 0 8px 0; color: #2c3e50;">No Activity Data</h4>
+            <p style="margin: 0; font-size: 14px;">Complete lessons and exercises to see your progress</p>
+        </div>
+    `;
+}
+
+// ============================================
+// CLEAR CHART POINTS (call before re-rendering)
+// ============================================
+function clearChartPoints() {
+    chartPoints = [];
 }
 // ============================================
 // UPDATE DAILY STATS - ADD THIS MISSING FUNCTION
