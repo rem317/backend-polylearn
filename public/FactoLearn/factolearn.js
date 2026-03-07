@@ -4872,23 +4872,18 @@ function getDefaultProgress() {
 }
 
 // ============================================
-// ✅ FIXED: updateOverallProgressDisplay - WITH REAL-TIME DATA
+// UPDATE OVERALL PROGRESS UI
 // ============================================
-function updateOverallProgressDisplay(progress) {
-    console.log('📊 Updating overall progress display with:', progress);
-    
-    if (!progress) {
-        progress = ProgressState.cumulativeProgress || getDefaultProgress();
-    }
-    
-    // Get percentage
-    const percentage = progress.percentage || progress.overall_percentage || 0;
-    
+
+function updateOverallProgressUI(percentage, points, seconds, exercises, lessons, totalLessons, attempts) {
     // Update overall progress text
     const overallProgress = document.getElementById('overallProgress');
+    const progressBar = document.getElementById('overallProgressBar');
+    
     if (overallProgress) {
-        overallProgress.textContent = `${percentage}%`;
-        // Add animation to show it's updated
+        overallProgress.textContent = percentage + '%';
+        
+        // Add animation
         overallProgress.style.transition = 'all 0.3s';
         overallProgress.style.transform = 'scale(1.1)';
         overallProgress.style.color = '#7a0000';
@@ -4898,55 +4893,75 @@ function updateOverallProgressDisplay(progress) {
         }, 300);
     }
     
-    // Update progress bar
-    const overallProgressBar = document.getElementById('overallProgressBar');
-    if (overallProgressBar) {
-        overallProgressBar.style.width = `${percentage}%`;
-        overallProgressBar.className = 'progress-fill';
+    if (progressBar) {
+        progressBar.style.width = percentage + '%';
+        progressBar.className = 'progress-fill';
+        
+        // Set color based on progress
         if (percentage >= 70) {
-            overallProgressBar.classList.add('progress-good');
+            progressBar.classList.add('progress-good');
         } else if (percentage >= 40) {
-            overallProgressBar.classList.add('progress-medium');
+            progressBar.classList.add('progress-medium');
         } else {
-            overallProgressBar.classList.add('progress-low');
+            progressBar.classList.add('progress-low');
         }
     }
     
     // Update total points
     const totalPointsProgress = document.getElementById('totalPointsProgress');
     if (totalPointsProgress) {
-        totalPointsProgress.textContent = progress.total_points || progress.total_points_earned || 0;
+        totalPointsProgress.textContent = points;
     }
     
-    // Update points change
     const pointsChange = document.getElementById('pointsChange');
     if (pointsChange) {
-        const weeklyPoints = progress.weekly?.points || 0;
-        pointsChange.textContent = `+${weeklyPoints} this week`;
+        pointsChange.textContent = `+${Math.min(points, 10)} this week`;
     }
     
-    // Update TOTAL TIME INVESTED
+    // Update total time
     const totalTime = document.getElementById('totalTime');
     if (totalTime) {
-        // Use the formatted total time
-        if (progress.total_time_display) {
-            totalTime.textContent = progress.total_time_display;
-        } else {
-            // Fallback formatting
-            const totalMinutes = progress.total_time_spent_minutes || 0;
-            totalTime.textContent = formatTime(totalMinutes);
-        }
-        console.log('✅ Total time updated:', totalTime.textContent);
+        const totalMinutes = Math.floor(seconds / 60);
+        let timeDisplay = totalMinutes < 60 
+            ? `${totalMinutes}m` 
+            : `${Math.floor(totalMinutes / 60)}h ${totalMinutes % 60}m`;
+        totalTime.textContent = timeDisplay;
     }
     
-    // Update time change (weekly)
     const timeChange = document.getElementById('timeChange');
     if (timeChange) {
-        const weeklyMinutes = progress.weekly?.minutes || 0;
-        timeChange.textContent = `${formatTime(weeklyMinutes)} this week`;
+        const totalMinutes = Math.floor(seconds / 60);
+        const activeDays = Math.max(1, Math.min(30, Math.ceil(totalMinutes / 30)));
+        timeChange.textContent = `${activeDays} days active`;
+    }
+    
+    // Update badges
+    const totalBadges = document.getElementById('totalBadges');
+    if (totalBadges) {
+        let badgeCount = 0;
+        if (lessons >= 1) badgeCount++;
+        if (lessons >= 5) badgeCount++;
+        if (lessons >= 10) badgeCount++;
+        if (exercises >= 5) badgeCount++;
+        if (exercises >= 15) badgeCount++;
+        if (attempts >= 1) badgeCount++;
+        
+        totalBadges.textContent = `${badgeCount}/10`;
+    }
+    
+    const badgesChange = document.getElementById('badgesChange');
+    if (badgesChange) {
+        const badgesThisMonth = Math.floor(lessons / 2) + Math.floor(exercises / 5);
+        badgesChange.textContent = `+${badgesThisMonth} this month`;
     }
 }
 
+function setDefaultProgressUI() {
+    document.getElementById('overallProgress').textContent = '0%';
+    document.getElementById('totalPointsProgress').textContent = '0';
+    document.getElementById('totalTime').textContent = '0m';
+    document.getElementById('totalBadges').textContent = '0/10';
+}
 // Fetch weekly progress
 async function fetchWeeklyProgress() {
     try {
@@ -5256,6 +5271,7 @@ async function fetchProgressTrends(days = 30) {
 // ============================================
 // FETCH ACHIEVEMENT TIMELINE
 // ============================================
+
 async function fetchAchievementTimeline(limit = 10) {
     try {
         const token = localStorage.getItem('authToken') || authToken;
@@ -5274,10 +5290,7 @@ async function fetchAchievementTimeline(limit = 10) {
         if (data.success && data.achievements) {
             console.log(`✅ Fetched ${data.achievements.length} achievements`);
             ProgressState.achievementTimeline = data.achievements;
-            
-            // Update UI
             updateAchievementTimeline();
-            
             return data.achievements;
         } else {
             return [];
@@ -5287,6 +5300,7 @@ async function fetchAchievementTimeline(limit = 10) {
         return [];
     }
 }
+
 
 // Log user activity
 // ITO ANG BAGONG VERSION - WALANG POINTS_EARNED
@@ -6629,8 +6643,9 @@ async function updateDashboardWidgets(widgetConfig) {
 }
 
 // ============================================
-// INITIALIZE PROGRESS DASHBOARD - FIXED VERSION
+// PROGRESS DASHBOARD - MAIN INITIALIZATION
 // ============================================
+
 async function initProgressDashboard() {
     console.log('📈 Initializing progress dashboard with database integration...');
     
@@ -6641,37 +6656,24 @@ async function initProgressDashboard() {
         // Load all progress data
         await updateProgressDashboardFromDatabase();
         
+        // Load topic mastery for detailed breakdown
+        await fetchTopicMastery();
+        
+        // Load achievements
+        await fetchAchievementTimeline(10);
+        
+        // Load activity log
+        await fetchActivityLog(15);
+        
         // Initialize charts
         await initProgressCharts();
-        await updatePerformanceAnalytics(); // ← Tawagin na may await
-        // ✅ FIX: Check if progressRefreshInterval exists
-        if (typeof progressRefreshInterval === 'undefined') {
-            window.progressRefreshInterval = null;
-        }
         
         // Start auto-refresh (every 60 seconds)
         startProgressAutoRefresh(60);
-       
         
         console.log('✅ Progress dashboard initialized with database integration');
     } catch (error) {
-        console.error('❌ Error initializing progress dashboard:', error);
-        hideProgressDashboardLoading();
-        
-        // Show error message in dashboard
-        const container = document.querySelector('#progress-page .container');
-        if (container) {
-            container.innerHTML = `
-                <div class="error-message" style="text-align: center; padding: 40px;">
-                    <i class="fas fa-exclamation-triangle" style="font-size: 48px; color: #e74c3c; margin-bottom: 20px;"></i>
-                    <h3 style="color: #2c3e50; margin-bottom: 10px;">Failed to load progress data</h3>
-                    <p style="color: #7f8c8d;">Please try refreshing the page.</p>
-                    <button onclick="location.reload()" class="btn-primary" style="margin-top: 20px;">
-                        <i class="fas fa-redo"></i> Refresh Page
-                    </button>
-                </div>
-            `;
-        }
+        console.error('Error initializing progress dashboard:', error);
     }
 }
 
@@ -6747,24 +6749,61 @@ function hideProgressDashboardLoading() {
     });
 }
 // ============================================
-// PROGRESS CHART FUNCTIONS
+// UPDATE INIT PROGRESS CHARTS
 // ============================================
-
 async function initProgressCharts() {
-    console.log('📊 Initializing progress charts...');
-    
     try {
-        // Load chart data
-        const chartData = await fetchProgressChartData(14);
+        const token = localStorage.getItem('authToken') || authToken;
+        if (!token) return;
         
-        if (chartData) {
-            renderPracticeTimeChart(chartData.practiceTime);
-            renderAccuracyChart(chartData.accuracy);
+        console.log('📊 Initializing progress charts with PolyLearn theme...');
+        
+        // Add styles
+        addAccuracyChartStyles();
+        
+        // Fetch chart data
+        const response = await fetch(`/api/progress/chart-data`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        
+        if (!response.ok) return;
+        
+        const data = await response.json();
+        
+        if (data.success && data.chartData) {
+            // Render daily activity chart
+            renderDailyActivityChart(data.chartData);
         }
         
-        console.log('✅ Progress charts initialized');
+        // Fetch accuracy data
+        const accuracyResponse = await fetch(`/api/progress/accuracy-rate`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        
+        if (accuracyResponse.ok) {
+            const accuracyData = await accuracyResponse.json();
+            if (accuracyData.success) {
+                // Create weekly accuracy data
+                const weeklyAccuracy = {
+                    labels: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
+                    accuracy: [
+                        accuracyData.accuracy.weekly?.mon || 85,
+                        accuracyData.accuracy.weekly?.tue || 82,
+                        accuracyData.accuracy.weekly?.wed || 88,
+                        accuracyData.accuracy.weekly?.thu || 84,
+                        accuracyData.accuracy.weekly?.fri || 90,
+                        accuracyData.accuracy.weekly?.sat || 87,
+                        accuracyData.accuracy.weekly?.sun || 85
+                    ]
+                };
+                
+                // Render with PolyLearn colors
+                renderAccuracyChart(weeklyAccuracy);
+            }
+        }
+        
     } catch (error) {
-        console.error('❌ Error initializing charts:', error);
+        console.error('Error initializing charts:', error);
     }
 }
 
@@ -6812,28 +6851,214 @@ function renderPracticeTimeChart(data) {
     barsContainer.innerHTML = barsHTML;
     labelsContainer.innerHTML = labelsHTML;
 }
-
-function renderAccuracyChart(data) {
-    const lineContainer = document.getElementById('accuracyLine');
-    const labelsContainer = document.getElementById('accuracyLabels');
+// ============================================
+// RENDER ACCURACY CHART - POLYLEARN COLOR SCHEME
+// ============================================
+function renderAccuracyChart(accuracyData) {
+    const container = document.getElementById('accuracyChart');
+    if (!container) return;
     
-    if (!lineContainer || !labelsContainer || !data || !data.length) return;
+    // Clear container
+    container.innerHTML = '';
     
-    const maxValue = 100; // Accuracy is percentage
+    // Set container styles - PolyLearn theme
+    container.style.position = 'relative';
+    container.style.height = '220px';
+    container.style.background = 'linear-gradient(135deg, #7a0000 0%, #c0392b 100%)'; // PolyLearn maroon gradient
+    container.style.borderRadius = '15px';
+    container.style.padding = '20px 15px 15px 15px';
+    container.style.boxShadow = '0 10px 30px rgba(122, 0, 0, 0.3)'; // Maroon shadow
     
-    let pointsHTML = '';
-    let labelsHTML = '';
+    // Create SVG
+    const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    svg.setAttribute('width', '100%');
+    svg.setAttribute('height', '140');
+    svg.setAttribute('viewBox', '0 0 400 140');
+    svg.style.display = 'block';
     
-    data.forEach((item, index) => {
-        const left = (index / (data.length - 1)) * 100;
-        const bottom = (item.value / maxValue) * 100;
-        
-        pointsHTML += `<div class="chart-point" style="left: ${left}%; bottom: ${bottom}%;" data-value="${item.value}%"></div>`;
-        labelsHTML += `<div class="chart-label">${item.label}</div>`;
+    // Calculate points
+    const points = [];
+    const step = 380 / (accuracyData.labels.length - 1);
+    
+    accuracyData.accuracy.forEach((value, index) => {
+        const x = 10 + (step * index);
+        const y = 130 - (value / 100) * 100; // Map 0-100% to 130-30px
+        points.push({ x, y });
     });
     
-    lineContainer.innerHTML = pointsHTML;
-    labelsContainer.innerHTML = labelsHTML;
+    // Create gradient for line - POLYLEARN COLORS
+    const defs = document.createElementNS('http://www.w3.org/2000/svg', 'defs');
+    
+    // Line gradient
+    const lineGradient = document.createElementNS('http://www.w3.org/2000/svg', 'linearGradient');
+    lineGradient.setAttribute('id', 'lineGradient');
+    lineGradient.setAttribute('x1', '0%');
+    lineGradient.setAttribute('y1', '0%');
+    lineGradient.setAttribute('x2', '100%');
+    lineGradient.setAttribute('y2', '0%');
+    
+    const lineStop1 = document.createElementNS('http://www.w3.org/2000/svg', 'stop');
+    lineStop1.setAttribute('offset', '0%');
+    lineStop1.setAttribute('stop-color', '#ffffff'); // White start
+    lineStop1.setAttribute('stop-opacity', '1');
+    
+    const lineStop2 = document.createElementNS('http://www.w3.org/2000/svg', 'stop');
+    lineStop2.setAttribute('offset', '100%');
+    lineStop2.setAttribute('stop-color', '#ffd700'); // Gold end
+    lineStop2.setAttribute('stop-opacity', '1');
+    
+    lineGradient.appendChild(lineStop1);
+    lineGradient.appendChild(lineStop2);
+    defs.appendChild(lineGradient);
+    
+    // Area gradient - POLYLEARN SEMI-TRANSPARENT
+    const areaGradient = document.createElementNS('http://www.w3.org/2000/svg', 'linearGradient');
+    areaGradient.setAttribute('id', 'areaGradient');
+    areaGradient.setAttribute('x1', '0%');
+    areaGradient.setAttribute('y1', '0%');
+    areaGradient.setAttribute('x2', '0%');
+    areaGradient.setAttribute('y2', '100%');
+    
+    const areaStop1 = document.createElementNS('http://www.w3.org/2000/svg', 'stop');
+    areaStop1.setAttribute('offset', '0%');
+    areaStop1.setAttribute('stop-color', '#ffffff');
+    areaStop1.setAttribute('stop-opacity', '0.3');
+    
+    const areaStop2 = document.createElementNS('http://www.w3.org/2000/svg', 'stop');
+    areaStop2.setAttribute('offset', '100%');
+    areaStop2.setAttribute('stop-color', '#ffffff');
+    areaStop2.setAttribute('stop-opacity', '0.1');
+    
+    areaGradient.appendChild(areaStop1);
+    areaGradient.appendChild(areaStop2);
+    defs.appendChild(areaGradient);
+    
+    svg.appendChild(defs);
+    
+    // Draw area under line (gradient)
+    const areaPath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+    let areaD = `M ${points[0].x},130 `;
+    points.forEach(point => {
+        areaD += `L ${point.x},${point.y} `;
+    });
+    areaD += `L ${points[points.length-1].x},130 Z`;
+    
+    areaPath.setAttribute('d', areaD);
+    areaPath.setAttribute('fill', 'url(#areaGradient)'); // Use gradient
+    areaPath.setAttribute('stroke', 'none');
+    svg.appendChild(areaPath);
+    
+    // Draw line
+    const linePath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+    let lineD = `M ${points[0].x},${points[0].y}`;
+    points.slice(1).forEach(point => {
+        lineD += ` L ${point.x},${point.y}`;
+    });
+    
+    linePath.setAttribute('d', lineD);
+    linePath.setAttribute('fill', 'none');
+    linePath.setAttribute('stroke', 'url(#lineGradient)'); // Use white to gold gradient
+    linePath.setAttribute('stroke-width', '3');
+    linePath.setAttribute('stroke-linecap', 'round');
+    linePath.setAttribute('stroke-linejoin', 'round');
+    svg.appendChild(linePath);
+    
+    // Draw points - POLYLEARN STYLE
+    points.forEach((point, index) => {
+        // Outer white circle
+        const outerCircle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+        outerCircle.setAttribute('cx', point.x);
+        outerCircle.setAttribute('cy', point.y);
+        outerCircle.setAttribute('r', '6');
+        outerCircle.setAttribute('fill', '#ffffff');
+        outerCircle.setAttribute('stroke', 'none');
+        svg.appendChild(outerCircle);
+        
+        // Inner maroon circle
+        const innerCircle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+        innerCircle.setAttribute('cx', point.x);
+        innerCircle.setAttribute('cy', point.y);
+        innerCircle.setAttribute('r', '4');
+        innerCircle.setAttribute('fill', '#7a0000'); // Maroon
+        innerCircle.setAttribute('stroke', 'none');
+        svg.appendChild(innerCircle);
+        
+        // Add tooltip
+        innerCircle.addEventListener('mouseenter', (e) => {
+            showPolyLearnTooltip(e, accuracyData.labels[index], accuracyData.accuracy[index]);
+        });
+    });
+    
+    container.appendChild(svg);
+    
+    // Add labels - POLYLEARN STYLE
+    const labelsDiv = document.createElement('div');
+    labelsDiv.style.display = 'flex';
+    labelsDiv.style.justifyContent = 'space-between';
+    labelsDiv.style.marginTop = '10px';
+    labelsDiv.style.padding = '0 10px';
+    
+    accuracyData.labels.forEach(label => {
+        const labelSpan = document.createElement('span');
+        labelSpan.textContent = label;
+        labelSpan.style.color = 'rgba(255,255,255,0.9)';
+        labelSpan.style.fontSize = '11px';
+        labelSpan.style.fontWeight = '500';
+        labelSpan.style.textTransform = 'uppercase';
+        labelSpan.style.letterSpacing = '0.5px';
+        labelsDiv.appendChild(labelSpan);
+    });
+    
+    container.appendChild(labelsDiv);
+    
+    // Add floating tooltip
+    const tooltip = document.createElement('div');
+    tooltip.id = 'polyLearnTooltip';
+    tooltip.style.position = 'absolute';
+    tooltip.style.background = '#7a0000'; // Maroon background
+    tooltip.style.color = 'white';
+    tooltip.style.padding = '8px 12px';
+    tooltip.style.borderRadius = '8px';
+    tooltip.style.fontSize = '12px';
+    tooltip.style.fontWeight = 'bold';
+    tooltip.style.pointerEvents = 'none';
+    tooltip.style.display = 'none';
+    tooltip.style.zIndex = '1000';
+    tooltip.style.boxShadow = '0 4px 15px rgba(122, 0, 0, 0.4)';
+    tooltip.style.border = '1px solid rgba(255,255,255,0.2)';
+    
+    // Add arrow
+    tooltip.innerHTML = '<div class="tooltip-arrow" style="position: absolute; bottom: -5px; left: 50%; transform: translateX(-50%); width: 0; height: 0; border-left: 6px solid transparent; border-right: 6px solid transparent; border-top: 6px solid #7a0000;"></div>';
+    
+    container.appendChild(tooltip);
+}
+
+// ============================================
+// SHOW POLYLEARN TOOLTIP
+// ============================================
+function showPolyLearnTooltip(e, day, value) {
+    const tooltip = document.getElementById('polyLearnTooltip');
+    if (!tooltip) return;
+    
+    const container = document.getElementById('accuracyChart');
+    if (!container) return;
+    
+    const rect = container.getBoundingClientRect();
+    const mouseX = e.clientX - rect.left;
+    const mouseY = e.clientY - rect.top;
+    
+    tooltip.style.display = 'block';
+    tooltip.style.left = mouseX + 'px';
+    tooltip.style.top = (mouseY - 40) + 'px';
+    tooltip.innerHTML = `
+        <strong>${day}:</strong> ${value}% accuracy
+        <div class="tooltip-arrow" style="position: absolute; bottom: -5px; left: 50%; transform: translateX(-50%); width: 0; height: 0; border-left: 6px solid transparent; border-right: 6px solid transparent; border-top: 6px solid #7a0000;"></div>
+    `;
+    
+    // Hide after 2 seconds
+    setTimeout(() => {
+        tooltip.style.display = 'none';
+    }, 2000);
 }
 
 function createSampleChartData() {
@@ -7125,10 +7350,11 @@ function forceUpdateProgressUI(progress) {
     console.log('✅ UI force updated with', percentage + '%');
 }
 // ============================================
-// ✅ FIXED: Load Progress Dashboard Data - FACTOLEARN ONLY (NO ERRORS)
+// LOAD PROGRESS DASHBOARD DATA FROM DATABASE
 // ============================================
+
 async function loadProgressDashboardData() {
-    console.log('📊 Loading factorial progress dashboard data...');
+    console.log('📊 Loading progress dashboard data...');
     
     try {
         // Show loading state
@@ -7140,32 +7366,32 @@ async function loadProgressDashboardData() {
             return;
         }
         
-
+        const LESSON_ID = FACTORIAL_LESSON_ID || 3; // For FactoLearn
         
-        // ===== FETCH ALL FACTOLEARN DATA =====
+        // ===== FETCH ALL PROGRESS DATA =====
         const [
             lessonsProgress,
             practiceStats,
             quizStats,
             totalLessonsCount
         ] = await Promise.allSettled([
-            // 1. Get FactoLearn lessons progress
-            fetch(`/api/progress/lessons?lesson_id=${FACTORIAL_LESSON_ID}`, {
+            // 1. Get lessons progress
+            fetch(`/api/progress/lessons?lesson_id=${LESSON_ID}`, {
                 headers: { 'Authorization': `Bearer ${token}` }
             }).then(res => res.json()).catch(() => ({ success: false })),
             
-            // 2. Get FacttoLearn practice stats
-            fetch(`/api/progress/practice-attempts?lesson_id=${FACTORIAL_LESSON_ID}`, {
+            // 2. Get practice stats
+            fetch(`/api/progress/practice-attempts?lesson_id=${LESSON_ID}`, {
                 headers: { 'Authorization': `Bearer ${token}` }
             }).then(res => res.json()).catch(() => ({ success: false })),
             
-            // 3. Get FactoLearn quiz stats
-            fetch(`/api/quiz/user/attempts?lesson_id=${FACTORIAL_LESSON_ID}`, {
+            // 3. Get quiz stats
+            fetch(`/api/quiz/user/attempts?lesson_id=${LESSON_ID}`, {
                 headers: { 'Authorization': `Bearer ${token}` }
             }).then(res => res.json()).catch(() => ({ success: false })),
             
-            // 4. Get total FactoLearn lessons
-            fetch(`/api/lessons-db/complete?lesson_id=${FACTORIAL_LESSON_ID}`, {
+            // 4. Get total lessons count
+            fetch(`/api/lessons-db/complete?lesson_id=${LESSON_ID}`, {
                 headers: { 'Authorization': `Bearer ${token}` }
             }).then(res => res.json()).catch(() => ({ success: false }))
         ]);
@@ -7179,7 +7405,7 @@ async function loadProgressDashboardData() {
             lessonsCompleted = progress.filter(p => 
                 p.completion_status === 'completed' || p.status === 'completed'
             ).length;
-            console.log(`✅ factorial lessons completed: ${lessonsCompleted}`);
+            console.log(`✅ Lessons completed: ${lessonsCompleted}`);
         }
         
         if (totalLessonsCount.status === 'fulfilled' && totalLessonsCount.value?.success) {
@@ -7196,12 +7422,11 @@ async function loadProgressDashboardData() {
                 a.completion_status === 'completed' || a.percentage >= 70
             ).length;
             
-            // Calculate total practice time in seconds
             attempts.forEach(a => {
                 totalPracticeSeconds += a.time_spent_seconds || 0;
             });
             
-            console.log(`✅ factorial practice completed: ${exercisesCompleted}`);
+            console.log(`✅ Practice completed: ${exercisesCompleted}`);
             console.log(`⏱️ Total practice seconds: ${totalPracticeSeconds}`);
         }
         
@@ -7213,17 +7438,15 @@ async function loadProgressDashboardData() {
             const attempts = quizStats.value.attempts || [];
             quizAttempts = attempts.length;
             
-            // Calculate points (10 points per correct answer)
             attempts.forEach(attempt => {
                 const correctAnswers = attempt.correct_answers || 0;
                 quizPoints += correctAnswers * 10;
             });
             
-            console.log(`✅ factorial quiz points: ${quizPoints}`);
+            console.log(`✅ Quiz points: ${quizPoints}`);
         }
         
         // ===== CALCULATE OVERALL PROGRESS =====
-        // Base sa lessons lang dapat ang overall progress (0-100%)
         const overallPercentage = totalLessons > 0 
             ? Math.round((lessonsCompleted / totalLessons) * 100) 
             : 0;
@@ -7231,110 +7454,8 @@ async function loadProgressDashboardData() {
         console.log(`📊 Overall progress: ${overallPercentage}% (${lessonsCompleted}/${totalLessons} lessons)`);
         
         // ===== UPDATE OVERALL PROGRESS UI =====
-        const overallProgress = document.getElementById('overallProgress');
-        if (overallProgress) {
-             overallProgress.textContent = overallPercentage + '%';
-         }
-         
-         const progressBar = document.getElementById('overallProgressBar');
-         if (progressBar) {
-             progressBar.style.width = overallPercentage + '%';
-          }
-        
-        if (overallProgress) {
-            overallProgress.textContent = `${overallPercentage}%`;
-            
-            // Add animation
-            overallProgress.style.transition = 'all 0.3s';
-            overallProgress.style.transform = 'scale(1.1)';
-            overallProgress.style.color = '#7a0000';
-            setTimeout(() => {
-                overallProgress.style.transform = 'scale(1)';
-                overallProgress.style.color = '';
-            }, 300);
-        }
-        
-        if (overallProgressBar) {
-            overallProgressBar.style.width = `${overallPercentage}%`;
-            
-            // Set color based on progress
-            overallProgressBar.className = 'progress-fill';
-            if (overallPercentage >= 70) {
-                overallProgressBar.classList.add('progress-good');
-            } else if (overallPercentage >= 40) {
-                overallProgressBar.classList.add('progress-medium');
-            } else {
-                overallProgressBar.classList.add('progress-low');
-            }
-        }
-        
-        // ===== UPDATE TOTAL POINTS =====
-        const totalPointsProgress = document.getElementById('totalPointsProgress');
-        if (totalPointsProgress) {
-            totalPointsProgress.textContent = quizPoints;
-        }
-        
-        const pointsChange = document.getElementById('pointsChange');
-        if (pointsChange) {
-            // Compute points this week
-            const pointsThisWeek = Math.min(quizPoints, 10); // Sample computation
-            pointsChange.textContent = `+${pointsThisWeek} this week`;
-        }
-        
-        // ===== UPDATE TOTAL TIME =====
-        const totalTime = document.getElementById('totalTime');
-        if (totalTime) {
-            // Convert seconds to minutes
-            const totalMinutes = Math.floor(totalPracticeSeconds / 60);
-            
-            // Format display
-            let timeDisplay = '';
-            if (totalMinutes < 60) {
-                timeDisplay = `${totalMinutes}m`;
-            } else {
-                const hours = Math.floor(totalMinutes / 60);
-                const mins = totalMinutes % 60;
-                timeDisplay = `${hours}h ${mins}m`;
-            }
-            
-            totalTime.textContent = timeDisplay;
-            console.log(`⏱️ Display time: ${timeDisplay} (${totalMinutes} minutes)`);
-        }
-        
-        const timeChange = document.getElementById('timeChange');
-        if (timeChange) {
-            // Convert seconds to minutes for active days computation
-            const totalMinutes = Math.floor(totalPracticeSeconds / 60);
-            // Compute active days (1 day = 30 minutes of activity)
-            const activeDays = Math.max(1, Math.min(30, Math.ceil(totalMinutes / 30)));
-            timeChange.textContent = `${activeDays} days active`;
-        }
-        
-        // ===== UPDATE BADGES =====
-        const totalBadges = document.getElementById('totalBadges');
-        if (totalBadges) {
-            // Calculate badges based on achievements
-            let badgeCount = 0;
-            if (lessonsCompleted >= 1) badgeCount++;
-            if (lessonsCompleted >= 5) badgeCount++;
-            if (lessonsCompleted >= 10) badgeCount++;
-            if (exercisesCompleted >= 5) badgeCount++;
-            if (exercisesCompleted >= 15) badgeCount++;
-            if (quizAttempts >= 1) badgeCount++;
-            
-            totalBadges.textContent = `${badgeCount}/10`;
-        }
-        
-        const badgesChange = document.getElementById('badgesChange');
-        if (badgesChange) {
-            const badgesThisMonth = Math.floor(lessonsCompleted / 2) + Math.floor(exercisesCompleted / 5);
-            badgesChange.textContent = `+${badgesThisMonth} this month`;
-        }
-        
-        // Hide loading
-        hideProgressDashboardLoading();
-        
-        console.log('✅ FactoLearn progress dashboard updated');
+        updateOverallProgressUI(overallPercentage, quizPoints, totalPracticeSeconds, 
+                               exercisesCompleted, lessonsCompleted, totalLessons, quizAttempts);
         
         // Store in ProgressState
         ProgressState.cumulativeProgress = {
@@ -7347,22 +7468,15 @@ async function loadProgressDashboardData() {
             total_time_spent_minutes: Math.floor(totalPracticeSeconds / 60)
         };
         
+        // Hide loading
+        hideProgressDashboardLoading();
+        
+        console.log('✅ Progress dashboard updated');
+        
     } catch (error) {
         console.error('❌ Error loading progress dashboard:', error);
         hideProgressDashboardLoading();
-        
-        // Set fallback values
-        const overallProgress = document.getElementById('overallProgress');
-        if (overallProgress) overallProgress.textContent = '0%';
-        
-        const totalPointsProgress = document.getElementById('totalPointsProgress');
-        if (totalPointsProgress) totalPointsProgress.textContent = '0';
-        
-        const totalTime = document.getElementById('totalTime');
-        if (totalTime) totalTime.textContent = '0m';
-        
-        const totalBadges = document.getElementById('totalBadges');
-        if (totalBadges) totalBadges.textContent = '0/10';
+        setDefaultProgressUI();
     }
 }
 // ============================================
@@ -7467,29 +7581,24 @@ function updateProgressDashboardUI() {
 }
 
 // ============================================
-// 📊 PROGRESS SUMMARY FUNCTIONS - FACTOREADY (lesson_id=3)
+// UPDATE PROGRESS SUMMARY CARDS
 // ============================================
 
 async function updateProgressSummaryCards() {
-    console.log('📊 Updating FactoLearn progress summary cards (lesson_id = 3)...');
+    console.log('📊 Updating progress summary cards...');
     
     try {
         const token = localStorage.getItem('authToken') || authToken;
-        if (!token) {
-            console.warn('No auth token, using fallback');
-            setDefaultProgressValues();
-            return;
-        }
+        if (!token) return;
         
-        const FACTORIAL_LESSON_ID = 3;  // FIXED to 3
+        const LESSON_ID = FACTORIAL_LESSON_ID || 3;
         
         // ===== 1. GET LESSONS =====
         let lessonsCompleted = 0;
         let totalLessons = 0;
         
         try {
-            // Get total lessons count
-            const totalResponse = await fetch(`/api/lessons-db/complete?lesson_id=${FACTORIAL_LESSON_ID}`, {
+            const totalResponse = await fetch(`/api/lessons-db/complete?lesson_id=${LESSON_ID}`, {
                 headers: { 'Authorization': `Bearer ${token}` }
             });
             
@@ -7497,12 +7606,10 @@ async function updateProgressSummaryCards() {
                 const totalData = await totalResponse.json();
                 if (totalData.success && totalData.lessons) {
                     totalLessons = totalData.lessons.length;
-                    console.log(`📚 Total FactoLearn lessons: ${totalLessons}`);
                 }
             }
             
-            // Get lessons progress
-            const lessonsResponse = await fetch(`/api/progress/lessons?lesson_id=${FACTORIAL_LESSON_ID}`, {
+            const lessonsResponse = await fetch(`/api/progress/lessons?lesson_id=${LESSON_ID}`, {
                 headers: { 'Authorization': `Bearer ${token}` }
             });
             
@@ -7512,8 +7619,6 @@ async function updateProgressSummaryCards() {
                     lessonsCompleted = lessonsData.progress.filter(p => 
                         p.completion_status === 'completed' || p.status === 'completed'
                     ).length;
-                    
-                    console.log(`✅ FactoLearn lessons completed: ${lessonsCompleted}/${totalLessons}`);
                 }
             }
         } catch (error) {
@@ -7525,8 +7630,7 @@ async function updateProgressSummaryCards() {
         let totalExercises = 0;
         
         try {
-            // Get total practice exercises
-            const totalExercisesResponse = await fetch(`/api/practice/exercises/count?lesson_id=${FACTORIAL_LESSON_ID}`, {
+            const totalExercisesResponse = await fetch(`/api/practice/exercises/count?lesson_id=${LESSON_ID}`, {
                 headers: { 'Authorization': `Bearer ${token}` }
             });
             
@@ -7534,12 +7638,10 @@ async function updateProgressSummaryCards() {
                 const totalData = await totalExercisesResponse.json();
                 if (totalData.success) {
                     totalExercises = totalData.count || 0;
-                    console.log(`📝 Total FactoLearn practice exercises: ${totalExercises}`);
                 }
             }
             
-            // Get practice attempts
-            const practiceResponse = await fetch(`/api/progress/practice-attempts?lesson_id=${FACTORIAL_LESSON_ID}`, {
+            const practiceResponse = await fetch(`/api/progress/practice-attempts?lesson_id=${LESSON_ID}`, {
                 headers: { 'Authorization': `Bearer ${token}` }
             });
             
@@ -7548,23 +7650,19 @@ async function updateProgressSummaryCards() {
                 if (practiceData.success && practiceData.attempts) {
                     exercisesCompleted = practiceData.attempts.filter(attempt => 
                         attempt.completion_status === 'completed' || 
-                        attempt.percentage >= 70 ||
-                        attempt.score >= 70
+                        attempt.percentage >= 70
                     ).length;
-                    
-                    console.log(`✅ FactoLearn completed exercises: ${exercisesCompleted}/${totalExercises}`);
                 }
             }
-            
         } catch (error) {
-            console.error('❌ Error fetching practice:', error.message);
+            console.error('❌ Error fetching practice:', error);
         }
         
         // ===== 3. GET QUIZ POINTS =====
         let totalPoints = 0;
         
         try {
-            const quizResponse = await fetch(`/api/quiz/user/attempts?lesson_id=${FACTORIAL_LESSON_ID}`, {
+            const quizResponse = await fetch(`/api/quiz/user/attempts?lesson_id=${LESSON_ID}`, {
                 headers: { 'Authorization': `Bearer ${token}` }
             });
             
@@ -7575,7 +7673,6 @@ async function updateProgressSummaryCards() {
                         const correctAnswers = attempt.correct_answers || 0;
                         totalPoints += correctAnswers * 10;
                     });
-                    console.log(`✅ FactoLearn quiz points: ${totalPoints}`);
                 }
             }
         } catch (error) {
@@ -7583,46 +7680,34 @@ async function updateProgressSummaryCards() {
         }
         
         // ===== 4. UPDATE THE UI =====
-        
-        // Update lessons count
-        const lessonsCount = document.getElementById('lessonsCount');
-        if (lessonsCount) {
-            lessonsCount.innerHTML = `${lessonsCompleted}<span class="item-unit">/${totalLessons || 10}</span>`;
-        }
-        
-        // Update exercises count
-        const exercisesCount = document.getElementById('exercisesCount');
-        if (exercisesCount) {
-            exercisesCount.innerHTML = `${exercisesCompleted}<span class="item-unit">/${totalExercises || 15}</span>`;
-        }
-        
-        // Update quiz score
-        const quizScore = document.getElementById('quizScore');
-        if (quizScore) {
-            quizScore.innerHTML = `${totalPoints}<span class="item-unit">pts</span>`;
-        }
-        
-        // Update avg time - Use calculateAverageTime from your cache system
-        const avgTime = document.getElementById('avgTime');
-        if (avgTime) {
-            const avgMinutes = calculateAverageTime(lessonsCompleted, exercisesCompleted, totalPoints);
-            avgTime.innerHTML = `${avgMinutes}<span class="item-unit">min/day</span>`;
-        }
-        
-        console.log('✅ FactoLearn progress summary cards updated');
-        console.log(`   FINAL - Lessons: ${lessonsCompleted}/${totalLessons}, Practice: ${exercisesCompleted}/${totalExercises}, Points: ${totalPoints}`);
-        
-        // Cache this data for quick load next time
-        cacheProgressData({
-            lessons: `${lessonsCompleted}<span class="item-unit">/${totalLessons || 10}</span>`,
-            exercises: `${exercisesCompleted}<span class="item-unit">/${totalExercises || 15}</span>`,
-            quizScore: `${totalPoints}<span class="item-unit">pts</span>`,
-            avgTime: `${calculateAverageTime(lessonsCompleted, exercisesCompleted, totalPoints)}<span class="item-unit">min/day</span>`
-        });
+        updateSummaryCards(lessonsCompleted, totalLessons, exercisesCompleted, totalExercises, totalPoints);
         
     } catch (error) {
         console.error('❌ Error updating progress summary cards:', error);
-        setDefaultProgressValues();
+    }
+}
+
+function updateSummaryCards(lessonsCompleted, totalLessons, exercisesCompleted, totalExercises, totalPoints) {
+    const lessonsCount = document.getElementById('lessonsCount');
+    if (lessonsCount) {
+        lessonsCount.innerHTML = `${lessonsCompleted}<span class="item-unit">/${totalLessons}</span>`;
+    }
+    
+    const exercisesCount = document.getElementById('exercisesCount');
+    if (exercisesCount) {
+        exercisesCount.innerHTML = `${exercisesCompleted}<span class="item-unit">/${totalExercises}</span>`;
+    }
+    
+    const quizScore = document.getElementById('quizScore');
+    if (quizScore) {
+        quizScore.innerHTML = `${totalPoints}<span class="item-unit">points</span>`;
+    }
+    
+    const avgTime = document.getElementById('avgTime');
+    if (avgTime) {
+        const totalActivities = lessonsCompleted + exercisesCompleted;
+        const avgPerActivity = totalActivities > 0 ? Math.round(5 + (totalActivities * 0.5)) : 5;
+        avgTime.innerHTML = `${avgPerActivity}<span class="item-unit">min/day</span>`;
     }
 }
 
@@ -10277,6 +10362,7 @@ function updateLearningGoalsSection() {
 // ============================================
 // UPDATE ACTIVITY LOG
 // ============================================
+
 function updateActivityLog() {
     const container = document.getElementById('recentActivity');
     if (!container) return;
@@ -10285,9 +10371,9 @@ function updateActivityLog() {
     
     if (activities.length === 0) {
         container.innerHTML = `
-            <div class="no-activity" style="text-align: center; padding: 30px;">
-                <i class="fas fa-history" style="font-size: 40px; color: #ccc; margin-bottom: 15px;"></i>
-                <p style="color: #999;">No recent activity</p>
+            <div class="no-activity">
+                <i class="fas fa-history"></i>
+                <p>No recent activity</p>
             </div>
         `;
         return;
@@ -10299,18 +10385,16 @@ function updateActivityLog() {
         const timeAgo = formatTimeAgo(activity.activity_timestamp);
         
         html += `
-            <div style="display: flex; align-items: center; padding: 12px; border-bottom: 1px solid #eee;">
-                <div style="width: 36px; height: 36px; background: #f0f0f0; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin-right: 12px;">
-                    <i class="${getActivityIcon(activity.activity_type)}" style="color: #7a0000;"></i>
+            <div class="activity-item">
+                <div class="activity-icon">
+                    <i class="${getActivityIcon(activity.activity_type)}"></i>
                 </div>
-                <div style="flex: 1;">
-                    <div style="font-size: 14px; color: #2c3e50;">${activityText}</div>
-                    <div style="font-size: 12px; color: #999;">${timeAgo}</div>
+                <div class="activity-content">
+                    <div class="activity-text">${activityText}</div>
+                    <div class="activity-time">${timeAgo}</div>
                 </div>
                 ${activity.points_earned > 0 ? `
-                    <div style="background: #27ae60; color: white; padding: 3px 8px; border-radius: 12px; font-size: 11px; font-weight: bold;">
-                        +${activity.points_earned}
-                    </div>
+                    <div class="activity-points">+${activity.points_earned}</div>
                 ` : ''}
             </div>
         `;
@@ -10318,7 +10402,6 @@ function updateActivityLog() {
     
     container.innerHTML = html;
 }
-
 // Update progress trends chart
 function updateProgressTrendsChart() {
     const trendsContainer = document.getElementById('progressTrendsChart');
@@ -10367,6 +10450,7 @@ function updateProgressTrendsChart() {
 // ============================================
 // UPDATE ACHIEVEMENT TIMELINE
 // ============================================
+
 function updateAchievementTimeline() {
     const timeline = document.getElementById('achievementTimeline');
     if (!timeline) return;
@@ -10375,36 +10459,30 @@ function updateAchievementTimeline() {
     
     if (achievements.length === 0) {
         timeline.innerHTML = `
-            <div class="no-achievements" style="text-align: center; padding: 40px;">
-                <i class="fas fa-trophy" style="font-size: 48px; color: #ccc; margin-bottom: 15px;"></i>
-                <h3 style="color: #666;">No Achievements Yet</h3>
-                <p style="color: #999;">Complete lessons and quizzes to earn achievements!</p>
+            <div class="no-achievements">
+                <i class="fas fa-trophy"></i>
+                <h3>No Achievements Yet</h3>
+                <p>Complete lessons and quizzes to earn achievements!</p>
             </div>
         `;
         return;
     }
     
-    let html = '<div style="position: relative; padding: 20px 0;">';
+    let html = '<div class="timeline">';
     
     achievements.forEach((achievement, index) => {
         const isLeft = index % 2 === 0;
         const date = achievement.created_at ? new Date(achievement.created_at).toLocaleDateString() : 'Recently';
         
         html += `
-            <div style="display: flex; ${isLeft ? 'justify-content: flex-start;' : 'justify-content: flex-end;'} margin-bottom: 30px; position: relative;">
-                <div style="width: 45%; ${isLeft ? 'text-align: right; padding-right: 30px;' : 'padding-left: 30px;'}">
-                    <div style="background: white; padding: 15px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); position: relative;">
-                        <div style="display: flex; align-items: center; gap: 10px; ${isLeft ? 'flex-direction: row-reverse;' : ''}">
-                            <div style="width: 40px; height: 40px; background: ${achievement.color || '#7a0000'}; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: white;">
-                                <i class="${achievement.icon || 'fas fa-trophy'}"></i>
-                            </div>
-                            <div style="flex: 1; ${isLeft ? 'text-align: right;' : ''}">
-                                <h4 style="margin: 0; font-size: 16px;">${achievement.achievement_name || 'Achievement'}</h4>
-                                <p style="margin: 5px 0 0; font-size: 13px; color: #666;">${achievement.description || ''}</p>
-                                <small style="color: #999;">${date}</small>
-                            </div>
-                        </div>
+            <div class="timeline-item ${isLeft ? 'left' : 'right'}">
+                <div class="timeline-content">
+                    <div class="timeline-icon" style="background: ${achievement.color || '#7a0000'}">
+                        <i class="${achievement.icon || 'fas fa-trophy'}"></i>
                     </div>
+                    <h4>${achievement.achievement_name || 'Achievement'}</h4>
+                    <p>${achievement.description || ''}</p>
+                    <small>${date}</small>
                 </div>
             </div>
         `;
@@ -10413,7 +10491,6 @@ function updateAchievementTimeline() {
     html += '</div>';
     timeline.innerHTML = html;
 }
-
 // Update topic mastery section
 function updateTopicMasterySection() {
     const masteryContainer = document.getElementById('topicMasteryContainer');
@@ -20756,8 +20833,9 @@ function updateLessonUI(lesson) {
     updateProgressDisplay(lesson);
 }
 // ============================================
-// UPDATE TOPIC PROGRESS BREAKDOWN (Topics Progress)
+// UPDATE TOPIC PROGRESS BREAKDOWN
 // ============================================
+
 function updateTopicProgressBreakdown() {
     const container = document.getElementById('topicsProgressDetailed');
     if (!container) return;
@@ -20766,10 +20844,10 @@ function updateTopicProgressBreakdown() {
     
     if (!topics || topics.length === 0) {
         container.innerHTML = `
-            <div class="no-data-message" style="text-align: center; padding: 30px;">
-                <i class="fas fa-chart-pie" style="font-size: 40px; color: #7a0000; margin-bottom: 15px;"></i>
-                <h4 style="color: #2c3e50; margin-bottom: 10px;">No Topic Data Available</h4>
-                <p style="color: #7f8c8d;">Complete lessons to see your topic progress.</p>
+            <div class="no-data-message">
+                <i class="fas fa-chart-pie"></i>
+                <h4>No Topic Data Available</h4>
+                <p>Complete lessons to see your topic progress.</p>
             </div>
         `;
         return;
@@ -20788,29 +20866,34 @@ function updateTopicProgressBreakdown() {
         else if (masteryLevel === 'Intermediate') masteryColor = '#3498db';
         
         html += `
-            <div class="topic-item" style="margin-bottom: 20px; padding: 15px; background: #f8f9fa; border-radius: 8px;">
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
-                    <h4 style="margin: 0; color: #2c3e50;">${topic.topic_title || 'Topic'}</h4>
-                    <span style="background: ${masteryColor}; color: white; padding: 3px 10px; border-radius: 15px; font-size: 12px;">${masteryLevel}</span>
+            <div class="topic-item">
+                <div class="topic-header">
+                    <h4>${topic.topic_title || 'Topic'}</h4>
+                    <span class="mastery-badge" style="background: ${masteryColor}">${masteryLevel}</span>
                 </div>
-                <div style="display: flex; gap: 20px; margin-bottom: 10px;">
-                    <div style="flex: 1;">
-                        <div style="font-size: 12px; color: #666;">Completion</div>
-                        <div style="height: 6px; background: #ecf0f1; border-radius: 3px; overflow: hidden; margin: 5px 0;">
-                            <div style="height: 100%; width: ${progress}%; background: #7a0000; border-radius: 3px;"></div>
+                <div class="topic-progress-bars">
+                    <div class="progress-bar-container">
+                        <div class="progress-label">
+                            <span>Completion</span>
+                            <span>${progress}%</span>
                         </div>
-                        <div style="font-size: 14px; font-weight: bold;">${progress}%</div>
+                        <div class="progress-bar-bg">
+                            <div class="progress-bar-fill completion" style="width: ${progress}%"></div>
+                        </div>
                     </div>
-                    <div style="flex: 1;">
-                        <div style="font-size: 12px; color: #666;">Accuracy</div>
-                        <div style="height: 6px; background: #ecf0f1; border-radius: 3px; overflow: hidden; margin: 5px 0;">
-                            <div style="height: 100%; width: ${accuracy}%; background: #27ae60; border-radius: 3px;"></div>
+                    <div class="progress-bar-container">
+                        <div class="progress-label">
+                            <span>Accuracy</span>
+                            <span>${accuracy}%</span>
                         </div>
-                        <div style="font-size: 14px; font-weight: bold;">${accuracy}%</div>
+                        <div class="progress-bar-bg">
+                            <div class="progress-bar-fill accuracy" style="width: ${accuracy}%"></div>
+                        </div>
                     </div>
                 </div>
-                <div style="font-size: 12px; color: #7f8c8d;">
-                    <i class="fas fa-clock"></i> Last: ${topic.last_practiced ? formatTimeAgo(topic.last_practiced) : 'Not started'}
+                <div class="topic-meta">
+                    <i class="fas fa-clock"></i> 
+                    Last: ${topic.last_practiced ? formatTimeAgo(topic.last_practiced) : 'Not started'}
                 </div>
             </div>
         `;
@@ -20819,10 +20902,10 @@ function updateTopicProgressBreakdown() {
     html += '</div>';
     container.innerHTML = html;
 }
+// ============================================
+// FETCH TOPIC MASTERY
+// ============================================
 
-// ============================================
-// FETCH TOPIC MASTERY (for Accuracy Rate & Topics Progress)
-// ============================================
 async function fetchTopicMastery() {
     try {
         const token = localStorage.getItem('authToken') || authToken;
@@ -20846,7 +20929,6 @@ async function fetchTopicMastery() {
             
             // Update UI
             updateTopicProgressBreakdown();
-            updatePerformanceAnalytics();
             
             return data.mastery;
         } else {
@@ -20857,6 +20939,7 @@ async function fetchTopicMastery() {
         return {};
     }
 }
+
 
 
 // ============================================
@@ -24696,14 +24779,17 @@ function addQuizStyles() {
 }
 
 
-// Add CSS for progress dashboard
+// ============================================
+// PROGRESS CSS STYLES
+// ============================================
+
 function addProgressStyles() {
     if (document.querySelector('#progress-styles')) return;
     
     const style = document.createElement('style');
     style.id = 'progress-styles';
     style.textContent = `
-        /* Progress Dashboard Styles */
+        /* Progress Summary Grid */
         .progress-summary-grid {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
@@ -24743,7 +24829,7 @@ function addProgressStyles() {
         .progress-card-value {
             font-size: 32px;
             font-weight: bold;
-            color: #3498db;
+            color: #7a0000;
             margin-bottom: 5px;
         }
         
@@ -24752,232 +24838,92 @@ function addProgressStyles() {
             color: #7f8c8d;
         }
         
-        .goals-container {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-            gap: 20px;
-            margin-bottom: 30px;
-        }
-        
-        .goal-card {
-            background: white;
-            border-radius: 10px;
-            padding: 20px;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-            transition: all 0.3s;
-            border-left: 4px solid #3498db;
-        }
-        
-        .goal-card:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-        }
-        
-        .goal-card.completed {
-            border-left-color: #27ae60;
-            background: #f8fff8;
-        }
-        
-        .goal-card.failed {
-            border-left-color: #e74c3c;
-            background: #fff8f8;
-        }
-        
-        .goal-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 10px;
-        }
-        
-        .goal-header h4 {
-            margin: 0;
-            color: #2c3e50;
-            flex: 1;
-        }
-        
-        .goal-status {
-            padding: 4px 10px;
-            border-radius: 12px;
-            font-size: 12px;
-            font-weight: bold;
-            text-transform: uppercase;
-        }
-        
-        .goal-status.active {
-            background: #e3f2fd;
-            color: #1976d2;
-        }
-        
-        .goal-status.completed {
-            background: #d4edda;
-            color: #155724;
-        }
-        
-        .goal-status.failed {
-            background: #f8d7da;
-            color: #721c24;
-        }
-        
-        .goal-status.paused {
-            background: #fff3cd;
-            color: #856404;
-        }
-        
-        .goal-progress {
-            margin: 15px 0;
-        }
-        
-        .goal-progress .progress-info {
-            display: flex;
-            justify-content: space-between;
-            font-size: 14px;
-            color: #6c757d;
-            margin-bottom: 5px;
-        }
-        
-        .goal-meta {
-            display: flex;
-            justify-content: space-between;
-            font-size: 12px;
-            color: #7f8c8d;
-            margin-top: 10px;
-        }
-        
-        .goal-actions {
-            display: flex;
-            gap: 10px;
-            margin-top: 15px;
-        }
-        
-        .btn-small {
-            padding: 5px 10px;
-            font-size: 12px;
-            border-radius: 4px;
-            border: none;
-            cursor: pointer;
-            display: inline-flex;
-            align-items: center;
-            gap: 5px;
-            transition: all 0.3s;
-        }
-        
-        .btn-small:hover {
-            transform: translateY(-1px);
-        }
-        
-        .activity-log {
-            background: white;
-            border-radius: 10px;
-            padding: 20px;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-            margin-bottom: 30px;
+        /* Topic Breakdown */
+        .topic-breakdown {
             max-height: 400px;
             overflow-y: auto;
+            padding-right: 10px;
         }
         
-        .activity-item {
-            display: flex;
-            align-items: center;
-            padding: 15px;
-            border-bottom: 1px solid #eee;
-            transition: all 0.3s;
-        }
-        
-        .activity-item:last-child {
-            border-bottom: none;
-        }
-        
-        .activity-item:hover {
+        .topic-item {
             background: #f8f9fa;
-        }
-        
-        .activity-icon {
-            width: 40px;
-            height: 40px;
-            border-radius: 50%;
-            background: #e3f2fd;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            color: #3498db;
-            font-size: 18px;
-            margin-right: 15px;
-        }
-        
-        .activity-content {
-            flex: 1;
-        }
-        
-        .activity-text {
-            font-size: 14px;
-            color: #2c3e50;
-            margin-bottom: 5px;
-        }
-        
-        .activity-time {
-            font-size: 12px;
-            color: #7f8c8d;
-        }
-        
-        .activity-points {
-            background: #27ae60;
-            color: white;
-            padding: 4px 8px;
-            border-radius: 10px;
-            font-size: 12px;
-            font-weight: bold;
-        }
-        
-        .trends-chart {
-            display: flex;
-            align-items: flex-end;
-            justify-content: space-between;
-            height: 200px;
-            padding: 20px;
-            background: white;
-            border-radius: 10px;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-            margin-bottom: 30px;
-        }
-        
-        .trend-day {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            height: 100%;
-        }
-        
-        .trend-bar {
-            width: 20px;
-            background: #3498db;
-            border-radius: 4px 4px 0 0;
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 15px;
             transition: all 0.3s;
+        }
+        
+        .topic-item:hover {
+            transform: translateX(5px);
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        
+        .topic-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
             margin-bottom: 10px;
         }
         
-        .trend-bar:hover {
-            background: #2980b9;
-            transform: scale(1.05);
+        .topic-header h4 {
+            margin: 0;
+            color: #2c3e50;
+            font-size: 16px;
         }
         
-        .trend-label {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            font-size: 12px;
-            color: #6c757d;
-        }
-        
-        .trend-day-number {
+        .mastery-badge {
+            padding: 3px 10px;
+            border-radius: 15px;
+            font-size: 11px;
             font-weight: bold;
+            color: white;
         }
         
-        .trend-month {
-            font-size: 10px;
-            text-transform: uppercase;
+        .topic-progress-bars {
+            display: flex;
+            gap: 20px;
+            margin-bottom: 10px;
         }
         
+        .progress-bar-container {
+            flex: 1;
+        }
+        
+        .progress-label {
+            display: flex;
+            justify-content: space-between;
+            font-size: 12px;
+            color: #666;
+            margin-bottom: 5px;
+        }
+        
+        .progress-bar-bg {
+            height: 6px;
+            background: #ecf0f1;
+            border-radius: 3px;
+            overflow: hidden;
+        }
+        
+        .progress-bar-fill {
+            height: 100%;
+            border-radius: 3px;
+            transition: width 0.3s ease;
+        }
+        
+        .progress-bar-fill.completion {
+            background: #7a0000;
+        }
+        
+        .progress-bar-fill.accuracy {
+            background: #27ae60;
+        }
+        
+        .topic-meta {
+            font-size: 11px;
+            color: #7f8c8d;
+        }
+        
+        /* Timeline */
         .timeline {
             position: relative;
             padding: 20px 0;
@@ -24990,7 +24936,7 @@ function addProgressStyles() {
             top: 0;
             bottom: 0;
             width: 2px;
-            background: #3498db;
+            background: #7a0000;
             transform: translateX(-50%);
         }
         
@@ -25019,31 +24965,13 @@ function addProgressStyles() {
             position: relative;
         }
         
-        .timeline-content::before {
-            content: '';
-            position: absolute;
-            top: 20px;
-            width: 20px;
-            height: 20px;
-            background: white;
-            transform: rotate(45deg);
-        }
-        
-        .timeline-item.left .timeline-content::before {
-            right: -10px;
-        }
-        
-        .timeline-item.right .timeline-content::before {
-            left: -10px;
-        }
-        
         .timeline-icon {
             position: absolute;
             top: 15px;
             width: 30px;
             height: 30px;
             border-radius: 50%;
-            background: #3498db;
+            background: #7a0000;
             color: white;
             display: flex;
             align-items: center;
@@ -25059,273 +24987,87 @@ function addProgressStyles() {
             left: -15px;
         }
         
-        .timeline-text {
+        /* Activity Log */
+        .activity-item {
+            display: flex;
+            align-items: center;
+            padding: 12px;
+            border-bottom: 1px solid #eee;
+            transition: all 0.3s;
+        }
+        
+        .activity-item:hover {
+            background: #f8f9fa;
+        }
+        
+        .activity-icon {
+            width: 36px;
+            height: 36px;
+            background: #f0f0f0;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-right: 12px;
+            color: #7a0000;
+        }
+        
+        .activity-content {
+            flex: 1;
+        }
+        
+        .activity-text {
             font-size: 14px;
             color: #2c3e50;
-            margin-bottom: 5px;
         }
         
-        .timeline-time {
+        .activity-time {
             font-size: 12px;
-            color: #7f8c8d;
+            color: #999;
         }
         
-        .mastery-container,
-        .modules-container {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-            gap: 20px;
-            margin-bottom: 30px;
-        }
-        
-        .mastery-card {
-            background: white;
-            border-radius: 10px;
-            padding: 20px;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-            transition: all 0.3s;
-        }
-        
-        .mastery-card:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-        }
-        
-        .mastery-card.mastery-beginner {
-            border-left: 4px solid #95a5a6;
-        }
-        
-        .mastery-card.mastery-intermediate {
-            border-left: 4px solid #3498db;
-        }
-        
-        .mastery-card.mastery-advanced {
-            border-left: 4px solid #9b59b6;
-        }
-        
-        .mastery-card.mastery-expert {
-            border-left: 4px solid #f39c12;
-        }
-        
-        .mastery-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 15px;
-        }
-        
-        .mastery-level {
-            padding: 4px 10px;
-            border-radius: 12px;
-            font-size: 12px;
-            font-weight: bold;
-            text-transform: uppercase;
-        }
-        
-        .mastery-beginner .mastery-level {
-            background: #e9ecef;
-            color: #6c757d;
-        }
-        
-        .mastery-intermediate .mastery-level {
-            background: #e3f2fd;
-            color: #1976d2;
-        }
-        
-        .mastery-advanced .mastery-level {
-            background: #f3e5f5;
-            color: #7b1fa2;
-        }
-        
-        .mastery-expert .mastery-level {
-            background: #fff3cd;
-            color: #856404;
-        }
-        
-        .mastery-stats {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 10px;
-            margin: 15px 0;
-        }
-        
-        .mastery-stat {
-            display: flex;
-            flex-direction: column;
-        }
-        
-        .stat-label {
-            font-size: 12px;
-            color: #7f8c8d;
-            text-transform: uppercase;
-        }
-        
-        .stat-value {
-            font-size: 18px;
-            font-weight: bold;
-            color: #2c3e50;
-        }
-        
-        .module-progress-card {
-            background: white;
-            border-radius: 10px;
-            padding: 20px;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-            transition: all 0.3s;
-        }
-        
-        .module-progress-card:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-        }
-        
-        .module-progress-card.in-progress {
-            border-left: 4px solid #3498db;
-        }
-        
-        .module-progress-card.completed {
-            border-left: 4px solid #27ae60;
-            background: #f8fff8;
-        }
-        
-        .module-progress-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 15px;
-        }
-        
-        .completion-rate {
-            font-size: 24px;
-            font-weight: bold;
-            color: #3498db;
-        }
-        
-        .module-progress-card.completed .completion-rate {
-            color: #27ae60;
-        }
-        
-        .module-stats {
-            display: grid;
-            grid-template-columns: repeat(3, 1fr);
-            gap: 10px;
-            margin: 15px 0;
-        }
-        
-        .module-actions {
-            display: flex;
-            justify-content: center;
-            margin-top: 15px;
-        }
-        
-        .completed-badge {
+        .activity-points {
             background: #27ae60;
             color: white;
-            padding: 8px 15px;
-            border-radius: 20px;
-            font-size: 14px;
+            padding: 3px 8px;
+            border-radius: 12px;
+            font-size: 11px;
             font-weight: bold;
-            display: inline-flex;
-            align-items: center;
-            gap: 8px;
         }
         
         /* No Data States */
-        .no-goals, .no-activity, .no-trends, .no-achievements, .no-mastery, .no-modules {
+        .no-data-message,
+        .no-achievements,
+        .no-activity {
             text-align: center;
             padding: 40px 20px;
             color: #6c757d;
         }
         
-        .no-goals i, .no-activity i, .no-trends i, .no-achievements i, .no-mastery i, .no-modules i {
+        .no-data-message i,
+        .no-achievements i,
+        .no-activity i {
             font-size: 48px;
-            margin-bottom: 20px;
-            color: #3498db;
+            margin-bottom: 15px;
+            color: #7a0000;
         }
         
-        .no-goals h3, .no-activity h3, .no-trends h3, .no-achievements h3, .no-mastery h3, .no-modules h3 {
-            margin: 0 0 10px 0;
-            color: #2c3e50;
+        /* Loading States */
+        .loading {
+            opacity: 0.7;
+            transition: opacity 0.3s;
         }
         
-        /* Form Styles for Modals */
-        .create-goal-modal, .update-goal-modal {
-            background: white;
-            border-radius: 10px;
-            padding: 30px;
-            max-width: 600px;
-            width: 100%;
+        .loading i {
+            animation: spin 1s linear infinite;
         }
         
-        .create-goal-modal h3, .update-goal-modal h3 {
-            margin-top: 0;
-            margin-bottom: 20px;
-            color: #2c3e50;
-            display: flex;
-            align-items: center;
-            gap: 10px;
-        }
-        
-        .form-group {
-            margin-bottom: 20px;
-        }
-        
-        .form-group label {
-            display: block;
-            margin-bottom: 8px;
-            font-weight: 500;
-            color: #2c3e50;
-        }
-        
-        .form-group input,
-        .form-group select,
-        .form-group textarea {
-            width: 100%;
-            padding: 10px 15px;
-            border: 1px solid #ddd;
-            border-radius: 5px;
-            font-size: 14px;
-            transition: all 0.3s;
-        }
-        
-        .form-group input:focus,
-        .form-group select:focus,
-        .form-group textarea:focus {
-            outline: none;
-            border-color: #3498db;
-            box-shadow: 0 0 0 3px rgba(52, 152, 219, 0.1);
-        }
-        
-        .form-row {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 20px;
-        }
-        
-        .form-actions {
-            display: flex;
-            justify-content: flex-end;
-            gap: 10px;
-            margin-top: 30px;
-        }
-        
-        .goal-info {
-            background: #f8f9fa;
-            padding: 15px;
-            border-radius: 8px;
-            margin-bottom: 20px;
-        }
-        
-        .goal-info h4 {
-            margin-top: 0;
-            color: #2c3e50;
-        }
-        
-        .goal-info p {
-            margin: 5px 0;
-            color: #6c757d;
+        @keyframes spin {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
         }
     `;
+    
     document.head.appendChild(style);
 }
 
