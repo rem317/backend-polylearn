@@ -1928,7 +1928,7 @@
                 <div class="form-section">
                     <div class="form-header">
                         <h2>Create Account</h2>
-                        <p>Join MathHub as a Student, Teacher, or Administrator</p>
+                        <p>Join MathHub as a Student or Administrator</p>
                     </div>
                     
                     <form id="signupForm">
@@ -1996,19 +1996,7 @@
                                             <small>Access learning materials and practice exercises</small>
                                         </div>
                                     </label>
-                                </div>
-                                
-                                <div class="role-option">
-                                    <input type="radio" id="roleTeacher" name="role" value="teacher">
-                                    <label for="roleTeacher">
-                                        <i class="fas fa-chalkboard-teacher"></i>
-                                        <div>
-                                            <strong>Teacher</strong>
-                                            <small>Manage classes and monitor student progress</small>
-                                        </div>
-                                    </label>
-                                </div>
-                                
+                                </div>                                
                                 <div class="role-option">
                                     <input type="radio" id="roleAdmin" name="role" value="admin">
                                     <label for="roleAdmin">
@@ -2022,14 +2010,14 @@
                             </div>
                         </div>
                         
-                        <!-- Secret Code Input (for Teacher/Admin) -->
+                        <!-- Secret Code Input (for Admin) -->
                         <div class="form-group hidden" id="secretCodeGroup">
                             <label for="secretCode">Access Code</label>
                             <div class="input-with-icon">
                                 <i class="fas fa-key"></i>
                                 <input type="password" id="secretCode" class="form-control" placeholder="Enter your access code">
                             </div>
-                            <small class="form-text">Required for teacher or administrator registration</small>
+                            <small class="form-text">Required for administrator registration</small>
                             <div id="secretCodeError" class="error-message"></div>
                         </div>
                         
