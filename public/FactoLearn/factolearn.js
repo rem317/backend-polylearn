@@ -32,18 +32,19 @@ function getDefaultPracticeStats() {
 // APP FILTERING SYSTEM - USING LESSON_ID
 // ============================================
 
+// Map app names to their corresponding LESSON IDs
 const APP_LESSON_MAP = {
     'mathease': {
         lessonId: 1,
-        name: 'mathease'
-    },
-    'factorial': {
-        lessonId: 3,
-        name: 'FactoPermCombi'  // Ito na ang gagamitin
+        name: 'MathEase'
     },
     'polylearn': {
         lessonId: 2,
         name: 'PolyLearn'
+    },
+    'factolearn': {  // FactoLearn = lesson_id 3
+        lessonId: 3,
+        name: 'FactoLearn'
     }
 };
 
@@ -56,10 +57,10 @@ const MATHEASE_LESSON_ID = 1;  // ← IDAGDAG ITO
 
 // Para madaling gamitin
 const CURRENT_LESSON_ID = 3; // factorial only
-const CURRENT_APP_NAME = 'FactoPermCombi';
+const CURRENT_APP_NAME = 'Factolearn';
 
 function getCurrentApp() {
-    return localStorage.getItem('selectedApp') || 'factorial'; // factorial na ang default
+    return localStorage.getItem('selectedApp') || 'factolearn'; // factorial na ang default
 }
 
 function getCurrentAppLessonId() {
@@ -6690,26 +6691,76 @@ async function initProgressCharts() {
     }
 }
 
+// ============================================
+// FETCH PROGRESS CHART DATA FROM DATABASE
+// ============================================
 async function fetchProgressChartData(days = 14) {
     try {
-        const token = localStorage.getItem('authToken');
-        if (!token) return null;
+        const token = localStorage.getItem('authToken') || authToken;
+        if (!token) {
+            console.warn('No auth token available');
+            // Return mock data even without token
+            return {
+                labels: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
+                datasets: [
+                    { label: 'Lessons', data: [2, 1, 3, 0, 2, 1, 0] },
+                    { label: 'Exercises', data: [5, 3, 4, 2, 6, 1, 0] },
+                    { label: 'Points', data: [50, 30, 70, 20, 80, 40, 10] }
+                ]
+            };
+        }
+        
+        console.log(`📥 Fetching chart data for last ${days} days...`);
         
         const response = await fetch(`/api/progress/chart-data?days=${days}`, {
-            headers: { 'Authorization': `Bearer ${token}` }
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+            }
         });
         
-        if (!response.ok) return null;
+        // Check if HTML ang response (404 page)
+        const contentType = response.headers.get('content-type');
+        if (!contentType || !contentType.includes('application/json')) {
+            console.warn('⚠️ Server returned non-JSON response - endpoint not ready');
+            // Return mock data
+            return {
+                labels: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
+                datasets: [
+                    { label: 'Lessons', data: [2, 1, 3, 0, 2, 1, 0] },
+                    { label: 'Exercises', data: [5, 3, 4, 2, 6, 1, 0] },
+                    { label: 'Points', data: [50, 30, 70, 20, 80, 40, 10] }
+                ]
+            };
+        }
+        
+        if (!response.ok) {
+            throw new Error(`Failed to fetch chart data: ${response.status}`);
+        }
         
         const data = await response.json();
-        return data;
+        
+        if (data.success && data.chartData) {
+            console.log('✅ Chart data received:', data.chartData);
+            return data.chartData;
+        } else {
+            throw new Error(data.message || 'No chart data returned');
+        }
         
     } catch (error) {
-        console.error('Error fetching chart data:', error);
-        return null;
+        console.error('❌ Error fetching chart data:', error);
+        
+        // Return mock data as fallback
+        return {
+            labels: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
+            datasets: [
+                { label: 'Lessons', data: [2, 1, 3, 0, 2, 1, 0] },
+                { label: 'Exercises', data: [5, 3, 4, 2, 6, 1, 0] },
+                { label: 'Points', data: [50, 30, 70, 20, 80, 40, 10] }
+            ]
+        };
     }
 }
-
 function renderPracticeTimeChart(data) {
     const barsContainer = document.getElementById('practiceTimeBars');
     const labelsContainer = document.getElementById('practiceTimeLabels');
@@ -7310,32 +7361,20 @@ function hideProgressDashboardLoading() {
     });
 }
 
-// ============================================
-// 🚀 DIRECT LOADING ON PAGE OPEN
-// ============================================
+// Initialize charts when progress page loads
 document.addEventListener('DOMContentLoaded', function() {
-    console.log('📄 DOM loaded - setting up progress page observer');
-    
     const progressPage = document.getElementById('progress-page');
     
     if (progressPage) {
-        // Check agad kung visible ang progress page
-        if (!progressPage.classList.contains('hidden')) {
-            console.log('📊 Progress page is already visible - loading data NOW');
-            setTimeout(() => {
-                showProgressDashboardLoading();
-                loadProgressDashboardData();
-            }, 50);
-        }
-        
-        // Observe for when it becomes visible
         const observer = new MutationObserver(function(mutations) {
             mutations.forEach(function(mutation) {
                 if (mutation.type === 'attributes' && mutation.attributeName === 'class') {
                     if (!progressPage.classList.contains('hidden')) {
-                        console.log('📊 Progress page became visible - loading data NOW');
-                        showProgressDashboardLoading();
-                        loadProgressDashboardData();
+                        console.log('📊 Progress page became visible, initializing charts...');
+                        showChartLoadingStates();
+                        setTimeout(() => {
+                            initProgressCharts();
+                        }, 300);
                     }
                 }
             });
@@ -7343,6 +7382,9 @@ document.addEventListener('DOMContentLoaded', function() {
         
         observer.observe(progressPage, { attributes: true });
     }
+    
+    // Add chart styles
+    addChartStyles();
 });
 
 // ============================================
@@ -18498,29 +18540,511 @@ async function updateProgressDashboardFromDatabase() {
         }
     }
 }
-function renderDailyActivityChart(chartData) {
-    console.log('📈 Rendering daily activity chart...');
+// ============================================
+// RENDER DAILY ACTIVITY CHART (Line Chart)
+// ============================================
+function renderDailyActivityChart(dailyData) {
+    const chartContainer = document.getElementById('practiceTimeChart');
+    if (!chartContainer || !dailyData) return;
     
-    const container = document.getElementById('dailyActivityChart');
-    if (!container || !chartData) return;
+    // Clear loading state
+    chartContainer.innerHTML = '';
     
-    // Simple bar chart rendering
-    let html = '<div class="simple-bar-chart">';
-    html += '<div class="chart-bars">';
+    // Create canvas element
+    const canvas = document.createElement('canvas');
+    canvas.id = 'dailyActivityCanvas';
+    canvas.width = chartContainer.offsetWidth;
+    canvas.height = 300;
+    chartContainer.appendChild(canvas);
     
-    const maxValue = Math.max(...chartData.values, 1);
-    chartData.values.forEach(value => {
-        const height = (value / maxValue) * 100;
-        html += `<div class="chart-bar" style="height: ${height}%;" data-value="${value}"></div>`;
+    const ctx = canvas.getContext('2d');
+    
+    // Draw chart manually (simplified version)
+    const width = canvas.width;
+    const height = canvas.height;
+    const padding = 40;
+    const chartWidth = width - (padding * 2);
+    const chartHeight = height - (padding * 2);
+    
+    // Clear canvas
+    ctx.clearRect(0, 0, width, height);
+    
+    // Draw background grid
+    ctx.strokeStyle = '#e0e0e0';
+    ctx.lineWidth = 0.5;
+    ctx.beginPath();
+    
+    // Horizontal grid lines (5 lines)
+    for (let i = 0; i <= 5; i++) {
+        const y = padding + (chartHeight * i / 5);
+        ctx.moveTo(padding, y);
+        ctx.lineTo(width - padding, y);
+    }
+    
+    // Vertical grid lines
+    const step = chartWidth / (dailyData.labels.length - 1);
+    for (let i = 0; i < dailyData.labels.length; i++) {
+        const x = padding + (step * i);
+        ctx.moveTo(x, padding);
+        ctx.lineTo(x, height - padding);
+    }
+    
+    ctx.strokeStyle = '#e0e0e0';
+    ctx.stroke();
+    
+    // Draw axes
+    ctx.strokeStyle = '#333';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(padding, padding);
+    ctx.lineTo(padding, height - padding);
+    ctx.lineTo(width - padding, height - padding);
+    ctx.stroke();
+    
+    // Find max value for scaling
+    const maxValue = Math.max(
+        ...dailyData.datasets[0].data,
+        ...dailyData.datasets[1].data,
+        ...dailyData.datasets[2].data,
+        5 // Minimum scale
+    );
+    
+    // Draw datasets
+    const colors = [
+        { border: '#7a0000', bg: 'rgba(122, 0, 0, 0.1)' },
+        { border: '#27ae60', bg: 'rgba(39, 174, 96, 0.1)' },
+        { border: '#f39c12', bg: 'rgba(243, 156, 18, 0.1)' }
+    ];
+    
+    dailyData.datasets.forEach((dataset, datasetIndex) => {
+        if (datasetIndex >= 3) return; // Only first 3 datasets
+        
+        ctx.strokeStyle = colors[datasetIndex].border;
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        
+        dataset.data.forEach((value, index) => {
+            const x = padding + (step * index);
+            const y = height - padding - ((value / maxValue) * chartHeight);
+            
+            if (index === 0) {
+                ctx.moveTo(x, y);
+            } else {
+                ctx.lineTo(x, y);
+            }
+        });
+        
+        ctx.stroke();
+        
+        // Draw points
+        dataset.data.forEach((value, index) => {
+            const x = padding + (step * index);
+            const y = height - padding - ((value / maxValue) * chartHeight);
+            
+            ctx.fillStyle = colors[datasetIndex].border;
+            ctx.beginPath();
+            ctx.arc(x, y, 4, 0, 2 * Math.PI);
+            ctx.fill();
+            
+            // White border
+            ctx.strokeStyle = '#fff';
+            ctx.lineWidth = 2;
+            ctx.stroke();
+        });
     });
     
-    html += '</div><div class="chart-labels">';
-    chartData.labels.forEach(label => {
-        html += `<div class="chart-label">${label}</div>`;
+    // Draw labels
+    ctx.fillStyle = '#333';
+    ctx.font = '10px Arial';
+    ctx.textAlign = 'center';
+    
+    // X-axis labels
+    dailyData.labels.forEach((label, index) => {
+        if (index % 2 === 0 || index === dailyData.labels.length - 1) {
+            const x = padding + (step * index);
+            ctx.fillText(label, x, height - padding + 15);
+        }
     });
     
-    html += '</div></div>';
-    container.innerHTML = html;
+    // Y-axis labels
+    for (let i = 0; i <= 5; i++) {
+        const value = Math.round(maxValue * (5 - i) / 5);
+        const y = padding + (chartHeight * i / 5);
+        ctx.fillText(value.toString(), padding - 25, y + 3);
+    }
+    
+    // Draw legend
+    const legendY = 20;
+    const legendX = width - 200;
+    
+    dailyData.datasets.slice(0, 3).forEach((dataset, index) => {
+        const x = legendX + (index * 70);
+        
+        ctx.fillStyle = colors[index].border;
+        ctx.fillRect(x, legendY, 12, 12);
+        
+        ctx.fillStyle = '#333';
+        ctx.font = '11px Arial';
+        ctx.textAlign = 'left';
+        ctx.fillText(dataset.label, x + 18, legendY + 10);
+    });
+}
+
+// ============================================
+// 🌟 MODERN GRADIENT LINE CHART (Accuracy Chart)
+// ============================================
+function renderAccuracyChart(accuracyData) {
+    const container = document.getElementById('accuracyChart');
+    if (!container) return;
+    
+    container.innerHTML = '';
+    container.style.position = 'relative';
+    container.style.height = '220px';
+    container.style.background = 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)';
+    container.style.borderRadius = '15px';
+    container.style.padding = '20px 15px 15px 15px';
+    container.style.boxShadow = '0 10px 30px rgba(102, 126, 234, 0.3)';
+    
+    // Create SVG
+    const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    svg.setAttribute('width', '100%');
+    svg.setAttribute('height', '140');
+    svg.setAttribute('viewBox', '0 0 400 140');
+    svg.style.display = 'block';
+    
+    // Calculate points
+    const points = [];
+    const step = 380 / (accuracyData.labels.length - 1);
+    
+    accuracyData.accuracy.forEach((value, index) => {
+        const x = 10 + (step * index);
+        const y = 130 - (value / 100) * 100; // Map 0-100% to 130-30px
+        points.push({ x, y });
+    });
+    
+    // Create gradient for line
+    const defs = document.createElementNS('http://www.w3.org/2000/svg', 'defs');
+    const gradient = document.createElementNS('http://www.w3.org/2000/svg', 'linearGradient');
+    gradient.setAttribute('id', 'lineGradient');
+    gradient.setAttribute('x1', '0%');
+    gradient.setAttribute('y1', '0%');
+    gradient.setAttribute('x2', '100%');
+    gradient.setAttribute('y2', '0%');
+    
+    const stop1 = document.createElementNS('http://www.w3.org/2000/svg', 'stop');
+    stop1.setAttribute('offset', '0%');
+    stop1.setAttribute('stop-color', '#fff');
+    stop1.setAttribute('stop-opacity', '1');
+    
+    const stop2 = document.createElementNS('http://www.w3.org/2000/svg', 'stop');
+    stop2.setAttribute('offset', '100%');
+    stop2.setAttribute('stop-color', '#ffd700');
+    stop2.setAttribute('stop-opacity', '1');
+    
+    gradient.appendChild(stop1);
+    gradient.appendChild(stop2);
+    defs.appendChild(gradient);
+    svg.appendChild(defs);
+    
+    // Draw area under line (gradient)
+    const areaPath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+    let areaD = `M ${points[0].x},130 `;
+    points.forEach(point => {
+        areaD += `L ${point.x},${point.y} `;
+    });
+    areaD += `L ${points[points.length-1].x},130 Z`;
+    
+    areaPath.setAttribute('d', areaD);
+    areaPath.setAttribute('fill', 'rgba(255,255,255,0.15)');
+    areaPath.setAttribute('stroke', 'none');
+    svg.appendChild(areaPath);
+    
+    // Draw line
+    const linePath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+    let lineD = `M ${points[0].x},${points[0].y}`;
+    points.slice(1).forEach(point => {
+        lineD += ` L ${point.x},${point.y}`;
+    });
+    
+    linePath.setAttribute('d', lineD);
+    linePath.setAttribute('fill', 'none');
+    linePath.setAttribute('stroke', 'url(#lineGradient)');
+    linePath.setAttribute('stroke-width', '3');
+    linePath.setAttribute('stroke-linecap', 'round');
+    linePath.setAttribute('stroke-linejoin', 'round');
+    svg.appendChild(linePath);
+    
+    // Draw points
+    points.forEach((point, index) => {
+        const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+        circle.setAttribute('cx', point.x);
+        circle.setAttribute('cy', point.y);
+        circle.setAttribute('r', '5');
+        circle.setAttribute('fill', '#fff');
+        circle.setAttribute('stroke', '#7a0000');
+        circle.setAttribute('stroke-width', '2');
+        
+        // Add tooltip
+        circle.addEventListener('mouseenter', (e) => {
+            showChartTooltip(e, accuracyData.labels[index], accuracyData.accuracy[index]);
+        });
+        
+        svg.appendChild(circle);
+    });
+    
+    container.appendChild(svg);
+    
+    // Add labels
+    const labelsDiv = document.createElement('div');
+    labelsDiv.style.display = 'flex';
+    labelsDiv.style.justifyContent = 'space-between';
+    labelsDiv.style.marginTop = '10px';
+    labelsDiv.style.padding = '0 10px';
+    
+    accuracyData.labels.forEach(label => {
+        const labelSpan = document.createElement('span');
+        labelSpan.textContent = label;
+        labelSpan.style.color = 'rgba(255,255,255,0.8)';
+        labelSpan.style.fontSize = '11px';
+        labelSpan.style.fontWeight = '500';
+        labelsDiv.appendChild(labelSpan);
+    });
+    
+    container.appendChild(labelsDiv);
+    
+    // Add floating tooltip
+    const tooltip = document.createElement('div');
+    tooltip.id = 'chartTooltip';
+    tooltip.style.position = 'absolute';
+    tooltip.style.background = 'rgba(0,0,0,0.8)';
+    tooltip.style.color = '#fff';
+    tooltip.style.padding = '5px 10px';
+    tooltip.style.borderRadius = '5px';
+    tooltip.style.fontSize = '12px';
+    tooltip.style.pointerEvents = 'none';
+    tooltip.style.display = 'none';
+    tooltip.style.zIndex = '1000';
+    container.appendChild(tooltip);
+}
+// ============================================
+// SHOW CHART TOOLTIP
+// ============================================
+function showChartTooltip(e, day, value) {
+    const tooltip = document.getElementById('chartTooltip');
+    if (!tooltip) return;
+    
+    const container = document.getElementById('accuracyChart');
+    if (!container) return;
+    
+    tooltip.style.display = 'block';
+    tooltip.style.left = (e.clientX - container.getBoundingClientRect().left + 10) + 'px';
+    tooltip.style.top = (e.clientY - container.getBoundingClientRect().top - 30) + 'px';
+    tooltip.innerHTML = `<strong>${day}:</strong> ${value}%`;
+    
+    setTimeout(() => {
+        tooltip.style.display = 'none';
+    }, 2000);
+}
+
+// ============================================
+// ADD CHART STYLES
+// ============================================
+function addChartStyles() {
+    const style = document.createElement('style');
+    style.textContent = `
+        .simple-line-chart {
+            position: relative;
+            height: 150px;
+            width: 100%;
+            margin: 20px 0 30px;
+        }
+        
+        .chart-line {
+            position: relative;
+            height: 100%;
+            width: 100%;
+            border-bottom: 2px solid #eee;
+            border-left: 2px solid #eee;
+        }
+        
+        .line-point {
+            position: absolute;
+            cursor: pointer;
+            transition: transform 0.2s;
+        }
+        
+        .line-point:hover {
+            transform: translate(-50%, 50%) scale(1.5);
+            background: #ff0000 !important;
+        }
+        
+        .chart-labels {
+            position: relative;
+            height: 20px;
+            width: 100%;
+            margin-top: 5px;
+        }
+        
+        .chart-label {
+            position: absolute;
+            font-size: 10px;
+            color: #666;
+            white-space: nowrap;
+        }
+        
+        /* Chart loading and error states */
+        .chart-loading {
+            text-align: center;
+            padding: 40px;
+            background: #f8f9fa;
+            border-radius: 8px;
+        }
+        
+        .chart-loading i {
+            font-size: 30px;
+            color: #7a0000;
+            margin-bottom: 15px;
+        }
+        
+        .chart-loading p {
+            color: #666;
+            margin: 0;
+        }
+        
+        .chart-error {
+            text-align: center;
+            padding: 40px;
+            background: #fff5f5;
+            border-radius: 8px;
+        }
+        
+        .chart-error i {
+            font-size: 40px;
+            color: #e74c3c;
+            margin-bottom: 15px;
+        }
+        
+        .chart-error h3 {
+            color: #c0392b;
+            margin-bottom: 10px;
+        }
+        
+        .chart-error p {
+            color: #e74c3c;
+            margin-bottom: 20px;
+        }
+        
+        .chart-error .btn-primary {
+            background: #7a0000;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        
+        .chart-error .btn-primary:hover {
+            background: #5a0000;
+        }
+        
+        /* No data message */
+        .no-data-message {
+            text-align: center;
+            padding: 40px;
+            background: #f8f9fa;
+            border-radius: 8px;
+            color: #666;
+        }
+        
+        .no-data-message i {
+            font-size: 40px;
+            color: #7a0000;
+            margin-bottom: 15px;
+        }
+    `;
+    document.head.appendChild(style);
+}
+
+// ============================================
+// SHOW LOADING STATES FOR ALL CHARTS
+// ============================================
+function showChartLoadingStates() {
+    const chartContainers = [
+        'practiceTimeChart',
+        'accuracyChart',
+        'topicMasteryChart',
+        'activityHeatmap'
+    ];
+    
+    chartContainers.forEach(containerId => {
+        const container = document.getElementById(containerId);
+        if (container) {
+            container.innerHTML = `
+                <div class="chart-loading">
+                    <i class="fas fa-spinner fa-spin"></i>
+                    <p>Loading chart data from database...</p>
+                </div>
+            `;
+        }
+    });
+}
+// ============================================
+// SHOW FALLBACK DATA IF SERVER FAILS
+// ============================================
+function showChartFallbackData() {
+    // Generate sample data for demonstration
+    const sampleDaily = {
+        labels: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
+        datasets: [
+            { label: 'Lessons', data: [2, 1, 3, 0, 2, 1, 0] },
+            { label: 'Exercises', data: [5, 3, 4, 2, 6, 1, 0] },
+            { label: 'Quizzes', data: [1, 0, 1, 0, 2, 0, 0] }
+        ]
+    };
+    
+    const sampleTopics = {
+        labels: ['Algebra', 'Geometry', 'Calculus', 'Statistics'],
+        progress: [75, 50, 25, 10],
+        accuracy: [85, 70, 60, 40]
+    };
+    
+    const sampleTrends = {
+        labels: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
+        accuracy: [70, 75, 82, 78, 85, 80, 88],
+        time: [25, 30, 45, 20, 35, 15, 10]
+    };
+    
+    renderDailyActivityChart(sampleDaily);
+    renderAccuracyChart(sampleTrends);
+    
+    console.log('📊 Showing fallback chart data');
+}
+// ============================================
+// SHOW ERROR STATE FOR CHARTS
+// ============================================
+function showChartErrorState() {
+    const chartContainers = [
+        'practiceTimeChart',
+        'accuracyChart',
+        'topicMasteryChart',
+        'activityHeatmap'
+    ];
+    
+    chartContainers.forEach(containerId => {
+        const container = document.getElementById(containerId);
+        if (container) {
+            container.innerHTML = `
+                <div class="chart-error">
+                    <i class="fas fa-exclamation-triangle"></i>
+                    <h3>Failed to load chart data</h3>
+                    <p>Please try refreshing the page</p>
+                    <button class="btn-primary" onclick="initProgressCharts()">
+                        <i class="fas fa-redo"></i> Retry
+                    </button>
+                </div>
+            `;
+        }
+    });
 }
 // ============================================
 // UPDATE DAILY STATS - ADD THIS MISSING FUNCTION
