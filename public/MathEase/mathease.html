@@ -1,14 +1,12 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=yes">
-    <meta name="theme-color" content="#8B0000">
-    <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <title>MathHub | Complete Responsive Application</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MathHub | Complete Application</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="mathease.css">
     <style>
         /* Additional styles for the lesson dashboard container */
         .lesson-dashboard-container {
@@ -1827,284 +1825,6 @@
 <body>
     <!-- Page Container -->
     <div id="page-container">
-        <!-- Loading Page -->
-        <div class="splash-container" id="loading-page">
-            <div class="logo-card">
-                <i class="fas fa-graduation-cap"></i>
-            </div>
-            
-            <h1 class="logo-text">Math<span class="logo-accent">Hub</span></h1>
-            
-            <p class="tagline">Master Mathematics the <span class="highlight">Fun and Interactive</span> way!</p>
-            
-            <div class="loading-container">
-                <div class="loading-text">
-                    <i class="fas fa-spinner fa-spin"></i> Loading
-                </div>
-                
-                <div class="progress-bar">
-                    <div class="progress" id="loadingProgress"></div>
-                </div>
-                
-                <div class="percentage" id="percentage">0%</div>
-                
-                <button class="skip-button" id="skipLoading">
-                    Skip Intro
-                </button>
-            </div>
-        </div>
-
-        <!-- Login Page -->
-        <div id="login-page" class="hidden">
-            <div class="container">
-                <div class="welcome-section">
-                    <h1>Welcome to MathHub</h1>
-                    <p class="tagline">where learning meets fun!</p>
-                    
-                    <ul class="features">
-                        <li><i class="fas fa-graduation-cap"></i> Interactive courses for all skill levels</li>
-                        <li><i class="fas fa-gamepad"></i> Gamified learning experience</li>
-                        <li><i class="fas fa-chart-line"></i> Track your progress with analytics</li>
-                        <li><i class="fas fa-users"></i> Join a community of learners</li>
-                    </ul>
-                </div>
-                
-                <div class="form-section">
-                    <div class="form-header">
-                        <h2>Login to Your Account</h2>
-                        <p>Enter your credentials to access your learning dashboard</p>
-                    </div>
-                    
-                    <form id="loginForm">
-                        <div class="form-group">
-                            <label for="loginEmail">Email or Username</label>
-                            <div class="input-with-icon">
-                                <i class="fas fa-user"></i>
-                                <input type="text" id="loginEmail" class="form-control" placeholder="Enter your email or username">
-                            </div>
-                            <div id="loginEmailError" class="error-message">Please enter a valid email or username</div>
-                        </div>
-                        
-                        <div class="form-group">
-                            <label for="loginPassword">Password</label>
-                            <div class="input-with-icon">
-                                <i class="fas fa-lock"></i>
-                                <input type="password" id="loginPassword" class="form-control" placeholder="Enter your password">
-                            </div>
-                            <div id="loginPasswordError" class="error-message">Password must be at least 6 characters long</div>
-                        </div>
-                        
-                        <div class="forgot-password">
-                            <a href="#" id="forgotPasswordLink">Forgot Password?</a>
-                        </div>
-                        
-                        <button type="submit" class="btn-primary">
-                            <i class="fas fa-sign-in-alt"></i> Login
-                        </button>
-                    </form>
-                    
-                    <div class="switch-link">
-                        Don't have an account? <a href="#" id="switchToSignup">Sign Up</a>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- Signup Page -->
-        <div id="signup-page" class="hidden">
-            <div class="container">
-                <div class="welcome-section">
-                    <h1>Join MathHub Today</h1>
-                    <p class="tagline">where learning meets fun!</p>
-                    
-                    <ul class="features">
-                        <li><i class="fas fa-rocket"></i> Start your learning journey in minutes</li>
-                        <li><i class="fas fa-shield-alt"></i> Secure & privacy-focused platform</li>
-                        <li><i class="fas fa-award"></i> Earn certificates and badges</li>
-                        <li><i class="fas fa-clock"></i> Learn at your own pace</li>
-                    </ul>
-                </div>
-                
-                <div class="form-section">
-                    <div class="form-header">
-                        <h2>Create Account</h2>
-                        <p>Join MathHub as a Student, Teacher, or Administrator</p>
-                    </div>
-                    
-                    <form id="signupForm">
-                        <div class="form-row">
-                            <div class="form-group">
-                                <label for="signupUsername">Username</label>
-                                <div class="input-with-icon">
-                                    <i class="fas fa-user"></i>
-                                    <input type="text" id="signupUsername" class="form-control" placeholder="Choose a username">
-                                </div>
-                                <div id="signupUsernameError" class="error-message">Username must be 3-20 characters</div>
-                            </div>
-                            
-                            <div class="form-group">
-                                <label for="signupEmail">Email Address</label>
-                                <div class="input-with-icon">
-                                    <i class="fas fa-envelope"></i>
-                                    <input type="email" id="signupEmail" class="form-control" placeholder="Enter your email address">
-                                </div>
-                                <div id="signupEmailError" class="error-message">Please enter a valid email address</div>
-                            </div>
-                        </div>
-                        
-                        <div class="form-row">
-                            <div class="form-group">
-                                <label for="signupPassword">Password</label>
-                                <div class="input-with-icon">
-                                    <i class="fas fa-lock"></i>
-                                    <input type="password" id="signupPassword" class="form-control" placeholder="Create a strong password">
-                                </div>
-                                <div class="password-strength">
-                                    <div id="strengthMeter" class="strength-meter"></div>
-                                </div>
-                                <div id="signupPasswordError" class="error-message">Password must be at least 8 characters</div>
-                            </div>
-                            
-                            <div class="form-group">
-                                <label for="confirmPassword">Confirm Password</label>
-                                <div class="input-with-icon">
-                                    <i class="fas fa-lock"></i>
-                                    <input type="password" id="confirmPassword" class="form-control" placeholder="Re-enter your password">
-                                </div>
-                                <div id="confirmPasswordError" class="error-message">Passwords do not match</div>
-                            </div>
-                        </div>
-                        
-                        <div class="form-group">
-                            <label for="signupFullName">Full Name (Optional)</label>
-                            <div class="input-with-icon">
-                                <i class="fas fa-user-tag"></i>
-                                <input type="text" id="signupFullName" class="form-control" placeholder="Enter your full name">
-                            </div>
-                        </div>
-                        
-                        <!-- Role Selection Section -->
-                        <div class="form-group">
-                            <label>Account Type</label>
-                            <div class="role-options">
-                                <div class="role-option">
-                                    <input type="radio" id="roleStudent" name="role" value="student" checked>
-                                    <label for="roleStudent">
-                                        <i class="fas fa-user-graduate"></i>
-                                        <div>
-                                            <strong>Student</strong>
-                                            <small>Access learning materials and practice exercises</small>
-                                        </div>
-                                    </label>
-                                </div>
-                                
-                                <div class="role-option">
-                                    <input type="radio" id="roleTeacher" name="role" value="teacher">
-                                    <label for="roleTeacher">
-                                        <i class="fas fa-chalkboard-teacher"></i>
-                                        <div>
-                                            <strong>Teacher</strong>
-                                            <small>Manage classes and monitor student progress</small>
-                                        </div>
-                                    </label>
-                                </div>
-                                
-                                <div class="role-option">
-                                    <input type="radio" id="roleAdmin" name="role" value="admin">
-                                    <label for="roleAdmin">
-                                        <i class="fas fa-user-shield"></i>
-                                        <div>
-                                            <strong>Administrator</strong>
-                                            <small>System administration and user management</small>
-                                        </div>
-                                    </label>
-                                </div>
-                            </div>
-                        </div>
-                        
-                        <!-- Secret Code Input (for Teacher/Admin) -->
-                        <div class="form-group hidden" id="secretCodeGroup">
-                            <label for="secretCode">Access Code</label>
-                            <div class="input-with-icon">
-                                <i class="fas fa-key"></i>
-                                <input type="password" id="secretCode" class="form-control" placeholder="Enter your access code">
-                            </div>
-                            <small class="form-text">Required for teacher or administrator registration</small>
-                            <div id="secretCodeError" class="error-message"></div>
-                        </div>
-                        
-                        <div class="form-group">
-                            <div class="terms-checkbox">
-                                <input type="checkbox" id="terms" class="terms-checkbox">
-                                <label for="terms" class="terms-label">
-                                    I agree to the <a href="#" id="termsLink">Terms and Conditions</a> and <a href="#" id="privacyLink">Privacy Policy</a>
-                                </label>
-                            </div>
-                            <div id="termsError" class="error-message">You must accept the terms and conditions</div>
-                        </div>
-                        
-                        <button type="submit" class="btn-primary">
-                            <i class="fas fa-user-plus"></i> Create Account
-                        </button>
-                    </form>
-                    
-                    <div class="switch-link">
-                        Already have an account? <a href="#" id="switchToLogin">Login here</a>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- MathHub App Selection Page -->
-        <div id="app-selection-page" class="hidden">
-            <div class="container">
-                <header>
-                    <div class="logo-card">
-                        <i class="fas fa-graduation-cap"></i>
-                    </div>
-                    
-                    <h1 class="logo-text">Math<span class="logo-accent">Hub</span></h1>
-                    
-                    <p class="tagline">Choose an app to get started!</p>
-                </header>
-                
-                <div class="apps-container">
-                    <!-- MathEase App Card -->
-                    <div class="app-card mathease" data-app="mathease">
-                        <div class="app-icon">
-                            <i class="fas fa-calculator"></i>
-                        </div>
-                        <h2 class="app-title">MathEase</h2>
-                        <div class="app-formula">x² + bx + c</div>
-                      
-                        <p class="app-subtitle">Solve quadratic equations with ease</p>
-                    </div>
-                    
-                    <!-- PolyLearn App Card -->
-                    <div class="app-card polylearn" data-app="polylearn">
-                        
-                        <div class="app-icon">
-                            <i class="fas fa-chart-line"></i>
-                        </div>
-                        <h2 class="app-title">PolyLearn</h2>
-                        <div class="app-formula">VN!</div>
-                        
-                        <p class="app-subtitle">Learn polynomial factorization visually</p>
-                    </div>
-                    
-                    <!-- FactoLearn App Card -->
-                    <div class="app-card factolearn" data-app="factolearn">
-                        <div class="app-icon">
-                            <i class="fas fa-cube"></i>
-                        </div>
-                        <h2 class="app-title">FactoLearn</h2>
-                        
-                        <div class="app-formula">+</div>
-                        <p class="app-subtitle">Master factoring techniques step by step</p>
-                    </div>
-                </div>
-            </div>
-        </div>
 
         <!-- Dashboard Page -->
         <div id="dashboard-page" class="hidden">
@@ -2120,9 +1840,9 @@
                     <div class="student-info">
                         <div class="student-avatar-large" id="userInitial">U</div>
                         <div class="student-details">
-                            <h2 class="student-name" id="dashboardUserName">Welcome, <span>PolyLearn!</span></h2>
+                            <h2 class="student-name" id="dashboardUserName">Welcome back  <span>MathEase!</span></h2>
                             <p style="color: var(--text-light); margin-bottom: 15px;" id="dashboardUserMessage">
-                                You're making excellent progress in your polynomial journey. Keep up the great work!
+                                You're making excellent progress in your Basic Mathematical Operations and Basic Introductory Statistics journey. Keep up the great work!
                             </p>
                             <div class="achievement-badge" id="userAchievementBadge">
                                 <i class="fas fa-medal"></i> Loading...
@@ -2149,7 +1869,7 @@
                                 </div>
                                 <div>
                                     <h3>Lessons Completed</h3>
-                                    <p>Total polynomial lessons finished</p>
+                                    <p>Total MathEase lessons finished</p>
                                 </div>
                             </div>
                             <div class="item-value" id="lessonsCount">0<span class="item-unit">/0</span></div>
@@ -2177,7 +1897,7 @@
                                 </div>
                                 <div>
                                     <h3>Quiz Game Score</h3>
-                                    <p>Your high score in polynomial games</p>
+                                    <p>Your high score in MathEase games</p>
                                 </div>
                             </div>
                             <div class="item-value" id="quizScore">0<span class="item-unit">points</span></div>
@@ -2291,70 +2011,92 @@
             </div>
         </div>
 
-       <!-- Module Dashboard Page - DATABASE DRIVEN -->
-<div id="module-dashboard-page" class="hidden">
-    <!-- Page Container -->
-    <div id="module-page-container">
-        <!-- Header -->
+        <!-- Module Dashboard Page - DATABASE DRIVEN -->
+        <div id="module-dashboard-page" class="hidden">
+            <!-- Page Container -->
+            <div id="module-page-container">
+                <!-- Header -->
 
-        <!-- Dashboard Content -->
-        <div class="dashboard-container">
-            <!-- Main Content -->
-            <main class="main-content">
-                <!-- Lesson Content Card -->
-                <div class="card">
-                    <div class="card-header">
-                        <h2 class="card-title">
-                            <i class="fas fa-book-open"></i> Lesson: <span id="moduleTitle">Loading...</span>
-                        </h2>
-                        <p class="card-subtitle" id="moduleSubtitle">Loading lesson content...</p>
-                    </div>
-                    
-                    <div class="lesson-content">
-                        <!-- Video Section -->
-                        <div class="media-container">
-                            <div class="media-header">
-                                <span><i class="fas fa-video"></i> Lesson Video</span>
-                                <div class="media-controls">
-                                    <span id="videoTime" style="font-family: monospace; color: white;">0:00 / 0:00</span>
-                                    <button class="refresh-video-btn" id="refreshVideoBtn" title="Reload video">
-                                        <i class="fas fa-sync-alt"></i>
+                <!-- Dashboard Content -->
+                <div class="dashboard-container">
+                    <!-- Main Content -->
+                    <main class="main-content">
+                        <!-- Lesson Content Card -->
+                        <div class="card">
+                            <div class="card-header">
+                                <h2 class="card-title">
+                                    <i class="fas fa-book-open"></i> Lesson: <span id="moduleTitle">Loading...</span>
+                                </h2>
+                                <p class="card-subtitle" id="moduleSubtitle">Loading lesson content...</p>
+                            </div>
+                            
+                            <div class="lesson-content">
+                                <!-- Video Section -->
+                                <div class="media-container">
+                                    <div class="media-header">
+                                        <span><i class="fas fa-video"></i> Lesson Video</span>
+                                        <div class="media-controls">
+                                            <span id="videoTime" style="font-family: monospace; color: white;">0:00 / 0:00</span>
+                                            <button class="refresh-video-btn" id="refreshVideoBtn" title="Reload video">
+                                                <i class="fas fa-sync-alt"></i>
+                                            </button>
+                                        </div>
+                                    </div>
+                                    <div class="video-container">
+                                        <!-- VIDEO: Loaded from database -->
+                                        <video id="lessonVideo" width="100%" height="100%" controls>
+                                            <source src="" type="video/mp4">
+                                            Your browser does not support the video tag.
+                                        </video>
+                                    </div>
+                                    <div class="video-info" id="videoInfo">
+                                        <p><i class="fas fa-info-circle"></i> Video loaded from database. Changes will appear automatically.</p>
+                                    </div>
+                                </div>
+                            
+                                <!-- Example Section -->
+                                <div class="step-container" id="exampleSection">
+                                    <div class="step-title">
+                                        <span class="step-number"><i class="fas fa-book"></i></span> Lesson Content
+                                    </div>
+                                    <div class="step-content" id="lessonContent">
+                                        <p>Loading lesson content from database...</p>
+                                        <div class="math-example">
+                                            <p><strong>Loading example...</strong></p>
+                                        </div>
+                                        <ol class="steps">
+                                            <li>Lesson steps will appear here</li>
+                                            <li>Loaded dynamically from database</li>
+                                        </ol>
+                                    </div>
+                                </div>
+                                
+                                <!-- Divider Line -->
+                                <div style="height: 1px; background: var(--border-color); margin: 30px 0;"></div>
+                                
+                                
+                                <!-- Lesson Navigation -->
+                                <div class="lesson-navigation">
+                                    <button class="lesson-nav-btn nav-prev" id="prevLessonBtn" disabled>
+                                        <i class="fas fa-arrow-left"></i> Previous Lesson
+                                    </button>
+                                    
+                                    <!-- CRITICAL: Admin Connection - data-lesson-id added for backend tracking -->
+                                    <button class="btn-primary" id="completeLessonBtn" data-lesson-id="1">
+                                        <i class="fas fa-check-circle"></i> Mark Lesson Complete
+                                    </button>
+                                    
+                                    <button class="lesson-nav-btn nav-next" id="nextLessonBtn" disabled>
+                                        Next Lesson <i class="fas fa-arrow-right"></i>
                                     </button>
                                 </div>
                             </div>
-                            <div class="video-container">
-                                <!-- VIDEO: Loaded from database -->
-                                <video id="lessonVideo" width="100%" height="100%" controls>
-                                    <source src="" type="video/mp4">
-                                    Your browser does not support the video tag.
-                                </video>
-                            </div>
-                            <div class="video-info" id="videoInfo">
-                                <p><i class="fas fa-info-circle"></i> Video loaded from database. Changes will appear automatically.</p>
-                            </div>
                         </div>
+                    </main>
                     
-                        <!-- Example Section -->
-                        <div class="step-container" id="exampleSection">
-                            <div class="step-title">
-                                <span class="step-number"><i class="fas fa-book"></i></span> Lesson Content
-                            </div>
-                            <div class="step-content" id="lessonContent">
-                                <p>Loading lesson content from database...</p>
-                                <div class="math-example">
-                                    <p><strong>Loading example...</strong></p>
-                                </div>
-                                <ol class="steps">
-                                    <li>Lesson steps will appear here</li>
-                                    <li>Loaded dynamically from database</li>
-                                </ol>
-                            </div>
-                        </div>
-                        
-                        <!-- Divider Line -->
-                        <div style="height: 1px; background: var(--border-color); margin: 30px 0;"></div>
-                        
-                        <!-- Progress and Learning Tool - MOVED HERE -->
+                    <!-- Sidebar -->
+                    <aside class="sidebar">
+                        <!-- Progress and Learning Tool -->
                         <div class="progress-learning-tool">
                             <h2 class="progress-title">
                                 <i class="fas fa-chart-line"></i> Your Progress & Learning
@@ -2405,32 +2147,71 @@
                             </div>                      
                         </div>
                         
-                        <!-- Lesson Navigation -->
-                        <div class="lesson-navigation">
-                            <button class="lesson-nav-btn nav-prev" id="prevLessonBtn" disabled>
-                                <i class="fas fa-arrow-left"></i> Previous Lesson
-                            </button>
+                        <!-- Learning Tools Container -->
+                        <div class="learning-tools-container">
+                            <h2 class="tools-title">
+                                <i class="fas fa-tools"></i> Learning Tools
+                            </h2>
+                            <p class="tools-subtitle">Interactive tools to enhance your learning experience</p>
                             
-                            <!-- CRITICAL: Admin Connection - data-lesson-id added for backend tracking -->
-                            <button class="btn-primary" id="completeLessonBtn" data-lesson-id="1">
-                                <i class="fas fa-check-circle"></i> Mark Lesson Complete
-                            </button>
+                            <div class="tools-grid">
+                                <div class="tool-item" id="openCalculator">
+                                    <div class="tool-icon">
+                                        <i class="fas fa-calculator"></i>
+                                    </div>
+                                    <div class="tool-name">Calculator</div>
+                                    <div class="tool-description">Advanced math calculator with functions</div>
+                                </div>
+                                
+                                <div class="tool-item" id="openGraphTools">
+                                    <div class="tool-icon">
+                                        <i class="fas fa-chart-line"></i>
+                                    </div>
+                                    <div class="tool-name">Graph Tools</div>
+                                    <div class="tool-description">Visualize functions and equations</div>
+                                </div>
+                                
+                                <div class="tool-item" id="openNotepad">
+                                    <div class="tool-icon">
+                                        <i class="fas fa-sticky-note"></i>
+                                    </div>
+                                    <div class="tool-name">Notepad</div>
+                                    <div class="tool-description">Take notes during lessons</div>
+                                </div>
+                                
+                                <div class="tool-item" id="openFormulaSheet">
+                                    <div class="tool-icon">
+                                        <i class="fas fa-book"></i>
+                                    </div>
+                                    <div class="tool-name">Formula Sheet</div>
+                                    <div class="tool-description">Quick reference for formulas</div>
+                                </div>
+                                
+                                <div class="tool-item" id="openWhiteboard">
+                                    <div class="tool-icon">
+                                        <i class="fas fa-paint-brush"></i>
+                                    </div>
+                                    <div class="tool-name">Whiteboard</div>
+                                    <div class="tool-description">Draw and solve problems visually</div>
+                                </div>
+                                
+                                <div class="tool-item" id="openTimer">
+                                    <div class="tool-icon">
+                                        <i class="fas fa-stopwatch"></i>
+                                    </div>
+                                    <div class="tool-name">Timer</div>
+                                    <div class="tool-description">Track your study sessions</div>
+                                </div>
+                            </div>
                             
-                            <button class="lesson-nav-btn nav-next" id="nextLessonBtn" disabled>
-                                Next Lesson <i class="fas fa-arrow-right"></i>
-                            </button>
+                            <div class="tool-info">
+                                <i class="fas fa-info-circle"></i>
+                                <p>Click on any tool to open it in a new window. All tools save automatically.</p>
+                            </div>
                         </div>
-                    </div>
+                    </aside>
                 </div>
-            </main>
-            
-            <!-- Sidebar - Now EMPTY (can be removed if not needed) -->
-            <aside class="sidebar">
-                <!-- Sidebar content removed - Progress moved to main content -->
-            </aside>
-        </div>
-    </div>
-</div>
+            </div>
         </div>
 
         <!-- Practice Exercises Page -->
@@ -2544,6 +2325,7 @@
 
                 <!-- QUIZ CARDS - Where user sees available quizzes -->
                 <div class="quiz-cards-container" id="quizCardsContainer">
+                    <h2 class="section-title"><i class="fas fa-puzzle-piece"></i> Available Quizzes</h2>
                     <div class="quizzes-grid" id="userQuizzesContainer">
                         <div class="loading-container">
                             <i class="fas fa-spinner fa-spin"></i>
@@ -2822,6 +2604,7 @@
                                         <div class="profile-preview" id="profilePreview">
                                             <i class="fas fa-user-circle"></i>
                                         </div>
+                                        <button class="btn btn-secondary"><i class="fas fa-upload"></i> Upload New Photo</button>
                                     </div>
                                 </div>
                             </div>
@@ -3086,6 +2869,10 @@
                                     <label class="form-label">Google Account</label>
                                     <button class="btn btn-secondary" id="googleAccountBtn"><i class="fab fa-google"></i> Connected</button>
                                 </div>
+                                <div class="form-row">
+                                    <label class="form-label">GitHub Account</label>
+                                    <button class="btn btn-secondary" id="githubAccountBtn"><i class="fab fa-github"></i> Connect</button>
+                                </div>
                             </div>
                         </div>
 
@@ -3173,7 +2960,7 @@
                                     <i class="fas fa-chevron-down"></i>
                                 </div>
                                 <div class="faq-answer">
-                                    <p>Yes! MathHub is available on both iOS and Android.</p>
+                                    <p>Yes! MathHub is available on both iOS and Android. Download from the App Store or Google Play Store.</p>
                                 </div>
                             </div>
 
@@ -3221,10 +3008,71 @@
                                     </div>
                                 </div>
 
+                                <div class="contact-method">
+                                    <div class="contact-icon">
+                                        <i class="fas fa-comments"></i>
+                                    </div>
+                                    <div>
+                                        <h4>Live Chat</h4>
+                                        <p>Available during business hours</p>
+                                        <button class="btn btn-primary" style="margin-top: 10px; padding: 8px 15px;">
+                                            <i class="fas fa-comment-dots"></i>
+                                            Start Chat
+                                        </button>
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     </div>
 
+                    <!-- Send Feedback -->
+                    <div class="card">
+                        <div class="card-header">
+                            <div class="card-icon icon-feedback">
+                                <i class="fas fa-comment-alt"></i>
+                            </div>
+                            <h2>Send Feedback</h2>
+                        </div>
+                        <div class="card-body">
+                            <form id="feedbackForm">
+                                <div class="form-group">
+                                    <label for="feedbackType">Feedback Type</label>
+                                    <select id="feedbackType" class="form-control">
+                                        <option value="suggestion">Suggestion</option>
+                                        <option value="bug">Bug Report</option>
+                                        <option value="praise">Praise</option>
+                                        <option value="other">Other</option>
+                                    </select>
+                                </div>
+
+                                <div class="form-group">
+                                    <label for="feedbackMessage">Your Feedback</label>
+                                    <textarea id="feedbackMessage" class="form-control" placeholder="Tell us what you think..."></textarea>
+                                </div>
+
+                                <div class="form-group">
+                                    <label>Overall Rating</label>
+                                    <div class="rating">
+                                        <span class="star" onclick="rate(1)">★</span>
+                                        <span class="star" onclick="rate(2)">★</span>
+                                        <span class="star" onclick="rate(3)">★</span>
+                                        <span class="star" onclick="rate(4)">★</span>
+                                        <span class="star" onclick="rate(5)">★</span>
+                                    </div>
+                                    <input type="hidden" id="ratingValue" value="0">
+                                </div>
+
+                                <button type="submit" class="btn btn-primary" style="width: 100%;">
+                                    <i class="fas fa-paper-plane"></i>
+                                    Submit Feedback
+                                </button>
+                            </form>
+                            <div class="success-message" id="feedbackSuccess" style="display: none;">
+                                <i class="fas fa-check-circle"></i>
+                                Thank you for your feedback! We'll review it shortly.
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -3469,11 +3317,11 @@
 
     <footer class="footer-nav">
         <div class="footer-nav-content">
-            <a href="#" class="footer-nav-item active" data-page="dashboard">
+            <a href="#" class="footer-nav-item active" data-page="dashboard" onclick="event.preventDefault(); showDashboard(event); return false;">
                 <i class="fas fa-tachometer-alt"></i>
                 <span>Home</span>
             </a>
-            <a href="#" class="footer-nav-item" data-page="practice">
+            <a href="#" class="footer-nav-item" data-page="practice" onclick="event.preventDefault(); showPracticeDashboard(event); return false;">
                 <i class="fas fa-book-open"></i>
                 <span>Practice</span>
             </a>
@@ -3481,11 +3329,11 @@
                 <i class="fas fa-bars"></i>
                 <span>Menu</span>
             </button>
-            <a href="#" class="footer-nav-item" data-page="quiz">
+            <a href="#" class="footer-nav-item" data-page="quiz" onclick="event.preventDefault(); showQuizDashboard(event); return false;">
                 <i class="fas fa-question-circle"></i>
                 <span>Quiz</span>
             </a>
-            <a href="#" class="footer-nav-item" data-page="settings">
+            <a href="#" class="footer-nav-item" data-page="settings" onclick="event.preventDefault(); showSettingsPage(event); return false;">
                 <i class="fas fa-user"></i>
                 <span>Profile</span>
             </a>
@@ -3496,6 +3344,10 @@
     <div class="mobile-menu-overlay" id="mobileMenuOverlay"></div>
     <div class="mobile-menu-panel" id="mobileMenuPanel">
         <div class="mobile-menu-header">
+            <h3><i class="fas fa-bars"></i> Menu</h3>
+            <button class="close-menu-btn" onclick="closeMobileMenu()">
+                <i class="fas fa-times"></i>
+            </button>
         </div>
         <div class="mobile-menu-grid">
             <a href="#" class="mobile-menu-item active" onclick="showDashboard(event)">
@@ -3526,13 +3378,12 @@
                 <i class="fas fa-graduation-cap"></i>
                 <span>Lessons</span>
             </a>
-            <a href="#" class="mobile-menu-item" onclick="showLogoutConfirmation()">
+            <a href="#" class="mobile-menu-item logout-item" onclick="showLogoutConfirmation()">
                 <i class="fas fa-sign-out-alt"></i>
                 <span>Logout</span>
             </a>
         </div>
     </div>
-
     <!-- Quiz Modal -->
     <div class="modal-overlay" id="quizModal">
         <div class="modal-container" style="max-width: 800px;">
@@ -3721,7 +3572,7 @@
         </div>
     </div>
 
-    <script src="script.js"></script>
+    <script src="mathease.js"></script>
     <script src="lesson-tools-fix.js"></script>
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
 </body>
