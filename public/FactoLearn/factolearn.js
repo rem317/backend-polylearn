@@ -61,7 +61,7 @@ const CURRENT_LESSON_ID = 3; // factorial only
 const CURRENT_APP_NAME = 'Factolearn';
 
 function getCurrentApp() {
-    return localStorage.getItem('selectedApp') || 'factorial'; // factorial na ang default
+    return localStorage.getItem('selectedApp') || 'factolearn'; // factorial na ang default
 }
 
 function getCurrentAppLessonId() {
@@ -6178,10 +6178,10 @@ window.goToNextPractice = function() {
 // Call this function when initializing practice page
 addPracticeResultModalStyles();
 // ============================================
-// ✅ UPDATED: Fetch Practice Exercises from Database - FORCE LESSON_ID=3
+// ✅ FIXED: Fetch Practice Exercises from Database
 // ============================================
 async function fetchPracticeExercisesFromDB(topicId) {
-    console.log(`📝 Getting practice exercises for topic ${topicId} from database`);
+    console.log(`📥 Fetching practice exercises for topic ${topicId} from database...`);
     
     try {
         const token = localStorage.getItem('authToken') || authToken;
@@ -6190,34 +6190,17 @@ async function fetchPracticeExercisesFromDB(topicId) {
             return getDemoPracticeExercises(topicId);
         }
         
-        // ✅ FORCE LESSON_ID = 3 (OVERRIDE ANYTHING)
-        const FORCED_LESSON_ID = 3;
-        console.log(`🔧 FORCING lesson_id=${FORCED_LESSON_ID} for all practice exercises`);
-        
-        // ===== TRY MULTIPLE ENDPOINTS =====
+        // Try multiple possible endpoints
         const endpoints = [
-            // Primary endpoint with forced lesson_id
-            `/api/practice/topic/${topicId}?lesson_id=${FORCED_LESSON_ID}`,
-            
-            // Alternative endpoints
-            `/api/practice/exercises?topic_id=${topicId}&lesson_id=${FORCED_LESSON_ID}`,
-            `/api/exercises/topic/${topicId}?lesson_id=${FORCED_LESSON_ID}`,
-            `/api/practice/list?topic=${topicId}&lesson_id=${FORCED_LESSON_ID}`,
-            
-            // Lesson-based endpoints
-            `/api/lessons/${FORCED_LESSON_ID}/practice`,
-            `/api/lesson/${FORCED_LESSON_ID}/exercises`,
-            
-            // Fallback to all exercises for this lesson
-            `/api/practice/exercises?lesson_id=${FORCED_LESSON_ID}`,
-            `/api/exercises?lesson_id=${FORCED_LESSON_ID}`
+            `/api/practice/topic/${topicId}`,
+            `/api/practice/exercises?topic_id=${topicId}`,
+            `/api/practice/list?topic=${topicId}`,
+            `/api/exercises/topic/${topicId}`
         ];
-        
-        let allExercises = [];
         
         for (const endpoint of endpoints) {
             try {
-                console.log(`📡 Fetching from: ${endpoint}`);
+                console.log(`📡 Trying endpoint: ${endpoint}`);
                 
                 const response = await fetch(endpoint, {
                     headers: {
@@ -6226,13 +6209,11 @@ async function fetchPracticeExercisesFromDB(topicId) {
                     }
                 });
                 
-                console.log(`📥 Response status: ${response.status}`);
-                
                 if (response.ok) {
                     const data = await response.json();
-                    console.log(`📥 Server response:`, data);
+                    console.log(`✅ Success from ${endpoint}:`, data);
                     
-                    // Extract exercises from various response formats
+                    // Handle different response formats
                     let exercises = [];
                     
                     if (data.success && data.exercises) {
@@ -6245,17 +6226,9 @@ async function fetchPracticeExercisesFromDB(topicId) {
                         exercises = data.data;
                     }
                     
-                    // ✅ STRICT FILTER - LESSON_ID MUST BE 3
-                    const filteredExercises = exercises.filter(ex => {
-                        // Check all possible property names
-                        const exLessonId = ex.lesson_id || ex.lessonId;
-                        return exLessonId == FORCED_LESSON_ID;
-                    });
-                    
-                    console.log(`📊 Found ${filteredExercises.length} exercises with lesson_id=${FORCED_LESSON_ID}`);
-                    
-                    if (filteredExercises.length > 0) {
-                        allExercises = [...allExercises, ...filteredExercises];
+                    if (exercises.length > 0) {
+                        console.log(`✅ Found ${exercises.length} exercises from database`);
+                        return exercises;
                     }
                 }
             } catch (e) {
@@ -6263,32 +6236,7 @@ async function fetchPracticeExercisesFromDB(topicId) {
             }
         }
         
-        // Remove duplicates by exercise_id
-        const uniqueExercises = [];
-        const seenIds = new Set();
-        
-        allExercises.forEach(ex => {
-            const exId = ex.exercise_id || ex.id;
-            if (!seenIds.has(exId)) {
-                seenIds.add(exId);
-                uniqueExercises.push(ex);
-            }
-        });
-        
-        if (uniqueExercises.length > 0) {
-            console.log(`✅ TOTAL: ${uniqueExercises.length} unique exercises for lesson_id=${FORCED_LESSON_ID}`);
-            
-            // Force add lesson_id=3 to all exercises (double safety)
-            const finalExercises = uniqueExercises.map(ex => ({
-                ...ex,
-                lesson_id: FORCED_LESSON_ID
-            }));
-            
-            return finalExercises;
-        }
-        
-        // If no exercises found, use demo data
-        console.log('⚠️ No exercises found in database, using demo data');
+        console.log('⚠️ No working endpoint found, using demo data');
         return getDemoPracticeExercises(topicId);
         
     } catch (error) {
@@ -6296,325 +6244,6 @@ async function fetchPracticeExercisesFromDB(topicId) {
         return getDemoPracticeExercises(topicId);
     }
 }
-
-// ============================================
-// 🚨 EMERGENCY OVERRIDE - Force ALL API calls to use lesson_id=3
-// ============================================
-(function forceLessonId3ForPractice() {
-    console.log('🚨 EMERGENCY: Forcing ALL practice API calls to use lesson_id=3');
-    
-    // Store original fetch
-    const originalFetch = window.fetch;
-    
-    // Override fetch
-    window.fetch = function(url, options) {
-        // Only modify practice-related API calls
-        if (typeof url === 'string') {
-            // Check if this is a practice API call
-            const isPracticeAPI = url.includes('/api/practice/') || 
-                                  url.includes('/api/exercises/') ||
-                                  url.includes('/practice/topic/');
-            
-            if (isPracticeAPI) {
-                // Check if URL already has lesson_id parameter
-                if (!url.includes('lesson_id=')) {
-                    // Add lesson_id=3 to the URL
-                    const separator = url.includes('?') ? '&' : '?';
-                    url = `${url}${separator}lesson_id=3`;
-                    console.log(`🔧 Forced lesson_id=3: ${url.split('?')[0]}`);
-                } else {
-                    // Replace any existing lesson_id with 3
-                    url = url.replace(/lesson_id=\d+/g, 'lesson_id=3');
-                    console.log(`🔧 Replaced lesson_id with 3: ${url.split('?')[0]}`);
-                }
-            }
-        }
-        
-        // Call original fetch
-        return originalFetch.call(this, url, options).then(response => {
-            // Clone response para ma-edit
-            const clonedResponse = response.clone();
-            
-            // For practice endpoints, we can modify the response data
-            if (typeof url === 'string' && 
-                (url.includes('/api/practice/') || url.includes('/practice/topic/'))) {
-                
-                // Try to parse and modify JSON response
-                clonedResponse.json().then(data => {
-                    if (data && typeof data === 'object') {
-                        // Add lesson_id=3 to response for debugging
-                        data._forced_lesson_id = 3;
-                        
-                        // If there are exercises, ensure they have lesson_id=3
-                        if (data.exercises && Array.isArray(data.exercises)) {
-                            data.exercises = data.exercises.map(ex => ({
-                                ...ex,
-                                lesson_id: 3
-                            }));
-                            console.log(`✅ Forced lesson_id=3 on ${data.exercises.length} exercises in response`);
-                        }
-                    }
-                }).catch(() => {});
-            }
-            
-            return response;
-        });
-    };
-    
-    // Also override the constants
-    window.FACTORIAL_LESSON_ID = 3;
-    window.CURRENT_LESSON_ID = 3;
-    
-    // Override getCurrentAppLessonId
-    window.getCurrentAppLessonId = function() {
-        return 3;
-    };
-    
-    // Set localStorage
-    localStorage.setItem('selectedApp', 'factorial');
-    localStorage.setItem('currentLessonFilter', '3');
-    localStorage.setItem('currentLessonId', '3');
-    
-    console.log('✅ Emergency override complete - All practice API calls will use lesson_id=3');
-})();
-
-// ============================================
-// ✅ HELPER: Generate exercises from attempts
-// ============================================
-function generateExercisesFromAttempts(attempts) {
-    if (!attempts || attempts.length === 0) return [];
-    
-    // Get unique exercise IDs from attempts
-    const exerciseIds = [...new Set(attempts.map(a => a.exercise_id))];
-    
-    return exerciseIds.map((id, index) => ({
-        exercise_id: id,
-        lesson_id: 3,
-        title: `Practice Exercise ${index + 1}`,
-        description: 'Practice your factorial and permutation skills.',
-        difficulty: index === 0 ? 'easy' : (index === 1 ? 'medium' : 'hard'),
-        points: (index + 1) * 10,
-        user_progress: {
-            attempts: attempts.filter(a => a.exercise_id === id).length,
-            best_score: Math.max(...attempts.filter(a => a.exercise_id === id).map(a => a.score || 0))
-        }
-    }));
-}
-
-// ============================================
-// ✅ HELPER: Generate exercises from lessons (WITH lesson_id)
-// ============================================
-function generateExercisesFromLessons(lessons, lessonId = 3) {
-    if (!lessons || lessons.length === 0) return [];
-    
-    return lessons.map((lesson, index) => ({
-        exercise_id: parseInt(`3${index + 1}01`),
-        lesson_id: lessonId,  // ← FORCE lesson_id
-        title: `Practice: ${lesson.content_title || `Lesson ${index + 1}`}`,
-        description: lesson.content_description || 'Practice what you learned in this lesson.',
-        difficulty: index < 2 ? 'easy' : (index < 4 ? 'medium' : 'hard'),
-        points: (index + 1) * 10
-    }));
-}
-
-
-// ============================================
-// ✅ HELPER: Generate questions for topic
-// ============================================
-function generateQuestionsForTopic(topicId, exerciseNum) {
-    const factorialQuestions = [
-        {
-            question_id: 1,
-            text: 'Calculate 5! (5 factorial)',
-            options: [
-                { id: 1, text: '120', correct: true },
-                { id: 2, text: '60', correct: false },
-                { id: 3, text: '24', correct: false },
-                { id: 4, text: '720', correct: false }
-            ]
-        },
-        {
-            question_id: 2,
-            text: 'Simplify: 6! / 4!',
-            options: [
-                { id: 1, text: '30', correct: true },
-                { id: 2, text: '720', correct: false },
-                { id: 3, text: '120', correct: false },
-                { id: 4, text: '24', correct: false }
-            ]
-        },
-        {
-            question_id: 3,
-            text: 'What is 0! equal to?',
-            options: [
-                { id: 1, text: '1', correct: true },
-                { id: 2, text: '0', correct: false },
-                { id: 3, text: 'undefined', correct: false },
-                { id: 4, text: 'infinity', correct: false }
-            ]
-        },
-        {
-            question_id: 4,
-            text: 'If 7! = 5040, what is 8! ?',
-            options: [
-                { id: 1, text: '40320', correct: true },
-                { id: 2, text: '4032', correct: false },
-                { id: 3, text: '403200', correct: false },
-                { id: 4, text: '5040', correct: false }
-            ]
-        },
-        {
-            question_id: 5,
-            text: 'Simplify: (n+2)! / n!',
-            options: [
-                { id: 1, text: '(n+2)(n+1)', correct: true },
-                { id: 2, text: 'n² + 3n + 2', correct: false },
-                { id: 3, text: 'n+2', correct: false },
-                { id: 4, text: 'n! + 2', correct: false }
-            ]
-        }
-    ];
-    
-    // Return different sets based on exercise number
-    if (exerciseNum === 1) {
-        return factorialQuestions.slice(0, 2);
-    } else if (exerciseNum === 2) {
-        return factorialQuestions.slice(2, 4);
-    } else {
-        return [factorialQuestions[4]];
-    }
-}
-
-// ============================================
-// ✅ UPDATED: getDemoPracticeExercises - ALL lesson_id=3
-// ============================================
-function getDemoPracticeExercises(topicId) {
-    console.log(`📚 Generating demo exercises for lesson_id=3, topic ${topicId}`);
-    
-    // Return demo exercises with lesson_id=3
-    return [
-        {
-            exercise_id: 301,
-            lesson_id: 3,  // ← FORCED
-            topic_id: topicId,
-            title: 'Factorial Basics',
-            description: 'Practice calculating and simplifying basic factorial expressions',
-            difficulty: 'easy',
-            points: 10,
-            questions: [
-                {
-                    question_id: 1,
-                    text: 'Calculate 5! (5 factorial)',
-                    options: [
-                        { id: 1, text: '120', correct: true },
-                        { id: 2, text: '60', correct: false },
-                        { id: 3, text: '24', correct: false },
-                        { id: 4, text: '720', correct: false }
-                    ]
-                },
-                {
-                    question_id: 2,
-                    text: 'Simplify: 6! / 4!',
-                    options: [
-                        { id: 1, text: '30', correct: true },
-                        { id: 2, text: '720', correct: false },
-                        { id: 3, text: '120', correct: false },
-                        { id: 4, text: '24', correct: false }
-                    ]
-                }
-            ]
-        },
-        {
-            exercise_id: 302,
-            lesson_id: 3,  // ← FORCED
-            topic_id: topicId,
-            title: 'Factorial Operations',
-            description: 'Perform operations with factorial expressions',
-            difficulty: 'medium',
-            points: 15,
-            questions: [
-                {
-                    question_id: 3,
-                    text: 'Simplify: (n+2)! / n!',
-                    options: [
-                        { id: 1, text: '(n+2)(n+1)', correct: true },
-                        { id: 2, text: 'n² + 3n + 2', correct: false },
-                        { id: 3, text: 'n+2', correct: false },
-                        { id: 4, text: 'n! + 2', correct: false }
-                    ]
-                },
-                {
-                    question_id: 4,
-                    text: 'If 7! = 5040, what is 8! ?',
-                    options: [
-                        { id: 1, text: '40320', correct: true },
-                        { id: 2, text: '4032', correct: false },
-                        { id: 3, text: '403200', correct: false },
-                        { id: 4, text: '5040', correct: false }
-                    ]
-                }
-            ]
-        },
-        {
-            exercise_id: 303,
-            lesson_id: 3,  // ← FORCED
-            topic_id: topicId,
-            title: 'Permutations & Combinations',
-            description: 'Apply factorials in permutation and combination problems',
-            difficulty: 'hard',
-            points: 20,
-            questions: [
-                {
-                    question_id: 5,
-                    text: 'Calculate P(5,3) using factorial formula',
-                    options: [
-                        { id: 1, text: '60', correct: true },
-                        { id: 2, text: '120', correct: false },
-                        { id: 3, text: '20', correct: false },
-                        { id: 4, text: '10', correct: false }
-                    ]
-                },
-                {
-                    question_id: 6,
-                    text: 'Calculate C(10,2)',
-                    options: [
-                        { id: 1, text: '45', correct: true },
-                        { id: 2, text: '90', correct: false },
-                        { id: 3, text: '10', correct: false },
-                        { id: 4, text: '20', correct: false }
-                    ]
-                }
-            ]
-        }
-    ];
-}
-
-// ============================================
-// ✅ HELPER: Generate exercises from topic (WITH lesson_id)
-// ============================================
-function generateExercisesFromTopic(topic, lessonId = 3) {
-    if (!topic) return [];
-    
-    const exercises = [];
-    const topicId = topic.topic_id || 1;
-    const topicTitle = topic.topic_title || 'Factorial Topic';
-    
-    // Generate 3 practice exercises based on topic
-    for (let i = 1; i <= 3; i++) {
-        exercises.push({
-            exercise_id: parseInt(`${topicId}0${i}`),
-            lesson_id: lessonId,  // ← FORCE lesson_id
-            topic_id: topicId,
-            title: `${topicTitle} - Exercise ${i}`,
-            description: `Practice ${topicTitle.toLowerCase()} concepts with this exercise.`,
-            difficulty: i === 1 ? 'easy' : (i === 2 ? 'medium' : 'hard'),
-            points: i * 10
-        });
-    }
-    
-    return exercises;
-}
-
 // ============================================
 // ✅ FIXED: fetchPracticeStatistics - WITH CORRECT ENDPOINTS
 // ============================================
@@ -21922,9 +21551,10 @@ async function loadPracticeExercisesForTopic(topicId) {
     try {
         console.log(`📝 Loading practice exercises for topic ${topicId}`);
         
-        // ✅ FORCE lesson_id = 3 for FactoLearn
-        const LESSON_ID = 3;
-        console.log(`🎯 Loading exercises for FactoLearn, lesson_id: ${LESSON_ID}`);
+        // Force lesson_id = 3 for FactoLearn
+        const currentLessonId = FACTORIAL_LESSON_ID || 3;
+        
+        console.log(`🎯 Loading exercises for FactoLearn, lesson_id: ${currentLessonId}`);
         
         // Get the exercise area
         const exerciseArea = document.getElementById('exerciseArea');
@@ -21936,7 +21566,7 @@ async function loadPracticeExercisesForTopic(topicId) {
         exerciseArea.innerHTML = `
             <div class="loading-container" style="text-align: center; padding: 40px;">
                 <i class="fas fa-spinner fa-spin" style="font-size: 40px; color: #7a0000; margin-bottom: 15px;"></i>
-                <p style="color: #666;">Loading practice exercises from database (Lesson ${LESSON_ID})...</p>
+                <p style="color: #666;">Loading practice exercises from database...</p>
             </div>
         `;
         
@@ -21946,18 +21576,11 @@ async function loadPracticeExercisesForTopic(topicId) {
         if (exercises && exercises.length > 0) {
             console.log(`✅ Found ${exercises.length} exercises for topic ${topicId}`);
             
-            // ✅ Add lesson_id badge sa bawat exercise
-            const exercisesWithBadge = exercises.map(ex => ({
-                ...ex,
-                lesson_id: LESSON_ID,
-                lesson_badge: true
-            }));
-            
             // Store in PracticeState
-            PracticeState.exercises = exercisesWithBadge;
+            PracticeState.exercises = exercises;
             
             // Display exercises
-            displayPracticeExercises(exercisesWithBadge);
+            displayPracticeExercises(exercises);
         } else {
             console.log('⚠️ No exercises found, showing demo data');
             
@@ -22025,7 +21648,6 @@ function displayPracticeExercises(exercises) {
         const description = exercise.description || exercise.exercise_description || 'Practice your skills with this exercise.';
         const difficulty = exercise.difficulty || exercise.difficulty_level || 'medium';
         const points = exercise.points || exercise.max_score || 10;
-        const lessonId = exercise.lesson_id || exercise.lessonId || 3;
         
         // Parse questions from content_json if it exists
         let questionCount = 0;
@@ -22063,15 +21685,10 @@ function displayPracticeExercises(exercises) {
                         <i class="fas fa-pencil-alt" style="color: #7a0000; margin-right: 8px;"></i>
                         ${title}
                     </h3>
-                    <div style="display: flex; gap: 8px;">
-                        <span style="background: #7a0000; color: white; padding: 4px 8px; border-radius: 4px; font-size: 11px;">
-                            Lesson ${lessonId}
-                        </span>
-                        <span style="background: ${difficultyColor}; color: white; padding: 4px 12px; 
-                                   border-radius: 20px; font-size: 12px; font-weight: bold; text-transform: uppercase;">
-                            ${difficulty}
-                        </span>
-                    </div>
+                    <span style="background: ${difficultyColor}; color: white; padding: 4px 12px; 
+                               border-radius: 20px; font-size: 12px; font-weight: bold; text-transform: uppercase;">
+                        ${difficulty}
+                    </span>
                 </div>
                 
                 <p style="color: #666; margin: 0 0 15px 0; line-height: 1.5;">${description}</p>
@@ -22119,7 +21736,7 @@ function displayPracticeExercises(exercises) {
     html += '</div>';
     exerciseArea.innerHTML = html;
     
-    console.log(`✅ Displayed ${exercises.length} practice exercises (all lesson_id=3)`);
+    console.log(`✅ Displayed ${exercises.length} practice exercises`);
 }
 // ============================================
 // 🔍 Test Database Connection
@@ -27220,77 +26837,4 @@ mobileMenuItems.forEach((item, index) => {
         else if (index === 6) goToModuleDashboard(e);
         else if (index === 7) logoutUser(e); // Logout is the 8th item
     });
-});
-
-// ============================================
-// 🔍 DEBUG: Fetch practice exercises for lesson_id=3
-// ============================================
-window.fetchPracticeForLesson3 = async function() {
-    console.log('🔍 FETCHING PRACTICE EXERCISES FOR LESSON_ID=3');
-    console.log('==============================================');
-    
-    const token = localStorage.getItem('authToken');
-    if (!token) {
-        console.error('❌ No auth token found');
-        return;
-    }
-    
-    // Try multiple endpoints
-    const endpoints = [
-        '/api/practice/exercises?lesson_id=3',
-        '/api/practice/list?lesson_id=3',
-        '/api/exercises?lesson_id=3',
-        '/api/practice/lesson/3'
-    ];
-    
-    for (const endpoint of endpoints) {
-        try {
-            console.log(`\n📡 Testing: ${endpoint}`);
-            const response = await fetch(endpoint, {
-                headers: { 'Authorization': `Bearer ${token}` }
-            });
-            
-            console.log(`Status: ${response.status}`);
-            
-            if (response.ok) {
-                const data = await response.json();
-                console.log('✅ Response:', data);
-                
-                // Extract exercises
-                let exercises = [];
-                if (data.success && data.exercises) exercises = data.exercises;
-                else if (data.exercises) exercises = data.exercises;
-                else if (Array.isArray(data)) exercises = data;
-                else if (data.data) exercises = data.data;
-                
-                console.log(`📊 Found ${exercises.length} exercises`);
-                
-                if (exercises.length > 0) {
-                    console.log('📝 First exercise:', exercises[0]);
-                }
-            } else {
-                console.log('❌ Failed:', await response.text().then(t => t.substring(0, 200)));
-            }
-        } catch (error) {
-            console.error('❌ Error:', error.message);
-        }
-    }
-    
-    // Also try to load into UI
-    console.log('\n🔄 Loading exercises into UI...');
-    await loadPracticeExercisesForTopic(PracticeState.currentTopic || 1);
-    
-    console.log('\n✅ Debug complete');
-};
-
-// Auto-run when practice page loads
-document.addEventListener('DOMContentLoaded', function() {
-    // Check if we're on practice page
-    const practicePage = document.getElementById('practice-exercises-page');
-    if (practicePage && !practicePage.classList.contains('hidden')) {
-        setTimeout(() => {
-            console.log('🎯 Auto-fetching practice exercises for lesson_id=3');
-            loadPracticeExercisesForTopic(PracticeState.currentTopic || 1);
-        }, 500);
-    }
 });
