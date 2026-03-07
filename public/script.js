@@ -34471,3 +34471,203 @@ async function loadPolyLearnContent() {
     }
 }
 
+// ============================================
+// 🚨 ABSOLUTE LAST RESORT - PASSWORD MODAL FIX
+// ============================================
+// THIS MUST BE AT THE VERY END OF script.js
+
+console.log('🔧 Applying absolute password modal fix...');
+
+// Direct function definition - NO DEPENDENCIES
+window.OPEN_PASSWORD_MODAL = function() {
+    console.log('🔑 OPEN_PASSWORD_MODAL called');
+    
+    try {
+        // Remove any existing modal
+        const oldModal = document.getElementById('global-password-modal');
+        if (oldModal) oldModal.remove();
+        
+        // Create modal container
+        const modalDiv = document.createElement('div');
+        modalDiv.id = 'global-password-modal';
+        modalDiv.style.cssText = `
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.8);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 9999999;
+        `;
+        
+        // Modal content
+        modalDiv.innerHTML = `
+            <div style="background: white; border-radius: 10px; max-width: 450px; width: 90%;">
+                <div style="background: #7a0000; color: white; padding: 15px 20px; border-radius: 10px 10px 0 0; display: flex; justify-content: space-between; align-items: center;">
+                    <h3 style="margin: 0; font-size: 18px;"><i class="fas fa-key"></i> Change Password</h3>
+                    <button onclick="window.CLOSE_PASSWORD_MODAL()" style="background: none; border: none; color: white; font-size: 24px; cursor: pointer;">&times;</button>
+                </div>
+                
+                <div style="padding: 20px;">
+                    <div style="background: #f0f0f0; padding: 10px; border-radius: 5px; margin-bottom: 15px; border-left: 4px solid #7a0000;">
+                        <p style="margin: 0; font-size: 13px;">Password must be at least 6 characters.</p>
+                    </div>
+                    
+                    <div style="margin-bottom: 15px;">
+                        <label style="display: block; margin-bottom: 5px; font-weight: bold; font-size: 14px;">Current Password</label>
+                        <input type="password" id="global-current-password" style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 5px;">
+                    </div>
+                    
+                    <div style="margin-bottom: 15px;">
+                        <label style="display: block; margin-bottom: 5px; font-weight: bold; font-size: 14px;">New Password</label>
+                        <input type="password" id="global-new-password" style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 5px;">
+                    </div>
+                    
+                    <div style="margin-bottom: 20px;">
+                        <label style="display: block; margin-bottom: 5px; font-weight: bold; font-size: 14px;">Confirm New Password</label>
+                        <input type="password" id="global-confirm-password" style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 5px;">
+                    </div>
+                    
+                    <div style="display: flex; gap: 10px; justify-content: flex-end;">
+                        <button onclick="window.CLOSE_PASSWORD_MODAL()" style="padding: 8px 15px; background: #95a5a6; color: white; border: none; border-radius: 5px; cursor: pointer;">Cancel</button>
+                        <button onclick="window.SUBMIT_PASSWORD_CHANGE()" style="padding: 8px 15px; background: #7a0000; color: white; border: none; border-radius: 5px; cursor: pointer;">Save Password</button>
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        document.body.appendChild(modalDiv);
+        console.log('✅ Password modal displayed');
+        
+    } catch(e) {
+        console.error('Modal error:', e);
+        alert('Could not open password modal: ' + e.message);
+    }
+};
+
+// Close function
+window.CLOSE_PASSWORD_MODAL = function() {
+    const modal = document.getElementById('global-password-modal');
+    if (modal) modal.remove();
+};
+
+// Submit function
+window.SUBMIT_PASSWORD_CHANGE = async function() {
+    const currentPass = document.getElementById('global-current-password')?.value;
+    const newPass = document.getElementById('global-new-password')?.value;
+    const confirmPass = document.getElementById('global-confirm-password')?.value;
+    
+    if (!currentPass || !newPass || !confirmPass) {
+        alert('All fields are required');
+        return;
+    }
+    
+    if (newPass !== confirmPass) {
+        alert('New passwords do not match');
+        return;
+    }
+    
+    if (newPass.length < 6) {
+        alert('Password must be at least 6 characters');
+        return;
+    }
+    
+    const submitBtn = event.target;
+    const originalText = submitBtn.innerHTML;
+    submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Updating...';
+    submitBtn.disabled = true;
+    
+    try {
+        const token = localStorage.getItem('authToken');
+        const API_URL = 'https://backend-polylearn-production.up.railway.app';
+        
+        const response = await fetch(`${API_URL}/api/user/change-password`, {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                current_password: currentPass,
+                new_password: newPass,
+                confirm_password: confirmPass
+            })
+        });
+        
+        const data = await response.json();
+        
+        if (response.ok && data.success) {
+            alert('✅ Password changed successfully!');
+            window.CLOSE_PASSWORD_MODAL();
+        } else {
+            alert('❌ ' + (data.message || 'Failed to change password'));
+            submitBtn.innerHTML = originalText;
+            submitBtn.disabled = false;
+        }
+    } catch (error) {
+        console.error('Error:', error);
+        alert('Network error. Please try again.');
+        submitBtn.innerHTML = originalText;
+        submitBtn.disabled = false;
+    }
+};
+
+// Force attach to button with multiple attempts
+function forceAttachPasswordHandler() {
+    console.log('🔧 Force attaching password handler...');
+    
+    const findAndAttach = function() {
+        const btn = document.getElementById('changePasswordBtn');
+        if (btn) {
+            console.log('✅ Found change password button');
+            
+            // Remove all listeners by cloning
+            const newBtn = btn.cloneNode(true);
+            if (btn.parentNode) {
+                btn.parentNode.replaceChild(newBtn, btn);
+            }
+            
+            // Attach new handler
+            newBtn.onclick = function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                console.log('🔑 Password button clicked - using global handler');
+                window.OPEN_PASSWORD_MODAL();
+                return false;
+            };
+            
+            console.log('✅ Handler attached successfully');
+            return true;
+        }
+        return false;
+    };
+    
+    // Try immediately
+    if (!findAndAttach()) {
+        // Try again after delays
+        setTimeout(findAndAttach, 500);
+        setTimeout(findAndAttach, 1000);
+        setTimeout(findAndAttach, 2000);
+        setTimeout(findAndAttach, 3000);
+    }
+}
+
+// Run the force attach
+forceAttachPasswordHandler();
+
+// Also add click delegation as backup
+document.addEventListener('click', function(e) {
+    if (e.target.id === 'changePasswordBtn' || e.target.closest('#changePasswordBtn')) {
+        e.preventDefault();
+        e.stopPropagation();
+        console.log('🎯 Password button clicked via delegation');
+        window.OPEN_PASSWORD_MODAL();
+    }
+}, true);
+
+console.log('✅ Password modal fix applied - use window.OPEN_PASSWORD_MODAL() to test');
+console.log('💡 Test in console: OPEN_PASSWORD_MODAL()');
+
