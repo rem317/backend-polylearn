@@ -2700,3 +2700,41 @@ input:checked + .toggle-slider:before {
 .footer-nav-item[onclick*="showLogoutConfirmation"] {
     cursor: pointer;
 }
+
+/* Fix for extra modal content showing */
+.modal-overlay:not(#logoutModal):not(#forgotPasswordModal):not(#resetPasswordModal) {
+    display: none !important;
+}
+
+/* Ensure only our intended modals are visible when active */
+#logoutModal.modal-overlay,
+#forgotPasswordModal.modal-overlay,
+#resetPasswordModal.modal-overlay {
+    display: none;
+}
+
+#logoutModal.modal-overlay[style*="display: flex"],
+#forgotPasswordModal.modal-overlay[style*="display: flex"],
+#resetPasswordModal.modal-overlay[style*="display: flex"] {
+    display: flex !important;
+}
+
+/* Fix logout modal positioning */
+#logoutModal .modal-container {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    z-index: 10000;
+    max-width: 380px;
+    width: 90%;
+}
+
+/* Ensure proper z-index for modals */
+.modal-overlay {
+    z-index: 9999;
+}
+
+.modal-container {
+    z-index: 10000;
+}
