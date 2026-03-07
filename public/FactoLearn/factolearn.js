@@ -52,9 +52,13 @@ const APP_LESSON_MAP = {
 // ============================================
 // factorial CONSTANTS - FORCE LESSON_ID = 3
 // ============================================
+// ============================================
+// factorial CONSTANTS - FORCE LESSON_ID = 3
+// ============================================
 const FACTORIAL_LESSON_ID = 3; // Fixed for factorial app
-const POLYLEARN_LESSON_ID = 2; // ← IDAGDAG ITO
-const MATHEASE_LESSON_ID = 1;  // ← IDAGDAG ITO
+const POLYLEARN_LESSON_ID = 2;
+const MATHEASE_LESSON_ID = 1;
+const FACTOLEARN_LESSON_ID = 3; // ← I-ADD ITO (same sa FACTORIAL_LESSON_ID)
 
 // Para madaling gamitin
 const CURRENT_LESSON_ID = 3; // factorial only
