@@ -1757,7 +1757,7 @@ class StudyTimer {
         this.timerId = null;
         this.isRunning = false;
         this.timerElement = null;
-        self = this; // Store reference
+        const timerInstance = this; 
         
         // Bind methods
         this.start = this.start.bind(this);
@@ -7412,162 +7412,111 @@ function updateProgressDashboardUI() {
 }
 
 // ============================================
-// 📊 PROGRESS SUMMARY FUNCTIONS - FACTOREADY (lesson_id=3)
+// 2. UPDATE PROGRESS SUMMARY CARDS
 // ============================================
-
 async function updateProgressSummaryCards() {
-    console.log('📊 Updating FactoLearn progress summary cards (lesson_id = 3)...');
+    console.log(`📊 Updating FactoLearn progress summary (lesson_id=${FACTORIAL_LESSON_ID})...`);
     
     try {
-        const token = localStorage.getItem('authToken') || authToken;
-        if (!token) {
-            console.warn('No auth token, using fallback');
-            setDefaultProgressValues();
-            return;
-        }
+        const token = localStorage.getItem('authToken');
         
-        const FACTORIAL_LESSON_ID = 3;  // FIXED to 3
-        
-        // ===== 1. GET LESSONS =====
+        // Get lessons completed
         let lessonsCompleted = 0;
         let totalLessons = 0;
         
-        try {
-            // Get total lessons count
-            const totalResponse = await fetch(`/api/lessons-db/complete?lesson_id=${FACTORIAL_LESSON_ID}`, {
-                headers: { 'Authorization': `Bearer ${token}` }
-            });
-            
-            if (totalResponse.ok) {
-                const totalData = await totalResponse.json();
-                if (totalData.success && totalData.lessons) {
-                    totalLessons = totalData.lessons.length;
-                    console.log(`📚 Total FactoLearn lessons: ${totalLessons}`);
-                }
-            }
-            
-            // Get lessons progress
-            const lessonsResponse = await fetch(`/api/progress/lessons?lesson_id=${FACTORIAL_LESSON_ID}`, {
-                headers: { 'Authorization': `Bearer ${token}` }
-            });
-            
-            if (lessonsResponse.ok) {
-                const lessonsData = await lessonsResponse.json();
-                if (lessonsData.success && lessonsData.progress) {
-                    lessonsCompleted = lessonsData.progress.filter(p => 
-                        p.completion_status === 'completed' || p.status === 'completed'
-                    ).length;
-                    
-                    console.log(`✅ FactoLearn lessons completed: ${lessonsCompleted}/${totalLessons}`);
-                }
-            }
-        } catch (error) {
-            console.warn('⚠️ Could not fetch lessons:', error.message);
-        }
-        
-        // ===== 2. GET PRACTICE EXERCISES =====
-        let exercisesCompleted = 0;
-        let totalExercises = 0;
-        
-        try {
-            // Get total practice exercises
-            const totalExercisesResponse = await fetch(`/api/practice/exercises/count?lesson_id=${FACTORIAL_LESSON_ID}`, {
-                headers: { 'Authorization': `Bearer ${token}` }
-            });
-            
-            if (totalExercisesResponse.ok) {
-                const totalData = await totalExercisesResponse.json();
-                if (totalData.success) {
-                    totalExercises = totalData.count || 0;
-                    console.log(`📝 Total FactoLearn practice exercises: ${totalExercises}`);
-                }
-            }
-            
-            // Get practice attempts
-            const practiceResponse = await fetch(`/api/progress/practice-attempts?lesson_id=${FACTORIAL_LESSON_ID}`, {
-                headers: { 'Authorization': `Bearer ${token}` }
-            });
-            
-            if (practiceResponse.ok) {
-                const practiceData = await practiceResponse.json();
-                if (practiceData.success && practiceData.attempts) {
-                    exercisesCompleted = practiceData.attempts.filter(attempt => 
-                        attempt.completion_status === 'completed' || 
-                        attempt.percentage >= 70 ||
-                        attempt.score >= 70
-                    ).length;
-                    
-                    console.log(`✅ FactoLearn completed exercises: ${exercisesCompleted}/${totalExercises}`);
-                }
-            }
-            
-        } catch (error) {
-            console.error('❌ Error fetching practice:', error.message);
-        }
-        
-        // ===== 3. GET QUIZ POINTS =====
-        let totalPoints = 0;
-        
-        try {
-            const quizResponse = await fetch(`/api/quiz/user/attempts?lesson_id=${FACTORIAL_LESSON_ID}`, {
-                headers: { 'Authorization': `Bearer ${token}` }
-            });
-            
-            if (quizResponse.ok) {
-                const quizData = await quizResponse.json();
-                if (quizData.success && quizData.attempts) {
-                    quizData.attempts.forEach(attempt => {
-                        const correctAnswers = attempt.correct_answers || 0;
-                        totalPoints += correctAnswers * 10;
-                    });
-                    console.log(`✅ FactoLearn quiz points: ${totalPoints}`);
-                }
-            }
-        } catch (error) {
-            console.warn('⚠️ Could not fetch quiz points:', error.message);
-        }
-        
-        // ===== 4. UPDATE THE UI =====
-        
-        // Update lessons count
-        const lessonsCount = document.getElementById('lessonsCount');
-        if (lessonsCount) {
-            lessonsCount.innerHTML = `${lessonsCompleted}<span class="item-unit">/${totalLessons || 10}</span>`;
-        }
-        
-        // Update exercises count
-        const exercisesCount = document.getElementById('exercisesCount');
-        if (exercisesCount) {
-            exercisesCount.innerHTML = `${exercisesCompleted}<span class="item-unit">/${totalExercises || 15}</span>`;
-        }
-        
-        // Update quiz score
-        const quizScore = document.getElementById('quizScore');
-        if (quizScore) {
-            quizScore.innerHTML = `${totalPoints}<span class="item-unit">pts</span>`;
-        }
-        
-        // Update avg time - Use calculateAverageTime from your cache system
-        const avgTime = document.getElementById('avgTime');
-        if (avgTime) {
-            const avgMinutes = calculateAverageTime(lessonsCompleted, exercisesCompleted, totalPoints);
-            avgTime.innerHTML = `${avgMinutes}<span class="item-unit">min/day</span>`;
-        }
-        
-        console.log('✅ FactoLearn progress summary cards updated');
-        console.log(`   FINAL - Lessons: ${lessonsCompleted}/${totalLessons}, Practice: ${exercisesCompleted}/${totalExercises}, Points: ${totalPoints}`);
-        
-        // Cache this data for quick load next time
-        cacheProgressData({
-            lessons: `${lessonsCompleted}<span class="item-unit">/${totalLessons || 10}</span>`,
-            exercises: `${exercisesCompleted}<span class="item-unit">/${totalExercises || 15}</span>`,
-            quizScore: `${totalPoints}<span class="item-unit">pts</span>`,
-            avgTime: `${calculateAverageTime(lessonsCompleted, exercisesCompleted, totalPoints)}<span class="item-unit">min/day</span>`
+        const progressRes = await fetch(`/api/progress/lessons?lesson_id=${FACTORIAL_LESSON_ID}`, {
+            headers: { 'Authorization': `Bearer ${token}` }
         });
         
+        if (progressRes.ok) {
+            const data = await progressRes.json();
+            if (data.success && data.progress) {
+                lessonsCompleted = data.progress.filter(p => 
+                    p.completion_status === 'completed' || p.status === 'completed'
+                ).length;
+            }
+        }
+        
+        const totalRes = await fetch(`/api/lessons-db/complete?lesson_id=${FACTORIAL_LESSON_ID}`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        
+        if (totalRes.ok) {
+            const data = await totalRes.json();
+            if (data.success && data.lessons) {
+                totalLessons = data.lessons.length;
+            }
+        }
+        
+        // Get exercises completed
+        let exercisesCompleted = 0;
+        const practiceRes = await fetch(`/api/progress/practice-attempts?lesson_id=${FACTORIAL_LESSON_ID}`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        
+        if (practiceRes.ok) {
+            const data = await practiceRes.json();
+            if (data.success && data.attempts) {
+                exercisesCompleted = data.attempts.filter(a => 
+                    a.completion_status === 'completed' || a.percentage >= 70
+                ).length;
+            }
+        }
+        
+        // Get quiz points
+        let quizPoints = 0;
+        const quizRes = await fetch(`/api/quiz/user/attempts?lesson_id=${FACTORIAL_LESSON_ID}`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        
+        if (quizRes.ok) {
+            const data = await quizRes.json();
+            if (data.success && data.attempts) {
+                data.attempts.forEach(attempt => {
+                    quizPoints += (attempt.correct_answers || 0) * 10;
+                });
+            }
+        }
+        
+        // Update UI
+        const lessonsEl = document.getElementById('lessonsCount');
+        if (lessonsEl) {
+            lessonsEl.innerHTML = `${lessonsCompleted}<span class="item-unit">/${totalLessons || 10}</span>`;
+        }
+        
+        const exercisesEl = document.getElementById('exercisesCount');
+        if (exercisesEl) {
+            exercisesEl.innerHTML = `${exercisesCompleted}<span class="item-unit">/20</span>`;
+        }
+        
+        const quizEl = document.getElementById('quizScore');
+        if (quizEl) {
+            quizEl.innerHTML = `${quizPoints}<span class="item-unit">pts</span>`;
+        }
+        
+        const avgEl = document.getElementById('avgTime');
+        if (avgEl) {
+            const avgMinutes = Math.max(5, Math.min(30, lessonsCompleted * 3 + exercisesCompleted));
+            avgEl.innerHTML = `${avgMinutes}<span class="item-unit">min/day</span>`;
+        }
+        
+        console.log('✅ FactoLearn progress summary updated');
+        
     } catch (error) {
-        console.error('❌ Error updating progress summary cards:', error);
-        setDefaultProgressValues();
+        console.error('Error updating progress:', error);
+        
+        // Fallback values
+        const lessonsEl = document.getElementById('lessonsCount');
+        if (lessonsEl) lessonsEl.innerHTML = `0<span class="item-unit">/10</span>`;
+        
+        const exercisesEl = document.getElementById('exercisesCount');
+        if (exercisesEl) exercisesEl.innerHTML = `0<span class="item-unit">/20</span>`;
+        
+        const quizEl = document.getElementById('quizScore');
+        if (quizEl) quizEl.innerHTML = `0<span class="item-unit">pts</span>`;
+        
+        const avgEl = document.getElementById('avgTime');
+        if (avgEl) avgEl.innerHTML = `5<span class="item-unit">min/day</span>`;
     }
 }
 
@@ -16228,6 +16177,17 @@ async function loadFeedbackData() {
         showNoFeedbackMessage('Cannot connect to database');
     }
 }
+// Add after line 8865
+function getInitials(name) {
+    return (name || 'U').charAt(0).toUpperCase();
+}
+
+function formatTimeSpent(minutes) {
+    if (minutes < 60) return minutes + 'm';
+    const hours = Math.floor(minutes / 60);
+    const mins = minutes % 60;
+    return hours + 'h ' + (mins > 0 ? mins + 'm' : '');
+}
 function setupFeedbackForm() {
     console.log('📝 Setting up feedback form...');
     
@@ -16372,7 +16332,7 @@ function updateFeedbackChartsWithRealData() {
     console.log("📊 Updating feedback charts with real data...");
     
     // Update distribution chart
-    if (feedbackCharts.distributionChart) {
+    if (window.feedbackCharts?.distributionChart) {
         const ratings = feedbackData.filter(f => f.type === 'rating').length;
         const complaints = feedbackData.filter(f => f.type === 'complaint').length;
         const suggestions = feedbackData.filter(f => f.type === 'suggestion').length;
@@ -18288,49 +18248,101 @@ async function loadRecentLessons(container, lessons, progress) {
     });
 }
 
-// Update continue learning module in home dashboard
+// ============================================
+// 1. UPDATE CONTINUE LEARNING MODULE
+// ============================================
 async function updateContinueLearningModule() {
+    console.log(`📚 Updating FactoLearn continue learning (lesson_id=${FACTORIAL_LESSON_ID})...`);
+    
+    const container = document.getElementById('continueLearningContainer');
+    if (!container) {
+        console.error('Continue learning container not found');
+        return;
+    }
+    
+    container.innerHTML = `
+        <div class="loading-container">
+            <i class="fas fa-spinner fa-spin"></i> Loading FactoLearn lessons...
+        </div>
+    `;
+    
     try {
-        const container = document.getElementById('continueLearningContainer');
-        if (!container) {
-            console.error('Continue learning container not found');
-            return;
+        const token = localStorage.getItem('authToken');
+        
+        // Fetch lessons with FACTORIAL_LESSON_ID
+        const lessonsRes = await fetch(`/api/lessons-db/complete?lesson_id=${FACTORIAL_LESSON_ID}`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        
+        const lessonsData = await lessonsRes.json();
+        const lessons = lessonsData.success ? lessonsData.lessons || [] : [];
+        
+        console.log(`📚 Found ${lessons.length} FactoLearn lessons`);
+        
+        // Fetch progress with FACTORIAL_LESSON_ID
+        const progressRes = await fetch(`/api/progress/lessons?lesson_id=${FACTORIAL_LESSON_ID}`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        
+        const progressData = await progressRes.json();
+        const progressMap = {};
+        
+        if (progressData.success && progressData.progress) {
+            progressData.progress.forEach(p => {
+                progressMap[p.content_id] = {
+                    status: p.completion_status,
+                    percentage: p.percentage || 0,
+                    last_accessed: p.last_accessed
+                };
+            });
         }
         
-        container.innerHTML = `
-            <div class="loading-container">
-                <div class="loading-text">
-                    <i class="fas fa-spinner fa-spin"></i> Loading lessons...
-                </div>
-            </div>
-        `;
-        
-        // Fetch lessons and progress
-        const [lessons, progress] = await Promise.all([
-            fetchAllLessons(),
-            fetchUserLessonProgress()
-        ]);
+        // Store in state
+        LessonState.lessons = lessons;
+        LessonState.userProgress = progressMap;
         
         if (lessons.length === 0) {
             container.innerHTML = `
                 <div class="no-lessons">
                     <i class="fas fa-book"></i>
-                    <h3>No lessons available</h3>
+                    <h3>No FactoLearn Lessons Available</h3>
                     <p>Check back later for new lessons!</p>
                 </div>
             `;
-            
-            // Still update today's learning even if no lessons
-            updateTodaysLearningStats();
             return;
         }
         
-        // Store in global state
-        LessonState.lessons = lessons;
-        LessonState.userProgress = progress;
+        // Find continue learning lesson
+        let continueLesson = null;
+        let mostRecent = null;
         
-        // Get continue learning lesson
-        const continueLesson = getContinueLearningLesson(lessons, progress);
+        for (const lesson of lessons) {
+            const prog = progressMap[lesson.content_id] || {};
+            if (prog.status === 'completed') continue;
+            
+            if (prog.last_accessed) {
+                const last = new Date(prog.last_accessed);
+                if (!mostRecent || last > mostRecent) {
+                    mostRecent = last;
+                    continueLesson = lesson;
+                }
+            }
+        }
+        
+        if (!continueLesson) {
+            for (const lesson of lessons) {
+                const prog = progressMap[lesson.content_id] || {};
+                if (prog.status !== 'completed') {
+                    continueLesson = lesson;
+                    break;
+                }
+            }
+        }
+        
+        if (!continueLesson && lessons.length > 0) {
+            continueLesson = lessons[0];
+        }
+        
         LessonState.continueLearningLesson = continueLesson;
         
         if (!continueLesson) {
@@ -18338,102 +18350,87 @@ async function updateContinueLearningModule() {
                 <div class="no-lessons">
                     <i class="fas fa-trophy"></i>
                     <h3>All Lessons Completed!</h3>
-                    <p>Great job! You've completed all available lessons.</p>
-                    <button class="btn-primary" id="reviewAllLessons">
-                        <i class="fas fa-redo"></i> Review Lessons
-                    </button>
+                    <p>Great job! You've completed all FactoLearn lessons.</p>
+                    <button class="btn-primary" id="reviewAllBtn">Review Lessons</button>
                 </div>
             `;
-            
-            document.getElementById('reviewAllLessons')?.addEventListener('click', () => {
+            document.getElementById('reviewAllBtn')?.addEventListener('click', () => {
                 navigateTo('moduleDashboard');
             });
-            
-            // Still update today's learning
-            updateTodaysLearningStats();
             return;
         }
         
-        // Calculate progress percentage
-        const lessonProgress = progress[continueLesson.content_id] || {};
-        const percentage = lessonProgress.percentage || 0;
-        const status = lessonProgress.status || 'not_started';
+        const prog = progressMap[continueLesson.content_id] || {};
+        const percentage = prog.percentage || 0;
+        const status = prog.status || 'not_started';
         
-        // Get topic ID for this lesson
-        const topicId = continueLesson.topic_id || 1;
-        LessonState.currentTopic = topicId;
-        
-        // Render continue learning module
+        // Render continue learning
         container.innerHTML = `
             <div class="current-lesson-card" style="background: white; border-radius: 12px; padding: 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
                     <h3 style="margin: 0; color: #2c3e50; font-size: 16px;">
                         <i class="fas fa-play-circle" style="color: #7a0000;"></i> 
-                        Current Lesson
+                        Current FactoLearn Lesson
                     </h3>
-                    <span class="lesson-status ${status === 'completed' ? 'status-completed' : status === 'in_progress' ? 'status-in-progress' : 'status-not-started'}" 
-                          style="padding: 4px 10px; border-radius: 20px; font-size: 12px; background: ${status === 'completed' ? '#d4edda' : status === 'in_progress' ? '#fff3cd' : '#f8f9fa'}; color: ${status === 'completed' ? '#155724' : status === 'in_progress' ? '#856404' : '#6c757d'};">
+                    <span class="lesson-status" style="
+                        padding: 4px 10px; border-radius: 20px; font-size: 12px;
+                        background: ${status === 'completed' ? '#d4edda' : status === 'in_progress' ? '#fff3cd' : '#f8f9fa'};
+                        color: ${status === 'completed' ? '#155724' : status === 'in_progress' ? '#856404' : '#6c757d'};
+                    ">
                         ${status === 'completed' ? 'Completed' : status === 'in_progress' ? 'In Progress' : 'Not Started'}
                     </span>
                 </div>
                 
-                <h4 class="lesson-title" style="margin: 0 0 10px 0; color: #2c3e50; font-size: 18px;">${continueLesson.content_title}</h4>
+                <h4 style="margin: 0 0 10px 0; color: #2c3e50; font-size: 18px;">
+                    ${continueLesson.content_title}
+                </h4>
                 
-                <p style="color: #666; margin-bottom: 15px;">${continueLesson.content_description || 'Continue your learning journey.'}</p>
+                <p style="color: #666; margin-bottom: 15px;">${continueLesson.content_description || ''}</p>
                 
                 <div style="margin-bottom: 15px;">
                     <div style="display: flex; justify-content: space-between; font-size: 14px; color: #666; margin-bottom: 5px;">
                         <span>Progress</span>
-                        <span class="progress-text">${percentage}%</span>
+                        <span>${percentage}%</span>
                     </div>
                     <div style="height: 8px; background: #ecf0f1; border-radius: 4px; overflow: hidden;">
-                        <div class="progress-fill" style="height: 100%; width: ${percentage}%; background: #7a0000; border-radius: 4px;"></div>
+                        <div style="height: 100%; width: ${percentage}%; background: #7a0000;"></div>
                     </div>
                 </div>
                 
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
-                    <span class="lesson-duration" style="color: #7f8c8d; font-size: 14px;">
-                        <i class="fas fa-clock"></i> ${Math.floor((continueLesson.video_duration_seconds || 600) / 60)} min
-                    </span>
                     <span style="color: #7f8c8d; font-size: 14px;">
-                        <i class="fas fa-video"></i> Video Lesson
+                        <i class="fas fa-clock"></i> ${Math.round((continueLesson.video_duration_seconds || 600) / 60)} min
+                    </span>
+                    <span style="color: #7a0000; font-size: 14px; font-weight: bold;">
+                        <i class="fas fa-graduation-cap"></i> FactoLearn
                     </span>
                 </div>
                 
                 <button class="btn-primary continue-lesson-btn" data-lesson-id="${continueLesson.content_id}" 
-                        style="width: 100%; padding: 12px; background: #7a0000; color: white; border: none; border-radius: 8px; font-weight: 600; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px;">
+                        style="width: 100%; padding: 12px; background: #7a0000; color: white; border: none; border-radius: 8px; font-weight: 600; cursor: pointer;">
                     <i class="fas fa-play-circle"></i> 
                     ${status === 'completed' ? 'Review Lesson' : 'Continue Lesson'}
                 </button>
             </div>
         `;
         
-        // Add event listener to continue button
+        // Add click handler
         document.querySelector('.continue-lesson-btn')?.addEventListener('click', function() {
-            const lessonId = this.getAttribute('data-lesson-id');
+            const lessonId = this.dataset.lessonId;
             openLesson(lessonId);
         });
         
-        // Update today's learning stats
-        updateTodaysLearningStats();
-        
-        console.log('✅ Continue learning module updated');
+        console.log('✅ FactoLearn continue learning updated');
         
     } catch (error) {
-        console.error('Error updating continue learning module:', error);
-        const container = document.getElementById('continueLearningContainer');
-        if (container) {
-            container.innerHTML = `
-                <div class="error-message" style="text-align: center; padding: 30px;">
-                    <i class="fas fa-exclamation-triangle" style="font-size: 40px; color: #e74c3c; margin-bottom: 15px;"></i>
-                    <h3 style="color: #2c3e50; margin-bottom: 10px;">Failed to load lessons</h3>
-                    <p style="color: #666;">Please try refreshing the page</p>
-                </div>
-            `;
-        }
-        
-        // Still try to update today's learning
-        updateTodaysLearningStats();
+        console.error('Error:', error);
+        container.innerHTML = `
+            <div class="error-message">
+                <i class="fas fa-exclamation-triangle"></i>
+                <h3>Failed to load lessons</h3>
+                <p>Please try again later</p>
+            </div>
+        `;
     }
 }
 // ============================================
@@ -20421,119 +20418,43 @@ async function updateProgressDisplay(lesson) {
     console.log('✅ Progress display updated');
 }
 // ============================================
-// ✅ NEW: Update Today's Learning Stats
+// 3. UPDATE TODAY'S LEARNING STATS
 // ============================================
 async function updateTodaysLearningStats() {
-    console.log('📅 Updating Today\'s Learning stats...');
-    
     try {
-        // Get elements
-        const lessonsToday = document.getElementById('lessonsToday');
-        const exercisesToday = document.getElementById('exercisesToday');
-        const timeToday = document.getElementById('timeToday');
+        const token = localStorage.getItem('authToken');
         
-        if (!lessonsToday && !exercisesToday && !timeToday) {
-            console.log('ℹ️ Today\'s learning elements not found');
-            return;
-        }
+        const response = await fetch(`/api/progress/today-stats?lesson_id=${FACTORIAL_LESSON_ID}`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
         
-        // Get today's date (YYYY-MM-DD)
-        const today = new Date().toISOString().split('T')[0];
-        
-        // Try to get from localStorage first (fast)
-        let lessonsCompletedToday = 0;
-        let exercisesCompletedToday = 0;
-        let minutesSpentToday = 0;
-        
-        try {
-            const savedToday = localStorage.getItem('todays_learning');
-            if (savedToday) {
-                const data = JSON.parse(savedToday);
-                if (data.date === today) {
-                    lessonsCompletedToday = data.lessons || 0;
-                    exercisesCompletedToday = data.exercises || 0;
-                    minutesSpentToday = data.minutes || 0;
-                    console.log('📊 Today\'s stats from localStorage:', { 
-                        lessons: lessonsCompletedToday, 
-                        exercises: exercisesCompletedToday,
-                        minutes: minutesSpentToday
-                    });
-                }
-            }
-        } catch (e) {
-            console.warn('Could not load from localStorage:', e);
-        }
-        
-        // Try to get from server (if available)
-        try {
-            const token = localStorage.getItem('authToken');
-            if (token) {
-                const response = await fetch('/api/progress/daily?lesson_id=3', {
-                    headers: { 'Authorization': `Bearer ${token}` }
-                });
+        if (response.ok) {
+            const data = await response.json();
+            if (data.success) {
+                const stats = data.stats;
                 
-                if (response.ok) {
-                    const data = await response.json();
-                    if (data.success && data.progress) {
-                        lessonsCompletedToday = data.progress.lessons_completed || lessonsCompletedToday;
-                        exercisesCompletedToday = data.progress.exercises_completed || exercisesCompletedToday;
-                        minutesSpentToday = data.progress.time_spent_minutes || minutesSpentToday;
-                        
-                        console.log('📊 Today\'s stats from server:', { 
-                            lessons: lessonsCompletedToday, 
-                            exercises: exercisesCompletedToday,
-                            minutes: minutesSpentToday
-                        });
-                        
-                        // Save to localStorage
-                        localStorage.setItem('todays_learning', JSON.stringify({
-                            date: today,
-                            lessons: lessonsCompletedToday,
-                            exercises: exercisesCompletedToday,
-                            minutes: minutesSpentToday
-                        }));
-                    }
+                const totalTime = document.getElementById('totalLearningTime');
+                if (totalTime) {
+                    const minutes = Math.floor(stats.totalLearningTime / 60);
+                    totalTime.textContent = `${minutes} min`;
+                }
+                
+                const accuracyRate = document.getElementById('accuracyRate');
+                if (accuracyRate) {
+                    accuracyRate.textContent = `${stats.accuracyRate}%`;
+                }
+                
+                const exercisesCompleted = document.getElementById('exercisesCompleted');
+                if (exercisesCompleted) {
+                    exercisesCompleted.textContent = `${stats.exercisesCompleted}/5`;
                 }
             }
-        } catch (error) {
-            console.warn('Could not fetch from server:', error);
         }
-        
-        // Update UI
-        if (lessonsToday) {
-            lessonsToday.textContent = lessonsCompletedToday;
-        }
-        
-        if (exercisesToday) {
-            exercisesToday.textContent = exercisesCompletedToday;
-        }
-        
-        if (timeToday) {
-            const hours = Math.floor(minutesSpentToday / 60);
-            const mins = minutesSpentToday % 60;
-            
-            if (hours > 0) {
-                timeToday.textContent = `${hours}h ${mins}m`;
-            } else {
-                timeToday.textContent = `${mins}m`;
-            }
-        }
-        
-        console.log('✅ Today\'s learning stats updated');
-        
     } catch (error) {
-        console.error('❌ Error updating today\'s learning:', error);
-        
-        // Set default values on error
-        const lessonsToday = document.getElementById('lessonsToday');
-        const exercisesToday = document.getElementById('exercisesToday');
-        const timeToday = document.getElementById('timeToday');
-        
-        if (lessonsToday) lessonsToday.textContent = '0';
-        if (exercisesToday) exercisesToday.textContent = '0';
-        if (timeToday) timeToday.textContent = '0m';
+        console.error('Error updating today\'s stats:', error);
     }
 }
+
 // ============================================
 // ✅ NEW: Update Current Lesson Progress in Dashboard
 // ============================================
@@ -20660,6 +20581,73 @@ function setupBackButton() {
     console.log('✅ Back button setup complete');
 }
 
+// ============================================
+// 4. INITIALIZE HOME DASHBOARD
+// ============================================
+async function initHomeDashboard() {
+    console.log(`🏠 Initializing FactoLearn home dashboard (lesson_id=${FACTORIAL_LESSON_ID})...`);
+    
+    // Update all sections
+    await Promise.all([
+        updateContinueLearningModule(),
+        updateProgressSummaryCards(),
+        updateTodaysLearningStats()
+    ]);
+    
+    // Add FactoLearn indicator
+    const dashboardTitle = document.querySelector('.dashboard-header h1');
+    if (dashboardTitle) {
+        dashboardTitle.innerHTML = `
+            FactoLearn Dashboard 
+            <span style="font-size: 14px; background: #7a0000; color: white; padding: 5px 12px; border-radius: 20px; margin-left: 10px;">
+                Lesson ID: ${FACTORIAL_LESSON_ID}
+            </span>
+        `;
+    }
+    
+    console.log('✅ FactoLearn home dashboard initialized');
+}
+// ============================================
+// 5. OVERRIDE NAVIGATE TO DASHBOARD
+// ============================================
+const originalNavigateTo = window.navigateTo;
+window.navigateTo = function(page) {
+    if (page === 'dashboard') {
+        console.log('🏠 Navigating to FactoLearn dashboard');
+        originalNavigateTo(page);
+        setTimeout(() => {
+            initHomeDashboard();
+        }, 300);
+    } else {
+        originalNavigateTo(page);
+    }
+};
+
+// ============================================
+// 6. AUTO-INIT WHEN DASHBOARD OPENS
+// ============================================
+document.addEventListener('DOMContentLoaded', function() {
+    const dashboard = document.getElementById('dashboard-page');
+    if (dashboard && !dashboard.classList.contains('hidden')) {
+        setTimeout(initHomeDashboard, 500);
+    }
+    
+    // Observe for dashboard visibility
+    const observer = new MutationObserver(function(mutations) {
+        mutations.forEach(function(mutation) {
+            if (mutation.type === 'attributes' && mutation.attributeName === 'class') {
+                if (!dashboard.classList.contains('hidden')) {
+                    console.log('🏠 Dashboard became visible');
+                    setTimeout(initHomeDashboard, 300);
+                }
+            }
+        });
+    });
+    
+    if (dashboard) {
+        observer.observe(dashboard, { attributes: true });
+    }
+});
 // ============================================
 // HELPER: Setup navigation buttons (PREV/NEXT) - UPDATED
 // ============================================
@@ -21855,89 +21843,54 @@ function createChartContainers() {
     console.log('✅ Created chart containers');
 }
 // ============================================
-// ✅ FIXED: Load Topics Progress - Lesson ID 3 ONLY
+// ✅ FIXED: Load Topics Progress - FactoLearn Only (Lesson ID 3)
 // ============================================
 async function loadTopicsProgress() {
-    console.log('📊 Loading topics progress for Lesson ID 3 ONLY...');
+    console.log('📊 Loading FactoLearn topics (lesson_id=3 ONLY)...');
     
     const topicsContainer = document.getElementById('topicsContainer');
-    if (!topicsContainer) {
-        console.error('❌ topicsContainer NOT FOUND!');
-        return;
-    }
+    if (!topicsContainer) return;
     
-    // Show loading
-    topicsContainer.innerHTML = `
-        <div style="text-align: center; padding: 30px;">
-            <i class="fas fa-spinner fa-spin" style="font-size: 30px; color: #7a0000;"></i>
-            <p style="margin-top: 10px; color: #666;">Loading FactoLearn topics...</p>
-        </div>
-    `;
+    topicsContainer.innerHTML = '<div style="text-align: center; padding: 30px;"><i class="fas fa-spinner fa-spin"></i> Loading...</div>';
     
     try {
         const token = localStorage.getItem('authToken');
-        if (!token) {
-            topicsContainer.innerHTML = '<p style="color: #666; text-align: center;">Please login to view topics</p>';
-            return;
-        }
         
-        // FORCE lesson_id=3
         const response = await fetch('/api/topics/progress?lesson_id=3', {
-            headers: {
-                'Authorization': `Bearer ${token}`,
-                'Accept': 'application/json'
-            }
+            headers: { 'Authorization': `Bearer ${token}` }
         });
         
-        if (!response.ok) {
-            throw new Error(`HTTP ${response.status}`);
-        }
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
         
         const data = await response.json();
-        console.log('📥 Topics data from server:', data);
+        console.log('📥 All topics from server:', data);
         
         if (data.success && data.topics) {
-            // FILTER: Lesson ID 3 lang (double safety)
+            // FILTER: Only show topics with lesson_id = 3
             const factolearnTopics = data.topics.filter(topic => {
+                // Check all possible lesson_id fields
                 const lessonId = topic.lesson_id || topic.lessonId;
                 return lessonId == 3;
             });
             
-            console.log(`🎯 Found ${factolearnTopics.length} topics for Lesson ID 3`);
+            console.log(`✅ Filtered to ${factolearnTopics.length} FactoLearn topics`);
             
             if (factolearnTopics.length > 0) {
-                displayTopicsProgress(factolearnTopics);
+                displayFactoLearnTopics(factolearnTopics);
             } else {
-                // No topics for lesson 3, show demo data
-                const demoTopics = getFactoLearnDemoTopics();
-                displayTopicsProgress(demoTopics);
-                topicsContainer.innerHTML += `
-                    <div style="background: #fff3cd; color: #856404; padding: 10px; border-radius: 5px; margin-top: 10px; font-size: 12px;">
-                        <i class="fas fa-info-circle"></i> Using sample FactoLearn topics
+                topicsContainer.innerHTML = `
+                    <div style="text-align: center; padding: 40px;">
+                        <i class="fas fa-folder-open" style="font-size: 48px; color: #ccc;"></i>
+                        <h3 style="color: #666;">No FactoLearn Topics Found</h3>
+                        <p style="color: #999;">Topics with lesson_id = 3 will appear here</p>
                     </div>
                 `;
             }
-        } else {
-            // No data, use demo
-            const demoTopics = getFactoLearnDemoTopics();
-            displayTopicsProgress(demoTopics);
         }
-        
     } catch (error) {
-        console.error('❌ Error loading topics:', error);
-        
-        // Show demo data on error
-        const demoTopics = getFactoLearnDemoTopics();
-        displayTopicsProgress(demoTopics);
-        
-        topicsContainer.innerHTML += `
-            <div style="background: #fee; color: #c00; padding: 10px; border-radius: 5px; margin-top: 10px; font-size: 12px;">
-                <i class="fas fa-exclamation-triangle"></i> Using sample data (Error: ${error.message})
-            </div>
-        `;
+        console.error('Error:', error);
     }
 }
-
 
 // Demo topics for FactoLearn (Lesson ID 3)
 function getFactoLearnDemoTopics() {
@@ -22145,120 +22098,45 @@ function validateTopicForCurrentApp(topicId) {
 }
 
 
-// ============================================
-// ✅ FIXED: displayTopics - WITH BETTER DEBUGGING
-// ============================================
-function displayTopics(topics) {
-    const topicsContainer = document.getElementById('topicsContainer');
-    if (!topicsContainer) {
-        console.error('❌ topicsContainer not found in displayTopics');
-        return;
-    }
+ const topicsContainer = document.getElementById('topicsContainer');
+    if (!topicsContainer) return;
     
-    console.log(`📋 Displaying ${topics.length} topics:`, topics);
-    
-    if (!topics || topics.length === 0) {
-        topicsContainer.innerHTML = `
-            <div class="no-topics" style="text-align: center; padding: 40px;">
-                <i class="fas fa-folder-open" style="font-size: 48px; color: #ccc; margin-bottom: 15px;"></i>
-                <h3 style="color: #666;">No topics available</h3>
-                <p style="color: #999;">Complete lessons to unlock topics.</p>
-            </div>
-        `;
-        return;
-    }
-    
-    let html = '';
+    let html = `
+        <div style="background: #7a0000; color: white; padding: 10px 15px; border-radius: 8px; margin-bottom: 20px;">
+            <i class="fas fa-graduation-cap"></i> FactoLearn Topics (Lesson ID: 3)
+        </div>
+    `;
     
     topics.forEach(topic => {
-        const progressPercentage = topic.lesson_progress_percentage || 0;
-        const isPracticeUnlocked = topic.practice_unlocked || false;
-        const isPracticeCompleted = topic.practice_completed || false;
-        const isSelected = PracticeState.currentTopic == topic.topic_id;
-        
-        console.log(`Topic card: ${topic.topic_title}, unlocked=${isPracticeUnlocked}, selected=${isSelected}`);
+        const progress = topic.lesson_progress_percentage || 0;
+        const lessonsCompleted = topic.lessons_completed || 0;
+        const totalLessons = topic.total_lessons || 0;
         
         html += `
-            <div class="topic-card ${isPracticeUnlocked ? 'unlocked' : 'locked'} ${isPracticeCompleted ? 'completed' : ''} ${isSelected ? 'selected' : ''}" 
-                 data-topic-id="${topic.topic_id}"
-                 data-practice-unlocked="${isPracticeUnlocked}"
-                 style="cursor: pointer; background: white; border-radius: 8px; padding: 15px; margin-bottom: 10px; border: 2px solid ${isSelected ? '#7a0000' : 'transparent'};">
-                 
-                <div class="topic-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
-                    <h3 class="topic-title" style="margin: 0; font-size: 16px;">${topic.topic_title || 'Topic'}</h3>
-                    <div class="topic-status">
-                        ${isPracticeCompleted ? 
-                            '<span style="color: #27ae60;"><i class="fas fa-check-circle"></i> Completed</span>' :
-                            isPracticeUnlocked ?
-                            '<span style="color: #7a0000;"><i class="fas fa-unlock"></i> Unlocked</span>' :
-                            '<span style="color: #999;"><i class="fas fa-lock"></i> Locked</span>'
-                        }
-                    </div>
+            <div style="background: white; border-radius: 10px; padding: 15px; margin-bottom: 15px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); border-left: 4px solid #7a0000;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                    <h4 style="margin: 0; color: #2c3e50;">${topic.topic_title}</h4>
+                    <span style="background: #7a0000; color: white; padding: 4px 10px; border-radius: 15px; font-size: 11px;">
+                        ID: ${topic.topic_id}
+                    </span>
                 </div>
                 
-                <div class="topic-body">
-                    <p style="margin: 0 0 10px 0; color: #666; font-size: 14px;">${topic.module_name || 'Module'} - ${topic.topic_title}</p>
-                    
-                    <div class="topic-progress" style="margin: 10px 0;">
-                        <div class="progress-info" style="display: flex; justify-content: space-between; font-size: 13px; color: #666; margin-bottom: 5px;">
-                            <span>Lessons: ${topic.lessons_completed || 0}/${topic.total_lessons || 0}</span>
-                            <span>${progressPercentage}%</span>
-                        </div>
-                        <div class="progress-bar" style="height: 6px; background: #ecf0f1; border-radius: 3px; overflow: hidden;">
-                            <div class="progress-fill" style="height: 100%; width: ${progressPercentage}%; background: #7a0000;"></div>
-                        </div>
-                    </div>
-                    
-                    <div class="topic-practice-info" style="font-size: 13px; margin-top: 5px;">
-                        ${isPracticeCompleted ? 
-                            '<span style="color: #27ae60;"><i class="fas fa-trophy"></i> Practice Completed</span>' :
-                            isPracticeUnlocked ?
-                            '<span style="color: #7a0000;"><i class="fas fa-pencil-alt"></i> Practice Available</span>' :
-                            `<span style="color: #999;">Complete ${(topic.total_lessons || 0) - (topic.lessons_completed || 0)} more lessons</span>`
-                        }
-                    </div>
-                </div>
+                <p style="color: #666; font-size: 14px; margin-bottom: 15px;">${topic.module_name || ''}</p>
                 
-                <div class="topic-actions" style="margin-top: 15px;">
-                    ${isPracticeUnlocked ? 
-                        `<button class="btn-primary practice-topic-btn" data-topic-id="${topic.topic_id}" 
-                                style="width: 100%; padding: 8px; background: #7a0000; color: white; border: none; border-radius: 5px; cursor: pointer;">
-                            <i class="fas fa-play"></i> Start Practice
-                        </button>` :
-                        `<button class="btn-secondary" disabled 
-                                style="width: 100%; padding: 8px; background: #95a5a6; color: white; border: none; border-radius: 5px;">
-                            <i class="fas fa-lock"></i> Complete Lessons First
-                        </button>`
-                    }
+                <div style="margin: 10px 0;">
+                    <div style="display: flex; justify-content: space-between; font-size: 13px; color: #666; margin-bottom: 5px;">
+                        <span>Lessons: ${lessonsCompleted}/${totalLessons}</span>
+                        <span>${progress}%</span>
+                    </div>
+                    <div style="height: 8px; background: #ecf0f1; border-radius: 4px; overflow: hidden;">
+                        <div style="height: 100%; width: ${progress}%; background: #7a0000;"></div>
+                    </div>
                 </div>
             </div>
         `;
     });
     
     topicsContainer.innerHTML = html;
-    console.log('✅ Topics displayed, container HTML length:', html.length);
-    
-    // Add event listeners to topic cards
-    document.querySelectorAll('.topic-card.unlocked').forEach(card => {
-        card.addEventListener('click', function(e) {
-            // Don't trigger if clicking the button
-            if (e.target.closest('button')) return;
-            
-            const topicId = this.getAttribute('data-topic-id');
-            console.log('🎯 Topic card clicked:', topicId);
-            selectTopicForPractice(topicId);
-        });
-    });
-    
-    // Add event listeners to practice buttons
-    document.querySelectorAll('.practice-topic-btn').forEach(button => {
-        button.addEventListener('click', function(e) {
-            e.stopPropagation();
-            const topicId = this.getAttribute('data-topic-id');
-            console.log('🎯 Practice button clicked:', topicId);
-            selectTopicForPractice(topicId);
-        });
-    });
 }
 
 // ============================================
@@ -22365,131 +22243,16 @@ async function selectTopicForPractice(topicId) {
 
 
 // ============================================
-// ✅ FIXED: Load Practice Exercises - Lesson ID 3 Only
+// ✅ FactoLearn Demo Exercises (Lesson ID 3)
 // ============================================
-async function loadPracticeExercisesForTopic(topicId) {
-    console.log(`📥 Loading exercises for topic ${topicId} - Lesson ID 3 ONLY`);
-    
-    const exerciseArea = document.getElementById('exerciseArea');
-    if (!exerciseArea) return;
-    
-    exerciseArea.innerHTML = `
-        <div style="text-align: center; padding: 40px;">
-            <i class="fas fa-spinner fa-spin" style="font-size: 40px; color: #7a0000;"></i>
-            <p style="margin-top: 15px; color: #666;">Loading FactoLearn exercises from database...</p>
-        </div>
-    `;
-    
-    try {
-        const token = localStorage.getItem('authToken');
-        
-        // Only use endpoints that are likely to exist
-        const endpoints = [
-            `/api/practice/exercises?lesson_id=3&topic_id=${topicId}`,
-            `/api/practice/list?lesson_id=3&topic=${topicId}`,
-            `/api/practice/topic/${topicId}?lesson_id=3`
-        ];
-        
-        let exercises = [];
-        let foundData = false;
-        
-        for (const endpoint of endpoints) {
-            try {
-                console.log(`📡 Trying: ${endpoint}`);
-                const res = await fetch(endpoint, {
-                    headers: { 
-                        'Authorization': `Bearer ${token}`,
-                        'Accept': 'application/json'
-                    }
-                });
-                
-                if (res.ok) {
-                    const data = await res.json();
-                    console.log(`✅ Response from ${endpoint}:`, data);
-                    
-                    // Extract exercises from different response formats
-                    if (data.success && data.exercises) {
-                        exercises = data.exercises;
-                        foundData = true;
-                    } else if (data.exercises) {
-                        exercises = data.exercises;
-                        foundData = true;
-                    } else if (Array.isArray(data)) {
-                        exercises = data;
-                        foundData = true;
-                    } else if (data.data && Array.isArray(data.data)) {
-                        exercises = data.data;
-                        foundData = true;
-                    }
-                    
-                    if (exercises.length) {
-                        console.log(`✅ Found ${exercises.length} exercises from ${endpoint}`);
-                        break;
-                    }
-                } else {
-                    console.log(`⚠️ ${endpoint} returned ${res.status}`);
-                }
-            } catch (e) {
-                console.log(`⚠️ Endpoint ${endpoint} failed:`, e.message);
-            }
-        }
-        
-        // Filter for lesson_id=3
-        if (exercises.length > 0) {
-            exercises = exercises.filter(ex => {
-                const lessonId = ex.lesson_id || ex.lessonId;
-                return lessonId == 3;
-            });
-            console.log(`✅ After filtering: ${exercises.length} exercises with lesson_id=3`);
-        }
-        
-        if (exercises.length > 0) {
-            console.log('📊 Using exercises from database');
-            displayPracticeExercises(exercises);
-        } else {
-            console.log('ℹ️ No exercises from database, using enhanced demo data');
-            
-            // Show a notice
-            exerciseArea.innerHTML = `
-                <div style="background: #fff3cd; color: #856404; padding: 12px; border-radius: 8px; margin-bottom: 15px; display: flex; align-items: center; gap: 10px;">
-                    <i class="fas fa-info-circle"></i>
-                    <span>Using sample exercises (database connection limited)</span>
-                </div>
-            `;
-            
-            // Use enhanced demo exercises
-            exercises = getEnhancedDemoExercises(topicId);
-            displayPracticeExercises(exercises);
-        }
-        
-    } catch (error) {
-        console.error('❌ Error loading exercises:', error);
-        
-        exerciseArea.innerHTML = `
-            <div style="background: #fee; color: #c00; padding: 12px; border-radius: 8px; margin-bottom: 15px;">
-                <i class="fas fa-exclamation-triangle"></i> Error loading exercises: ${error.message}
-            </div>
-        `;
-        
-        // Fallback to demo data
-        const exercises = getEnhancedDemoExercises(topicId);
-        displayPracticeExercises(exercises);
-    }
-}
-
-// ============================================
-// ✅ FIXED: Get Demo Exercises with complete data
-// ============================================
-function getDemoExercises() {
-    console.log('📋 Generating demo exercises for FactoLearn (lesson_id=3)');
-    
+function getFactoLearnDemoExercises() {
     return [
         {
             exercise_id: 1,
-            id: 1,
             lesson_id: 3,
+            topic_id: 5,
             title: '📐 Factorial Basics',
-            description: 'Practice basic factorial calculations and simplifications',
+            description: 'Practice basic factorial calculations',
             difficulty: 'easy',
             points: 10,
             questions: [
@@ -22510,100 +22273,44 @@ function getDemoExercises() {
                         { text: '15', correct: false },
                         { text: '25', correct: false }
                     ]
-                },
-                {
-                    text: 'What is 3! + 4! ?',
-                    options: [
-                        { text: '30', correct: true },
-                        { text: '24', correct: false },
-                        { text: '26', correct: false },
-                        { text: '34', correct: false }
-                    ]
                 }
             ]
         },
         {
             exercise_id: 2,
-            id: 2,
             lesson_id: 3,
-            title: '🧮 Permutation Fundamentals',
-            description: 'Learn and practice permutation concepts',
+            topic_id: 5,
+            title: '🧮 Factorial Properties',
+            description: 'Learn factorial properties and simplifications',
             difficulty: 'medium',
             points: 15,
             questions: [
                 {
-                    text: 'How many ways can you arrange 5 different books on a shelf?',
+                    text: 'What is 7! / 5! ?',
                     options: [
-                        { text: '120', correct: true },
-                        { text: '60', correct: false },
-                        { text: '24', correct: false },
-                        { text: '720', correct: false }
+                        { text: '42', correct: true },
+                        { text: '36', correct: false },
+                        { text: '48', correct: false },
+                        { text: '56', correct: false }
                     ]
                 },
                 {
-                    text: 'Calculate 7P3 (permutations of 7 items taken 3 at a time)',
+                    text: 'Simplify: (n+2)! / n!',
                     options: [
-                        { text: '210', correct: true },
-                        { text: '35', correct: false },
-                        { text: '840', correct: false },
-                        { text: '5040', correct: false }
-                    ]
-                },
-                {
-                    text: 'In how many ways can 4 people sit in 4 chairs?',
-                    options: [
-                        { text: '24', correct: true },
-                        { text: '16', correct: false },
-                        { text: '12', correct: false },
-                        { text: '48', correct: false }
+                        { text: '(n+2)(n+1)', correct: true },
+                        { text: 'n+2', correct: false },
+                        { text: 'n²+2n', correct: false },
+                        { text: '2n+2', correct: false }
                     ]
                 }
             ]
         },
         {
             exercise_id: 3,
-            id: 3,
             lesson_id: 3,
-            title: '🔄 Combination Concepts',
-            description: 'Master combination problems and formulas',
-            difficulty: 'medium',
-            points: 15,
-            questions: [
-                {
-                    text: 'How many ways to choose 3 items from 10 items? (10C3)',
-                    options: [
-                        { text: '120', correct: true },
-                        { text: '240', correct: false },
-                        { text: '720', correct: false },
-                        { text: '5040', correct: false }
-                    ]
-                },
-                {
-                    text: 'Calculate 8C2',
-                    options: [
-                        { text: '28', correct: true },
-                        { text: '56', correct: false },
-                        { text: '16', correct: false },
-                        { text: '40320', correct: false }
-                    ]
-                },
-                {
-                    text: 'A committee of 4 is to be chosen from 9 people. How many ways?',
-                    options: [
-                        { text: '126', correct: true },
-                        { text: '3024', correct: false },
-                        { text: '84', correct: false },
-                        { text: '252', correct: false }
-                    ]
-                }
-            ]
-        },
-        {
-            exercise_id: 4,
-            id: 4,
-            lesson_id: 3,
+            topic_id: 5,
             title: '📊 Advanced Factorials',
-            description: 'Complex factorial problems and applications',
+            description: 'Complex factorial problems',
             difficulty: 'hard',
             points: 20,
             questions: [
@@ -22617,15 +22324,6 @@ function getDemoExercises() {
                     ]
                 },
                 {
-                    text: 'Simplify: (n+1)! / n!',
-                    options: [
-                        { text: 'n+1', correct: true },
-                        { text: 'n', correct: false },
-                        { text: '1', correct: false },
-                        { text: '(n+1)n', correct: false }
-                    ]
-                },
-                {
                     text: 'If 7! = 5040, what is 8! ?',
                     options: [
                         { text: '40320', correct: true },
@@ -22635,50 +22333,147 @@ function getDemoExercises() {
                     ]
                 }
             ]
-        },
+        }
+    ];
+}
+
+// ============================================
+// ✅ Load Practice Exercises with Demo Data
+// ============================================
+async function loadPracticeExercisesForTopic(topicId) {
+    console.log(`📥 Loading exercises for topic ${topicId}`);
+    
+    const exerciseArea = document.getElementById('exerciseArea');
+    if (!exerciseArea) return;
+    
+    // Show loading
+    exerciseArea.innerHTML = '<div style="text-align: center; padding: 40px;"><i class="fas fa-spinner fa-spin"></i> Loading...</div>';
+    
+    try {
+        // Try to fetch from database
+        const token = localStorage.getItem('authToken');
+        const response = await fetch(`/api/practice/exercises?lesson_id=3&topic_id=${topicId}`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        
+        let exercises = [];
+        
+        if (response.ok) {
+            const data = await response.json();
+            if (data.success && data.exercises) exercises = data.exercises;
+            else if (data.exercises) exercises = data.exercises;
+        }
+        
+        // If no exercises from database, use demo data
+        if (exercises.length === 0) {
+            console.log('ℹ️ Using demo exercises for FactoLearn');
+            exercises = getDemoExercises();
+            
+            // Show demo mode notice
+            exerciseArea.innerHTML = `
+                <div style="background: #fff3cd; color: #856404; padding: 10px; border-radius: 5px; margin-bottom: 15px;">
+                    <i class="fas fa-info-circle"></i> Using sample exercises (no database exercises found)
+                </div>
+            `;
+        }
+        
+        displayPracticeExercises(exercises);
+        
+    } catch (error) {
+        console.error('Error:', error);
+        const exercises = getDemoExercises();
+        displayPracticeExercises(exercises);
+    }
+}
+
+// ============================================
+// ✅ FIXED: Get Demo Exercises with complete data
+// ============================================
+function getDemoExercises() {
+      return [
         {
-            exercise_id: 5,
-            id: 5,
+            exercise_id: 1,
             lesson_id: 3,
-            title: '🔢 Mixed Practice',
-            description: 'Combination of factorial, permutation and combination problems',
-            difficulty: 'hard',
-            points: 25,
+            topic_id: 5,
+            title: '📐 Factorial Basics',
+            description: 'Practice basic factorial calculations',
+            difficulty: 'easy',
+            points: 10,
             questions: [
                 {
-                    text: 'Evaluate: 7P3 (permutation)',
-                    options: [
-                        { text: '210', correct: true },
-                        { text: '35', correct: false },
-                        { text: '5040', correct: false },
-                        { text: '840', correct: false }
-                    ]
-                },
-                {
-                    text: 'Evaluate: 8C3 (combination)',
-                    options: [
-                        { text: '56', correct: true },
-                        { text: '336', correct: false },
-                        { text: '40320', correct: false },
-                        { text: '112', correct: false }
-                    ]
-                },
-                {
-                    text: 'How many different 4-digit PIN codes can be formed from digits 0-9 if repetition is allowed?',
-                    options: [
-                        { text: '10000', correct: true },
-                        { text: '5040', correct: false },
-                        { text: '151200', correct: false },
-                        { text: '6561', correct: false }
-                    ]
-                },
-                {
-                    text: 'In how many ways can 6 people be arranged in a circle?',
+                    text: 'What is 5! (5 factorial)?',
                     options: [
                         { text: '120', correct: true },
-                        { text: '720', correct: false },
+                        { text: '60', correct: false },
                         { text: '24', correct: false },
-                        { text: '5040', correct: false }
+                        { text: '720', correct: false }
+                    ]
+                },
+                {
+                    text: 'Simplify: 6! / 4!',
+                    options: [
+                        { text: '30', correct: true },
+                        { text: '20', correct: false },
+                        { text: '15', correct: false },
+                        { text: '25', correct: false }
+                    ]
+                }
+            ]
+        },
+        {
+            exercise_id: 2,
+            lesson_id: 3,
+            topic_id: 5,
+            title: '🧮 Factorial Properties',
+            description: 'Learn factorial properties and simplifications',
+            difficulty: 'medium',
+            points: 15,
+            questions: [
+                {
+                    text: 'What is 7! / 5! ?',
+                    options: [
+                        { text: '42', correct: true },
+                        { text: '36', correct: false },
+                        { text: '48', correct: false },
+                        { text: '56', correct: false }
+                    ]
+                },
+                {
+                    text: 'Simplify: (n+2)! / n!',
+                    options: [
+                        { text: '(n+2)(n+1)', correct: true },
+                        { text: 'n+2', correct: false },
+                        { text: 'n²+2n', correct: false },
+                        { text: '2n+2', correct: false }
+                    ]
+                }
+            ]
+        },
+        {
+            exercise_id: 3,
+            lesson_id: 3,
+            topic_id: 5,
+            title: '📊 Advanced Factorials',
+            description: 'Complex factorial problems',
+            difficulty: 'hard',
+            points: 20,
+            questions: [
+                {
+                    text: 'What is 0! (zero factorial)?',
+                    options: [
+                        { text: '1', correct: true },
+                        { text: '0', correct: false },
+                        { text: 'Undefined', correct: false },
+                        { text: 'Infinity', correct: false }
+                    ]
+                },
+                {
+                    text: 'If 7! = 5040, what is 8! ?',
+                    options: [
+                        { text: '40320', correct: true },
+                        { text: '35280', correct: false },
+                        { text: '60480', correct: false },
+                        { text: '45360', correct: false }
                     ]
                 }
             ]
