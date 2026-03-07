@@ -21270,7 +21270,7 @@ async function loadPracticeExercises() {
     }
 }
 // ============================================
-// ✅ FIXED: Initialize Practice Page
+// ✅ UPDATED: Initialize Practice Page
 // ============================================
 async function initPracticePage() {
     console.log('💪 Initializing practice page...');
@@ -21314,6 +21314,10 @@ async function initPracticePage() {
     
     // Add practice styles
     addPracticeStyles();
+    
+    // ===== ATTACH START BUTTON HANDLERS AFTER LOADING =====
+    setTimeout(attachStartButtonHandlers, 500);
+    setTimeout(attachStartButtonHandlers, 1000);
     
     console.log('✅ Practice page initialized');
 }
@@ -21741,6 +21745,9 @@ async function loadPracticeExercisesForTopic(topicId) {
         if (exercises && exercises.length > 0) {
             console.log(`✅ Found ${exercises.length} exercises`);
             displayPracticeExercises(exercises);
+            
+            // ===== ATTACH HANDLERS AFTER DISPLAYING =====
+            setTimeout(attachStartButtonHandlers, 200);
         } else {
             exerciseArea.innerHTML = `<div class="no-exercises">No exercises found</div>`;
         }
@@ -21872,8 +21879,58 @@ function displayPracticeExercises(exercises) {
     
     html += '</div>';
     exerciseArea.innerHTML = html;
-    
+   
+   attachStartButtonHandlers();
     console.log(`✅ Displayed ${exercises.length} practice exercises (all lesson_id=3)`);
+}
+
+// ============================================
+// 🎯 NEW FUNCTION: Attach Start Button Handlers
+// ============================================
+function attachStartButtonHandlers() {
+    console.log('🔧 Attaching start button handlers...');
+    
+    const startButtons = document.querySelectorAll('.start-exercise-btn');
+    
+    startButtons.forEach(btn => {
+        // Remove any existing listeners by cloning
+        const newBtn = btn.cloneNode(true);
+        btn.parentNode.replaceChild(newBtn, btn);
+        
+        // Add click handler
+        newBtn.addEventListener('click', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            
+            const exerciseId = this.getAttribute('data-exercise-id');
+            console.log(`🎯 Start exercise clicked: ${exerciseId}`);
+            
+            // Call the existing startPractice function
+            if (typeof startPractice === 'function') {
+                startPractice(exerciseId);
+            } else if (typeof window.startPractice === 'function') {
+                window.startPractice(exerciseId);
+            } else {
+                console.error('startPractice function not found');
+                alert('Error: Cannot start exercise. Please refresh the page.');
+            }
+        });
+        
+        // Add hover effects
+        newBtn.addEventListener('mouseover', function() {
+            this.style.backgroundColor = '#5a0000';
+            this.style.transform = 'translateY(-2px)';
+            this.style.boxShadow = '0 4px 10px rgba(122,0,0,0.3)';
+        });
+        
+        newBtn.addEventListener('mouseout', function() {
+            this.style.backgroundColor = '#7a0000';
+            this.style.transform = 'translateY(0)';
+            this.style.boxShadow = 'none';
+        });
+    });
+    
+    console.log(`✅ Attached handlers to ${startButtons.length} start buttons`);
 }
 // ============================================
 // 🔍 Test Database Connection
