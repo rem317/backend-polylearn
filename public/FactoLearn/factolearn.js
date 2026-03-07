@@ -6178,158 +6178,56 @@ window.goToNextPractice = function() {
 // Call this function when initializing practice page
 addPracticeResultModalStyles();
 // ============================================
-// ✅ FIXED: Fetch Practice Exercises from Database - DIRECT DB CALL
+// ✅ FIXED: Use topic_id=5 for lesson_id=3
 // ============================================
 async function fetchPracticeExercisesFromDB(topicId) {
-    console.log(`📝 Getting practice exercises for topic ${topicId} from database`);
+    console.log(`📝 Getting practice exercises for lesson_id=3, topic ${topicId}`);
     
     try {
         const token = localStorage.getItem('authToken') || authToken;
         if (!token) {
-            console.warn('⚠️ No auth token available');
+            console.warn('⚠️ No auth token');
             return getDemoPracticeExercises(topicId);
         }
         
-        // ✅ FORCE LESSON_ID = 3
-        const FORCED_LESSON_ID = 3;
-        console.log(`🔧 FORCING lesson_id=${FORCED_LESSON_ID} for all practice exercises`);
+        // FORCE use topic_id=5 kasi yan ang may data
+        const ACTUAL_TOPIC_ID = 5;
         
-        // ===== TRY DIRECT PRACTICE EXERCISES ENDPOINT =====
-        // Ito ang dapat mong i-create sa backend
-        const directEndpoint = `/api/practice/lesson/${FORCED_LESSON_ID}/topic/${topicId}`;
+        // Use the working endpoint with correct topic_id
+        const endpoint = `/api/practice/topic/${ACTUAL_TOPIC_ID}?lesson_id=3`;
         
-        try {
-            console.log(`📡 Fetching from: ${directEndpoint}`);
-            
-            const response = await fetch(directEndpoint, {
-                headers: {
-                    'Authorization': `Bearer ${token}`,
-                    'Accept': 'application/json'
-                }
-            });
-            
-            if (response.ok) {
-                const data = await response.json();
-                console.log('📥 Direct endpoint response:', data);
-                
-                if (data.success && data.exercises && data.exercises.length > 0) {
-                    console.log(`✅ Found ${data.exercises.length} exercises from direct endpoint`);
-                    return data.exercises.map(ex => ({ ...ex, lesson_id: FORCED_LESSON_ID }));
-                }
+        console.log(`📡 Fetching from: ${endpoint}`);
+        
+        const response = await fetch(endpoint, {
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Accept': 'application/json'
             }
-        } catch (e) {
-            console.log('⚠️ Direct endpoint failed:', e.message);
+        });
+        
+        if (response.ok) {
+            const data = await response.json();
+            console.log('✅ Response:', data);
+            
+            // Check if there are exercises
+            if (data.success && data.exercises && data.exercises.length > 0) {
+                console.log(`✅ Found ${data.exercises.length} exercises from database for topic_id=5`);
+                
+                // Ensure lesson_id=3
+                return data.exercises.map(ex => ({
+                    ...ex,
+                    lesson_id: 3
+                }));
+            } else {
+                console.log('⚠️ No exercises in database for topic_id=5');
+            }
         }
         
-        // ===== TRY PRACTICE ATTEMPTS ENDPOINT =====
-        try {
-            console.log(`📡 Fetching practice attempts for lesson_id=${FORCED_LESSON_ID}`);
-            const attemptsResponse = await fetch(`/api/progress/practice-attempts?lesson_id=${FORCED_LESSON_ID}`, {
-                headers: {
-                    'Authorization': `Bearer ${token}`,
-                    'Accept': 'application/json'
-                }
-            });
-            
-            if (attemptsResponse.ok) {
-                const attemptsData = await attemptsResponse.json();
-                console.log('📥 Attempts response:', attemptsData);
-                
-                if (attemptsData.success && attemptsData.attempts && attemptsData.attempts.length > 0) {
-                    // Get unique exercise IDs from attempts
-                    const exerciseIds = [...new Set(attemptsData.attempts.map(a => a.exercise_id))];
-                    
-                    if (exerciseIds.length > 0) {
-                        console.log(`✅ Found ${exerciseIds.length} exercise IDs from attempts`);
-                        
-                        // Create exercise objects from attempt data
-                        const exercises = exerciseIds.map((id, index) => {
-                            const attemptsForExercise = attemptsData.attempts.filter(a => a.exercise_id === id);
-                            const bestScore = Math.max(...attemptsForExercise.map(a => a.score || 0));
-                            
-                            return {
-                                exercise_id: id,
-                                lesson_id: FORCED_LESSON_ID,
-                                topic_id: topicId,
-                                title: `Practice Exercise ${index + 1}`,
-                                description: 'Practice your factorial and permutation skills.',
-                                difficulty: index === 0 ? 'easy' : (index === 1 ? 'medium' : 'hard'),
-                                points: (index + 1) * 10,
-                                user_progress: {
-                                    attempts: attemptsForExercise.length,
-                                    best_score: bestScore,
-                                    completion_status: bestScore >= 70 ? 'completed' : 'in_progress'
-                                },
-                                questions: generateQuestionsForExercise(index + 1)
-                            };
-                        });
-                        
-                        return exercises;
-                    }
-                }
-            }
-        } catch (error) {
-            console.log('⚠️ Attempts endpoint failed:', error.message);
-        }
-        
-        // ===== TRY TOPICS ENDPOINT TO GET TOPIC INFO =====
-        try {
-            console.log(`📡 Fetching topics for lesson_id=${FORCED_LESSON_ID}`);
-            const topicsResponse = await fetch(`/api/topics/progress?lesson_id=${FORCED_LESSON_ID}`, {
-                headers: {
-                    'Authorization': `Bearer ${token}`,
-                    'Accept': 'application/json'
-                }
-            });
-            
-            if (topicsResponse.ok) {
-                const topicsData = await topicsResponse.json();
-                console.log('📥 Topics response:', topicsData);
-                
-                if (topicsData.success && topicsData.topics) {
-                    const topic = topicsData.topics.find(t => t.topic_id == topicId);
-                    
-                    if (topic) {
-                        console.log(`✅ Found topic: ${topic.topic_title}`);
-                        
-                        // Generate exercises based on topic
-                        const exercises = [];
-                        const lessonCount = topic.total_lessons || 3;
-                        
-                        for (let i = 1; i <= 3; i++) {
-                            let difficulty = 'easy';
-                            if (i === 2) difficulty = 'medium';
-                            if (i === 3) difficulty = 'hard';
-                            
-                            exercises.push({
-                                exercise_id: parseInt(`3${topicId}0${i}`),
-                                lesson_id: FORCED_LESSON_ID,
-                                topic_id: topicId,
-                                title: `${topic.topic_title || 'Factorial'} - Exercise ${i}`,
-                                description: `Practice ${topic.topic_title?.toLowerCase() || 'factorial'} concepts.`,
-                                difficulty: difficulty,
-                                points: i * 10,
-                                is_unlocked: i <= (topic.lessons_completed || 1),
-                                questions: generateQuestionsForExercise(i)
-                            });
-                        }
-                        
-                        console.log(`✅ Generated ${exercises.length} exercises from topic data`);
-                        return exercises;
-                    }
-                }
-            }
-        } catch (error) {
-            console.log('⚠️ Topics endpoint failed:', error.message);
-        }
-        
-        // ===== FALLBACK TO DEMO DATA =====
-        console.log('⚠️ No data found in database, using demo data');
-        return getDemoPracticeExercises(topicId);
+        return [];
         
     } catch (error) {
-        console.error('❌ Error fetching practice exercises:', error);
-        return getDemoPracticeExercises(topicId);
+        console.error('❌ Error:', error);
+        return [];
     }
 }
 
@@ -21718,83 +21616,32 @@ async function selectTopicForPractice(topicId) {
 
 
 // ============================================
-// ✅ FIXED: Load Practice Exercises For Topic
+// ✅ UPDATED: Load Practice Exercises For Topic
 // ============================================
 async function loadPracticeExercisesForTopic(topicId) {
     try {
         console.log(`📝 Loading practice exercises for topic ${topicId}`);
         
-        // ✅ FORCE lesson_id = 3 for FactoLearn
-        const LESSON_ID = 3;
-        console.log(`🎯 Loading exercises for FactoLearn, lesson_id: ${LESSON_ID}`);
+        // FORCE use topic_id=5 kung ang topicId ay 1
+        const actualTopicId = (topicId == 1) ? 5 : topicId;
         
-        // Get the exercise area
         const exerciseArea = document.getElementById('exerciseArea');
-        if (!exerciseArea) {
-            console.error('❌ Exercise area not found');
-            return;
-        }
+        if (!exerciseArea) return;
         
-        exerciseArea.innerHTML = `
-            <div class="loading-container" style="text-align: center; padding: 40px;">
-                <i class="fas fa-spinner fa-spin" style="font-size: 40px; color: #7a0000; margin-bottom: 15px;"></i>
-                <p style="color: #666;">Loading practice exercises from database (Lesson ${LESSON_ID})...</p>
-            </div>
-        `;
+        exerciseArea.innerHTML = `<div class="loading-container">Loading...</div>`;
         
         // Fetch exercises from database
-        const exercises = await fetchPracticeExercisesFromDB(topicId);
+        const exercises = await fetchPracticeExercisesFromDB(actualTopicId);
         
         if (exercises && exercises.length > 0) {
-            console.log(`✅ Found ${exercises.length} exercises for topic ${topicId}`);
-            
-            // ✅ Add lesson_id badge sa bawat exercise
-            const exercisesWithBadge = exercises.map(ex => ({
-                ...ex,
-                lesson_id: LESSON_ID,
-                lesson_badge: true
-            }));
-            
-            // Store in PracticeState
-            PracticeState.exercises = exercisesWithBadge;
-            
-            // Display exercises
-            displayPracticeExercises(exercisesWithBadge);
+            console.log(`✅ Found ${exercises.length} exercises`);
+            displayPracticeExercises(exercises);
         } else {
-            console.log('⚠️ No exercises found, showing demo data');
-            
-            // Use demo exercises as fallback
-            const demoExercises = getDemoPracticeExercises(topicId);
-            PracticeState.exercises = demoExercises;
-            
-            exerciseArea.innerHTML = `
-                <div class="demo-mode-notice" style="background: #fff3cd; color: #856404; padding: 10px; border-radius: 5px; margin-bottom: 15px; text-align: center;">
-                    <i class="fas fa-info-circle"></i> Using sample exercises (database connection issue)
-                </div>
-            `;
-            
-            displayPracticeExercises(demoExercises);
+            exerciseArea.innerHTML = `<div class="no-exercises">No exercises found</div>`;
         }
-        
-        // Setup interactions
-        setupPracticeExerciseInteractions();
         
     } catch (error) {
-        console.error('❌ Error loading practice exercises:', error);
-        
-        const exerciseArea = document.getElementById('exerciseArea');
-        if (exerciseArea) {
-            exerciseArea.innerHTML = `
-                <div class="error-container" style="text-align: center; padding: 40px;">
-                    <i class="fas fa-exclamation-triangle" style="font-size: 50px; color: #e74c3c; margin-bottom: 15px;"></i>
-                    <h3 style="color: #2c3e50; margin-bottom: 10px;">Failed to load exercises</h3>
-                    <p style="color: #7f8c8d; margin-bottom: 20px;">${error.message || 'Could not connect to database'}</p>
-                    <button class="btn-primary" onclick="location.reload()" style="padding: 10px 20px;">
-                        <i class="fas fa-redo"></i> Retry
-                    </button>
-                </div>
-            `;
-        }
+        console.error('❌ Error:', error);
     }
 }
 // ============================================
