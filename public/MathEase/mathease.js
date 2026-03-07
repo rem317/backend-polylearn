@@ -13102,7 +13102,7 @@ function displayQuizCategories(categories, isHardcoded = false) {
     // I-clear ang container
     quizzesContainer.innerHTML = '';
     
-    if (!FfactoLearnCategories || factoLearnCategories.length === 0) {
+    if (!factoLearnCategories || factoLearnCategories.length === 0) {
         quizzesContainer.innerHTML = `
             <div class="card" style="padding: 40px; text-align: center;">
                 <div style="font-size: 60px; color: #ccc; margin-bottom: 20px;">
