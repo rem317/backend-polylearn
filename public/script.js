@@ -16596,13 +16596,17 @@ async function loadRecentLessons(container, lessons, progress) {
         let icon = 'fas fa-lock';
         
         if (status === 'completed') {
-            statusText = 'Completed';
+            statusText = 'Review';
             statusClass = 'completed';
-            icon = 'fas fa-check';
+            icon = 'fas fa-check-circle';
         } else if (status === 'in_progress') {
-            statusText = percentage > 0 ? 'Continue' : 'Start';
+            statusText = 'Continue';
             statusClass = 'current';
-            icon = percentage > 0 ? 'fas fa-play' : 'fas fa-play';
+            icon = 'fas fa-play-circle';
+        } else {
+            statusText = 'Start';
+            statusClass = '';
+            icon = 'fas fa-play-circle';
         }
         
         html += `
@@ -16621,7 +16625,7 @@ async function loadRecentLessons(container, lessons, progress) {
                 <div class="lesson-actions">
                     <button class="${status === 'completed' ? 'review-btn' : 'start-btn'}" 
                             data-lesson-id="${lesson.content_id}">
-                        ${status === 'completed' ? 'Review' : statusText}
+                        <i class="fas fa-${status === 'completed' ? 'redo' : 'play'}"></i> ${statusText}
                     </button>
                 </div>
             </div>
@@ -16647,7 +16651,6 @@ async function loadRecentLessons(container, lessons, progress) {
         });
     });
 }
-
 // Update continue learning module in home dashboard
 async function updateContinueLearningModule() {
     try {
