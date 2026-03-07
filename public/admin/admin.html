@@ -1359,37 +1359,6 @@
                                     </div>
                                 </div>
                             </div>
-                            
-                            <!-- Subject Management Controls -->
-                            <div class="subject-management-controls">
-                                <div class="control-group">
-                                    <button class="btn btn-secondary" onclick="createPermanentAdminTable(currentSubject, event)">
-                                        <i class="fas fa-list"></i> View All Lessons
-                                    </button>
-                                </div>
-                                
-                                <div class="subject-filters">
-                                    <div class="filter-group">
-                                        <label><i class="fas fa-filter"></i> Filter by:</label>
-                                        <select class="form-control small" onchange="filterSubjects(this.value)">
-                                            <option value="all">All Subjects</option>
-                                            <option value="active">Active Only</option>
-                                            <option value="most-lessons">Most Lessons</option>
-                                            <option value="most-resources">Most Resources</option>
-                                        </select>
-                                    </div>
-                                    
-                                    <div class="filter-group">
-                                        <label><i class="fas fa-sort"></i> Sort by:</label>
-                                        <select class="form-control small" onchange="sortSubjects(this.value)">
-                                            <option value="name">Name (A-Z)</option>
-                                            <option value="lessons">Lessons (High to Low)</option>
-                                            <option value="resources">Resources (High to Low)</option>
-                                            <option value="progress">Progress (High to Low)</option>
-                                        </select>
-                                    </div>
-                                </div>
-                            </div>
                         </div>
                     </div>
 
@@ -1513,9 +1482,6 @@
                             </div>
                             <button class="btn btn-primary" onclick="openCreateQuizModal()">
                                 <i class="fas fa-plus-circle"></i> Create New Quiz
-                            </button>
-                            <button class="btn btn-secondary" onclick="refreshQuizList()">
-                                <i class="fas fa-sync-alt"></i> Refresh
                             </button>
                         </div>
                     </div>
@@ -1647,7 +1613,6 @@
                                 <select class="form-control small" onchange="updateQuizChart(this.value)" id="quizTimeRange">
                                     <option value="week">Last 7 Days</option>
                                     <option value="month" selected>Last 30 Days</option>
-                                    <option value="quarter">Last 3 Months</option>
                                 </select>
                             </div>
                             <div class="chart-container" style="position: relative; height: 300px;">
@@ -1784,7 +1749,6 @@
                                         <option value="inactive">Inactive Users</option>
                                         <option value="admins">Administrators</option>
                                         <option value="students">Students</option>
-                                        <option value="teachers">Teachers</option>
                                         <option value="pending">Pending Approval</option>
                                     </select>
                                 </div>
