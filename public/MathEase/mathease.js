@@ -107,7 +107,35 @@ async function fetchPracticeByLesson(lessonId) {
         return getMockPracticeByLesson(lessonId);
     }
 }
-
+// ============================================
+// ✅ FIXED: Ensure Progress Summary Shows on Dashboard
+// ============================================
+function ensureProgressSummaryShows() {
+    console.log('📊 Ensuring progress summary shows on dashboard...');
+    
+    const lessonsCount = document.getElementById('lessonsCount');
+    const exercisesCount = document.getElementById('exercisesCount');
+    const quizScore = document.getElementById('quizScore');
+    const avgTime = document.getElementById('avgTime');
+    
+    if (!lessonsCount || !exercisesCount || !quizScore || !avgTime) {
+        console.log('⚠️ Progress summary elements not found, will retry');
+        setTimeout(ensureProgressSummaryShows, 500);
+        return;
+    }
+    
+    // Force update with data from PracticeState if available
+    if (PracticeState.userPracticeProgress) {
+        const stats = PracticeState.userPracticeProgress;
+        lessonsCount.innerHTML = `${stats.lessons_completed || 0}<span class="item-unit">/${stats.total_lessons || 10}</span>`;
+        exercisesCount.innerHTML = `${stats.exercises_completed || 0}<span class="item-unit">/20</span>`;
+    }
+    
+    // Also try to fetch fresh data
+    updateProgressSummaryCards();
+    
+    console.log('✅ Progress summary elements found and updated');
+}
 // ============================================
 // ✅ Get mock practice exercises based on lesson
 // ============================================
@@ -6069,26 +6097,13 @@ async function loadPerformanceAnalytics() {
     // Show loading with proper styling
     container.innerHTML = `
         <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 20px; padding: 20px;">
-            <div style="background: white; border-radius: 12px; padding: 25px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); text-align: center;">
-                <div style="width: 50px; height: 50px; background: #f0f0f0; border-radius: 12px; margin: 0 auto 15px; animation: pulse 1.5s infinite;"></div>
-                <div style="height: 24px; width: 60%; background: #f0f0f0; margin: 0 auto 10px; border-radius: 4px; animation: pulse 1.5s infinite;"></div>
-                <div style="height: 16px; width: 40%; background: #f0f0f0; margin: 0 auto; border-radius: 4px; animation: pulse 1.5s infinite;"></div>
-            </div>
-            <div style="background: white; border-radius: 12px; padding: 25px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); text-align: center;">
-                <div style="width: 50px; height: 50px; background: #f0f0f0; border-radius: 12px; margin: 0 auto 15px; animation: pulse 1.5s infinite;"></div>
-                <div style="height: 24px; width: 60%; background: #f0f0f0; margin: 0 auto 10px; border-radius: 4px; animation: pulse 1.5s infinite;"></div>
-                <div style="height: 16px; width: 40%; background: #f0f0f0; margin: 0 auto; border-radius: 4px; animation: pulse 1.5s infinite;"></div>
-            </div>
-            <div style="background: white; border-radius: 12px; padding: 25px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); text-align: center;">
-                <div style="width: 50px; height: 50px; background: #f0f0f0; border-radius: 12px; margin: 0 auto 15px; animation: pulse 1.5s infinite;"></div>
-                <div style="height: 24px; width: 60%; background: #f0f0f0; margin: 0 auto 10px; border-radius: 4px; animation: pulse 1.5s infinite;"></div>
-                <div style="height: 16px; width: 40%; background: #f0f0f0; margin: 0 auto; border-radius: 4px; animation: pulse 1.5s infinite;"></div>
-            </div>
-            <div style="background: white; border-radius: 12px; padding: 25px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); text-align: center;">
-                <div style="width: 50px; height: 50px; background: #f0f0f0; border-radius: 12px; margin: 0 auto 15px; animation: pulse 1.5s infinite;"></div>
-                <div style="height: 24px; width: 60%; background: #f0f0f0; margin: 0 auto 10px; border-radius: 4px; animation: pulse 1.5s infinite;"></div>
-                <div style="height: 16px; width: 40%; background: #f0f0f0; margin: 0 auto; border-radius: 4px; animation: pulse 1.5s infinite;"></div>
-            </div>
+            ${[1,2,3,4].map(() => `
+                <div style="background: white; border-radius: 12px; padding: 25px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); text-align: center;">
+                    <div style="width: 50px; height: 50px; background: #f0f0f0; border-radius: 12px; margin: 0 auto 15px; animation: pulse 1.5s infinite;"></div>
+                    <div style="height: 24px; width: 60%; background: #f0f0f0; margin: 0 auto 10px; border-radius: 4px; animation: pulse 1.5s infinite;"></div>
+                    <div style="height: 16px; width: 40%; background: #f0f0f0; margin: 0 auto; border-radius: 4px; animation: pulse 1.5s infinite;"></div>
+                </div>
+            `).join('')}
         </div>
         <style>
             @keyframes pulse {
@@ -6105,110 +6120,7 @@ async function loadPerformanceAnalytics() {
             throw new Error('No auth token');
         }
         
-        const LESSON_ID = 1; // Force MathEase only
-        
-        // ===== FETCH ALL DATA IN PARALLEL =====
-        const [
-            weeklyResponse,
-            accuracyResponse,
-            timeResponse,
-            streakResponse
-        ] = await Promise.allSettled([
-            fetch(`/api/progress/weekly-comparison?lesson_id=${LESSON_ID}`, {
-                headers: { 'Authorization': `Bearer ${token}` }
-            }),
-            fetch(`/api/progress/practice-accuracy?lesson_id=${LESSON_ID}`, {
-                headers: { 'Authorization': `Bearer ${token}` }
-            }),
-            fetch(`/api/progress/average-time?lesson_id=${LESSON_ID}`, {
-                headers: { 'Authorization': `Bearer ${token}` }
-            }),
-            fetch(`/api/progress/streak?lesson_id=${LESSON_ID}`, {
-                headers: { 'Authorization': `Bearer ${token}` }
-            })
-        ]);
-        
-        // ===== PROCESS WEEKLY IMPROVEMENT =====
-        let weeklyImprovement = 5;
-        let weeklyTrend = 'up';
-        let weeklyMessage = 'Better than last week';
-        
-        if (weeklyResponse.status === 'fulfilled' && weeklyResponse.value.ok) {
-            try {
-                const data = await weeklyResponse.value.json();
-                if (data.success) {
-                    weeklyImprovement = data.improvement || 5;
-                    weeklyTrend = data.trend || 'up';
-                    weeklyMessage = data.message || 'Better than last week';
-                }
-            } catch (e) {
-                console.log('Error parsing weekly response:', e);
-            }
-        }
-        
-        // ===== PROCESS PRACTICE ACCURACY =====
-        let practiceAccuracy = 85;
-        let accuracyMessage = '🔥 Excellent!';
-        
-        if (accuracyResponse.status === 'fulfilled' && accuracyResponse.value.ok) {
-            try {
-                const data = await accuracyResponse.value.json();
-                if (data.success) {
-                    practiceAccuracy = data.accuracy || 85;
-                    
-                    if (practiceAccuracy >= 90) accuracyMessage = '🏆 Master level!';
-                    else if (practiceAccuracy >= 80) accuracyMessage = '🔥 Excellent!';
-                    else if (practiceAccuracy >= 70) accuracyMessage = '💪 Good progress!';
-                    else if (practiceAccuracy >= 60) accuracyMessage = '📚 Keep practicing!';
-                    else accuracyMessage = '🎯 Focus on basics';
-                }
-            } catch (e) {
-                console.log('Error parsing accuracy response:', e);
-            }
-        }
-        
-        // ===== PROCESS AVERAGE TIME =====
-        let avgTime = 5;
-        let timeMessage = '🏅 Efficient learner';
-        
-        if (timeResponse.status === 'fulfilled' && timeResponse.value.ok) {
-            try {
-                const data = await timeResponse.value.json();
-                if (data.success) {
-                    avgTime = data.average_minutes || 5;
-                    
-                    if (avgTime <= 3) timeMessage = '⚡ Lightning fast!';
-                    else if (avgTime <= 5) timeMessage = '🏅 Efficient learner';
-                    else if (avgTime <= 8) timeMessage = '⏱️ Steady pace';
-                    else timeMessage = '🧘 Take your time';
-                }
-            } catch (e) {
-                console.log('Error parsing time response:', e);
-            }
-        }
-        
-        // ===== PROCESS STREAK =====
-        let streak = 1;
-        let streakMessage = '🚀 Just starting';
-        
-        if (streakResponse.status === 'fulfilled' && streakResponse.value.ok) {
-            try {
-                const data = await streakResponse.value.json();
-                if (data.success) {
-                    streak = data.streak_days || 1;
-                    
-                    if (streak >= 30) streakMessage = '🔥 Legendary!';
-                    else if (streak >= 14) streakMessage = '🌟 Amazing streak!';
-                    else if (streak >= 7) streakMessage = '💪 One week strong!';
-                    else if (streak >= 3) streakMessage = '📅 Building momentum';
-                    else streakMessage = '🚀 Just starting';
-                }
-            } catch (e) {
-                console.log('Error parsing streak response:', e);
-            }
-        }
-        
-        // ===== GET USER FROM LOCALSTORAGE =====
+        // Get user data for welcome message
         let userName = 'Student';
         try {
             const userJson = localStorage.getItem('mathhub_user');
@@ -6216,35 +6128,64 @@ async function loadPerformanceAnalytics() {
                 const user = JSON.parse(userJson);
                 userName = user.full_name || user.username || 'Student';
             }
-        } catch (e) {
-            console.log('Error parsing user:', e);
-        }
+        } catch (e) {}
         
-        // ===== RENDER THE ANALYTICS CARDS =====
+        // Get cumulative progress for data
+        const cumulative = ProgressState.cumulativeProgress || await fetchCumulativeProgress();
+        
+        const weeklyImprovement = cumulative?.weekly_improvement || 5;
+        const practiceAccuracy = cumulative?.accuracy_rate || 85;
+        const avgTime = cumulative?.avg_time_per_activity || 5;
+        const streak = cumulative?.streak_days || 1;
+        
+        // Determine messages
+        const weeklyMessage = weeklyImprovement > 0 ? 
+            `+${weeklyImprovement}% Better than last week` : 
+            'Same as last week';
+        
+        let accuracyMessage = '🔥 Excellent!';
+        if (practiceAccuracy >= 90) accuracyMessage = '🏆 Master level!';
+        else if (practiceAccuracy >= 80) accuracyMessage = '🔥 Excellent!';
+        else if (practiceAccuracy >= 70) accuracyMessage = '💪 Good progress!';
+        else if (practiceAccuracy >= 60) accuracyMessage = '📚 Keep practicing!';
+        else accuracyMessage = '🎯 Focus on basics';
+        
+        let timeMessage = '🏅 Efficient learner';
+        if (avgTime <= 3) timeMessage = '⚡ Lightning fast!';
+        else if (avgTime <= 5) timeMessage = '🏅 Efficient learner';
+        else if (avgTime <= 8) timeMessage = '⏱️ Steady pace';
+        else timeMessage = '🧘 Take your time';
+        
+        let streakMessage = '🚀 Just starting';
+        if (streak >= 30) streakMessage = '🔥 Legendary!';
+        else if (streak >= 14) streakMessage = '🌟 Amazing streak!';
+        else if (streak >= 7) streakMessage = '💪 One week strong!';
+        else if (streak >= 3) streakMessage = '📅 Building momentum';
+        
+        // Render the cards
         container.innerHTML = `
             <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 20px; padding: 20px;">
                 
                 <!-- Weekly Improvement Card -->
-                <div class="analytics-card" style="background: white; border-radius: 12px; padding: 25px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); text-align: center; transition: transform 0.3s;">
+                <div class="analytics-card" style="background: white; border-radius: 12px; padding: 25px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); text-align: center;">
                     <div style="width: 60px; height: 60px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 15px; margin: 0 auto 15px; display: flex; align-items: center; justify-content: center;">
                         <i class="fas fa-chart-line" style="font-size: 28px; color: white;"></i>
                     </div>
-                    <div style="font-size: 14px; color: #666; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px;">Weekly Improvement</div>
+                    <div style="font-size: 14px; color: #666; text-transform: uppercase; margin-bottom: 8px;">Weekly Improvement</div>
                     <div style="font-size: 36px; font-weight: bold; color: #2c3e50; margin-bottom: 5px;">
                         +${weeklyImprovement}%
                     </div>
-                    <div style="display: flex; align-items: center; justify-content: center; gap: 5px; color: #27ae60; font-size: 14px;">
-                        <i class="fas fa-arrow-up"></i>
-                        <span>${weeklyMessage}</span>
+                    <div style="color: #27ae60; font-size: 14px;">
+                        <i class="fas fa-arrow-up"></i> ${weeklyMessage}
                     </div>
                 </div>
                 
                 <!-- Practice Accuracy Card -->
-                <div class="analytics-card" style="background: white; border-radius: 12px; padding: 25px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); text-align: center; transition: transform 0.3s;">
+                <div class="analytics-card" style="background: white; border-radius: 12px; padding: 25px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); text-align: center;">
                     <div style="width: 60px; height: 60px; background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); border-radius: 15px; margin: 0 auto 15px; display: flex; align-items: center; justify-content: center;">
                         <i class="fas fa-bullseye" style="font-size: 28px; color: white;"></i>
                     </div>
-                    <div style="font-size: 14px; color: #666; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px;">Practice Accuracy</div>
+                    <div style="font-size: 14px; color: #666; text-transform: uppercase; margin-bottom: 8px;">Practice Accuracy</div>
                     <div style="font-size: 36px; font-weight: bold; color: #2c3e50; margin-bottom: 5px;">
                         ${practiceAccuracy}%
                     </div>
@@ -6254,11 +6195,11 @@ async function loadPerformanceAnalytics() {
                 </div>
                 
                 <!-- Avg. Time/Activity Card -->
-                <div class="analytics-card" style="background: white; border-radius: 12px; padding: 25px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); text-align: center; transition: transform 0.3s;">
+                <div class="analytics-card" style="background: white; border-radius: 12px; padding: 25px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); text-align: center;">
                     <div style="width: 60px; height: 60px; background: linear-gradient(135deg, #5faee3 0%, #3498db 100%); border-radius: 15px; margin: 0 auto 15px; display: flex; align-items: center; justify-content: center;">
                         <i class="fas fa-clock" style="font-size: 28px; color: white;"></i>
                     </div>
-                    <div style="font-size: 14px; color: #666; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px;">Avg. Time/Activity</div>
+                    <div style="font-size: 14px; color: #666; text-transform: uppercase; margin-bottom: 8px;">Avg. Time/Activity</div>
                     <div style="font-size: 36px; font-weight: bold; color: #2c3e50; margin-bottom: 5px;">
                         ${avgTime} <span style="font-size: 16px;">min</span>
                     </div>
@@ -6268,11 +6209,11 @@ async function loadPerformanceAnalytics() {
                 </div>
                 
                 <!-- Current Streak Card -->
-                <div class="analytics-card" style="background: white; border-radius: 12px; padding: 25px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); text-align: center; transition: transform 0.3s;">
+                <div class="analytics-card" style="background: white; border-radius: 12px; padding: 25px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); text-align: center;">
                     <div style="width: 60px; height: 60px; background: linear-gradient(135deg, #ffb347 0%, #ff8c00 100%); border-radius: 15px; margin: 0 auto 15px; display: flex; align-items: center; justify-content: center;">
                         <i class="fas fa-fire" style="font-size: 28px; color: white;"></i>
                     </div>
-                    <div style="font-size: 14px; color: #666; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px;">Current Streak</div>
+                    <div style="font-size: 14px; color: #666; text-transform: uppercase; margin-bottom: 8px;">Current Streak</div>
                     <div style="font-size: 36px; font-weight: bold; color: #2c3e50; margin-bottom: 5px;">
                         ${streak} ${streak === 1 ? 'day' : 'days'}
                     </div>
@@ -6282,32 +6223,20 @@ async function loadPerformanceAnalytics() {
                 </div>
             </div>
             
-            <!-- Welcome Message and Database Connection -->
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 10px; padding: 0 20px;">
-                <div style="color: #2c3e50; font-size: 14px;">
-                    <i class="fas fa-user"></i> Welcome back, <strong>${userName}</strong>!
-                </div>
-                <div>
-                    <span style="background: #27ae60; color: white; padding: 4px 10px; border-radius: 20px; font-size: 11px;">
-                        <i class="fas fa-database"></i> MathEase (Lesson ID: 1)
-                    </span>
+            <!-- Welcome Message -->
+            <div style="text-align: center; margin-top: 10px; padding: 0 20px;">
+                <div style="background: #f8f9fa; padding: 15px; border-radius: 8px; border-left: 4px solid #7a0000;">
+                    <i class="fas fa-user" style="color: #7a0000;"></i> 
+                    <strong>Welcome back, ${userName}!</strong> Keep up the great work in MathEase!
                 </div>
             </div>
-            
-            <style>
-                .analytics-card:hover {
-                    transform: translateY(-5px);
-                    box-shadow: 0 8px 24px rgba(0,0,0,0.15) !important;
-                }
-            </style>
         `;
         
-        console.log('✅ Performance analytics loaded for MathEase');
+        console.log('✅ Performance analytics loaded');
         
     } catch (error) {
         console.error('❌ Error loading performance analytics:', error);
         
-        // Show error state
         container.innerHTML = `
             <div style="text-align: center; padding: 40px;">
                 <i class="fas fa-exclamation-triangle" style="font-size: 48px; color: #e74c3c; margin-bottom: 15px;"></i>
@@ -6320,82 +6249,6 @@ async function loadPerformanceAnalytics() {
         `;
     }
 }
-
-// ============================================
-// 🔍 DEBUG: Check Performance Analytics
-// ============================================
-window.debugPerformanceAnalytics = async function() {
-    console.log('🔍 DEBUGGING PERFORMANCE ANALYTICS');
-    console.log('==================================');
-    
-    const token = localStorage.getItem('authToken');
-    if (!token) {
-        console.error('❌ No auth token found');
-        return;
-    }
-    
-    console.log('📡 Testing endpoints for lesson_id=1...');
-    
-    const endpoints = [
-        '/api/progress/weekly-comparison?lesson_id=1',
-        '/api/progress/practice-accuracy?lesson_id=1',
-        '/api/progress/average-time?lesson_id=1',
-        '/api/progress/streak?lesson_id=1'
-    ];
-    
-    for (const endpoint of endpoints) {
-        try {
-            console.log(`\n📡 Fetching: ${endpoint}`);
-            const response = await fetch(endpoint, {
-                headers: { 'Authorization': `Bearer ${token}` }
-            });
-            
-            console.log(`Status: ${response.status}`);
-            
-            if (response.ok) {
-                const data = await response.json();
-                console.log('✅ Response:', data);
-            } else {
-                console.log('❌ Failed:', await response.text().then(t => t.substring(0, 200)));
-            }
-        } catch (error) {
-            console.error(`❌ Error:`, error.message);
-        }
-    }
-    
-    console.log('\n✅ Debug complete');
-};
-
-// ============================================
-// 📊 FORCE LOAD PERFORMANCE ANALYTICS
-// ============================================
-// Add this to your DOMContentLoaded or wherever you initialize the page
-document.addEventListener('DOMContentLoaded', function() {
-    // Check if performance analytics container exists
-    const analyticsContainer = document.getElementById('performanceAnalytics');
-    if (analyticsContainer) {
-        // Load when progress page becomes visible
-        const progressPage = document.getElementById('progress-page');
-        if (progressPage) {
-            const observer = new MutationObserver(function(mutations) {
-                mutations.forEach(function(mutation) {
-                    if (mutation.type === 'attributes' && mutation.attributeName === 'class') {
-                        if (!progressPage.classList.contains('hidden')) {
-                            console.log('📊 Progress page visible, loading performance analytics...');
-                            setTimeout(loadPerformanceAnalytics, 500);
-                        }
-                    }
-                });
-            });
-            observer.observe(progressPage, { attributes: true });
-            
-            // Load immediately if already visible
-            if (!progressPage.classList.contains('hidden')) {
-                setTimeout(loadPerformanceAnalytics, 500);
-            }
-        }
-    }
-});
 // ============================================
 // FIXED: fetchModuleProgress - Handles empty responses
 // ============================================
@@ -8966,40 +8819,211 @@ function hideProgressDashboardLoading() {
 }
 
 // ============================================
-// 🚀 DIRECT LOADING ON PAGE OPEN
+// 🚀 UPDATED DOMContentLoaded EVENT WITH ALL FIXES
 // ============================================
 document.addEventListener('DOMContentLoaded', function() {
-    console.log('📄 DOM loaded - setting up progress page observer');
+    console.log('📄 DOM fully loaded - initializing MathEase');
+   
+    // Add all styles
+    addQuizStyles();
+    addProgressStyles();
+    addPracticeResultModalStyles();
+    addChartStyles();
+    addSettingsStyles();
+    addFeedbackStyles();
+    addLessonContentStyles();
+    addReviewModalStyles();
     
-    const progressPage = document.getElementById('progress-page');
+    // Initialize app first
+    initApp();
+
+    // Connect tool buttons after a short delay
+    setTimeout(() => {
+        connectToolButtons();
+    }, 500);
     
-    if (progressPage) {
-        // Check agad kung visible ang progress page
-        if (!progressPage.classList.contains('hidden')) {
-            console.log('📊 Progress page is already visible - loading data NOW');
-            setTimeout(() => {
-                showProgressDashboardLoading();
-                loadProgressDashboardData();
-            }, 50);
-        }
-        
-        // Observe for when it becomes visible
+    // Also try again after a longer delay (for dynamically loaded content)
+    setTimeout(() => {
+        connectToolButtons();
+    }, 2000);
+    
+    // Add review modal styles
+    setTimeout(() => {
+        addReviewModalStyles();
+        console.log('✅ Review modal styles added');
+    }, 500);
+    
+    // Connect review buttons
+    setTimeout(() => {
+        connectReviewButtons();
+        console.log('✅ Review buttons connected');
+    }, 1000);
+    
+    // Ensure progress summary shows
+    setTimeout(ensureProgressSummaryShows, 1000);
+    
+    // Initialize all MathEase components
+    setTimeout(initializeAllMathEaseComponents, 1500);
+
+    // Observe for dynamically added review buttons
+    const reviewObserver = new MutationObserver(function(mutations) {
+        connectReviewButtons();
+    });
+    
+    reviewObserver.observe(document.body, { childList: true, subtree: true });
+    
+    // Also connect when quiz interface becomes visible
+    const quizInterface = document.getElementById('quizInterfaceContainer');
+    if (quizInterface) {
         const observer = new MutationObserver(function(mutations) {
             mutations.forEach(function(mutation) {
                 if (mutation.type === 'attributes' && mutation.attributeName === 'class') {
-                    if (!progressPage.classList.contains('hidden')) {
-                        console.log('📊 Progress page became visible - loading data NOW');
-                        showProgressDashboardLoading();
-                        loadProgressDashboardData();
+                    if (!quizInterface.classList.contains('hidden')) {
+                        setTimeout(connectReviewButtons, 500);
                     }
                 }
             });
         });
         
-        observer.observe(progressPage, { attributes: true });
+        observer.observe(quizInterface, { attributes: true });
     }
+    
+    // Initialize progress dashboard if visible
+    const progressPage = document.getElementById('progress-page');
+    if (progressPage) {
+        if (!progressPage.classList.contains('hidden')) {
+            console.log('📊 Progress page is already visible - loading data NOW');
+            setTimeout(() => {
+                showProgressDashboardLoading();
+                initProgressDashboard();
+            }, 50);
+        }
+        
+        const progressObserver = new MutationObserver(function(mutations) {
+            mutations.forEach(function(mutation) {
+                if (mutation.type === 'attributes' && mutation.attributeName === 'class') {
+                    if (!progressPage.classList.contains('hidden')) {
+                        console.log('📊 Progress page became visible');
+                        setTimeout(() => {
+                            showProgressDashboardLoading();
+                            initProgressDashboard();
+                        }, 300);
+                    } else {
+                        if (typeof stopProgressAutoRefresh === 'function') {
+                            stopProgressAutoRefresh();
+                        }
+                    }
+                }
+            });
+        });
+        
+        progressObserver.observe(progressPage, { attributes: true });
+    }
+    
+    console.log('✅ All features initialized');
+    
+    // Add window unload handler to clean up intervals
+    window.addEventListener('beforeunload', function() {
+        if (progressRefreshInterval) {
+            clearInterval(progressRefreshInterval);
+            progressRefreshInterval = null;
+        }
+    });
 });
-
+// ============================================
+// 🚀 Initialize All MathEase Components
+// ============================================
+function initializeAllMathEaseComponents() {
+    console.log('🚀 Initializing all MathEase components...');
+    
+    // Check which page is visible and load appropriate data
+    const currentPage = document.querySelector('[id$="-page"]:not(.hidden)');
+    
+    if (currentPage) {
+        const pageId = currentPage.id;
+        
+        if (pageId === 'dashboard-page') {
+            console.log('📊 Dashboard page detected');
+            setTimeout(() => {
+                updateContinueLearningModule();
+                updateProgressSummaryCards();
+            }, 500);
+        }
+        else if (pageId === 'practice-exercises-page') {
+            console.log('💪 Practice page detected');
+            setTimeout(() => {
+                loadTopicsProgress();
+                loadPracticeStatistics();
+            }, 500);
+        }
+        else if (pageId === 'progress-page') {
+            console.log('📈 Progress page detected');
+            setTimeout(() => {
+                showProgressDashboardLoading();
+                initProgressDashboard();
+            }, 500);
+        }
+        else if (pageId === 'quiz-dashboard-page') {
+            console.log('🧠 Quiz page detected');
+            setTimeout(() => {
+                loadQuizCategories();
+                loadQuizStatsFromServer();
+            }, 500);
+        }
+        else if (pageId === 'module-dashboard-page') {
+            console.log('📚 Module dashboard page detected');
+            // Already handled by openLesson function
+        }
+    }
+    
+    // Also set up observers for page changes
+    setupPageChangeObservers();
+}
+function setupPageChangeObservers() {
+    const pages = [
+        'dashboard-page',
+        'practice-exercises-page',
+        'progress-page',
+        'quiz-dashboard-page',
+        'module-dashboard-page'
+    ];
+    
+    pages.forEach(pageId => {
+        const page = document.getElementById(pageId);
+        if (page) {
+            const observer = new MutationObserver(function(mutations) {
+                mutations.forEach(function(mutation) {
+                    if (mutation.type === 'attributes' && mutation.attributeName === 'class') {
+                        if (!page.classList.contains('hidden')) {
+                            console.log(`📄 ${pageId} became visible`);
+                            
+                            if (pageId === 'dashboard-page') {
+                                setTimeout(updateContinueLearningModule, 300);
+                                setTimeout(updateProgressSummaryCards, 500);
+                            }
+                            else if (pageId === 'practice-exercises-page') {
+                                setTimeout(loadTopicsProgress, 300);
+                                setTimeout(loadPracticeStatistics, 500);
+                            }
+                            else if (pageId === 'progress-page') {
+                                setTimeout(() => {
+                                    showProgressDashboardLoading();
+                                    initProgressDashboard();
+                                }, 300);
+                            }
+                            else if (pageId === 'quiz-dashboard-page') {
+                                setTimeout(loadQuizCategories, 300);
+                                setTimeout(loadQuizStatsFromServer, 500);
+                            }
+                        }
+                    }
+                });
+            });
+            
+            observer.observe(page, { attributes: true });
+        }
+    });
+}
 // ============================================
 // SHOW ERROR STATE
 // ============================================
@@ -9201,36 +9225,6 @@ async function updateProgressSummaryCards() {
         console.error('❌ Error updating progress summary cards:', error);
         setDefaultProgressValues();
     }
-}
-// ============================================
-// ✅ FIXED: Ensure Progress Summary Shows on Dashboard
-// ============================================
-function ensureProgressSummaryShows() {
-    console.log('📊 Ensuring progress summary shows on dashboard...');
-    
-    // Check if elements exist
-    const lessonsCount = document.getElementById('lessonsCount');
-    const exercisesCount = document.getElementById('exercisesCount');
-    const quizScore = document.getElementById('quizScore');
-    const avgTime = document.getElementById('avgTime');
-    
-    if (!lessonsCount || !exercisesCount || !quizScore || !avgTime) {
-        console.log('⚠️ Progress summary elements not found, will retry');
-        setTimeout(ensureProgressSummaryShows, 500);
-        return;
-    }
-    
-    // Force update with data from PracticeState if available
-    if (PracticeState.userPracticeProgress) {
-        const stats = PracticeState.userPracticeProgress;
-        lessonsCount.innerHTML = `${stats.lessons_completed || 0}<span class="item-unit">/${stats.total_lessons || 10}</span>`;
-        exercisesCount.innerHTML = `${stats.exercises_completed || 0}<span class="item-unit">/20</span>`;
-    }
-    
-    // Also try to fetch fresh data
-    updateProgressSummaryCards();
-    
-    console.log('✅ Progress summary elements found and updated');
 }
 
 // Call this when dashboard becomes visible
@@ -24299,28 +24293,32 @@ async function loadTopicsProgress() {
         const token = localStorage.getItem('authToken') || authToken;
         if (!token) {
             topicsContainer.innerHTML = `
-                <div class="error-message">
-                    <i class="fas fa-exclamation-triangle"></i>
-                    <h3>Please login to view topics</h3>
+                <div class="error-message" style="text-align: center; padding: 40px;">
+                    <i class="fas fa-exclamation-triangle" style="font-size: 48px; color: #e74c3c;"></i>
+                    <h3 style="color: #2c3e50;">Please login to view topics</h3>
+                    <p style="color: #7f8c8d;">You need to be logged in to see your progress.</p>
                 </div>
             `;
             return;
         }
         
-        console.log('📊 Fetching topics progress for MathEase ONLY...');
+        console.log('📊 Loading topics progress for MathEase...');
         
-        // FORCE MATHEASE LESSON_ID = 1
-        const MATHEASE_LESSON_ID = 1;
+        // Show loading
+        topicsContainer.innerHTML = `
+            <div class="loading-container" style="text-align: center; padding: 40px;">
+                <i class="fas fa-spinner fa-spin" style="font-size: 40px; color: #7a0000;"></i>
+                <p style="margin-top: 15px;">Loading topics from database...</p>
+            </div>
+        `;
         
-        console.log(`🎯 Loading topics for MathEase, lesson_id: ${MATHEASE_LESSON_ID}`);
-        
-        // Try multiple endpoints to ensure we get data
-        let response = null;
-        let data = null;
+        // Try multiple endpoints to get topics
+        let topics = [];
+        let success = false;
         
         // Endpoint 1: With lesson_id filter
         try {
-            response = await fetch(`/api/topics/progress?lesson_id=${MATHEASE_LESSON_ID}`, {
+            const response = await fetch(`/api/topics/progress?lesson_id=1`, {
                 headers: { 
                     'Authorization': `Bearer ${token}`,
                     'Content-Type': 'application/json'
@@ -24328,17 +24326,21 @@ async function loadTopicsProgress() {
             });
             
             if (response.ok) {
-                data = await response.json();
-                console.log('📥 Topics data from filtered endpoint:', data);
+                const data = await response.json();
+                if (data.success && data.topics) {
+                    topics = data.topics;
+                    success = true;
+                    console.log(`✅ Found ${topics.length} topics from filtered endpoint`);
+                }
             }
         } catch (e) {
             console.log('⚠️ Filtered endpoint failed:', e.message);
         }
         
-        // Endpoint 2: Without filter (then filter client-side)
-        if (!data || !data.success) {
+        // Endpoint 2: Without filter
+        if (!success) {
             try {
-                response = await fetch(`/api/topics/progress`, {
+                const response = await fetch(`/api/topics/progress`, {
                     headers: { 
                         'Authorization': `Bearer ${token}`,
                         'Content-Type': 'application/json'
@@ -24346,19 +24348,12 @@ async function loadTopicsProgress() {
                 });
                 
                 if (response.ok) {
-                    const unfilteredData = await response.json();
-                    console.log('📥 Topics data from unfiltered endpoint:', unfilteredData);
-                    
-                    if (unfilteredData.success && unfilteredData.topics) {
-                        // Filter for MathEase (lesson_id = 1)
-                        data = {
-                            success: true,
-                            topics: unfilteredData.topics.filter(topic => {
-                                const topicLessonId = topic.lesson_id || topic.lessonId;
-                                return topicLessonId == MATHEASE_LESSON_ID;
-                            })
-                        };
-                        console.log(`🎯 Filtered to ${data.topics.length} topics for MathEase`);
+                    const data = await response.json();
+                    if (data.success && data.topics) {
+                        // Filter for MathEase
+                        topics = data.topics.filter(t => (t.lesson_id || t.lessonId) == 1);
+                        success = true;
+                        console.log(`✅ Found ${topics.length} topics after filtering`);
                     }
                 }
             } catch (e) {
@@ -24366,66 +24361,13 @@ async function loadTopicsProgress() {
             }
         }
         
-        // If still no data, use hardcoded MathEase topics for demo
-        if (!data || !data.success || !data.topics || data.topics.length === 0) {
+        // If still no topics, use hardcoded MathEase topics
+        if (!success || topics.length === 0) {
             console.log('📚 Using hardcoded MathEase topics');
+            topics = getMathEaseHardcodedTopics();
             
-            // Create hardcoded MathEase topics
-            const hardcodedTopics = [
-                {
-                    topic_id: 1,
-                    topic_title: 'Algebra Basics',
-                    module_name: 'Module 1',
-                    lesson_id: 1,
-                    lessons_completed: 2,
-                    total_lessons: 3,
-                    lesson_progress_percentage: 66,
-                    practice_unlocked: true,
-                    practice_completed: false
-                },
-                {
-                    topic_id: 2,
-                    topic_title: 'Linear Equations',
-                    module_name: 'Module 2',
-                    lesson_id: 1,
-                    lessons_completed: 1,
-                    total_lessons: 2,
-                    lesson_progress_percentage: 50,
-                    practice_unlocked: false,
-                    practice_completed: false
-                },
-                {
-                    topic_id: 3,
-                    topic_title: 'Quadratic Equations',
-                    module_name: 'Module 3',
-                    lesson_id: 1,
-                    lessons_completed: 0,
-                    total_lessons: 3,
-                    lesson_progress_percentage: 0,
-                    practice_unlocked: false,
-                    practice_completed: false
-                },
-                {
-                    topic_id: 4,
-                    topic_title: 'Systems of Equations',
-                    module_name: 'Module 4',
-                    lesson_id: 1,
-                    lessons_completed: 0,
-                    total_lessons: 2,
-                    lesson_progress_percentage: 0,
-                    practice_unlocked: false,
-                    practice_completed: false
-                }
-            ];
-            
-            data = {
-                success: true,
-                topics: hardcodedTopics
-            };
-            
-            // Show indicator that we're using demo data
+            // Show indicator
             const demoIndicator = document.createElement('div');
-            demoIndicator.className = 'demo-data-indicator';
             demoIndicator.style.cssText = `
                 background: #f39c12;
                 color: white;
@@ -24437,51 +24379,31 @@ async function loadTopicsProgress() {
             `;
             demoIndicator.innerHTML = '<i class="fas fa-info-circle"></i> Using demo data (offline mode)';
             
-            const topicsContainer = document.getElementById('topicsContainer');
-            if (topicsContainer && !document.querySelector('.demo-data-indicator')) {
+            if (!document.querySelector('.demo-indicator')) {
+                demoIndicator.classList.add('demo-indicator');
                 topicsContainer.parentNode.insertBefore(demoIndicator, topicsContainer);
             }
         }
         
-        if (data.success && data.topics) {
-            console.log(`✅ Displaying ${data.topics.length} topics for MathEase`);
-            
-            // Update unlocked count
-            const unlockedCount = data.topics.filter(t => t.practice_unlocked).length;
-            const unlockedCountElement = document.getElementById('unlockedCount');
-            if (unlockedCountElement) {
-                unlockedCountElement.textContent = unlockedCount;
-            }
-            
-            // Display the topics
-            displayTopics(data.topics);
-            
-            // If there's a current topic selected, load its exercises
-            if (PracticeState.currentTopic) {
-                setTimeout(() => {
-                    loadPracticeExercisesForTopic(PracticeState.currentTopic);
-                }, 500);
-            }
-            
-        } else {
-            topicsContainer.innerHTML = `
-                <div class="no-topics" style="text-align: center; padding: 40px;">
-                    <i class="fas fa-folder-open" style="font-size: 48px; color: #ccc; margin-bottom: 15px;"></i>
-                    <h3 style="color: #666;">No topics available for MathEase</h3>
-                    <p style="color: #999;">Check back later for new topics!</p>
-                </div>
-            `;
+        // Display the topics
+        displayMathEaseTopics(topics);
+        
+        // Update unlocked count
+        const unlockedCount = document.getElementById('unlockedCount');
+        if (unlockedCount) {
+            const unlocked = topics.filter(t => t.practice_unlocked).length;
+            unlockedCount.textContent = unlocked;
         }
         
     } catch (error) {
-        console.error('❌ Error loading topics progress:', error);
+        console.error('❌ Error loading topics:', error);
         const topicsContainer = document.getElementById('topicsContainer');
         if (topicsContainer) {
             topicsContainer.innerHTML = `
-                <div class="error-message">
-                    <i class="fas fa-exclamation-triangle"></i>
-                    <h3>Failed to load topics</h3>
-                    <p>${error.message}</p>
+                <div class="error-message" style="text-align: center; padding: 40px;">
+                    <i class="fas fa-exclamation-triangle" style="font-size: 48px; color: #e74c3c;"></i>
+                    <h3 style="color: #2c3e50;">Failed to load topics</h3>
+                    <p style="color: #7f8c8d;">${error.message}</p>
                     <button class="btn-primary" onclick="loadTopicsProgress()" style="margin-top: 15px;">
                         <i class="fas fa-redo"></i> Try Again
                     </button>
@@ -24490,7 +24412,84 @@ async function loadTopicsProgress() {
         }
     }
 }
-
+function displayMathEaseTopics(topics) {
+    const container = document.getElementById('topicsContainer');
+    if (!container) return;
+    
+    if (!topics || topics.length === 0) {
+        container.innerHTML = `
+            <div class="no-topics" style="text-align: center; padding: 40px;">
+                <i class="fas fa-folder-open" style="font-size: 48px; color: #ccc; margin-bottom: 15px;"></i>
+                <h3 style="color: #666;">No Topics Available</h3>
+                <p style="color: #999;">Complete lessons to unlock topics.</p>
+            </div>
+        `;
+        return;
+    }
+    
+    let html = '';
+    
+    topics.forEach(topic => {
+        const progress = topic.lesson_progress_percentage || 0;
+        const isUnlocked = topic.practice_unlocked || false;
+        const isCompleted = topic.practice_completed || false;
+        const isSelected = PracticeState.currentTopic == topic.topic_id;
+        
+        html += `
+            <div class="topic-card ${isUnlocked ? 'unlocked' : 'locked'} ${isCompleted ? 'completed' : ''} ${isSelected ? 'selected' : ''}" 
+                 data-topic-id="${topic.topic_id}"
+                 style="cursor: pointer; background: white; border-radius: 8px; padding: 15px; margin-bottom: 10px; 
+                        border: 2px solid ${isSelected ? '#7a0000' : 'transparent'};
+                        box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+                 
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                    <h3 style="margin: 0; font-size: 16px; color: #2c3e50;">
+                        <i class="fas fa-book" style="color: #7a0000; margin-right: 8px;"></i>
+                        ${topic.topic_title || 'MathEase Topic'}
+                    </h3>
+                    <div>
+                        ${isCompleted ? 
+                            '<span style="color: #27ae60;"><i class="fas fa-check-circle"></i> Completed</span>' :
+                            isUnlocked ?
+                            '<span style="color: #7a0000;"><i class="fas fa-unlock"></i> Unlocked</span>' :
+                            '<span style="color: #999;"><i class="fas fa-lock"></i> Locked</span>'
+                        }
+                    </div>
+                </div>
+                
+                <p style="margin: 0 0 10px 0; color: #666; font-size: 14px;">${topic.module_name || 'Module'}</p>
+                
+                <div style="margin: 10px 0;">
+                    <div style="display: flex; justify-content: space-between; font-size: 13px; color: #666; margin-bottom: 5px;">
+                        <span>Lessons: ${topic.lessons_completed || 0}/${topic.total_lessons || 3}</span>
+                        <span>${progress}%</span>
+                    </div>
+                    <div style="height: 6px; background: #ecf0f1; border-radius: 3px; overflow: hidden;">
+                        <div style="height: 100%; width: ${progress}%; background: #7a0000;"></div>
+                    </div>
+                </div>
+                
+                <div style="margin-top: 15px;">
+                    ${isUnlocked ? 
+                        `<button class="practice-topic-btn" data-topic-id="${topic.topic_id}" 
+                                style="width: 100%; padding: 8px; background: #7a0000; color: white; border: none; border-radius: 5px; cursor: pointer;">
+                            <i class="fas fa-play"></i> Start Practice
+                        </button>` :
+                        `<button class="btn-secondary" disabled 
+                                style="width: 100%; padding: 8px; background: #95a5a6; color: white; border: none; border-radius: 5px;">
+                            <i class="fas fa-lock"></i> Complete Lessons First
+                        </button>`
+                    }
+                </div>
+            </div>
+        `;
+    });
+    
+    container.innerHTML = html;
+    
+    // Add event listeners
+    setupPracticeTopicButtons();
+}
 // ============================================
 // ✅ HELPER: Get current platform topic ID
 // ============================================
@@ -30225,6 +30224,20 @@ function displayMathEaseExercises(exercises) {
     const exerciseArea = document.getElementById('exerciseArea');
     if (!exerciseArea) return;
     
+    if (!exercises || exercises.length === 0) {
+        exerciseArea.innerHTML = `
+            <div class="no-exercises" style="text-align: center; padding: 60px 20px;">
+                <i class="fas fa-pencil-alt" style="font-size: 60px; color: #ccc; margin-bottom: 20px;"></i>
+                <h3 style="color: #666; margin-bottom: 15px;">No Practice Exercises Available</h3>
+                <p style="color: #999; margin-bottom: 25px;">Complete lessons to unlock practice exercises.</p>
+                <button class="btn-primary" onclick="location.reload()" style="padding: 12px 25px;">
+                    <i class="fas fa-redo"></i> Refresh
+                </button>
+            </div>
+        `;
+        return;
+    }
+    
     let html = '<div style="display: flex; flex-direction: column; gap: 15px;">';
     
     exercises.forEach((exercise, index) => {
@@ -30252,10 +30265,10 @@ function displayMathEaseExercises(exercises) {
                 
                 <div style="display: flex; gap: 20px; margin-bottom: 15px; color: #7f8c8d; font-size: 13px;">
                     <span><i class="fas fa-star" style="color: #f39c12;"></i> ${exercise.points} points</span>
-                    <span><i class="fas fa-question-circle" style="color: #3498db;"></i> ${exercise.questions.length} questions</span>
+                    <span><i class="fas fa-question-circle" style="color: #3498db;"></i> ${exercise.questions?.length || 5} questions</span>
                 </div>
                 
-                <button class="btn-primary start-mathease-exercise" data-exercise-id="${exercise.exercise_id}"
+                <button class="start-mathease-exercise" data-exercise-id="${exercise.exercise_id}"
                         style="width: 100%; padding: 12px; background: #7a0000; color: white; border: none; border-radius: 8px; cursor: pointer;">
                     <i class="fas fa-play-circle"></i> Start Exercise
                 </button>
@@ -30282,7 +30295,102 @@ function displayMathEaseExercises(exercises) {
         });
     });
 }
+// ============================================
+// 📝 Generate Exercises from Lessons
+// ============================================
+function generateExercisesFromLessons(lessons, topicId) {
+    const exercises = [];
+    
+    lessons.forEach((lesson, index) => {
+        // Create 2 exercises per lesson
+        for (let i = 1; i <= 2; i++) {
+            exercises.push({
+                exercise_id: parseInt(`${lesson.content_id}${i}`),
+                lesson_id: 1,
+                topic_id: topicId || 1,
+                title: `${lesson.content_title || 'MathEase Lesson'} - Exercise ${i}`,
+                description: `Practice what you learned in "${lesson.content_title || 'this lesson'}"`,
+                difficulty: i === 1 ? 'easy' : 'medium',
+                points: i * 10,
+                questions: generateQuestionsForLesson(lesson, i)
+            });
+        }
+    });
+    
+    return exercises;
+}
 
+// ============================================
+// ❓ Generate Questions for Lesson
+// ============================================
+function generateQuestionsForLesson(lesson, exerciseNum) {
+    const title = (lesson.content_title || '').toLowerCase();
+    
+    if (title.includes('operation') || title.includes('math')) {
+        return [
+            {
+                text: 'What is 15 + 7?',
+                options: [
+                    { text: '22', correct: true },
+                    { text: '21', correct: false },
+                    { text: '23', correct: false },
+                    { text: '24', correct: false }
+                ]
+            },
+            {
+                text: 'What is 45 - 18?',
+                options: [
+                    { text: '27', correct: true },
+                    { text: '28', correct: false },
+                    { text: '26', correct: false },
+                    { text: '29', correct: false }
+                ]
+            }
+        ];
+    } else if (title.includes('statistic')) {
+        return [
+            {
+                text: 'Find the mean of: 5, 8, 12, 15, 20',
+                options: [
+                    { text: '12', correct: true },
+                    { text: '10', correct: false },
+                    { text: '14', correct: false },
+                    { text: '15', correct: false }
+                ]
+            },
+            {
+                text: 'Find the median of: 3, 7, 9, 12, 15',
+                options: [
+                    { text: '9', correct: true },
+                    { text: '7', correct: false },
+                    { text: '12', correct: false },
+                    { text: '10', correct: false }
+                ]
+            }
+        ];
+    } else {
+        return [
+            {
+                text: 'Sample Question 1: Choose the correct answer',
+                options: [
+                    { text: 'Option A', correct: true },
+                    { text: 'Option B', correct: false },
+                    { text: 'Option C', correct: false },
+                    { text: 'Option D', correct: false }
+                ]
+            },
+            {
+                text: 'Sample Question 2: Which one is correct?',
+                options: [
+                    { text: 'Option A', correct: false },
+                    { text: 'Option B', correct: true },
+                    { text: 'Option C', correct: false },
+                    { text: 'Option D', correct: false }
+                ]
+            }
+        ];
+    }
+}
 // ============================================
 // Practice modal for MathEase
 // ============================================
