@@ -3987,26 +3987,17 @@ function updateCurrentLessonDisplay() {
 }
 
 // ============================================
-// 📊 UPDATE CURRENT LESSON PROGRESS - CONNECTED SA VIDEO
+// 📊 UPDATE CURRENT LESSON PROGRESS - CONNECTED TO VIDEO
 // ============================================
 function updateCurrentLessonProgress() {
     const videoElement = document.getElementById('lessonVideo');
-    if (!videoElement) {
-        console.log('⏳ Waiting for video element...');
-        return;
-    }
+    if (!videoElement || !videoElement.duration) return;
     
-    // Wait for video metadata to load
-    if (!videoElement.duration || isNaN(videoElement.duration)) {
-        console.log('⏳ Waiting for video metadata...');
-        return;
-    }
+    const currentTime = videoElement.currentTime;
+    const duration = videoElement.duration;
+    const percentage = Math.floor((currentTime / duration) * 100) || 0;
     
-    const currentTime = videoElement.currentTime || 0;
-    const duration = videoElement.duration || 1;
-    const percentage = Math.floor((currentTime / duration) * 100);
-    
-    console.log(`📊 Updating progress: ${percentage}% (${currentTime.toFixed(1)}s / ${duration.toFixed(1)}s)`);
+    console.log(`📊 Progress: ${percentage}% (${currentTime.toFixed(1)}s / ${duration.toFixed(1)}s)`);
     
     // ===== UPDATE PROGRESS BAR =====
     const progressFill = document.getElementById('lessonProgressFill');
@@ -4030,9 +4021,6 @@ function updateCurrentLessonProgress() {
         
         progressTime.textContent = `${currentMinutes}:${currentSeconds.toString().padStart(2, '0')} / ${durationMinutes}:${durationSeconds.toString().padStart(2, '0')}`;
     }
-    
-    // ===== UPDATE TODAY'S LEARNING STATS =====
-    updateTodaysLearningStats(percentage);
 }
 // ============================================
 // 📊 UPDATE TODAY'S LEARNING STATS
@@ -4115,19 +4103,15 @@ function updateCurrentLessonDisplay() {
 }
 
 // ============================================
-// 🎬 ENHANCED VIDEO PROGRESS TRACKING
+// 🎬 VIDEO PROGRESS TRACKING - CONNECTED TO PROGRESS BAR
 // ============================================
 function initVideoProgressTracking(videoElement, contentId) {
-    if (!videoElement || !contentId) {
-        console.warn("⚠️ Cannot initialize video tracking");
-        return;
-    }
+    if (!videoElement || !contentId) return;
     
     console.log(`🎬 Initializing progress tracking for video ${contentId}`);
     
     let lastSaveTime = 0;
-    const SAVE_INTERVAL = 5000; // Save every 5 seconds
-    let isCompleted = false;
+    const SAVE_INTERVAL = 10000; // Save every 10 seconds
     
     // ===== LOAD METADATA =====
     videoElement.addEventListener('loadedmetadata', function() {
@@ -4155,9 +4139,9 @@ function initVideoProgressTracking(videoElement, contentId) {
     videoElement.addEventListener('timeupdate', function() {
         updateCurrentLessonProgress();
         
-        // Auto-save every 5 seconds
+        // Auto-save every 10 seconds
         const now = Date.now();
-        if (now - lastSaveTime > SAVE_INTERVAL && !isCompleted) {
+        if (now - lastSaveTime > SAVE_INTERVAL) {
             lastSaveTime = now;
             saveProgressToDatabase(contentId, this.currentTime, this.duration);
         }
@@ -4174,23 +4158,15 @@ function initVideoProgressTracking(videoElement, contentId) {
     videoElement.addEventListener('seeked', function() {
         console.log(`⏩ User seeked to ${this.currentTime.toFixed(1)}s`);
         updateCurrentLessonProgress();
-        
-        // Save on seek
-        const now = Date.now();
-        if (now - lastSaveTime > 2000) {
-            lastSaveTime = now;
-            saveProgressToDatabase(contentId, this.currentTime, this.duration);
-        }
     });
     
     // ===== ENDED EVENT =====
     videoElement.addEventListener('ended', function() {
         console.log('✅ Video completed');
-        isCompleted = true;
         updateCurrentLessonProgress();
         saveProgressToDatabase(contentId, this.duration, this.duration, true);
         
-        // Mark lesson as complete
+        // Update complete button
         const completeBtn = document.getElementById('completeLessonBtn');
         if (completeBtn) {
             completeBtn.innerHTML = '<i class="fas fa-check-double"></i> Lesson Completed!';
@@ -4207,7 +4183,6 @@ function initVideoProgressTracking(videoElement, contentId) {
     
     console.log('✅ Video progress tracking connected to progress bar');
 }
-
 // ============================================
 // 💾 SAVE PROGRESS TO DATABASE
 // ============================================
@@ -4219,7 +4194,7 @@ async function saveProgressToDatabase(contentId, currentTime, duration, isComple
     const status = isCompleted ? 'completed' : 'in_progress';
     
     try {
-        const response = await fetch(`/api/lessons-db/${contentId}/progress`, {
+        await fetch(`/api/lessons-db/${contentId}/progress`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -4232,10 +4207,7 @@ async function saveProgressToDatabase(contentId, currentTime, duration, isComple
                 time_spent_seconds: Math.floor(currentTime)
             })
         });
-        
-        if (response.ok) {
-            console.log(`✅ Progress saved: ${percentage}%`);
-        }
+        console.log(`✅ Progress saved: ${percentage}%`);
     } catch (error) {
         console.warn('⚠️ Could not save progress:', error);
     }
@@ -4598,7 +4570,7 @@ function getDefaultfactorialProgress() {
 }
 
 // ============================================
-// ✅ FIXED: fetchCumulativeProgress - FOR BROWSER
+// ✅ FIXED: fetchCumulativeProgress - WITH CORRECT FUNCTION CALL
 // ============================================
 async function fetchCumulativeProgress() {
     try {
@@ -4611,7 +4583,6 @@ async function fetchCumulativeProgress() {
         
         console.log('📊 Fetching cumulative progress...');
         
-        // ✅ GUMAMIT NG FETCH, HINDI PROMISEPOOL
         const response = await fetch(`/api/progress/overall`, {
             headers: { 
                 'Authorization': `Bearer ${token}`,
@@ -4670,8 +4641,17 @@ async function fetchCumulativeProgress() {
             
             ProgressState.cumulativeProgress = progress;
             
-            // IMMEDIATELY update display
-            updateOverallProgressDisplay(progress);
+            // ===== CALL THE CORRECT FUNCTION =====
+            // Tawagin ang updateOverallProgressUI imbes na updateOverallProgressDisplay
+            updateOverallProgressUI(
+                progress.overall_percentage,
+                progress.total_points_earned,
+                progress.total_time_spent_minutes * 60, // convert back to seconds
+                progress.exercises_completed,
+                progress.total_lessons_completed,
+                progress.total_lessons,
+                progress.total_quizzes_completed
+            );
             
             return progress;
         }
@@ -7082,9 +7062,8 @@ function forceUpdateProgressUI(progress) {
     console.log('✅ UI force updated with', percentage + '%');
 }
 // ============================================
-// LOAD PROGRESS DASHBOARD DATA FROM DATABASE
+// LOAD PROGRESS DASHBOARD DATA FROM DATABASE - FIXED
 // ============================================
-
 async function loadProgressDashboardData() {
     console.log('📊 Loading progress dashboard data...');
     
@@ -7107,22 +7086,18 @@ async function loadProgressDashboardData() {
             quizStats,
             totalLessonsCount
         ] = await Promise.allSettled([
-            // 1. Get lessons progress
             fetch(`/api/progress/lessons?lesson_id=${LESSON_ID}`, {
                 headers: { 'Authorization': `Bearer ${token}` }
             }).then(res => res.json()).catch(() => ({ success: false })),
             
-            // 2. Get practice stats
             fetch(`/api/progress/practice-attempts?lesson_id=${LESSON_ID}`, {
                 headers: { 'Authorization': `Bearer ${token}` }
             }).then(res => res.json()).catch(() => ({ success: false })),
             
-            // 3. Get quiz stats
             fetch(`/api/quiz/user/attempts?lesson_id=${LESSON_ID}`, {
                 headers: { 'Authorization': `Bearer ${token}` }
             }).then(res => res.json()).catch(() => ({ success: false })),
             
-            // 4. Get total lessons count
             fetch(`/api/lessons-db/complete?lesson_id=${LESSON_ID}`, {
                 headers: { 'Authorization': `Bearer ${token}` }
             }).then(res => res.json()).catch(() => ({ success: false }))
@@ -7185,9 +7160,16 @@ async function loadProgressDashboardData() {
         
         console.log(`📊 Overall progress: ${overallPercentage}% (${lessonsCompleted}/${totalLessons} lessons)`);
         
-        // ===== UPDATE OVERALL PROGRESS UI =====
-        updateOverallProgressUI(overallPercentage, quizPoints, totalPracticeSeconds, 
-                               exercisesCompleted, lessonsCompleted, totalLessons, quizAttempts);
+        // ===== CALL THE CORRECT FUNCTION =====
+        updateOverallProgressUI(
+            overallPercentage, 
+            quizPoints, 
+            totalPracticeSeconds, 
+            exercisesCompleted, 
+            lessonsCompleted, 
+            totalLessons, 
+            quizAttempts
+        );
         
         // Store in ProgressState
         ProgressState.cumulativeProgress = {
@@ -20644,27 +20626,40 @@ async function testVideoAccessibility(url) {
 }
 
 // ============================================
-// 🎬 LOAD VIDEO FROM DATABASE - UPDATED
+// 🎬 LOAD VIDEO FROM DATABASE - WORKING VERSION
 // ============================================
 async function loadVideoFromDatabase(contentId = null) {
-    console.log('🎬 Loading video for lesson ID:', contentId);
+    console.log('🎬 loadVideoFromDatabase called with contentId:', contentId);
     
-    const videoContainer = document.getElementById('videoContainer');
-    if (!videoContainer) return;
+    // Find video container
+    let videoContainer = document.getElementById('videoContainer');
+    
+    if (!videoContainer) {
+        console.error('❌ Video container not found!');
+        return null;
+    }
     
     try {
+        // Get contentId from current lesson
         if (!contentId && LessonState.currentLesson) {
             contentId = LessonState.currentLesson.content_id;
         }
         
+        if (!contentId) {
+            contentId = 1; // Default
+        }
+        
+        console.log(`🎬 Loading video for lesson ID: ${contentId}`);
+        
         // Show loading
         videoContainer.innerHTML = `
             <div style="background: #f0f0f0; height: 400px; display: flex; align-items: center; justify-content: center; flex-direction: column;">
-                <i class="fas fa-spinner fa-spin" style="font-size: 40px; color: #7a0000;"></i>
-                <p style="color: #666; margin-top: 15px;">Loading video...</p>
+                <i class="fas fa-spinner fa-spin" style="font-size: 40px; color: #7a0000; margin-bottom: 20px;"></i>
+                <p style="color: #666;">Loading video from database...</p>
             </div>
         `;
         
+        // Fetch lesson data
         const lessonData = await apiRequest(`/api/lessons-db/${contentId}`);
         
         if (!lessonData.success || !lessonData.lesson) {
@@ -20672,17 +20667,43 @@ async function loadVideoFromDatabase(contentId = null) {
         }
         
         const lesson = lessonData.lesson;
+        console.log('✅ Lesson data loaded:', lesson.content_title);
         
         // Determine video source
         let videoUrl = null;
+        
+        // Check for video_filename
         if (lesson.video_filename) {
             videoUrl = `${window.location.origin}/videos/${lesson.video_filename}`;
-        } else if (lesson.content_url) {
+            console.log('🎬 Using uploaded video:', videoUrl);
+        }
+        // Check for YouTube URL
+        else if (lesson.content_url && lesson.content_url.includes('youtube')) {
             videoUrl = lesson.content_url;
+            console.log('🔗 Using YouTube video:', videoUrl);
         }
         
+        // Clear container
         videoContainer.innerHTML = '';
         
+        // Handle YouTube videos
+        if (videoUrl && videoUrl.includes('youtube')) {
+            const videoId = extractYoutubeId(videoUrl);
+            if (videoId) {
+                const iframe = document.createElement('iframe');
+                iframe.width = '100%';
+                iframe.height = '400';
+                iframe.src = `https://www.youtube.com/embed/${videoId}`;
+                iframe.frameBorder = '0';
+                iframe.allowFullscreen = true;
+                videoContainer.appendChild(iframe);
+                
+                console.log('✅ YouTube video loaded');
+                return;
+            }
+        }
+        
+        // Handle uploaded videos
         if (videoUrl) {
             const video = document.createElement('video');
             video.id = 'lessonVideo';
@@ -20703,11 +20724,14 @@ async function loadVideoFromDatabase(contentId = null) {
             // ===== I-CONNECT ANG VIDEO SA PROGRESS BAR =====
             initVideoProgressTracking(video, contentId);
             
+            console.log('✅ Video loaded and connected to progress bar');
+            
         } else {
+            // No video available
             videoContainer.innerHTML = `
                 <div style="background: #f0f0f0; height: 400px; display: flex; align-items: center; justify-content: center; flex-direction: column;">
-                    <i class="fas fa-video-slash" style="font-size: 60px; color: #999;"></i>
-                    <h3 style="color: #666;">No video available</h3>
+                    <i class="fas fa-video-slash" style="font-size: 60px; color: #999; margin-bottom: 20px;"></i>
+                    <h3 style="color: #666;">No video available for this lesson</h3>
                 </div>
             `;
         }
@@ -20716,9 +20740,12 @@ async function loadVideoFromDatabase(contentId = null) {
         console.error('❌ Error loading video:', error);
         videoContainer.innerHTML = `
             <div style="background: #fee; height: 400px; display: flex; align-items: center; justify-content: center; flex-direction: column;">
-                <i class="fas fa-exclamation-triangle" style="font-size: 60px; color: #e74c3c;"></i>
+                <i class="fas fa-exclamation-triangle" style="font-size: 60px; color: #e74c3c; margin-bottom: 20px;"></i>
                 <h3 style="color: #c0392b;">Failed to load video</h3>
                 <p style="color: #e74c3c;">${error.message}</p>
+                <button onclick="location.reload()" class="btn-primary" style="margin-top: 20px; padding: 10px 20px;">
+                    <i class="fas fa-redo"></i> Reload Page
+                </button>
             </div>
         `;
     }
