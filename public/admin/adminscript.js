@@ -22541,9 +22541,10 @@ function changeQuizPage(direction) {
     displayQuizzes();
 }
 
-// ===== FIXED: OPEN CREATE/EDIT QUIZ MODAL (FOR YOUR ACTUAL DATA STRUCTURE) =====
-async function openCreateQuizModal(quizId = null) {
+// ===== FIXED: OPEN CREATE/EDIT QUIZ MODAL (WITH DIRECT DATA) =====
+async function openCreateQuizModal(quizId = null, quizData = null) {
     console.log("📝 Opening quiz modal for:", quizId ? `edit #${quizId}` : 'create new');
+    console.log("📦 Quiz data received:", quizData);
     
     const modal = document.getElementById('createQuizModal');
     if (!modal) return;
@@ -22599,145 +22600,111 @@ async function openCreateQuizModal(quizId = null) {
         loadTeachersForAssignment();
     }, 300);
     
-    // ===== IF EDITING, LOAD DATA =====
-    if (quizId) {
+    // ===== IF EDITING AND WE HAVE DATA, POPULATE FORM =====
+    if (quizId && quizData) {
         try {
-            const token = localStorage.getItem('admin_token') || localStorage.getItem('authToken');
+            // ===== SET EDIT ID =====
+            document.getElementById('editQuizId').value = quizData.quiz_id || quizData.id;
             
-            if (!token) {
-                showNotification('error', 'Auth Error', 'Please login first');
-                return;
+            // ===== SET TITLE - THIS IS THE KEY PART =====
+            const titleValue = quizData.quiz_title || quizData.title || '';
+            console.log(`📝 Setting title to: "${titleValue}"`);
+            document.getElementById('quizTitle').value = titleValue;
+            
+            // ===== SET DESCRIPTION =====
+            document.getElementById('quizDescription').value = quizData.description || '';
+            
+            // ===== SET SUBJECT =====
+            const subjectSelect = document.getElementById('quizSubject');
+            if (subjectSelect) {
+                subjectSelect.value = quizData.category_id || quizData.subject_id || '';
+                console.log(`✅ Subject set to: ${subjectSelect.value}`);
             }
             
-            // Show loading state
-            document.getElementById('quizTitle').value = 'Loading...';
+            // ===== Load topics based on subject =====
+            await loadQuizTopics();
             
-            const response = await fetch(`/api/admin/quizzes/${quizId}`, {
-                headers: { 'Authorization': `Bearer ${token}` }
-            });
-            
-            if (response.status === 401) {
-                showNotification('error', 'Session Expired', 'Please login again');
-                return;
-            }
-            
-            if (!response.ok) {
-                throw new Error(`HTTP error! status: ${response.status}`);
-            }
-            
-            const result = await response.json();
-            
-            if (result.success) {
-                const quiz = result.quiz;
-                
-                console.log('✅ Quiz loaded for editing:', quiz);
-                console.log('📋 Quiz object keys:', Object.keys(quiz));
-                
-                // ===== SET EDIT ID =====
-                document.getElementById('editQuizId').value = quiz.quiz_id || quiz.id;
-                
-                // ===== FIXED: Use quiz_title (matches your data structure) =====
-                document.getElementById('quizTitle').value = quiz.quiz_title || quiz.title || '';
-                console.log(`📝 Title set to: "${quiz.quiz_title}"`);
-                
-                // ===== FIXED: Use description =====
-                document.getElementById('quizDescription').value = quiz.description || '';
-                
-                // ===== FIXED: Set subject =====
-                const subjectSelect = document.getElementById('quizSubject');
-                if (subjectSelect) {
-                    // Based on your mapping in loadQuizzesFromMySQL, subject_id is the category
-                    subjectSelect.value = quiz.category_id || quiz.subject_id || '';
-                    console.log(`✅ Subject set to: ${subjectSelect.value}`);
-                }
-                
-                // ===== Load topics based on subject =====
-                await loadQuizTopics();
-                
-                // ===== Set topic after topics are loaded =====
-                setTimeout(() => {
-                    if (quiz.topic_id) {
-                        const topicSelect = document.getElementById('quizTopic');
-                        if (topicSelect) {
-                            topicSelect.value = quiz.topic_id;
-                            console.log(`✅ Topic set to: ${quiz.topic_id}`);
-                        }
+            // ===== Set topic after topics are loaded =====
+            setTimeout(() => {
+                if (quizData.topic_id) {
+                    const topicSelect = document.getElementById('quizTopic');
+                    if (topicSelect) {
+                        topicSelect.value = quizData.topic_id;
+                        console.log(`✅ Topic set to: ${quizData.topic_id}`);
                     }
-                }, 500);
-                
-                // ===== Set other fields =====
-                document.getElementById('quizTimeLimit').value = quiz.time_limit_minutes || quiz.time_limit || 30;
-                document.getElementById('quizPassingScore').value = quiz.passing_score || quiz.pass_score || 70;
-                document.getElementById('quizMaxAttempts').value = quiz.max_attempts || quiz.attempts_limit || 3;
-                document.getElementById('quizDifficulty').value = quiz.difficulty || 'medium';
-                
-                // Status handling
-                let status = 'active';
-                if (quiz.is_active === 0 || quiz.is_active === false) {
-                    status = 'inactive';
-                } else if (quiz.status === 'inactive') {
-                    status = 'inactive';
                 }
-                document.getElementById('quizStatus').value = status;
-                
-                // ===== Clear and add questions =====
-                container.innerHTML = '';
-                
-                if (quiz.questions && quiz.questions.length > 0) {
-                    quiz.questions.forEach((q, index) => {
-                        // Add question field
-                        addQuestionField();
-                        
-                        // Fill question data with slight delay for DOM to update
-                        setTimeout(() => {
-                            const qNum = index + 1;
-                            
-                            // Set question text
-                            const questionInput = document.getElementById(`q_${qNum}_text`);
-                            if (questionInput) {
-                                questionInput.value = q.question_text || q.text || '';
-                            }
-                            
-                            // Populate options
-                            if (q.options && Array.isArray(q.options)) {
-                                const letters = ['a', 'b', 'c', 'd', 'e', 'f'];
-                                
-                                q.options.forEach((opt, optIndex) => {
-                                    const letter = letters[optIndex];
-                                    if (!letter) return;
-                                    
-                                    // Set option text
-                                    const optInput = document.getElementById(`q_${qNum}_opt_${letter}`);
-                                    if (optInput) {
-                                        optInput.value = opt.option_text || opt.text || '';
-                                    }
-                                    
-                                    // Set correct answer
-                                    const isCorrect = opt.is_correct || opt.correct || false;
-                                    if (isCorrect) {
-                                        const radio = document.querySelector(`input[name="q_${qNum}_correct"][value="${letter}"]`);
-                                        if (radio) {
-                                            radio.checked = true;
-                                        }
-                                    }
-                                });
-                            }
-                        }, 100 * (index + 1));
-                    });
-                    
-                    showNotification('success', 'Loaded', `Quiz loaded with ${quiz.questions.length} questions`);
-                } else {
-                    addQuestionField();
-                }
-                
-            } else {
-                throw new Error(result.message || 'Failed to load quiz');
-            }
-        } catch (error) {
-            console.error('❌ Error loading quiz:', error);
-            showNotification('error', 'Error', 'Failed to load quiz data');
+            }, 500);
             
-            // Add a default question field even on error
+            // ===== Set other fields =====
+            document.getElementById('quizTimeLimit').value = quizData.time_limit_minutes || quizData.time_limit || 30;
+            document.getElementById('quizPassingScore').value = quizData.passing_score || quizData.pass_score || 70;
+            document.getElementById('quizMaxAttempts').value = quizData.max_attempts || quizData.attempts_limit || 3;
+            document.getElementById('quizDifficulty').value = quizData.difficulty || 'medium';
+            
+            // Status handling
+            let status = 'active';
+            if (quizData.is_active === 0 || quizData.is_active === false) {
+                status = 'inactive';
+            } else if (quizData.status === 'inactive') {
+                status = 'inactive';
+            }
+            document.getElementById('quizStatus').value = status;
+            
+            // ===== Clear and add questions =====
+            container.innerHTML = '';
+            
+            if (quizData.questions && quizData.questions.length > 0) {
+                console.log(`📝 Loading ${quizData.questions.length} questions`);
+                
+                quizData.questions.forEach((q, index) => {
+                    // Add question field
+                    addQuestionField();
+                    
+                    // Fill question data with slight delay for DOM to update
+                    setTimeout(() => {
+                        const qNum = index + 1;
+                        
+                        // Set question text
+                        const questionInput = document.getElementById(`q_${qNum}_text`);
+                        if (questionInput) {
+                            questionInput.value = q.question_text || q.text || '';
+                        }
+                        
+                        // Populate options
+                        if (q.options && Array.isArray(q.options)) {
+                            const letters = ['a', 'b', 'c', 'd', 'e', 'f'];
+                            
+                            q.options.forEach((opt, optIndex) => {
+                                const letter = letters[optIndex];
+                                if (!letter) return;
+                                
+                                // Set option text
+                                const optInput = document.getElementById(`q_${qNum}_opt_${letter}`);
+                                if (optInput) {
+                                    optInput.value = opt.option_text || opt.text || '';
+                                }
+                                
+                                // Set correct answer
+                                const isCorrect = opt.is_correct || opt.correct || false;
+                                if (isCorrect) {
+                                    const radio = document.querySelector(`input[name="q_${qNum}_correct"][value="${letter}"]`);
+                                    if (radio) {
+                                        radio.checked = true;
+                                    }
+                                }
+                            });
+                        }
+                    }, 100 * (index + 1));
+                });
+                
+                showNotification('success', 'Loaded', `Quiz loaded with ${quizData.questions.length} questions`);
+            } else {
+                addQuestionField();
+            }
+            
+        } catch (error) {
+            console.error('❌ Error populating quiz form:', error);
+            showNotification('error', 'Error', 'Failed to populate quiz data');
             addQuestionField();
         }
     }
@@ -23160,12 +23127,20 @@ function closeViewQuizModal() {
     }
 }
 
-// ===== EDIT QUIZ - FIXED =====
+// ===== FIXED: EDIT QUIZ FUNCTION =====
 async function editQuiz(quizId) {
     console.log("✏️ Editing quiz:", quizId);
     
     try {
         const token = localStorage.getItem('admin_token') || localStorage.getItem('authToken');
+        
+        if (!token) {
+            showNotification('error', 'Auth Error', 'Please login first');
+            return;
+        }
+        
+        // Show loading notification
+        showNotification('info', 'Loading', 'Fetching quiz data...');
         
         const response = await fetch(`/api/admin/quizzes/${quizId}`, {
             headers: {
@@ -23173,67 +23148,23 @@ async function editQuiz(quizId) {
             }
         });
         
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        
         const result = await response.json();
+        console.log('📥 Edit quiz response:', result);
         
         if (result.success) {
             const quiz = result.quiz;
+            console.log('✅ Quiz data received:', quiz);
+            console.log('📋 Quiz title:', quiz.quiz_title);
             
-            // Open create modal
-            openCreateQuizModal();
+            // Open the modal with the quiz data
+            await openCreateQuizModal(quizId, quiz);
             
-            // Fill form
-            document.getElementById('editQuizId').value = quiz.id;
-            document.getElementById('quizTitle').value = quiz.title;
-            document.getElementById('quizDescription').value = quiz.description || '';
-            document.getElementById('quizSubject').value = quiz.category_id || quiz.subject_id;
-            document.getElementById('quizTimeLimit').value = quiz.time_limit_minutes;
-            document.getElementById('quizPassingScore').value = quiz.passing_score;
-            document.getElementById('quizMaxAttempts').value = quiz.max_attempts;
-            document.getElementById('quizStatus').value = quiz.status;
-            
-            // Load topics
-            await loadQuizTopics();
-            
-            // Set topic
-            if (quiz.topic_id) {
-                document.getElementById('quizTopic').value = quiz.topic_id;
-            }
-            
-            // Add questions
-            const container = document.getElementById('questionsContainer');
-            container.innerHTML = '';
-            
-            quiz.questions.forEach((q, index) => {
-                addQuestionField();
-                
-                // Fill question data (with slight delay for DOM to update)
-                setTimeout(() => {
-                    const qNum = index + 1;
-                    document.getElementById(`q_${qNum}_text`).value = q.question_text;
-                    
-                    // ✅ FIXED: Check if options exist and have the right properties
-                    if (q.options && Array.isArray(q.options)) {
-                        q.options.forEach((opt, optIndex) => {
-                            // Get the letter based on index (a, b, c, d...)
-                            const letters = ['a', 'b', 'c', 'd', 'e', 'f'];
-                            const letter = letters[optIndex];
-                            
-                            const optInput = document.getElementById(`q_${qNum}_opt_${letter}`);
-                            if (optInput) {
-                                optInput.value = opt.option_text || opt.text || '';
-                            }
-                            
-                            // Set correct answer
-                            if (opt.is_correct || opt.correct) {
-                                const radio = document.querySelector(`input[name="q_${qNum}_correct"][value="${letter}"]`);
-                                if (radio) radio.checked = true;
-                            }
-                        });
-                    }
-                }, 100 * (index + 1));
-            });
-            
-            showNotification('info', 'Edit Mode', 'Update quiz details and click Save');
+        } else {
+            throw new Error(result.message || 'Failed to load quiz');
         }
         
     } catch (error) {
