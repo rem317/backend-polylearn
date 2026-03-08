@@ -3948,12 +3948,6 @@ async function fetchSubjects() {
 // [NEW] VIDEO PROGRESS TRACKING - ADD THIS TO script.js
 // ============================================
 
-/**
- * Initialize video progress tracking
- * @param {HTMLVideoElement} videoElement - The video element to track
- * @param {number|string} contentId - The ID of the lesson/content
- */
-
 // ============================================
 // 📊 UPDATE CURRENT LESSON PROGRESS DISPLAY
 // ============================================
@@ -4019,6 +4013,44 @@ function updateCurrentLessonProgress(percentage, currentTime, duration) {
         
         progressTime.textContent = `${currentMinutes}:${currentSeconds.toString().padStart(2, '0')} / ${durationMinutes}:${durationSeconds.toString().padStart(2, '0')}`;
     }
+}
+
+// ============================================
+// 📊 UPDATE CURRENT LESSON PROGRESS DISPLAY
+// ============================================
+function updateCurrentLessonDisplay() {
+    const lessonProgressFill = document.getElementById('lessonProgressFill');
+    const progressPercentage = document.getElementById('progressPercentage');
+    const progressTime = document.getElementById('progressTime');
+    const videoElement = document.getElementById('lessonVideo');
+    
+    if (!videoElement || !videoElement.duration) return;
+    
+    const currentTime = videoElement.currentTime;
+    const duration = videoElement.duration;
+    const percentage = Math.floor((currentTime / duration) * 100) || 0;
+    
+    // Update progress bar
+    if (lessonProgressFill) {
+        lessonProgressFill.style.width = `${percentage}%`;
+    }
+    
+    // Update percentage text
+    if (progressPercentage) {
+        progressPercentage.textContent = `${percentage}% Complete`;
+    }
+    
+    // Update time display
+    if (progressTime) {
+        const currentMinutes = Math.floor(currentTime / 60);
+        const currentSeconds = Math.floor(currentTime % 60);
+        const durationMinutes = Math.floor(duration / 60);
+        const durationSeconds = Math.floor(duration % 60);
+        
+        progressTime.textContent = `${currentMinutes}:${currentSeconds.toString().padStart(2, '0')} / ${durationMinutes}:${durationSeconds.toString().padStart(2, '0')}`;
+    }
+    
+    console.log(`🔄 Progress bar updated: ${percentage}% at ${currentTime.toFixed(1)}s`);
 }
 
 // ============================================
@@ -4350,7 +4382,6 @@ function initVideoProgressTracking(videoElement, contentId) {
     
     console.log(`✅ Video progress tracking initialized for ${contentId} - connected to progress bar`);
 }
-
 // ============================================
 // FUNCTION TO LOAD VIDEO LESSON
 // ============================================
