@@ -12688,11 +12688,8 @@ async function checkQuizAccess(quizId) {
     }
 }
 
-
-
-
 // ============================================
-// ✅ FIXED: Start Quiz System - Ensures timer is initialized
+// ✅ ULTIMATE FIX: Start Quiz System - Guaranteed timer
 // ============================================
 async function startQuizSystem(quizId) {
     console.log("🎯 Starting QUIZ ID:", quizId);
@@ -12792,27 +12789,67 @@ async function startQuizSystem(quizId) {
         // Load first question
         loadQuizSystemQuestion(0);
         
-        // CRITICAL: Start timer with multiple attempts
-        setTimeout(() => {
-            console.log('⏱️ Starting timer after delay');
-            startQuizSystemTimer();
-        }, 200);
+        // CRITICAL: Create timer display IMMEDIATELY
+        createQuizTimerDisplay();
         
-        // Double-check timer after a longer delay
+        // Start timer after a short delay
         setTimeout(() => {
-            const timerDisplay = document.getElementById('quizTimerDisplay');
-            if (!timerDisplay) {
-                console.log('⏱️ Timer still not showing, forcing creation');
-                ensureTimerDisplayExists();
-                startQuizSystemTimer();
-            }
-        }, 500);
+            startQuizTimer();
+        }, 300);
         
     } catch (error) {
         console.error('❌ Error starting quiz:', error);
         showNotification('Failed to start quiz: ' + error.message, 'error');
         closeQuizModal();
     }
+}
+// ============================================
+// ✅ CREATE QUIZ TIMER DISPLAY - Guaranteed to work
+// ============================================
+function createQuizTimerDisplay() {
+    console.log('⏱️ Creating quiz timer display');
+    
+    // Remove any existing timer display
+    const existingTimer = document.getElementById('quizTimerDisplay');
+    if (existingTimer) {
+        existingTimer.remove();
+    }
+    
+    // Find the modal header
+    const modalHeader = document.querySelector('#quizModal .modal-header');
+    if (!modalHeader) {
+        console.error('❌ Modal header not found');
+        return null;
+    }
+    
+    // Create timer display
+    const timerDisplay = document.createElement('div');
+    timerDisplay.id = 'quizTimerDisplay';
+    timerDisplay.style.cssText = `
+        background: #7a0000;
+        color: white;
+        padding: 8px 20px;
+        border-radius: 30px;
+        font-weight: bold;
+        font-size: 20px;
+        margin-left: 15px;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+        border: 2px solid white;
+    `;
+    
+    // Set initial time
+    if (QuizSystem.timeLeft) {
+        const minutes = Math.floor(QuizSystem.timeLeft / 60);
+        const seconds = QuizSystem.timeLeft % 60;
+        timerDisplay.textContent = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+    } else {
+        timerDisplay.textContent = '00:00';
+    }
+    
+    modalHeader.appendChild(timerDisplay);
+    console.log('✅ Timer display created:', timerDisplay.textContent);
+    
+    return timerDisplay;
 }
 // ============================================
 // 🚨 EMERGENCY QUIZ TIMER FIX
@@ -31111,7 +31148,69 @@ window.debugMathEaseProgress = async function() {
     
     console.log('\n🔍 Debug complete');
 };
-
+// ============================================
+// 🚨 ULTIMATE EMERGENCY TIMER FIX
+// ============================================
+(function ultimateTimerFix() {
+    console.log('⏱️ Applying ULTIMATE timer fix');
+    
+    // Check every 500ms if quiz modal is open and timer is running
+    setInterval(() => {
+        const quizModal = document.getElementById('quizModal');
+        if (quizModal && quizModal.style.display === 'flex') {
+            
+            // Check if timer display exists
+            let timerDisplay = document.getElementById('quizTimerDisplay');
+            
+            // If no timer display, create it
+            if (!timerDisplay) {
+                const modalHeader = document.querySelector('#quizModal .modal-header');
+                if (modalHeader) {
+                    timerDisplay = document.createElement('div');
+                    timerDisplay.id = 'quizTimerDisplay';
+                    timerDisplay.style.cssText = `
+                        background: #7a0000;
+                        color: white;
+                        padding: 8px 20px;
+                        border-radius: 30px;
+                        font-weight: bold;
+                        font-size: 20px;
+                        margin-left: 15px;
+                        border: 2px solid white;
+                    `;
+                    modalHeader.appendChild(timerDisplay);
+                    console.log('🚨 Emergency timer created');
+                }
+            }
+            
+            // Update timer display if we have timeLeft
+            if (timerDisplay && QuizSystem.timeLeft !== undefined) {
+                const minutes = Math.floor(QuizSystem.timeLeft / 60);
+                const seconds = QuizSystem.timeLeft % 60;
+                timerDisplay.textContent = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+            }
+            
+            // If timer is not running but should be, restart it
+            if (QuizSystem.timeLeft > 0 && !QuizSystem.timerInterval) {
+                console.log('🚨 Timer not running but should be - restarting');
+                startQuizTimer();
+            }
+        }
+    }, 500);
+    
+    // Also add a click handler to force timer creation when any quiz button is clicked
+    document.addEventListener('click', function(e) {
+        if (e.target.closest('.start-quiz-btn') || e.target.closest('.quiz-start-btn')) {
+            console.log('🎯 Quiz button clicked - will ensure timer');
+            setTimeout(() => {
+                if (document.getElementById('quizModal')?.style.display === 'flex') {
+                    createQuizTimerDisplay();
+                    startQuizTimer();
+                }
+            }, 500);
+        }
+    }, true);
+})();
 // ============================================
 // 🔍 Debug function to check MathEase data
 // ============================================
