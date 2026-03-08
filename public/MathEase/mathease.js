@@ -9,20 +9,6 @@ let authToken = localStorage.getItem('authToken') || null;
    
 const API_BASE_URL = window.location.origin;
 
-// Define default practice statistics function
-function getDefaultPracticeStats() {
-    return {
-        totalSessions: 0,
-        totalQuestions: 0,
-        correctAnswers: 0,
-        averageScore: 0,
-        studyTime: 0,
-        weakAreas: [],
-        strongAreas: [],
-        recentActivity: []
-    };
-}
-
 // ============================================
 // APP FILTERING SYSTEM - USING LESSON_ID
 // ============================================
@@ -10779,125 +10765,6 @@ function initializeTimeTracker() {
     console.log('🏁 Checking for existing user...');
     initializeTimeTracker();
 })();
-
-// Also initialize after login
-
-
-// ============================================
-// ✅ FIXED: fetchPracticeStatistics - ONLY LESSON_ID = 3
-// ============================================
-async function fetchPracticeStatistics() {
-    try {
-        const token = localStorage.getItem('authToken') || authToken;
-        if (!token) {
-            console.error('❌ No auth token available');
-            return null;
-        }
-        
-        // ✅ FORCE LESSON_ID = 3 FOR factorial
-        console.log(`📊 Fetching FactoLearn practice statistics DIRECTLY FROM DATABASE (lesson_id=${MATHEASE_LESSON_ID})...`);
-        
-        // ===== GET ALL PRACTICE STATS FROM DATABASE IN PARALLEL =====
-        const [lessonsData, attemptsData, totalExercisesData] = await Promise.allSettled([
-            // Get lessons progress (lesson_id=1)
-            fetch(`/api/progress/lessons?lesson_id=${MATHEASE_LESSON_ID}`, {
-                headers: { 'Authorization': `Bearer ${token}` }
-            }).then(res => res.json()).catch(err => ({ success: false, error: err })),
-            
-            // Get practice attempts (lesson_id=1)
-             fetch(`/api/progress/practice-attempts?lesson_id=${MATHEASE_LESSON_ID}`, {
-                headers: { 'Authorization': `Bearer ${token}` }
-            }).then(res => res.json()).catch(err => ({ success: false, error: err })),
-            
-            // Get total exercises count (lesson_id=1)
-            fetch(`/api/practice/exercises/count?lesson_id=${MATHEASE_LESSON_ID}`, {
-                headers: { 'Authorization': `Bearer ${token}` }
-            }).then(res => res.json()).catch(err => ({ success: false, error: err }))
-        ]);
-        
-        // ===== PROCESS LESSONS DATA =====
-        let lessonsCompleted = 0;
-        let totalLessons = 0;
-        
-        if (lessonsData.status === 'fulfilled' && lessonsData.value.success) {
-            const progress = lessonsData.value.progress || [];
-            lessonsCompleted = progress.filter(p => 
-                p.completion_status === 'completed' || p.status === 'completed'
-            ).length;
-            console.log(`✅ Lessons completed from DB: ${lessonsCompleted}`);
-        }
-        
-        // ===== PROCESS TOTAL EXERCISES =====
-        let totalExercises = 0;
-        if (totalExercisesData.status === 'fulfilled' && totalExercisesData.value.success) {
-            totalExercises = totalExercisesData.value.count || 0;
-            console.log(`✅ Total exercises from DB: ${totalExercises}`);
-        }
-        
-        // ===== PROCESS PRACTICE ATTEMPTS =====
-        let exercisesCompleted = 0;
-        let totalAttempts = 0;
-        let totalScore = 0;
-        let totalTimeSeconds = 0;
-        let averageScore = 0;
-        
-        if (attemptsData.status === 'fulfilled' && attemptsData.value.success) {
-            const attempts = attemptsData.value.attempts || [];
-            
-            // Count completed exercises
-            exercisesCompleted = attempts.filter(a => 
-                a.completion_status === 'completed' || 
-                a.percentage >= 70 ||
-                a.score >= 70
-            ).length;
-            
-            totalAttempts = attempts.length;
-            
-            // Calculate average score
-            if (totalAttempts > 0) {
-                const totalScoreSum = attempts.reduce((sum, a) => sum + (a.score || 0), 0);
-                averageScore = Math.round(totalScoreSum / totalAttempts);
-            }
-            
-            // Calculate total time
-            totalTimeSeconds = attempts.reduce((sum, a) => sum + (a.time_spent_seconds || 0), 0);
-            
-            console.log(`✅ Exercises completed from DB: ${exercisesCompleted}/${totalExercises}`);
-            console.log(`✅ Total attempts from DB: ${totalAttempts}`);
-            console.log(`✅ Average score from DB: ${averageScore}%`);
-            console.log(`✅ Total time from DB: ${totalTimeSeconds}s`);
-        }
-        
-        // ===== CREATE STATS OBJECT FROM DATABASE =====
-        const stats = {
-            total_exercises_completed: exercisesCompleted,
-            total_attempts: totalAttempts,
-            average_score: averageScore,
-            lessons_completed: lessonsCompleted,
-            exercises_completed: exercisesCompleted,
-            practice_unlocked: true,
-            total_lessons: totalLessons || 3,
-            total_exercises: totalExercises,
-            total_time_minutes: Math.round(totalTimeSeconds / 60),
-            total_time_seconds: totalTimeSeconds,
-            accuracy_rate: averageScore,
-            lessons_display: `${lessonsCompleted}/${totalLessons || 3}`,
-            exercises_display: `${exercisesCompleted}`,
-            lessons_percentage: totalLessons > 0 ? Math.round((lessonsCompleted / totalLessons) * 100) : 0
-        };
-        
-        console.log('✅ FINAL PRACTICE STATISTICS FROM DATABASE:', stats);
-        
-        // Save to PracticeState
-        PracticeState.userPracticeProgress = stats;
-        
-        return stats;
-        
-    } catch (error) {
-        console.error('❌ Error fetching practice statistics from database:', error);
-        return null;
-    }
-}
 
 // Update learning goals section
 function updateLearningGoalsSection() {
@@ -24146,118 +24013,6 @@ function setupPracticeTopicButtons() {
         });
     });
 }
-
-// ============================================
-// ✅ UPDATED: Load Practice Exercises For Topic
-// ============================================
-async function loadPracticeExercisesForTopic(topicId) {
-    console.log(`📝 Loading practice exercises for topic ${topicId}`);
-    
-    const exerciseArea = document.getElementById('exerciseArea');
-    if (!exerciseArea) return;
-    
-    // Show loading
-    exerciseArea.innerHTML = `
-        <div class="loading-container" style="text-align: center; padding: 40px;">
-            <i class="fas fa-spinner fa-spin" style="font-size: 40px; color: #7a0000;"></i>
-            <p>Loading practice exercises...</p>
-        </div>
-    `;
-    
-    try {
-        const token = localStorage.getItem('authToken') || authToken;
-        if (!token) {
-            exerciseArea.innerHTML = `
-                <div class="error-message" style="text-align: center; padding: 40px;">
-                    <i class="fas fa-exclamation-triangle" style="font-size: 48px; color: #e74c3c;"></i>
-                    <h3>Please login first</h3>
-                </div>
-            `;
-            return;
-        }
-        
-        // FORCE LESSON_ID = 1 for MathEase
-        const MATHEASE_LESSON_ID = 1;
-        
-        // Try multiple endpoints to get exercises
-        let exercises = [];
-        
-        // Endpoint 1: Topic-based endpoint
-        try {
-            const response = await fetch(`/api/practice/topic/${topicId}?lesson_id=${MATHEASE_LESSON_ID}`, {
-                headers: { 'Authorization': `Bearer ${token}` }
-            });
-            
-            if (response.ok) {
-                const data = await response.json();
-                if (data.success && data.exercises) {
-                    exercises = data.exercises;
-                    console.log(`✅ Found ${exercises.length} exercises from topic endpoint`);
-                }
-            }
-        } catch (e) {
-            console.log('Topic endpoint failed:', e);
-        }
-        
-        // Endpoint 2: If no exercises, try practice/lesson endpoint
-        if (exercises.length === 0) {
-            try {
-                const response = await fetch(`/api/practice/lesson/${MATHEASE_LESSON_ID}?lesson_id=${MATHEASE_LESSON_ID}`, {
-                    headers: { 'Authorization': `Bearer ${token}` }
-                });
-                
-                if (response.ok) {
-                    const data = await response.json();
-                    if (data.success && data.exercises) {
-                        exercises = data.exercises;
-                        console.log(`✅ Found ${exercises.length} exercises from lesson endpoint`);
-                    }
-                }
-            } catch (e) {
-                console.log('Lesson endpoint failed:', e);
-            }
-        }
-        
-        // Endpoint 3: Try exercises/list endpoint
-        if (exercises.length === 0) {
-            try {
-                const response = await fetch(`/api/practice/exercises/list?lesson_id=${MATHEASE_LESSON_ID}`, {
-                    headers: { 'Authorization': `Bearer ${token}` }
-                });
-                
-                if (response.ok) {
-                    const data = await response.json();
-                    if (data.success && data.exercises) {
-                        exercises = data.exercises;
-                        console.log(`✅ Found ${exercises.length} exercises from list endpoint`);
-                    }
-                }
-            } catch (e) {
-                console.log('List endpoint failed:', e);
-            }
-        }
-        
-        // If still no exercises, use demo exercises
-        if (exercises.length === 0) {
-            console.log('📚 Using demo exercises');
-            exercises = getMathEaseDemoExercises(topicId);
-        }
-        
-        // Display exercises
-        displayPracticeExercises(exercises);
-        
-    } catch (error) {
-        console.error('❌ Error loading exercises:', error);
-        exerciseArea.innerHTML = `
-            <div class="error-message" style="text-align: center; padding: 40px;">
-                <i class="fas fa-exclamation-triangle" style="font-size: 48px; color: #e74c3c;"></i>
-                <h3>Error loading exercises</h3>
-                <p>${error.message}</p>
-            </div>
-        `;
-    }
-}
-
 // ============================================
 // ✅ Demo exercises for MathEase
 // ============================================
@@ -24314,97 +24069,6 @@ function getMathEaseDemoExercises(topicId) {
     
     return exercises;
 }
-
-// ============================================
-// ✅ ENHANCED: Display Practice Exercises
-// ============================================
-function displayPracticeExercises(exercises) {
-    const exerciseArea = document.getElementById('exerciseArea');
-    if (!exerciseArea) return;
-    
-    if (!exercises || exercises.length === 0) {
-        exerciseArea.innerHTML = `
-            <div class="no-exercises" style="text-align: center; padding: 60px 20px;">
-                <i class="fas fa-pencil-alt" style="font-size: 60px; color: #ccc; margin-bottom: 20px;"></i>
-                <h3 style="color: #666; margin-bottom: 15px;">No Practice Exercises Available</h3>
-                <p style="color: #999; margin-bottom: 25px;">There are no practice exercises for this topic yet.</p>
-                <button class="btn-primary" onclick="location.reload()" style="padding: 12px 25px;">
-                    <i class="fas fa-redo"></i> Refresh
-                </button>
-            </div>
-        `;
-        return;
-    }
-    
-    let html = '<div class="exercises-list" style="display: flex; flex-direction: column; gap: 15px;">';
-    
-    exercises.forEach((exercise, index) => {
-        const exerciseId = exercise.exercise_id || exercise.id || index + 1;
-        const title = exercise.title || exercise.exercise_title || `Exercise ${index + 1}`;
-        const description = exercise.description || exercise.exercise_description || 'Practice your skills with this exercise.';
-        const difficulty = exercise.difficulty || exercise.difficulty_level || 'medium';
-        const points = exercise.points || exercise.max_score || 10;
-        
-        const difficultyColor = 
-            difficulty === 'easy' ? '#27ae60' : 
-            difficulty === 'medium' ? '#f39c12' : 
-            difficulty === 'hard' ? '#e74c3c' : '#3498db';
-        
-        html += `
-            <div class="exercise-card" data-exercise-id="${exerciseId}" 
-                 style="background: white; border-radius: 12px; padding: 20px; 
-                        box-shadow: 0 2px 8px rgba(0,0,0,0.1); border: 2px solid transparent;
-                        transition: all 0.3s ease;">
-                
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
-                    <h3 style="margin: 0; color: #2c3e50; font-size: 18px;">
-                        <i class="fas fa-pencil-alt" style="color: #7a0000; margin-right: 8px;"></i>
-                        ${title}
-                    </h3>
-                    <div style="display: flex; gap: 8px;">
-                        <span style="background: ${difficultyColor}; color: white; padding: 4px 12px; 
-                                   border-radius: 20px; font-size: 12px; font-weight: bold; text-transform: uppercase;">
-                            ${difficulty}
-                        </span>
-                    </div>
-                </div>
-                
-                <p style="color: #666; margin: 0 0 15px 0; line-height: 1.5;">${description}</p>
-                
-                <div style="display: flex; gap: 20px; margin-bottom: 15px; padding: 10px 0; border-top: 1px solid #f0f0f0; border-bottom: 1px solid #f0f0f0;">
-                    <span style="display: flex; align-items: center; gap: 5px; color: #7f8c8d;">
-                        <i class="fas fa-star" style="color: #f39c12;"></i> ${points} points
-                    </span>
-                    <span style="display: flex; align-items: center; gap: 5px; color: #7f8c8d;">
-                        <i class="fas fa-question-circle" style="color: #3498db;"></i> ${exercise.questions?.length || 5} questions
-                    </span>
-                </div>
-                
-                <div style="display: flex; gap: 10px; justify-content: flex-end;">
-                    <button class="btn-primary start-exercise-btn" data-exercise-id="${exerciseId}"
-                            style="background: #7a0000; color: white; border: none; padding: 10px 25px; border-radius: 6px; cursor: pointer; display: flex; align-items: center; gap: 8px; font-weight: 600;">
-                        <i class="fas fa-play-circle"></i> Start Exercise
-                    </button>
-                </div>
-            </div>
-        `;
-    });
-    
-    html += '</div>';
-    exerciseArea.innerHTML = html;
-    
-    // Add event listeners to start buttons
-    document.querySelectorAll('.start-exercise-btn').forEach(btn => {
-        btn.addEventListener('click', function(e) {
-            e.preventDefault();
-            e.stopPropagation();
-            const exerciseId = this.getAttribute('data-exercise-id');
-            console.log('🎯 Start exercise clicked:', exerciseId);
-            startPractice(exerciseId);
-        });
-    });
-}
-
 // ============================================
 // 🔍 Test Database Connection
 // ============================================
@@ -24784,49 +24448,6 @@ function createPracticeExercisesUI(practiceData) {
     return html;
 }
 
-// Setup practice exercise interactions
-function setupPracticeExerciseInteractions() {
-    // Start exercise buttons
-    document.querySelectorAll('.start-exercise').forEach(button => {
-        button.addEventListener('click', function() {
-            const exerciseId = this.getAttribute('data-exercise-id');
-            startPractice(exerciseId); // ✅ BAGONG PANGALAN
-        });
-    });
-    
-    // Review exercise buttons
-    document.querySelectorAll('.review-exercise').forEach(button => {
-        button.addEventListener('click', function() {
-            const exerciseId = this.getAttribute('data-exercise-id');
-            startPractice(exerciseId, true);
-        });
-    });
-    
-    // Go to lessons button (in lock screen)
-    const goToLessonsBtn = document.getElementById('goToLessonsBtn');
-    if (goToLessonsBtn) {
-        goToLessonsBtn.addEventListener('click', function() {
-            navigateTo('dashboard');
-        });
-    }
-    
-    // Check progress button (in lock screen)
-    const checkProgressBtn = document.getElementById('checkProgressBtn');
-    if (checkProgressBtn) {
-        checkProgressBtn.addEventListener('click', async function() {
-            const topicId = PracticeState.currentTopic;
-            await loadPracticeExercisesForTopic(topicId);
-        });
-    }
-}
-
-// Start a practice exercise=
-// ============================================
-// FIXED: START PRACTICE EXERCISE
-// ============================================
-// ============================================
-// 🎯 PRACTICE FUNCTION - PARA SA PRACTICE LANG
-// ============================================
 async function startPractice(exerciseId, isReview = false) {
     console.log("▶️ Starting PRACTICE (no quiz affected):", exerciseId);
     
@@ -29897,3 +29518,399 @@ document.addEventListener('DOMContentLoaded', function() {
         }, 500);
     }
 });
+
+// ============================================
+// ✅ REPLACEMENT: MathEase Practice Functions - Database Only
+// ============================================
+
+// ============================================
+// 1. Load Practice Exercises For Topic
+// ============================================
+window.loadPracticeExercisesForTopic = async function(topicId) {
+    console.log(`📝 Getting MathEase practice exercises for topic ${topicId} from database`);
+    
+    const exerciseArea = document.getElementById('exerciseArea');
+    if (!exerciseArea) return;
+    
+    exerciseArea.innerHTML = `
+        <div class="loading-container" style="text-align: center; padding: 30px;">
+            <i class="fas fa-spinner fa-spin" style="font-size: 30px; color: #7a0000;"></i>
+            <p style="margin-top: 10px;">Loading exercises from database...</p>
+        </div>
+    `;
+    
+    const token = localStorage.getItem('authToken') || authToken;
+    if (!token) {
+        exerciseArea.innerHTML = `
+            <div class="error-message" style="text-align: center; padding: 40px;">
+                <i class="fas fa-exclamation-triangle" style="font-size: 48px; color: #e74c3c;"></i>
+                <h3 style="color: #666;">Authentication Required</h3>
+                <p style="color: #999;">Please login to view practice exercises.</p>
+            </div>
+        `;
+        return;
+    }
+    
+    const MATHEASE_LESSON_ID = 1;
+    const endpoint = `/api/practice/topic/${topicId}?lesson_id=${MATHEASE_LESSON_ID}`;
+    console.log(`📡 Fetching from: ${endpoint}`);
+    
+    try {
+        const response = await fetch(endpoint, {
+            headers: { 
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json',
+                'Accept': 'application/json'
+            }
+        });
+        
+        if (!response.ok) {
+            if (response.status === 404) {
+                console.log('⚠️ Topic endpoint not found, trying lesson endpoint...');
+                await tryMathEaseLessonEndpoint(topicId, token, exerciseArea);
+                return;
+            }
+            
+            const errorData = await response.json();
+            exerciseArea.innerHTML = `
+                <div class="error-message" style="text-align: center; padding: 40px;">
+                    <i class="fas fa-exclamation-triangle" style="font-size: 48px; color: #e74c3c;"></i>
+                    <h3 style="color: #666;">Failed to Load Exercises</h3>
+                    <p style="color: #999;">${errorData.message || `Server returned ${response.status}`}</p>
+                </div>
+            `;
+            return;
+        }
+        
+        const data = await response.json();
+        
+        if (!data.success || !data.exercises) {
+            exerciseArea.innerHTML = `
+                <div class="error-message" style="text-align: center; padding: 40px;">
+                    <i class="fas fa-info-circle" style="font-size: 48px; color: #3498db;"></i>
+                    <h3 style="color: #666;">No Exercises Available</h3>
+                    <p style="color: #999;">There are no practice exercises in the database for this topic.</p>
+                </div>
+            `;
+            return;
+        }
+        
+        // Filter for MathEase (lesson_id = 1)
+        const mathEaseExercises = data.exercises.filter(ex => {
+            const exLessonId = ex.lesson_id || ex.lessonId;
+            return exLessonId == MATHEASE_LESSON_ID;
+        });
+        
+        console.log(`✅ Found ${mathEaseExercises.length} exercises for MathEase`);
+        
+        if (mathEaseExercises.length === 0) {
+            exerciseArea.innerHTML = `
+                <div class="error-message" style="text-align: center; padding: 40px;">
+                    <i class="fas fa-info-circle" style="font-size: 48px; color: #3498db;"></i>
+                    <h3 style="color: #666;">No MathEase Exercises</h3>
+                    <p style="color: #999;">There are no exercises with lesson_id = ${MATHEASE_LESSON_ID} in the database.</p>
+                </div>
+            `;
+            return;
+        }
+        
+        displayMathEaseExercises(mathEaseExercises);
+        
+    } catch (error) {
+        console.error('❌ Error loading exercises:', error);
+        await tryMathEaseLessonEndpoint(topicId, token, exerciseArea);
+    }
+};
+
+// ============================================
+// 2. Fallback Lesson Endpoint
+// ============================================
+async function tryMathEaseLessonEndpoint(topicId, token, exerciseArea) {
+    console.log('🔄 Trying fallback endpoint...');
+    
+    const MATHEASE_LESSON_ID = 1;
+    const fallbackEndpoint = `/api/practice/lesson/${MATHEASE_LESSON_ID}?lesson_id=${MATHEASE_LESSON_ID}`;
+    
+    try {
+        const response = await fetch(fallbackEndpoint, {
+            headers: { 
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json',
+                'Accept': 'application/json'
+            }
+        });
+        
+        if (!response.ok) {
+            throw new Error(`Fallback failed: ${response.status}`);
+        }
+        
+        const data = await response.json();
+        
+        if (data.success && data.exercises && data.exercises.length > 0) {
+            console.log(`✅ Found ${data.exercises.length} exercises from lesson endpoint`);
+            displayMathEaseExercises(data.exercises);
+            return;
+        }
+        
+        exerciseArea.innerHTML = `
+            <div class="no-exercises" style="text-align: center; padding: 40px;">
+                <i class="fas fa-pencil-alt" style="font-size: 48px; color: #ccc; margin-bottom: 15px;"></i>
+                <h3 style="color: #666;">No Practice Exercises</h3>
+                <p style="color: #999;">There are no practice exercises available in the database yet.</p>
+            </div>
+        `;
+        
+    } catch (error) {
+        console.error('❌ Fallback also failed:', error);
+        
+        exerciseArea.innerHTML = `
+            <div class="error-message" style="text-align: center; padding: 40px;">
+                <i class="fas fa-exclamation-triangle" style="font-size: 48px; color: #e74c3c;"></i>
+                <h3 style="color: #666;">Connection Error</h3>
+                <p style="color: #999;">Unable to connect to the database. Please try again later.</p>
+                <button class="btn-primary" onclick="location.reload()" style="margin-top: 15px; padding: 10px 20px;">
+                    <i class="fas fa-redo"></i> Retry
+                </button>
+            </div>
+        `;
+    }
+}
+
+// ============================================
+// 3. Display Practice Exercises
+// ============================================
+function displayMathEaseExercises(exercises) {
+    const exerciseArea = document.getElementById('exerciseArea');
+    if (!exerciseArea) return;
+    
+    if (!exercises || exercises.length === 0) {
+        exerciseArea.innerHTML = `
+            <div class="no-exercises" style="text-align: center; padding: 40px;">
+                <i class="fas fa-pencil-alt" style="font-size: 48px; color: #ccc; margin-bottom: 15px;"></i>
+                <h3 style="color: #666;">No Practice Exercises</h3>
+                <p style="color: #999;">There are no practice exercises available for this topic yet.</p>
+            </div>
+        `;
+        return;
+    }
+    
+    let html = '<div class="exercises-list" style="display: flex; flex-direction: column; gap: 15px;">';
+    
+    exercises.forEach((exercise, index) => {
+        let questions = [];
+        if (exercise.content_json) {
+            try {
+                const content = typeof exercise.content_json === 'string' 
+                    ? JSON.parse(exercise.content_json) 
+                    : exercise.content_json;
+                questions = content.questions || [];
+            } catch (e) {
+                console.error('Error parsing content_json:', e);
+            }
+        }
+        
+        const userProgress = exercise.user_progress || {};
+        const isCompleted = userProgress.completion_status === 'completed';
+        const difficultyColor = 
+            exercise.difficulty === 'easy' ? '#27ae60' : 
+            exercise.difficulty === 'medium' ? '#f39c12' : 
+            exercise.difficulty === 'hard' ? '#e74c3c' : '#3498db';
+        
+        html += `
+            <div class="exercise-card ${isCompleted ? 'completed' : ''}" data-exercise-id="${exercise.exercise_id}" 
+                 style="background: white; border-radius: 12px; padding: 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
+                
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                    <h3 style="margin: 0; color: #2c3e50; font-size: 18px;">
+                        <i class="fas fa-pencil-alt" style="color: #7a0000; margin-right: 8px;"></i>
+                        Exercise ${index + 1}: ${exercise.title || 'Practice Exercise'}
+                    </h3>
+                    <span style="background: ${difficultyColor}; color: white; padding: 4px 12px; border-radius: 20px; font-size: 12px;">
+                        ${exercise.difficulty || 'medium'}
+                    </span>
+                </div>
+                
+                <p style="color: #666; margin: 0 0 15px 0;">${exercise.description || 'Test your knowledge with this practice exercise.'}</p>
+                
+                <div style="display: flex; gap: 20px; margin-bottom: 15px; color: #7f8c8d; font-size: 14px;">
+                    <span><i class="fas fa-star" style="color: #f39c12;"></i> ${exercise.points || 10} points</span>
+                    <span><i class="fas fa-question-circle" style="color: #3498db;"></i> ${questions.length} questions</span>
+                    <span><i class="fas fa-check-circle" style="color: #27ae60;"></i> ${userProgress.attempts || 0} attempts</span>
+                </div>
+                
+                ${userProgress.score > 0 ? `
+                    <div style="background: #e8f5e9; padding: 8px 12px; border-radius: 4px; margin-bottom: 15px;">
+                        <strong>Best Score:</strong> ${userProgress.score}/${exercise.points || 10}
+                        (${Math.round((userProgress.score / (exercise.points || 10)) * 100)}%)
+                    </div>
+                ` : ''}
+                
+                <div style="display: flex; gap: 10px; justify-content: flex-end;">
+                    ${isCompleted ? `
+                        <button class="btn-secondary review-exercise" data-exercise-id="${exercise.exercise_id}"
+                                style="padding: 10px 20px; background: #ecf0f1; color: #2c3e50; border: none; border-radius: 6px; cursor: pointer;">
+                            <i class="fas fa-redo"></i> Review
+                        </button>
+                        <button class="btn-success" disabled
+                                style="padding: 10px 20px; background: #27ae60; color: white; border: none; border-radius: 6px;">
+                            <i class="fas fa-check"></i> Completed
+                        </button>
+                    ` : `
+                        <button class="btn-primary start-exercise" data-exercise-id="${exercise.exercise_id}"
+                                style="padding: 10px 20px; background: #7a0000; color: white; border: none; border-radius: 6px; cursor: pointer;">
+                            <i class="fas fa-play"></i> ${userProgress.status === 'in_progress' ? 'Continue' : 'Start'}
+                        </button>
+                    `}
+                </div>
+            </div>
+        `;
+    });
+    
+    html += '</div>';
+    exerciseArea.innerHTML = html;
+    
+    // Add event listeners
+    document.querySelectorAll('.start-exercise').forEach(button => {
+        button.addEventListener('click', function() {
+            const exerciseId = this.getAttribute('data-exercise-id');
+            startPractice(exerciseId);
+        });
+    });
+    
+    document.querySelectorAll('.review-exercise').forEach(button => {
+        button.addEventListener('click', function() {
+            const exerciseId = this.getAttribute('data-exercise-id');
+            startPractice(exerciseId, true);
+        });
+    });
+}
+
+// ============================================
+// 4. Fetch Practice Statistics
+// ============================================
+async function fetchMathEasePracticeStatistics() {
+    try {
+        const token = localStorage.getItem('authToken') || authToken;
+        if (!token) {
+            return getDefaultMathEaseStats();
+        }
+        
+        console.log('📊 Fetching MathEase practice statistics FROM DATABASE...');
+        
+        const MATHEASE_LESSON_ID = 1;
+        
+        let lessonsCompleted = 0;
+        let totalLessons = 3;
+        let exercisesCompleted = 0;
+        let totalScore = 0;
+        
+        try {
+            const progressResponse = await fetch(`/api/progress/lessons?lesson_id=${MATHEASE_LESSON_ID}`, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            
+            if (progressResponse.ok) {
+                const progressData = await progressResponse.json();
+                if (progressData.success && progressData.progress) {
+                    lessonsCompleted = progressData.progress.filter(p => 
+                        p.completion_status === 'completed' || p.status === 'completed'
+                    ).length;
+                }
+            }
+            
+            const lessonsResponse = await fetch(`/api/lessons-db/complete?lesson_id=${MATHEASE_LESSON_ID}`, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            
+            if (lessonsResponse.ok) {
+                const lessonsData = await lessonsResponse.json();
+                if (lessonsData.success && lessonsData.lessons) {
+                    totalLessons = lessonsData.lessons.length;
+                }
+            }
+        } catch (e) {
+            console.warn('Could not fetch lessons:', e);
+        }
+        
+        try {
+            const attemptsResponse = await fetch(`/api/progress/practice-attempts?lesson_id=${MATHEASE_LESSON_ID}`, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            
+            if (attemptsResponse.ok) {
+                const attemptsData = await attemptsResponse.json();
+                if (attemptsData.success && attemptsData.attempts) {
+                    const attempts = attemptsData.attempts;
+                    
+                    exercisesCompleted = attempts.filter(a => 
+                        a.completion_status === 'completed' || a.percentage >= 70
+                    ).length;
+                    
+                    if (attempts.length > 0) {
+                        const totalScoreSum = attempts.reduce((sum, a) => sum + (a.score || 0), 0);
+                        totalScore = Math.round(totalScoreSum / attempts.length);
+                    }
+                }
+            }
+        } catch (e) {
+            console.warn('Could not fetch practice attempts:', e);
+        }
+        
+        const stats = {
+            total_exercises_completed: exercisesCompleted,
+            average_score: totalScore,
+            lessons_completed: lessonsCompleted,
+            exercises_completed: exercisesCompleted,
+            total_lessons: totalLessons,
+            accuracy_rate: totalScore,
+            lessons_percentage: totalLessons > 0 ? Math.round((lessonsCompleted / totalLessons) * 100) : 0
+        };
+        
+        PracticeState.userPracticeProgress = stats;
+        
+        const practiceStats = document.getElementById('practiceStats');
+        if (practiceStats) {
+            practiceStats.innerHTML = `
+                <div class="stat-card">
+                    <div class="stat-value">${lessonsCompleted}</div>
+                    <div class="stat-label">LESSONS COMPLETED</div>
+                    <div class="stat-subtext">out of ${totalLessons}</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value">${exercisesCompleted}</div>
+                    <div class="stat-label">EXERCISES COMPLETED</div>
+                    <div class="stat-subtext">total completed</div>
+                </div>
+            `;
+        }
+        
+        return stats;
+        
+    } catch (error) {
+        console.error('❌ Error fetching practice statistics:', error);
+        return getDefaultMathEaseStats();
+    }
+}
+
+// ============================================
+// 5. Default Stats
+// ============================================
+function getDefaultMathEaseStats() {
+    return {
+        total_exercises_completed: 0,
+        average_score: 0,
+        lessons_completed: 0,
+        exercises_completed: 0,
+        total_lessons: 3,
+        accuracy_rate: 0,
+        lessons_percentage: 0
+    };
+}
+
+// ============================================
+// 6. Override the existing functions
+// ============================================
+window.loadPracticeExercisesForTopic = loadPracticeExercisesForTopic;
+window.fetchPracticeStatistics = fetchMathEasePracticeStatistics;
+
+console.log('✅ MathEase practice functions replaced with database-only version');
