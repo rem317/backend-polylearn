@@ -17246,7 +17246,9 @@ async function addPracticeButtonToLesson() {
     }
 }
 
-// Convert markdown-like text to HTML with formatted questions
+// ============================================
+// ✅ FIXED: convertMarkdownToHTML - CORRECTED SYNTAX
+// ============================================
 function convertMarkdownToHTML(text) {
     if (!text) return '';
     
@@ -17365,35 +17367,36 @@ function convertMarkdownToHTML(text) {
     }
     
     // If not the specific practice questions, use regular markdown conversion
-    // Basic markdown conversion
+    // Fix the regex - the previous code had a syntax error with the replacement pattern
+    
+    // Headers
     html = text
-        // Headers
         .replace(/^# (.*$)/gm, '<h1 style="color: #2c3e50; margin-top: 0; margin-bottom: 15px;">$1</h1>')
         .replace(/^## (.*$)/gm, '<h2 style="color: #34495e; margin-top: 20px; margin-bottom: 10px;">$1</h2>')
         .replace(/^### (.*$)/gm, '<h3 style="color: #7a0000; margin-top: 15px; margin-bottom: 8px;">$1</h3>')
-        .replace(/^#### (.*$)/gm, '<h4 style="color: #2c3e50; margin-top: 10px; margin-bottom: 5px;">$1</h4>')
-        
-        // Bold and italic
-        .replace(/\*\*(.*?)\*\*/g, '<strong style="color: #7a0000;">$1</strong>')
-        .replace(/\*(.*?)\*/g, '<em>$1</em>')
-        
-        // Lists
-        .replace(/^\d+\.\s+(.*$)/gm, '<li style="margin-bottom: 5px;">$1</li>')
-        .replace(/^-\s+(.*$)/gm, '<li style="margin-bottom: 5px;">$1</li>')
-        
-        // Code blocks
-        /`(.*?)`/g, '<code style="background: #f8f9fa; padding: 2px 5px; border-radius: 3px; font-family: monospace;">$1</code>'
-        
-        // Line breaks
-        .replace(/\n\n/g, '</p><p style="line-height: 1.6; color: #2c3e50;">')
-        .replace(/\n/g, '<br>');
+        .replace(/^#### (.*$)/gm, '<h4 style="color: #2c3e50; margin-top: 10px; margin-bottom: 5px;">$1</h4>');
+    
+    // Bold and italic
+    html = html.replace(/\*\*(.*?)\*\*/g, '<strong style="color: #7a0000;">$1</strong>')
+               .replace(/\*(.*?)\*/g, '<em>$1</em>');
+    
+    // Lists - with proper regex
+    html = html.replace(/^\d+\.\s+(.*$)/gm, '<li style="margin-bottom: 5px;">$1</li>');
+    html = html.replace(/^-\s+(.*$)/gm, '<li style="margin-bottom: 5px;">$1</li>');
+    
+    // Code blocks - fix the regex here (this was the error)
+    html = html.replace(/`(.*?)`/g, '<code style="background: #f8f9fa; padding: 2px 5px; border-radius: 3px; font-family: monospace;">$1</code>');
+    
+    // Line breaks
+    html = html.replace(/\n\n/g, '</p><p style="line-height: 1.6; color: #2c3e50;">')
+               .replace(/\n/g, '<br>');
     
     // Wrap list items in proper list tags
     if (html.includes('<li>')) {
         html = html.replace(/(<li>.*?<\/li>)+/gs, '<ol style="margin-left: 20px; margin-bottom: 15px;">$&</ol>');
     }
     
-    // Add paragraph tags
+    // Add paragraph tags to sections that don't have them
     const sections = html.split('</p><p>');
     html = sections.map(section => {
         if (!section.startsWith('<h') && !section.startsWith('<ol') && !section.startsWith('<ul') && !section.startsWith('<li>')) {
@@ -17411,7 +17414,6 @@ function convertMarkdownToHTML(text) {
     
     return html;
 }
-
 // Function to check practice answers
 window.checkPracticeAnswers = function() {
     console.log('📝 Checking practice answers...');
