@@ -10366,50 +10366,73 @@ async function refreshAdminToken() {
 // Global variables for panel
 let panelLessonId = null;
 
-// Show the integrated create topic panel
+// ===== FIXED: SHOW CREATE TOPIC PANEL WITH MODULES =====
 function showCreateTopicPanel() {
     console.log("📝 Showing integrated topic creation panel...");
     
     const panel = document.getElementById('quickTopicPanel');
-    if (!panel) return;
+    if (!panel) {
+        console.error("❌ quickTopicPanel not found!");
+        return;
+    }
     
     // Get current lesson selection from main dropdown
     const mainLessonSelect = document.getElementById('lessonSelect');
     const panelLessonSelect = document.getElementById('panelLessonSelect');
     const panelModuleSelect = document.getElementById('panelModuleSelect');
+    const panelTopicTitle = document.getElementById('panelTopicTitle');
+    const panelTopicDescription = document.getElementById('panelTopicDescription');
+    
+    // Clear inputs
+    if (panelTopicTitle) panelTopicTitle.value = '';
+    if (panelTopicDescription) panelTopicDescription.value = '';
     
     // Populate lesson dropdown in panel
-    if (panelLessonSelect && window.quickLessons) {
+    if (panelLessonSelect && window.quickLessons && window.quickLessons.length > 0) {
         panelLessonSelect.innerHTML = '<option value="">-- Select Lesson --</option>';
+        
         window.quickLessons.forEach(lesson => {
             const option = document.createElement('option');
             option.value = lesson.id;
             option.textContent = lesson.name;
+            
+            // Auto-select if same as main lesson
             if (mainLessonSelect && mainLessonSelect.value === lesson.id.toString()) {
                 option.selected = true;
                 panelLessonId = lesson.id;
             }
+            
             panelLessonSelect.appendChild(option);
         });
+        console.log(`✅ Populated lesson dropdown with ${window.quickLessons.length} lessons`);
+    } else {
+        console.warn("⚠️ No lessons available");
+        if (panelLessonSelect) {
+            panelLessonSelect.innerHTML = '<option value="">-- No lessons available --</option>';
+        }
     }
     
     // Reset module dropdown
     if (panelModuleSelect) {
-        panelModuleSelect.innerHTML = '<option value="">-- Select Module --</option>';
+        panelModuleSelect.innerHTML = '<option value="">-- Select Lesson First --</option>';
         panelModuleSelect.disabled = true;
     }
-    
-    // Clear inputs
-    document.getElementById('panelTopicTitle').value = '';
-    document.getElementById('panelTopicDescription').value = '';
     
     // Show panel
     panel.style.display = 'block';
     
     // Scroll to panel
     panel.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    
+    // If there's a selected lesson, filter modules immediately
+    if (panelLessonId) {
+        setTimeout(() => {
+            filterPanelModules();
+        }, 100);
+    }
+    
+    console.log("✅ Topic panel shown");
 }
-
 // Hide the create topic panel
 function hideCreateTopicPanel() {
     console.log("🔴 Hiding topic creation panel...");
@@ -10427,27 +10450,81 @@ document.addEventListener('change', function(e) {
     }
 });
 
-// Filter modules for panel
+// ===== FIXED: FILTER MODULES FOR PANEL =====
 function filterPanelModules() {
     console.log("🔍 Filtering modules for panel...");
     
-    const lessonId = document.getElementById('panelLessonSelect').value;
+    const lessonSelect = document.getElementById('panelLessonSelect');
     const moduleSelect = document.getElementById('panelModuleSelect');
     
-    if (!moduleSelect) return;
-    
-    moduleSelect.innerHTML = '<option value="">-- Select Module --</option>';
-    moduleSelect.disabled = true;
-    
-    if (!lessonId) {
-        console.log("ℹ️ No lesson selected");
+    if (!lessonSelect || !moduleSelect) {
+        console.error("❌ Panel selects not found!");
         return;
     }
     
-    // Filter modules for this lesson
-    const filteredModules = window.quickModules?.filter(m => parseInt(m.lesson_id) === parseInt(lessonId)) || [];
-    console.log(`📦 Found ${filteredModules.length} modules for lesson ${lessonId}`);
+    const lessonId = lessonSelect.value;
+    panelLessonId = lessonId;
     
+    console.log("📋 Selected Lesson ID:", lessonId || "(none)");
+    
+    // Clear module dropdown
+    moduleSelect.innerHTML = '';
+    
+    // ===== FIX: If no lesson selected =====
+    if (!lessonId) {
+        const option = document.createElement('option');
+        option.value = '';
+        option.textContent = '-- Select Lesson First --';
+        option.disabled = true;
+        option.selected = true;
+        moduleSelect.appendChild(option);
+        moduleSelect.disabled = true;
+        return;
+    }
+    
+    // Make sure we have modules data
+    if (!window.quickModules) {
+        console.log("⚠️ No modules loaded yet, fetching from server...");
+        
+        // Show loading
+        const loadingOption = document.createElement('option');
+        loadingOption.value = '';
+        loadingOption.textContent = '-- Loading modules... --';
+        loadingOption.disabled = true;
+        loadingOption.selected = true;
+        moduleSelect.appendChild(loadingOption);
+        moduleSelect.disabled = true;
+        
+        // Load modules first
+        loadModuleStructure().then(() => {
+            setTimeout(() => filterPanelModules(), 500);
+        });
+        return;
+    }
+    
+    console.log(`📦 Total modules available: ${window.quickModules.length}`);
+    console.log('All modules:', window.quickModules.map(m => ({
+        id: m.id,
+        name: m.name,
+        lesson_id: m.lesson_id
+    })));
+    
+    // ===== FIX: Filter modules for this lesson =====
+    const filteredModules = window.quickModules.filter(m => {
+        return parseInt(m.lesson_id) === parseInt(lessonId);
+    });
+    
+    console.log(`📦 Found ${filteredModules.length} modules for lesson ID ${lessonId}`);
+    
+    // Default option
+    const defaultOption = document.createElement('option');
+    defaultOption.value = '';
+    defaultOption.textContent = '-- Select Module --';
+    defaultOption.disabled = true;
+    defaultOption.selected = true;
+    moduleSelect.appendChild(defaultOption);
+    
+    // ===== FIX: Add modules from database =====
     if (filteredModules.length > 0) {
         filteredModules.forEach(module => {
             const option = document.createElement('option');
@@ -10455,18 +10532,46 @@ function filterPanelModules() {
             option.textContent = `📦 ${module.name}`;
             moduleSelect.appendChild(option);
         });
-        moduleSelect.disabled = false;
+        
+        // Add separator
+        const separator = document.createElement('option');
+        separator.disabled = true;
+        separator.textContent = '──────────';
+        moduleSelect.appendChild(separator);
+    } else {
+        // Show message if no modules
+        const noModuleOption = document.createElement('option');
+        noModuleOption.value = '';
+        noModuleOption.textContent = '-- No modules available --';
+        noModuleOption.disabled = true;
+        moduleSelect.appendChild(noModuleOption);
+        
+        // Add separator
+        const separator = document.createElement('option');
+        separator.disabled = true;
+        separator.textContent = '──────────';
+        moduleSelect.appendChild(separator);
     }
     
-    // Always add General Module option
+    // ===== LAGI may Create New Module option =====
+    const createOption = document.createElement('option');
+    createOption.value = 'create';
+    createOption.textContent = '➕ Create New Module...';
+    createOption.style.color = '#7a0000';
+    createOption.style.fontWeight = 'bold';
+    moduleSelect.appendChild(createOption);
+    
+    // ===== LAGI may General Module option =====
     const generalOption = document.createElement('option');
     generalOption.value = 'general';
     generalOption.textContent = '📁 General Module (Auto-create)';
     generalOption.style.color = '#4CAF50';
     generalOption.style.fontWeight = 'bold';
     moduleSelect.appendChild(generalOption);
+    
+    moduleSelect.disabled = false;
+    console.log("✅ Module dropdown ready with options");
 }
-
 // Save quick topic from panel
 async function saveQuickTopicFromPanel() {
     console.log("💾 Saving quick topic from panel...");
@@ -10620,20 +10725,73 @@ async function saveQuickTopicFromPanel() {
     }
 }
 
-// Initialize panel lesson select listener
+// ===== INITIALIZE PANEL LISTENERS =====
 function initializePanelListeners() {
+    console.log("🎧 Initializing panel listeners...");
+    
     const panelLessonSelect = document.getElementById('panelLessonSelect');
     if (panelLessonSelect) {
-        panelLessonSelect.addEventListener('change', filterPanelModules);
+        // Remove any existing listeners
+        const newSelect = panelLessonSelect.cloneNode(true);
+        panelLessonSelect.parentNode.replaceChild(newSelect, panelLessonSelect);
+        
+        // Add new change listener
+        newSelect.addEventListener('change', function() {
+            console.log("📚 Panel lesson selected:", this.value);
+            filterPanelModules();
+        });
+        
+        console.log("✅ Panel lesson select listener attached");
+    }
+    
+    // Module select listener for create option
+    const panelModuleSelect = document.getElementById('panelModuleSelect');
+    if (panelModuleSelect) {
+        const newModuleSelect = panelModuleSelect.cloneNode(true);
+        panelModuleSelect.parentNode.replaceChild(newModuleSelect, panelModuleSelect);
+        
+        newModuleSelect.addEventListener('change', function() {
+            if (this.value === 'create') {
+                console.log("📦 Opening create module modal from panel...");
+                openQuickModuleModal();
+                
+                // Reset selection after opening
+                setTimeout(() => {
+                    this.value = '';
+                }, 100);
+            }
+        });
     }
 }
-
 // Call this when DOM is loaded
 document.addEventListener('DOMContentLoaded', function() {
     setTimeout(() => {
         initializePanelListeners();
     }, 1500);
 });
+
+// Make sure loadModuleStructure is called when needed
+function ensureModulesLoaded() {
+    if (!window.quickModules) {
+        console.log("📚 Loading modules...");
+        loadModuleStructure();
+    }
+}
+
+// Call ensureModulesLoaded when opening create lesson modal
+const originalOpenCreateLessonPopup = openCreateLessonPopup;
+openCreateLessonPopup = function(e) {
+    ensureModulesLoaded();
+    return originalOpenCreateLessonPopup.call(this, e);
+};
+
+// Call ensureModulesLoaded when showing topic panel
+const originalShowCreateTopicPanel = showCreateTopicPanel;
+showCreateTopicPanel = function() {
+    ensureModulesLoaded();
+    return originalShowCreateTopicPanel.call(this);
+};
+
 
 // ===== ENHANCED EDIT FUNCTIONS =====
 
@@ -20280,11 +20438,11 @@ async function deleteLesson(contentId) {
     }
 }
 
-// Load module structure for dropdowns
-// ===== LOAD MODULE STRUCTURE FOR DROPDOWNS - FIXED =====
+// ===== FIXED: LOAD MODULE STRUCTURE =====
 async function loadModuleStructure() {
     console.log("📚 Loading module structure from database...");
     
+    // Show loading in panel if it's open
     const statusDiv = document.getElementById('createLessonStatus');
     if (statusDiv) {
         statusDiv.style.display = 'block';
@@ -20328,36 +20486,50 @@ async function loadModuleStructure() {
                 topics: window.quickTopics.length
             });
             
-            // Populate lesson dropdown
-            const lessonSelect = document.getElementById('lessonSelect');
-            if (lessonSelect) {
-                lessonSelect.innerHTML = '<option value="">-- Select Lesson --</option>';
+            // Populate main lesson dropdown if it exists
+            const mainLessonSelect = document.getElementById('lessonSelect');
+            if (mainLessonSelect) {
+                mainLessonSelect.innerHTML = '<option value="">-- Select Lesson --</option>';
                 
                 if (window.quickLessons.length > 0) {
                     window.quickLessons.forEach(lesson => {
                         const option = document.createElement('option');
                         option.value = lesson.id;
                         option.textContent = lesson.name;
-                        lessonSelect.appendChild(option);
+                        mainLessonSelect.appendChild(option);
                     });
-                    console.log("✅ Lesson dropdown populated with", window.quickLessons.length, "lessons");
-                } else {
-                    console.warn("⚠️ No lessons found in database");
-                    lessonSelect.innerHTML = '<option value="">-- No lessons available --</option>';
+                    console.log("✅ Main lesson dropdown populated");
                 }
             }
             
-            // Populate module dropdown (initially disabled)
-            const moduleSelect = document.getElementById('moduleSelect');
-            if (moduleSelect) {
-                moduleSelect.innerHTML = '<option value="">-- Select Module --</option>';
-                moduleSelect.disabled = true;
-                console.log("✅ Module dropdown reset and disabled");
+            // Populate panel lesson dropdown if panel is visible
+            const panelLessonSelect = document.getElementById('panelLessonSelect');
+            if (panelLessonSelect) {
+                panelLessonSelect.innerHTML = '<option value="">-- Select Lesson --</option>';
+                
+                if (window.quickLessons.length > 0) {
+                    window.quickLessons.forEach(lesson => {
+                        const option = document.createElement('option');
+                        option.value = lesson.id;
+                        option.textContent = lesson.name;
+                        panelLessonSelect.appendChild(option);
+                    });
+                    console.log("✅ Panel lesson dropdown populated");
+                }
             }
             
             // Hide loading status
             if (statusDiv) {
                 statusDiv.style.display = 'none';
+            }
+            
+            // If panel is open, filter modules
+            const panel = document.getElementById('quickTopicPanel');
+            if (panel && panel.style.display === 'block') {
+                const panelLessonSelect = document.getElementById('panelLessonSelect');
+                if (panelLessonSelect && panelLessonSelect.value) {
+                    filterPanelModules();
+                }
             }
             
             showNotification('success', 'Loaded', `📚 ${window.quickLessons.length} lessons, ${window.quickModules.length} modules loaded`);
@@ -20384,7 +20556,6 @@ async function loadModuleStructure() {
         setupFallbackDropdowns();
     }
 }
-
 // ===== UPDATE USERS TABLE WITH PROPER LAST LOGIN DISPLAY =====
 function updateUsersTable() {
     console.log("🔄 Updating users table...");
@@ -20931,47 +21102,68 @@ function filterTopicsByModule() {
     }
 }
 
-// Setup default dropdowns if server fails
+// ===== FIXED: SETUP FALLBACK DROPDOWNS =====
 function setupFallbackDropdowns() {
     console.log("⚠️ Setting up fallback dropdowns");
     
-    const lessonSelect = document.getElementById('lessonSelect');
-    if (lessonSelect) {
-        lessonSelect.innerHTML = `
-            <option value="">-- Select Lesson (Optional) --</option>
-            <option value="1">Polynomial Functions</option>
-            <option value="2">Factorial Notation</option>
-            <option value="3">MDAS Operations</option>
+    // Main lesson dropdown
+    const mainLessonSelect = document.getElementById('lessonSelect');
+    if (mainLessonSelect) {
+        mainLessonSelect.innerHTML = `
+            <option value="">-- Select Lesson --</option>
+            <option value="1">MathEase</option>
+            <option value="2">PolyLearn</option>
+            <option value="3">FactoLearn</option>
         `;
     }
     
-    const moduleSelect = document.getElementById('moduleSelect');
-    if (moduleSelect) {
-        moduleSelect.innerHTML = `
-            <option value="">-- Select Module (Optional) --</option>
-            <option value="1" data-lesson="1">Introduction to Polynomials</option>
-            <option value="2" data-lesson="1">Operations with Polynomials</option>
-            <option value="3" data-lesson="2">Factorial Basics</option>
-            <option value="4" data-lesson="3">MDAS Rules</option>
+    // Panel lesson dropdown
+    const panelLessonSelect = document.getElementById('panelLessonSelect');
+    if (panelLessonSelect) {
+        panelLessonSelect.innerHTML = `
+            <option value="">-- Select Lesson --</option>
+            <option value="1">MathEase</option>
+            <option value="2">PolyLearn</option>
+            <option value="3">FactoLearn</option>
         `;
-        moduleSelect.disabled = false;
     }
     
-    const topicSelect = document.getElementById('topicSelect');
-    if (topicSelect) {
-        topicSelect.innerHTML = `
-            <option value="">-- Select Topic --</option>
-            <option value="1" data-module="1">Definition of Polynomials</option>
-            <option value="2" data-module="1">Degree of Polynomials</option>
-            <option value="3" data-module="2">Adding Polynomials</option>
-            <option value="4" data-module="2">Subtracting Polynomials</option>
-            <option value="5" data-module="3">Factorial Definition</option>
-            <option value="6" data-module="4">Multiplication First</option>
-            <option value="7" data-module="4">Division Next</option>
+    // Main module dropdown
+    const mainModuleSelect = document.getElementById('moduleSelect');
+    if (mainModuleSelect) {
+        mainModuleSelect.innerHTML = `
+            <option value="">-- Select Module --</option>
+            <option value="1" data-lesson="1">MathEase Basics</option>
+            <option value="2" data-lesson="1">MathEase Advanced</option>
+            <option value="3" data-lesson="2">Polynomial Introduction</option>
+            <option value="4" data-lesson="2">Polynomial Operations</option>
+            <option value="5" data-lesson="3">Factorial Basics</option>
+            <option value="6" data-lesson="3">Advanced Factorials</option>
+            <option disabled>──────────</option>
+            <option value="create" style="color: #7a0000; font-weight: bold;">➕ Create New Module...</option>
+            <option value="general" style="color: #4CAF50; font-weight: bold;">📁 General Module</option>
         `;
+        mainModuleSelect.disabled = false;
+    }
+    
+    // Panel module dropdown
+    const panelModuleSelect = document.getElementById('panelModuleSelect');
+    if (panelModuleSelect) {
+        panelModuleSelect.innerHTML = `
+            <option value="">-- Select Module --</option>
+            <option value="1" data-lesson="1">MathEase Basics</option>
+            <option value="2" data-lesson="1">MathEase Advanced</option>
+            <option value="3" data-lesson="2">Polynomial Introduction</option>
+            <option value="4" data-lesson="2">Polynomial Operations</option>
+            <option value="5" data-lesson="3">Factorial Basics</option>
+            <option value="6" data-lesson="3">Advanced Factorials</option>
+            <option disabled>──────────</option>
+            <option value="create" style="color: #7a0000; font-weight: bold;">➕ Create New Module...</option>
+            <option value="general" style="color: #4CAF50; font-weight: bold;">📁 General Module</option>
+        `;
+        panelModuleSelect.disabled = false;
     }
 }
-
 
 
 // Update your existing saveLessonToLocalStorage function to handle fallback
