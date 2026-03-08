@@ -22083,7 +22083,7 @@ async function testVideoAccessibility(url) {
 }
 
 // ============================================
-// FIXED: Load video from database - Preserves lesson content
+// FIXED: Load video from database - Preserves lesson content (NO DUPLICATE BUTTONS)
 // ============================================
 async function loadVideoFromDatabase(contentId = null) {
     console.log('🎬 loadVideoFromDatabase called with contentId:', contentId);
@@ -22114,7 +22114,7 @@ async function loadVideoFromDatabase(contentId = null) {
         
         console.log(`🎬 Loading video for lesson ID: ${contentId}`);
         
-        // Show loading in video container ONLY
+        // Show loading in video container ONLY - DON'T overwrite the entire lesson content
         videoContainer.innerHTML = `
             <div style="background: #f0f0f0; height: 400px; display: flex; align-items: center; justify-content: center; flex-direction: column;">
                 <i class="fas fa-spinner fa-spin" style="font-size: 40px; color: #7a0000; margin-bottom: 20px;"></i>
@@ -22148,8 +22148,7 @@ async function loadVideoFromDatabase(contentId = null) {
         const lesson = data.lesson;
         console.log('✅ Lesson data loaded:', lesson.content_title);
         
-        // ===== UPDATE LESSON CONTENT (this is CRITICAL) =====
-        // Update lesson title and description in the sidebar
+        // ===== UPDATE LESSON TITLE AND DESCRIPTION ONLY =====
         const moduleTitle = document.getElementById('moduleTitle');
         if (moduleTitle) {
             moduleTitle.textContent = lesson.content_title || 'MathEase Lesson';
@@ -22164,52 +22163,9 @@ async function loadVideoFromDatabase(contentId = null) {
                                         (description.length > 100 ? '...' : '');
         }
         
-        // ===== UPDATE LESSON CONTENT AREA (samples, examples, etc.) =====
-        const lessonContent = document.getElementById('lessonContent');
-        if (lessonContent) {
-            // This is where your lesson content (samples, examples) should appear
-            const contentDescription = lesson.content_description || 
-                                      lesson.description || 
-                                      'No description available for this lesson.';
-            
-            lessonContent.innerHTML = `
-                <div class="lesson-content-wrapper">
-                    <h2 class="lesson-subtitle">About This Lesson</h2>
-                    <p class="lesson-paragraph">${contentDescription}</p>
-                    
-                    <h2 class="lesson-subtitle">Learning Objectives</h2>
-                    <ul class="lesson-list">
-                        <li>Understand key mathematical concepts</li>
-                        <li>Apply formulas and techniques</li>
-                        <li>Solve practice problems</li>
-                        <li>Test your knowledge with quizzes</li>
-                    </ul>
-                    
-                    <h2 class="lesson-subtitle">Sample Problems</h2>
-                    <div class="example-box">
-                        <p><strong>Example 1:</strong> Simplify 3(2x + 4)</p>
-                        <p><strong>Solution:</strong> 6x + 12</p>
-                    </div>
-                    
-                    <div class="example-box">
-                        <p><strong>Example 2:</strong> Solve for x: 2x + 5 = 15</p>
-                        <p><strong>Solution:</strong> x = 5</p>
-                    </div>
-                    
-                    <h2 class="lesson-subtitle">Practice Problems</h2>
-                    <div class="practice-box">
-                        <ol>
-                            <li>4(x - 3) = 20</li>
-                            <li>3(2x + 1) = 21</li>
-                            <li>5(x - 2) = 3x + 4</li>
-                        </ol>
-                        <button class="btn-primary" id="checkAnswersBtn">
-                            <i class="fas fa-check"></i> Check Answers
-                        </button>
-                    </div>
-                </div>
-            `;
-        }
+        // ===== IMPORTANT: DO NOT OVERWRITE lessonContent =====
+        // The lesson content (with buttons) is already loaded by displayMathEaseLessonContent()
+        // We should NOT replace it here, otherwise buttons will be duplicated
         
         // ===== NOW HANDLE THE VIDEO =====
         // Determine video source
