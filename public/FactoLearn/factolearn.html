@@ -2147,69 +2147,6 @@
                                 </div>
                             </div>                      
                         </div>
-                        
-                        <!-- Learning Tools Container -->
-                        <div class="learning-tools-container">
-                            <h2 class="tools-title">
-                                <i class="fas fa-tools"></i> Learning Tools
-                            </h2>
-                            <p class="tools-subtitle">Interactive tools to enhance your learning experience</p>
-                            
-                            <div class="tools-grid">
-                                <div class="tool-item" id="openCalculator">
-                                    <div class="tool-icon">
-                                        <i class="fas fa-calculator"></i>
-                                    </div>
-                                    <div class="tool-name">Calculator</div>
-                                    <div class="tool-description">Advanced math calculator with functions</div>
-                                </div>
-                                
-                                <div class="tool-item" id="openGraphTools">
-                                    <div class="tool-icon">
-                                        <i class="fas fa-chart-line"></i>
-                                    </div>
-                                    <div class="tool-name">Graph Tools</div>
-                                    <div class="tool-description">Visualize functions and equations</div>
-                                </div>
-                                
-                                <div class="tool-item" id="openNotepad">
-                                    <div class="tool-icon">
-                                        <i class="fas fa-sticky-note"></i>
-                                    </div>
-                                    <div class="tool-name">Notepad</div>
-                                    <div class="tool-description">Take notes during lessons</div>
-                                </div>
-                                
-                                <div class="tool-item" id="openFormulaSheet">
-                                    <div class="tool-icon">
-                                        <i class="fas fa-book"></i>
-                                    </div>
-                                    <div class="tool-name">Formula Sheet</div>
-                                    <div class="tool-description">Quick reference for formulas</div>
-                                </div>
-                                
-                                <div class="tool-item" id="openWhiteboard">
-                                    <div class="tool-icon">
-                                        <i class="fas fa-paint-brush"></i>
-                                    </div>
-                                    <div class="tool-name">Whiteboard</div>
-                                    <div class="tool-description">Draw and solve problems visually</div>
-                                </div>
-                                
-                                <div class="tool-item" id="openTimer">
-                                    <div class="tool-icon">
-                                        <i class="fas fa-stopwatch"></i>
-                                    </div>
-                                    <div class="tool-name">Timer</div>
-                                    <div class="tool-description">Track your study sessions</div>
-                                </div>
-                            </div>
-                            
-                            <div class="tool-info">
-                                <i class="fas fa-info-circle"></i>
-                                <p>Click on any tool to open it in a new window. All tools save automatically.</p>
-                            </div>
-                        </div>
                     </aside>
                 </div>
             </div>
@@ -3192,7 +3129,130 @@
         </div>
     </div>
 
-   
+    <!-- ============================================ -->
+    <!-- TOOL MODALS - MUST BE OUTSIDE PAGE CONTAINERS -->
+    <!-- ============================================ -->
+    <!-- Tool Modals Container -->
+    <div id="toolModalsContainer">
+        <!-- Calculator Modal -->
+        <div id="calculatorModal" class="modal-overlay" style="display: none;">
+            <div class="modal-container">
+                <div class="modal-header" style="background: #7a0000; color: white;">
+                    <h3 style="margin: 0;"><i class="fas fa-calculator"></i> Scientific Calculator</h3>
+                    <button class="modal-close" onclick="window.toolManager.closeTool()" style="color: white; background: none; border: none; font-size: 24px; cursor: pointer;">&times;</button>
+                </div>
+                <div class="modal-body">
+                    <div class="calculator-container">
+                        <div id="calcDisplay" class="calculator-display" style="background: #f5f5f5; padding: 15px; text-align: right; font-size: 24px; margin-bottom: 15px; border-radius: 5px;">0</div>
+                        <div id="calcButtons" class="calculator-buttons" style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 5px;"></div>
+                        <div class="calculator-history">
+                            <h4 style="margin: 15px 0 10px;">History</h4>
+                            <div id="calcHistory" style="max-height: 150px; overflow-y: auto;"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Graph Modal -->
+        <div id="graphModal" class="modal-overlay" style="display: none;">
+            <div class="modal-container">
+                <div class="modal-header" style="background: #7a0000; color: white;">
+                    <h3 style="margin: 0;"><i class="fas fa-chart-line"></i> Graph Tool</h3>
+                    <button class="modal-close" onclick="window.toolManager.closeTool()" style="color: white; background: none; border: none; font-size: 24px; cursor: pointer;">&times;</button>
+                </div>
+                <div class="modal-body">
+                    <div class="graph-container">
+                        <div style="margin-bottom: 15px;">
+                            <input type="text" id="graphExpression" placeholder="Enter function (e.g., x^2, 2x+1)" style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 5px;">
+                        </div>
+                        <div style="display: flex; gap: 10px; margin-bottom: 15px;">
+                            <button onclick="window.toolManager.tools.graph.plotFunction()" style="background: #7a0000; color: white; border: none; padding: 8px 15px; border-radius: 5px;">Plot</button>
+                            <button onclick="window.toolManager.tools.graph.clear()" style="background: #95a5a6; color: white; border: none; padding: 8px 15px; border-radius: 5px;">Clear</button>
+                        </div>
+                        <canvas id="graphCanvas" width="600" height="400" style="width: 100%; height: auto; border: 1px solid #ddd; border-radius: 5px;"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Whiteboard Modal -->
+        <div id="whiteboardModal" class="modal-overlay" style="display: none;">
+            <div class="modal-container">
+                <div class="modal-header" style="background: #7a0000; color: white;">
+                    <h3 style="margin: 0;"><i class="fas fa-paint-brush"></i> Whiteboard</h3>
+                    <button class="modal-close" onclick="window.toolManager.closeTool()" style="color: white; background: none; border: none; font-size: 24px; cursor: pointer;">&times;</button>
+                </div>
+                <div class="modal-body">
+                    <div class="whiteboard-toolbar" style="display: flex; gap: 10px; margin-bottom: 15px;">
+                        <button onclick="window.toolManager.tools.whiteboard.setTool('pen')" style="padding: 8px 15px;">Pen</button>
+                        <button onclick="window.toolManager.tools.whiteboard.setTool('eraser')" style="padding: 8px 15px;">Eraser</button>
+                        <input type="color" id="colorPicker" value="#7a0000">
+                        <button onclick="window.toolManager.tools.whiteboard.clear()" style="padding: 8px 15px;">Clear</button>
+                    </div>
+                    <canvas id="whiteboardCanvas" width="600" height="400" style="width: 100%; height: 300px; border: 1px solid #ddd; border-radius: 5px;"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <!-- Notepad Modal -->
+        <div id="notepadModal" class="modal-overlay" style="display: none;">
+            <div class="modal-container">
+                <div class="modal-header" style="background: #7a0000; color: white;">
+                    <h3 style="margin: 0;"><i class="fas fa-sticky-note"></i> Notepad</h3>
+                    <button class="modal-close" onclick="window.toolManager.closeTool()" style="color: white; background: none; border: none; font-size: 24px; cursor: pointer;">&times;</button>
+                </div>
+                <div class="modal-body">
+                    <div style="margin-bottom: 15px;">
+                        <input type="text" id="noteTitle" placeholder="Note title" style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 5px;">
+                    </div>
+                    <textarea id="noteContent" rows="10" placeholder="Write your notes here..." style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 5px;"></textarea>
+                    <div style="margin-top: 15px;">
+                        <button onclick="window.toolManager.tools.notepad.save()" style="background: #7a0000; color: white; border: none; padding: 10px 20px; border-radius: 5px;">Save Note</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Formula Sheet Modal -->
+        <div id="formulaModal" class="modal-overlay" style="display: none;">
+            <div class="modal-container">
+                <div class="modal-header" style="background: #7a0000; color: white;">
+                    <h3 style="margin: 0;"><i class="fas fa-book"></i> Formula Sheet</h3>
+                    <button class="modal-close" onclick="window.toolManager.closeTool()" style="color: white; background: none; border: none; font-size: 24px; cursor: pointer;">&times;</button>
+                </div>
+                <div class="modal-body">
+                    <div id="formulaList">
+                        <!-- Formulas will be loaded here -->
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Timer Modal -->
+        <div id="timerModal" class="modal-overlay" style="display: none;">
+            <div class="modal-container">
+                <div class="modal-header" style="background: #7a0000; color: white;">
+                    <h3 style="margin: 0;"><i class="fas fa-stopwatch"></i> Study Timer</h3>
+                    <button class="modal-close" onclick="window.toolManager.closeTool()" style="color: white; background: none; border: none; font-size: 24px; cursor: pointer;">&times;</button>
+                </div>
+                <div class="modal-body" style="text-align: center;">
+                    <div id="timerDisplay" style="font-size: 48px; font-weight: bold; margin: 20px 0; color: #7a0000;">25:00</div>
+                    <div style="display: flex; gap: 10px; justify-content: center; margin: 20px 0;">
+                        <button id="timerStartBtn" onclick="window.toolManager.startTimer()" style="background: #27ae60; color: white; border: none; padding: 10px 20px; border-radius: 5px;">Start</button>
+                        <button id="timerPauseBtn" onclick="window.toolManager.pauseTimer()" style="background: #f39c12; color: white; border: none; padding: 10px 20px; border-radius: 5px;">Pause</button>
+                        <button id="timerResetBtn" onclick="window.toolManager.resetTimer()" style="background: #e74c3c; color: white; border: none; padding: 10px 20px; border-radius: 5px;">Reset</button>
+                    </div>
+                    <div style="display: flex; gap: 10px; justify-content: center;">
+                        <button onclick="window.toolManager.tools.timer.setTime(15)" style="padding: 8px 15px; border: 1px solid #ddd; border-radius: 5px;">15 min</button>
+                        <button onclick="window.toolManager.tools.timer.setTime(25)" style="padding: 8px 15px; border: 1px solid #ddd; border-radius: 5px;">25 min</button>
+                        <button onclick="window.toolManager.tools.timer.setTime(50)" style="padding: 8px 15px; border: 1px solid #ddd; border-radius: 5px;">50 min</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <footer class="footer-nav">
         <div class="footer-nav-content">
             <a href="#" class="footer-nav-item active" data-page="dashboard" onclick="event.preventDefault(); showDashboard(event); return false;">
