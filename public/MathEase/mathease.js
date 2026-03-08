@@ -15391,7 +15391,7 @@ function getMathEaseExtraExamples(topicId) {
             <h3>Additional Basic Operation Examples</h3>
             
             <div class="example">
-                <h4>Example 4: Word Problem with Multiple Operations</h4>
+                <h4>Example 1: Word Problem with Multiple Operations</h4>
                 <p><strong>Problem:</strong> A baker uses 2.5 kg of flour for every batch of bread. If he makes 8 batches on Monday, 6 batches on Tuesday, and 10 batches on Wednesday, how many kilograms of flour did he use in total?</p>
                 <p><strong>Solution:</strong>
                 <br>Step 1: Total batches = 8 + 6 + 10 = 24 batches
@@ -15400,7 +15400,7 @@ function getMathEaseExtraExamples(topicId) {
             </div>
             
             <div class="example">
-                <h4>Example 5: Using the Distributive Property</h4>
+                <h4>Example 2: Using the Distributive Property</h4>
                 <p><strong>Problem:</strong> Calculate 7 × 99 using the distributive property.</p>
                 <p><strong>Solution:</strong>
                 <br>7 × 99 = 7 × (100 - 1)
@@ -15410,7 +15410,7 @@ function getMathEaseExtraExamples(topicId) {
             </div>
             
             <div class="example">
-                <h4>Example 6: Multi-Step Problem</h4>
+                <h4>Example 3: Multi-Step Problem</h4>
                 <p><strong>Problem:</strong> A rectangular garden is 12 meters long and 8 meters wide. What is its perimeter and area?</p>
                 <p><strong>Solution:</strong>
                 <br>Perimeter = 2 × (length + width) = 2 × (12 + 8) = 2 × 20 = 40 meters
@@ -15418,7 +15418,7 @@ function getMathEaseExtraExamples(topicId) {
             </div>
             
             <div class="example">
-                <h4>Example 7: Order of Operations Challenge</h4>
+                <h4>Example 4: Order of Operations Challenge</h4>
                 <p><strong>Problem:</strong> Simplify: 4 + 6 × (8 - 3)² ÷ 5 - 2</p>
                 <p><strong>Solution:</strong>
                 <br>Step 1: Parentheses: (8 - 3) = 5
@@ -15433,7 +15433,7 @@ function getMathEaseExtraExamples(topicId) {
             <h3>Additional Statistics Examples</h3>
             
             <div class="example">
-                <h4>Example 4: Weighted Mean</h4>
+                <h4>Example 1: Weighted Mean</h4>
                 <p><strong>Problem:</strong> In a class, tests are worth 60% of the grade and homework is worth 40%. If a student has a test average of 85 and a homework average of 90, what is their overall grade?</p>
                 <p><strong>Solution:</strong>
                 <br>Weighted mean = (0.60 × 85) + (0.40 × 90)
@@ -15442,7 +15442,7 @@ function getMathEaseExtraExamples(topicId) {
             </div>
             
             <div class="example">
-                <h4>Example 5: Finding Missing Data</h4>
+                <h4>Example 2: Finding Missing Data</h4>
                 <p><strong>Problem:</strong> The mean of five numbers is 12. Four of the numbers are 8, 10, 14, and 16. Find the fifth number.</p>
                 <p><strong>Solution:</strong>
                 <br>Sum of five numbers = mean × n = 12 × 5 = 60
@@ -15452,7 +15452,7 @@ function getMathEaseExtraExamples(topicId) {
             </div>
             
             <div class="example">
-                <h4>Example 6: Median with Large Dataset</h4>
+                <h4>Example 3: Median with Large Dataset</h4>
                 <p><strong>Problem:</strong> Find the median of these 25 scores (arranged in order):
                 <br>65, 67, 68, 70, 72, 73, 74, 75, 76, 77, 78, 79, 80, 81, 82, 83, 84, 85, 86, 87, 88, 89, 90, 92, 95</p>
                 <p><strong>Solution:</strong>
@@ -15462,7 +15462,7 @@ function getMathEaseExtraExamples(topicId) {
             </div>
             
             <div class="example">
-                <h4>Example 7: When to Use Each Measure</h4>
+                <h4>Example 4: When to Use Each Measure</h4>
                 <p><strong>Problem:</strong> A small company has 9 employees with salaries: ₱20,000, ₱22,000, ₱22,000, ₱23,000, ₱25,000, ₱27,000, ₱30,000, ₱35,000, and ₱100,000 (owner). Which measure of central tendency best represents the typical salary?</p>
                 <p><strong>Solution:</strong>
                 <br>Mean = (sum of all) / 9 = ₱304,000 / 9 ≈ ₱33,778
@@ -15475,7 +15475,7 @@ function getMathEaseExtraExamples(topicId) {
             <h3>Additional Frequency Distribution Examples</h3>
             
             <div class="example">
-                <h4>Example 3: Cumulative Frequency</h4>
+                <h4>Example 1: Cumulative Frequency</h4>
                 <p><strong>Problem:</strong> Add cumulative frequency to the table from Example 1.</p>
                 <p><strong>Solution:</strong>
                 <table style="width: 100%; border-collapse: collapse; margin: 10px 0;">
@@ -15493,7 +15493,7 @@ function getMathEaseExtraExamples(topicId) {
             </div>
             
             <div class="example">
-                <h4>Example 4: Relative Frequency</h4>
+                <h4>Example 2: Relative Frequency</h4>
                 <p><strong>Problem:</strong> Add relative frequency (percentage) to the table from Example 1.</p>
                 <p><strong>Solution:</strong>
                 <table style="width: 100%; border-collapse: collapse; margin: 10px 0;">
@@ -15511,7 +15511,7 @@ function getMathEaseExtraExamples(topicId) {
             </div>
             
             <div class="example">
-                <h4>Example 5: Determining Class Width</h4>
+                <h4>Example 3: Determining Class Width</h4>
                 <p><strong>Problem:</strong> For a dataset with values ranging from 15 to 87, if you want 8 classes, what should be the class width?</p>
                 <p><strong>Solution:</strong>
                 <br>Range = 87 - 15 = 72
@@ -15521,7 +15521,7 @@ function getMathEaseExtraExamples(topicId) {
             </div>
             
             <div class="example">
-                <h4>Example 6: Finding Class Boundaries</h4>
+                <h4>Example 4: Finding Class Boundaries</h4>
                 <p><strong>Problem:</strong> For the class interval 45-54 in Example 2, what are the class boundaries?</p>
                 <p><strong>Solution:</strong>
                 <br>Lower class boundary = 44.5 (halfway between 44 and 45)
