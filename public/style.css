@@ -6721,9 +6721,8 @@ code {
     backdrop-filter: blur(10px);
     border-radius: 20px;
     box-shadow: 0 15px 35px rgba(139, 0, 0, 0.3);
-    margin: 0 auto;
+    margin: auto;  /* ← ito lang ang babaguhin */
 }
-
 .logo-card {
     width: 35vw;
     max-width: 140px;
