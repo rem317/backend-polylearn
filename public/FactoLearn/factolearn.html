@@ -1,3 +1,5 @@
+
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -1945,6 +1947,66 @@
                         </h2>
                         <p class="card-subtitle">Access learning tools and quick utilities for your lessons</p>
                     </div>
+                    
+                    <div class="lesson-dashboard-container">
+                        <!-- Learning Tools Section -->
+                        <div class="learning-tools-box">
+                            <div class="tools-header">
+                                <i class="fas fa-graduation-cap"></i>
+                                <h3>Learning Tools</h3>
+                            </div>
+                            
+                            <div class="tools-grid-compact">
+                                <div class="tool-item-compact" data-tool="calculator" id="openCalculator">
+                                    <div class="tool-icon">
+                                        <i class="fas fa-calculator"></i>
+                                    </div>
+                                    <div class="tool-name">Calculator</div>
+                                    <div class="tool-desc">Advanced math calculator</div>
+                                </div>
+                                
+                                <div class="tool-item-compact" data-tool="graph" id="openGraphTools">
+                                    <div class="tool-icon">
+                                        <i class="fas fa-chart-line"></i>
+                                    </div>
+                                    <div class="tool-name">Graph Tools</div>
+                                    <div class="tool-desc">Visualize functions</div>
+                                </div>
+                                
+                                <div class="tool-item-compact" data-tool="formula" id="openFormulaSheet">
+                                    <div class="tool-icon">
+                                        <i class="fas fa-book"></i>
+                                    </div>
+                                    <div class="tool-name">Formula Sheet</div>
+                                    <div class="tool-desc">Quick references</div>
+                                </div>
+                                
+                                <div class="tool-item-compact" data-tool="whiteboard" id="openWhiteboard">
+                                    <div class="tool-icon">
+                                        <i class="fas fa-paint-brush"></i>
+                                    </div>
+                                    <div class="tool-name">Whiteboard</div>
+                                    <div class="tool-desc">Draw and solve</div>
+                                </div>
+                                
+                                <div class="tool-item-compact" data-tool="notepad" id="openNotepad">
+                                    <div class="tool-icon">
+                                        <i class="fas fa-sticky-note"></i>
+                                    </div>
+                                    <div class="tool-name">Notepad</div>
+                                    <div class="tool-desc">Take notes</div>
+                                </div>
+                                
+                
+                            </div>
+                            
+                            <div class="tools-description">
+                                <p><i class="fas fa-info-circle"></i> Learning tools help you understand concepts better with interactive features.</p>
+                            </div>
+                        </div>
+                        
+                        
+                    </div>
                 </section>
 
             </div>
@@ -2463,7 +2525,30 @@
                     </div>
                 </section>
 
-
+                <!-- Performance Analytics -->
+                <section class="card animate-fade-in" style="animation-delay: 0.3s">
+                    <div class="card-header">
+                        <h2 class="card-title">
+                            <i class="fas fa-chart-line"></i> Performance Analytics
+                        </h2>
+                        <p class="card-subtitle">Your learning efficiency and improvement trends</p>
+                    </div>
+                    
+                    <div class="performance-grid" id="performanceGrid">
+                        <!-- Performance cards will be loaded dynamically -->
+                        <div class="loading-container">
+                            <i class="fas fa-spinner fa-spin"></i>
+                            <p>Loading performance analytics...</p>
+                        </div>
+                    </div>
+                    
+                    <div class="learning-insights">
+                        <h4><i class="fas fa-lightbulb"></i> Learning Insights</h4>
+                        <ul class="insights-list" id="insightsList">
+                            <!-- Insights will be loaded dynamically -->
+                        </ul>
+                    </div>
+                </section>
 
                 <!-- Achievement Timeline -->
                 <section class="card full-width-card animate-fade-in" style="animation-delay: 0.4s">
@@ -2661,6 +2746,137 @@
                                 </div>
                             </div>
                         </div>
+
+                        <!-- Notifications -->
+                        <div id="notifications" class="settings-section">
+                            <div class="section-header">
+                                <h2><i class="fas fa-bell"></i> Notification Settings</h2>
+                                <p class="section-subtitle">Control how and when you receive notifications</p>
+                            </div>
+
+                            <div class="settings-card">
+                                <h3><i class="fas fa-envelope"></i> Email Notifications</h3>
+                                <div class="form-row">
+                                    <label class="form-label">Weekly Progress Report</label>
+                                    <label class="toggle-switch">
+                                        <input type="checkbox" id="weeklyReport" checked>
+                                        <span class="toggle-slider"></span>
+                                    </label>
+                                </div>
+                                <div class="form-row">
+                                    <label class="form-label">New Feature Announcements</label>
+                                    <label class="toggle-switch">
+                                        <input type="checkbox" id="featureAnnouncements" checked>
+                                        <span class="toggle-slider"></span>
+                                    </label>
+                                </div>
+                            </div>
+
+                            <div class="settings-card">
+                                <h3><i class="fas fa-mobile-alt"></i> Push Notifications</h3>
+                                <div class="form-row">
+                                    <label class="form-label">Practice Reminders</label>
+                                    <label class="toggle-switch">
+                                        <input type="checkbox" id="practiceReminders" checked>
+                                        <span class="toggle-slider"></span>
+                                    </label>
+                                </div>
+                                <div class="form-row">
+                                    <label class="form-label">Achievement Alerts</label>
+                                    <label class="toggle-switch">
+                                        <input type="checkbox" id="achievementAlerts" checked>
+                                        <span class="toggle-slider"></span>
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Display Settings -->
+                        <div id="display" class="settings-section">
+                            <div class="section-header">
+                                <h2><i class="fas fa-desktop"></i> Display Settings</h2>
+                                <p class="section-subtitle">Customize the look and feel of MathHub</p>
+                            </div>
+
+                            <div class="settings-card">
+                                <h3><i class="fas fa-palette"></i> Theme & Appearance</h3>
+                                <div class="form-row">
+                                    <label class="form-label">Theme</label>
+                                    <div class="radio-group">
+                                        <label class="radio-option">
+                                            <input type="radio" name="theme" id="themeLight" checked> Light
+                                        </label>
+                                        <label class="radio-option">
+                                            <input type="radio" name="theme" id="themeDark"> Dark
+                                        </label>
+                                        <label class="radio-option">
+                                            <input type="radio" name="theme" id="themeAuto"> Auto
+                                        </label>
+                                    </div>
+                                </div>
+                                <div class="form-row">
+                                    <label class="form-label">Math Symbol Style</label>
+                                    <select class="form-control" id="mathSymbolStyle">
+                                        <option>Traditional</option>
+                                        <option selected>Modern</option>
+                                        <option>Handwritten</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            <div class="settings-card">
+                                <h3><i class="fas fa-eye"></i> Accessibility</h3>
+                                <div class="form-row">
+                                    <label class="form-label">High Contrast Mode</label>
+                                    <label class="toggle-switch">
+                                        <input type="checkbox" id="highContrast">
+                                        <span class="toggle-slider"></span>
+                                    </label>
+                                </div>
+                                <div class="form-row">
+                                    <label class="form-label">Font Size</label>
+                                    <select class="form-control" id="fontSize">
+                                        <option>Small</option>
+                                        <option selected>Medium</option>
+                                        <option>Large</option>
+                                        <option>Extra Large</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Account Settings -->
+                        <div id="account" class="settings-section">
+                            <div class="section-header">
+                                <h2><i class="fas fa-user-cog"></i> Account Management</h2>
+                                <p class="section-subtitle">Manage your account and connected services</p>
+                            </div>
+
+                            <div class="settings-card">
+                                <h3><i class="fas fa-user-edit"></i> Profile Management</h3>
+                                <div class="info-box" style="margin-bottom: 20px;">
+                                    <p><i class="fas fa-info-circle"></i> <strong>Edit Your Profile:</strong> You can edit your personal information in the <strong>General Settings</strong> section.</p>
+                                    <p><i class="fas fa-arrow-right"></i> Go to General Settings to update your display name, email, and profile picture.</p>
+                                </div>
+                                <div class="form-row">
+                                    <label class="form-label">View Profile</label>
+                                    <button class="btn btn-secondary" onclick="viewProfile()"><i class="fas fa-eye"></i> View Public Profile</button>
+                                </div>
+                            </div>
+
+                            <div class="settings-card">
+                                <h3><i class="fas fa-link"></i> Connected Accounts</h3>
+                                <div class="form-row">
+                                    <label class="form-label">Google Account</label>
+                                    <button class="btn btn-secondary" id="googleAccountBtn"><i class="fab fa-google"></i> Connected</button>
+                                </div>
+                                <div class="form-row">
+                                    <label class="form-label">GitHub Account</label>
+                                    <button class="btn btn-secondary" id="githubAccountBtn"><i class="fab fa-github"></i> Connect</button>
+                                </div>
+                            </div>
+                        </div>
+
                     </div>
 
                     <!-- Sidebar -->
@@ -2672,6 +2888,11 @@
                             
                             <ul class="sidebar-menu">
                                 <li><a href="#" class="active" onclick="showSection('general')"><i class="fas fa-user"></i> General</a></li>
+                                <li><a href="#" onclick="showSection('learning')"><i class="fas fa-graduation-cap"></i> Learning</a></li>
+                                <li><a href="#" onclick="showSection('privacy')"><i class="fas fa-shield-alt"></i> Privacy & Security</a></li>
+                                <li><a href="#" onclick="showSection('notifications')"><i class="fas fa-bell"></i> Notifications</a></li>
+                                <li><a href="#" onclick="showSection('display')"><i class="fas fa-desktop"></i> Display</a></li>
+                                <li><a href="#" onclick="showSection('account')"><i class="fas fa-user-cog"></i> Account</a></li>
                             </ul>
                         </div>
 
@@ -2685,7 +2906,7 @@
             </div>
         </div>
 
-       <!-- NEW: Feedback Dashboard Page -->
+        <!-- NEW: Feedback Dashboard Page -->
         <div id="feedback-page" class="hidden">
             <!-- Feedback content remains the same -->
             <div class="help-dashboard-container">
@@ -2714,7 +2935,6 @@
                             <h2>Frequently Asked Questions</h2>
                         </div>
                         <div class="card-body">
-                            <!-- FAQ 1: How do I reset my password? -->
                             <div class="faq-item">
                                 <div class="faq-question" onclick="toggleFAQ(this)">
                                     How do I reset my password?
@@ -2724,8 +2944,7 @@
                                     <p>To reset your password, go to the login page and click "Forgot Password". Enter your email address and follow the instructions sent to your inbox.</p>
                                 </div>
                             </div>
-                
-                            <!-- FAQ 2: How can I track my learning progress? -->
+
                             <div class="faq-item">
                                 <div class="faq-question" onclick="toggleFAQ(this)">
                                     How can I track my learning progress?
@@ -2735,19 +2954,17 @@
                                     <p>Visit the Progress page in your dashboard. You'll find detailed analytics about your completed lessons, practice exercises, and quiz scores.</p>
                                 </div>
                             </div>
-                
-                            <!-- FAQ 3: Are there mobile apps available? -->
+
                             <div class="faq-item">
                                 <div class="faq-question" onclick="toggleFAQ(this)">
                                     Are there mobile apps available?
                                     <i class="fas fa-chevron-down"></i>
                                 </div>
                                 <div class="faq-answer">
-                                    <p>Yes! MathHub is available on both iOS and Android.</p>
+                                    <p>Yes! MathHub is available on both iOS and Android. Download from the App Store or Google Play Store.</p>
                                 </div>
                             </div>
-                
-                            <!-- FAQ 4: How do I earn badges and points? -->
+
                             <div class="faq-item">
                                 <div class="faq-question" onclick="toggleFAQ(this)">
                                     How do I earn badges and points?
@@ -2759,7 +2976,7 @@
                             </div>
                         </div>
                     </div>
-                
+
                     <!-- Contact Support -->
                     <div class="card">
                         <div class="card-header">
@@ -2780,7 +2997,7 @@
                                         <p class="response-time">Response time: 24 hours</p>
                                     </div>
                                 </div>
-                
+
                                 <div class="contact-method">
                                     <div class="contact-icon">
                                         <i class="fas fa-phone"></i>
@@ -2791,6 +3008,69 @@
                                         <p class="hours">Mon-Fri: 9AM-6PM EST</p>
                                     </div>
                                 </div>
+
+                                <div class="contact-method">
+                                    <div class="contact-icon">
+                                        <i class="fas fa-comments"></i>
+                                    </div>
+                                    <div>
+                                        <h4>Live Chat</h4>
+                                        <p>Available during business hours</p>
+                                        <button class="btn btn-primary" style="margin-top: 10px; padding: 8px 15px;">
+                                            <i class="fas fa-comment-dots"></i>
+                                            Start Chat
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Send Feedback -->
+                    <div class="card">
+                        <div class="card-header">
+                            <div class="card-icon icon-feedback">
+                                <i class="fas fa-comment-alt"></i>
+                            </div>
+                            <h2>Send Feedback</h2>
+                        </div>
+                        <div class="card-body">
+                            <form id="feedbackForm">
+                                <div class="form-group">
+                                    <label for="feedbackType">Feedback Type</label>
+                                    <select id="feedbackType" class="form-control">
+                                        <option value="suggestion">Suggestion</option>
+                                        <option value="bug">Bug Report</option>
+                                        <option value="praise">Praise</option>
+                                        <option value="other">Other</option>
+                                    </select>
+                                </div>
+
+                                <div class="form-group">
+                                    <label for="feedbackMessage">Your Feedback</label>
+                                    <textarea id="feedbackMessage" class="form-control" placeholder="Tell us what you think..."></textarea>
+                                </div>
+
+                                <div class="form-group">
+                                    <label>Overall Rating</label>
+                                    <div class="rating">
+                                        <span class="star" onclick="rate(1)">★</span>
+                                        <span class="star" onclick="rate(2)">★</span>
+                                        <span class="star" onclick="rate(3)">★</span>
+                                        <span class="star" onclick="rate(4)">★</span>
+                                        <span class="star" onclick="rate(5)">★</span>
+                                    </div>
+                                    <input type="hidden" id="ratingValue" value="0">
+                                </div>
+
+                                <button type="submit" class="btn btn-primary" style="width: 100%;">
+                                    <i class="fas fa-paper-plane"></i>
+                                    Submit Feedback
+                                </button>
+                            </form>
+                            <div class="success-message" id="feedbackSuccess" style="display: none;">
+                                <i class="fas fa-check-circle"></i>
+                                Thank you for your feedback! We'll review it shortly.
                             </div>
                         </div>
                     </div>
@@ -2912,130 +3192,7 @@
         </div>
     </div>
 
-    <!-- ============================================ -->
-    <!-- TOOL MODALS - MUST BE OUTSIDE PAGE CONTAINERS -->
-    <!-- ============================================ -->
-    <!-- Tool Modals Container -->
-    <div id="toolModalsContainer">
-        <!-- Calculator Modal -->
-        <div id="calculatorModal" class="modal-overlay" style="display: none;">
-            <div class="modal-container">
-                <div class="modal-header" style="background: #7a0000; color: white;">
-                    <h3 style="margin: 0;"><i class="fas fa-calculator"></i> Scientific Calculator</h3>
-                    <button class="modal-close" onclick="window.toolManager.closeTool()" style="color: white; background: none; border: none; font-size: 24px; cursor: pointer;">&times;</button>
-                </div>
-                <div class="modal-body">
-                    <div class="calculator-container">
-                        <div id="calcDisplay" class="calculator-display" style="background: #f5f5f5; padding: 15px; text-align: right; font-size: 24px; margin-bottom: 15px; border-radius: 5px;">0</div>
-                        <div id="calcButtons" class="calculator-buttons" style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 5px;"></div>
-                        <div class="calculator-history">
-                            <h4 style="margin: 15px 0 10px;">History</h4>
-                            <div id="calcHistory" style="max-height: 150px; overflow-y: auto;"></div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- Graph Modal -->
-        <div id="graphModal" class="modal-overlay" style="display: none;">
-            <div class="modal-container">
-                <div class="modal-header" style="background: #7a0000; color: white;">
-                    <h3 style="margin: 0;"><i class="fas fa-chart-line"></i> Graph Tool</h3>
-                    <button class="modal-close" onclick="window.toolManager.closeTool()" style="color: white; background: none; border: none; font-size: 24px; cursor: pointer;">&times;</button>
-                </div>
-                <div class="modal-body">
-                    <div class="graph-container">
-                        <div style="margin-bottom: 15px;">
-                            <input type="text" id="graphExpression" placeholder="Enter function (e.g., x^2, 2x+1)" style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 5px;">
-                        </div>
-                        <div style="display: flex; gap: 10px; margin-bottom: 15px;">
-                            <button onclick="window.toolManager.tools.graph.plotFunction()" style="background: #7a0000; color: white; border: none; padding: 8px 15px; border-radius: 5px;">Plot</button>
-                            <button onclick="window.toolManager.tools.graph.clear()" style="background: #95a5a6; color: white; border: none; padding: 8px 15px; border-radius: 5px;">Clear</button>
-                        </div>
-                        <canvas id="graphCanvas" width="600" height="400" style="width: 100%; height: auto; border: 1px solid #ddd; border-radius: 5px;"></canvas>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- Whiteboard Modal -->
-        <div id="whiteboardModal" class="modal-overlay" style="display: none;">
-            <div class="modal-container">
-                <div class="modal-header" style="background: #7a0000; color: white;">
-                    <h3 style="margin: 0;"><i class="fas fa-paint-brush"></i> Whiteboard</h3>
-                    <button class="modal-close" onclick="window.toolManager.closeTool()" style="color: white; background: none; border: none; font-size: 24px; cursor: pointer;">&times;</button>
-                </div>
-                <div class="modal-body">
-                    <div class="whiteboard-toolbar" style="display: flex; gap: 10px; margin-bottom: 15px;">
-                        <button onclick="window.toolManager.tools.whiteboard.setTool('pen')" style="padding: 8px 15px;">Pen</button>
-                        <button onclick="window.toolManager.tools.whiteboard.setTool('eraser')" style="padding: 8px 15px;">Eraser</button>
-                        <input type="color" id="colorPicker" value="#7a0000">
-                        <button onclick="window.toolManager.tools.whiteboard.clear()" style="padding: 8px 15px;">Clear</button>
-                    </div>
-                    <canvas id="whiteboardCanvas" width="600" height="400" style="width: 100%; height: 300px; border: 1px solid #ddd; border-radius: 5px;"></canvas>
-                </div>
-            </div>
-        </div>
-
-        <!-- Notepad Modal -->
-        <div id="notepadModal" class="modal-overlay" style="display: none;">
-            <div class="modal-container">
-                <div class="modal-header" style="background: #7a0000; color: white;">
-                    <h3 style="margin: 0;"><i class="fas fa-sticky-note"></i> Notepad</h3>
-                    <button class="modal-close" onclick="window.toolManager.closeTool()" style="color: white; background: none; border: none; font-size: 24px; cursor: pointer;">&times;</button>
-                </div>
-                <div class="modal-body">
-                    <div style="margin-bottom: 15px;">
-                        <input type="text" id="noteTitle" placeholder="Note title" style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 5px;">
-                    </div>
-                    <textarea id="noteContent" rows="10" placeholder="Write your notes here..." style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 5px;"></textarea>
-                    <div style="margin-top: 15px;">
-                        <button onclick="window.toolManager.tools.notepad.save()" style="background: #7a0000; color: white; border: none; padding: 10px 20px; border-radius: 5px;">Save Note</button>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- Formula Sheet Modal -->
-        <div id="formulaModal" class="modal-overlay" style="display: none;">
-            <div class="modal-container">
-                <div class="modal-header" style="background: #7a0000; color: white;">
-                    <h3 style="margin: 0;"><i class="fas fa-book"></i> Formula Sheet</h3>
-                    <button class="modal-close" onclick="window.toolManager.closeTool()" style="color: white; background: none; border: none; font-size: 24px; cursor: pointer;">&times;</button>
-                </div>
-                <div class="modal-body">
-                    <div id="formulaList">
-                        <!-- Formulas will be loaded here -->
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- Timer Modal -->
-        <div id="timerModal" class="modal-overlay" style="display: none;">
-            <div class="modal-container">
-                <div class="modal-header" style="background: #7a0000; color: white;">
-                    <h3 style="margin: 0;"><i class="fas fa-stopwatch"></i> Study Timer</h3>
-                    <button class="modal-close" onclick="window.toolManager.closeTool()" style="color: white; background: none; border: none; font-size: 24px; cursor: pointer;">&times;</button>
-                </div>
-                <div class="modal-body" style="text-align: center;">
-                    <div id="timerDisplay" style="font-size: 48px; font-weight: bold; margin: 20px 0; color: #7a0000;">25:00</div>
-                    <div style="display: flex; gap: 10px; justify-content: center; margin: 20px 0;">
-                        <button id="timerStartBtn" onclick="window.toolManager.startTimer()" style="background: #27ae60; color: white; border: none; padding: 10px 20px; border-radius: 5px;">Start</button>
-                        <button id="timerPauseBtn" onclick="window.toolManager.pauseTimer()" style="background: #f39c12; color: white; border: none; padding: 10px 20px; border-radius: 5px;">Pause</button>
-                        <button id="timerResetBtn" onclick="window.toolManager.resetTimer()" style="background: #e74c3c; color: white; border: none; padding: 10px 20px; border-radius: 5px;">Reset</button>
-                    </div>
-                    <div style="display: flex; gap: 10px; justify-content: center;">
-                        <button onclick="window.toolManager.tools.timer.setTime(15)" style="padding: 8px 15px; border: 1px solid #ddd; border-radius: 5px;">15 min</button>
-                        <button onclick="window.toolManager.tools.timer.setTime(25)" style="padding: 8px 15px; border: 1px solid #ddd; border-radius: 5px;">25 min</button>
-                        <button onclick="window.toolManager.tools.timer.setTime(50)" style="padding: 8px 15px; border: 1px solid #ddd; border-radius: 5px;">50 min</button>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-
+   
     <footer class="footer-nav">
         <div class="footer-nav-content">
             <a href="#" class="footer-nav-item active" data-page="dashboard" onclick="event.preventDefault(); showDashboard(event); return false;">
