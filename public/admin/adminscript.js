@@ -22541,7 +22541,7 @@ function changeQuizPage(direction) {
     displayQuizzes();
 }
 
-// ===== FIXED: OPEN CREATE/EDIT QUIZ MODAL WITH CORRECT PROPERTY NAMES =====
+// ===== FIXED: OPEN CREATE/EDIT QUIZ MODAL (FOR YOUR ACTUAL DATA STRUCTURE) =====
 async function openCreateQuizModal(quizId = null) {
     console.log("📝 Opening quiz modal for:", quizId ? `edit #${quizId}` : 'create new');
     
@@ -22633,37 +22633,22 @@ async function openCreateQuizModal(quizId = null) {
                 console.log('✅ Quiz loaded for editing:', quiz);
                 console.log('📋 Quiz object keys:', Object.keys(quiz));
                 
-                // ===== FIXED: Set edit ID =====
-                document.getElementById('editQuizId').value = quiz.id || quiz.quiz_id;
+                // ===== SET EDIT ID =====
+                document.getElementById('editQuizId').value = quiz.quiz_id || quiz.id;
                 
-                // ===== FIXED: Get title from different possible property names =====
-                let quizTitle = '';
-                if (quiz.title) quizTitle = quiz.title;
-                else if (quiz.quiz_title) quizTitle = quiz.quiz_title;
-                else if (quiz.name) quizTitle = quiz.name;
-                else if (quiz.quiz_name) quizTitle = quiz.quiz_name;
+                // ===== FIXED: Use quiz_title (matches your data structure) =====
+                document.getElementById('quizTitle').value = quiz.quiz_title || quiz.title || '';
+                console.log(`📝 Title set to: "${quiz.quiz_title}"`);
                 
-                console.log(`📝 Found title: "${quizTitle}"`);
-                document.getElementById('quizTitle').value = quizTitle;
+                // ===== FIXED: Use description =====
+                document.getElementById('quizDescription').value = quiz.description || '';
                 
-                // ===== FIXED: Get description =====
-                let quizDescription = '';
-                if (quiz.description) quizDescription = quiz.description;
-                else if (quiz.quiz_description) quizDescription = quiz.quiz_description;
-                else if (quiz.desc) quizDescription = quiz.desc;
-                
-                document.getElementById('quizDescription').value = quizDescription;
-                
-                // ===== FIXED: Set subject (category_id) =====
-                let subjectId = '';
-                if (quiz.category_id) subjectId = quiz.category_id;
-                else if (quiz.subject_id) subjectId = quiz.subject_id;
-                else if (quiz.lesson_id) subjectId = quiz.lesson_id;
-                
+                // ===== FIXED: Set subject =====
                 const subjectSelect = document.getElementById('quizSubject');
-                if (subjectSelect && subjectId) {
-                    subjectSelect.value = subjectId;
-                    console.log(`✅ Subject set to: ${subjectId}`);
+                if (subjectSelect) {
+                    // Based on your mapping in loadQuizzesFromMySQL, subject_id is the category
+                    subjectSelect.value = quiz.category_id || quiz.subject_id || '';
+                    console.log(`✅ Subject set to: ${subjectSelect.value}`);
                 }
                 
                 // ===== Load topics based on subject =====
@@ -22686,9 +22671,13 @@ async function openCreateQuizModal(quizId = null) {
                 document.getElementById('quizMaxAttempts').value = quiz.max_attempts || quiz.attempts_limit || 3;
                 document.getElementById('quizDifficulty').value = quiz.difficulty || 'medium';
                 
-                let status = quiz.status || 'active';
-                if (quiz.is_active === 0) status = 'inactive';
-                else if (quiz.is_active === 1) status = 'active';
+                // Status handling
+                let status = 'active';
+                if (quiz.is_active === 0 || quiz.is_active === false) {
+                    status = 'inactive';
+                } else if (quiz.status === 'inactive') {
+                    status = 'inactive';
+                }
                 document.getElementById('quizStatus').value = status;
                 
                 // ===== Clear and add questions =====
@@ -22704,14 +22693,9 @@ async function openCreateQuizModal(quizId = null) {
                             const qNum = index + 1;
                             
                             // Set question text
-                            let questionText = '';
-                            if (q.question_text) questionText = q.question_text;
-                            else if (q.text) questionText = q.text;
-                            else if (q.question) questionText = q.question;
-                            
                             const questionInput = document.getElementById(`q_${qNum}_text`);
                             if (questionInput) {
-                                questionInput.value = questionText;
+                                questionInput.value = q.question_text || q.text || '';
                             }
                             
                             // Populate options
@@ -22723,14 +22707,9 @@ async function openCreateQuizModal(quizId = null) {
                                     if (!letter) return;
                                     
                                     // Set option text
-                                    let optionText = '';
-                                    if (opt.option_text) optionText = opt.option_text;
-                                    else if (opt.text) optionText = opt.text;
-                                    else if (opt.value) optionText = opt.value;
-                                    
                                     const optInput = document.getElementById(`q_${qNum}_opt_${letter}`);
                                     if (optInput) {
-                                        optInput.value = optionText;
+                                        optInput.value = opt.option_text || opt.text || '';
                                     }
                                     
                                     // Set correct answer
@@ -22739,7 +22718,6 @@ async function openCreateQuizModal(quizId = null) {
                                         const radio = document.querySelector(`input[name="q_${qNum}_correct"][value="${letter}"]`);
                                         if (radio) {
                                             radio.checked = true;
-                                            console.log(`✅ Question ${qNum} correct answer set to ${letter}`);
                                         }
                                     }
                                 });
