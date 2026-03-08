@@ -6821,7 +6821,7 @@ async function fetchPracticeExercisesFromDB(topicId) {
         }
         
         // FORCE use topic_id=5 kasi yan ang may data
-        const ACTUAL_TOPIC_ID = 5;
+        const ACTUAL_TOPIC_ID = 1;
         
         // Use the working endpoint with correct topic_id
         const endpoint = `/api/practice/topic/${ACTUAL_TOPIC_ID}?lesson_id=1`;
@@ -6841,7 +6841,7 @@ async function fetchPracticeExercisesFromDB(topicId) {
             
             // Check if there are exercises
             if (data.success && data.exercises && data.exercises.length > 0) {
-                console.log(`✅ Found ${data.exercises.length} exercises from database for topic_id=5`);
+                console.log(`✅ Found ${data.exercises.length} exercises from database for topic_id=1`);
                 
                 // Ensure lesson_id=1
                 return data.exercises.map(ex => ({
@@ -6849,7 +6849,7 @@ async function fetchPracticeExercisesFromDB(topicId) {
                     lesson_id: 3
                 }));
             } else {
-                console.log('⚠️ No exercises in database for topic_id=5');
+                console.log('⚠️ No exercises in database for topic_id=1');
             }
         }
         
@@ -6864,16 +6864,16 @@ async function fetchPracticeExercisesFromDB(topicId) {
 // ============================================
 // ✅ HELPER: Generate exercises from topic data
 // ============================================
-function generateExercisesFromTopicData(topic, lessonId = 3) {
+function generateExercisesFromTopicData(topic, lessonId = 1) {
     if (!topic) return [];
     
     const exercises = [];
     const topicTitle = topic.topic_title || 'Factorial Topic';
     const lessonsCompleted = topic.lessons_completed || 0;
-    const totalLessons = topic.total_lessons || 3;
+    const totalLessons = topic.total_lessons || 1;
     
     // Generate exercises based on topic difficulty
-    const exerciseCount = Math.min(3, totalLessons);
+    const exerciseCount = Math.min(1, totalLessons);
     
     for (let i = 1; i <= exerciseCount; i++) {
         // Determine difficulty based on lesson progress
@@ -11769,7 +11769,7 @@ async function checkQuizAccess(quizId) {
 
 
 // ============================================
-// ✅ FIXED: Start Quiz - DATABASE ONLY
+// ✅ FIXED: Start Quiz System - Ensures timer is initialized
 // ============================================
 async function startQuizSystem(quizId) {
     console.log("🎯 Starting QUIZ ID:", quizId);
@@ -11846,16 +11846,23 @@ async function startQuizSystem(quizId) {
             return;
         }
         
+        // Calculate total time (60 seconds per question)
+        const totalTime = questions.length * 60;
+        
         // Initialize quiz state
         QuizSystem.currentQuiz = quizId;
         QuizSystem.currentAttemptId = attempt.attempt_id;
         QuizSystem.questions = questions;
         QuizSystem.currentIndex = 0;
         QuizSystem.userAnswers = {};
+        QuizSystem.submittedAnswers = {};
         QuizSystem.startTime = Date.now();
-        QuizSystem.totalTime = questions.length * 60;
-        QuizSystem.timeLeft = QuizSystem.totalTime;
+        QuizSystem.totalTime = totalTime;
+        QuizSystem.timeLeft = totalTime;
         QuizSystem.stats = { correct: 0, wrong: 0, score: 0 };
+        QuizSystem.answerResults = {};
+        
+        console.log(`✅ Quiz initialized with ${questions.length} questions, ${totalTime} seconds`);
         
         // Show quiz modal
         showQuizSystemModal();
@@ -11863,8 +11870,10 @@ async function startQuizSystem(quizId) {
         // Load first question
         loadQuizSystemQuestion(0);
         
-        // Start timer
-        startQuizSystemTimer();
+        // Start timer - THIS IS CRITICAL
+        setTimeout(() => {
+            startQuizSystemTimer();
+        }, 100);
         
     } catch (error) {
         console.error('❌ Error starting quiz:', error);
@@ -14208,7 +14217,7 @@ function displayQuizzesInContainer(quizzes, categoryId, isHardcoded = false) {
                 <div>
                     <h2 class="card-title" style="display: flex; align-items: center; gap: 10px; font-size: 1.4rem; color: var(--text-color); margin-bottom: 5px;">
                         <i class="fas fa-question-circle" style="color: #7a0000;"></i> 
-                        FactoLearn Quizzes
+                        MathEase Quizzes
                     </h2>
                     <p class="card-subtitle" style="color: var(--text-light); font-size: 0.95rem;">
                         Test your knowledge with these quizzes
@@ -15409,7 +15418,7 @@ function showQuizModalLoading() {
 
 
 // ============================================
-// LOAD QUIZ SYSTEM QUESTION - UPDATED
+// ✅ FIXED: Load Quiz System Question - Ensures timer display exists
 // ============================================
 function loadQuizSystemQuestion(index) {
     if (!QuizSystem.questions || QuizSystem.questions.length === 0) return;
@@ -15431,18 +15440,23 @@ function loadQuizSystemQuestion(index) {
         questionText.textContent = question.question_text || 'Question text not available';
     }
     
+    // Make sure timer is displayed
+    ensureTimerDisplay();
+    
     // Update progress dots
     updateQuizSystemProgressDots();
     
     // Show/hide submit button
     const submitBtn = document.getElementById('submitQuizBtn');
     if (submitBtn) {
-        const allAnswered = QuizSystem.questions.every(q => 
+        // Check if all questions are answered
+        const allAnswered = QuizSystem.questions.every((q, i) => 
             QuizSystem.userAnswers[q.question_id] !== undefined
         );
         
         if (index === QuizSystem.questions.length - 1 || allAnswered) {
             submitBtn.style.display = 'block';
+            console.log('📌 Submit button shown');
         } else {
             submitBtn.style.display = 'none';
         }
@@ -15457,17 +15471,10 @@ function loadQuizSystemQuestion(index) {
     // Generate options
     if (question.options && question.options.length > 0) {
         question.options.forEach((option, i) => {
-            // ✅ FIXED: Gamitin ang tamang property names
-            const optionId = option.id;  // ← DITO: option.id, hindi option.option_id
+            const optionId = option.id;
             const optionText = option.text || option.option_text || `Option ${String.fromCharCode(65 + i)}`;
-            const isCorrect = option.is_correct === 1;  // ← TAMA na ito
+            const isCorrect = option.is_correct === 1;
             const letter = String.fromCharCode(65 + i);
-            
-            console.log(`Option ${letter}:`, {
-                id: optionId,
-                text: optionText,
-                isCorrect: isCorrect
-            });
             
             // Check if this option was previously selected
             const isSelected = QuizSystem.userAnswers[question.question_id] == optionId;
@@ -15476,7 +15483,7 @@ function loadQuizSystemQuestion(index) {
             optionDiv.className = 'quiz-option-modal' + (isSelected ? ' selected' : '');
             optionDiv.setAttribute('data-option-id', optionId);
             optionDiv.setAttribute('data-question-id', question.question_id);
-            optionDiv.setAttribute('data-is-correct', isCorrect);  // Store kung correct
+            optionDiv.setAttribute('data-is-correct', isCorrect);
             
             optionDiv.innerHTML = `
                 <div class="option-letter" style="
@@ -15494,16 +15501,22 @@ function loadQuizSystemQuestion(index) {
                 // Remove selected from all
                 document.querySelectorAll('.quiz-option-modal').forEach(opt => {
                     opt.classList.remove('selected');
-                    opt.querySelector('.option-letter').style.background = 'transparent';
-                    opt.querySelector('.option-letter').style.color = '#7a0000';
+                    const letterDiv = opt.querySelector('.option-letter');
+                    if (letterDiv) {
+                        letterDiv.style.background = 'transparent';
+                        letterDiv.style.color = '#7a0000';
+                    }
                 });
                 
                 // Mark this as selected
                 this.classList.add('selected');
-                this.querySelector('.option-letter').style.background = '#7a0000';
-                this.querySelector('.option-letter').style.color = 'white';
+                const letterDiv = this.querySelector('.option-letter');
+                if (letterDiv) {
+                    letterDiv.style.background = '#7a0000';
+                    letterDiv.style.color = 'white';
+                }
                 
-                // Save answer
+                // Save answer and continue
                 const questionId = question.question_id;
                 const optionId = this.getAttribute('data-option-id');
                 
@@ -15517,7 +15530,40 @@ function loadQuizSystemQuestion(index) {
     }
 }
 
-
+// ============================================
+// ✅ NEW: Ensure Timer Display exists
+// ============================================
+function ensureTimerDisplay() {
+    const timerDisplay = document.getElementById('quizTimerDisplay');
+    
+    // If timer display doesn't exist, create it
+    if (!timerDisplay) {
+        console.log('⏱️ Timer display not found, creating it...');
+        
+        const modalHeader = document.querySelector('.modal-header');
+        if (modalHeader) {
+            const timerDiv = document.createElement('div');
+            timerDiv.id = 'quizTimerDisplay';
+            timerDiv.style.cssText = `
+                background: white;
+                color: #7a0000;
+                padding: 5px 15px;
+                border-radius: 20px;
+                font-weight: bold;
+                font-size: 18px;
+                margin-left: 15px;
+            `;
+            
+            // Set initial time
+            const minutes = Math.floor(QuizSystem.timeLeft / 60) || 0;
+            const seconds = QuizSystem.timeLeft % 60 || 0;
+            timerDiv.textContent = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+            
+            modalHeader.appendChild(timerDiv);
+            console.log('✅ Timer display created');
+        }
+    }
+}
 
 function loadQuizQuestionModal(index) {
     if (!QuizState.questions || QuizState.questions.length === 0) return;
@@ -15671,11 +15717,18 @@ window.jumpToQuizQuestion = function(index) {
 
 
 // ============================================
-// START TIMER
+// ✅ FIXED: Start Quiz System Timer - Now working
 // ============================================
 function startQuizSystemTimer() {
     if (QuizSystem.timerInterval) {
         clearInterval(QuizSystem.timerInterval);
+    }
+    
+    console.log('⏱️ Starting quiz timer');
+    
+    // Set initial time if not set
+    if (!QuizSystem.timeLeft || QuizSystem.timeLeft <= 0) {
+        QuizSystem.timeLeft = QuizSystem.totalTime || (QuizSystem.questions.length * 60);
     }
     
     QuizSystem.timerInterval = setInterval(() => {
@@ -15692,6 +15745,7 @@ function startQuizSystemTimer() {
             
             // Auto-submit when time runs out
             if (QuizSystem.timeLeft <= 0) {
+                console.log('⏰ Time ran out! Auto-submitting...');
                 clearInterval(QuizSystem.timerInterval);
                 submitQuizSystem();
             }
@@ -16630,9 +16684,6 @@ function loadQuizQuestion(questionIndex) {
     updateQuizTimer();
 }
 
-// ============================================
-// SAVE ANSWER AND CONTINUE - COMPLETE FIX
-// ============================================
 async function saveAnswerAndContinue(questionId, answer) {
     try {
         if (!QuizSystem.currentAttemptId) {
@@ -16645,9 +16696,14 @@ async function saveAnswerAndContinue(questionId, answer) {
             console.log(`⏭️ Question ${questionId} already answered, moving to next...`);
             
             if (QuizSystem.currentIndex < QuizSystem.questions.length - 1) {
+                // Move to next question
                 loadQuizSystemQuestion(QuizSystem.currentIndex + 1);
             } else {
-                await submitQuizSystem();
+                // This was the last question, show submit button
+                const submitBtn = document.getElementById('submitQuizBtn');
+                if (submitBtn) {
+                    submitBtn.style.display = 'block';
+                }
             }
             return;
         }
@@ -16674,7 +16730,7 @@ async function saveAnswerAndContinue(questionId, answer) {
             answerData: answerData
         });
         
-        // ✅ Submit to server using the CORRECT URL
+        // Submit to server using the CORRECT URL
         const result = await submitQuizAnswer(QuizSystem.currentAttemptId, questionId, answerData);
         
         // Store in local answers
@@ -16708,15 +16764,20 @@ async function saveAnswerAndContinue(questionId, answer) {
             // Update progress dots
             updateQuizSystemProgressDots();
             
-            // Move to next question
+            // Move to next question - THIS IS THE KEY FIX
             if (QuizSystem.currentIndex < QuizSystem.questions.length - 1) {
+                // Short delay to show selection before moving
                 setTimeout(() => {
                     loadQuizSystemQuestion(QuizSystem.currentIndex + 1);
                 }, 300);
             } else {
                 console.log('📝 Last question answered, ready to submit');
                 const submitBtn = document.getElementById('submitQuizBtn');
-                if (submitBtn) submitBtn.style.display = 'block';
+                if (submitBtn) {
+                    submitBtn.style.display = 'block';
+                    // Scroll to submit button
+                    submitBtn.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                }
             }
         } else {
             console.warn('⚠️ Server error but answer saved locally');
@@ -16728,6 +16789,11 @@ async function saveAnswerAndContinue(questionId, answer) {
                 setTimeout(() => {
                     loadQuizSystemQuestion(QuizSystem.currentIndex + 1);
                 }, 300);
+            } else {
+                const submitBtn = document.getElementById('submitQuizBtn');
+                if (submitBtn) {
+                    submitBtn.style.display = 'block';
+                }
             }
         }
         
