@@ -382,6 +382,30 @@ function displayMockLessons() {
 async function loadPracticeForLesson(lessonId) {
     console.log(`📝 Loading practice for lesson ${lessonId}`);
     
+    // ===== ADD THIS VALIDATION =====
+    // Convert to number if it's a string
+    lessonId = parseInt(lessonId);
+    
+    // Check if lesson ID is valid (1, 2, or 3 for MathEase)
+    const validLessonIds = [1, 2, 3];
+    if (!validLessonIds.includes(lessonId)) {
+        console.error(`❌ Invalid lesson ID: ${lessonId}. Valid IDs are 1, 2, or 3.`);
+        
+        const exerciseArea = document.getElementById('exerciseArea');
+        if (exerciseArea) {
+            exerciseArea.innerHTML = `
+                <div class="error-message" style="text-align: center; padding: 40px;">
+                    <i class="fas fa-exclamation-triangle" style="font-size: 48px; color: #e74c3c;"></i>
+                    <h3 style="color: #666;">Invalid Lesson</h3>
+                    <p style="color: #999;">This lesson does not have practice exercises yet.</p>
+                    <p style="color: #999; font-size: 12px; margin-top: 10px;">Lesson ID: ${lessonId}</p>
+                </div>
+            `;
+        }
+        return;
+    }
+    // ===== END VALIDATION =====
+    
     const exerciseArea = document.getElementById('exerciseArea');
     if (!exerciseArea) return;
     
@@ -439,27 +463,20 @@ async function loadPracticeForLesson(lessonId) {
         if (exercises && exercises.length > 0) {
             displayPracticeExercises(exercises);
         } else {
-            exerciseArea.innerHTML = `
-                <div class="no-exercises" style="text-align: center; padding: 60px;">
-                    <i class="fas fa-database" style="font-size: 60px; color: #ccc; margin-bottom: 20px;"></i>
-                    <h3 style="color: #666;">No Practice Exercises Found</h3>
-                    <p style="color: #999;">No exercises in database for this lesson.</p>
-                    <p style="color: #999; font-size: 12px; margin-top: 10px;">Lesson ID: ${lessonId}</p>
-                </div>
-            `;
+            // Show demo exercises based on lesson ID
+            const demoExercises = getMathEaseDemoExercisesForLesson(lessonId);
+            displayPracticeExercises(demoExercises);
         }
         
     } catch (error) {
         console.error('❌ Error loading practice:', error);
-        exerciseArea.innerHTML = `
-            <div class="error" style="text-align: center; padding: 40px;">
-                <i class="fas fa-exclamation-triangle" style="font-size: 48px; color: #e74c3c;"></i>
-                <h3>Error Loading Practice</h3>
-                <p>${error.message}</p>
-            </div>
-        `;
+        
+        // Show demo exercises as fallback
+        const demoExercises = getMathEaseDemoExercisesForLesson(lessonId);
+        displayPracticeExercises(demoExercises);
     }
 }
+
 // ============================================
 // ✅ Display MathEase Lessons
 // ============================================
