@@ -12689,10 +12689,7 @@ async function checkQuizAccess(quizId) {
 }
 
 // ============================================
-// ✅ ULTIMATE FIX: Start Quiz System - Guaranteed timer
-// ============================================
-// ============================================
-// ✅ FIXED: Start Quiz System - Uses existing timer in quiz container
+// ✅ FIXED: Start Quiz System - For your HTML
 // ============================================
 async function startQuizSystem(quizId) {
     console.log("🎯 Starting QUIZ ID:", quizId);
@@ -12792,16 +12789,19 @@ async function startQuizSystem(quizId) {
         // Load first question
         loadQuizSystemQuestion(0);
         
-        // REMOVED: createQuizTimerDisplay() - Don't create a new timer
-        // The timer already exists in the quiz container
-        
         // Reset the timer display to show the full time
-        resetTimerDisplay();
+        const timerDisplay = document.getElementById('quizTimerDisplay');
+        if (timerDisplay) {
+            const minutes = Math.floor(totalTime / 60);
+            const seconds = totalTime % 60;
+            timerDisplay.textContent = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+            console.log(`⏱️ Timer set to: ${timerDisplay.textContent}`);
+        }
         
         // Start timer after a short delay
         setTimeout(() => {
             console.log('⏱️ Starting quiz timer');
-            startQuizSystemTimer(); // Make sure this is the correct function name
+            startQuizSystemTimer();
         }, 500);
         
     } catch (error) {
@@ -13122,10 +13122,7 @@ async function testQuiz4() {
 }
 
 // ============================================
-// SHOW QUIZ MODAL - WITH TIMER DISPLAY
-// ============================================
-// ============================================
-// SHOW QUIZ MODAL - WITHOUT HEADER TIMER
+// SHOW QUIZ MODAL - For your HTML
 // ============================================
 function showQuizSystemModal() {
     console.log('📱 Showing quiz modal');
@@ -13172,10 +13169,13 @@ function showQuizSystemModal() {
         submitBtn.style.display = 'none';
     }
     
-    // REMOVED: setTimeout(ensureTimerDisplayExists, 100);
-    // The timer is already in the quiz container, we don't need to create it
+    // DO NOT create any timer here - your HTML already has it
+    // Just make sure it's visible
+    const timerDisplay = document.getElementById('quizTimerDisplay');
+    if (timerDisplay) {
+        timerDisplay.style.display = 'inline-block';
+    }
 }
-
 // Add this to your addQuizStyles() function or create a new style block
 function addReviewModalStyles() {
     const style = document.createElement('style');
@@ -17538,10 +17538,10 @@ window.jumpToQuizQuestion = function(index) {
 };
 
 // ============================================
-// ✅ FIXED: Start Quiz System Timer - Updates timer in quiz container
+// ✅ FIXED: Start Quiz System Timer - For your HTML structure
 // ============================================
 function startQuizSystemTimer() {
-    console.log('⏱️ Starting quiz timer - updating timer in quiz container');
+    console.log('⏱️ Starting quiz timer');
     
     // Clear any existing timer
     if (QuizSystem.timerInterval) {
@@ -17554,19 +17554,11 @@ function startQuizSystemTimer() {
         QuizSystem.timeLeft = QuizSystem.totalTime || (QuizSystem.questions.length * 60);
     }
     
-    // Find the timer display - try multiple selectors
-    let timerDisplay = document.getElementById('quizTimerDisplay');
-    
-    // If not found by ID, try to find by class or in quiz container
-    if (!timerDisplay) {
-        const quizContainer = document.getElementById('quizContainer');
-        if (quizContainer) {
-            timerDisplay = quizContainer.querySelector('.timer-display, #quizTimerDisplay, [id*="timer"]');
-        }
-    }
+    // Find the timer display - using your exact HTML structure
+    const timerDisplay = document.getElementById('quizTimerDisplay');
     
     if (!timerDisplay) {
-        console.error('❌ Timer display not found in quiz container');
+        console.error('❌ Timer display not found! Check if element with id="quizTimerDisplay" exists');
         return;
     }
     
