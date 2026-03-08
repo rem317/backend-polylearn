@@ -21051,7 +21051,7 @@ async function loadQuizzesFromMySQL() {
                     updateQuizStats();
                     displayQuizzes();
                     updateTopQuizzes();
-                    updateRecentResults();
+                    //updateRecentResults();//
                     return;
                 }
             }
