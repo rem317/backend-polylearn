@@ -10513,6 +10513,87 @@ code {
     from { opacity: 0; transform: translateY(10px); }
     to { opacity: 1; transform: translateY(0); }
 }
+
+/* Lesson Interactive Buttons */
+.lesson-interactive {
+    display: flex;
+    gap: 12px;
+    margin-top: 30px;
+    padding-top: 20px;
+    border-top: 2px solid rgba(139, 0, 0, 0.1);
+    flex-wrap: wrap;
+    justify-content: center;
+}
+
+.lesson-interactive .btn-secondary {
+    background: white;
+    color: var(--primary);
+    border: 2px solid var(--primary);
+    padding: 12px 24px;
+    border-radius: 8px;
+    font-weight: 600;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    transition: all 0.3s ease;
+    min-width: 180px;
+    justify-content: center;
+}
+
+.lesson-interactive .btn-secondary:hover {
+    background: var(--primary);
+    color: white;
+    transform: translateY(-3px);
+    box-shadow: 0 5px 15px rgba(122, 0, 0, 0.3);
+}
+
+/* Extra Examples Container */
+#extraExamplesContainer {
+    margin-top: 30px;
+    animation: fadeIn 0.5s ease;
+}
+
+#extraExamplesContainer h3 {
+    color: var(--primary);
+    margin-bottom: 20px;
+    padding-bottom: 10px;
+    border-bottom: 2px solid var(--primary);
+    font-size: 1.3rem;
+}
+
+#extraExamplesContainer .example {
+    background: white;
+    padding: 20px;
+    border-radius: 8px;
+    margin-bottom: 20px;
+    border: 1px solid var(--border-color);
+    box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+}
+
+#extraExamplesContainer .example h4 {
+    color: var(--text);
+    margin-bottom: 15px;
+    font-size: 1.1rem;
+    font-weight: 600;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+    .lesson-interactive {
+        flex-direction: column;
+        gap: 8px;
+    }
+    
+    .lesson-interactive .btn-secondary {
+        width: 100%;
+    }
+}
 /* ============================================
    END OF CSS
    ============================================ */
