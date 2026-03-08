@@ -20668,31 +20668,65 @@ async function testVideoAccessibility(url) {
 // ============================================
 // 🎬 LOAD VIDEO FROM DATABASE - DEBUG VERSION
 // ============================================
+// ============================================
+// RAILWAY FIX: Load video from database with better error handling
+// ============================================
 async function loadVideoFromDatabase(contentId = null) {
-    console.log('🔍 STEP 1: loadVideoFromDatabase called with contentId:', contentId);
+    console.log('🎬 loadVideoFromDatabase called with contentId:', contentId);
     
-    // Find video container
-    let videoContainer = document.getElementById('videoContainer');
-    console.log('🔍 STEP 2: Video container found?', videoContainer ? 'YES' : 'NO');
+    // Try multiple selectors for video container - use LET instead of CONST
+    let videoContainer = document.getElementById('videoContainer') || 
+                         document.querySelector('.video-container') ||
+                         document.querySelector('#module-dashboard-page .video-section');
+    
+    const videoInfo = document.getElementById('videoInfo');
+    const refreshVideoBtn = document.getElementById('refreshVideoBtn');
     
     if (!videoContainer) {
-        console.error('❌ Video container not found!');
-        return null;
+        console.error('❌ Video container not found! DOM structure:', {
+            videoContainer: document.getElementById('videoContainer'),
+            moduleDashboard: document.getElementById('module-dashboard-page'),
+            videoSection: document.querySelector('.video-section')
+        });
+        
+        // Create video container if it doesn't exist
+        const moduleDashboard = document.getElementById('module-dashboard-page');
+        if (moduleDashboard) {
+            const videoSection = moduleDashboard.querySelector('.video-section');
+            if (videoSection) {
+                console.log('🔄 Creating video container dynamically...');
+                videoSection.innerHTML = `
+                    <div id="videoContainer" style="background: #000; min-height: 300px; width: 100%;">
+                        <div style="background: #f0f0f0; height: 400px; display: flex; align-items: center; justify-content: center; flex-direction: column;">
+                            <i class="fas fa-spinner fa-spin" style="font-size: 40px; color: #7a0000; margin-bottom: 20px;"></i>
+                            <p style="color: #666;">Loading video...</p>
+                        </div>
+                    </div>
+                `;
+            }
+        }
+        
+        // Try to get container again - reassign to LET variable
+        videoContainer = document.getElementById('videoContainer');
+        if (!videoContainer) {
+            console.error('❌ Still cannot find video container');
+            return null;
+        }
     }
     
     try {
-        // Get contentId from current lesson
+        // Use provided contentId or get from current lesson
         if (!contentId && LessonState.currentLesson) {
             contentId = LessonState.currentLesson.content_id;
-            console.log('🔍 STEP 3: Got contentId from LessonState:', contentId);
         }
         
+        // If still no contentId, try from URL
         if (!contentId) {
-            contentId = 1; // Default
-            console.log('🔍 STEP 4: Using default contentId:', contentId);
+            const urlParams = new URLSearchParams(window.location.search);
+            contentId = urlParams.get('lessonId') || urlParams.get('id') || urlParams.get('contentId') || 1;
         }
         
-        console.log(`🎬 Loading video for lesson ID: ${contentId}`);
+        console.log(`🎬 Loading video for lesson ID: ${contentId} on Railway`);
         
         // Show loading
         videoContainer.innerHTML = `
@@ -20702,10 +20736,17 @@ async function loadVideoFromDatabase(contentId = null) {
             </div>
         `;
         
-        // Fetch lesson data
-        console.log('🔍 STEP 5: Fetching lesson data from API...');
+        if (videoInfo) {
+            videoInfo.innerHTML = '<p><i class="fas fa-spinner fa-spin"></i> Fetching video data...</p>';
+        }
+        
+        if (refreshVideoBtn) {
+            refreshVideoBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+            refreshVideoBtn.disabled = true;
+        }
+        
+        // Use apiRequest for consistency
         const lessonData = await apiRequest(`/api/lessons-db/${contentId}`);
-        console.log('🔍 STEP 6: API Response:', lessonData);
         
         if (!lessonData.success || !lessonData.lesson) {
             throw new Error('Lesson not found');
@@ -20713,30 +20754,56 @@ async function loadVideoFromDatabase(contentId = null) {
         
         const lesson = lessonData.lesson;
         console.log('✅ Lesson data loaded:', lesson.content_title);
-        console.log('🔍 Video filename:', lesson.video_filename);
-        console.log('🔍 Content URL:', lesson.content_url);
+        
+        // Update lesson info
+        const titleElement = document.getElementById('videoLessonTitle');
+        if (titleElement) {
+            titleElement.textContent = lesson.content_title || 'Video Lesson';
+        }
+        
+        const descElement = document.getElementById('videoLessonDescription');
+        if (descElement) {
+            descElement.textContent = lesson.content_description || '';
+        }
         
         // Determine video source
         let videoUrl = null;
+        let videoType = 'none';
         
-        // Check for video_filename
-        if (lesson.video_filename) {
-            videoUrl = `${window.location.origin}/videos/${lesson.video_filename}`;
+        // Check for YouTube URL first
+        if (lesson.content_url && (lesson.content_url.includes('youtube') || lesson.content_url.includes('youtu.be'))) {
+            videoUrl = lesson.content_url;
+            videoType = 'youtube';
+            console.log('🔗 Using YouTube video:', videoUrl);
+        }
+        // Check for video_filename (uploaded video)
+        else if (lesson.video_filename) {
+            if (lesson.video_filename.startsWith('http')) {
+                videoUrl = lesson.video_filename;
+            } else {
+                // For Railway, use absolute URL
+                videoUrl = `${window.location.origin}/videos/${lesson.video_filename}`;
+            }
+            videoType = 'uploaded';
             console.log('🎬 Using uploaded video:', videoUrl);
         }
-        // Check for YouTube URL
-        else if (lesson.content_url && lesson.content_url.includes('youtube')) {
-            videoUrl = lesson.content_url;
-            console.log('🔗 Using YouTube video:', videoUrl);
+        // Check for video_path
+        else if (lesson.video_path) {
+            if (lesson.video_path.startsWith('http')) {
+                videoUrl = lesson.video_path;
+            } else {
+                const filename = lesson.video_path.split('/').pop();
+                videoUrl = `${window.location.origin}/videos/${filename}`;
+            }
+            videoType = 'path';
+            console.log('📁 Using video path:', videoUrl);
         }
         
         // Clear container
         videoContainer.innerHTML = '';
-        console.log('🔍 STEP 7: Video container cleared');
         
         // Handle YouTube videos
-        if (videoUrl && videoUrl.includes('youtube')) {
-            console.log('🔍 STEP 8: Creating YouTube iframe');
+        if (videoType === 'youtube' && videoUrl) {
             const videoId = extractYoutubeId(videoUrl);
             if (videoId) {
                 const iframe = document.createElement('iframe');
@@ -20745,16 +20812,21 @@ async function loadVideoFromDatabase(contentId = null) {
                 iframe.src = `https://www.youtube.com/embed/${videoId}`;
                 iframe.frameBorder = '0';
                 iframe.allowFullscreen = true;
+                iframe.allow = 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture';
                 videoContainer.appendChild(iframe);
                 
-                console.log('✅ YouTube video loaded');
+                if (videoInfo) {
+                    videoInfo.innerHTML = `
+                        <p><i class="fab fa-youtube" style="color: #ff0000;"></i> <strong>YouTube Video</strong></p>
+                        <p>${lesson.content_title || ''}</p>
+                    `;
+                }
                 return;
             }
         }
         
         // Handle uploaded videos
         if (videoUrl) {
-            console.log('🔍 STEP 8: Creating HTML5 video element');
             const video = document.createElement('video');
             video.id = 'lessonVideo';
             video.controls = true;
@@ -20763,34 +20835,71 @@ async function loadVideoFromDatabase(contentId = null) {
             video.style.backgroundColor = '#000';
             
             const source = document.createElement('source');
-            source.src = videoUrl + '?v=' + Date.now();
+            source.src = videoUrl + '?v=' + Date.now(); // Cache buster
             source.type = 'video/mp4';
             
             video.appendChild(source);
             video.appendChild(document.createTextNode('Your browser does not support the video tag.'));
             
+            // Success handler
+            video.onloadeddata = function() {
+                console.log(`✅ Video loaded successfully: ${videoUrl}`);
+                if (videoInfo) {
+                    videoInfo.innerHTML = `
+                        <p><i class="fas fa-check-circle" style="color: #27ae60;"></i> <strong>${lesson.content_title || 'Video Lesson'}</strong></p>
+                        <p><i class="fas fa-clock"></i> Duration: ${Math.floor((lesson.video_duration_seconds || 600) / 60)} min</p>
+                    `;
+                }
+                // Initialize progress tracking
+                initVideoProgressTracking(video, contentId);
+            };
+            
+            // Error handler
+            video.onerror = function() {
+                console.error('❌ Video failed to load:', videoUrl);
+                videoContainer.innerHTML = `
+                    <div style="background: #fee; height: 400px; display: flex; align-items: center; justify-content: center; flex-direction: column;">
+                        <i class="fas fa-exclamation-triangle" style="font-size: 60px; color: #e74c3c; margin-bottom: 20px;"></i>
+                        <h3 style="color: #c0392b;">Video not found</h3>
+                        <p style="color: #e74c3c;">The video file may be missing or inaccessible.</p>
+                        <p style="color: #666; font-size: 12px; margin-top: 10px;">Path: ${videoUrl}</p>
+                    </div>
+                `;
+                if (videoInfo) {
+                    videoInfo.innerHTML = `
+                        <p style="color: #e74c3c;">
+                            <i class="fas fa-exclamation-triangle"></i> 
+                            Video failed to load. Please check if the file exists.
+                        </p>
+                    `;
+                }
+            };
+            
             videoContainer.appendChild(video);
-            console.log('🔍 STEP 9: Video element appended to container');
-            
-            // ===== I-CONNECT ANG VIDEO SA PROGRESS BAR =====
-            console.log('🔍 STEP 10: Calling initVideoProgressTracking');
-            initVideoProgressTracking(video, contentId);
-            
-            console.log('✅ Video loaded and connected to progress bar');
-            
+            video.load();
         } else {
-            console.log('🔍 STEP 8: No video URL found');
             // No video available
             videoContainer.innerHTML = `
                 <div style="background: #f0f0f0; height: 400px; display: flex; align-items: center; justify-content: center; flex-direction: column;">
                     <i class="fas fa-video-slash" style="font-size: 60px; color: #999; margin-bottom: 20px;"></i>
                     <h3 style="color: #666;">No video available for this lesson</h3>
+                    <p style="color: #999;">The video will appear here once uploaded.</p>
                 </div>
             `;
+            
+            if (videoInfo) {
+                videoInfo.innerHTML = `
+                    <p style="color: #f39c12;">
+                        <i class="fas fa-info-circle"></i> 
+                        This lesson has no video assigned.
+                    </p>
+                `;
+            }
         }
         
     } catch (error) {
         console.error('❌ Error loading video:', error);
+        
         videoContainer.innerHTML = `
             <div style="background: #fee; height: 400px; display: flex; align-items: center; justify-content: center; flex-direction: column;">
                 <i class="fas fa-exclamation-triangle" style="font-size: 60px; color: #e74c3c; margin-bottom: 20px;"></i>
@@ -20801,8 +20910,14 @@ async function loadVideoFromDatabase(contentId = null) {
                 </button>
             </div>
         `;
+    } finally {
+        if (refreshVideoBtn) {
+            refreshVideoBtn.innerHTML = '<i class="fas fa-sync-alt"></i>';
+            refreshVideoBtn.disabled = false;
+        }
     }
 }
+
 // Add this at the end of your script.js file
 window.debugLessonId3 = async function() {
     console.log('🔍 DEBUGGING LESSON ID 3 (factorial)');
