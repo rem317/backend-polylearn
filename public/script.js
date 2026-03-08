@@ -35102,3 +35102,179 @@ document.addEventListener('click', function(e) {
 console.log('✅ Password modal fix applied - use window.OPEN_PASSWORD_MODAL() to test');
 console.log('💡 Test in console: OPEN_PASSWORD_MODAL()');
 
+// ============================================
+// 🐛 DEBUG: Check lesson count discrepancy
+// ============================================
+window.debugLessonCount = async function() {
+    console.log('🔍 DEBUGGING LESSON COUNT DISCREPANCY');
+    console.log('=====================================');
+    
+    try {
+        const token = localStorage.getItem('authToken') || authToken;
+        
+        // Direct database check - this will help us see what's really in the database
+        console.log('📡 Checking lessons directly from database...');
+        
+        const response = await fetch(`${API_BASE_URL}/api/lessons-db/complete?lesson_id=2`, {
+            headers: {
+                'Authorization': `Bearer ${token}`
+            }
+        });
+        
+        if (!response.ok) {
+            console.error('❌ API returned:', response.status);
+            return;
+        }
+        
+        const data = await response.json();
+        
+        if (data.success && data.lessons) {
+            console.log(`✅ Database has ${data.lessons.length} lessons for lesson_id=2`);
+            
+            // List all lessons from database
+            console.log('\n📋 ALL LESSONS IN DATABASE:');
+            data.lessons.forEach((lesson, index) => {
+                console.log(`   ${index + 1}. ID: ${lesson.content_id}, Title: "${lesson.content_title}"`);
+                console.log(`      Topic ID: ${lesson.topic_id}, Status: ${lesson.status || 'published'}`);
+            });
+            
+            // Check if any lessons are filtered out by status
+            const publishedLessons = data.lessons.filter(l => l.status === 'published' || !l.status);
+            console.log(`\n📊 Published lessons: ${publishedLessons.length}/${data.lessons.length}`);
+            
+            if (publishedLessons.length < data.lessons.length) {
+                console.log('⚠️ Some lessons have status other than "published" and may be filtered');
+                data.lessons.forEach(l => {
+                    if (l.status && l.status !== 'published') {
+                        console.log(`   - "${l.content_title}" has status: "${l.status}"`);
+                    }
+                });
+            }
+            
+            // Check for duplicate IDs
+            const uniqueIds = new Set(data.lessons.map(l => l.content_id));
+            if (uniqueIds.size < data.lessons.length) {
+                console.log('⚠️ Duplicate content_ids found!');
+            }
+            
+            // Check what's in LessonState
+            console.log('\n📦 LessonState.lessons:', LessonState.lessons.length);
+            if (LessonState.lessons.length > 0) {
+                LessonState.lessons.forEach((lesson, index) => {
+                    console.log(`   ${index + 1}. ${lesson.content_title} (ID: ${lesson.content_id})`);
+                });
+            }
+            
+            // Check what's displayed in UI
+            console.log('\n🖥️ UI Elements:');
+            const recentLessons = document.querySelectorAll('#recentLessonsList .lesson-item');
+            console.log(`   Recent lessons displayed: ${recentLessons.length}`);
+            
+            const moduleLessons = document.querySelectorAll('#moduleLessonsList .lesson-item');
+            console.log(`   Module lessons displayed: ${moduleLessons.length}`);
+            
+        } else {
+            console.log('❌ No lessons data returned');
+        }
+        
+        // Check if there's any filtering in the API response
+        console.log('\n🔍 Checking if API response is filtered...');
+        
+        const rawResponse = await fetch(`${API_BASE_URL}/api/lessons-db/complete?lesson_id=2`, {
+            headers: {
+                'Authorization': `Bearer ${token}`
+            }
+        });
+        
+        const rawData = await rawResponse.json();
+        
+        if (rawData.metadata) {
+            console.log('📊 API Metadata:', rawData.metadata);
+        }
+        
+        console.log('\n✅ Debug complete');
+        
+    } catch (error) {
+        console.error('❌ Debug error:', error);
+    }
+};
+
+// Also add a function to check the specific endpoint that loads lessons
+window.debugLessonLoading = function() {
+    console.log('🔍 Checking which endpoint is loading lessons...');
+    
+    // Override fetch temporarily to see which endpoints are being called
+    const originalFetch = window.fetch;
+    window.fetch = function(url, options) {
+        if (typeof url === 'string' && url.includes('lessons')) {
+            console.log(`📡 Fetching lessons from: ${url}`);
+            
+            // Check if it's the same endpoint we expect
+            if (url.includes('lesson_id=2')) {
+                console.log('✅ This is the correct PolyLearn endpoint');
+            } else {
+                console.log('⚠️ This might be filtering differently');
+            }
+        }
+        return originalFetch.apply(this, arguments);
+    };
+    
+    // Refresh the page to see all calls
+    console.log('🔄 Refresh the page and watch the console...');
+    
+    // Restore after 10 seconds
+    setTimeout(() => {
+        window.fetch = originalFetch;
+        console.log('✅ Fetch override restored');
+    }, 10000);
+};
+
+// Add a quick fix to force refresh lessons
+window.refreshLessons = async function() {
+    console.log('🔄 Force refreshing lessons...');
+    
+    try {
+        const token = localStorage.getItem('authToken') || authToken;
+        
+        // Clear cached structure
+        StructureState.lastRefresh = null;
+        StructureState.lessons = [];
+        
+        // Reload from database
+        await loadStructureFromDatabase(true);
+        
+        // Also try the lessons endpoint directly
+        const response = await fetch(`${API_BASE_URL}/api/lessons-db/complete?lesson_id=2`, {
+            headers: {
+                'Authorization': `Bearer ${token}`
+            }
+        });
+        
+        const data = await response.json();
+        
+        if (data.success && data.lessons) {
+            console.log(`✅ Found ${data.lessons.length} lessons`);
+            LessonState.lessons = data.lessons;
+            
+            // Update UI if on dashboard
+            if (AppState.currentPage === 'dashboard') {
+                await updateContinueLearningModule();
+            }
+            
+            // Update progress summary
+            await updateProgressSummaryCards();
+            
+            showNotification(`Loaded ${data.lessons.length} lessons`, 'success');
+        }
+        
+    } catch (error) {
+        console.error('Error refreshing lessons:', error);
+        showNotification('Failed to refresh lessons', 'error');
+    }
+};
+
+console.log('🐛 Debug functions added!');
+console.log('💡 Commands:');
+console.log('   - debugLessonCount() - Check lesson count discrepancy');
+console.log('   - debugLessonLoading() - Watch which endpoints are called');
+console.log('   - refreshLessons() - Force refresh lessons');
