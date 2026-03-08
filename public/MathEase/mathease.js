@@ -14211,6 +14211,833 @@ async function loadQuizzesForCategory(categoryId) {
 }
 
 // ============================================
+// ✅ ENHANCED: Display MathEase lesson content with topic-specific examples
+// ============================================
+async function displayLessonContent() {
+    try {
+        const lessonContentContainer = document.getElementById('lessonContent');
+        if (!lessonContentContainer) {
+            console.error('❌ Lesson content container not found');
+            return;
+        }
+        
+        // Show loading state
+        lessonContentContainer.innerHTML = `
+            <div class="loading-content">
+                <i class="fas fa-spinner fa-spin"></i>
+                <p>Loading lesson content from database...</p>
+            </div>
+        `;
+        
+        const currentLesson = LessonState.currentLesson;
+        if (!currentLesson) {
+            lessonContentContainer.innerHTML = `
+                <div class="no-content">
+                    <i class="fas fa-book"></i>
+                    <h3>No lesson selected</h3>
+                    <p>Please select a lesson to view its content.</p>
+                </div>
+            `;
+            return;
+        }
+        
+        // Get topic ID to determine which examples to show
+        const topicId = currentLesson.topic_id || 1;
+        const lessonTitle = currentLesson.content_title || '';
+        
+        // Check if lesson has custom content in database
+        const contentDescription = currentLesson.content_description;
+        
+        if (!contentDescription || contentDescription.trim() === '') {
+            // Generate topic-specific content based on topic ID
+            lessonContentContainer.innerHTML = generateMathEaseLessonContent(currentLesson, topicId);
+        } else {
+            // Convert markdown-like content to HTML
+            const htmlContent = convertMarkdownToHTML(contentDescription);
+            
+            // Add the interactive elements
+            lessonContentContainer.innerHTML = `
+                <div class="lesson-content-wrapper">
+                    ${htmlContent}
+                    
+                    <!-- Extra examples container (initially hidden) -->
+                    <div id="extraExamplesContainer" style="display: none; margin-top: 30px;">
+                        ${getMathEaseExtraExamples(topicId)}
+                    </div>
+                    
+                    <div class="lesson-interactive">
+                        <button class="btn-secondary" id="showMoreExamples">
+                            <i class="fas fa-plus-circle"></i> Show More Examples
+                        </button>
+                        <button class="btn-secondary" id="practiceProblems">
+                            <i class="fas fa-pencil-alt"></i> Practice Problems
+                        </button>
+                        <button class="btn-secondary" id="downloadNotes">
+                            <i class="fas fa-download"></i> Download Notes
+                        </button>
+                    </div>
+                </div>
+            `;
+        }
+        
+        // Setup the interactive elements
+        setupMathEaseLessonInteractions(currentLesson, topicId);
+        
+        // Add practice button if lesson is mostly completed
+        addPracticeButtonToLesson();
+        
+    } catch (error) {
+        console.error('❌ Error displaying lesson content:', error);
+        const lessonContentContainer = document.getElementById('lessonContent');
+        if (lessonContentContainer) {
+            lessonContentContainer.innerHTML = `
+                <div class="error-content">
+                    <i class="fas fa-exclamation-triangle"></i>
+                    <h3>Failed to load lesson content</h3>
+                    <p>Please try refreshing the page.</p>
+                </div>
+            `;
+        }
+    }
+}
+
+// ============================================
+// ✅ Generate MathEase lesson content based on topic
+// ============================================
+function generateMathEaseLessonContent(lesson, topicId) {
+    const lessonTitle = lesson.content_title || 'MathEase Lesson';
+    const duration = Math.round(lesson.video_duration_seconds / 60) || '40';
+    
+    // Base template with topic-specific examples
+    let content = `
+        <div class="lesson-content-wrapper">
+            <h1 class="lesson-title">${lessonTitle}</h1>
+            
+            <div class="lesson-meta">
+                <span class="meta-item">
+                    <i class="fas fa-clock"></i> ${duration} minutes
+                </span>
+                <span class="meta-item">
+                    <i class="fas fa-tag"></i> ${getMathEaseTopicName(topicId)}
+                </span>
+            </div>
+            
+            <h2 class="lesson-subtitle">Introduction</h2>
+            <p class="lesson-paragraph">
+                ${getMathEaseTopicIntroduction(topicId)}
+            </p>
+            
+            <h2 class="lesson-subtitle">Learning Objectives</h2>
+            <ul class="lesson-list">
+                ${getMathEaseTopicObjectives(topicId)}
+            </ul>
+            
+            <h2 class="lesson-subtitle">Examples</h2>
+            <div class="example-box" id="mainExample">
+                ${getMathEaseMainExample(topicId)}
+            </div>
+            
+            <h2 class="lesson-subtitle">Practice Problems</h2>
+            <div class="practice-box">
+                <p><strong>Try these problems:</strong></p>
+                <ol>
+                    ${getMathEasePracticeProblems(topicId)}
+                </ol>
+                <button class="btn-primary" id="checkAnswersBtn">
+                    <i class="fas fa-check"></i> Check Answers
+                </button>
+            </div>
+            
+            <div class="lesson-tips">
+                <h3><i class="fas fa-lightbulb"></i> Key Formulas & Tips</h3>
+                <ul>
+                    ${getMathEaseKeyFormulas(topicId)}
+                </ul>
+            </div>
+            
+            <!-- Extra examples container (initially hidden) -->
+            <div id="extraExamplesContainer" style="display: none; margin-top: 30px;">
+                ${getMathEaseExtraExamples(topicId)}
+            </div>
+            
+            <div class="lesson-interactive">
+                <button class="btn-secondary" id="showMoreExamples">
+                    <i class="fas fa-plus-circle"></i> Show More Examples
+                </button>
+                <button class="btn-secondary" id="practiceProblems">
+                    <i class="fas fa-pencil-alt"></i> Practice Problems
+                </button>
+                <button class="btn-secondary" id="downloadNotes">
+                    <i class="fas fa-download"></i> Download Notes
+                </button>
+            </div>
+        </div>
+    `;
+    
+    return content;
+}
+// ============================================
+// Helper: Get MathEase topic name based on ID
+// ============================================
+function getMathEaseTopicName(topicId) {
+    const topics = {
+        1: 'Basic Mathematical Operation',
+        2: 'Basic Concept in Statistics',
+        3: 'Frequency Distribution Table (Organizing Data)'
+    };
+    return topics[topicId] || 'Mathematics Topic';
+}
+
+// ============================================
+// Helper: Get MathEase topic introduction
+// ============================================
+function getMathEaseTopicIntroduction(topicId) {
+    const intros = {
+        1: 'Basic mathematical operations form the foundation of all mathematics. This lesson covers addition, subtraction, multiplication, and division - the four fundamental operations that you will use throughout your mathematical journey. Understanding these operations and their properties is essential for solving more complex problems.',
+        
+        2: 'Statistics is the science of collecting, organizing, analyzing, and interpreting data. In this lesson, we explore basic statistical concepts including mean (average), median (middle value), and mode (most frequent value). These measures help us understand and describe sets of data in meaningful ways.',
+        
+        3: 'A frequency distribution table is a way to organize data by showing how often each value occurs. This is one of the most fundamental tools in statistics for organizing raw data into a format that is easier to understand and analyze. We will learn how to create frequency tables for both ungrouped and grouped data.'
+    };
+    return intros[topicId] || 'This lesson covers essential mathematics concepts.';
+}
+
+// ============================================
+// Helper: Get MathEase learning objectives
+// ============================================
+function getMathEaseTopicObjectives(topicId) {
+    const objectives = {
+        1: `
+            <li>Perform addition, subtraction, multiplication, and division accurately</li>
+            <li>Understand the order of operations (PEMDAS/GEMDAS)</li>
+            <li>Apply operations to solve real-world problems</li>
+            <li>Identify and use properties of operations (commutative, associative, distributive)</li>
+        `,
+        2: `
+            <li>Calculate the mean (average) of a data set</li>
+            <li>Find the median (middle value) of ordered data</li>
+            <li>Identify the mode (most frequent value) in a data set</li>
+            <li>Understand when to use each measure of central tendency</li>
+            <li>Interpret what these statistics tell us about the data</li>
+        `,
+        3: `
+            <li>Organize raw data into frequency distribution tables</li>
+            <li>Create frequency tables for ungrouped data</li>
+            <li>Create frequency tables for grouped data (class intervals)</li>
+            <li>Calculate class width and determine appropriate class limits</li>
+            <li>Interpret frequency distributions to understand data patterns</li>
+        `
+    };
+    return objectives[topicId] || '<li>Understand key mathematics concepts</li>';
+}
+
+// ============================================
+// Helper: Get MathEase main examples
+// ============================================
+function getMathEaseMainExample(topicId) {
+    const examples = {
+        1: `
+            <p><strong>Example 1: Order of Operations (PEMDAS)</strong></p>
+            <p><strong>Problem:</strong> Simplify: 8 + 3 × (4 - 2)² ÷ 2</p>
+            <p><strong>Solution:</strong> 
+            <br>Step 1: Parentheses first: (4 - 2) = 2
+            <br>Step 2: Exponents: 2² = 4
+            <br>Step 3: Multiplication: 3 × 4 = 12
+            <br>Step 4: Division: 12 ÷ 2 = 6
+            <br>Step 5: Addition: 8 + 6 = 14
+            <br><strong>Answer:</strong> 14</p>
+            
+            <hr>
+            
+            <p><strong>Example 2: Real-World Application</strong></p>
+            <p><strong>Problem:</strong> Maria bought 3 notebooks at ₱25 each and 2 pens at ₱12 each. She paid with a ₱200 bill. How much change did she receive?</p>
+            <p><strong>Solution:</strong>
+            <br>Step 1: Cost of notebooks: 3 × ₱25 = ₱75
+            <br>Step 2: Cost of pens: 2 × ₱12 = ₱24
+            <br>Step 3: Total cost: ₱75 + ₱24 = ₱99
+            <br>Step 4: Change: ₱200 - ₱99 = ₱101
+            <br><strong>Answer:</strong> Maria received ₱101 change.</p>
+            
+            <hr>
+            
+            <p><strong>Example 3: Properties of Operations</strong></p>
+            <p><strong>Problem:</strong> Show that 5 × (3 + 4) = (5 × 3) + (5 × 4) using the distributive property.</p>
+            <p><strong>Solution:</strong>
+            <br>Left side: 5 × (3 + 4) = 5 × 7 = 35
+            <br>Right side: (5 × 3) + (5 × 4) = 15 + 20 = 35
+            <br>Both sides equal 35, proving the distributive property.</p>
+        `,
+        2: `
+            <p><strong>Example 1: Finding the Mean (Average)</strong></p>
+            <p><strong>Problem:</strong> Find the mean of the following test scores: 85, 92, 78, 90, 85</p>
+            <p><strong>Solution:</strong>
+            <br>Step 1: Add all numbers: 85 + 92 + 78 + 90 + 85 = 430
+            <br>Step 2: Count how many numbers: 5
+            <br>Step 3: Divide sum by count: 430 ÷ 5 = 86
+            <br><strong>Answer:</strong> The mean score is 86.</p>
+            
+            <hr>
+            
+            <p><strong>Example 2: Finding the Median</strong></p>
+            <p><strong>Problem:</strong> Find the median of the following ages: 15, 18, 14, 17, 19, 16</p>
+            <p><strong>Solution:</strong>
+            <br>Step 1: Arrange in order: 14, 15, 16, 17, 18, 19
+            <br>Step 2: Find the middle: With 6 numbers (even), median is average of 3rd and 4th
+            <br>Step 3: 3rd number = 16, 4th number = 17
+            <br>Step 4: Average = (16 + 17) ÷ 2 = 33 ÷ 2 = 16.5
+            <br><strong>Answer:</strong> The median age is 16.5 years.</p>
+            
+            <hr>
+            
+            <p><strong>Example 3: Finding the Mode</strong></p>
+            <p><strong>Problem:</strong> Find the mode of the shoe sizes: 7, 8, 7, 9, 10, 7, 8, 9, 8</p>
+            <p><strong>Solution:</strong>
+            <br>Count each value:
+            <br>Size 7 appears 3 times
+            <br>Size 8 appears 3 times
+            <br>Size 9 appears 2 times
+            <br>Size 10 appears 1 time
+            <br><strong>Answer:</strong> The modes are 7 and 8 (bimodal).</p>
+        `,
+        3: `
+            <p><strong>Example 1: Ungrouped Frequency Distribution</strong></p>
+            <p><strong>Problem:</strong> Create a frequency distribution table for the following scores: 
+            <br>5, 3, 5, 4, 4, 5, 3, 2, 4, 5, 3, 4, 2, 5, 4</p>
+            <p><strong>Solution:</strong>
+            <br>
+            <table style="width: 100%; border-collapse: collapse; margin: 10px 0;">
+                <tr style="background: #7a0000; color: white;">
+                    <th style="padding: 8px; border: 1px solid #ddd;">Score (x)</th>
+                    <th style="padding: 8px; border: 1px solid #ddd;">Tally</th>
+                    <th style="padding: 8px; border: 1px solid #ddd;">Frequency (f)</th>
+                </tr>
+                <tr>
+                    <td style="padding: 8px; border: 1px solid #ddd;">2</td>
+                    <td style="padding: 8px; border: 1px solid #ddd;">II</td>
+                    <td style="padding: 8px; border: 1px solid #ddd;">2</td>
+                </tr>
+                <tr>
+                    <td style="padding: 8px; border: 1px solid #ddd;">3</td>
+                    <td style="padding: 8px; border: 1px solid #ddd;">III</td>
+                    <td style="padding: 8px; border: 1px solid #ddd;">3</td>
+                </tr>
+                <tr>
+                    <td style="padding: 8px; border: 1px solid #ddd;">4</td>
+                    <td style="padding: 8px; border: 1px solid #ddd;">IIII</td>
+                    <td style="padding: 8px; border: 1px solid #ddd;">4</td>
+                </tr>
+                <tr>
+                    <td style="padding: 8px; border: 1px solid #ddd;">5</td>
+                    <td style="padding: 8px; border: 1px solid #ddd;">IIIII</td>
+                    <td style="padding: 8px; border: 1px solid #ddd;">5</td>
+                </tr>
+                <tr style="background: #f0f0f0;">
+                    <td colspan="2" style="padding: 8px; border: 1px solid #ddd;"><strong>Total</strong></td>
+                    <td style="padding: 8px; border: 1px solid #ddd;"><strong>14</strong></td>
+                </tr>
+            </table>
+            </p>
+            
+            <hr>
+            
+            <p><strong>Example 2: Grouped Frequency Distribution</strong></p>
+            <p><strong>Problem:</strong> Create a grouped frequency distribution for these 40 test scores using 5 classes:
+            <br>45, 67, 78, 89, 56, 72, 84, 91, 63, 77, 82, 94, 58, 71, 85, 68, 73, 79, 86, 92,
+            <br>47, 69, 75, 88, 54, 70, 83, 95, 61, 74, 81, 87, 59, 76, 80, 93, 65, 72, 84, 90</p>
+            <p><strong>Solution:</strong>
+            <br>Step 1: Find range = highest - lowest = 95 - 45 = 50
+            <br>Step 2: Class width = range ÷ number of classes = 50 ÷ 5 = 10
+            <br>
+            <table style="width: 100%; border-collapse: collapse; margin: 10px 0;">
+                <tr style="background: #7a0000; color: white;">
+                    <th style="padding: 8px; border: 1px solid #ddd;">Class Interval</th>
+                    <th style="padding: 8px; border: 1px solid #ddd;">Tally</th>
+                    <th style="padding: 8px; border: 1px solid #ddd;">Frequency</th>
+                </tr>
+                <tr>
+                    <td style="padding: 8px; border: 1px solid #ddd;">45 - 54</td>
+                    <td style="padding: 8px; border: 1px solid #ddd;">IIII</td>
+                    <td style="padding: 8px; border: 1px solid #ddd;">4</td>
+                </tr>
+                <tr>
+                    <td style="padding: 8px; border: 1px solid #ddd;">55 - 64</td>
+                    <td style="padding: 8px; border: 1px solid #ddd;">IIII I</td>
+                    <td style="padding: 8px; border: 1px solid #ddd;">6</td>
+                </tr>
+                <tr>
+                    <td style="padding: 8px; border: 1px solid #ddd;">65 - 74</td>
+                    <td style="padding: 8px; border: 1px solid #ddd;">IIII IIII</td>
+                    <td style="padding: 8px; border: 1px solid #ddd;">9</td>
+                </tr>
+                <tr>
+                    <td style="padding: 8px; border: 1px solid #ddd;">75 - 84</td>
+                    <td style="padding: 8px; border: 1px solid #ddd;">IIII IIII I</td>
+                    <td style="padding: 8px; border: 1px solid #ddd;">11</td>
+                </tr>
+                <tr>
+                    <td style="padding: 8px; border: 1px solid #ddd;">85 - 95</td>
+                    <td style="padding: 8px; border: 1px solid #ddd;">IIII IIIII</td>
+                    <td style="padding: 8px; border: 1px solid #ddd;">10</td>
+                </tr>
+                <tr style="background: #f0f0f0;">
+                    <td colspan="2" style="padding: 8px; border: 1px solid #ddd;"><strong>Total</strong></td>
+                    <td style="padding: 8px; border: 1px solid #ddd;"><strong>40</strong></td>
+                </tr>
+            </table>
+            </p>
+        `
+    };
+    return examples[topicId] || '<p>Example not available for this topic.</p>';
+}
+
+// ============================================
+// Helper: Get MathEase practice problems
+// ============================================
+function getMathEasePracticeProblems(topicId) {
+    const problems = {
+        1: `
+            <li>Simplify: 15 - 3 × 2 + 4² ÷ 2</li>
+            <li>A store sells apples at ₱30 each and oranges at ₱25 each. If Juan buys 4 apples and 3 oranges and pays with a ₱500 bill, how much change does he get?</li>
+            <li>Use the distributive property to calculate 8 × 97 (hint: 97 = 100 - 3)</li>
+            <li>Solve: (24 ÷ 6) × 3 - 4 + 5²</li>
+            <li>Maria has 3 times as many stamps as Pedro. Together they have 48 stamps. How many stamps does each have?</li>
+        `,
+        2: `
+            <li>Find the mean, median, and mode of: 12, 15, 12, 18, 20, 15, 14, 12, 16</li>
+            <li>The heights (in cm) of 8 students are: 152, 148, 165, 158, 162, 155, 150, 160. Find the mean height.</li>
+            <li>In a class of 30 students, the mean score on a test was 85. If the teacher discovers that one student's score of 70 was mistakenly recorded as 50, what should the correct mean be?</li>
+            <li>A dataset has five numbers. Four of them are 10, 15, 20, and 25. If the mean is 18, what is the fifth number?</li>
+            <li>Find the median of: 23, 27, 21, 25, 29, 24, 22, 28, 26</li>
+        `,
+        3: `
+            <li>Create a frequency distribution table for these scores: 7, 8, 6, 7, 9, 8, 7, 6, 8, 9, 7, 8, 6, 7, 8</li>
+            <li>For the data set: 3, 5, 3, 4, 5, 3, 2, 4, 5, 3, 4, 2, what is the frequency of 4?</li>
+            <li>Create a grouped frequency distribution with 5 classes for these 30 scores:
+            <br>32, 45, 38, 41, 29, 35, 42, 37, 33, 44, 39, 31, 43, 36, 40,
+            <br>34, 46, 30, 47, 28, 41, 35, 38, 42, 33, 39, 44, 37, 40, 36</li>
+            <li>In a survey of 50 families, the number of children per family was recorded: 2, 1, 3, 2, 4, 1, 2, 3, 2, 1, 3, 2, 2, 4, 1, 3, 2, 2, 3, 1, 2, 3, 2, 1, 4, 2, 3, 2, 1, 2, 3, 2, 2, 3, 1, 2, 3, 2, 1, 3, 2, 2, 3, 2, 1, 3, 2, 2, 3, 1. Create a frequency table.</li>
+            <li>For the grouped data in Example 2, what is the class with the highest frequency? What is its class mark?</li>
+        `
+    };
+    return problems[topicId] || '<li>Practice problem not available</li>';
+}
+
+// ============================================
+// Helper: Get MathEase key formulas
+// ============================================
+function getMathEaseKeyFormulas(topicId) {
+    const formulas = {
+        1: `
+            <li><strong>Order of Operations (PEMDAS):</strong> Parentheses, Exponents, Multiplication/Division (left to right), Addition/Subtraction (left to right)</li>
+            <li><strong>Commutative Property:</strong> a + b = b + a, a × b = b × a</li>
+            <li><strong>Associative Property:</strong> (a + b) + c = a + (b + c), (a × b) × c = a × (b × c)</li>
+            <li><strong>Distributive Property:</strong> a × (b + c) = a × b + a × c</li>
+            <li><strong>Identity Property:</strong> a + 0 = a, a × 1 = a</li>
+            <li><strong>Inverse Property:</strong> a + (-a) = 0, a × (1/a) = 1 (a ≠ 0)</li>
+        `,
+        2: `
+            <li><strong>Mean (Average):</strong> x̄ = (sum of all values) / (number of values) = Σx / n</li>
+            <li><strong>Median:</strong> The middle value when data is arranged in order
+            <br>- If n is odd: median = value at position (n+1)/2
+            <br>- If n is even: median = average of values at positions n/2 and (n/2)+1</li>
+            <li><strong>Mode:</strong> The value that occurs most frequently (can be none, one, or multiple)</li>
+            <li><strong>Range:</strong> Highest value - Lowest value</li>
+            <li><strong>Sum of data:</strong> Σx = mean × n</li>
+        `,
+        3: `
+            <li><strong>Frequency:</strong> The number of times a value occurs</li>
+            <li><strong>Class Interval:</strong> A range of values in grouped data</li>
+            <li><strong>Class Width:</strong> (Highest value - Lowest value) / Number of classes</li>
+            <li><strong>Class Limits:</strong> The smallest and largest values in a class</li>
+            <li><strong>Class Boundaries:</strong> The points halfway between the upper limit of one class and the lower limit of the next class</li>
+            <li><strong>Class Mark (Midpoint):</strong> (Lower limit + Upper limit) / 2</li>
+            <li><strong>Cumulative Frequency:</strong> Running total of frequencies</li>
+            <li><strong>Relative Frequency:</strong> Frequency / Total number of observations</li>
+        `
+    };
+    return formulas[topicId] || '<li>Formula not available</li>';
+}
+
+// ============================================
+// Helper: Get MathEase extra examples (for "Show More Examples" button)
+// ============================================
+function getMathEaseExtraExamples(topicId) {
+    const examples = {
+        1: `
+            <h3>Additional Basic Operation Examples</h3>
+            
+            <div class="example">
+                <h4>Example 4: Word Problem with Multiple Operations</h4>
+                <p><strong>Problem:</strong> A baker uses 2.5 kg of flour for every batch of bread. If he makes 8 batches on Monday, 6 batches on Tuesday, and 10 batches on Wednesday, how many kilograms of flour did he use in total?</p>
+                <p><strong>Solution:</strong>
+                <br>Step 1: Total batches = 8 + 6 + 10 = 24 batches
+                <br>Step 2: Total flour = 24 × 2.5 kg = 60 kg
+                <br><strong>Answer:</strong> The baker used 60 kg of flour.</p>
+            </div>
+            
+            <div class="example">
+                <h4>Example 5: Using the Distributive Property</h4>
+                <p><strong>Problem:</strong> Calculate 7 × 99 using the distributive property.</p>
+                <p><strong>Solution:</strong>
+                <br>7 × 99 = 7 × (100 - 1)
+                <br>= 7 × 100 - 7 × 1
+                <br>= 700 - 7
+                <br>= 693</p>
+            </div>
+            
+            <div class="example">
+                <h4>Example 6: Multi-Step Problem</h4>
+                <p><strong>Problem:</strong> A rectangular garden is 12 meters long and 8 meters wide. What is its perimeter and area?</p>
+                <p><strong>Solution:</strong>
+                <br>Perimeter = 2 × (length + width) = 2 × (12 + 8) = 2 × 20 = 40 meters
+                <br>Area = length × width = 12 × 8 = 96 square meters</p>
+            </div>
+            
+            <div class="example">
+                <h4>Example 7: Order of Operations Challenge</h4>
+                <p><strong>Problem:</strong> Simplify: 4 + 6 × (8 - 3)² ÷ 5 - 2</p>
+                <p><strong>Solution:</strong>
+                <br>Step 1: Parentheses: (8 - 3) = 5
+                <br>Step 2: Exponents: 5² = 25
+                <br>Step 3: Multiplication: 6 × 25 = 150
+                <br>Step 4: Division: 150 ÷ 5 = 30
+                <br>Step 5: Addition/Subtraction: 4 + 30 - 2 = 32
+                <br><strong>Answer:</strong> 32</p>
+            </div>
+        `,
+        2: `
+            <h3>Additional Statistics Examples</h3>
+            
+            <div class="example">
+                <h4>Example 4: Weighted Mean</h4>
+                <p><strong>Problem:</strong> In a class, tests are worth 60% of the grade and homework is worth 40%. If a student has a test average of 85 and a homework average of 90, what is their overall grade?</p>
+                <p><strong>Solution:</strong>
+                <br>Weighted mean = (0.60 × 85) + (0.40 × 90)
+                <br>= 51 + 36 = 87
+                <br><strong>Answer:</strong> The student's overall grade is 87.</p>
+            </div>
+            
+            <div class="example">
+                <h4>Example 5: Finding Missing Data</h4>
+                <p><strong>Problem:</strong> The mean of five numbers is 12. Four of the numbers are 8, 10, 14, and 16. Find the fifth number.</p>
+                <p><strong>Solution:</strong>
+                <br>Sum of five numbers = mean × n = 12 × 5 = 60
+                <br>Sum of known numbers = 8 + 10 + 14 + 16 = 48
+                <br>Fifth number = 60 - 48 = 12
+                <br><strong>Answer:</strong> The fifth number is 12.</p>
+            </div>
+            
+            <div class="example">
+                <h4>Example 6: Median with Large Dataset</h4>
+                <p><strong>Problem:</strong> Find the median of these 25 scores (arranged in order):
+                <br>65, 67, 68, 70, 72, 73, 74, 75, 76, 77, 78, 79, 80, 81, 82, 83, 84, 85, 86, 87, 88, 89, 90, 92, 95</p>
+                <p><strong>Solution:</strong>
+                <br>With 25 numbers (odd), the median is the (25+1)/2 = 13th number.
+                <br>Counting to the 13th number: 65(1), 67(2), 68(3), 70(4), 72(5), 73(6), 74(7), 75(8), 76(9), 77(10), 78(11), 79(12), 80(13)
+                <br><strong>Answer:</strong> The median is 80.</p>
+            </div>
+            
+            <div class="example">
+                <h4>Example 7: When to Use Each Measure</h4>
+                <p><strong>Problem:</strong> A small company has 9 employees with salaries: ₱20,000, ₱22,000, ₱22,000, ₱23,000, ₱25,000, ₱27,000, ₱30,000, ₱35,000, and ₱100,000 (owner). Which measure of central tendency best represents the typical salary?</p>
+                <p><strong>Solution:</strong>
+                <br>Mean = (sum of all) / 9 = ₱304,000 / 9 ≈ ₱33,778
+                <br>Median = 5th value = ₱25,000
+                <br>Mode = ₱22,000
+                <br>The mean is skewed by the owner's high salary. The mode (₱22,000) and median (₱25,000) better represent typical employees. The median is often preferred for skewed data.</p>
+            </div>
+        `,
+        3: `
+            <h3>Additional Frequency Distribution Examples</h3>
+            
+            <div class="example">
+                <h4>Example 3: Cumulative Frequency</h4>
+                <p><strong>Problem:</strong> Add cumulative frequency to the table from Example 1.</p>
+                <p><strong>Solution:</strong>
+                <table style="width: 100%; border-collapse: collapse; margin: 10px 0;">
+                    <tr style="background: #7a0000; color: white;">
+                        <th style="padding: 8px; border: 1px solid #ddd;">Score (x)</th>
+                        <th style="padding: 8px; border: 1px solid #ddd;">Frequency (f)</th>
+                        <th style="padding: 8px; border: 1px solid #ddd;">Cumulative Frequency</th>
+                    </tr>
+                    <tr><td>2</td><td>2</td><td>2</td></tr>
+                    <tr><td>3</td><td>3</td><td>5</td></tr>
+                    <tr><td>4</td><td>4</td><td>9</td></tr>
+                    <tr><td>5</td><td>5</td><td>14</td></tr>
+                </table>
+                </p>
+            </div>
+            
+            <div class="example">
+                <h4>Example 4: Relative Frequency</h4>
+                <p><strong>Problem:</strong> Add relative frequency (percentage) to the table from Example 1.</p>
+                <p><strong>Solution:</strong>
+                <table style="width: 100%; border-collapse: collapse; margin: 10px 0;">
+                    <tr style="background: #7a0000; color: white;">
+                        <th style="padding: 8px; border: 1px solid #ddd;">Score (x)</th>
+                        <th style="padding: 8px; border: 1px solid #ddd;">Frequency (f)</th>
+                        <th style="padding: 8px; border: 1px solid #ddd;">Relative Frequency</th>
+                    </tr>
+                    <tr><td>2</td><td>2</td><td>2/14 = 14.3%</td></tr>
+                    <tr><td>3</td><td>3</td><td>3/14 = 21.4%</td></tr>
+                    <tr><td>4</td><td>4</td><td>4/14 = 28.6%</td></tr>
+                    <tr><td>5</td><td>5</td><td>5/14 = 35.7%</td></tr>
+                </table>
+                </p>
+            </div>
+            
+            <div class="example">
+                <h4>Example 5: Determining Class Width</h4>
+                <p><strong>Problem:</strong> For a dataset with values ranging from 15 to 87, if you want 8 classes, what should be the class width?</p>
+                <p><strong>Solution:</strong>
+                <br>Range = 87 - 15 = 72
+                <br>Class width = 72 ÷ 8 = 9
+                <br>Since 9 is a whole number, you can use 9 as the class width.
+                <br><strong>Answer:</strong> Class width = 9</p>
+            </div>
+            
+            <div class="example">
+                <h4>Example 6: Finding Class Boundaries</h4>
+                <p><strong>Problem:</strong> For the class interval 45-54 in Example 2, what are the class boundaries?</p>
+                <p><strong>Solution:</strong>
+                <br>Lower class boundary = 44.5 (halfway between 44 and 45)
+                <br>Upper class boundary = 54.5 (halfway between 54 and 55)
+                <br><strong>Answer:</strong> Class boundaries are 44.5 - 54.5</p>
+            </div>
+        `
+    };
+    return examples[topicId] || '<h3>Additional Examples</h3><p>More examples coming soon!</p>';
+}
+// ============================================
+// Setup MathEase lesson interactions (Show More Examples, Download Notes, etc.)
+// ============================================
+function setupMathEaseLessonInteractions(currentLesson, topicId) {
+    // Show More Examples button
+    const showMoreExamplesBtn = document.getElementById('showMoreExamples');
+    if (showMoreExamplesBtn) {
+        showMoreExamplesBtn.addEventListener('click', function() {
+            const extraContainer = document.getElementById('extraExamplesContainer');
+            
+            if (extraContainer) {
+                if (extraContainer.style.display === 'none') {
+                    extraContainer.style.display = 'block';
+                    this.innerHTML = '<i class="fas fa-minus-circle"></i> Hide Examples';
+                } else {
+                    extraContainer.style.display = 'none';
+                    this.innerHTML = '<i class="fas fa-plus-circle"></i> Show More Examples';
+                }
+            } else {
+                // If container doesn't exist, create it
+                const lessonContent = document.getElementById('lessonContent');
+                const wrapper = lessonContent.querySelector('.lesson-content-wrapper');
+                
+                const newContainer = document.createElement('div');
+                newContainer.id = 'extraExamplesContainer';
+                newContainer.style.marginTop = '30px';
+                newContainer.innerHTML = getMathEaseExtraExamples(topicId);
+                
+                wrapper.insertBefore(newContainer, document.querySelector('.lesson-interactive'));
+                newContainer.style.display = 'block';
+                this.innerHTML = '<i class="fas fa-minus-circle"></i> Hide Examples';
+            }
+        });
+    }
+    
+    // Practice Problems button (opens modal with solutions)
+    const practiceProblemsBtn = document.getElementById('practiceProblems');
+    if (practiceProblemsBtn) {
+        practiceProblemsBtn.addEventListener('click', function() {
+            const problems = getMathEasePracticeProblems(topicId).match(/<li>(.*?)<\/li>/g);
+            
+            let problemsHTML = '<div class="practice-modal"><h3>Practice Problems with Solutions</h3>';
+            
+            // Add problems and solutions based on topic
+            if (topicId == 1) {
+                problemsHTML += `
+                    <div class="problem">
+                        <p><strong>Problem 1:</strong> Simplify: 15 - 3 × 2 + 4² ÷ 2</p>
+                        <p><strong>Solution:</strong> 15 - 6 + 16 ÷ 2 = 15 - 6 + 8 = 17</p>
+                    </div>
+                    <div class="problem">
+                        <p><strong>Problem 2:</strong> A store sells apples at ₱30 each and oranges at ₱25 each. If Juan buys 4 apples and 3 oranges and pays with a ₱500 bill, how much change does he get?</p>
+                        <p><strong>Solution:</strong> Total = 4×30 + 3×25 = 120 + 75 = ₱195, Change = 500 - 195 = ₱305</p>
+                    </div>
+                    <div class="problem">
+                        <p><strong>Problem 3:</strong> Use the distributive property to calculate 8 × 97</p>
+                        <p><strong>Solution:</strong> 8 × (100 - 3) = 800 - 24 = 776</p>
+                    </div>
+                `;
+            } else if (topicId == 2) {
+                problemsHTML += `
+                    <div class="problem">
+                        <p><strong>Problem 1:</strong> Find the mean, median, and mode of: 12, 15, 12, 18, 20, 15, 14, 12, 16</p>
+                        <p><strong>Solution:</strong> Mean = (12+15+12+18+20+15+14+12+16)/9 = 134/9 ≈ 14.89<br>
+                        Sorted: 12,12,12,14,15,15,16,18,20 → Median = 15<br>
+                        Mode = 12 (appears 3 times)</p>
+                    </div>
+                    <div class="problem">
+                        <p><strong>Problem 2:</strong> The heights (in cm) of 8 students are: 152, 148, 165, 158, 162, 155, 150, 160. Find the mean height.</p>
+                        <p><strong>Solution:</strong> Sum = 152+148+165+158+162+155+150+160 = 1250, Mean = 1250/8 = 156.25 cm</p>
+                    </div>
+                `;
+            } else if (topicId == 3) {
+                problemsHTML += `
+                    <div class="problem">
+                        <p><strong>Problem 1:</strong> For the data set: 3, 5, 3, 4, 5, 3, 2, 4, 5, 3, 4, 2, what is the frequency of 4?</p>
+                        <p><strong>Solution:</strong> Count how many times 4 appears: positions 4, 8, 11 → 3 times</p>
+                    </div>
+                    <div class="problem">
+                        <p><strong>Problem 2:</strong> Create a frequency distribution table for these scores: 7, 8, 6, 7, 9, 8, 7, 6, 8, 9, 7, 8, 6, 7, 8</p>
+                        <p><strong>Solution:</strong> 6 appears 3 times, 7 appears 5 times, 8 appears 5 times, 9 appears 2 times</p>
+                    </div>
+                `;
+            }
+            
+            problemsHTML += '</div>';
+            showModal(problemsHTML);
+        });
+    }
+    
+    // Download Notes button
+    const downloadNotesBtn = document.getElementById('downloadNotes');
+    if (downloadNotesBtn) {
+        downloadNotesBtn.addEventListener('click', function() {
+            const lessonTitle = currentLesson?.content_title || 'MathEase Lesson';
+            const content = document.getElementById('lessonContent').innerText;
+            
+            // Create downloadable content
+            const blob = new Blob([`${lessonTitle}\n\n${content}`], { type: 'text/plain' });
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `${lessonTitle.replace(/\s+/g, '_')}_notes.txt`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            window.URL.revokeObjectURL(url);
+            
+            showNotification('Notes downloaded successfully!', 'success');
+        });
+    }
+    
+    // Check Answers button (for practice problems)
+    const checkAnswersBtn = document.getElementById('checkAnswersBtn');
+    if (checkAnswersBtn) {
+        checkAnswersBtn.addEventListener('click', function() {
+            let answersHTML = '<div class="answers-modal"><h3>Answers to Practice Problems</h3>';
+            
+            if (topicId == 1) {
+                answersHTML += `
+                    <div class="answer">
+                        <p><strong>Problem 1:</strong> 17</p>
+                        <p><strong>Problem 2:</strong> ₱305</p>
+                        <p><strong>Problem 3:</strong> 776</p>
+                        <p><strong>Problem 4:</strong> 4</p>
+                        <p><strong>Problem 5:</strong> Pedro has 12, Maria has 36</p>
+                    </div>
+                `;
+            } else if (topicId == 2) {
+                answersHTML += `
+                    <div class="answer">
+                        <p><strong>Problem 1:</strong> Mean ≈ 14.89, Median = 15, Mode = 12</p>
+                        <p><strong>Problem 2:</strong> 156.25 cm</p>
+                        <p><strong>Problem 3:</strong> 85.67</p>
+                        <p><strong>Problem 4:</strong> 20</p>
+                        <p><strong>Problem 5:</strong> 24</p>
+                    </div>
+                `;
+            } else if (topicId == 3) {
+                answersHTML += `
+                    <div class="answer">
+                        <p><strong>Problem 1:</strong> Frequency of 4 is 3</p>
+                        <p><strong>Problem 2:</strong> 6:3, 7:5, 8:5, 9:2</p>
+                        <p><strong>Problem 3:</strong> Class with highest frequency: 75-84 (11 students)</p>
+                    </div>
+                `;
+            }
+            
+            answersHTML += '</div>';
+            showModal(answersHTML);
+        });
+    }
+}
+// ============================================
+// Helper function to show modal
+// ============================================
+function showModal(content, options = {}) {
+    const { closeable = true } = options;
+    
+    // Remove existing modal
+    const existingModal = document.querySelector('.modal-overlay');
+    if (existingModal) existingModal.remove();
+    
+    // Create modal
+    const modalOverlay = document.createElement('div');
+    modalOverlay.className = 'modal-overlay';
+    
+    let closeButton = '';
+    if (closeable) {
+        closeButton = '<button class="modal-close"><i class="fas fa-times"></i></button>';
+    }
+    
+    modalOverlay.innerHTML = `
+        <div class="modal-content">
+            ${closeButton}
+            ${content}
+        </div>
+    `;
+    
+    // Add styles
+    modalOverlay.style.cssText = `
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(0, 0, 0, 0.7);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 10000;
+        padding: 20px;
+    `;
+    
+    const modalContent = modalOverlay.querySelector('.modal-content');
+    modalContent.style.cssText = `
+        background: white;
+        padding: 30px;
+        border-radius: 10px;
+        max-width: 800px;
+        width: 100%;
+        max-height: 90vh;
+        overflow-y: auto;
+        position: relative;
+    `;
+    
+    // Add close button functionality
+    if (closeable) {
+        const closeBtn = modalOverlay.querySelector('.modal-close');
+        closeBtn.style.cssText = `
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background: none;
+            border: none;
+            font-size: 20px;
+            cursor: pointer;
+            color: #666;
+        `;
+        
+        closeBtn.addEventListener('click', () => modalOverlay.remove());
+        modalOverlay.addEventListener('click', (e) => {
+            if (e.target === modalOverlay) modalOverlay.remove();
+        });
+    }
+    
+    document.body.appendChild(modalOverlay);
+    return modalOverlay;
+}
+// ============================================
 // ✅ FIXED: Display quizzes na parang dashboard card
 // ============================================
 function displayQuizzesInContainer(quizzes, categoryId, isHardcoded = false) {
