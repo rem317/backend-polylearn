@@ -362,35 +362,15 @@ function displayMockLessons() {
     displayLessonsForPractice(mockLessons);
 }
 
-// ============================================
-// ✅ Load Practice Exercises for a Lesson
-// ============================================
 async function loadPracticeForLesson(lessonId) {
     console.log(`📝 Loading practice for lesson ${lessonId}`);
     
-    // ===== ADD THIS VALIDATION =====
     // Convert to number if it's a string
     lessonId = parseInt(lessonId);
     
-    // Check if lesson ID is valid (1, 2, or 3 for MathEase)
-    const validLessonIds = [1, 2, 3];
-    if (!validLessonIds.includes(lessonId)) {
-        console.error(`❌ Invalid lesson ID: ${lessonId}. Valid IDs are 1, 2, or 3.`);
-        
-        const exerciseArea = document.getElementById('exerciseArea');
-        if (exerciseArea) {
-            exerciseArea.innerHTML = `
-                <div class="error-message" style="text-align: center; padding: 40px;">
-                    <i class="fas fa-exclamation-triangle" style="font-size: 48px; color: #e74c3c;"></i>
-                    <h3 style="color: #666;">Invalid Lesson</h3>
-                    <p style="color: #999;">This lesson does not have practice exercises yet.</p>
-                    <p style="color: #999; font-size: 12px; margin-top: 10px;">Lesson ID: ${lessonId}</p>
-                </div>
-            `;
-        }
-        return;
-    }
-    // ===== END VALIDATION =====
+    // ===== REMOVED THE RESTRICTIVE VALIDATION =====
+    // Now accepts ANY lesson ID - no validation needed
+    // The system will try to load exercises regardless of ID
     
     const exerciseArea = document.getElementById('exerciseArea');
     if (!exerciseArea) return;
@@ -417,13 +397,15 @@ async function loadPracticeForLesson(lessonId) {
         const endpoints = [
             `/api/practice/lesson/${lessonId}?lesson_id=1`,
             `/api/practice/exercises?lesson_id=1&content_id=${lessonId}`,
-            `/api/practice/content/${lessonId}?lesson_id=1`
+            `/api/practice/content/${lessonId}?lesson_id=1`,
+            `/api/practice/topic/${lessonId}?lesson_id=1`  // Added this endpoint
         ];
         
         let exercises = [];
         
         for (const endpoint of endpoints) {
             try {
+                console.log(`📡 Trying: ${endpoint}`);
                 const response = await fetch(endpoint, {
                     headers: { 
                         'Authorization': `Bearer ${token}`,
@@ -452,6 +434,19 @@ async function loadPracticeForLesson(lessonId) {
             // Show demo exercises based on lesson ID
             const demoExercises = getMathEaseDemoExercisesForLesson(lessonId);
             displayPracticeExercises(demoExercises);
+            
+            // Show a small indicator that we're using demo data
+            const demoIndicator = document.createElement('div');
+            demoIndicator.style.cssText = `
+                background: #f39c12;
+                color: white;
+                padding: 8px 15px;
+                border-radius: 5px;
+                margin-bottom: 15px;
+                text-align: center;
+            `;
+            demoIndicator.innerHTML = '<i class="fas fa-info-circle"></i> Using demo exercises (offline mode)';
+            exerciseArea.parentNode.insertBefore(demoIndicator, exerciseArea);
         }
         
     } catch (error) {
@@ -462,7 +457,160 @@ async function loadPracticeForLesson(lessonId) {
         displayPracticeExercises(demoExercises);
     }
 }
-
+function getMathEaseDemoExercisesForLesson(lessonId) {
+    // Generate appropriate exercises based on lesson ID
+    const exercises = [];
+    
+    // Lesson 1: Basic Mathematical Operation
+    if (lessonId == 1) {
+        exercises.push({
+            exercise_id: 101,
+            title: 'Basic Math Operations',
+            description: 'Practice addition, subtraction, multiplication, and division',
+            difficulty: 'easy',
+            points: 10,
+            questions: [
+                {
+                    text: 'What is 15 + 7?',
+                    options: [
+                        { text: '22', correct: true },
+                        { text: '21', correct: false },
+                        { text: '23', correct: false },
+                        { text: '24', correct: false }
+                    ]
+                },
+                {
+                    text: 'What is 45 - 18?',
+                    options: [
+                        { text: '27', correct: true },
+                        { text: '28', correct: false },
+                        { text: '26', correct: false },
+                        { text: '29', correct: false }
+                    ]
+                }
+            ]
+        });
+        exercises.push({
+            exercise_id: 102,
+            title: 'Multiplication and Division',
+            description: 'Practice multiplication and division',
+            difficulty: 'medium',
+            points: 15,
+            questions: [
+                {
+                    text: 'What is 8 × 7?',
+                    options: [
+                        { text: '56', correct: true },
+                        { text: '54', correct: false },
+                        { text: '58', correct: false },
+                        { text: '52', correct: false }
+                    ]
+                },
+                {
+                    text: 'What is 72 ÷ 8?',
+                    options: [
+                        { text: '9', correct: true },
+                        { text: '8', correct: false },
+                        { text: '7', correct: false },
+                        { text: '6', correct: false }
+                    ]
+                }
+            ]
+        });
+    }
+    // Lesson 2: Basic Concept in Statistics
+    else if (lessonId == 2) {
+        exercises.push({
+            exercise_id: 201,
+            title: 'Mean, Median, Mode',
+            description: 'Calculate measures of central tendency',
+            difficulty: 'easy',
+            points: 10,
+            questions: [
+                {
+                    text: 'Find the mean of: 5, 8, 12, 15, 20',
+                    options: [
+                        { text: '12', correct: true },
+                        { text: '10', correct: false },
+                        { text: '14', correct: false },
+                        { text: '15', correct: false }
+                    ]
+                },
+                {
+                    text: 'Find the median of: 3, 7, 9, 12, 15',
+                    options: [
+                        { text: '9', correct: true },
+                        { text: '7', correct: false },
+                        { text: '12', correct: false },
+                        { text: '10', correct: false }
+                    ]
+                }
+            ]
+        });
+    }
+    // Lesson 3: Frequency Distribution Table
+    else if (lessonId == 3) {
+        exercises.push({
+            exercise_id: 301,
+            title: 'Frequency Distribution',
+            description: 'Create and interpret frequency tables',
+            difficulty: 'medium',
+            points: 15,
+            questions: [
+                {
+                    text: 'For the data set: 2,2,3,3,3,4,4,5, what is the frequency of 3?',
+                    options: [
+                        { text: '3', correct: true },
+                        { text: '2', correct: false },
+                        { text: '4', correct: false },
+                        { text: '1', correct: false }
+                    ]
+                },
+                {
+                    text: 'If class intervals are 0-10, 11-20, 21-30, what is the class width?',
+                    options: [
+                        { text: '10', correct: true },
+                        { text: '11', correct: false },
+                        { text: '9', correct: false },
+                        { text: '5', correct: false }
+                    ]
+                }
+            ]
+        });
+    }
+    // Default for any other lesson ID
+    else {
+        exercises.push({
+            exercise_id: 999,
+            title: 'General Math Practice',
+            description: 'Practice general mathematics concepts',
+            difficulty: 'easy',
+            points: 10,
+            questions: [
+                {
+                    text: 'What is 2 + 2?',
+                    options: [
+                        { text: '4', correct: true },
+                        { text: '3', correct: false },
+                        { text: '5', correct: false },
+                        { text: '6', correct: false }
+                    ]
+                },
+                {
+                    text: 'What is 10 - 3?',
+                    options: [
+                        { text: '7', correct: true },
+                        { text: '6', correct: false },
+                        { text: '8', correct: false },
+                        { text: '9', correct: false }
+                    ]
+                }
+            ]
+        });
+    }
+    
+    return exercises;
+}
 // ============================================
 // ✅ Display MathEase Lessons
 // ============================================
