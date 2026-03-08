@@ -16608,7 +16608,7 @@ async function loadRecentLessons(container, lessons, progress) {
     });
     
     // Take up to 4 recent lessons
-    const recentLessons = sortedLessons.slice(0, 4);
+    const recentLessons = sortedLessons;
     
     let html = '';
     
