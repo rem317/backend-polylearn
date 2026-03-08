@@ -10583,7 +10583,154 @@ body {
 .mobile-menu-panel.active {
     animation: menuSlideUp 0.4s ease forwards;
 }
+/* FAQ Styles */
+.faq-item {
+    border: 1px solid #e0e0e0;
+    border-radius: 8px;
+    margin-bottom: 10px;
+    overflow: hidden;
+    transition: all 0.3s ease;
+}
 
+.faq-item:hover {
+    border-color: #7a0000;
+    box-shadow: 0 2px 8px rgba(122,0,0,0.1);
+}
+
+.faq-question {
+    background: #f8f9fa;
+    padding: 15px 20px;
+    cursor: pointer;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-weight: 500;
+    color: #2c3e50;
+    transition: all 0.3s ease;
+}
+
+.faq-question:hover {
+    background: #e9ecef;
+}
+
+.faq-question i {
+    transition: transform 0.3s ease;
+    color: #7a0000;
+}
+
+.faq-question.active i {
+    transform: rotate(180deg);
+}
+
+.faq-answer {
+    padding: 0;
+    max-height: 0;
+    overflow: hidden;
+    transition: all 0.3s ease;
+    background: white;
+}
+
+.faq-answer.show {
+    padding: 20px;
+    max-height: 500px;
+    border-top: 1px solid #e0e0e0;
+}
+
+.faq-answer p {
+    margin: 0 0 10px 0;
+    color: #34495e;
+    line-height: 1.6;
+}
+
+.faq-answer p:last-child {
+    margin-bottom: 0;
+}
+
+.faq-answer ul {
+    margin: 0;
+    padding-left: 20px;
+}
+
+.faq-answer li {
+    margin-bottom: 10px;
+    color: #34495e;
+    line-height: 1.6;
+}
+
+.faq-answer li:last-child {
+    margin-bottom: 0;
+}
+
+.faq-answer li strong {
+    color: #7a0000;
+}
+
+/* Contact Methods */
+.contact-methods {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+}
+
+.contact-method {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    padding: 15px;
+    background: #f8f9fa;
+    border-radius: 8px;
+    transition: all 0.3s ease;
+}
+
+.contact-method:hover {
+    transform: translateX(5px);
+    background: #e9ecef;
+}
+
+.contact-icon {
+    width: 50px;
+    height: 50px;
+    background: #7a0000;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-size: 20px;
+}
+
+.contact-method h4 {
+    margin: 0 0 5px 0;
+    color: #2c3e50;
+}
+
+.contact-method p {
+    margin: 0;
+    color: #666;
+    font-size: 14px;
+}
+
+.response-time, .hours {
+    font-size: 12px;
+    color: #999;
+    margin-top: 5px;
+}
+
+.btn-chat {
+    background: #7a0000;
+    color: white;
+    border: none;
+    padding: 5px 10px;
+    border-radius: 5px;
+    cursor: pointer;
+    font-size: 13px;
+    transition: all 0.3s ease;
+}
+
+.btn-chat:hover {
+    background: #5a0000;
+    transform: translateY(-2px);
+}
 /* ============================================
    END OF CSS
    ============================================ */
