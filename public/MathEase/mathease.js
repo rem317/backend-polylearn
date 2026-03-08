@@ -5737,6 +5737,7 @@ function getDefaultmatheaseProgress() {
 // ============================================
 // ✅ FIXED: fetchCumulativeProgress - FOR BROWSER
 // ============================================
+// REPLACE THIS ENTIRE FUNCTION:
 async function fetchCumulativeProgress() {
     try {
         const token = localStorage.getItem('authToken') || authToken;
@@ -6065,6 +6066,7 @@ async function fetchLearningGoals() {
 // ============================================
 // FETCH TOPIC MASTERY (for Accuracy Rate & Topics Progress) - FIXED
 // ============================================
+// REPLACE THIS ENTIRE FUNCTION:
 async function fetchTopicMastery() {
     try {
         const token = localStorage.getItem('authToken') || authToken;
@@ -6076,28 +6078,6 @@ async function fetchTopicMastery() {
             headers: { 'Authorization': `Bearer ${token}` }
         });
         
-        if (!response.ok) return {};
-        
-        const data = await response.json();
-        
-        if (data.success && data.mastery) {
-            // Filter to only MathEase topics (lesson_id = 1)
-            const mathEaseMastery = data.mastery.filter(topic => 
-                topic.lesson_id == 1 || topic.lessonId == 1
-            );
-            
-            console.log(`✅ Fetched ${mathEaseMastery.length} MathEase topics`);
-            ProgressState.topicMastery = mathEaseMastery;
-            updateTopicProgressBreakdown();
-            return mathEaseMastery;
-        }
-        
-        return {};
-    } catch (error) {
-        console.error('Error fetching topic mastery:', error);
-        return {};
-    }
-}
         if (!response.ok) return {};
         
         const data = await response.json();
@@ -8806,6 +8786,7 @@ function forceUpdateProgressUI(progress) {
 // ============================================
 // ✅ FIXED: Load Progress Dashboard Data - MATHEASE ONLY
 // ============================================
+// REPLACE THIS ENTIRE FUNCTION:
 async function loadProgressDashboardData() {
     console.log('📊 Loading MathEase progress dashboard data...');
     
@@ -8865,96 +8846,6 @@ async function loadProgressDashboardData() {
         if (activityLog.status === 'fulfilled' && activityLog.value) {
             updateActivityLog();
         }
-        
-        // Hide loading
-        hideProgressDashboardLoading();
-        
-        console.log('✅ MathEase progress dashboard updated');
-        
-    } catch (error) {
-        console.error('❌ Error loading progress dashboard:', error);
-        hideProgressDashboardLoading();
-        setDefaultProgressUI();
-    }
-}
-        
-        // ===== PROCESS LESSONS DATA =====
-        let lessonsCompleted = 0;
-        let totalLessons = 10;
-        
-        if (lessonsProgress.status === 'fulfilled' && lessonsProgress.value?.success) {
-            const progress = lessonsProgress.value.progress || [];
-            lessonsCompleted = progress.filter(p => 
-                p.completion_status === 'completed' || p.status === 'completed'
-            ).length;
-            console.log(`✅ MathEase lessons completed: ${lessonsCompleted}`);
-        }
-        
-        if (totalLessonsCount.status === 'fulfilled' && totalLessonsCount.value?.success) {
-            totalLessons = totalLessonsCount.value.lessons?.length || 10;
-        }
-        
-        // ===== PROCESS PRACTICE DATA =====
-        let exercisesCompleted = 0;
-        let totalPracticeSeconds = 0;
-        
-        if (practiceStats.status === 'fulfilled' && practiceStats.value?.success) {
-            const attempts = practiceStats.value.attempts || [];
-            exercisesCompleted = attempts.filter(a => 
-                a.completion_status === 'completed' || a.percentage >= 70
-            ).length;
-            
-            attempts.forEach(a => {
-                totalPracticeSeconds += a.time_spent_seconds || 0;
-            });
-            
-            console.log(`✅ MathEase practice completed: ${exercisesCompleted}`);
-        }
-        
-        // ===== PROCESS QUIZ DATA =====
-        let quizPoints = 0;
-        let quizAttempts = 0;
-        
-        if (quizStats.status === 'fulfilled' && quizStats.value?.success) {
-            const attempts = quizStats.value.attempts || [];
-            quizAttempts = attempts.length;
-            
-            attempts.forEach(attempt => {
-                const correctAnswers = attempt.correct_answers || 0;
-                quizPoints += correctAnswers * 10;
-            });
-            
-            console.log(`✅ MathEase quiz points: ${quizPoints}`);
-        }
-        
-        // ===== CALCULATE OVERALL PROGRESS =====
-        const overallPercentage = totalLessons > 0 
-            ? Math.round((lessonsCompleted / totalLessons) * 100) 
-            : 0;
-        
-        console.log(`📊 Overall progress: ${overallPercentage}% (${lessonsCompleted}/${totalLessons} lessons)`);
-        
-        // ===== UPDATE ALL UI ELEMENTS =====
-        updateOverallProgressUI(
-            overallPercentage, 
-            quizPoints, 
-            totalPracticeSeconds, 
-            exercisesCompleted, 
-            lessonsCompleted, 
-            totalLessons, 
-            quizAttempts
-        );
-        
-        // Store in ProgressState
-        ProgressState.cumulativeProgress = {
-            total_lessons_completed: lessonsCompleted,
-            total_lessons: totalLessons,
-            overall_percentage: overallPercentage,
-            exercises_completed: exercisesCompleted,
-            total_quizzes_completed: quizAttempts,
-            total_points_earned: quizPoints,
-            total_time_spent_minutes: Math.floor(totalPracticeSeconds / 60)
-        };
         
         // Hide loading
         hideProgressDashboardLoading();
@@ -10354,6 +10245,7 @@ document.addEventListener('DOMContentLoaded', function() {
 // ============================================
 // ✅ NEW: fetchWeeklyImprovement - Get weekly improvement from database
 // ============================================
+// REPLACE THIS ENTIRE FUNCTION:
 async function fetchWeeklyImprovement() {
     try {
         const token = localStorage.getItem('authToken') || authToken;
@@ -16751,6 +16643,7 @@ async function loadUserBadges() {
 // ============================================
 // ✅ FIXED: Fetch accuracy rate - FORCED LESSON_ID = 3
 // ============================================
+// REPLACE THIS ENTIRE FUNCTION:
 async function fetchAccuracyRate() {
     try {
         const token = localStorage.getItem('authToken') || authToken;
@@ -16778,7 +16671,6 @@ async function fetchAccuracyRate() {
         return null;
     }
 }
-
 // ============================================
 // 🔍 DEBUG: Check only lesson_id=1 data
 // ============================================
@@ -23891,6 +23783,7 @@ function setupCompleteLessonButton() {
 // ============================================
 // FETCH ACTIVITY LOG - ADD THIS MISSING FUNCTION
 // ============================================
+// REPLACE THIS ENTIRE FUNCTION:
 async function fetchActivityLog(limit = 15) {
     try {
         const token = localStorage.getItem('authToken') || authToken;
@@ -23907,70 +23800,6 @@ async function fetchActivityLog(limit = 15) {
         
         if (response.status === 404) {
             // Try daily endpoint as fallback
-            const dailyResponse = await fetch(`/api/progress/daily?lesson_id=1`, {
-                headers: { 'Authorization': `Bearer ${token}` }
-            });
-            
-            if (dailyResponse.ok) {
-                const dailyData = await dailyResponse.json();
-                if (dailyData.success && dailyData.progress) {
-                    const activities = [];
-                    const today = new Date().toISOString().split('T')[0];
-                    
-                    if (dailyData.progress.lessons_completed > 0) {
-                        activities.push({
-                            activity_type: 'lesson_completed',
-                            activity_timestamp: new Date().toISOString(),
-                            details: { count: dailyData.progress.lessons_completed },
-                            points_earned: dailyData.progress.lessons_completed * 10
-                        });
-                    }
-                    
-                    if (dailyData.progress.exercises_completed > 0) {
-                        activities.push({
-                            activity_type: 'practice_completed',
-                            activity_timestamp: new Date().toISOString(),
-                            details: { count: dailyData.progress.exercises_completed },
-                            points_earned: dailyData.progress.exercises_completed * 5
-                        });
-                    }
-                    
-                    if (dailyData.progress.quizzes_completed > 0) {
-                        activities.push({
-                            activity_type: 'quiz_completed',
-                            activity_timestamp: new Date().toISOString(),
-                            details: { count: dailyData.progress.quizzes_completed },
-                            points_earned: dailyData.progress.quizzes_completed * 20
-                        });
-                    }
-                    
-                    ProgressState.activityLog = activities;
-                    return activities;
-                }
-            }
-            
-            return [];
-        }
-        
-        if (!response.ok) return [];
-        
-        const data = await response.json();
-        
-        if (data.success && data.activities) {
-            ProgressState.activityLog = data.activities;
-            updateActivityLog();
-            return data.activities;
-        }
-        
-        return [];
-        
-    } catch (error) {
-        console.error('Error fetching activity log:', error);
-        return [];
-    }
-}
-        
-        if (response.status === 404) {
             const dailyResponse = await fetch(`/api/progress/daily?lesson_id=1`, {
                 headers: { 'Authorization': `Bearer ${token}` }
             });
@@ -30902,3 +30731,64 @@ window.debugMathEaseProgress = async function() {
     
     console.log('\n🔍 Debug complete');
 };
+
+// ============================================
+// 🔍 Debug function to check MathEase data
+// ============================================
+window.debugMathEaseProgress = async function() {
+    console.log('🔍 DEBUGGING MATHEASE PROGRESS');
+    console.log('================================');
+    
+    const token = localStorage.getItem('authToken');
+    
+    console.log('\n📡 FETCHING FROM ENDPOINTS:');
+    
+    // Check cumulative progress
+    try {
+        const cumulRes = await fetch('/api/progress/overall', {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        const cumulData = await cumulRes.json();
+        console.log('✅ /api/progress/overall:', cumulData);
+    } catch (e) {
+        console.log('❌ /api/progress/overall failed:', e.message);
+    }
+    
+    // Check topic mastery
+    try {
+        const topicRes = await fetch('/api/progress/topic-mastery', {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        const topicData = await topicRes.json();
+        console.log('✅ /api/progress/topic-mastery:', topicData);
+    } catch (e) {
+        console.log('❌ /api/progress/topic-mastery failed:', e.message);
+    }
+    
+    // Check lessons
+    try {
+        const lessonsRes = await fetch('/api/lessons-db/complete?lesson_id=1', {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        const lessonsData = await lessonsRes.json();
+        console.log('✅ /api/lessons-db/complete?lesson_id=1:', lessonsData);
+    } catch (e) {
+        console.log('❌ /api/lessons-db/complete failed:', e.message);
+    }
+    
+    console.log('\n📊 CURRENT PROGRESS STATE:');
+    console.log('ProgressState.cumulativeProgress:', ProgressState.cumulativeProgress);
+    console.log('ProgressState.dailyProgress:', ProgressState.dailyProgress);
+    console.log('ProgressState.topicMastery:', ProgressState.topicMastery);
+    console.log('ProgressState.activityLog:', ProgressState.activityLog);
+    
+    console.log('\n🔍 Debug complete');
+};
+
+// Wrap the auto-debug call in a function to avoid top-level await
+setTimeout(() => {
+    console.log('🔍 Auto-running MathEase debug...');
+    if (typeof window.debugMathEaseProgress === 'function') {
+        window.debugMathEaseProgress().catch(err => console.log('Debug error:', err));
+    }
+}, 2000);
