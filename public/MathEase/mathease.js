@@ -377,7 +377,7 @@ function displayMockLessons() {
 }
 
 // ============================================
-// ✅ Load practice exercises for a specific lesson
+// ✅ Load Practice Exercises for a Lesson
 // ============================================
 async function loadPracticeForLesson(lessonId) {
     console.log(`📝 Loading practice for lesson ${lessonId}`);
@@ -385,7 +385,12 @@ async function loadPracticeForLesson(lessonId) {
     const exerciseArea = document.getElementById('exerciseArea');
     if (!exerciseArea) return;
     
-    exerciseArea.innerHTML = `<div class="loading-container">Loading practice exercises...</div>`;
+    exerciseArea.innerHTML = `
+        <div class="loading-container" style="text-align: center; padding: 40px;">
+            <i class="fas fa-spinner fa-spin" style="font-size: 40px; color: #7a0000;"></i>
+            <p>Loading practice exercises from database...</p>
+        </div>
+    `;
     
     // Update title
     const practiceTopicTitle = document.getElementById('practiceTopicTitle');
@@ -395,21 +400,246 @@ async function loadPracticeForLesson(lessonId) {
         practiceTopicTitle.textContent = `Practicing: ${lessonTitle}`;
     }
     
-    const exercises = await fetchPracticeByLesson(lessonId);
-    
-    if (exercises && exercises.length > 0) {
-        displayLessonExercises(exercises);
-    } else {
+    try {
+        const token = localStorage.getItem('authToken') || authToken;
+        
+        // Try multiple endpoints
+        const endpoints = [
+            `/api/practice/lesson/${lessonId}?lesson_id=1`,
+            `/api/practice/exercises?lesson_id=1&content_id=${lessonId}`,
+            `/api/practice/content/${lessonId}?lesson_id=1`
+        ];
+        
+        let exercises = [];
+        
+        for (const endpoint of endpoints) {
+            try {
+                const response = await fetch(endpoint, {
+                    headers: { 
+                        'Authorization': `Bearer ${token}`,
+                        'Accept': 'application/json'
+                    }
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    if (data.success && data.exercises) {
+                        exercises = data.exercises;
+                        break;
+                    } else if (data.exercises) {
+                        exercises = data.exercises;
+                        break;
+                    }
+                }
+            } catch (e) {
+                console.log(`⚠️ Endpoint ${endpoint} failed:`, e.message);
+            }
+        }
+        
+        if (exercises && exercises.length > 0) {
+            displayPracticeExercises(exercises);
+        } else {
+            exerciseArea.innerHTML = `
+                <div class="no-exercises" style="text-align: center; padding: 60px;">
+                    <i class="fas fa-database" style="font-size: 60px; color: #ccc; margin-bottom: 20px;"></i>
+                    <h3 style="color: #666;">No Practice Exercises Found</h3>
+                    <p style="color: #999;">No exercises in database for this lesson.</p>
+                    <p style="color: #999; font-size: 12px; margin-top: 10px;">Lesson ID: ${lessonId}</p>
+                </div>
+            `;
+        }
+        
+    } catch (error) {
+        console.error('❌ Error loading practice:', error);
         exerciseArea.innerHTML = `
-            <div class="no-exercises" style="text-align: center; padding: 60px;">
-                <i class="fas fa-pencil-alt" style="font-size: 60px; color: #ccc;"></i>
-                <h3 style="color: #666;">No exercises yet</h3>
-                <p style="color: #999;">Practice exercises will appear here soon.</p>
+            <div class="error" style="text-align: center; padding: 40px;">
+                <i class="fas fa-exclamation-triangle" style="font-size: 48px; color: #e74c3c;"></i>
+                <h3>Error Loading Practice</h3>
+                <p>${error.message}</p>
             </div>
         `;
     }
 }
-
+// ============================================
+// ✅ Display MathEase Lessons
+// ============================================
+function displayMathEaseLessons(lessons, progressMap) {
+    const container = document.getElementById('topicsContainer');
+    if (!container) return;
+    
+    let html = '';
+    
+    lessons.forEach(lesson => {
+        const contentId = lesson.content_id;
+        const progress = progressMap[contentId] || { percentage: 0, status: 'not_started' };
+        const percentage = progress.percentage || 0;
+        const isCompleted = progress.status === 'completed';
+        const statusText = isCompleted ? 'Completed' : percentage > 0 ? 'In Progress' : 'Not Started';
+        const statusColor = isCompleted ? '#27ae60' : percentage > 0 ? '#f39c12' : '#95a5a6';
+        
+        html += `
+            <div class="lesson-practice-card" data-lesson-id="${contentId}" 
+                 style="background: white; border-radius: 12px; padding: 20px; margin-bottom: 15px;
+                        box-shadow: 0 4px 12px rgba(0,0,0,0.1); border-left: 4px solid #7a0000;
+                        transition: all 0.3s ease; cursor: pointer;
+                        position: relative;">
+                
+                <!-- MathEase Badge -->
+                <div style="position: absolute; top: 10px; right: 10px; background: #7a0000; 
+                            color: white; padding: 4px 12px; border-radius: 20px; font-size: 11px;">
+                    MathEase
+                </div>
+                
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; padding-right: 100px;">
+                    <h3 style="margin: 0; color: #2c3e50; font-size: 18px;">
+                        <i class="fas fa-book" style="color: #7a0000; margin-right: 10px;"></i>
+                        ${lesson.content_title || 'Untitled Lesson'}
+                    </h3>
+                    <span style="background: ${statusColor}; color: white; padding: 5px 12px; 
+                                 border-radius: 20px; font-size: 12px;">
+                        ${statusText}
+                    </span>
+                </div>
+                
+                <p style="color: #666; margin-bottom: 15px; line-height: 1.5;">
+                    ${lesson.content_description || 'Practice exercises for this lesson.'}
+                </p>
+                
+                <!-- Progress Bar -->
+                <div style="margin-bottom: 15px;">
+                    <div style="display: flex; justify-content: space-between; font-size: 13px; color: #666; margin-bottom: 5px;">
+                        <span>Progress</span>
+                        <span>${percentage}%</span>
+                    </div>
+                    <div style="height: 6px; background: #ecf0f1; border-radius: 3px; overflow: hidden;">
+                        <div style="height: 100%; width: ${percentage}%; background: #7a0000; border-radius: 3px;"></div>
+                    </div>
+                </div>
+                
+                <!-- Lesson Meta -->
+                <div style="display: flex; gap: 20px; color: #666; font-size: 13px; margin-bottom: 20px;">
+                    <span><i class="fas fa-clock" style="color: #7a0000;"></i> 
+                        ${Math.floor((lesson.video_duration_seconds || 600) / 60)} min
+                    </span>
+                    <span><i class="fas fa-pencil-alt" style="color: #7a0000;"></i> Practice Available</span>
+                </div>
+                
+                <!-- Action Buttons -->
+                <div style="display: flex; gap: 10px;">
+                    <button class="btn-primary practice-lesson-btn" data-lesson-id="${contentId}"
+                            style="flex: 1; padding: 12px; background: #7a0000; color: white; 
+                                   border: none; border-radius: 8px; cursor: pointer;">
+                        <i class="fas fa-play"></i> Start Practice
+                    </button>
+                    <button class="btn-secondary review-lesson-btn" data-lesson-id="${contentId}"
+                            style="flex: 1; padding: 12px; background: white; color: #7a0000; 
+                                   border: 2px solid #7a0000; border-radius: 8px; cursor: pointer;">
+                        <i class="fas fa-redo"></i> Review Lesson
+                    </button>
+                </div>
+            </div>
+        `;
+    });
+    
+    container.innerHTML = html;
+    
+    // Add event listeners
+    document.querySelectorAll('.practice-lesson-btn').forEach(btn => {
+        btn.addEventListener('click', async function(e) {
+            e.stopPropagation();
+            const lessonId = this.getAttribute('data-lesson-id');
+            await loadPracticeForLesson(lessonId);
+        });
+    });
+    
+    document.querySelectorAll('.review-lesson-btn').forEach(btn => {
+        btn.addEventListener('click', function(e) {
+            e.stopPropagation();
+            const lessonId = this.getAttribute('data-lesson-id');
+            openLesson(lessonId);
+        });
+    });
+}
+// ============================================
+// ✅ Load MathEase Lessons from Database
+// ============================================
+async function loadMathEaseLessons() {
+    console.log('📚 Loading MathEase lessons from database...');
+    
+    const container = document.getElementById('topicsContainer');
+    if (!container) return;
+    
+    try {
+        const token = localStorage.getItem('authToken') || authToken;
+        if (!token) {
+            container.innerHTML = '<div class="error">Please login first</div>';
+            return;
+        }
+        
+        // Fetch lessons for MathEase (lesson_id=1)
+        const response = await fetch('/api/lessons-db/complete?lesson_id=1', {
+            headers: { 
+                'Authorization': `Bearer ${token}`,
+                'Accept': 'application/json'
+            }
+        });
+        
+        if (!response.ok) {
+            throw new Error(`HTTP ${response.status}`);
+        }
+        
+        const data = await response.json();
+        console.log('📥 Lessons from database:', data);
+        
+        if (data.success && data.lessons && data.lessons.length > 0) {
+            // Fetch progress for these lessons
+            const progressResponse = await fetch('/api/progress/lessons?lesson_id=1', {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            
+            let progressMap = {};
+            if (progressResponse.ok) {
+                const progressData = await progressResponse.json();
+                if (progressData.success && progressData.progress) {
+                    progressData.progress.forEach(p => {
+                        progressMap[p.content_id] = {
+                            percentage: p.percentage || 0,
+                            status: p.completion_status || 'not_started'
+                        };
+                    });
+                }
+            }
+            
+            // Display lessons
+            displayMathEaseLessons(data.lessons, progressMap);
+            
+            // Update unlocked count
+            const unlockedCount = document.getElementById('unlockedCount');
+            if (unlockedCount) {
+                unlockedCount.textContent = data.lessons.length;
+            }
+            
+        } else {
+            container.innerHTML = `
+                <div class="no-data" style="text-align: center; padding: 40px;">
+                    <i class="fas fa-database" style="font-size: 48px; color: #ccc;"></i>
+                    <h3>No MathEase Lessons Found</h3>
+                    <p>Please add lessons to the database first.</p>
+                </div>
+            `;
+        }
+        
+    } catch (error) {
+        console.error('❌ Error loading lessons:', error);
+        container.innerHTML = `
+            <div class="error" style="text-align: center; padding: 40px;">
+                <i class="fas fa-exclamation-triangle" style="font-size: 48px; color: #e74c3c;"></i>
+                <h3>Failed to Load Lessons</h3>
+                <p>${error.message}</p>
+            </div>
+        `;
+    }
+}
 // ============================================
 // ✅ Display exercises for a lesson
 // ============================================
@@ -11539,7 +11769,7 @@ async function checkQuizAccess(quizId) {
 
 
 // ============================================
-// START QUIZ - FIXED VERSION
+// ✅ FIXED: Start Quiz - DATABASE ONLY
 // ============================================
 async function startQuizSystem(quizId) {
     console.log("🎯 Starting QUIZ ID:", quizId);
@@ -11554,125 +11784,144 @@ async function startQuizSystem(quizId) {
         }
         
         const user = JSON.parse(userJson);
-        console.log(`👤 User ID: ${user.id}`);
         
-        // Show loading in modal
+        // Show loading
         showQuizModalLoading();
         
-        // STEP 1: Get quiz details first (to check if it exists)
-        console.log('🔍 Fetching quiz details...');
-        const quizResponse = await fetch(`/api/quizzes/${quizId}`, {
-            headers: {
-                'Authorization': `Bearer ${token}`,
-                'Content-Type': 'application/json'
+        // Try to start quiz attempt
+        let attempt = null;
+        let questions = [];
+        
+        // Method 1: Try to start quiz via API
+        try {
+            const attemptResponse = await fetch(`/api/quiz/${quizId}/start`, {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ user_id: user.id })
+            });
+            
+            if (attemptResponse.ok) {
+                const attemptData = await attemptResponse.json();
+                if (attemptData.success && attemptData.attempt) {
+                    attempt = attemptData.attempt;
+                }
             }
-        });
+        } catch (e) {
+            console.log('⚠️ Could not start quiz via API:', e.message);
+        }
         
-        if (!quizResponse.ok) {
-            console.error('❌ Quiz not found or error:', quizResponse.status);
+        // If no attempt, create local attempt
+        if (!attempt) {
+            attempt = {
+                attempt_id: Date.now(),
+                quiz_id: quizId,
+                user_id: user.id,
+                start_time: new Date().toISOString()
+            };
+        }
+        
+        // Method 2: Try to fetch questions
+        try {
+            const questionsResponse = await fetch(`/api/quiz/${quizId}/questions?lesson_id=1`, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
             
-            // Try to get from localStorage as fallback
-            const localQuiz = getLocalQuiz(quizId);
-            if (localQuiz) {
-                console.log('📦 Using local quiz data');
-                return startQuizWithLocalData(localQuiz, user.id);
+            if (questionsResponse.ok) {
+                const questionsData = await questionsResponse.json();
+                if (questionsData.success && questionsData.questions) {
+                    questions = questionsData.questions;
+                }
             }
-            
-            throw new Error(`Quiz not found (${quizResponse.status})`);
+        } catch (e) {
+            console.log('⚠️ Could not fetch questions via API:', e.message);
         }
         
-        const quizData = await quizResponse.json();
-        console.log('✅ Quiz details:', quizData);
-        
-        // STEP 2: Start quiz attempt
-        console.log('📝 Creating quiz attempt...');
-        
-        const attemptResponse = await fetch(`/api/quiz/${quizId}/start`, {
-            method: 'POST',
-            headers: {
-                'Authorization': `Bearer ${token}`,
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-                user_id: user.id
-            })
-        });
-        
-        if (!attemptResponse.ok) {
-            const errorText = await attemptResponse.text();
-            console.error('❌ Server error response:', errorText);
-            
-            // If server error, use local attempt
-            console.log('⚠️ Using local quiz attempt');
-            return startQuizWithLocalData(quizData.quiz || quizData, user.id);
+        // If no questions, show error
+        if (!questions || questions.length === 0) {
+            showNotification('No questions available for this quiz', 'error');
+            closeQuizModal();
+            return;
         }
         
-        const attemptData = await attemptResponse.json();
-        console.log('✅ Attempt response:', attemptData);
+        // Initialize quiz state
+        QuizSystem.currentQuiz = quizId;
+        QuizSystem.currentAttemptId = attempt.attempt_id;
+        QuizSystem.questions = questions;
+        QuizSystem.currentIndex = 0;
+        QuizSystem.userAnswers = {};
+        QuizSystem.startTime = Date.now();
+        QuizSystem.totalTime = questions.length * 60;
+        QuizSystem.timeLeft = QuizSystem.totalTime;
+        QuizSystem.stats = { correct: 0, wrong: 0, score: 0 };
         
-        if (!attemptData.success || !attemptData.attempt) {
-            throw new Error(attemptData.message || 'Failed to start quiz');
-        }
+        // Show quiz modal
+        showQuizSystemModal();
         
-        const attempt = attemptData.attempt;
-        console.log('✅ Quiz attempt created:', attempt);
+        // Load first question
+        loadQuizSystemQuestion(0);
         
-        // STEP 3: Fetch questions
-        console.log('📚 Fetching quiz questions...');
-        const questionsResponse = await fetch(`/api/quiz/${quizId}/questions`, {
-            headers: {
-                'Authorization': `Bearer ${token}`,
-                'Content-Type': 'application/json'
-            }
-        });
-        
-        if (!questionsResponse.ok) {
-            console.error('❌ Failed to fetch questions:', questionsResponse.status);
-            
-            // Use local questions if available
-            const localQuestions = getLocalQuestions(quizId);
-            if (localQuestions && localQuestions.length > 0) {
-                console.log('📦 Using local questions');
-                return startQuizWithQuestions(quizId, attempt.attempt_id, localQuestions);
-            }
-            
-            throw new Error(`Failed to fetch questions: ${questionsResponse.status}`);
-        }
-        
-        const questionsData = await questionsResponse.json();
-        
-        if (!questionsData.success || !questionsData.questions) {
-            throw new Error(questionsData.message || 'No questions found');
-        }
-        
-        const questions = questionsData.questions;
-        console.log(`✅ Loaded ${questions.length} questions`);
-        
-        // STEP 4: Start quiz with loaded data
-        startQuizWithQuestions(quizId, attempt.attempt_id, questions);
+        // Start timer
+        startQuizSystemTimer();
         
     } catch (error) {
         console.error('❌ Error starting quiz:', error);
         showNotification('Failed to start quiz: ' + error.message, 'error');
-        
-        // Try fallback with demo questions
-        try {
-            console.log('⚠️ Attempting fallback with demo questions');
-            const demoQuestions = getDemoQuestions(quizId);
-            if (demoQuestions && demoQuestions.length > 0) {
-                const fakeAttemptId = Date.now();
-                startQuizWithQuestions(quizId, fakeAttemptId, demoQuestions);
-                showNotification('Using demo quiz mode', 'info');
-            } else {
-                closeQuizModal();
-            }
-        } catch (fallbackError) {
-            console.error('❌ Fallback also failed:', fallbackError);
-            closeQuizModal();
-        }
+        closeQuizModal();
     }
 }
 
+// ============================================
+// 🔍 DEBUG: Check MathEase Database
+// ============================================
+window.checkMathEaseDB = async function() {
+    console.log('🔍 CHECKING MATHEASE DATABASE (lesson_id=1)');
+    console.log('==========================================');
+    
+    const token = localStorage.getItem('authToken');
+    
+    if (!token) {
+        console.error('❌ No auth token');
+        return;
+    }
+    
+    // Check lessons
+    try {
+        const lessonsRes = await fetch('/api/lessons-db/complete?lesson_id=1', {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        const lessonsData = await lessonsRes.json();
+        console.log('📚 LESSONS IN DATABASE:', lessonsData);
+    } catch (e) {
+        console.log('❌ Lessons error:', e.message);
+    }
+    
+    // Check practice exercises
+    try {
+        const practiceRes = await fetch('/api/practice/exercises?lesson_id=1', {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        const practiceData = await practiceRes.json();
+        console.log('💪 PRACTICE EXERCISES:', practiceData);
+    } catch (e) {
+        console.log('❌ Practice error:', e.message);
+    }
+    
+    // Check quizzes
+    try {
+        const quizRes = await fetch('/api/quiz/categories?lesson_id=1', {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        const quizData = await quizRes.json();
+        console.log('🧠 QUIZ CATEGORIES:', quizData);
+    } catch (e) {
+        console.log('❌ Quiz error:', e.message);
+    }
+    
+    console.log('✅ MathEase DB check complete');
+};
 function startQuizWithQuestions(quizId, attemptId, questions) {
     console.log('🚀 Starting quiz with', questions.length, 'questions');
     
@@ -21949,34 +22198,101 @@ async function loadPracticeExercises() {
     }
 }
 // ============================================
-// ✅ Updated initPracticePage
+// ✅ FIXED: Initialize Practice Page - DATABASE ONLY
 // ============================================
 async function initPracticePage() {
-    console.log('💪 Initializing MathEase practice page...');
+    console.log('💪 Initializing MathEase practice page - DATABASE ONLY');
     
     // Update date
     const practiceDate = document.getElementById('practiceDate');
     if (practiceDate) {
         const now = new Date();
         practiceDate.textContent = now.toLocaleDateString('en-US', { 
-            weekday: 'long',
-            month: 'short', 
-            day: 'numeric' 
+            weekday: 'long', month: 'short', day: 'numeric' 
         });
     }
     
-    // Force MathEase
-    localStorage.setItem('selectedApp', 'mathease');
-    localStorage.setItem('currentLessonFilter', '1');
+    // Clear any existing content
+    const topicsContainer = document.getElementById('topicsContainer');
+    const exerciseArea = document.getElementById('exerciseArea');
     
-    // Load lessons for practice (instead of topics)
-    await loadLessonsForPractice();
+    if (topicsContainer) {
+        topicsContainer.innerHTML = `
+            <div class="loading-container" style="text-align: center; padding: 40px;">
+                <i class="fas fa-spinner fa-spin" style="font-size: 40px; color: #7a0000;"></i>
+                <p>Loading MathEase lessons from database...</p>
+            </div>
+        `;
+    }
     
-    // Load practice statistics
-    await loadPracticeStatistics();
+    if (exerciseArea) {
+        exerciseArea.innerHTML = `
+            <div class="no-topic-selected">
+                <i class="fas fa-mouse-pointer"></i>
+                <h3>Select a Lesson</h3>
+                <p>Choose a lesson from the list above to start practicing</p>
+            </div>
+        `;
+    }
+    
+    try {
+        // Load lessons from database
+        await loadMathEaseLessons();
+        
+        // Load practice statistics
+        await loadPracticeStatistics();
+        
+    } catch (error) {
+        console.error('❌ Error initializing practice page:', error);
+        if (topicsContainer) {
+            topicsContainer.innerHTML = `
+                <div class="error-message" style="text-align: center; padding: 40px;">
+                    <i class="fas fa-exclamation-triangle" style="font-size: 48px; color: #e74c3c;"></i>
+                    <h3>Database Connection Error</h3>
+                    <p>${error.message}</p>
+                    <button onclick="initPracticePage()" class="btn-primary" style="margin-top: 15px;">
+                        <i class="fas fa-redo"></i> Retry
+                    </button>
+                </div>
+            `;
+        }
+    }
     
     addPracticeStyles();
 }
+// ============================================
+// FORCE MATHEASE MODE - ALWAYS LESSON_ID = 1
+// ============================================
+(function forceMathEaseMode() {
+    console.log('🔧 FORCING MATHEASE MODE - LESSON_ID = 1');
+    
+    // Override any app selection
+    localStorage.setItem('selectedApp', 'mathease');
+    localStorage.setItem('currentLessonFilter', '1');
+    localStorage.setItem('currentLessonId', '1');
+    
+    // Override the getCurrentAppLessonId function
+    window.getCurrentAppLessonId = function() {
+        return 1; // Always return 1 for MathEase
+    };
+    
+    // Override fetch to always add lesson_id=1
+    const originalFetch = window.fetch;
+    window.fetch = function(url, options) {
+        if (typeof url === 'string' && 
+            (url.includes('/api/progress/') || 
+             url.includes('/api/lessons') || 
+             url.includes('/api/practice/') ||
+             url.includes('/api/quiz/')) && 
+            !url.includes('lesson_id=')) {
+            
+            const separator = url.includes('?') ? '&' : '?';
+            url = `${url}${separator}lesson_id=1`;
+            console.log(`🔧 MathEase fetch: ${url.split('?')[0]}`);
+        }
+        return originalFetch.call(this, url, options);
+    };
+})();
 // ============================================
 // 🔍 DEBUG: Check what's being filtered
 // ============================================
