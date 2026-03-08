@@ -12691,6 +12691,9 @@ async function checkQuizAccess(quizId) {
 // ============================================
 // ✅ ULTIMATE FIX: Start Quiz System - Guaranteed timer
 // ============================================
+// ============================================
+// ✅ FIXED: Start Quiz System - Uses existing timer in quiz container
+// ============================================
 async function startQuizSystem(quizId) {
     console.log("🎯 Starting QUIZ ID:", quizId);
     
@@ -12789,18 +12792,38 @@ async function startQuizSystem(quizId) {
         // Load first question
         loadQuizSystemQuestion(0);
         
-        // CRITICAL: Create timer display IMMEDIATELY
-        createQuizTimerDisplay();
+        // REMOVED: createQuizTimerDisplay() - Don't create a new timer
+        // The timer already exists in the quiz container
+        
+        // Reset the timer display to show the full time
+        resetTimerDisplay();
         
         // Start timer after a short delay
         setTimeout(() => {
-            startQuizTimer();
-        }, 300);
+            console.log('⏱️ Starting quiz timer');
+            startQuizSystemTimer(); // Make sure this is the correct function name
+        }, 500);
         
     } catch (error) {
         console.error('❌ Error starting quiz:', error);
         showNotification('Failed to start quiz: ' + error.message, 'error');
         closeQuizModal();
+    }
+}
+// ============================================
+// ✅ Reset Timer Display - Sets the initial time
+// ============================================
+function resetTimerDisplay() {
+    console.log('⏱️ Resetting timer display');
+    
+    // Find the timer display in the quiz container
+    const timerDisplay = document.getElementById('quizTimerDisplay');
+    
+    if (timerDisplay && QuizSystem.timeLeft) {
+        const minutes = Math.floor(QuizSystem.timeLeft / 60);
+        const seconds = QuizSystem.timeLeft % 60;
+        timerDisplay.textContent = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+        console.log(`⏱️ Timer reset to: ${timerDisplay.textContent}`);
     }
 }
 // ============================================
@@ -13101,6 +13124,9 @@ async function testQuiz4() {
 // ============================================
 // SHOW QUIZ MODAL - WITH TIMER DISPLAY
 // ============================================
+// ============================================
+// SHOW QUIZ MODAL - WITHOUT HEADER TIMER
+// ============================================
 function showQuizSystemModal() {
     console.log('📱 Showing quiz modal');
     
@@ -13120,6 +13146,18 @@ function showQuizSystemModal() {
     modal.style.display = 'flex';
     document.body.classList.add('modal-open');
     
+    // Make sure quiz container is visible
+    const quizContainer = document.getElementById('quizContainer');
+    if (quizContainer) {
+        quizContainer.style.display = 'block';
+    }
+    
+    // Make sure results container is hidden
+    const resultsContainer = document.getElementById('quizResultsContainer');
+    if (resultsContainer) {
+        resultsContainer.style.display = 'none';
+    }
+    
     // ADJUST OPTIONS GRID - SCROLLABLE WITH BETTER HEIGHT
     const optionsGrid = document.getElementById('quizOptionsGridModal');
     if (optionsGrid) {
@@ -13134,8 +13172,8 @@ function showQuizSystemModal() {
         submitBtn.style.display = 'none';
     }
     
-    // Ensure timer display exists
-    setTimeout(ensureTimerDisplayExists, 100);
+    // REMOVED: setTimeout(ensureTimerDisplayExists, 100);
+    // The timer is already in the quiz container, we don't need to create it
 }
 
 // Add this to your addQuizStyles() function or create a new style block
@@ -17516,14 +17554,14 @@ function startQuizSystemTimer() {
         QuizSystem.timeLeft = QuizSystem.totalTime || (QuizSystem.questions.length * 60);
     }
     
-    // Find the timer display in the quiz container
+    // Find the timer display - try multiple selectors
     let timerDisplay = document.getElementById('quizTimerDisplay');
     
-    // If still not found, try to find it in the quiz container
+    // If not found by ID, try to find by class or in quiz container
     if (!timerDisplay) {
         const quizContainer = document.getElementById('quizContainer');
         if (quizContainer) {
-            timerDisplay = quizContainer.querySelector('#quizTimerDisplay');
+            timerDisplay = quizContainer.querySelector('.timer-display, #quizTimerDisplay, [id*="timer"]');
         }
     }
     
