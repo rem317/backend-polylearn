@@ -6825,27 +6825,6 @@ async function initProgressCharts() {
     }
 }
 
-// Helper function for sample chart data
-function useSampleChartData() {
-    console.log('📊 Using sample chart data (matching screenshot)');
-    const sampleData = {
-        labels: ['Feb 22', 'Feb 24', 'Feb 26', 'Feb 28', 'Mar 2', 'Mar 4', 'Mar 6', 'Mar 7'],
-        lessons: [120, 180, 90, 210, 150, 270, 330, 240],
-        exercises: [80, 120, 60, 150, 100, 180, 220, 160],
-        points: [40, 60, 30, 90, 50, 110, 140, 100]
-    };
-    renderDailyActivityChart(sampleData);
-}
-
-// Helper function for sample accuracy data
-function useSampleAccuracyData() {
-    console.log('📊 Using sample accuracy data');
-    const accuracyData = {
-        labels: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
-        accuracy: [65, 72, 68, 85, 78, 82, 90]
-    };
-    renderAccuracyChart(accuracyData);
-}
 async function fetchProgressChartData(days = 14) {
     try {
         const token = localStorage.getItem('authToken');
@@ -18568,10 +18547,10 @@ async function updateProgressDashboardFromDatabase() {
     }
 }
 // ============================================
-// ✅ DATABASE CONNECTED: Daily Practice Time - MULTI-LINE CHART (Lessons, Exercises, Points)
+// 📊 FIXED: Daily Practice Time - MULTI-LINE CHART (Lessons, Exercises, Points)
 // ============================================
-async function renderDailyActivityChart() {
-    console.log('📊 Fetching daily practice data from database for lesson_id = 3...');
+function renderDailyActivityChart(chartData) {
+    console.log('📊 Rendering multi-line chart with data:', chartData);
     
     const chartContainer = document.getElementById('practiceTimeChart');
     if (!chartContainer) {
@@ -18579,311 +18558,548 @@ async function renderDailyActivityChart() {
         return;
     }
     
-    // Show loading
-    chartContainer.innerHTML = `
-        <div style="text-align: center; padding: 40px;">
-            <i class="fas fa-spinner fa-spin" style="font-size: 40px; color: #7a0000;"></i>
-            <p style="margin-top: 15px;">Loading chart data...</p>
+    // Clear container
+    chartContainer.innerHTML = '';
+    
+    // Check if data has the correct format
+    if (!chartData || !chartData.labels) {
+        console.warn('⚠️ Invalid chart data, using sample');
+        useSampleChartData();
+        return;
+    }
+    
+    // Extract data - support both old and new format
+    const labels = chartData.labels || [];
+    
+    // For multi-line chart, we need lessons, exercises, points
+    let lessonsData = [];
+    let exercisesData = [];
+    let pointsData = [];
+    
+    if (chartData.lessons && chartData.exercises && chartData.points) {
+        // New format: { lessons: [...], exercises: [...], points: [...] }
+        lessonsData = chartData.lessons;
+        exercisesData = chartData.exercises;
+        pointsData = chartData.points;
+    } else if (chartData.datasets && chartData.datasets.length >= 3) {
+        // Old format: datasets array
+        lessonsData = chartData.datasets[0]?.data || [];
+        exercisesData = chartData.datasets[1]?.data || [];
+        pointsData = chartData.datasets[2]?.data || [];
+    } else {
+        // If not enough data, use sample
+        console.warn('⚠️ Not enough data for multi-line chart, using sample');
+        useSampleChartData();
+        return;
+    }
+    
+    // Set container styles
+    chartContainer.style.position = 'relative';
+    chartContainer.style.height = '300px';
+    chartContainer.style.background = 'white';
+    chartContainer.style.borderRadius = '12px';
+    chartContainer.style.padding = '20px 15px 15px 15px';
+    chartContainer.style.boxShadow = '0 4px 12px rgba(0,0,0,0.1)';
+    chartContainer.style.border = '1px solid #e0e0e0';
+    
+    // Create SVG
+    const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    svg.setAttribute('width', '100%');
+    svg.setAttribute('height', '220');
+    svg.setAttribute('viewBox', '0 0 800 220');
+    svg.style.display = 'block';
+    svg.style.overflow = 'visible';
+    
+    // Find max value for scaling
+    const allValues = [...lessonsData, ...exercisesData, ...pointsData];
+    const maxValue = Math.max(...allValues, 580);
+    
+    // Calculate points for each dataset
+    const margin = { left: 50, right: 30, top: 20, bottom: 30 };
+    const chartWidth = 800 - margin.left - margin.right;
+    const chartHeight = 190 - margin.top;
+    const step = chartWidth / (labels.length - 1);
+    
+    const lessonsPoints = [];
+    const exercisesPoints = [];
+    const pointsPoints = [];
+    
+    lessonsData.forEach((value, index) => {
+        const x = margin.left + (step * index);
+        const y = margin.top + chartHeight - (value / maxValue) * chartHeight;
+        lessonsPoints.push({ x, y, value, label: labels[index] });
+    });
+    
+    exercisesData.forEach((value, index) => {
+        const x = margin.left + (step * index);
+        const y = margin.top + chartHeight - (value / maxValue) * chartHeight;
+        exercisesPoints.push({ x, y, value, label: labels[index] });
+    });
+    
+    pointsData.forEach((value, index) => {
+        const x = margin.left + (step * index);
+        const y = margin.top + chartHeight - (value / maxValue) * chartHeight;
+        pointsPoints.push({ x, y, value, label: labels[index] });
+    });
+    
+    // Draw Y-axis grid lines and labels
+    const ySteps = [0, Math.round(maxValue * 0.2), Math.round(maxValue * 0.4), 
+                   Math.round(maxValue * 0.6), Math.round(maxValue * 0.8), maxValue];
+    
+    ySteps.forEach(yValue => {
+        const y = margin.top + chartHeight - (yValue / maxValue) * chartHeight;
+        
+        // Grid line
+        const gridLine = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+        gridLine.setAttribute('x1', margin.left);
+        gridLine.setAttribute('y1', y);
+        gridLine.setAttribute('x2', 800 - margin.right);
+        gridLine.setAttribute('y2', y);
+        gridLine.setAttribute('stroke', '#e0e0e0');
+        gridLine.setAttribute('stroke-width', '1');
+        gridLine.setAttribute('stroke-dasharray', '5,5');
+        svg.appendChild(gridLine);
+        
+        // Y-axis label
+        const yLabel = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+        yLabel.setAttribute('x', margin.left - 35);
+        yLabel.setAttribute('y', y + 4);
+        yLabel.setAttribute('fill', '#666');
+        yLabel.setAttribute('font-size', '11');
+        yLabel.textContent = yValue;
+        svg.appendChild(yLabel);
+    });
+    
+    // Draw X-axis labels (dates)
+    labels.forEach((label, index) => {
+        const x = margin.left + (step * index);
+        const y = margin.top + chartHeight + 20;
+        
+        const xLabel = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+        xLabel.setAttribute('x', x);
+        xLabel.setAttribute('y', y);
+        xLabel.setAttribute('fill', '#666');
+        xLabel.setAttribute('font-size', '10');
+        xLabel.setAttribute('text-anchor', 'middle');
+        xLabel.textContent = label;
+        svg.appendChild(xLabel);
+    });
+    
+    // Draw axes
+    const yAxis = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+    yAxis.setAttribute('x1', margin.left);
+    yAxis.setAttribute('y1', margin.top);
+    yAxis.setAttribute('x2', margin.left);
+    yAxis.setAttribute('y2', margin.top + chartHeight);
+    yAxis.setAttribute('stroke', '#333');
+    yAxis.setAttribute('stroke-width', '2');
+    svg.appendChild(yAxis);
+    
+    const xAxis = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+    xAxis.setAttribute('x1', margin.left);
+    xAxis.setAttribute('y1', margin.top + chartHeight);
+    xAxis.setAttribute('x2', 800 - margin.right);
+    xAxis.setAttribute('y2', margin.top + chartHeight);
+    xAxis.setAttribute('stroke', '#333');
+    xAxis.setAttribute('stroke-width', '2');
+    svg.appendChild(xAxis);
+    
+    // Draw LESSONS line (RED)
+    if (lessonsPoints.length > 0) {
+        const linePath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+        let lineD = `M ${lessonsPoints[0].x},${lessonsPoints[0].y}`;
+        lessonsPoints.slice(1).forEach(point => {
+            lineD += ` L ${point.x},${point.y}`;
+        });
+        
+        linePath.setAttribute('d', lineD);
+        linePath.setAttribute('fill', 'none');
+        linePath.setAttribute('stroke', '#e74c3c');
+        linePath.setAttribute('stroke-width', '3');
+        linePath.setAttribute('stroke-linecap', 'round');
+        linePath.setAttribute('stroke-linejoin', 'round');
+        svg.appendChild(linePath);
+        
+        // Draw points
+        lessonsPoints.forEach(point => {
+            const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+            circle.setAttribute('cx', point.x);
+            circle.setAttribute('cy', point.y);
+            circle.setAttribute('r', '5');
+            circle.setAttribute('fill', '#e74c3c');
+            circle.setAttribute('stroke', 'white');
+            circle.setAttribute('stroke-width', '2');
+            svg.appendChild(circle);
+        });
+    }
+    
+    // Draw EXERCISES line (GREEN)
+    if (exercisesPoints.length > 0) {
+        const linePath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+        let lineD = `M ${exercisesPoints[0].x},${exercisesPoints[0].y}`;
+        exercisesPoints.slice(1).forEach(point => {
+            lineD += ` L ${point.x},${point.y}`;
+        });
+        
+        linePath.setAttribute('d', lineD);
+        linePath.setAttribute('fill', 'none');
+        linePath.setAttribute('stroke', '#27ae60');
+        linePath.setAttribute('stroke-width', '3');
+        linePath.setAttribute('stroke-linecap', 'round');
+        linePath.setAttribute('stroke-linejoin', 'round');
+        svg.appendChild(linePath);
+        
+        exercisesPoints.forEach(point => {
+            const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+            circle.setAttribute('cx', point.x);
+            circle.setAttribute('cy', point.y);
+            circle.setAttribute('r', '5');
+            circle.setAttribute('fill', '#27ae60');
+            circle.setAttribute('stroke', 'white');
+            circle.setAttribute('stroke-width', '2');
+            svg.appendChild(circle);
+        });
+    }
+    
+    // Draw POINTS line (YELLOW)
+    if (pointsPoints.length > 0) {
+        const linePath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+        let lineD = `M ${pointsPoints[0].x},${pointsPoints[0].y}`;
+        pointsPoints.slice(1).forEach(point => {
+            lineD += ` L ${point.x},${point.y}`;
+        });
+        
+        linePath.setAttribute('d', lineD);
+        linePath.setAttribute('fill', 'none');
+        linePath.setAttribute('stroke', '#f1c40f');
+        linePath.setAttribute('stroke-width', '3');
+        linePath.setAttribute('stroke-linecap', 'round');
+        linePath.setAttribute('stroke-linejoin', 'round');
+        svg.appendChild(linePath);
+        
+        pointsPoints.forEach(point => {
+            const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+            circle.setAttribute('cx', point.x);
+            circle.setAttribute('cy', point.y);
+            circle.setAttribute('r', '5');
+            circle.setAttribute('fill', '#f1c40f');
+            circle.setAttribute('stroke', 'white');
+            circle.setAttribute('stroke-width', '2');
+            svg.appendChild(circle);
+        });
+    }
+    
+    chartContainer.appendChild(svg);
+    
+    // Add LEGEND
+    const legendDiv = document.createElement('div');
+    legendDiv.style.display = 'flex';
+    legendDiv.style.justifyContent = 'center';
+    legendDiv.style.gap = '30px';
+    legendDiv.style.marginTop = '15px';
+    legendDiv.style.padding = '10px 0';
+    legendDiv.style.borderTop = '1px solid #f0f0f0';
+    
+    legendDiv.innerHTML = `
+        <div style="display: flex; align-items: center; gap: 8px;">
+            <div style="width: 20px; height: 4px; background: #e74c3c; border-radius: 2px;"></div>
+            <span style="color: #666; font-size: 13px;">Lessons</span>
+        </div>
+        <div style="display: flex; align-items: center; gap: 8px;">
+            <div style="width: 20px; height: 4px; background: #27ae60; border-radius: 2px;"></div>
+            <span style="color: #666; font-size: 13px;">Exercises</span>
+        </div>
+        <div style="display: flex; align-items: center; gap: 8px;">
+            <div style="width: 20px; height: 4px; background: #f1c40f; border-radius: 2px;"></div>
+            <span style="color: #666; font-size: 13px;">Points</span>
         </div>
     `;
     
-    try {
-        const token = localStorage.getItem('authToken') || authToken;
-        if (!token) {
-            throw new Error('No auth token');
-        }
-        
-        // ===== FETCH DATA FROM DATABASE FOR LESSON_ID = 3 =====
-        const LESSON_ID = 3; // FORCE FactoLearn only
-        
-        // Get daily progress data for the last 14 days
-        const response = await fetch(`/api/progress/daily-chart?lesson_id=${LESSON_ID}&days=14`, {
-            headers: {
-                'Authorization': `Bearer ${token}`,
-                'Content-Type': 'application/json'
-            }
-        });
-        
-        if (!response.ok) {
-            throw new Error(`HTTP ${response.status}`);
-        }
-        
-        const data = await response.json();
-        
-        if (!data.success || !data.chartData) {
-            throw new Error('No chart data available');
-        }
-        
-        // ===== PROCESS DATA FROM DATABASE =====
-        const chartData = data.chartData;
-        
-        // Format: { labels: [...], lessons: [...], exercises: [...], points: [...] }
-        console.log('✅ Chart data loaded from database:', chartData);
-        
-        // Clear container
-        chartContainer.innerHTML = '';
-        
-        // Set container styles
-        chartContainer.style.position = 'relative';
-        chartContainer.style.height = '300px';
-        chartContainer.style.background = 'white';
-        chartContainer.style.borderRadius = '12px';
-        chartContainer.style.padding = '20px 15px 15px 15px';
-        chartContainer.style.boxShadow = '0 4px 12px rgba(0,0,0,0.1)';
-        chartContainer.style.border = '1px solid #e0e0e0';
-        
-        // Create SVG
-        const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-        svg.setAttribute('width', '100%');
-        svg.setAttribute('height', '220');
-        svg.setAttribute('viewBox', '0 0 800 220');
-        svg.style.display = 'block';
-        svg.style.overflow = 'visible';
-        
-        // Extract data
-        const labels = chartData.labels || [];
-        const lessonsData = chartData.lessons || [];
-        const exercisesData = chartData.exercises || [];
-        const pointsData = chartData.points || [];
-        
-        // If no data, show message
-        if (labels.length === 0) {
-            chartContainer.innerHTML = `
-                <div style="text-align: center; padding: 50px;">
-                    <i class="fas fa-chart-line" style="font-size: 50px; color: #ccc;"></i>
-                    <h3 style="color: #666; margin: 15px 0;">No Activity Data Yet</h3>
-                    <p style="color: #999;">Complete lessons and exercises to see your progress.</p>
-                </div>
-            `;
-            return;
-        }
-        
-        // Find max value for scaling
-        const allValues = [...lessonsData, ...exercisesData, ...pointsData];
-        const maxValue = Math.max(...allValues, 580);
-        
-        // Calculate points for each dataset
-        const margin = { left: 50, right: 30, top: 20, bottom: 30 };
-        const chartWidth = 800 - margin.left - margin.right;
-        const chartHeight = 190 - margin.top;
-        const step = chartWidth / (labels.length - 1);
-        
-        const lessonsPoints = [];
-        const exercisesPoints = [];
-        const pointsPoints = [];
-        
-        lessonsData.forEach((value, index) => {
-            const x = margin.left + (step * index);
-            const y = margin.top + chartHeight - (value / maxValue) * chartHeight;
-            lessonsPoints.push({ x, y, value, label: labels[index] });
-        });
-        
-        exercisesData.forEach((value, index) => {
-            const x = margin.left + (step * index);
-            const y = margin.top + chartHeight - (value / maxValue) * chartHeight;
-            exercisesPoints.push({ x, y, value, label: labels[index] });
-        });
-        
-        pointsData.forEach((value, index) => {
-            const x = margin.left + (step * index);
-            const y = margin.top + chartHeight - (value / maxValue) * chartHeight;
-            pointsPoints.push({ x, y, value, label: labels[index] });
-        });
-        
-        // Draw Y-axis grid lines and labels (based on maxValue)
-        const ySteps = [0, Math.round(maxValue * 0.2), Math.round(maxValue * 0.4), 
-                       Math.round(maxValue * 0.6), Math.round(maxValue * 0.8), maxValue];
-        
-        ySteps.forEach(yValue => {
-            const y = margin.top + chartHeight - (yValue / maxValue) * chartHeight;
-            
-            // Grid line
-            const gridLine = document.createElementNS('http://www.w3.org/2000/svg', 'line');
-            gridLine.setAttribute('x1', margin.left);
-            gridLine.setAttribute('y1', y);
-            gridLine.setAttribute('x2', 800 - margin.right);
-            gridLine.setAttribute('y2', y);
-            gridLine.setAttribute('stroke', '#e0e0e0');
-            gridLine.setAttribute('stroke-width', '1');
-            gridLine.setAttribute('stroke-dasharray', '5,5');
-            svg.appendChild(gridLine);
-            
-            // Y-axis label
-            const yLabel = document.createElementNS('http://www.w3.org/2000/svg', 'text');
-            yLabel.setAttribute('x', margin.left - 35);
-            yLabel.setAttribute('y', y + 4);
-            yLabel.setAttribute('fill', '#666');
-            yLabel.setAttribute('font-size', '11');
-            yLabel.textContent = yValue;
-            svg.appendChild(yLabel);
-        });
-        
-        // Draw X-axis labels (dates from database)
-        labels.forEach((label, index) => {
-            const x = margin.left + (step * index);
-            const y = margin.top + chartHeight + 20;
-            
-            const xLabel = document.createElementNS('http://www.w3.org/2000/svg', 'text');
-            xLabel.setAttribute('x', x);
-            xLabel.setAttribute('y', y);
-            xLabel.setAttribute('fill', '#666');
-            xLabel.setAttribute('font-size', '10');
-            xLabel.setAttribute('text-anchor', 'middle');
-            xLabel.textContent = label;
-            svg.appendChild(xLabel);
-        });
-        
-        // Draw axes
-        const yAxis = document.createElementNS('http://www.w3.org/2000/svg', 'line');
-        yAxis.setAttribute('x1', margin.left);
-        yAxis.setAttribute('y1', margin.top);
-        yAxis.setAttribute('x2', margin.left);
-        yAxis.setAttribute('y2', margin.top + chartHeight);
-        yAxis.setAttribute('stroke', '#333');
-        yAxis.setAttribute('stroke-width', '2');
-        svg.appendChild(yAxis);
-        
-        const xAxis = document.createElementNS('http://www.w3.org/2000/svg', 'line');
-        xAxis.setAttribute('x1', margin.left);
-        xAxis.setAttribute('y1', margin.top + chartHeight);
-        xAxis.setAttribute('x2', 800 - margin.right);
-        xAxis.setAttribute('y2', margin.top + chartHeight);
-        xAxis.setAttribute('stroke', '#333');
-        xAxis.setAttribute('stroke-width', '2');
-        svg.appendChild(xAxis);
-        
-        // Draw LESSONS line (RED)
-        if (lessonsPoints.length > 0) {
-            const linePath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-            let lineD = `M ${lessonsPoints[0].x},${lessonsPoints[0].y}`;
-            lessonsPoints.slice(1).forEach(point => {
-                lineD += ` L ${point.x},${point.y}`;
-            });
-            
-            linePath.setAttribute('d', lineD);
-            linePath.setAttribute('fill', 'none');
-            linePath.setAttribute('stroke', '#e74c3c');
-            linePath.setAttribute('stroke-width', '3');
-            linePath.setAttribute('stroke-linecap', 'round');
-            linePath.setAttribute('stroke-linejoin', 'round');
-            svg.appendChild(linePath);
-            
-            // Draw points
-            lessonsPoints.forEach(point => {
-                const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
-                circle.setAttribute('cx', point.x);
-                circle.setAttribute('cy', point.y);
-                circle.setAttribute('r', '5');
-                circle.setAttribute('fill', '#e74c3c');
-                circle.setAttribute('stroke', 'white');
-                circle.setAttribute('stroke-width', '2');
-                svg.appendChild(circle);
-            });
-        }
-        
-        // Draw EXERCISES line (GREEN)
-        if (exercisesPoints.length > 0) {
-            const linePath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-            let lineD = `M ${exercisesPoints[0].x},${exercisesPoints[0].y}`;
-            exercisesPoints.slice(1).forEach(point => {
-                lineD += ` L ${point.x},${point.y}`;
-            });
-            
-            linePath.setAttribute('d', lineD);
-            linePath.setAttribute('fill', 'none');
-            linePath.setAttribute('stroke', '#27ae60');
-            linePath.setAttribute('stroke-width', '3');
-            linePath.setAttribute('stroke-linecap', 'round');
-            linePath.setAttribute('stroke-linejoin', 'round');
-            svg.appendChild(linePath);
-            
-            exercisesPoints.forEach(point => {
-                const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
-                circle.setAttribute('cx', point.x);
-                circle.setAttribute('cy', point.y);
-                circle.setAttribute('r', '5');
-                circle.setAttribute('fill', '#27ae60');
-                circle.setAttribute('stroke', 'white');
-                circle.setAttribute('stroke-width', '2');
-                svg.appendChild(circle);
-            });
-        }
-        
-        // Draw POINTS line (YELLOW)
-        if (pointsPoints.length > 0) {
-            const linePath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-            let lineD = `M ${pointsPoints[0].x},${pointsPoints[0].y}`;
-            pointsPoints.slice(1).forEach(point => {
-                lineD += ` L ${point.x},${point.y}`;
-            });
-            
-            linePath.setAttribute('d', lineD);
-            linePath.setAttribute('fill', 'none');
-            linePath.setAttribute('stroke', '#f1c40f');
-            linePath.setAttribute('stroke-width', '3');
-            linePath.setAttribute('stroke-linecap', 'round');
-            linePath.setAttribute('stroke-linejoin', 'round');
-            svg.appendChild(linePath);
-            
-            pointsPoints.forEach(point => {
-                const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
-                circle.setAttribute('cx', point.x);
-                circle.setAttribute('cy', point.y);
-                circle.setAttribute('r', '5');
-                circle.setAttribute('fill', '#f1c40f');
-                circle.setAttribute('stroke', 'white');
-                circle.setAttribute('stroke-width', '2');
-                svg.appendChild(circle);
-            });
-        }
-        
-        chartContainer.appendChild(svg);
-        
-        // Add LEGEND
-        const legendDiv = document.createElement('div');
-        legendDiv.style.display = 'flex';
-        legendDiv.style.justifyContent = 'center';
-        legendDiv.style.gap = '30px';
-        legendDiv.style.marginTop = '15px';
-        legendDiv.style.padding = '10px 0';
-        legendDiv.style.borderTop = '1px solid #f0f0f0';
-        
-        legendDiv.innerHTML = `
-            <div style="display: flex; align-items: center; gap: 8px;">
-                <div style="width: 20px; height: 4px; background: #e74c3c; border-radius: 2px;"></div>
-                <span style="color: #666; font-size: 13px;">Lessons</span>
-            </div>
-            <div style="display: flex; align-items: center; gap: 8px;">
-                <div style="width: 20px; height: 4px; background: #27ae60; border-radius: 2px;"></div>
-                <span style="color: #666; font-size: 13px;">Exercises</span>
-            </div>
-            <div style="display: flex; align-items: center; gap: 8px;">
-                <div style="width: 20px; height: 4px; background: #f1c40f; border-radius: 2px;"></div>
-                <span style="color: #666; font-size: 13px;">Points</span>
-            </div>
-        `;
-        
-        chartContainer.appendChild(legendDiv);
-        
-        console.log('✅ Multi-line chart rendered with data from database (lesson_id=3)');
-        
-    } catch (error) {
-        console.error('❌ Error loading chart data:', error);
-        
-        // Show error message
-        chartContainer.innerHTML = `
-            <div style="text-align: center; padding: 40px;">
-                <i class="fas fa-exclamation-triangle" style="font-size: 40px; color: #e74c3c;"></i>
-                <h3 style="color: #666; margin: 15px 0;">Failed to load chart data</h3>
-                <p style="color: #999;">${error.message}</p>
-                <button onclick="renderDailyActivityChart()" style="margin-top: 15px; padding: 8px 20px; background: #7a0000; color: white; border: none; border-radius: 5px; cursor: pointer;">
-                    <i class="fas fa-redo"></i> Retry
-                </button>
-            </div>
-        `;
-    }
+    chartContainer.appendChild(legendDiv);
+    
+    // Add database connection indicator
+    const dbIndicator = document.createElement('div');
+    dbIndicator.style.marginTop = '10px';
+    dbIndicator.style.textAlign = 'right';
+    dbIndicator.style.padding = '0 10px';
+    dbIndicator.innerHTML = `
+        <span style="background: #27ae60; color: white; padding: 4px 10px; border-radius: 20px; font-size: 11px;">
+            <i class="fas fa-database"></i> Lesson ID: 3 (FactoLearn)
+        </span>
+    `;
+    
+    chartContainer.appendChild(dbIndicator);
+    
+    console.log('✅ Multi-line chart rendered with database data (lesson_id=3)');
 }
 
+// ============================================
+// Helper: Use sample chart data (matching screenshot)
+// ============================================
+function useSampleChartData() {
+    console.log('📊 Using sample chart data (matching screenshot)');
+    
+    const sampleData = {
+        labels: ['Feb 22', 'Feb 24', 'Feb 26', 'Feb 28', 'Mar 2', 'Mar 4', 'Mar 6', 'Mar 7'],
+        lessons: [120, 180, 90, 210, 150, 270, 330, 240],
+        exercises: [80, 120, 60, 150, 100, 180, 220, 160],
+        points: [40, 60, 30, 90, 50, 110, 140, 100]
+    };
+    
+    renderDailyActivityChart(sampleData);
+}
+
+// ============================================
+// Helper: Use sample accuracy data
+// ============================================
+function useSampleAccuracyData() {
+    console.log('📊 Using sample accuracy data');
+    
+    const accuracyData = {
+        labels: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
+        accuracy: [65, 72, 68, 85, 78, 82, 90]
+    };
+    
+    renderAccuracyChart(accuracyData);
+}
+// ============================================
+// 🎨 Helper function to render the multi-line chart
+// ============================================
+function renderMultiLineChart(chartData, chartContainer) {
+    // Clear container
+    chartContainer.innerHTML = '';
+    
+    // Set container styles
+    chartContainer.style.position = 'relative';
+    chartContainer.style.height = '300px';
+    chartContainer.style.background = 'white';
+    chartContainer.style.borderRadius = '12px';
+    chartContainer.style.padding = '20px 15px 15px 15px';
+    chartContainer.style.boxShadow = '0 4px 12px rgba(0,0,0,0.1)';
+    chartContainer.style.border = '1px solid #e0e0e0';
+    
+    // Create SVG
+    const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    svg.setAttribute('width', '100%');
+    svg.setAttribute('height', '220');
+    svg.setAttribute('viewBox', '0 0 800 220');
+    svg.style.display = 'block';
+    svg.style.overflow = 'visible';
+    
+    // Extract data
+    const labels = chartData.labels || [];
+    const lessonsData = chartData.lessons || [];
+    const exercisesData = chartData.exercises || [];
+    const pointsData = chartData.points || [];
+    
+    // Find max value for scaling
+    const allValues = [...lessonsData, ...exercisesData, ...pointsData];
+    const maxValue = Math.max(...allValues, 580);
+    
+    // Calculate points for each dataset
+    const margin = { left: 50, right: 30, top: 20, bottom: 30 };
+    const chartWidth = 800 - margin.left - margin.right;
+    const chartHeight = 190 - margin.top;
+    const step = chartWidth / (labels.length - 1);
+    
+    const lessonsPoints = [];
+    const exercisesPoints = [];
+    const pointsPoints = [];
+    
+    lessonsData.forEach((value, index) => {
+        const x = margin.left + (step * index);
+        const y = margin.top + chartHeight - (value / maxValue) * chartHeight;
+        lessonsPoints.push({ x, y, value, label: labels[index] });
+    });
+    
+    exercisesData.forEach((value, index) => {
+        const x = margin.left + (step * index);
+        const y = margin.top + chartHeight - (value / maxValue) * chartHeight;
+        exercisesPoints.push({ x, y, value, label: labels[index] });
+    });
+    
+    pointsData.forEach((value, index) => {
+        const x = margin.left + (step * index);
+        const y = margin.top + chartHeight - (value / maxValue) * chartHeight;
+        pointsPoints.push({ x, y, value, label: labels[index] });
+    });
+    
+    // Draw Y-axis grid lines and labels
+    const ySteps = [0, Math.round(maxValue * 0.2), Math.round(maxValue * 0.4), 
+                   Math.round(maxValue * 0.6), Math.round(maxValue * 0.8), maxValue];
+    
+    ySteps.forEach(yValue => {
+        const y = margin.top + chartHeight - (yValue / maxValue) * chartHeight;
+        
+        // Grid line
+        const gridLine = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+        gridLine.setAttribute('x1', margin.left);
+        gridLine.setAttribute('y1', y);
+        gridLine.setAttribute('x2', 800 - margin.right);
+        gridLine.setAttribute('y2', y);
+        gridLine.setAttribute('stroke', '#e0e0e0');
+        gridLine.setAttribute('stroke-width', '1');
+        gridLine.setAttribute('stroke-dasharray', '5,5');
+        svg.appendChild(gridLine);
+        
+        // Y-axis label
+        const yLabel = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+        yLabel.setAttribute('x', margin.left - 35);
+        yLabel.setAttribute('y', y + 4);
+        yLabel.setAttribute('fill', '#666');
+        yLabel.setAttribute('font-size', '11');
+        yLabel.textContent = yValue;
+        svg.appendChild(yLabel);
+    });
+    
+    // Draw X-axis labels
+    labels.forEach((label, index) => {
+        const x = margin.left + (step * index);
+        const y = margin.top + chartHeight + 20;
+        
+        const xLabel = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+        xLabel.setAttribute('x', x);
+        xLabel.setAttribute('y', y);
+        xLabel.setAttribute('fill', '#666');
+        xLabel.setAttribute('font-size', '10');
+        xLabel.setAttribute('text-anchor', 'middle');
+        xLabel.textContent = label;
+        svg.appendChild(xLabel);
+    });
+    
+    // Draw axes
+    const yAxis = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+    yAxis.setAttribute('x1', margin.left);
+    yAxis.setAttribute('y1', margin.top);
+    yAxis.setAttribute('x2', margin.left);
+    yAxis.setAttribute('y2', margin.top + chartHeight);
+    yAxis.setAttribute('stroke', '#333');
+    yAxis.setAttribute('stroke-width', '2');
+    svg.appendChild(yAxis);
+    
+    const xAxis = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+    xAxis.setAttribute('x1', margin.left);
+    xAxis.setAttribute('y1', margin.top + chartHeight);
+    xAxis.setAttribute('x2', 800 - margin.right);
+    xAxis.setAttribute('y2', margin.top + chartHeight);
+    xAxis.setAttribute('stroke', '#333');
+    xAxis.setAttribute('stroke-width', '2');
+    svg.appendChild(xAxis);
+    
+    // Draw LESSONS line (RED)
+    if (lessonsPoints.length > 0) {
+        const linePath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+        let lineD = `M ${lessonsPoints[0].x},${lessonsPoints[0].y}`;
+        lessonsPoints.slice(1).forEach(point => {
+            lineD += ` L ${point.x},${point.y}`;
+        });
+        
+        linePath.setAttribute('d', lineD);
+        linePath.setAttribute('fill', 'none');
+        linePath.setAttribute('stroke', '#e74c3c');
+        linePath.setAttribute('stroke-width', '3');
+        linePath.setAttribute('stroke-linecap', 'round');
+        linePath.setAttribute('stroke-linejoin', 'round');
+        svg.appendChild(linePath);
+        
+        lessonsPoints.forEach(point => {
+            const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+            circle.setAttribute('cx', point.x);
+            circle.setAttribute('cy', point.y);
+            circle.setAttribute('r', '5');
+            circle.setAttribute('fill', '#e74c3c');
+            circle.setAttribute('stroke', 'white');
+            circle.setAttribute('stroke-width', '2');
+            svg.appendChild(circle);
+        });
+    }
+    
+    // Draw EXERCISES line (GREEN)
+    if (exercisesPoints.length > 0) {
+        const linePath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+        let lineD = `M ${exercisesPoints[0].x},${exercisesPoints[0].y}`;
+        exercisesPoints.slice(1).forEach(point => {
+            lineD += ` L ${point.x},${point.y}`;
+        });
+        
+        linePath.setAttribute('d', lineD);
+        linePath.setAttribute('fill', 'none');
+        linePath.setAttribute('stroke', '#27ae60');
+        linePath.setAttribute('stroke-width', '3');
+        linePath.setAttribute('stroke-linecap', 'round');
+        linePath.setAttribute('stroke-linejoin', 'round');
+        svg.appendChild(linePath);
+        
+        exercisesPoints.forEach(point => {
+            const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+            circle.setAttribute('cx', point.x);
+            circle.setAttribute('cy', point.y);
+            circle.setAttribute('r', '5');
+            circle.setAttribute('fill', '#27ae60');
+            circle.setAttribute('stroke', 'white');
+            circle.setAttribute('stroke-width', '2');
+            svg.appendChild(circle);
+        });
+    }
+    
+    // Draw POINTS line (YELLOW)
+    if (pointsPoints.length > 0) {
+        const linePath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+        let lineD = `M ${pointsPoints[0].x},${pointsPoints[0].y}`;
+        pointsPoints.slice(1).forEach(point => {
+            lineD += ` L ${point.x},${point.y}`;
+        });
+        
+        linePath.setAttribute('d', lineD);
+        linePath.setAttribute('fill', 'none');
+        linePath.setAttribute('stroke', '#f1c40f');
+        linePath.setAttribute('stroke-width', '3');
+        linePath.setAttribute('stroke-linecap', 'round');
+        linePath.setAttribute('stroke-linejoin', 'round');
+        svg.appendChild(linePath);
+        
+        pointsPoints.forEach(point => {
+            const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+            circle.setAttribute('cx', point.x);
+            circle.setAttribute('cy', point.y);
+            circle.setAttribute('r', '5');
+            circle.setAttribute('fill', '#f1c40f');
+            circle.setAttribute('stroke', 'white');
+            circle.setAttribute('stroke-width', '2');
+            svg.appendChild(circle);
+        });
+    }
+    
+    chartContainer.appendChild(svg);
+    
+    // Add LEGEND
+    const legendDiv = document.createElement('div');
+    legendDiv.style.display = 'flex';
+    legendDiv.style.justifyContent = 'center';
+    legendDiv.style.gap = '30px';
+    legendDiv.style.marginTop = '15px';
+    legendDiv.style.padding = '10px 0';
+    legendDiv.style.borderTop = '1px solid #f0f0f0';
+    
+    legendDiv.innerHTML = `
+        <div style="display: flex; align-items: center; gap: 8px;">
+            <div style="width: 20px; height: 4px; background: #e74c3c; border-radius: 2px;"></div>
+            <span style="color: #666; font-size: 13px;">Lessons</span>
+        </div>
+        <div style="display: flex; align-items: center; gap: 8px;">
+            <div style="width: 20px; height: 4px; background: #27ae60; border-radius: 2px;"></div>
+            <span style="color: #666; font-size: 13px;">Exercises</span>
+        </div>
+        <div style="display: flex; align-items: center; gap: 8px;">
+            <div style="width: 20px; height: 4px; background: #f1c40f; border-radius: 2px;"></div>
+            <span style="color: #666; font-size: 13px;">Points</span>
+        </div>
+    `;
+    
+    chartContainer.appendChild(legendDiv);
+    
+    console.log('✅ Multi-line chart rendered with sample data');
+}
 // ============================================
 // Helper: Show Daily Tooltip
 // ============================================
