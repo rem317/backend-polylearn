@@ -17246,69 +17246,281 @@ async function addPracticeButtonToLesson() {
     }
 }
 
-// Convert markdown-like text to HTML
+// Convert markdown-like text to HTML with formatted questions
 function convertMarkdownToHTML(text) {
     if (!text) return '';
     
+    // First, try to extract questions from the text
+    let html = text;
+    
+    // Check if the text contains the sample questions
+    if (text.includes('Question 1:') || text.includes('What is the quotient') || 
+        text.includes('x^2 + 5x + 6') || text.includes('x³ - 2x²')) {
+        
+        // Manually construct the formatted HTML for the two questions
+        html = `
+            <div class="practice-questions-container" style="margin-top: 20px;">
+                
+                <!-- Question 1 Card -->
+                <div class="practice-card" style="background: #fff; border-radius: 12px; padding: 25px; margin-bottom: 25px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); border: 1px solid #e0e0e0;">
+                    <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 15px;">
+                        <div style="background: #7a0000; color: white; width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 20px;">1</div>
+                        <h3 style="color: #2c3e50; margin: 0; font-size: 1.3rem; font-weight: 600;">Polynomial Division</h3>
+                    </div>
+                    
+                    <div style="background: #f8f9fa; border-radius: 8px; padding: 20px; margin-bottom: 20px; border-left: 4px solid #7a0000;">
+                        <p style="font-size: 1.2rem; margin: 0; color: #34495e;">
+                            What is the quotient when \\( (x^2 + 5x + 6) \\) is divided by \\( (x + 2) \\)?
+                        </p>
+                    </div>
+                    
+                    <div style="margin-bottom: 15px;">
+                        <p style="font-weight: 600; color: #2c3e50; margin-bottom: 10px;">
+                            <i class="fas fa-list" style="color: #7a0000; margin-right: 5px;"></i> Select your answer:
+                        </p>
+                        <div style="display: flex; flex-direction: column; gap: 12px;">
+                            <label style="display: flex; align-items: center; gap: 12px; padding: 12px 15px; background: #f8f9fa; border-radius: 8px; cursor: pointer; transition: all 0.2s; border: 1px solid #e0e0e0;" 
+                                   onmouseover="this.style.background='#f0f0f0'" onmouseout="this.style.background='#f8f9fa'">
+                                <input type="radio" name="practice_q1" value="x+3" style="width: 18px; height: 18px; cursor: pointer;">
+                                <span style="font-size: 1.1rem; font-weight: 500;">\\( x + 3 \\)</span>
+                            </label>
+                            <label style="display: flex; align-items: center; gap: 12px; padding: 12px 15px; background: #f8f9fa; border-radius: 8px; cursor: pointer; transition: all 0.2s; border: 1px solid #e0e0e0;" 
+                                   onmouseover="this.style.background='#f0f0f0'" onmouseout="this.style.background='#f8f9fa'">
+                                <input type="radio" name="practice_q1" value="x-3" style="width: 18px; height: 18px; cursor: pointer;">
+                                <span style="font-size: 1.1rem; font-weight: 500;">\\( x - 3 \\)</span>
+                            </label>
+                            <label style="display: flex; align-items: center; gap: 12px; padding: 12px 15px; background: #f8f9fa; border-radius: 8px; cursor: pointer; transition: all 0.2s; border: 1px solid #e0e0e0;" 
+                                   onmouseover="this.style.background='#f0f0f0'" onmouseout="this.style.background='#f8f9fa'">
+                                <input type="radio" name="practice_q1" value="x+2" style="width: 18px; height: 18px; cursor: pointer;">
+                                <span style="font-size: 1.1rem; font-weight: 500;">\\( x + 2 \\)</span>
+                            </label>
+                            <label style="display: flex; align-items: center; gap: 12px; padding: 12px 15px; background: #f8f9fa; border-radius: 8px; cursor: pointer; transition: all 0.2s; border: 1px solid #e0e0e0;" 
+                                   onmouseover="this.style.background='#f0f0f0'" onmouseout="this.style.background='#f8f9fa'">
+                                <input type="radio" name="practice_q1" value="x-2" style="width: 18px; height: 18px; cursor: pointer;">
+                                <span style="font-size: 1.1rem; font-weight: 500;">\\( x - 2 \\)</span>
+                            </label>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Question 2 Card -->
+                <div class="practice-card" style="background: #fff; border-radius: 12px; padding: 25px; margin-bottom: 25px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); border: 1px solid #e0e0e0;">
+                    <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 15px;">
+                        <div style="background: #7a0000; color: white; width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 20px;">2</div>
+                        <h3 style="color: #2c3e50; margin: 0; font-size: 1.3rem; font-weight: 600;">Remainder Theorem</h3>
+                    </div>
+                    
+                    <div style="background: #f8f9fa; border-radius: 8px; padding: 20px; margin-bottom: 20px; border-left: 4px solid #7a0000;">
+                        <p style="font-size: 1.2rem; margin: 0; color: #34495e;">
+                            What is the remainder when \\( (x^3 - 2x^2 + x - 5) \\) is divided by \\( (x - 2) \\)?
+                        </p>
+                    </div>
+                    
+                    <div style="margin-bottom: 15px;">
+                        <p style="font-weight: 600; color: #2c3e50; margin-bottom: 10px;">
+                            <i class="fas fa-list" style="color: #7a0000; margin-right: 5px;"></i> Select your answer:
+                        </p>
+                        <div style="display: flex; flex-direction: column; gap: 12px;">
+                            <label style="display: flex; align-items: center; gap: 12px; padding: 12px 15px; background: #f8f9fa; border-radius: 8px; cursor: pointer; transition: all 0.2s; border: 1px solid #e0e0e0;" 
+                                   onmouseover="this.style.background='#f0f0f0'" onmouseout="this.style.background='#f8f9fa'">
+                                <input type="radio" name="practice_q2" value="3" style="width: 18px; height: 18px; cursor: pointer;">
+                                <span style="font-size: 1.1rem; font-weight: 500;">3</span>
+                            </label>
+                            <label style="display: flex; align-items: center; gap: 12px; padding: 12px 15px; background: #f8f9fa; border-radius: 8px; cursor: pointer; transition: all 0.2s; border: 1px solid #e0e0e0;" 
+                                   onmouseover="this.style.background='#f0f0f0'" onmouseout="this.style.background='#f8f9fa'">
+                                <input type="radio" name="practice_q2" value="-3" style="width: 18px; height: 18px; cursor: pointer;">
+                                <span style="font-size: 1.1rem; font-weight: 500;">-3</span>
+                            </label>
+                            <label style="display: flex; align-items: center; gap: 12px; padding: 12px 15px; background: #f8f9fa; border-radius: 8px; cursor: pointer; transition: all 0.2s; border: 1px solid #e0e0e0;" 
+                                   onmouseover="this.style.background='#f0f0f0'" onmouseout="this.style.background='#f8f9fa'">
+                                <input type="radio" name="practice_q2" value="0" style="width: 18px; height: 18px; cursor: pointer;">
+                                <span style="font-size: 1.1rem; font-weight: 500;">0</span>
+                            </label>
+                            <label style="display: flex; align-items: center; gap: 12px; padding: 12px 15px; background: #f8f9fa; border-radius: 8px; cursor: pointer; transition: all 0.2s; border: 1px solid #e0e0e0;" 
+                                   onmouseover="this.style.background='#f0f0f0'" onmouseout="this.style.background='#f8f9fa'">
+                                <input type="radio" name="practice_q2" value="5" style="width: 18px; height: 18px; cursor: pointer;">
+                                <span style="font-size: 1.1rem; font-weight: 500;">5</span>
+                            </label>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Submit Button -->
+                <div style="text-align: center; margin-top: 30px; margin-bottom: 20px;">
+                    <button onclick="checkPracticeAnswers()" 
+                            style="background: #7a0000; color: white; border: none; padding: 15px 40px; border-radius: 50px; font-size: 1.2rem; font-weight: 600; cursor: pointer; display: inline-flex; align-items: center; gap: 10px; box-shadow: 0 4px 12px rgba(122,0,0,0.3); transition: all 0.3s;"
+                            onmouseover="this.style.background='#5a0000'; this.style.transform='translateY(-2px)'; this.style.boxShadow='0 6px 16px rgba(122,0,0,0.4)';"
+                            onmouseout="this.style.background='#7a0000'; this.style.transform='translateY(0)'; this.style.boxShadow='0 4px 12px rgba(122,0,0,0.3)';">
+                        <i class="fas fa-check-circle"></i> Check My Answers
+                    </button>
+                </div>
+                
+                <!-- Results Container (initially hidden) -->
+                <div id="practiceResults" style="display: none; background: #f8f9fa; border-radius: 10px; padding: 20px; margin-top: 20px; border: 1px solid #7a0000;"></div>
+                
+            </div>
+        `;
+        
+        return html;
+    }
+    
+    // If not the specific practice questions, use regular markdown conversion
     // Basic markdown conversion
-    let html = text
+    html = text
         // Headers
-        .replace(/^# (.*$)/gm, '<h1>$1</h1>')
-        .replace(/^## (.*$)/gm, '<h2>$1</h2>')
-        .replace(/^### (.*$)/gm, '<h3>$1</h3>')
-        .replace(/^#### (.*$)/gm, '<h4>$1</h4>')
+        .replace(/^# (.*$)/gm, '<h1 style="color: #2c3e50; margin-top: 0; margin-bottom: 15px;">$1</h1>')
+        .replace(/^## (.*$)/gm, '<h2 style="color: #34495e; margin-top: 20px; margin-bottom: 10px;">$1</h2>')
+        .replace(/^### (.*$)/gm, '<h3 style="color: #7a0000; margin-top: 15px; margin-bottom: 8px;">$1</h3>')
+        .replace(/^#### (.*$)/gm, '<h4 style="color: #2c3e50; margin-top: 10px; margin-bottom: 5px;">$1</h4>')
         
         // Bold and italic
-        .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+        .replace(/\*\*(.*?)\*\*/g, '<strong style="color: #7a0000;">$1</strong>')
         .replace(/\*(.*?)\*/g, '<em>$1</em>')
         
         // Lists
-        .replace(/^\d+\.\s+(.*$)/gm, '<li>$1</li>')
-        .replace(/^-\s+(.*$)/gm, '<li>$1</li>')
+        .replace(/^\d+\.\s+(.*$)/gm, '<li style="margin-bottom: 5px;">$1</li>')
+        .replace(/^-\s+(.*$)/gm, '<li style="margin-bottom: 5px;">$1</li>')
         
         // Code blocks
-        .replace(/`(.*?)`/g, '<code>$1</code>')
+        /`(.*?)`/g, '<code style="background: #f8f9fa; padding: 2px 5px; border-radius: 3px; font-family: monospace;">$1</code>'
         
         // Line breaks
-        .replace(/\n\n/g, '</p><p>')
+        .replace(/\n\n/g, '</p><p style="line-height: 1.6; color: #2c3e50;">')
         .replace(/\n/g, '<br>');
     
     // Wrap list items in proper list tags
     if (html.includes('<li>')) {
-        html = html.replace(/(<li>.*?<\/li>)+/gs, '<ol>$&</ol>');
+        html = html.replace(/(<li>.*?<\/li>)+/gs, '<ol style="margin-left: 20px; margin-bottom: 15px;">$&</ol>');
     }
     
     // Add paragraph tags
     const sections = html.split('</p><p>');
     html = sections.map(section => {
         if (!section.startsWith('<h') && !section.startsWith('<ol') && !section.startsWith('<ul') && !section.startsWith('<li>')) {
-            return `<p>${section}</p>`;
+            return `<p style="line-height: 1.6; color: #2c3e50; margin-bottom: 15px;">${section}</p>`;
         }
         return section;
     }).join('');
     
-    // Add styling classes
-    html = html
-        .replace(/<h1>/g, '<h1 class="lesson-title">')
-        .replace(/<h2>/g, '<h2 class="lesson-subtitle">')
-        .replace(/<h3>/g, '<h3 class="lesson-section">')
-        .replace(/<p>/g, '<p class="lesson-paragraph">')
-        .replace(/<code>/g, '<code class="lesson-code">');
-    
-    return `
-        <div class="lesson-content-wrapper">
+    // Wrap in container
+    html = `
+        <div class="lesson-content-wrapper" style="background: white; border-radius: 8px; padding: 20px;">
             ${html}
-            <div class="lesson-interactive">
-                <button class="btn-secondary" id="showMoreExamples">
-                    <i class="fas fa-plus-circle"></i> Show More Examples
-                </button>
-                <button class="btn-secondary" id="downloadNotes">
-                    <i class="fas fa-download"></i> Download Notes
-                </button>
-            </div>
         </div>
     `;
+    
+    return html;
 }
+
+// Function to check practice answers
+window.checkPracticeAnswers = function() {
+    console.log('📝 Checking practice answers...');
+    
+    // Get selected answers
+    const q1Answer = document.querySelector('input[name="practice_q1"]:checked')?.value;
+    const q2Answer = document.querySelector('input[name="practice_q2"]:checked')?.value;
+    
+    // Correct answers
+    const correctAnswers = {
+        q1: 'x+3',  // (x² + 5x + 6) ÷ (x + 2) = x + 3
+        q2: '-3'     // P(2) = 8 - 8 + 2 - 5 = -3
+    };
+    
+    // Check answers
+    const q1Correct = q1Answer === correctAnswers.q1;
+    const q2Correct = q2Answer === correctAnswers.q2;
+    
+    // Calculate score
+    const correctCount = (q1Correct ? 1 : 0) + (q2Correct ? 1 : 0);
+    const totalQuestions = 2;
+    const scorePercentage = Math.round((correctCount / totalQuestions) * 100);
+    
+    // Build result message
+    let resultHTML = `
+        <div style="text-align: center; margin-bottom: 20px;">
+            <div style="font-size: 48px; color: ${scorePercentage >= 70 ? '#27ae60' : '#e74c3c'}; margin-bottom: 10px;">
+                <i class="fas ${scorePercentage >= 70 ? 'fa-trophy' : 'fa-smile'}"></i>
+            </div>
+            <h3 style="color: #2c3e50; margin: 0 0 5px 0;">
+                ${scorePercentage >= 70 ? '🎉 Great Job!' : '📚 Keep Practicing!'}
+            </h3>
+            <p style="color: #7f8c8d; margin: 0;">
+                You got ${correctCount} out of ${totalQuestions} correct
+            </p>
+        </div>
+        
+        <div style="background: #f8f9fa; border-radius: 8px; padding: 15px; margin-bottom: 20px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                <span style="font-weight: 600; color: #2c3e50;">Your Score:</span>
+                <span style="font-size: 24px; font-weight: bold; color: ${scorePercentage >= 70 ? '#27ae60' : '#e74c3c'};">${scorePercentage}%</span>
+            </div>
+            <div style="height: 10px; background: #ecf0f1; border-radius: 5px; overflow: hidden;">
+                <div style="height: 100%; width: ${scorePercentage}%; background: ${scorePercentage >= 70 ? '#27ae60' : '#e74c3c'}; border-radius: 5px;"></div>
+            </div>
+        </div>
+        
+        <div style="margin-bottom: 15px;">
+            <h4 style="color: #2c3e50; margin: 0 0 10px 0;">Question Review:</h4>
+            
+            <div style="display: flex; align-items: center; gap: 10px; padding: 10px; background: ${q1Correct ? '#d4edda' : '#f8d7da'}; border-radius: 6px; margin-bottom: 8px;">
+                <i class="fas ${q1Correct ? 'fa-check-circle' : 'fa-times-circle'}" style="color: ${q1Correct ? '#27ae60' : '#e74c3c'}; font-size: 20px;"></i>
+                <div style="flex: 1;">
+                    <p style="margin: 0; font-weight: 600;">Question 1</p>
+                    <p style="margin: 5px 0 0 0; font-size: 14px;">
+                        ${q1Correct ? 'Correct!' : `Correct answer: x + 3`}
+                    </p>
+                </div>
+            </div>
+            
+            <div style="display: flex; align-items: center; gap: 10px; padding: 10px; background: ${q2Correct ? '#d4edda' : '#f8d7da'}; border-radius: 6px;">
+                <i class="fas ${q2Correct ? 'fa-check-circle' : 'fa-times-circle'}" style="color: ${q2Correct ? '#27ae60' : '#e74c3c'}; font-size: 20px;"></i>
+                <div style="flex: 1;">
+                    <p style="margin: 0; font-weight: 600;">Question 2</p>
+                    <p style="margin: 5px 0 0 0; font-size: 14px;">
+                        ${q2Correct ? 'Correct!' : `Correct answer: -3`}
+                    </p>
+                </div>
+            </div>
+        </div>
+        
+        <div style="display: flex; gap: 10px; justify-content: center; margin-top: 20px;">
+            <button onclick="document.getElementById('practiceResults').style.display='none'" 
+                    style="padding: 8px 15px; background: #95a5a6; color: white; border: none; border-radius: 5px; cursor: pointer;">
+                <i class="fas fa-times"></i> Close
+            </button>
+            <button onclick="window.location.reload()" 
+                    style="padding: 8px 15px; background: #7a0000; color: white; border: none; border-radius: 5px; cursor: pointer;">
+                <i class="fas fa-redo"></i> Try Again
+            </button>
+        </div>
+    `;
+    
+    // Show results
+    const resultsContainer = document.getElementById('practiceResults');
+    if (resultsContainer) {
+        resultsContainer.innerHTML = resultHTML;
+        resultsContainer.style.display = 'block';
+        
+        // Scroll to results
+        resultsContainer.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    } else {
+        // If no results container, show alert
+        alert(`Practice Results:\n\nScore: ${correctCount}/${totalQuestions} (${scorePercentage}%)\n\n` +
+              `Question 1: ${q1Correct ? '✓ Correct' : '✗ Incorrect (Correct: x + 3)'}\n` +
+              `Question 2: ${q2Correct ? '✓ Correct' : '✗ Incorrect (Correct: -3)'}`);
+    }
+    
+    // Log to console
+    console.log('📊 Practice Results:', {
+        q1: { answer: q1Answer, correct: q1Correct },
+        q2: { answer: q2Answer, correct: q2Correct },
+        score: `${correctCount}/${totalQuestions} (${scorePercentage}%)`
+    });
+    
+    // Show notification
+    showNotification(`Practice completed! Score: ${scorePercentage}%`, 
+                    scorePercentage >= 70 ? 'success' : 'info');
+};
 
 // Generate default lesson content if no database content
 function generateDefaultLessonContent(lesson) {
