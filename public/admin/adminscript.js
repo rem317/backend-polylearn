@@ -6206,6 +6206,165 @@ function addSaveButtonToModuleModal() {
     console.log("✅ Save button added to module modal");
 }
 
+// ===== LOAD QUIZ DETAILS FOR EDITING - WITH DEBUGGING =====
+async function loadQuizDetailsForEditing(quizId) {
+    console.log("📥 LOADING QUIZ DETAILS FOR EDITING:", quizId);
+    
+    try {
+        const token = localStorage.getItem('admin_token') || localStorage.getItem('authToken');
+        
+        if (!token) {
+            showNotification('error', 'Auth Error', 'Please login first');
+            return;
+        }
+        
+        // Show loading state
+        document.getElementById('quizTitle').value = 'Loading...';
+        
+        const response = await fetch(`/api/admin/quizzes/${quizId}`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        
+        console.log("📥 Response status:", response.status);
+        
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        
+        const result = await response.json();
+        
+        // ===== IMPORTANT: I-DISPLAY ANG BUONG RESPONSE =====
+        console.log("📥 FULL RESPONSE FROM SERVER:", result);
+        
+        if (result.success) {
+            const quiz = result.quiz;
+            
+            // ===== I-DISPLAY ANG EXACT STRUCTURE =====
+            console.log("📋 QUIZ OBJECT KEYS:", Object.keys(quiz));
+            console.log("📋 QUIZ DATA:", quiz);
+            
+            // ===== I-TRY ANG LAHAT NG POSIBLENG PROPERTY NAMES =====
+            const possibleTitleProps = ['title', 'quiz_title', 'name', 'quiz_name'];
+            let actualTitle = 'No title';
+            
+            for (let prop of possibleTitleProps) {
+                if (quiz[prop]) {
+                    actualTitle = quiz[prop];
+                    console.log(`✅ Found title using property: ${prop} = ${actualTitle}`);
+                    break;
+                }
+            }
+            
+            // Set edit ID
+            document.getElementById('editQuizId').value = quiz.id;
+            
+            // ===== SET TITLE - GAMITIN ANG NATUKLASAN =====
+            document.getElementById('quizTitle').value = actualTitle;
+            
+            // ===== I-SET ANG DESCRIPTION =====
+            const possibleDescProps = ['description', 'quiz_description', 'desc'];
+            let actualDesc = '';
+            
+            for (let prop of possibleDescProps) {
+                if (quiz[prop]) {
+                    actualDesc = quiz[prop];
+                    console.log(`✅ Found description using property: ${prop}`);
+                    break;
+                }
+            }
+            document.getElementById('quizDescription').value = actualDesc;
+            
+            // ===== I-SET ANG SUBJECT =====
+            const possibleSubjectProps = ['subject_id', 'category_id', 'lesson_id'];
+            for (let prop of possibleSubjectProps) {
+                if (quiz[prop]) {
+                    document.getElementById('quizSubject').value = quiz[prop];
+                    console.log(`✅ Found subject using property: ${prop} = ${quiz[prop]}`);
+                    break;
+                }
+            }
+            
+            // ===== I-SET ANG IBA PANG FIELDS =====
+            document.getElementById('quizTimeLimit').value = quiz.time_limit_minutes || quiz.time_limit || 30;
+            document.getElementById('quizPassingScore').value = quiz.passing_score || quiz.pass_score || 70;
+            document.getElementById('quizMaxAttempts').value = quiz.max_attempts || quiz.attempts_limit || 3;
+            document.getElementById('quizDifficulty').value = quiz.difficulty || 'medium';
+            document.getElementById('quizStatus').value = quiz.status || (quiz.is_active ? 'active' : 'inactive');
+            
+            // ===== LOAD TOPICS =====
+            await loadQuizTopics();
+            
+            // ===== SET TOPIC IF EXISTS =====
+            if (quiz.topic_id) {
+                setTimeout(() => {
+                    const topicSelect = document.getElementById('quizTopic');
+                    if (topicSelect) {
+                        topicSelect.value = quiz.topic_id;
+                    }
+                }, 500);
+            }
+            
+            // ===== LOAD QUESTIONS =====
+            const container = document.getElementById('questionsContainer');
+            container.innerHTML = '';
+            
+            // Check different possible question property names
+            const questions = quiz.questions || quiz.question_list || [];
+            
+            if (questions.length > 0) {
+                questions.forEach((q, index) => {
+                    addQuestionField();
+                    
+                    setTimeout(() => {
+                        const qNum = index + 1;
+                        
+                        // Set question text
+                        const questionText = q.question_text || q.text || q.question || '';
+                        const questionInput = document.getElementById(`q_${qNum}_text`);
+                        if (questionInput) questionInput.value = questionText;
+                        
+                        // Get options
+                        const options = q.options || q.choices || [];
+                        
+                        if (options.length > 0) {
+                            const letters = ['a', 'b', 'c', 'd', 'e', 'f'];
+                            
+                            options.forEach((opt, optIndex) => {
+                                const letter = letters[optIndex];
+                                if (!letter) return;
+                                
+                                // Option text
+                                const optText = opt.option_text || opt.text || opt.value || '';
+                                const optInput = document.getElementById(`q_${qNum}_opt_${letter}`);
+                                if (optInput) optInput.value = optText;
+                                
+                                // Correct answer
+                                const isCorrect = opt.is_correct || opt.correct || (optIndex === 0 && options.length > 0);
+                                if (isCorrect) {
+                                    const radio = document.querySelector(`input[name="q_${qNum}_correct"][value="${letter}"]`);
+                                    if (radio) radio.checked = true;
+                                }
+                            });
+                        }
+                    }, 100 * (index + 1));
+                });
+                
+                showNotification('success', 'Loaded', `${questions.length} questions loaded`);
+            } else {
+                addQuestionField();
+            }
+            
+        } else {
+            throw new Error(result.message || 'Failed to load quiz');
+        }
+        
+    } catch (error) {
+        console.error('❌ Error:', error);
+        showNotification('error', 'Error', error.message);
+        addQuestionField();
+    }
+}
+
 // ===== FIXED CREATE MODULE MODAL WITH VISIBLE BUTTONS =====
 function createQuickModuleModal() {
     // Remove existing modal if any
