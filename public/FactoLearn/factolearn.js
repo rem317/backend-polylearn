@@ -6691,6 +6691,246 @@ async function initSettingsDashboard() {
     // Setup event listeners
     setupSettingsEventListeners();
 }
+
+// ============================================
+// PHOTO UPLOAD FUNCTIONALITY
+// ============================================
+
+// Setup photo upload
+function setupPhotoUpload() {
+    const uploadBtn = document.querySelector('.btn-secondary:has(.fa-upload)');
+    const fileInput = document.getElementById('profileUpload');
+    
+    if (!fileInput) {
+        // Create file input if it doesn't exist
+        const newFileInput = document.createElement('input');
+        newFileInput.type = 'file';
+        newFileInput.id = 'profileUpload';
+        newFileInput.accept = 'image/*';
+        newFileInput.style.display = 'none';
+        document.body.appendChild(newFileInput);
+    }
+    
+    // Add click handler to upload button
+    if (uploadBtn) {
+        uploadBtn.addEventListener('click', function(e) {
+            e.preventDefault();
+            document.getElementById('profileUpload')?.click();
+        });
+    }
+    
+    // Handle file selection
+    document.getElementById('profileUpload')?.addEventListener('change', function(e) {
+        const file = e.target.files[0];
+        if (file) {
+            handleProfileImageUpload(file);
+        }
+    });
+}
+
+// Handle profile image upload
+function handleProfileImageUpload(file) {
+    // Validate file type
+    if (!file.type.match('image.*')) {
+        showNotification('error', 'Invalid File', 'Please upload an image file');
+        return;
+    }
+    
+    // Validate size (max 2MB)
+    if (file.size > 2 * 1024 * 1024) {
+        showNotification('error', 'File Too Large', 'Image must be less than 2MB');
+        return;
+    }
+    
+    // Show preview
+    const preview = document.getElementById('profilePreview');
+    if (preview) {
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            preview.innerHTML = `<img src="${e.target.result}" style="width: 100%; height: 100%; border-radius: 50%; object-fit: cover;">`;
+        };
+        reader.readAsDataURL(file);
+    }
+    
+    // Save to localStorage
+    saveProfilePhoto(file);
+}
+
+// Save profile photo to localStorage
+function saveProfilePhoto(file) {
+    const reader = new FileReader();
+    reader.onload = function(e) {
+        // Save to localStorage
+        localStorage.setItem('profilePhoto', e.target.result);
+        
+        // Update user data
+        const userJson = localStorage.getItem('mathhub_user');
+        if (userJson) {
+            const user = JSON.parse(userJson);
+            user.profile_photo = e.target.result;
+            localStorage.setItem('mathhub_user', JSON.stringify(user));
+        }
+        
+        showNotification('success', 'Success!', 'Profile photo updated');
+    };
+    reader.readAsDataURL(file);
+}
+
+// ============================================
+// DISPLAY USER NAME
+// ============================================
+
+// Load user data into settings
+function loadUserSettings() {
+    console.log('📥 Loading user data...');
+    
+    const userJson = localStorage.getItem('mathhub_user');
+    
+    if (userJson) {
+        try {
+            const user = JSON.parse(userJson);
+            
+            // Display Name
+            const displayName = document.getElementById('displayName');
+            if (displayName) {
+                displayName.value = user.full_name || user.username || 'Student';
+            }
+            
+            // Email
+            const userEmail = document.getElementById('userEmail');
+            if (userEmail) {
+                userEmail.value = user.email || 'student@mathhub.com';
+            }
+            
+            // Profile Picture
+            const profilePreview = document.getElementById('profilePreview');
+            if (profilePreview) {
+                const savedPhoto = localStorage.getItem('profilePhoto') || user.profile_photo;
+                if (savedPhoto) {
+                    profilePreview.innerHTML = `<img src="${savedPhoto}" style="width: 100%; height: 100%; border-radius: 50%; object-fit: cover;">`;
+                } else {
+                    profilePreview.innerHTML = '<i class="fas fa-user-circle"></i>';
+                }
+            }
+            
+        } catch (e) {
+            console.error('Error loading user:', e);
+        }
+    }
+}
+
+// ============================================
+// SAVE SETTINGS
+// ============================================
+
+function saveSettings() {
+    console.log('💾 Saving settings...');
+    
+    // Get values
+    const displayName = document.getElementById('displayName')?.value;
+    const language = document.getElementById('interfaceLanguage')?.value;
+    const municipality = document.getElementById('batangas-municipalities')?.value;
+    
+    // Update user data in localStorage
+    const userJson = localStorage.getItem('mathhub_user');
+    if (userJson && displayName) {
+        try {
+            const user = JSON.parse(userJson);
+            user.full_name = displayName;
+            localStorage.setItem('mathhub_user', JSON.stringify(user));
+            
+            // Also update menu if exists
+            const menuUserName = document.getElementById('menuUserName');
+            if (menuUserName) {
+                menuUserName.textContent = displayName;
+            }
+        } catch (e) {
+            console.error('Error updating user:', e);
+        }
+    }
+    
+    // Save preferences
+    const preferences = {
+        language: language,
+        municipality: municipality,
+        timezone: document.getElementById('timeZone')?.value,
+        displayName: displayName
+    };
+    
+    localStorage.setItem('user_preferences', JSON.stringify(preferences));
+    
+    showNotification('success', 'Settings Saved', 'Your changes have been updated.');
+}
+
+// ============================================
+// RESET SETTINGS
+// ============================================
+
+function resetSettings() {
+    if (confirm('Reset all settings to default?')) {
+        localStorage.removeItem('user_preferences');
+        localStorage.removeItem('profilePhoto');
+        
+        // Reload page
+        location.reload();
+    }
+}
+
+// ============================================
+// SHOW SECTION (kung wala pa)
+// ============================================
+
+function showSection(sectionId) {
+    console.log(`📂 Showing section: ${sectionId}`);
+    
+    // Hide all sections
+    document.querySelectorAll('.settings-section').forEach(section => {
+        section.classList.remove('active');
+    });
+    
+    // Show selected section
+    const targetSection = document.getElementById(sectionId);
+    if (targetSection) {
+        targetSection.classList.add('active');
+    }
+}
+
+// ============================================
+// INITIALIZE SETTINGS
+// ============================================
+
+function initSettings() {
+    console.log('⚙️ Initializing settings...');
+    
+    // Load user data
+    loadUserSettings();
+    
+    // Setup photo upload
+    setupPhotoUpload();
+    
+    // Show general section by default
+    showSection('general');
+}
+
+// Initialize when settings page becomes visible
+document.addEventListener('DOMContentLoaded', function() {
+    const settingsPage = document.getElementById('settings-page');
+    
+    if (settingsPage) {
+        const observer = new MutationObserver(function(mutations) {
+            mutations.forEach(function(mutation) {
+                if (mutation.type === 'attributes' && mutation.attributeName === 'class') {
+                    if (!settingsPage.classList.contains('hidden')) {
+                        console.log('⚙️ Settings page opened');
+                        setTimeout(initSettings, 300);
+                    }
+                }
+            });
+        });
+        
+        observer.observe(settingsPage, { attributes: true });
+    }
+});
 // ============================================
 // UPDATE INIT PROGRESS CHARTS
 // ============================================
@@ -27891,30 +28131,7 @@ function initSettingsDashboard() {
 }
 
 
-function loadUserSettings() {
-    console.log('📥 Loading user settings...');
-    
-    const userJson = localStorage.getItem('mathhub_user');
-    if (userJson) {
-        try {
-            const user = JSON.parse(userJson);
-            
-            const displayName = document.getElementById('displayName');
-            const userEmail = document.getElementById('userEmail');
-            const profilePreview = document.getElementById('profilePreview');
-            
-            if (displayName) displayName.value = user.full_name || user.username || '';
-            if (userEmail) userEmail.value = user.email || '';
-            
-            if (profilePreview) {
-                profilePreview.innerHTML = `<i class="fas fa-user-circle"></i>`;
-            }
-            
-        } catch (e) {
-            console.error('Error loading user:', e);
-        }
-    }
-}
+
 
 function setupSettingsNavigation() {
     const menuItems = document.querySelectorAll('.sidebar-menu a');
@@ -27962,50 +28179,8 @@ function setupSettingsForms() {
     }
 }
 
-function saveSettings() {
-    console.log('💾 Saving settings...');
-    
-    // Get all form values
-    const settings = {
-        displayName: document.getElementById('displayName')?.value,
-        language: document.getElementById('interfaceLanguage')?.value,
-        municipality: document.getElementById('batangas-municipalities')?.value,
-        timezone: document.getElementById('timeZone')?.value,
-        adaptiveDifficulty: document.getElementById('adaptiveDifficulty')?.checked,
-        preferredDifficulty: document.getElementById('preferredDifficulty')?.value,
-        showSolutions: document.getElementById('showSolutions')?.checked,
-        twoFactorAuth: document.getElementById('twoFactorAuth')?.checked,
-        profileVisibility: document.getElementById('profileVisibility')?.value,
-        dataSharing: document.getElementById('dataSharing')?.checked,
-        weeklyReport: document.getElementById('weeklyReport')?.checked,
-        practiceReminders: document.getElementById('practiceReminders')?.checked,
-        theme: getSelectedTheme(),
-        fontSize: document.getElementById('fontSize')?.value
-    };
-    
-    // Save to localStorage
-    localStorage.setItem('user_settings', JSON.stringify(settings));
-    
-    showNotification('success', 'Settings Saved', 'Your preferences have been updated.');
-}
 
-function getSelectedTheme() {
-    const themeLight = document.getElementById('themeLight');
-    const themeDark = document.getElementById('themeDark');
-    const themeAuto = document.getElementById('themeAuto');
-    
-    if (themeLight?.checked) return 'light';
-    if (themeDark?.checked) return 'dark';
-    if (themeAuto?.checked) return 'auto';
-    return 'light';
-}
 
-function resetSettings() {
-    if (confirm('Reset all settings to default?')) {
-        localStorage.removeItem('user_settings');
-        location.reload();
-    }
-}
 
 function viewProfile() {
     window.open('/profile', '_blank');
@@ -28076,28 +28251,7 @@ window.initSettingsDashboard = function() {
     // Load user settings
     loadUserSettings();
 };
-// ============================================
-// LOAD USER SETTINGS
-// ============================================
-function loadUserSettings() {
-    console.log('📥 Loading user settings...');
-    
-    const userJson = localStorage.getItem('mathhub_user');
-    if (userJson) {
-        try {
-            const user = JSON.parse(userJson);
-            
-            const displayName = document.getElementById('displayName');
-            const userEmail = document.getElementById('userEmail');
-            
-            if (displayName) displayName.value = user.full_name || user.username || '';
-            if (userEmail) userEmail.value = user.email || '';
-            
-        } catch (e) {
-            console.error('Error loading user:', e);
-        }
-    }
-}
+
 // ============================================
 // SAVE ALL SETTINGS
 // ============================================
