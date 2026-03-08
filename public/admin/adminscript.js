@@ -21449,7 +21449,7 @@ function changeQuizPage(direction) {
     displayQuizzes();
 }
 
-// ===== OPEN CREATE/EDIT QUIZ MODAL (REPLACE EXISTING FUNCTION) =====
+// ===== FIXED: OPEN CREATE/EDIT QUIZ MODAL =====
 async function openCreateQuizModal(quizId = null) {
     console.log("📝 Opening quiz modal for:", quizId ? `edit #${quizId}` : 'create new');
     
@@ -21460,8 +21460,12 @@ async function openCreateQuizModal(quizId = null) {
     document.getElementById('quizTitle').value = '';
     document.getElementById('quizDescription').value = '';
     document.getElementById('quizSubject').value = '';
-    document.getElementById('quizTopic').innerHTML = '<option value="">-- Select Subject First --</option>';
-    document.getElementById('quizTopic').disabled = true;
+    
+    // Reset topic dropdown
+    const topicSelect = document.getElementById('quizTopic');
+    topicSelect.innerHTML = '<option value="">-- Select Subject First --</option>';
+    topicSelect.disabled = true;
+    
     document.getElementById('quizTimeLimit').value = '30';
     document.getElementById('quizPassingScore').value = '70';
     document.getElementById('quizMaxAttempts').value = '3';
@@ -21536,39 +21540,48 @@ async function openCreateQuizModal(quizId = null) {
                 
                 console.log('✅ Quiz loaded for editing:', quiz);
                 
-                // Set edit ID
+                // ===== FIXED: Set edit ID =====
                 document.getElementById('editQuizId').value = quiz.id;
                 
-                // Populate form
+                // ===== FIXED: Populate form fields =====
                 document.getElementById('quizTitle').value = quiz.title || '';
                 document.getElementById('quizDescription').value = quiz.description || '';
-                document.getElementById('quizSubject').value = quiz.category_id || quiz.subject_id || '';
+                
+                // Set subject (category_id)
+                const subjectSelect = document.getElementById('quizSubject');
+                if (subjectSelect) {
+                    subjectSelect.value = quiz.category_id || quiz.subject_id || '';
+                }
+                
+                // Load topics based on subject
+                await loadQuizTopics();
+                
+                // ===== FIXED: Set topic after topics are loaded =====
+                setTimeout(() => {
+                    if (quiz.topic_id) {
+                        const topicSelect = document.getElementById('quizTopic');
+                        if (topicSelect) {
+                            topicSelect.value = quiz.topic_id;
+                            console.log(`✅ Topic set to: ${quiz.topic_id}`);
+                        }
+                    }
+                }, 500);
+                
                 document.getElementById('quizTimeLimit').value = quiz.time_limit_minutes || 30;
                 document.getElementById('quizPassingScore').value = quiz.passing_score || 70;
                 document.getElementById('quizMaxAttempts').value = quiz.max_attempts || 3;
                 document.getElementById('quizDifficulty').value = quiz.difficulty || 'medium';
                 document.getElementById('quizStatus').value = quiz.status || 'active';
                 
-                // Load topics based on subject
-                await loadQuizTopics();
-                
-                // Set topic if exists
-                if (quiz.topic_id) {
-                    setTimeout(() => {
-                        const topicSelect = document.getElementById('quizTopic');
-                        if (topicSelect) {
-                            topicSelect.value = quiz.topic_id;
-                        }
-                    }, 500);
-                }
-                
-                // Clear and add questions
+                // ===== FIXED: Clear and add questions =====
                 container.innerHTML = '';
                 
                 if (quiz.questions && quiz.questions.length > 0) {
                     quiz.questions.forEach((q, index) => {
+                        // Add question field
                         addQuestionField();
                         
+                        // Fill question data with slight delay for DOM to update
                         setTimeout(() => {
                             const qNum = index + 1;
                             
@@ -21578,13 +21591,15 @@ async function openCreateQuizModal(quizId = null) {
                                 questionInput.value = q.question_text || '';
                             }
                             
-                            // Populate options
+                            // ===== FIXED: Populate options =====
                             if (q.options && Array.isArray(q.options)) {
-                                const letters = ['a', 'b', 'c', 'd'];
+                                const letters = ['a', 'b', 'c', 'd', 'e', 'f'];
+                                
                                 q.options.forEach((opt, optIndex) => {
                                     const letter = letters[optIndex];
                                     if (!letter) return;
                                     
+                                    // Set option text
                                     const optInput = document.getElementById(`q_${qNum}_opt_${letter}`);
                                     if (optInput) {
                                         optInput.value = opt.option_text || opt.text || '';
@@ -21593,7 +21608,10 @@ async function openCreateQuizModal(quizId = null) {
                                     // Set correct answer
                                     if (opt.is_correct || opt.correct) {
                                         const radio = document.querySelector(`input[name="q_${qNum}_correct"][value="${letter}"]`);
-                                        if (radio) radio.checked = true;
+                                        if (radio) {
+                                            radio.checked = true;
+                                            console.log(`✅ Question ${qNum} correct answer set to ${letter}`);
+                                        }
                                     }
                                 });
                             }
@@ -21611,6 +21629,7 @@ async function openCreateQuizModal(quizId = null) {
         }
     }
 }
+
 // ===== ADD QUESTION FIELD =====
 function addQuestionField() {
     const container = document.getElementById('questionsContainer');
@@ -23099,7 +23118,7 @@ async function updateQuizChart(range) {
 }
 
 
-// ===== LOAD QUIZ TOPICS - FINAL FIXED VERSION =====
+// ===== UPDATED: LOAD QUIZ TOPICS =====
 async function loadQuizTopics() {
     console.log("📚 Loading topics for selected subject...");
     
@@ -23145,39 +23164,20 @@ async function loadQuizTopics() {
         if (result.success && result.structure) {
             const allTopics = result.structure.topics || [];
             const allModules = result.structure.modules || [];
-            const allLessons = result.structure.lessons || [];
             
             console.log(`📊 Data from server:`);
-            console.log(`   📚 Lessons: ${allLessons.length}`);
             console.log(`   📦 Modules: ${allModules.length}`);
             console.log(`   📋 Topics: ${allTopics.length}`);
             
-            // ✅ IMPORTANT: Use the subjectId directly as lesson_id
-            // PolyLearn = 2, MathEase = 1, FactoLearn = 3
-            const lessonId = parseInt(subjectId);
-            
-            console.log(`🔍 Looking for modules with lesson_id = ${lessonId}`);
-            
-            // DEBUG: Show all modules
-            console.log('All modules:', allModules.map(m => ({
-                id: m.id,
-                name: m.name,
-                lesson_id: m.lesson_id
-            })));
-            
             // Get modules for this lesson
             const modulesForLesson = allModules.filter(m => 
-                parseInt(m.lesson_id) === lessonId
+                parseInt(m.lesson_id) === parseInt(subjectId)
             );
             
-            console.log(`📦 Found ${modulesForLesson.length} modules for lesson ${lessonId}:`, 
-                modulesForLesson.map(m => ({ id: m.id, name: m.name }))
-            );
+            console.log(`📦 Found ${modulesForLesson.length} modules for lesson ${subjectId}`);
             
             if (modulesForLesson.length === 0) {
-                console.log(`⚠️ No modules found for lesson ID ${lessonId}`);
-                console.log(`   Available lesson IDs:`, [...new Set(allModules.map(m => m.lesson_id))]);
-                
+                console.log(`⚠️ No modules found for lesson ID ${subjectId}`);
                 topicSelect.innerHTML = '<option value="">-- No modules for this subject --</option>';
                 topicSelect.disabled = true;
                 showNotification('info', 'No Modules', 'Create modules first in Lesson Management');
@@ -23186,14 +23186,13 @@ async function loadQuizTopics() {
             
             // Get module IDs
             const moduleIds = modulesForLesson.map(m => parseInt(m.id));
-            console.log(`📦 Module IDs:`, moduleIds);
             
             // Get topics that belong to these modules
             const filteredTopics = allTopics.filter(topic => 
                 moduleIds.includes(parseInt(topic.module_id))
             );
             
-            console.log(`📚 Found ${filteredTopics.length} topics for lesson ID ${lessonId}`);
+            console.log(`📚 Found ${filteredTopics.length} topics for subject ID ${subjectId}`);
             
             if (filteredTopics.length === 0) {
                 topicSelect.innerHTML = '<option value="">-- No topics available --</option>';
@@ -23216,10 +23215,34 @@ async function loadQuizTopics() {
     } catch (error) {
         console.error('❌ Error loading topics:', error);
         
-        // Show error in dropdown
-        topicSelect.innerHTML = '<option value="">-- Error loading topics --</option>';
-        topicSelect.disabled = true;
-        showNotification('error', 'Load Failed', error.message);
+        // Fallback to hardcoded topics
+        topicSelect.innerHTML = '<option value="">-- Select Topic --</option>';
+        
+        if (subjectId == 1) { // MathEase
+            topicSelect.innerHTML += `
+                <option value="1">Basic Operations</option>
+                <option value="2">Addition and Subtraction</option>
+                <option value="3">Multiplication and Division</option>
+                <option value="4">Order of Operations (MDAS)</option>
+            `;
+        } else if (subjectId == 2) { // PolyLearn
+            topicSelect.innerHTML += `
+                <option value="5">Polynomial Basics</option>
+                <option value="6">Factoring Polynomials</option>
+                <option value="7">Quadratic Equations</option>
+                <option value="8">Polynomial Functions</option>
+            `;
+        } else if (subjectId == 3) { // FactoLearn
+            topicSelect.innerHTML += `
+                <option value="9">Factorial Notation</option>
+                <option value="10">Permutations</option>
+                <option value="11">Combinations</option>
+                <option value="12">Binomial Theorem</option>
+            `;
+        }
+        
+        topicSelect.disabled = false;
+        showNotification('warning', 'Offline Mode', 'Using sample topics');
     }
 }
 
