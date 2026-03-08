@@ -11062,7 +11062,7 @@ async function startQuizSystem(quizId) {
 function loadfactorialQuizzes() {
     console.log('📚 Loading FactoPermCombi quizzes (Category 3)...');
     
-    // Find PolyLearn category (ID 3)
+    // Find  category (ID 3)
     const factoLearnCategory = QuizState.quizCategories.find(c => c.category_id == 3);
     
     if (factoLearnCategory) {
@@ -11073,39 +11073,6 @@ function loadfactorialQuizzes() {
             loadQuizzesForCategory(3);
         });
     }
-}
-
-
-// ============================================
-// Test function for quiz ID 1
-// ============================================
-async function testQuiz1() {
-    console.log('🧪 Testing quiz ID 1 (Polynomial Division Fundamentals)...');
-    await startQuizSystem(1);
-}
-
-// ============================================
-// Test function for quiz ID 2
-// ============================================
-async function testQuiz2() {
-    console.log('🧪 Testing quiz ID 2 (Factoring Polynomials Quiz)...');
-    await startQuizSystem(2);
-}
-
-// ============================================
-// Test function for quiz ID 3
-// ============================================
-async function testQuiz3() {
-    console.log('🧪 Testing quiz ID 3 (Factoring)...');
-    await startQuizSystem(3);
-}
-
-// ============================================
-// Test function for quiz ID 4
-// ============================================
-async function testQuiz4() {
-    console.log('🧪 Testing quiz ID 4 (polyyy)...');
-    await startQuizSystem(4);
 }
 
 // ============================================
@@ -12723,7 +12690,7 @@ function displayQuizCategories(categories, isHardcoded = false) {
         return;
     }
     
-    // STRICT FILTER - lesson_id=2 LANG
+    // STRICT FILTER 
     const factoLearnCategories = categories.filter(cat => {
         const catLessonId = cat.lesson_id || cat.lessonId;
         return catLessonId == 3;
