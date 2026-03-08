@@ -22183,7 +22183,7 @@ function getMathEaseExtraExamples(topicId) {
                 <h3 style="color: #7a0000; margin-bottom: 15px;"><i class="fas fa-calculator"></i> Additional Basic Operation Examples</h3>
                 
                 <div style="margin-bottom: 25px;">
-                    <h4 style="color: #2c3e50; margin-bottom: 10px;">Example 4: Word Problem with Multiple Operations</h4>
+                    <h4 style="color: #2c3e50; margin-bottom: 10px;">Example 1: Word Problem with Multiple Operations</h4>
                     <p><strong>Problem:</strong> A baker uses 2.5 kg of flour for every batch of bread. If he makes 8 batches on Monday, 6 batches on Tuesday, and 10 batches on Wednesday, how many kilograms of flour did he use in total?</p>
                     <p><strong>Solution:</strong>
                     <br>Step 1: Total batches = 8 + 6 + 10 = 24 batches
@@ -22192,7 +22192,7 @@ function getMathEaseExtraExamples(topicId) {
                 </div>
                 
                 <div style="margin-bottom: 25px;">
-                    <h4 style="color: #2c3e50; margin-bottom: 10px;">Example 5: Using the Distributive Property</h4>
+                    <h4 style="color: #2c3e50; margin-bottom: 10px;">Example 2: Using the Distributive Property</h4>
                     <p><strong>Problem:</strong> Calculate 7 × 99 using the distributive property.</p>
                     <p><strong>Solution:</strong>
                     <br>7 × 99 = 7 × (100 - 1)
@@ -22202,7 +22202,7 @@ function getMathEaseExtraExamples(topicId) {
                 </div>
                 
                 <div style="margin-bottom: 25px;">
-                    <h4 style="color: #2c3e50; margin-bottom: 10px;">Example 6: Multi-Step Problem</h4>
+                    <h4 style="color: #2c3e50; margin-bottom: 10px;">Example 3: Multi-Step Problem</h4>
                     <p><strong>Problem:</strong> A rectangular garden is 12 meters long and 8 meters wide. What is its perimeter and area?</p>
                     <p><strong>Solution:</strong>
                     <br>Perimeter = 2 × (length + width) = 2 × (12 + 8) = 2 × 20 = 40 meters
@@ -22215,7 +22215,7 @@ function getMathEaseExtraExamples(topicId) {
                 <h3 style="color: #7a0000; margin-bottom: 15px;"><i class="fas fa-chart-bar"></i> Additional Statistics Examples</h3>
                 
                 <div style="margin-bottom: 25px;">
-                    <h4 style="color: #2c3e50; margin-bottom: 10px;">Example 4: Weighted Mean</h4>
+                    <h4 style="color: #2c3e50; margin-bottom: 10px;">Example 1: Weighted Mean</h4>
                     <p><strong>Problem:</strong> In a class, tests are worth 60% of the grade and homework is worth 40%. If a student has a test average of 85 and a homework average of 90, what is their overall grade?</p>
                     <p><strong>Solution:</strong>
                     <br>Weighted mean = (0.60 × 85) + (0.40 × 90)
@@ -22224,7 +22224,7 @@ function getMathEaseExtraExamples(topicId) {
                 </div>
                 
                 <div style="margin-bottom: 25px;">
-                    <h4 style="color: #2c3e50; margin-bottom: 10px;">Example 5: Finding Missing Data</h4>
+                    <h4 style="color: #2c3e50; margin-bottom: 10px;">Example 2: Finding Missing Data</h4>
                     <p><strong>Problem:</strong> The mean of five numbers is 12. Four of the numbers are 8, 10, 14, and 16. Find the fifth number.</p>
                     <p><strong>Solution:</strong>
                     <br>Sum of five numbers = mean × n = 12 × 5 = 60
@@ -22234,7 +22234,7 @@ function getMathEaseExtraExamples(topicId) {
                 </div>
                 
                 <div style="margin-bottom: 25px;">
-                    <h4 style="color: #2c3e50; margin-bottom: 10px;">Example 6: Median with Large Dataset</h4>
+                    <h4 style="color: #2c3e50; margin-bottom: 10px;">Example 3: Median with Large Dataset</h4>
                     <p><strong>Problem:</strong> Find the median of these 25 scores (arranged in order):
                     <br>65, 67, 68, 70, 72, 73, 74, 75, 76, 77, 78, 79, 80, 81, 82, 83, 84, 85, 86, 87, 88, 89, 90, 92, 95</p>
                     <p><strong>Solution:</strong>
@@ -22249,7 +22249,7 @@ function getMathEaseExtraExamples(topicId) {
                 <h3 style="color: #7a0000; margin-bottom: 15px;"><i class="fas fa-table"></i> Additional Frequency Distribution Examples</h3>
                 
                 <div style="margin-bottom: 25px;">
-                    <h4 style="color: #2c3e50; margin-bottom: 10px;">Example 3: Cumulative Frequency</h4>
+                    <h4 style="color: #2c3e50; margin-bottom: 10px;">Example 1: Cumulative Frequency</h4>
                     <p><strong>Problem:</strong> Add cumulative frequency to the frequency distribution table.</p>
                     <p><strong>Solution:</strong>
                     <table style="width: 100%; border-collapse: collapse; margin: 10px 0;">
@@ -22267,7 +22267,7 @@ function getMathEaseExtraExamples(topicId) {
                 </div>
                 
                 <div style="margin-bottom: 25px;">
-                    <h4 style="color: #2c3e50; margin-bottom: 10px;">Example 4: Relative Frequency</h4>
+                    <h4 style="color: #2c3e50; margin-bottom: 10px;">Example 2: Relative Frequency</h4>
                     <p><strong>Problem:</strong> Add relative frequency (percentage) to the table.</p>
                     <p><strong>Solution:</strong>
                     <table style="width: 100%; border-collapse: collapse; margin: 10px 0;">
