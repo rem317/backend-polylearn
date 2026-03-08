@@ -2461,49 +2461,6 @@
                         </div>
                     </div>
                 </section>
-
-                <!-- Performance Analytics -->
-                <section class="card animate-fade-in" style="animation-delay: 0.3s">
-                    <div class="card-header">
-                        <h2 class="card-title">
-                            <i class="fas fa-chart-line"></i> Performance Analytics
-                        </h2>
-                        <p class="card-subtitle">Your learning efficiency and improvement trends</p>
-                    </div>
-                    
-                    <div class="performance-grid" id="performanceGrid">
-                        <!-- Performance cards will be loaded dynamically -->
-                        <div class="loading-container">
-                            <i class="fas fa-spinner fa-spin"></i>
-                            <p>Loading performance analytics...</p>
-                        </div>
-                    </div>
-                    
-                    <div class="learning-insights">
-                        <h4><i class="fas fa-lightbulb"></i> Learning Insights</h4>
-                        <ul class="insights-list" id="insightsList">
-                            <!-- Insights will be loaded dynamically -->
-                        </ul>
-                    </div>
-                </section>
-
-                <!-- Achievement Timeline -->
-                <section class="card full-width-card animate-fade-in" style="animation-delay: 0.4s">
-                    <div class="card-header">
-                        <h2 class="card-title">
-                            <i class="fas fa-trophy"></i> Achievement Timeline
-                        </h2>
-                        <p class="card-subtitle">Your journey and milestones</p>
-                    </div>
-                    
-                    <div class="timeline" id="achievementTimeline">
-                        <!-- Timeline items will be loaded dynamically -->
-                        <div class="loading-container">
-                            <i class="fas fa-spinner fa-spin"></i>cd 
-                            <p>Loading achievement timeline...</p>
-                        </div>
-                    </div>
-                </section>
             </div>
         </div>
 
@@ -2861,6 +2818,7 @@
                     </div>
                 </div>
 
+               
                 <!-- Dashboard Grid -->
                 <div class="dashboard-grid">
                     <!-- FAQ Section -->
@@ -2872,6 +2830,7 @@
                             <h2>Frequently Asked Questions</h2>
                         </div>
                         <div class="card-body">
+                            <!-- FAQ 1: How do I reset my password? -->
                             <div class="faq-item">
                                 <div class="faq-question" onclick="toggleFAQ(this)">
                                     How do I reset my password?
@@ -2881,7 +2840,8 @@
                                     <p>To reset your password, go to the login page and click "Forgot Password". Enter your email address and follow the instructions sent to your inbox.</p>
                                 </div>
                             </div>
-
+                
+                            <!-- FAQ 2: How can I track my learning progress? -->
                             <div class="faq-item">
                                 <div class="faq-question" onclick="toggleFAQ(this)">
                                     How can I track my learning progress?
@@ -2891,17 +2851,19 @@
                                     <p>Visit the Progress page in your dashboard. You'll find detailed analytics about your completed lessons, practice exercises, and quiz scores.</p>
                                 </div>
                             </div>
-
+                
+                            <!-- FAQ 3: Are there mobile apps available? -->
                             <div class="faq-item">
                                 <div class="faq-question" onclick="toggleFAQ(this)">
                                     Are there mobile apps available?
                                     <i class="fas fa-chevron-down"></i>
                                 </div>
                                 <div class="faq-answer">
-                                    <p>Yes! MathHub is available on both iOS and Android. Download from the App Store or Google Play Store.</p>
+                                    <p>Yes! MathHub is available on both iOS and Android.</p>
                                 </div>
                             </div>
-
+                
+                            <!-- FAQ 4: How do I earn badges and points? -->
                             <div class="faq-item">
                                 <div class="faq-question" onclick="toggleFAQ(this)">
                                     How do I earn badges and points?
@@ -2913,7 +2875,7 @@
                             </div>
                         </div>
                     </div>
-
+                
                     <!-- Contact Support -->
                     <div class="card">
                         <div class="card-header">
@@ -2934,7 +2896,7 @@
                                         <p class="response-time">Response time: 24 hours</p>
                                     </div>
                                 </div>
-
+                
                                 <div class="contact-method">
                                     <div class="contact-icon">
                                         <i class="fas fa-phone"></i>
@@ -2945,69 +2907,6 @@
                                         <p class="hours">Mon-Fri: 9AM-6PM EST</p>
                                     </div>
                                 </div>
-
-                                <div class="contact-method">
-                                    <div class="contact-icon">
-                                        <i class="fas fa-comments"></i>
-                                    </div>
-                                    <div>
-                                        <h4>Live Chat</h4>
-                                        <p>Available during business hours</p>
-                                        <button class="btn btn-primary" style="margin-top: 10px; padding: 8px 15px;">
-                                            <i class="fas fa-comment-dots"></i>
-                                            Start Chat
-                                        </button>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Send Feedback -->
-                    <div class="card">
-                        <div class="card-header">
-                            <div class="card-icon icon-feedback">
-                                <i class="fas fa-comment-alt"></i>
-                            </div>
-                            <h2>Send Feedback</h2>
-                        </div>
-                        <div class="card-body">
-                            <form id="feedbackForm">
-                                <div class="form-group">
-                                    <label for="feedbackType">Feedback Type</label>
-                                    <select id="feedbackType" class="form-control">
-                                        <option value="suggestion">Suggestion</option>
-                                        <option value="bug">Bug Report</option>
-                                        <option value="praise">Praise</option>
-                                        <option value="other">Other</option>
-                                    </select>
-                                </div>
-
-                                <div class="form-group">
-                                    <label for="feedbackMessage">Your Feedback</label>
-                                    <textarea id="feedbackMessage" class="form-control" placeholder="Tell us what you think..."></textarea>
-                                </div>
-
-                                <div class="form-group">
-                                    <label>Overall Rating</label>
-                                    <div class="rating">
-                                        <span class="star" onclick="rate(1)">★</span>
-                                        <span class="star" onclick="rate(2)">★</span>
-                                        <span class="star" onclick="rate(3)">★</span>
-                                        <span class="star" onclick="rate(4)">★</span>
-                                        <span class="star" onclick="rate(5)">★</span>
-                                    </div>
-                                    <input type="hidden" id="ratingValue" value="0">
-                                </div>
-
-                                <button type="submit" class="btn btn-primary" style="width: 100%;">
-                                    <i class="fas fa-paper-plane"></i>
-                                    Submit Feedback
-                                </button>
-                            </form>
-                            <div class="success-message" id="feedbackSuccess" style="display: none;">
-                                <i class="fas fa-check-circle"></i>
-                                Thank you for your feedback! We'll review it shortly.
                             </div>
                         </div>
                     </div>
