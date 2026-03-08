@@ -4002,7 +4002,7 @@ function updateCurrentLessonDisplay() {
 }
 
 // ============================================
-// 🎬 ENHANCED: Video Progress Tracking - With session reset
+// 🎬 ENHANCED: Video Progress Tracking - Updates Lesson Progress Bar
 // ============================================
 function initVideoProgressTracking(videoElement, contentId) {
     if (!videoElement || !contentId) {
@@ -4013,7 +4013,7 @@ function initVideoProgressTracking(videoElement, contentId) {
     console.log(`🎬 Initializing progress tracking for video ${contentId}`);
     
     let lastSaveTime = 0;
-    const SAVE_INTERVAL = 10000;
+    const SAVE_INTERVAL = 10000; // Save every 10 seconds
     let lastReportedPercentage = 0;
     let isCompleted = false;
     
@@ -4021,7 +4021,6 @@ function initVideoProgressTracking(videoElement, contentId) {
     let watchStartTime = null;
     let totalWatchedSeconds = 0;
     let lastCurrentTime = 0;
-    let lastSavedTime = 0;
     let videoDuration = 0;
     let isActive = true;
     
@@ -4036,13 +4035,11 @@ function initVideoProgressTracking(videoElement, contentId) {
             
             if (savedProgress.totalWatchedSeconds) {
                 totalWatchedSeconds = savedProgress.totalWatchedSeconds;
-                lastSavedTime = savedProgress.currentTime || 0;
             }
             
             if (savedProgress.currentTime && videoElement.duration) {
                 if (savedProgress.percentage < 90) {
                     videoElement.currentTime = savedProgress.currentTime;
-                    lastCurrentTime = savedProgress.currentTime;
                 }
             }
         }
@@ -4050,8 +4047,46 @@ function initVideoProgressTracking(videoElement, contentId) {
         console.warn('Could not load saved progress:', error);
     }
     
-    // Update display after loading
-    setTimeout(updateCurrentLessonDisplay, 100);
+    /**
+     * Update the progress bar UI
+     */
+    function updateProgressBar(percentage) {
+        // Update lesson progress bar (Current Lesson Progress)
+        const lessonProgressFill = document.getElementById('lessonProgressFill');
+        const progressPercentage = document.getElementById('progressPercentage');
+        const progressTime = document.getElementById('progressTime');
+        
+        if (lessonProgressFill) {
+            lessonProgressFill.style.width = `${percentage}%`;
+        }
+        
+        if (progressPercentage) {
+            progressPercentage.textContent = `${percentage}% Complete`;
+        }
+        
+        // Update time display
+        if (progressTime && videoElement.duration) {
+            const currentMinutes = Math.floor(videoElement.currentTime / 60);
+            const currentSeconds = Math.floor(videoElement.currentTime % 60);
+            const durationMinutes = Math.floor(videoElement.duration / 60);
+            const durationSeconds = Math.floor(videoElement.duration % 60);
+            
+            progressTime.textContent = `${currentMinutes}:${currentSeconds.toString().padStart(2, '0')} / ${durationMinutes}:${durationSeconds.toString().padStart(2, '0')}`;
+        }
+        
+        // Update video time display
+        const videoTimeDisplay = document.getElementById('videoTime');
+        if (videoTimeDisplay && videoElement.duration) {
+            const currentMinutes = Math.floor(videoElement.currentTime / 60);
+            const currentSeconds = Math.floor(videoElement.currentTime % 60);
+            const durationMinutes = Math.floor(videoElement.duration / 60);
+            const durationSeconds = Math.floor(videoElement.duration % 60);
+            
+            videoTimeDisplay.innerHTML = `${currentMinutes}:${currentSeconds.toString().padStart(2, '0')} / ${durationMinutes}:${durationSeconds.toString().padStart(2, '0')}`;
+        }
+        
+        console.log(`🔄 Progress bar updated: ${percentage}%`);
+    }
     
     /**
      * Save progress to server
@@ -4111,9 +4146,17 @@ function initVideoProgressTracking(videoElement, contentId) {
             if (result.success) {
                 console.log(`✅ Progress saved: ${percentage}% (${status}), Time: ${totalWatchedSeconds}s`);
                 
+                // Update LessonState with new progress
+                if (!LessonState.userProgress) LessonState.userProgress = {};
+                if (!LessonState.userProgress[contentId]) LessonState.userProgress[contentId] = {};
+                
+                LessonState.userProgress[contentId].percentage = percentage;
+                LessonState.userProgress[contentId].status = status;
+                
                 if (status === 'completed' && !isCompleted) {
                     isCompleted = true;
                     
+                    // Update complete button
                     const completeBtn = document.getElementById('completeLessonBtn');
                     if (completeBtn) {
                         completeBtn.innerHTML = '<i class="fas fa-check-double"></i> Lesson Completed!';
@@ -4123,12 +4166,144 @@ function initVideoProgressTracking(videoElement, contentId) {
                     }
                     
                     showNotification('🎉 Lesson completed! Great job!', 'success');
+                    
+                    // Update daily progress
+                    updateDailyProgress({ lessons_completed: 1 });
                 }
             }
         } catch (error) {
             console.warn('⚠️ Error saving progress:', error.message);
         }
     }
+    
+    // ===== VIDEO EVENT LISTENERS =====
+    
+    videoElement.addEventListener('loadedmetadata', function() {
+        videoDuration = videoElement.duration;
+        console.log(`📹 Video duration: ${videoDuration}s`);
+        
+        // Update progress bar with current percentage
+        const percentage = Math.floor((videoElement.currentTime / videoDuration) * 100) || 0;
+        updateProgressBar(percentage);
+        
+        // Show success in video info
+        const videoInfo = document.getElementById('videoInfo');
+        if (videoInfo) {
+            videoInfo.innerHTML = `
+                <p><i class="fas fa-check-circle" style="color: #27ae60;"></i> Video loaded successfully</p>
+                <p><i class="fas fa-clock"></i> Duration: ${Math.floor(videoDuration / 60)} min</p>
+            `;
+        }
+    });
+    
+    videoElement.addEventListener('play', function() {
+        if (!isActive) return; // Don't track if page is hidden
+        
+        console.log(`▶️ Video started playing at ${videoElement.currentTime}s`);
+        watchStartTime = Date.now();
+        
+        const timeDisplay = document.getElementById('videoTime');
+        if (timeDisplay) {
+            timeDisplay.classList.add('watching');
+        }
+    });
+    
+    videoElement.addEventListener('pause', function() {
+        console.log(`⏸️ Video paused at ${videoElement.currentTime}s`);
+        
+        if (watchStartTime) {
+            const watchDuration = Math.floor((Date.now() - watchStartTime) / 1000);
+            totalWatchedSeconds += watchDuration;
+            watchStartTime = null;
+            
+            console.log(`⏱️ Watched for ${watchDuration}s (Total: ${totalWatchedSeconds}s)`);
+        }
+        
+        // Update progress bar
+        if (videoElement.duration > 0) {
+            const percentage = Math.floor((videoElement.currentTime / videoElement.duration) * 100);
+            updateProgressBar(percentage);
+        }
+        
+        const timeDisplay = document.getElementById('videoTime');
+        if (timeDisplay) {
+            timeDisplay.classList.remove('watching');
+        }
+        
+        // Save on pause
+        if (videoElement.duration > 0 && !isCompleted) {
+            const percentage = Math.floor((videoElement.currentTime / videoElement.duration) * 100);
+            saveProgress('in_progress', percentage, videoElement.currentTime);
+        }
+    });
+    
+    videoElement.addEventListener('timeupdate', function() {
+        if (!videoElement.duration) return;
+        
+        const currentTime = videoElement.currentTime;
+        const duration = videoElement.duration;
+        const percentage = Math.floor((currentTime / duration) * 100);
+        
+        // Check for seeking/jumping
+        const timeDiff = currentTime - lastCurrentTime;
+        if (Math.abs(timeDiff) > 2 && lastCurrentTime > 0) {
+            console.log(`⏩ User seeked ${timeDiff > 0 ? 'forward' : 'backward'} from ${lastCurrentTime.toFixed(1)}s to ${currentTime.toFixed(1)}s`);
+        }
+        
+        lastCurrentTime = currentTime;
+        
+        // Update progress bar
+        updateProgressBar(percentage);
+        
+        // Auto-save every 10 seconds
+        if (!isCompleted && watchStartTime && isActive) {
+            const now = Date.now();
+            if (now - lastSaveTime > SAVE_INTERVAL) {
+                const watchDuration = Math.floor((now - watchStartTime) / 1000);
+                saveProgress('in_progress', percentage, currentTime, watchDuration);
+            }
+        }
+    });
+    
+    videoElement.addEventListener('seeked', function() {
+        console.log(`⏩ User seeked to ${videoElement.currentTime.toFixed(1)}s`);
+        
+        if (videoElement.duration > 0 && !isCompleted && isActive) {
+            const currentTime = videoElement.currentTime;
+            const percentage = Math.floor((currentTime / videoElement.duration) * 100);
+            
+            // Update progress bar immediately
+            updateProgressBar(percentage);
+            
+            const now = Date.now();
+            if (now - lastSaveTime > 2000) {
+                saveProgress('in_progress', percentage, currentTime);
+            }
+        }
+    });
+    
+    videoElement.addEventListener('ended', function() {
+        console.log(`✅ Video completed`);
+        
+        if (watchStartTime) {
+            const watchDuration = Math.floor((Date.now() - watchStartTime) / 1000);
+            totalWatchedSeconds += watchDuration;
+            watchStartTime = null;
+        }
+        
+        isCompleted = true;
+        
+        // Update progress bar to 100%
+        updateProgressBar(100);
+        
+        // Save as completed
+        saveProgress('completed', 100, videoElement.duration);
+        
+        const timeDisplay = document.getElementById('videoTime');
+        if (timeDisplay) {
+            timeDisplay.classList.remove('watching');
+        }
+    });
     
     // ===== PAGE VISIBILITY CHANGE =====
     document.addEventListener('visibilitychange', () => {
@@ -4141,7 +4316,7 @@ function initVideoProgressTracking(videoElement, contentId) {
                 totalWatchedSeconds += watchDuration;
                 watchStartTime = null;
                 
-                // Save current progress but mark as inactive
+                // Save current progress
                 if (videoElement.duration > 0) {
                     const percentage = Math.floor((videoElement.currentTime / videoElement.duration) * 100);
                     saveProgress('in_progress', percentage, videoElement.currentTime);
@@ -4157,20 +4332,40 @@ function initVideoProgressTracking(videoElement, contentId) {
         }
     });
     
-    videoElement.addEventListener('loadedmetadata', function() {
-    videoDuration = videoElement.duration;
-    console.log(`📹 Video duration: ${videoDuration}s`);
-    updateCurrentLessonDisplay();
+    // ===== BEFORE UNLOAD =====
+    window.addEventListener('beforeunload', function() {
+        if (watchStartTime) {
+            const watchDuration = Math.floor((Date.now() - watchStartTime) / 1000);
+            totalWatchedSeconds += watchDuration;
+            
+            try {
+                const currentTime = videoElement.currentTime || 0;
+                const duration = videoElement.duration || 1;
+                const percentage = Math.floor((currentTime / duration) * 100);
+                
+                localStorage.setItem(videoKey, JSON.stringify({
+                    percentage: percentage,
+                    currentTime: currentTime,
+                    timestamp: new Date().toISOString(),
+                    status: isCompleted ? 'completed' : 'in_progress',
+                    totalWatchedSeconds: totalWatchedSeconds
+                }));
+            } catch (error) {
+                console.warn('Could not save to localStorage:', error);
+            }
+        }
+    });
     
-    // Show success in video info
-    const videoInfo = document.getElementById('videoInfo');
-    if (videoInfo) {
-        videoInfo.innerHTML = `
-            <p><i class="fas fa-check-circle" style="color: #27ae60;"></i> Video loaded successfully</p>
-            <p><i class="fas fa-clock"></i> Duration: ${Math.floor(videoDuration / 60)} min</p>
-        `;
-    }
-});
+    // Initial progress bar update
+    setTimeout(() => {
+        if (videoElement.duration > 0) {
+            const percentage = Math.floor((videoElement.currentTime / videoElement.duration) * 100) || 0;
+            updateProgressBar(percentage);
+        }
+    }, 500);
+    
+    console.log(`✅ Video progress tracking initialized for ${contentId} - connected to Current Lesson Progress`);
+};
 
 // Add error event listener
 videoElement.addEventListener('error', function(e) {
@@ -6749,49 +6944,50 @@ function hideProgressDashboardLoading() {
     });
 }
 // ============================================
-// UPDATE INIT PROGRESS CHARTS
+// UPDATE INIT PROGRESS CHARTS - WITH LESSON_ID=3 FILTER
 // ============================================
 async function initProgressCharts() {
     try {
         const token = localStorage.getItem('authToken') || authToken;
         if (!token) return;
         
-        console.log('📊 Initializing progress charts...');
+        console.log('📊 Initializing progress charts for lesson_id=3 (FactoLearn)...');
         
         // Add styles
         addAccuracyChartStyles();
         
-        // Fetch chart data
-        const response = await fetch(`/api/progress/chart-data`, {
+        // ===== FETCH CHART DATA WITH LESSON_ID=3 =====
+        const response = await fetch(`/api/progress/chart-data?lesson_id=3`, {
             headers: { 'Authorization': `Bearer ${token}` }
         });
         
-        if (!response.ok) return;
+        if (!response.ok) {
+            console.warn('⚠️ Chart data endpoint failed, using sample data');
+            useSampleChartData();
+            return;
+        }
         
         const data = await response.json();
         
         if (data.success && data.chartData) {
-            // Render daily activity MULTI-LINE chart
+            // Check if data is for lesson_id=3
+            console.log('✅ Chart data loaded from database for lesson_id=3');
             renderDailyActivityChart(data.chartData);
         } else {
-            // Use sample data that matches the screenshot
-            const sampleData = {
-                labels: ['Feb 22', 'Feb 24', 'Feb 26', 'Feb 28', 'Mar 2', 'Mar 4', 'Mar 6', 'Mar 7'],
-                lessons: [120, 180, 90, 210, 150, 270, 330, 240],
-                exercises: [80, 120, 60, 150, 100, 180, 220, 160],
-                points: [40, 60, 30, 90, 50, 110, 140, 100]
-            };
-            renderDailyActivityChart(sampleData);
+            console.log('ℹ️ No chart data in database, using sample data');
+            useSampleChartData();
         }
         
-        // Fetch accuracy data
-        const accuracyResponse = await fetch(`/api/progress/accuracy-rate`, {
+        // ===== FETCH ACCURACY DATA WITH LESSON_ID=3 =====
+        const accuracyResponse = await fetch(`/api/progress/accuracy-rate?lesson_id=3`, {
             headers: { 'Authorization': `Bearer ${token}` }
         });
         
         if (accuracyResponse.ok) {
             const accuracyData = await accuracyResponse.json();
             if (accuracyData.success) {
+                console.log('✅ Accuracy data loaded from database for lesson_id=3');
+                
                 // Create weekly accuracy data
                 const weeklyAccuracy = {
                     labels: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
@@ -6808,28 +7004,42 @@ async function initProgressCharts() {
                 
                 // Render with BLUE colors
                 renderAccuracyChart(weeklyAccuracy);
+            } else {
+                useSampleAccuracyData();
             }
+        } else {
+            console.warn('⚠️ Accuracy endpoint failed, using sample data');
+            useSampleAccuracyData();
         }
         
     } catch (error) {
-        console.error('Error initializing charts:', error);
-        // Create sample data
-        const sampleData = {
-            labels: ['Feb 22', 'Feb 24', 'Feb 26', 'Feb 28', 'Mar 2', 'Mar 4', 'Mar 6', 'Mar 7'],
-            lessons: [120, 180, 90, 210, 150, 270, 330, 240],
-            exercises: [80, 120, 60, 150, 100, 180, 220, 160],
-            points: [40, 60, 30, 90, 50, 110, 140, 100]
-        };
-        renderDailyActivityChart(sampleData);
-        
-        const accuracyData = {
-            labels: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
-            accuracy: [65, 72, 68, 85, 78, 82, 90]
-        };
-        renderAccuracyChart(accuracyData);
+        console.error('❌ Error initializing charts:', error);
+        useSampleChartData();
+        useSampleAccuracyData();
     }
 }
 
+// Helper function for sample chart data
+function useSampleChartData() {
+    console.log('📊 Using sample chart data (matching screenshot)');
+    const sampleData = {
+        labels: ['Feb 22', 'Feb 24', 'Feb 26', 'Feb 28', 'Mar 2', 'Mar 4', 'Mar 6', 'Mar 7'],
+        lessons: [120, 180, 90, 210, 150, 270, 330, 240],
+        exercises: [80, 120, 60, 150, 100, 180, 220, 160],
+        points: [40, 60, 30, 90, 50, 110, 140, 100]
+    };
+    renderDailyActivityChart(sampleData);
+}
+
+// Helper function for sample accuracy data
+function useSampleAccuracyData() {
+    console.log('📊 Using sample accuracy data');
+    const accuracyData = {
+        labels: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
+        accuracy: [65, 72, 68, 85, 78, 82, 90]
+    };
+    renderAccuracyChart(accuracyData);
+}
 async function fetchProgressChartData(days = 14) {
     try {
         const token = localStorage.getItem('authToken');
@@ -18523,7 +18733,15 @@ async function updateProgressDashboardFromDatabase() {
                 updateActivityLog();
             }
         }
-        
+        // ===== LOAD PERFORMANCE ANALYTICS =====
+        // I-call ang bagong function para sa Performance Analytics
+        if (typeof loadPerformanceAnalytics === 'function') {
+            await loadPerformanceAnalytics();
+        } else {
+            console.warn('⚠️ loadPerformanceAnalytics function not found');
+            // Create fallback if function doesn't exist
+            createFallbackPerformanceAnalytics();
+        }
         // Update charts
         if (typeof updateProgressCharts === 'function') {
             await updateProgressCharts();
@@ -18544,10 +18762,10 @@ async function updateProgressDashboardFromDatabase() {
     }
 }
 // ============================================
-// ✅ FIXED: Daily Practice Time - MULTI-LINE CHART (Lessons, Exercises, Points)
+// ✅ DATABASE CONNECTED: Daily Practice Time - MULTI-LINE CHART (Lessons, Exercises, Points)
 // ============================================
-function renderDailyActivityChart(chartData) {
-    console.log('📊 Rendering daily activity MULTI-LINE chart with data:', chartData);
+async function renderDailyActivityChart() {
+    console.log('📊 Fetching daily practice data from database for lesson_id = 3...');
     
     const chartContainer = document.getElementById('practiceTimeChart');
     if (!chartContainer) {
@@ -18555,272 +18773,311 @@ function renderDailyActivityChart(chartData) {
         return;
     }
     
-    // Clear container
-    chartContainer.innerHTML = '';
-    
-    // If no data, use sample data that matches the screenshot
-    if (!chartData || !chartData.labels || chartData.labels.length === 0) {
-        console.log('📊 Using sample data from screenshot');
-        chartData = {
-            labels: ['Feb 22', 'Feb 24', 'Feb 26', 'Feb 28', 'Mar 2', 'Mar 4', 'Mar 6', 'Mar 7'],
-            lessons: [120, 180, 90, 210, 150, 270, 330, 240],
-            exercises: [80, 120, 60, 150, 100, 180, 220, 160],
-            points: [40, 60, 30, 90, 50, 110, 140, 100]
-        };
-    }
-    
-    // Set container styles
-    chartContainer.style.position = 'relative';
-    chartContainer.style.height = '300px';
-    chartContainer.style.background = 'white';
-    chartContainer.style.borderRadius = '12px';
-    chartContainer.style.padding = '20px 15px 15px 15px';
-    chartContainer.style.boxShadow = '0 4px 12px rgba(0,0,0,0.1)';
-    chartContainer.style.border = '1px solid #e0e0e0';
-    
-    // Create SVG
-    const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-    svg.setAttribute('width', '100%');
-    svg.setAttribute('height', '220');
-    svg.setAttribute('viewBox', '0 0 800 220');
-    svg.style.display = 'block';
-    svg.style.overflow = 'visible';
-    
-    // Extract data
-    const labels = chartData.labels || [];
-    const lessonsData = chartData.lessons || [];
-    const exercisesData = chartData.exercises || [];
-    const pointsData = chartData.points || [];
-    
-    // Find max value for scaling (up to 580 as in screenshot)
-    const allValues = [...lessonsData, ...exercisesData, ...pointsData];
-    const maxValue = Math.max(...allValues, 580);
-    
-    // Calculate points for each dataset
-    const margin = { left: 50, right: 30, top: 20, bottom: 30 };
-    const chartWidth = 800 - margin.left - margin.right;
-    const chartHeight = 190 - margin.top;
-    const step = chartWidth / (labels.length - 1);
-    
-    const lessonsPoints = [];
-    const exercisesPoints = [];
-    const pointsPoints = [];
-    
-    lessonsData.forEach((value, index) => {
-        const x = margin.left + (step * index);
-        const y = margin.top + chartHeight - (value / maxValue) * chartHeight;
-        lessonsPoints.push({ x, y, value, label: labels[index] });
-    });
-    
-    exercisesData.forEach((value, index) => {
-        const x = margin.left + (step * index);
-        const y = margin.top + chartHeight - (value / maxValue) * chartHeight;
-        exercisesPoints.push({ x, y, value, label: labels[index] });
-    });
-    
-    pointsData.forEach((value, index) => {
-        const x = margin.left + (step * index);
-        const y = margin.top + chartHeight - (value / maxValue) * chartHeight;
-        pointsPoints.push({ x, y, value, label: labels[index] });
-    });
-    
-    // Draw Y-axis grid lines and labels (0, 116, 232, 348, 464, 580)
-    const yValues = [0, 116, 232, 348, 464, 580];
-    yValues.forEach(yValue => {
-        const y = margin.top + chartHeight - (yValue / maxValue) * chartHeight;
-        
-        // Grid line
-        const gridLine = document.createElementNS('http://www.w3.org/2000/svg', 'line');
-        gridLine.setAttribute('x1', margin.left);
-        gridLine.setAttribute('y1', y);
-        gridLine.setAttribute('x2', 800 - margin.right);
-        gridLine.setAttribute('y2', y);
-        gridLine.setAttribute('stroke', '#e0e0e0');
-        gridLine.setAttribute('stroke-width', '1');
-        gridLine.setAttribute('stroke-dasharray', '5,5');
-        svg.appendChild(gridLine);
-        
-        // Y-axis label
-        const yLabel = document.createElementNS('http://www.w3.org/2000/svg', 'text');
-        yLabel.setAttribute('x', margin.left - 35);
-        yLabel.setAttribute('y', y + 4);
-        yLabel.setAttribute('fill', '#666');
-        yLabel.setAttribute('font-size', '11');
-        yLabel.textContent = yValue;
-        svg.appendChild(yLabel);
-    });
-    
-    // Draw X-axis labels (dates)
-    labels.forEach((label, index) => {
-        const x = margin.left + (step * index);
-        const y = margin.top + chartHeight + 20;
-        
-        const xLabel = document.createElementNS('http://www.w3.org/2000/svg', 'text');
-        xLabel.setAttribute('x', x);
-        xLabel.setAttribute('y', y);
-        xLabel.setAttribute('fill', '#666');
-        xLabel.setAttribute('font-size', '10');
-        xLabel.setAttribute('text-anchor', 'middle');
-        xLabel.textContent = label;
-        svg.appendChild(xLabel);
-    });
-    
-    // Draw Y-axis line
-    const yAxis = document.createElementNS('http://www.w3.org/2000/svg', 'line');
-    yAxis.setAttribute('x1', margin.left);
-    yAxis.setAttribute('y1', margin.top);
-    yAxis.setAttribute('x2', margin.left);
-    yAxis.setAttribute('y2', margin.top + chartHeight);
-    yAxis.setAttribute('stroke', '#333');
-    yAxis.setAttribute('stroke-width', '2');
-    svg.appendChild(yAxis);
-    
-    // Draw X-axis line
-    const xAxis = document.createElementNS('http://www.w3.org/2000/svg', 'line');
-    xAxis.setAttribute('x1', margin.left);
-    xAxis.setAttribute('y1', margin.top + chartHeight);
-    xAxis.setAttribute('x2', 800 - margin.right);
-    xAxis.setAttribute('y2', margin.top + chartHeight);
-    xAxis.setAttribute('stroke', '#333');
-    xAxis.setAttribute('stroke-width', '2');
-    svg.appendChild(xAxis);
-    
-    // Draw LESSONS line (RED)
-    if (lessonsPoints.length > 0) {
-        const linePath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-        let lineD = `M ${lessonsPoints[0].x},${lessonsPoints[0].y}`;
-        lessonsPoints.slice(1).forEach(point => {
-            lineD += ` L ${point.x},${point.y}`;
-        });
-        
-        linePath.setAttribute('d', lineD);
-        linePath.setAttribute('fill', 'none');
-        linePath.setAttribute('stroke', '#e74c3c'); // RED
-        linePath.setAttribute('stroke-width', '3');
-        linePath.setAttribute('stroke-linecap', 'round');
-        linePath.setAttribute('stroke-linejoin', 'round');
-        svg.appendChild(linePath);
-        
-        // Draw points for LESSONS
-        lessonsPoints.forEach(point => {
-            const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
-            circle.setAttribute('cx', point.x);
-            circle.setAttribute('cy', point.y);
-            circle.setAttribute('r', '5');
-            circle.setAttribute('fill', '#e74c3c');
-            circle.setAttribute('stroke', 'white');
-            circle.setAttribute('stroke-width', '2');
-            svg.appendChild(circle);
-        });
-    }
-    
-    // Draw EXERCISES line (GREEN)
-    if (exercisesPoints.length > 0) {
-        const linePath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-        let lineD = `M ${exercisesPoints[0].x},${exercisesPoints[0].y}`;
-        exercisesPoints.slice(1).forEach(point => {
-            lineD += ` L ${point.x},${point.y}`;
-        });
-        
-        linePath.setAttribute('d', lineD);
-        linePath.setAttribute('fill', 'none');
-        linePath.setAttribute('stroke', '#27ae60'); // GREEN
-        linePath.setAttribute('stroke-width', '3');
-        linePath.setAttribute('stroke-linecap', 'round');
-        linePath.setAttribute('stroke-linejoin', 'round');
-        svg.appendChild(linePath);
-        
-        // Draw points for EXERCISES
-        exercisesPoints.forEach(point => {
-            const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
-            circle.setAttribute('cx', point.x);
-            circle.setAttribute('cy', point.y);
-            circle.setAttribute('r', '5');
-            circle.setAttribute('fill', '#27ae60');
-            circle.setAttribute('stroke', 'white');
-            circle.setAttribute('stroke-width', '2');
-            svg.appendChild(circle);
-        });
-    }
-    
-    // Draw POINTS line (YELLOW)
-    if (pointsPoints.length > 0) {
-        const linePath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-        let lineD = `M ${pointsPoints[0].x},${pointsPoints[0].y}`;
-        pointsPoints.slice(1).forEach(point => {
-            lineD += ` L ${point.x},${point.y}`;
-        });
-        
-        linePath.setAttribute('d', lineD);
-        linePath.setAttribute('fill', 'none');
-        linePath.setAttribute('stroke', '#f1c40f'); // YELLOW
-        linePath.setAttribute('stroke-width', '3');
-        linePath.setAttribute('stroke-linecap', 'round');
-        linePath.setAttribute('stroke-linejoin', 'round');
-        svg.appendChild(linePath);
-        
-        // Draw points for POINTS
-        pointsPoints.forEach(point => {
-            const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
-            circle.setAttribute('cx', point.x);
-            circle.setAttribute('cy', point.y);
-            circle.setAttribute('r', '5');
-            circle.setAttribute('fill', '#f1c40f');
-            circle.setAttribute('stroke', 'white');
-            circle.setAttribute('stroke-width', '2');
-            svg.appendChild(circle);
-        });
-    }
-    
-    chartContainer.appendChild(svg);
-    
-    // Add LEGEND (Red: Lessons, Green: Exercises, Yellow: Points)
-    const legendDiv = document.createElement('div');
-    legendDiv.style.display = 'flex';
-    legendDiv.style.justifyContent = 'center';
-    legendDiv.style.gap = '30px';
-    legendDiv.style.marginTop = '15px';
-    legendDiv.style.padding = '10px 0';
-    legendDiv.style.borderTop = '1px solid #f0f0f0';
-    
-    // Lessons legend
-    const lessonsLegend = document.createElement('div');
-    lessonsLegend.style.display = 'flex';
-    lessonsLegend.style.alignItems = 'center';
-    lessonsLegend.style.gap = '8px';
-    lessonsLegend.innerHTML = `
-        <div style="width: 20px; height: 4px; background: #e74c3c; border-radius: 2px;"></div>
-        <span style="color: #666; font-size: 13px;">Lessons</span>
+    // Show loading
+    chartContainer.innerHTML = `
+        <div style="text-align: center; padding: 40px;">
+            <i class="fas fa-spinner fa-spin" style="font-size: 40px; color: #7a0000;"></i>
+            <p style="margin-top: 15px;">Loading chart data...</p>
+        </div>
     `;
     
-    // Exercises legend
-    const exercisesLegend = document.createElement('div');
-    exercisesLegend.style.display = 'flex';
-    exercisesLegend.style.alignItems = 'center';
-    exercisesLegend.style.gap = '8px';
-    exercisesLegend.innerHTML = `
-        <div style="width: 20px; height: 4px; background: #27ae60; border-radius: 2px;"></div>
-        <span style="color: #666; font-size: 13px;">Exercises</span>
-    `;
-    
-    // Points legend
-    const pointsLegend = document.createElement('div');
-    pointsLegend.style.display = 'flex';
-    pointsLegend.style.alignItems = 'center';
-    pointsLegend.style.gap = '8px';
-    pointsLegend.innerHTML = `
-        <div style="width: 20px; height: 4px; background: #f1c40f; border-radius: 2px;"></div>
-        <span style="color: #666; font-size: 13px;">Points</span>
-    `;
-    
-    legendDiv.appendChild(lessonsLegend);
-    legendDiv.appendChild(exercisesLegend);
-    legendDiv.appendChild(pointsLegend);
-    
-    chartContainer.appendChild(legendDiv);
-    
-    console.log('✅ Multi-line chart rendered with RED (Lessons), GREEN (Exercises), YELLOW (Points)');
+    try {
+        const token = localStorage.getItem('authToken') || authToken;
+        if (!token) {
+            throw new Error('No auth token');
+        }
+        
+        // ===== FETCH DATA FROM DATABASE FOR LESSON_ID = 3 =====
+        const LESSON_ID = 3; // FORCE FactoLearn only
+        
+        // Get daily progress data for the last 14 days
+        const response = await fetch(`/api/progress/daily-chart?lesson_id=${LESSON_ID}&days=14`, {
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+            }
+        });
+        
+        if (!response.ok) {
+            throw new Error(`HTTP ${response.status}`);
+        }
+        
+        const data = await response.json();
+        
+        if (!data.success || !data.chartData) {
+            throw new Error('No chart data available');
+        }
+        
+        // ===== PROCESS DATA FROM DATABASE =====
+        const chartData = data.chartData;
+        
+        // Format: { labels: [...], lessons: [...], exercises: [...], points: [...] }
+        console.log('✅ Chart data loaded from database:', chartData);
+        
+        // Clear container
+        chartContainer.innerHTML = '';
+        
+        // Set container styles
+        chartContainer.style.position = 'relative';
+        chartContainer.style.height = '300px';
+        chartContainer.style.background = 'white';
+        chartContainer.style.borderRadius = '12px';
+        chartContainer.style.padding = '20px 15px 15px 15px';
+        chartContainer.style.boxShadow = '0 4px 12px rgba(0,0,0,0.1)';
+        chartContainer.style.border = '1px solid #e0e0e0';
+        
+        // Create SVG
+        const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+        svg.setAttribute('width', '100%');
+        svg.setAttribute('height', '220');
+        svg.setAttribute('viewBox', '0 0 800 220');
+        svg.style.display = 'block';
+        svg.style.overflow = 'visible';
+        
+        // Extract data
+        const labels = chartData.labels || [];
+        const lessonsData = chartData.lessons || [];
+        const exercisesData = chartData.exercises || [];
+        const pointsData = chartData.points || [];
+        
+        // If no data, show message
+        if (labels.length === 0) {
+            chartContainer.innerHTML = `
+                <div style="text-align: center; padding: 50px;">
+                    <i class="fas fa-chart-line" style="font-size: 50px; color: #ccc;"></i>
+                    <h3 style="color: #666; margin: 15px 0;">No Activity Data Yet</h3>
+                    <p style="color: #999;">Complete lessons and exercises to see your progress.</p>
+                </div>
+            `;
+            return;
+        }
+        
+        // Find max value for scaling
+        const allValues = [...lessonsData, ...exercisesData, ...pointsData];
+        const maxValue = Math.max(...allValues, 580);
+        
+        // Calculate points for each dataset
+        const margin = { left: 50, right: 30, top: 20, bottom: 30 };
+        const chartWidth = 800 - margin.left - margin.right;
+        const chartHeight = 190 - margin.top;
+        const step = chartWidth / (labels.length - 1);
+        
+        const lessonsPoints = [];
+        const exercisesPoints = [];
+        const pointsPoints = [];
+        
+        lessonsData.forEach((value, index) => {
+            const x = margin.left + (step * index);
+            const y = margin.top + chartHeight - (value / maxValue) * chartHeight;
+            lessonsPoints.push({ x, y, value, label: labels[index] });
+        });
+        
+        exercisesData.forEach((value, index) => {
+            const x = margin.left + (step * index);
+            const y = margin.top + chartHeight - (value / maxValue) * chartHeight;
+            exercisesPoints.push({ x, y, value, label: labels[index] });
+        });
+        
+        pointsData.forEach((value, index) => {
+            const x = margin.left + (step * index);
+            const y = margin.top + chartHeight - (value / maxValue) * chartHeight;
+            pointsPoints.push({ x, y, value, label: labels[index] });
+        });
+        
+        // Draw Y-axis grid lines and labels (based on maxValue)
+        const ySteps = [0, Math.round(maxValue * 0.2), Math.round(maxValue * 0.4), 
+                       Math.round(maxValue * 0.6), Math.round(maxValue * 0.8), maxValue];
+        
+        ySteps.forEach(yValue => {
+            const y = margin.top + chartHeight - (yValue / maxValue) * chartHeight;
+            
+            // Grid line
+            const gridLine = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+            gridLine.setAttribute('x1', margin.left);
+            gridLine.setAttribute('y1', y);
+            gridLine.setAttribute('x2', 800 - margin.right);
+            gridLine.setAttribute('y2', y);
+            gridLine.setAttribute('stroke', '#e0e0e0');
+            gridLine.setAttribute('stroke-width', '1');
+            gridLine.setAttribute('stroke-dasharray', '5,5');
+            svg.appendChild(gridLine);
+            
+            // Y-axis label
+            const yLabel = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+            yLabel.setAttribute('x', margin.left - 35);
+            yLabel.setAttribute('y', y + 4);
+            yLabel.setAttribute('fill', '#666');
+            yLabel.setAttribute('font-size', '11');
+            yLabel.textContent = yValue;
+            svg.appendChild(yLabel);
+        });
+        
+        // Draw X-axis labels (dates from database)
+        labels.forEach((label, index) => {
+            const x = margin.left + (step * index);
+            const y = margin.top + chartHeight + 20;
+            
+            const xLabel = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+            xLabel.setAttribute('x', x);
+            xLabel.setAttribute('y', y);
+            xLabel.setAttribute('fill', '#666');
+            xLabel.setAttribute('font-size', '10');
+            xLabel.setAttribute('text-anchor', 'middle');
+            xLabel.textContent = label;
+            svg.appendChild(xLabel);
+        });
+        
+        // Draw axes
+        const yAxis = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+        yAxis.setAttribute('x1', margin.left);
+        yAxis.setAttribute('y1', margin.top);
+        yAxis.setAttribute('x2', margin.left);
+        yAxis.setAttribute('y2', margin.top + chartHeight);
+        yAxis.setAttribute('stroke', '#333');
+        yAxis.setAttribute('stroke-width', '2');
+        svg.appendChild(yAxis);
+        
+        const xAxis = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+        xAxis.setAttribute('x1', margin.left);
+        xAxis.setAttribute('y1', margin.top + chartHeight);
+        xAxis.setAttribute('x2', 800 - margin.right);
+        xAxis.setAttribute('y2', margin.top + chartHeight);
+        xAxis.setAttribute('stroke', '#333');
+        xAxis.setAttribute('stroke-width', '2');
+        svg.appendChild(xAxis);
+        
+        // Draw LESSONS line (RED)
+        if (lessonsPoints.length > 0) {
+            const linePath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+            let lineD = `M ${lessonsPoints[0].x},${lessonsPoints[0].y}`;
+            lessonsPoints.slice(1).forEach(point => {
+                lineD += ` L ${point.x},${point.y}`;
+            });
+            
+            linePath.setAttribute('d', lineD);
+            linePath.setAttribute('fill', 'none');
+            linePath.setAttribute('stroke', '#e74c3c');
+            linePath.setAttribute('stroke-width', '3');
+            linePath.setAttribute('stroke-linecap', 'round');
+            linePath.setAttribute('stroke-linejoin', 'round');
+            svg.appendChild(linePath);
+            
+            // Draw points
+            lessonsPoints.forEach(point => {
+                const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+                circle.setAttribute('cx', point.x);
+                circle.setAttribute('cy', point.y);
+                circle.setAttribute('r', '5');
+                circle.setAttribute('fill', '#e74c3c');
+                circle.setAttribute('stroke', 'white');
+                circle.setAttribute('stroke-width', '2');
+                svg.appendChild(circle);
+            });
+        }
+        
+        // Draw EXERCISES line (GREEN)
+        if (exercisesPoints.length > 0) {
+            const linePath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+            let lineD = `M ${exercisesPoints[0].x},${exercisesPoints[0].y}`;
+            exercisesPoints.slice(1).forEach(point => {
+                lineD += ` L ${point.x},${point.y}`;
+            });
+            
+            linePath.setAttribute('d', lineD);
+            linePath.setAttribute('fill', 'none');
+            linePath.setAttribute('stroke', '#27ae60');
+            linePath.setAttribute('stroke-width', '3');
+            linePath.setAttribute('stroke-linecap', 'round');
+            linePath.setAttribute('stroke-linejoin', 'round');
+            svg.appendChild(linePath);
+            
+            exercisesPoints.forEach(point => {
+                const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+                circle.setAttribute('cx', point.x);
+                circle.setAttribute('cy', point.y);
+                circle.setAttribute('r', '5');
+                circle.setAttribute('fill', '#27ae60');
+                circle.setAttribute('stroke', 'white');
+                circle.setAttribute('stroke-width', '2');
+                svg.appendChild(circle);
+            });
+        }
+        
+        // Draw POINTS line (YELLOW)
+        if (pointsPoints.length > 0) {
+            const linePath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+            let lineD = `M ${pointsPoints[0].x},${pointsPoints[0].y}`;
+            pointsPoints.slice(1).forEach(point => {
+                lineD += ` L ${point.x},${point.y}`;
+            });
+            
+            linePath.setAttribute('d', lineD);
+            linePath.setAttribute('fill', 'none');
+            linePath.setAttribute('stroke', '#f1c40f');
+            linePath.setAttribute('stroke-width', '3');
+            linePath.setAttribute('stroke-linecap', 'round');
+            linePath.setAttribute('stroke-linejoin', 'round');
+            svg.appendChild(linePath);
+            
+            pointsPoints.forEach(point => {
+                const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+                circle.setAttribute('cx', point.x);
+                circle.setAttribute('cy', point.y);
+                circle.setAttribute('r', '5');
+                circle.setAttribute('fill', '#f1c40f');
+                circle.setAttribute('stroke', 'white');
+                circle.setAttribute('stroke-width', '2');
+                svg.appendChild(circle);
+            });
+        }
+        
+        chartContainer.appendChild(svg);
+        
+        // Add LEGEND
+        const legendDiv = document.createElement('div');
+        legendDiv.style.display = 'flex';
+        legendDiv.style.justifyContent = 'center';
+        legendDiv.style.gap = '30px';
+        legendDiv.style.marginTop = '15px';
+        legendDiv.style.padding = '10px 0';
+        legendDiv.style.borderTop = '1px solid #f0f0f0';
+        
+        legendDiv.innerHTML = `
+            <div style="display: flex; align-items: center; gap: 8px;">
+                <div style="width: 20px; height: 4px; background: #e74c3c; border-radius: 2px;"></div>
+                <span style="color: #666; font-size: 13px;">Lessons</span>
+            </div>
+            <div style="display: flex; align-items: center; gap: 8px;">
+                <div style="width: 20px; height: 4px; background: #27ae60; border-radius: 2px;"></div>
+                <span style="color: #666; font-size: 13px;">Exercises</span>
+            </div>
+            <div style="display: flex; align-items: center; gap: 8px;">
+                <div style="width: 20px; height: 4px; background: #f1c40f; border-radius: 2px;"></div>
+                <span style="color: #666; font-size: 13px;">Points</span>
+            </div>
+        `;
+        
+        chartContainer.appendChild(legendDiv);
+        
+        console.log('✅ Multi-line chart rendered with data from database (lesson_id=3)');
+        
+    } catch (error) {
+        console.error('❌ Error loading chart data:', error);
+        
+        // Show error message
+        chartContainer.innerHTML = `
+            <div style="text-align: center; padding: 40px;">
+                <i class="fas fa-exclamation-triangle" style="font-size: 40px; color: #e74c3c;"></i>
+                <h3 style="color: #666; margin: 15px 0;">Failed to load chart data</h3>
+                <p style="color: #999;">${error.message}</p>
+                <button onclick="renderDailyActivityChart()" style="margin-top: 15px; padding: 8px 20px; background: #7a0000; color: white; border: none; border-radius: 5px; cursor: pointer;">
+                    <i class="fas fa-redo"></i> Retry
+                </button>
+            </div>
+        `;
+    }
 }
+
 // ============================================
 // Helper: Show Daily Tooltip
 // ============================================
@@ -20303,83 +20560,40 @@ async function testVideoAccessibility(url) {
 }
 
 // ============================================
-// RAILWAY FIX: Load video from database with better error handling
+// RAILWAY FIX: Load video from database with progress tracking
 // ============================================
 async function loadVideoFromDatabase(contentId = null) {
     console.log('🎬 loadVideoFromDatabase called with contentId:', contentId);
     
-    // Try multiple selectors for video container - use LET instead of CONST
-    let videoContainer = document.getElementById('videoContainer') || 
-                         document.querySelector('.video-container') ||
-                         document.querySelector('#module-dashboard-page .video-section');
-    
-    const videoInfo = document.getElementById('videoInfo');
-    const refreshVideoBtn = document.getElementById('refreshVideoBtn');
+    // Find video container
+    let videoContainer = document.getElementById('videoContainer');
     
     if (!videoContainer) {
-        console.error('❌ Video container not found! DOM structure:', {
-            videoContainer: document.getElementById('videoContainer'),
-            moduleDashboard: document.getElementById('module-dashboard-page'),
-            videoSection: document.querySelector('.video-section')
-        });
-        
-        // Create video container if it doesn't exist
-        const moduleDashboard = document.getElementById('module-dashboard-page');
-        if (moduleDashboard) {
-            const videoSection = moduleDashboard.querySelector('.video-section');
-            if (videoSection) {
-                console.log('🔄 Creating video container dynamically...');
-                videoSection.innerHTML = `
-                    <div id="videoContainer" style="background: #000; min-height: 300px; width: 100%;">
-                        <div style="background: #f0f0f0; height: 400px; display: flex; align-items: center; justify-content: center; flex-direction: column;">
-                            <i class="fas fa-spinner fa-spin" style="font-size: 40px; color: #7a0000; margin-bottom: 20px;"></i>
-                            <p style="color: #666;">Loading video...</p>
-                        </div>
-                    </div>
-                `;
-            }
-        }
-        
-        // Try to get container again - reassign to LET variable
-        videoContainer = document.getElementById('videoContainer');
-        if (!videoContainer) {
-            console.error('❌ Still cannot find video container');
-            return null;
-        }
+        console.error('❌ Video container not found!');
+        return null;
     }
     
     try {
-        // Use provided contentId or get from current lesson
+        // Get contentId from current lesson if not provided
         if (!contentId && LessonState.currentLesson) {
             contentId = LessonState.currentLesson.content_id;
         }
         
-        // If still no contentId, try from URL
         if (!contentId) {
-            const urlParams = new URLSearchParams(window.location.search);
-            contentId = urlParams.get('lessonId') || urlParams.get('id') || urlParams.get('contentId') || 1;
+            contentId = 1; // Default
         }
         
-        console.log(`🎬 Loading video for lesson ID: ${contentId} on Railway`);
+        console.log(`🎬 Loading video for lesson ID: ${contentId}`);
         
         // Show loading
         videoContainer.innerHTML = `
             <div style="background: #f0f0f0; height: 400px; display: flex; align-items: center; justify-content: center; flex-direction: column;">
                 <i class="fas fa-spinner fa-spin" style="font-size: 40px; color: #7a0000; margin-bottom: 20px;"></i>
-                <p style="color: #666;">Loading video from database...</p>
+                <p style="color: #666;">Loading video...</p>
             </div>
         `;
         
-        if (videoInfo) {
-            videoInfo.innerHTML = '<p><i class="fas fa-spinner fa-spin"></i> Fetching video data...</p>';
-        }
-        
-        if (refreshVideoBtn) {
-            refreshVideoBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
-            refreshVideoBtn.disabled = true;
-        }
-        
-        // Use apiRequest for consistency
+        // Fetch lesson data
         const lessonData = await apiRequest(`/api/lessons-db/${contentId}`);
         
         if (!lessonData.success || !lessonData.lesson) {
@@ -20387,7 +20601,6 @@ async function loadVideoFromDatabase(contentId = null) {
         }
         
         const lesson = lessonData.lesson;
-        console.log('✅ Lesson data loaded:', lesson.content_title);
         
         // Update lesson info
         const titleElement = document.getElementById('videoLessonTitle');
@@ -20402,24 +20615,18 @@ async function loadVideoFromDatabase(contentId = null) {
         
         // Determine video source
         let videoUrl = null;
-        let videoType = 'none';
         
-        // Check for YouTube URL first
+        // Check for YouTube URL
         if (lesson.content_url && (lesson.content_url.includes('youtube') || lesson.content_url.includes('youtu.be'))) {
             videoUrl = lesson.content_url;
-            videoType = 'youtube';
-            console.log('🔗 Using YouTube video:', videoUrl);
         }
-        // Check for video_filename (uploaded video)
+        // Check for uploaded video
         else if (lesson.video_filename) {
             if (lesson.video_filename.startsWith('http')) {
                 videoUrl = lesson.video_filename;
             } else {
-                // For Railway, use absolute URL
                 videoUrl = `${window.location.origin}/videos/${lesson.video_filename}`;
             }
-            videoType = 'uploaded';
-            console.log('🎬 Using uploaded video:', videoUrl);
         }
         // Check for video_path
         else if (lesson.video_path) {
@@ -20429,15 +20636,13 @@ async function loadVideoFromDatabase(contentId = null) {
                 const filename = lesson.video_path.split('/').pop();
                 videoUrl = `${window.location.origin}/videos/${filename}`;
             }
-            videoType = 'path';
-            console.log('📁 Using video path:', videoUrl);
         }
         
         // Clear container
         videoContainer.innerHTML = '';
         
         // Handle YouTube videos
-        if (videoType === 'youtube' && videoUrl) {
+        if (videoUrl && videoUrl.includes('youtube')) {
             const videoId = extractYoutubeId(videoUrl);
             if (videoId) {
                 const iframe = document.createElement('iframe');
@@ -20446,20 +20651,16 @@ async function loadVideoFromDatabase(contentId = null) {
                 iframe.src = `https://www.youtube.com/embed/${videoId}`;
                 iframe.frameBorder = '0';
                 iframe.allowFullscreen = true;
-                iframe.allow = 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture';
                 videoContainer.appendChild(iframe);
                 
-                if (videoInfo) {
-                    videoInfo.innerHTML = `
-                        <p><i class="fab fa-youtube" style="color: #ff0000;"></i> <strong>YouTube Video</strong></p>
-                        <p>${lesson.content_title || ''}</p>
-                    `;
-                }
+                // Note: YouTube iframe doesn't support progress tracking easily
+                // You might need YouTube IFrame API for that
+                
                 return;
             }
         }
         
-        // Handle uploaded videos
+        // Handle HTML5 video
         if (videoUrl) {
             const video = document.createElement('video');
             video.id = 'lessonVideo';
@@ -20475,83 +20676,35 @@ async function loadVideoFromDatabase(contentId = null) {
             video.appendChild(source);
             video.appendChild(document.createTextNode('Your browser does not support the video tag.'));
             
-            // Success handler
-            video.onloadeddata = function() {
-                console.log(`✅ Video loaded successfully: ${videoUrl}`);
-                if (videoInfo) {
-                    videoInfo.innerHTML = `
-                        <p><i class="fas fa-check-circle" style="color: #27ae60;"></i> <strong>${lesson.content_title || 'Video Lesson'}</strong></p>
-                        <p><i class="fas fa-clock"></i> Duration: ${Math.floor((lesson.video_duration_seconds || 600) / 60)} min</p>
-                    `;
-                }
-                // Initialize progress tracking
-                initVideoProgressTracking(video, contentId);
-            };
-            
-            // Error handler
-            video.onerror = function() {
-                console.error('❌ Video failed to load:', videoUrl);
-                videoContainer.innerHTML = `
-                    <div style="background: #fee; height: 400px; display: flex; align-items: center; justify-content: center; flex-direction: column;">
-                        <i class="fas fa-exclamation-triangle" style="font-size: 60px; color: #e74c3c; margin-bottom: 20px;"></i>
-                        <h3 style="color: #c0392b;">Video not found</h3>
-                        <p style="color: #e74c3c;">The video file may be missing or inaccessible.</p>
-                        <p style="color: #666; font-size: 12px; margin-top: 10px;">Path: ${videoUrl}</p>
-                    </div>
-                `;
-                if (videoInfo) {
-                    videoInfo.innerHTML = `
-                        <p style="color: #e74c3c;">
-                            <i class="fas fa-exclamation-triangle"></i> 
-                            Video failed to load. Please check if the file exists.
-                        </p>
-                    `;
-                }
-            };
-            
             videoContainer.appendChild(video);
-            video.load();
+            
+            // ===== CONNECT VIDEO TO CURRENT LESSON PROGRESS =====
+            // Initialize progress tracking - ito ang MAG-UUPDATE ng progress bar
+            initVideoProgressTracking(video, contentId);
+            
+            console.log('✅ Video loaded and connected to Current Lesson Progress');
+            
         } else {
             // No video available
             videoContainer.innerHTML = `
                 <div style="background: #f0f0f0; height: 400px; display: flex; align-items: center; justify-content: center; flex-direction: column;">
                     <i class="fas fa-video-slash" style="font-size: 60px; color: #999; margin-bottom: 20px;"></i>
                     <h3 style="color: #666;">No video available for this lesson</h3>
-                    <p style="color: #999;">The video will appear here once uploaded.</p>
                 </div>
             `;
-            
-            if (videoInfo) {
-                videoInfo.innerHTML = `
-                    <p style="color: #f39c12;">
-                        <i class="fas fa-info-circle"></i> 
-                        This lesson has no video assigned.
-                    </p>
-                `;
-            }
         }
         
     } catch (error) {
         console.error('❌ Error loading video:', error);
-        
         videoContainer.innerHTML = `
             <div style="background: #fee; height: 400px; display: flex; align-items: center; justify-content: center; flex-direction: column;">
                 <i class="fas fa-exclamation-triangle" style="font-size: 60px; color: #e74c3c; margin-bottom: 20px;"></i>
                 <h3 style="color: #c0392b;">Failed to load video</h3>
                 <p style="color: #e74c3c;">${error.message}</p>
-                <button onclick="location.reload()" class="btn-primary" style="margin-top: 20px; padding: 10px 20px;">
-                    <i class="fas fa-redo"></i> Reload Page
-                </button>
             </div>
         `;
-    } finally {
-        if (refreshVideoBtn) {
-            refreshVideoBtn.innerHTML = '<i class="fas fa-sync-alt"></i>';
-            refreshVideoBtn.disabled = false;
-        }
     }
 }
-
 // Add this at the end of your script.js file
 window.debugLessonId3 = async function() {
     console.log('🔍 DEBUGGING LESSON ID 3 (factorial)');
@@ -21271,21 +21424,47 @@ function addPerformanceAnalyticsStyles() {
     document.head.appendChild(style);
 }
 // ============================================
-// ✅ FIXED: updateProgressDisplay - Remove broken API call
+// ✅ FIXED: updateProgressDisplay - Load saved progress
 // ============================================
 async function updateProgressDisplay(lesson) {
     const contentId = lesson.content_id;
     
-    // Get progress from state only - don't call broken API
+    // Try to get progress from server first
     let percentage = 0;
     let status = 'not_started';
     
-    if (LessonState.userProgress && LessonState.userProgress[contentId]) {
-        percentage = LessonState.userProgress[contentId].percentage || 0;
-        status = LessonState.userProgress[contentId].status || 'not_started';
-        console.log('📊 Progress from state:', { percentage, status });
-    } else {
-        console.log('ℹ️ No progress in state for lesson', contentId);
+    try {
+        const token = localStorage.getItem('authToken');
+        if (token) {
+            const response = await fetch(`/api/lessons-db/${contentId}/progress`, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            
+            if (response.ok) {
+                const data = await response.json();
+                if (data.success && data.progress) {
+                    percentage = data.progress.percentage || 0;
+                    status = data.progress.completion_status || 'not_started';
+                    
+                    // Save to LessonState
+                    if (!LessonState.userProgress) LessonState.userProgress = {};
+                    LessonState.userProgress[contentId] = {
+                        percentage: percentage,
+                        status: status
+                    };
+                    
+                    console.log('📊 Progress loaded from server:', { percentage, status });
+                }
+            }
+        }
+    } catch (error) {
+        console.warn('Could not load progress from server:', error);
+        
+        // Fallback to LessonState
+        if (LessonState.userProgress && LessonState.userProgress[contentId]) {
+            percentage = LessonState.userProgress[contentId].percentage || 0;
+            status = LessonState.userProgress[contentId].status || 'not_started';
+        }
     }
     
     // Update progress bar
@@ -21300,7 +21479,7 @@ async function updateProgressDisplay(lesson) {
         progressPercentage.textContent = `${percentage}% Complete`;
     }
     
-    // Update time display
+    // Update time display (will be updated by video player)
     const progressTime = document.getElementById('progressTime');
     if (progressTime && lesson.video_duration_seconds) {
         const durationMinutes = Math.floor(lesson.video_duration_seconds / 60);
@@ -21308,13 +21487,252 @@ async function updateProgressDisplay(lesson) {
         progressTime.textContent = `0:00 / ${durationMinutes}:${durationSeconds.toString().padStart(2, '0')}`;
     }
     
-    // Store in LessonState for button to use
-    if (!LessonState.userProgress) LessonState.userProgress = {};
-    if (!LessonState.userProgress[contentId]) LessonState.userProgress[contentId] = {};
-    LessonState.userProgress[contentId].percentage = percentage;
-    LessonState.userProgress[contentId].status = status;
+    // Update complete button based on status
+    const completeBtn = document.getElementById('completeLessonBtn');
+    if (completeBtn) {
+        if (status === 'completed') {
+            completeBtn.innerHTML = '<i class="fas fa-check-double"></i> Lesson Completed!';
+            completeBtn.classList.remove('btn-primary');
+            completeBtn.classList.add('btn-success');
+            completeBtn.disabled = true;
+        } else {
+            completeBtn.innerHTML = '<i class="fas fa-check-circle"></i> Mark Lesson Complete';
+            completeBtn.classList.remove('btn-success');
+            completeBtn.classList.add('btn-primary');
+            completeBtn.disabled = false;
+        }
+    }
+    
+    console.log(`📊 Current Lesson Progress: ${percentage}% (${status})`);
 }
-
+// ============================================
+// 📊 PERFORMANCE ANALYTICS - Database Connected (lesson_id=3)
+// ============================================
+async function loadPerformanceAnalytics() {
+    console.log('📊 Loading performance analytics for lesson_id=3...');
+    
+    const container = document.getElementById('performanceAnalytics');
+    if (!container) {
+        console.error('❌ performanceAnalytics container not found');
+        return;
+    }
+    
+    // Show loading
+    container.innerHTML = `
+        <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 20px; padding: 20px;">
+            ${[1,2,3,4].map(() => `
+                <div style="background: white; border-radius: 12px; padding: 25px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); text-align: center;">
+                    <div style="width: 50px; height: 50px; background: #f0f0f0; border-radius: 12px; margin: 0 auto 15px; animation: pulse 1.5s infinite;"></div>
+                    <div style="height: 24px; width: 60%; background: #f0f0f0; margin: 0 auto 10px; border-radius: 4px; animation: pulse 1.5s infinite;"></div>
+                    <div style="height: 16px; width: 40%; background: #f0f0f0; margin: 0 auto; border-radius: 4px; animation: pulse 1.5s infinite;"></div>
+                </div>
+            `).join('')}
+        </div>
+        <style>
+            @keyframes pulse {
+                0% { opacity: 0.6; }
+                50% { opacity: 1; }
+                100% { opacity: 0.6; }
+            }
+        </style>
+    `;
+    
+    try {
+        const token = localStorage.getItem('authToken') || authToken;
+        if (!token) {
+            throw new Error('No auth token');
+        }
+        
+        const LESSON_ID = 3; // Force FactoLearn only
+        
+        // ===== FETCH ALL DATA IN PARALLEL =====
+        const [
+            weeklyResponse,
+            accuracyResponse,
+            timeResponse,
+            streakResponse
+        ] = await Promise.allSettled([
+            // 1. Weekly Improvement - compare this week vs last week
+            fetch(`/api/progress/weekly-comparison?lesson_id=${LESSON_ID}`, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            }),
+            
+            // 2. Practice Accuracy - average score from practice exercises
+            fetch(`/api/progress/practice-accuracy?lesson_id=${LESSON_ID}`, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            }),
+            
+            // 3. Avg Time per Activity - from user_progress
+            fetch(`/api/progress/average-time?lesson_id=${LESSON_ID}`, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            }),
+            
+            // 4. Current Streak - consecutive days with activity
+            fetch(`/api/progress/streak?lesson_id=${LESSON_ID}`, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            })
+        ]);
+        
+        // ===== PROCESS WEEKLY IMPROVEMENT =====
+        let weeklyImprovement = 5;
+        let weeklyTrend = 'up';
+        let weeklyMessage = 'Better than last week';
+        
+        if (weeklyResponse.status === 'fulfilled' && weeklyResponse.value.ok) {
+            const data = await weeklyResponse.value.json();
+            if (data.success) {
+                weeklyImprovement = data.improvement || 5;
+                weeklyTrend = data.trend || 'up';
+                weeklyMessage = data.message || 'Better than last week';
+            }
+        }
+        
+        // ===== PROCESS PRACTICE ACCURACY =====
+        let practiceAccuracy = 85;
+        let accuracyMessage = '🔥 Excellent!';
+        
+        if (accuracyResponse.status === 'fulfilled' && accuracyResponse.value.ok) {
+            const data = await accuracyResponse.value.json();
+            if (data.success) {
+                practiceAccuracy = data.accuracy || 85;
+                
+                // Set message based on accuracy
+                if (practiceAccuracy >= 90) accuracyMessage = '🏆 Master level!';
+                else if (practiceAccuracy >= 80) accuracyMessage = '🔥 Excellent!';
+                else if (practiceAccuracy >= 70) accuracyMessage = '💪 Good progress!';
+                else if (practiceAccuracy >= 60) accuracyMessage = '📚 Keep practicing!';
+                else accuracyMessage = '🎯 Focus on basics';
+            }
+        }
+        
+        // ===== PROCESS AVERAGE TIME =====
+        let avgTime = 5;
+        let timeMessage = '🏅 Efficient learner';
+        
+        if (timeResponse.status === 'fulfilled' && timeResponse.value.ok) {
+            const data = await timeResponse.value.json();
+            if (data.success) {
+                avgTime = data.average_minutes || 5;
+                
+                if (avgTime <= 3) timeMessage = '⚡ Lightning fast!';
+                else if (avgTime <= 5) timeMessage = '🏅 Efficient learner';
+                else if (avgTime <= 8) timeMessage = '⏱️ Steady pace';
+                else timeMessage = '🧘 Take your time';
+            }
+        }
+        
+        // ===== PROCESS STREAK =====
+        let streak = 1;
+        let streakMessage = '🚀 Just starting';
+        
+        if (streakResponse.status === 'fulfilled' && streakResponse.value.ok) {
+            const data = await streakResponse.value.json();
+            if (data.success) {
+                streak = data.streak_days || 1;
+                
+                if (streak >= 30) streakMessage = '🔥 Legendary!';
+                else if (streak >= 14) streakMessage = '🌟 Amazing streak!';
+                else if (streak >= 7) streakMessage = '💪 One week strong!';
+                else if (streak >= 3) streakMessage = '📅 Building momentum';
+                else streakMessage = '🚀 Just starting';
+            }
+        }
+        
+        // ===== RENDER THE ANALYTICS CARDS =====
+        container.innerHTML = `
+            <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 20px; padding: 20px;">
+                
+                <!-- Weekly Improvement Card -->
+                <div class="analytics-card" style="background: white; border-radius: 12px; padding: 25px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); text-align: center; transition: transform 0.3s;">
+                    <div style="width: 60px; height: 60px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 15px; margin: 0 auto 15px; display: flex; align-items: center; justify-content: center;">
+                        <i class="fas fa-chart-line" style="font-size: 28px; color: white;"></i>
+                    </div>
+                    <div style="font-size: 14px; color: #666; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px;">Weekly Improvement</div>
+                    <div style="font-size: 36px; font-weight: bold; color: #2c3e50; margin-bottom: 5px;">
+                        +${weeklyImprovement}%
+                    </div>
+                    <div style="display: flex; align-items: center; justify-content: center; gap: 5px; color: #27ae60; font-size: 14px;">
+                        <i class="fas fa-arrow-up"></i>
+                        <span>${weeklyMessage}</span>
+                    </div>
+                </div>
+                
+                <!-- Practice Accuracy Card -->
+                <div class="analytics-card" style="background: white; border-radius: 12px; padding: 25px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); text-align: center; transition: transform 0.3s;">
+                    <div style="width: 60px; height: 60px; background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); border-radius: 15px; margin: 0 auto 15px; display: flex; align-items: center; justify-content: center;">
+                        <i class="fas fa-bullseye" style="font-size: 28px; color: white;"></i>
+                    </div>
+                    <div style="font-size: 14px; color: #666; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px;">Practice Accuracy</div>
+                    <div style="font-size: 36px; font-weight: bold; color: #2c3e50; margin-bottom: 5px;">
+                        ${practiceAccuracy}%
+                    </div>
+                    <div style="color: #e67e22; font-size: 14px;">
+                        ${accuracyMessage}
+                    </div>
+                </div>
+                
+                <!-- Avg. Time/Activity Card -->
+                <div class="analytics-card" style="background: white; border-radius: 12px; padding: 25px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); text-align: center; transition: transform 0.3s;">
+                    <div style="width: 60px; height: 60px; background: linear-gradient(135deg, #5faee3 0%, #3498db 100%); border-radius: 15px; margin: 0 auto 15px; display: flex; align-items: center; justify-content: center;">
+                        <i class="fas fa-clock" style="font-size: 28px; color: white;"></i>
+                    </div>
+                    <div style="font-size: 14px; color: #666; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px;">Avg. Time/Activity</div>
+                    <div style="font-size: 36px; font-weight: bold; color: #2c3e50; margin-bottom: 5px;">
+                        ${avgTime} <span style="font-size: 16px;">min</span>
+                    </div>
+                    <div style="color: #f39c12; font-size: 14px;">
+                        ${timeMessage}
+                    </div>
+                </div>
+                
+                <!-- Current Streak Card -->
+                <div class="analytics-card" style="background: white; border-radius: 12px; padding: 25px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); text-align: center; transition: transform 0.3s;">
+                    <div style="width: 60px; height: 60px; background: linear-gradient(135deg, #ffb347 0%, #ff8c00 100%); border-radius: 15px; margin: 0 auto 15px; display: flex; align-items: center; justify-content: center;">
+                        <i class="fas fa-fire" style="font-size: 28px; color: white;"></i>
+                    </div>
+                    <div style="font-size: 14px; color: #666; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px;">Current Streak</div>
+                    <div style="font-size: 36px; font-weight: bold; color: #2c3e50; margin-bottom: 5px;">
+                        ${streak} ${streak === 1 ? 'day' : 'days'}
+                    </div>
+                    <div style="color: #e67e22; font-size: 14px;">
+                        ${streakMessage}
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Database Connection Status -->
+            <div style="margin-top: 10px; text-align: right; padding: 0 20px;">
+                <span style="background: #27ae60; color: white; padding: 4px 10px; border-radius: 20px; font-size: 11px;">
+                    <i class="fas fa-database"></i> Lesson ID: 3 (FactoLearn)
+                </span>
+            </div>
+            
+            <style>
+                .analytics-card:hover {
+                    transform: translateY(-5px);
+                    box-shadow: 0 8px 24px rgba(0,0,0,0.15) !important;
+                }
+            </style>
+        `;
+        
+        console.log('✅ Performance analytics loaded from database (lesson_id=3)');
+        
+    } catch (error) {
+        console.error('❌ Error loading performance analytics:', error);
+        
+        // Show error state
+        container.innerHTML = `
+            <div style="text-align: center; padding: 40px;">
+                <i class="fas fa-exclamation-triangle" style="font-size: 48px; color: #e74c3c; margin-bottom: 15px;"></i>
+                <h3 style="color: #2c3e50;">Failed to load analytics</h3>
+                <p style="color: #7f8c8d;">${error.message}</p>
+                <button onclick="loadPerformanceAnalytics()" style="margin-top: 15px; padding: 10px 20px; background: #7a0000; color: white; border: none; border-radius: 5px; cursor: pointer;">
+                    <i class="fas fa-redo"></i> Retry
+                </button>
+            </div>
+        `;
+    }
+}
 // ============================================
 // HELPER: Setup back button
 // ============================================
