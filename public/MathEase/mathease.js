@@ -15017,21 +15017,6 @@ function showModal(content, options = {}) {
     return overlay;
 }
 
-// Add animation keyframes
-const style = document.createElement('style');
-style.textContent = `
-    @keyframes slideUp {
-        from {
-            opacity: 0;
-            transform: translateY(30px);
-        }
-        to {
-            opacity: 1;
-            transform: translateY(0);
-        }
-    }
-`;
-document.head.appendChild(style);
 // ============================================
 // ✅ FIXED: Display quizzes na parang dashboard card
 // ============================================
