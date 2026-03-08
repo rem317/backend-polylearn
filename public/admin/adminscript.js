@@ -8358,7 +8358,550 @@ async function viewSubjectLessons(subject, e) {
         } catch (e) {}
     }
 }
+// ===== COMPLETE FIX FOR MODAL DISPLAY ISSUE =====
+// Run this in console or add to your adminscript.js
 
+(function fixModalDisplay() {
+    console.log("🔧 Applying modal display fixes...");
+    
+    // ===== 1. FIX MODAL STYLES =====
+    function addModalStyles() {
+        if (document.getElementById('modal-fix-styles')) return;
+        
+        const style = document.createElement('style');
+        style.id = 'modal-fix-styles';
+        style.textContent = `
+            #questionModal {
+                display: none !important;
+                position: fixed !important;
+                top: 0 !important;
+                left: 0 !important;
+                width: 100% !important;
+                height: 100% !important;
+                background-color: rgba(0, 0, 0, 0.5) !important;
+                z-index: 999999 !important;
+                align-items: center !important;
+                justify-content: center !important;
+            }
+            
+            #questionModal[style*="display: flex"] {
+                display: flex !important;
+            }
+            
+            #questionModal .modal-content {
+                background: white !important;
+                border-radius: 12px !important;
+                max-width: 900px !important;
+                width: 95% !important;
+                max-height: 85vh !important;
+                overflow: hidden !important;
+                box-shadow: 0 25px 60px rgba(0, 0, 0, 0.3) !important;
+                position: relative !important;
+                z-index: 1000000 !important;
+                animation: modalSlideIn 0.3s ease-out !important;
+            }
+            
+            @keyframes modalSlideIn {
+                from {
+                    opacity: 0;
+                    transform: translateY(-50px) scale(0.95);
+                }
+                to {
+                    opacity: 1;
+                    transform: translateY(0) scale(1);
+                }
+            }
+            
+            #questionModal .modal-backdrop {
+                position: absolute !important;
+                top: 0 !important;
+                left: 0 !important;
+                width: 100% !important;
+                height: 100% !important;
+                cursor: pointer !important;
+            }
+            
+            #questionModal .modal-header {
+                background: #7a0000 !important;
+                color: white !important;
+                padding: 18px 25px !important;
+                display: flex !important;
+                justify-content: space-between !important;
+                align-items: center !important;
+                border-bottom: 1px solid rgba(255,255,255,0.1) !important;
+            }
+            
+            #questionModal .modal-header h3 {
+                margin: 0 !important;
+                font-size: 1.3rem !important;
+                font-weight: 600 !important;
+                display: flex !important;
+                align-items: center !important;
+                gap: 10px !important;
+            }
+            
+            #questionModal .modal-close {
+                background: none !important;
+                border: none !important;
+                color: white !important;
+                font-size: 32px !important;
+                cursor: pointer !important;
+                width: 40px !important;
+                height: 40px !important;
+                display: flex !important;
+                align-items: center !important;
+                justify-content: center !important;
+                border-radius: 50% !important;
+                transition: all 0.2s !important;
+            }
+            
+            #questionModal .modal-close:hover {
+                background: rgba(255,255,255,0.2) !important;
+                transform: rotate(90deg) !important;
+            }
+            
+            #questionModal .modal-body {
+                padding: 25px !important;
+                max-height: calc(85vh - 140px) !important;
+                overflow-y: auto !important;
+            }
+            
+            #questionModal .modal-footer {
+                padding: 18px 25px !important;
+                border-top: 1px solid #eee !important;
+                background: #f8f9fa !important;
+                text-align: right !important;
+            }
+            
+            body.modal-open {
+                overflow: hidden !important;
+            }
+            
+            .lesson-item {
+                background: white !important;
+                border: 1px solid #e0e0e0 !important;
+                border-radius: 10px !important;
+                padding: 18px !important;
+                margin-bottom: 12px !important;
+                display: flex !important;
+                justify-content: space-between !important;
+                align-items: center !important;
+                transition: all 0.2s ease !important;
+                border-left: 4px solid #7a0000 !important;
+                cursor: pointer !important;
+            }
+            
+            .lesson-item:hover {
+                transform: translateX(5px) !important;
+                box-shadow: 0 5px 15px rgba(122,0,0,0.2) !important;
+                background: #f8f9fa !important;
+            }
+            
+            .btn-icon {
+                width: 36px !important;
+                height: 36px !important;
+                border: none !important;
+                border-radius: 8px !important;
+                cursor: pointer !important;
+                transition: all 0.2s !important;
+                display: inline-flex !important;
+                align-items: center !important;
+                justify-content: center !important;
+                font-size: 0.9rem !important;
+            }
+            
+            .btn-icon.small {
+                width: 32px !important;
+                height: 32px !important;
+            }
+            
+            .btn-icon:hover {
+                transform: scale(1.1) !important;
+            }
+            
+            .btn-icon[title="Preview"] {
+                background: #2196F320 !important;
+                color: #2196F3 !important;
+            }
+            
+            .btn-icon[title="Preview"]:hover {
+                background: #2196F3 !important;
+                color: white !important;
+            }
+            
+            .btn-icon[title="Edit"] {
+                background: #FF980020 !important;
+                color: #FF9800 !important;
+            }
+            
+            .btn-icon[title="Edit"]:hover {
+                background: #FF9800 !important;
+                color: white !important;
+            }
+            
+            .btn-icon.delete {
+                background: #F4433620 !important;
+                color: #F44336 !important;
+            }
+            
+            .btn-icon.delete:hover {
+                background: #F44336 !important;
+                color: white !important;
+            }
+        `;
+        
+        document.head.appendChild(style);
+        console.log("✅ Modal styles added");
+    }
+
+    // ===== 2. CREATE MODAL IF NOT EXISTS =====
+    function createModalIfNotExists() {
+        if (document.getElementById('questionModal')) {
+            console.log("✅ Modal already exists");
+            return;
+        }
+        
+        console.log("📦 Creating modal...");
+        const modalHTML = `
+            <div id="questionModal" class="modal" style="display: none;">
+                <div class="modal-backdrop" onclick="closeModal()"></div>
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h3><i class="fas fa-book-open"></i> <span class="modal-title">Lessons</span></h3>
+                        <button class="modal-close" onclick="closeModal()">&times;</button>
+                    </div>
+                    <div class="modal-body" id="modalBody"></div>
+                    <div class="modal-footer">
+                        <button class="btn btn-secondary" onclick="closeModal()">Close</button>
+                        <button class="btn btn-primary" id="sendMessageBtn" style="display: none;">Send Message</button>
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        document.body.insertAdjacentHTML('beforeend', modalHTML);
+        console.log("✅ Modal created");
+    }
+
+    // ===== 3. FIXED OPEN MODAL FUNCTION =====
+    window.openModal = function(modalTitle = '') {
+        console.log("🔓 Opening modal:", modalTitle);
+        
+        const modal = document.getElementById('questionModal');
+        if (!modal) {
+            console.error("❌ Modal not found!");
+            createModalIfNotExists();
+            setTimeout(() => openModal(modalTitle), 100);
+            return;
+        }
+        
+        // Update title
+        if (modalTitle) {
+            const titleSpan = modal.querySelector('.modal-title');
+            if (titleSpan) {
+                titleSpan.textContent = modalTitle;
+            } else {
+                const headerTitle = modal.querySelector('.modal-header h3');
+                if (headerTitle) {
+                    headerTitle.innerHTML = `<i class="fas fa-book-open"></i> ${modalTitle}`;
+                }
+            }
+        }
+        
+        // FORCE SHOW MODAL
+        modal.style.cssText = `
+            display: flex !important;
+            position: fixed !important;
+            top: 0 !important;
+            left: 0 !important;
+            width: 100% !important;
+            height: 100% !important;
+            background-color: rgba(0, 0, 0, 0.5) !important;
+            z-index: 999999 !important;
+            align-items: center !important;
+            justify-content: center !important;
+            visibility: visible !important;
+            opacity: 1 !important;
+        `;
+        
+        // Ensure modal content is visible
+        const content = modal.querySelector('.modal-content');
+        if (content) {
+            content.style.cssText = `
+                background: white !important;
+                border-radius: 12px !important;
+                max-width: 900px !important;
+                width: 95% !important;
+                max-height: 85vh !important;
+                overflow: hidden !important;
+                box-shadow: 0 25px 60px rgba(0, 0, 0, 0.3) !important;
+                position: relative !important;
+                z-index: 1000000 !important;
+                visibility: visible !important;
+                opacity: 1 !important;
+            `;
+        }
+        
+        document.body.classList.add('modal-open');
+        document.body.style.overflow = 'hidden';
+        
+        console.log("✅ Modal opened successfully");
+    };
+
+    // ===== 4. FIXED CLOSE MODAL FUNCTION =====
+    window.closeModal = function() {
+        console.log("🔴 Closing modal...");
+        
+        const modal = document.getElementById('questionModal');
+        if (modal) {
+            modal.style.cssText = 'display: none !important; visibility: hidden !important; opacity: 0 !important;';
+        }
+        
+        document.body.classList.remove('modal-open');
+        document.body.style.overflow = '';
+        
+        console.log("✅ Modal closed");
+    };
+
+    // ===== 5. FIXED VIEW SUBJECT LESSONS FUNCTION =====
+    window.viewSubjectLessons = async function(subject, e) {
+        if (e) {
+            e.preventDefault();
+            e.stopPropagation();
+        }
+        
+        console.log(`👁️ Viewing lessons for subject: ${subject}`);
+        
+        // Set the current subject
+        if (subject !== window.currentSubject) {
+            if (typeof selectSubject === 'function') {
+                selectSubject(subject);
+            }
+        }
+        
+        const subjectId = getSubjectIdFromName(subject);
+        const subjectDisplayName = getSubjectDisplayName(subject);
+        
+        // Open modal with loading state
+        openModal(`${subjectDisplayName} Lessons`);
+        
+        const modalBody = document.getElementById('modalBody');
+        if (!modalBody) {
+            console.error("❌ modalBody not found!");
+            return;
+        }
+        
+        modalBody.innerHTML = `
+            <div style="text-align: center; padding: 50px;">
+                <i class="fas fa-spinner fa-pulse fa-4x" style="color: #7a0000;"></i>
+                <p style="margin-top: 20px; color: #666; font-size: 1.1rem;">Loading lessons from database...</p>
+            </div>
+        `;
+        
+        try {
+            const token = localStorage.getItem('admin_token') || localStorage.getItem('authToken');
+            
+            if (!token) {
+                modalBody.innerHTML = getAuthErrorHTML();
+                return;
+            }
+            
+            const response = await fetch(`/api/lessons/by-subject/${subjectId}`, {
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json'
+                }
+            });
+            
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            
+            const result = await response.json();
+            
+            if (result.success) {
+                const lessons = result.lessons || [];
+                
+                if (lessons.length === 0) {
+                    modalBody.innerHTML = getNoLessonsHTML(subjectDisplayName);
+                    return;
+                }
+                
+                modalBody.innerHTML = getLessonsHTML(lessons, subjectDisplayName);
+                console.log(`✅ Displayed ${lessons.length} lessons for ${subjectDisplayName}`);
+                
+            } else {
+                throw new Error(result.message || 'Failed to load lessons');
+            }
+            
+        } catch (error) {
+            console.error('❌ Error viewing subject lessons:', error);
+            modalBody.innerHTML = getErrorHTML(error.message, subject);
+        }
+    };
+
+    // ===== 6. HELPER FUNCTIONS =====
+    function getSubjectIdFromName(subject) {
+        const ids = {
+            'polynomial': 2,
+            'polylearn': 2,
+            'factorial': 3,
+            'factolearn': 3,
+            'mdas': 1,
+            'mathease': 1
+        };
+        return ids[subject?.toLowerCase()] || 2;
+    }
+
+    function getSubjectDisplayName(subject) {
+        const names = {
+            'polynomial': 'PolyLearn',
+            'polylearn': 'PolyLearn',
+            'factorial': 'FactoLearn',
+            'factolearn': 'FactoLearn',
+            'mdas': 'MathEase',
+            'mathease': 'MathEase'
+        };
+        return names[subject?.toLowerCase()] || subject;
+    }
+
+    function getAuthErrorHTML() {
+        return `
+            <div style="text-align: center; padding: 50px;">
+                <i class="fas fa-lock" style="font-size: 4rem; color: #f57c00; margin-bottom: 20px;"></i>
+                <h4 style="color: #f57c00; margin-bottom: 15px;">Authentication Required</h4>
+                <p style="color: #666; margin-bottom: 25px;">Please login as admin to view lessons.</p>
+                <button class="btn btn-primary" onclick="closeModal()" style="background: #7a0000; padding: 10px 25px;">
+                    <i class="fas fa-times"></i> Close
+                </button>
+            </div>
+        `;
+    }
+
+    function getNoLessonsHTML(subjectName) {
+        return `
+            <div style="text-align: center; padding: 50px;">
+                <i class="fas fa-book-open" style="font-size: 4rem; color: #ccc; margin-bottom: 20px;"></i>
+                <h4 style="color: #666; margin-bottom: 10px;">No Lessons Found</h4>
+                <p style="color: #999; margin-bottom: 25px;">No lessons available for ${subjectName}.</p>
+                <div style="display: flex; gap: 15px; justify-content: center;">
+                    <button class="btn btn-primary" onclick="openCreateLessonPopup(); closeModal();" style="background: #7a0000; padding: 10px 25px;">
+                        <i class="fas fa-plus"></i> Create Lesson
+                    </button>
+                    <button class="btn btn-secondary" onclick="closeModal()" style="padding: 10px 25px;">
+                        <i class="fas fa-times"></i> Close
+                    </button>
+                </div>
+            </div>
+        `;
+    }
+
+    function getLessonsHTML(lessons, subjectName) {
+        let lessonsHtml = `
+            <div style="margin-bottom: 25px; display: flex; justify-content: space-between; align-items: center;">
+                <div>
+                    <h3 style="color: #7a0000; margin: 0 0 5px 0;">
+                        <i class="fas fa-book-open"></i> ${subjectName} Lessons
+                    </h3>
+                    <p style="color: #666; margin: 0;">Found <strong>${lessons.length}</strong> lesson${lessons.length !== 1 ? 's' : ''}</p>
+                </div>
+                <button class="btn btn-primary" onclick="openCreateLessonPopup(); closeModal();" style="background: #7a0000;">
+                    <i class="fas fa-plus-circle"></i> New Lesson
+                </button>
+            </div>
+            <div style="max-height: 500px; overflow-y: auto; padding-right: 5px;">
+        `;
+        
+        lessons.forEach(lesson => {
+            const typeIcon = lesson.content_type === 'video' ? 'fa-video' : 
+                            lesson.content_type === 'pdf' ? 'fa-file-pdf' : 'fa-file-alt';
+            const typeColor = lesson.content_type === 'video' ? '#f44336' : 
+                             lesson.content_type === 'pdf' ? '#ff9800' : '#2196F3';
+            
+            lessonsHtml += `
+                <div class="lesson-item" onclick="editLesson(${lesson.content_id})">
+                    <div style="flex: 1;">
+                        <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 8px;">
+                            <span style="width: 36px; height: 36px; background: ${typeColor}20; color: ${typeColor}; border-radius: 8px; display: flex; align-items: center; justify-content: center;">
+                                <i class="fas ${typeIcon}"></i>
+                            </span>
+                            <h4 style="margin: 0; color: #333; font-size: 1.1rem;">${lesson.content_title || 'Untitled'}</h4>
+                        </div>
+                        
+                        <p style="margin: 5px 0 8px 48px; color: #666; font-size: 0.9rem;">
+                            ${lesson.content_description ? 
+                              (lesson.content_description.length > 100 ? 
+                                lesson.content_description.substring(0, 100) + '...' : 
+                                lesson.content_description) 
+                              : '<span style="color: #999;">No description</span>'}
+                        </p>
+                        
+                        <div style="display: flex; gap: 15px; margin-left: 48px; font-size: 0.8rem; flex-wrap: wrap;">
+                            <span style="color: #666; background: #f5f5f5; padding: 3px 10px; border-radius: 15px;">
+                                <i class="fas fa-layer-group" style="color: #7a0000;"></i> ${lesson.module_name || 'No Module'}
+                            </span>
+                            <span style="color: #666; background: #f5f5f5; padding: 3px 10px; border-radius: 15px;">
+                                <i class="fas fa-tag" style="color: #2196F3;"></i> ${lesson.topic_title || 'General'}
+                            </span>
+                            <span style="color: #666; background: #f5f5f5; padding: 3px 10px; border-radius: 15px;">
+                                <i class="far fa-calendar" style="color: #4CAF50;"></i> ${new Date(lesson.created_at).toLocaleDateString()}
+                            </span>
+                        </div>
+                    </div>
+                    
+                    <div style="display: flex; gap: 8px; margin-left: 15px;">
+                        <button class="btn-icon small" onclick="event.stopPropagation(); previewLesson(${lesson.content_id})" title="Preview">
+                            <i class="fas fa-play"></i>
+                        </button>
+                        <button class="btn-icon small" onclick="event.stopPropagation(); editLesson(${lesson.content_id})" title="Edit">
+                            <i class="fas fa-edit"></i>
+                        </button>
+                        <button class="btn-icon small delete" onclick="event.stopPropagation(); deleteLesson(${lesson.content_id})" title="Delete">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                    </div>
+                </div>
+            `;
+        });
+        
+        lessonsHtml += `
+            </div>
+            <div style="margin-top: 25px; text-align: right;">
+                <button class="btn btn-secondary" onclick="closeModal()" style="padding: 10px 25px;">
+                    <i class="fas fa-times"></i> Close
+                </button>
+            </div>
+        `;
+        
+        return lessonsHtml;
+    }
+
+    function getErrorHTML(errorMessage, subject) {
+        return `
+            <div style="text-align: center; padding: 50px;">
+                <i class="fas fa-exclamation-triangle" style="font-size: 4rem; color: #f44336; margin-bottom: 20px;"></i>
+                <h4 style="color: #f44336; margin-bottom: 15px;">Failed to Load Lessons</h4>
+                <p style="color: #666; margin-bottom: 10px;">${errorMessage}</p>
+                <p style="color: #999; margin-bottom: 25px;">Check console for details (F12)</p>
+                
+                <div style="display: flex; gap: 15px; justify-content: center;">
+                    <button class="btn btn-primary" onclick="viewSubjectLessons('${subject}')" style="background: #7a0000; padding: 10px 25px;">
+                        <i class="fas fa-sync-alt"></i> Retry
+                    </button>
+                    <button class="btn btn-secondary" onclick="closeModal()" style="padding: 10px 25px;">
+                        <i class="fas fa-times"></i> Close
+                    </button>
+                </div>
+            </div>
+        `;
+    }
+
+    // ===== 7. INITIALIZE =====
+    addModalStyles();
+    createModalIfNotExists();
+    
+    console.log("✅ Modal fixes applied! Try clicking View Lessons now.");
+})();
 // ===== FALLBACK: SHOW LESSONS FROM LOCAL CACHE =====
 function showFallbackLessons(subject) {
     console.log("📂 Showing fallback lessons from cache for:", subject);
