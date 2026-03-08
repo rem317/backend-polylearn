@@ -779,6 +779,9 @@ function displayMathEaseLessons(lessons, progressMap) {
 // ============================================
 // ✅ Load MathEase Lessons from Database
 // ============================================
+// ============================================
+// ✅ Load MathEase Lessons from Database - FIXED
+// ============================================
 async function loadMathEaseLessons() {
     console.log('📚 Loading MathEase lessons from database...');
     
@@ -799,63 +802,6 @@ async function loadMathEaseLessons() {
                 'Accept': 'application/json'
             }
         });
-        
-        if (!response.ok) {
-            throw new Error(`HTTP ${response.status}`);
-        }
-        
-        const data = await response.json();
-        console.log('📥 Lessons from database:', data);
-        
-        if (data.success && data.lessons && data.lessons.length > 0) {
-            // Fetch progress for these lessons - FIX THIS PART
-            const progressResponse = await fetch('/api/progress/lessons?lesson_id=1', {
-                headers: { 'Authorization': `Bearer ${token}` }
-            });
-            
-            let progressMap = {};
-            if (progressResponse.ok) {
-                const progressData = await progressResponse.json();
-                if (progressData.success && progressData.progress) {
-                    progressData.progress.forEach(p => {
-                        progressMap[p.content_id] = {
-                            percentage: p.percentage || 0,
-                            status: p.completion_status || 'not_started'
-                        };
-                    });
-                }
-            }
-            
-            // Display lessons
-            displayMathEaseLessons(data.lessons, progressMap);
-            
-            // Update unlocked count
-            const unlockedCount = document.getElementById('unlockedCount');
-            if (unlockedCount) {
-                unlockedCount.textContent = data.lessons.length;
-            }
-            
-        } else {
-            container.innerHTML = `
-                <div class="no-data" style="text-align: center; padding: 40px;">
-                    <i class="fas fa-database" style="font-size: 48px; color: #ccc;"></i>
-                    <h3>No MathEase Lessons Found</h3>
-                    <p>Please add lessons to the database first.</p>
-                </div>
-            `;
-        }
-        
-    } catch (error) {
-        console.error('❌ Error loading lessons:', error);
-        container.innerHTML = `
-            <div class="error" style="text-align: center; padding: 40px;">
-                <i class="fas fa-exclamation-triangle" style="font-size: 48px; color: #e74c3c;"></i>
-                <h3>Failed to Load Lessons</h3>
-                <p>${error.message}</p>
-            </div>
-        `;
-    }
-}
         
         if (!response.ok) {
             throw new Error(`HTTP ${response.status}`);
