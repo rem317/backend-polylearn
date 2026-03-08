@@ -12689,8 +12689,9 @@ async function checkQuizAccess(quizId) {
 }
 
 // ============================================
-// ✅ FIXED: Start Quiz System - For your HTML
+// ✅ FIXED: Modified startQuizSystem to ensure timer runs
 // ============================================
+// Replace your existing startQuizSystem function with this one
 async function startQuizSystem(quizId) {
     console.log("🎯 Starting QUIZ ID:", quizId);
     
@@ -12789,20 +12790,12 @@ async function startQuizSystem(quizId) {
         // Load first question
         loadQuizSystemQuestion(0);
         
-        // Reset the timer display to show the full time
-        const timerDisplay = document.getElementById('quizTimerDisplay');
-        if (timerDisplay) {
-            const minutes = Math.floor(totalTime / 60);
-            const seconds = totalTime % 60;
-            timerDisplay.textContent = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
-            console.log(`⏱️ Timer set to: ${timerDisplay.textContent}`);
-        }
+        // Ensure timer display exists and has the correct time
+        ensureTimerDisplay();
         
-        // Start timer after a short delay
-        setTimeout(() => {
-            console.log('⏱️ Starting quiz timer');
-            startQuizSystemTimer();
-        }, 500);
+        // Start the timer
+        console.log('⏱️ Starting quiz timer now...');
+        startQuizSystemTimer();
         
     } catch (error) {
         console.error('❌ Error starting quiz:', error);
@@ -12810,6 +12803,36 @@ async function startQuizSystem(quizId) {
         closeQuizModal();
     }
 }
+// ============================================
+// 🚨 SIMPLE TIMER FIX - Updates the existing timer
+// ============================================
+(function ensureTimerRuns() {
+    console.log('⏱️ Applying timer safety check');
+    
+    // Check every second if quiz is active but timer not running
+    setInterval(() => {
+        const quizModal = document.getElementById('quizModal');
+        if (quizModal && quizModal.style.display === 'flex' && QuizSystem.timeLeft !== undefined) {
+            
+            // Check if timer is not running but should be
+            const timeLeft = QuizSystem.timeLeft;
+            const timerRunning = QuizSystem.timerInterval !== null;
+            
+            if (timeLeft > 0 && !timerRunning) {
+                console.log('⏱️ Timer should be running but is not - restarting');
+                startQuizSystemTimer();
+            }
+            
+            // Always update display to ensure it's correct
+            const timerDisplay = document.getElementById('quizTimerDisplay');
+            if (timerDisplay) {
+                const minutes = Math.floor(QuizSystem.timeLeft / 60);
+                const seconds = QuizSystem.timeLeft % 60;
+                timerDisplay.textContent = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+            }
+        }
+    }, 1000);
+})();
 // ============================================
 // ✅ Reset Timer Display - Sets the initial time
 // ============================================
@@ -17281,20 +17304,22 @@ function loadQuizSystemQuestion(index) {
 }
 
 // ============================================
-// ✅ NEW: Ensure Timer Display exists
+// ✅ FIXED: ensureTimerDisplay - Creates timer if missing
 // ============================================
 function ensureTimerDisplay() {
-    const timerDisplay = document.getElementById('quizTimerDisplay');
+    // Check if timer display exists
+    let timerDisplay = document.getElementById('quizTimerDisplay');
     
-    // If timer display doesn't exist, create it
     if (!timerDisplay) {
         console.log('⏱️ Timer display not found, creating it...');
         
-        const modalHeader = document.querySelector('.modal-header');
+        // Find the modal header
+        const modalHeader = document.querySelector('#quizModal .modal-header');
         if (modalHeader) {
-            const timerDiv = document.createElement('div');
-            timerDiv.id = 'quizTimerDisplay';
-            timerDiv.style.cssText = `
+            // Create timer display
+            timerDisplay = document.createElement('div');
+            timerDisplay.id = 'quizTimerDisplay';
+            timerDisplay.style.cssText = `
                 background: white;
                 color: #7a0000;
                 padding: 5px 15px;
@@ -17305,14 +17330,36 @@ function ensureTimerDisplay() {
             `;
             
             // Set initial time
-            const minutes = Math.floor(QuizSystem.timeLeft / 60) || 0;
-            const seconds = QuizSystem.timeLeft % 60 || 0;
-            timerDiv.textContent = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+            if (QuizSystem.timeLeft) {
+                const minutes = Math.floor(QuizSystem.timeLeft / 60);
+                const seconds = QuizSystem.timeLeft % 60;
+                timerDisplay.textContent = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+            } else {
+                timerDisplay.textContent = '00:00';
+            }
             
-            modalHeader.appendChild(timerDiv);
-            console.log('✅ Timer display created');
+            modalHeader.appendChild(timerDisplay);
+            console.log('✅ Timer display created and added to modal header');
+        } else {
+            // If no modal header, try to find the quiz timer container
+            const quizTimer = document.querySelector('.quiz-timer');
+            if (quizTimer) {
+                timerDisplay = document.createElement('span');
+                timerDisplay.id = 'quizTimerDisplay';
+                timerDisplay.style.fontWeight = 'bold';
+                
+                if (QuizSystem.timeLeft) {
+                    const minutes = Math.floor(QuizSystem.timeLeft / 60);
+                    const seconds = QuizSystem.timeLeft % 60;
+                    timerDisplay.textContent = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+                }
+                
+                quizTimer.appendChild(timerDisplay);
+            }
         }
     }
+    
+    return timerDisplay;
 }
 
 function loadQuizQuestionModal(index) {
@@ -17466,7 +17513,7 @@ window.jumpToQuizQuestion = function(index) {
 };
 
 // ============================================
-// ✅ SIMPLIFIED: Start Quiz Timer - Direct DOM update
+// ✅ FIXED: Start Quiz System Timer - Ensures timer runs
 // ============================================
 function startQuizSystemTimer() {
     console.log('⏱️ Starting quiz timer');
@@ -17482,8 +17529,27 @@ function startQuizSystemTimer() {
         QuizSystem.timeLeft = QuizSystem.totalTime || (QuizSystem.questions.length * 60);
     }
     
-    // Find the timer display element
-    const timerDisplay = document.getElementById('quizTimerDisplay');
+    // Find the timer display element - multiple attempts
+    const findTimerDisplay = () => {
+        let timerDisplay = document.getElementById('quizTimerDisplay');
+        
+        // If not found, try to find it in the quiz modal
+        if (!timerDisplay) {
+            const quizModal = document.getElementById('quizModal');
+            if (quizModal) {
+                timerDisplay = quizModal.querySelector('#quizTimerDisplay');
+            }
+        }
+        
+        // If still not found, try by class or other attributes
+        if (!timerDisplay) {
+            timerDisplay = document.querySelector('.quiz-timer span, #quizTimerDisplay, [id*="timer"]');
+        }
+        
+        return timerDisplay;
+    };
+    
+    const timerDisplay = findTimerDisplay();
     
     if (!timerDisplay) {
         console.error('❌ Timer display element not found!');
@@ -17505,7 +17571,18 @@ function startQuizSystemTimer() {
             // Update display
             const minutes = Math.floor(QuizSystem.timeLeft / 60);
             const seconds = QuizSystem.timeLeft % 60;
-            timerDisplay.textContent = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+            const displayText = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+            
+            // Update all possible timer displays
+            const displays = [
+                document.getElementById('quizTimerDisplay'),
+                document.querySelector('.quiz-timer span'),
+                document.querySelector('.modal-header #quizTimerDisplay')
+            ];
+            
+            displays.forEach(display => {
+                if (display) display.textContent = displayText;
+            });
             
             // Auto-submit when time runs out
             if (QuizSystem.timeLeft <= 0) {
@@ -17513,7 +17590,7 @@ function startQuizSystemTimer() {
                 clearInterval(QuizSystem.timerInterval);
                 QuizSystem.timerInterval = null;
                 
-                // Try to submit
+                // Auto submit
                 if (typeof submitQuizSystem === 'function') {
                     submitQuizSystem();
                 }
@@ -17521,6 +17598,7 @@ function startQuizSystemTimer() {
         }
     }, 1000);
 }
+
 // ============================================
 // 🚨 SIMPLE TIMER FIX - Updates the existing timer
 // ============================================
