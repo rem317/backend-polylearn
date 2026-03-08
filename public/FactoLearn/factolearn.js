@@ -6750,7 +6750,7 @@ function hideProgressDashboardLoading() {
     });
 }
 // ============================================
-// UPDATE INIT PROGRESS CHARTS - WITH LESSON_ID=3 FILTER
+// UPDATE INIT PROGRESS CHARTS
 // ============================================
 async function initProgressCharts() {
     try {
@@ -6762,27 +6762,8 @@ async function initProgressCharts() {
         // Add styles
         addAccuracyChartStyles();
         
-        // ===== FETCH CHART DATA WITH LESSON_ID=3 =====
-        const response = await fetch(`/api/progress/chart-data?lesson_id=3`, {
-            headers: { 'Authorization': `Bearer ${token}` }
-        });
-        
-        if (!response.ok) {
-            console.warn('⚠️ Chart data endpoint failed, using sample data');
-            useSampleChartData();
-            return;
-        }
-        
-        const data = await response.json();
-        
-        if (data.success && data.chartData) {
-            // Check if data is for lesson_id=3
-            console.log('✅ Chart data loaded from database for lesson_id=3');
-            renderDailyActivityChart(data.chartData);
-        } else {
-            console.log('ℹ️ No chart data in database, using sample data');
-            useSampleChartData();
-        }
+        // ===== USE DIRECT DATABASE FETCH =====
+        await renderDailyActivityChart();
         
         // ===== FETCH ACCURACY DATA WITH LESSON_ID=3 =====
         const accuracyResponse = await fetch(`/api/progress/accuracy-rate?lesson_id=3`, {
@@ -6820,7 +6801,6 @@ async function initProgressCharts() {
         
     } catch (error) {
         console.error('❌ Error initializing charts:', error);
-        useSampleChartData();
         useSampleAccuracyData();
     }
 }
@@ -18547,10 +18527,10 @@ async function updateProgressDashboardFromDatabase() {
     }
 }
 // ============================================
-// 📊 FIXED: Daily Practice Time - MULTI-LINE CHART (Lessons, Exercises, Points)
+// 📊 DIRECT DATABASE: Daily Practice Time - MULTI-LINE CHART
 // ============================================
-function renderDailyActivityChart(chartData) {
-    console.log('📊 Rendering multi-line chart with data:', chartData);
+async function renderDailyActivityChart() {
+    console.log('📊 Fetching data DIRECTLY FROM DATABASE for lesson_id=3...');
     
     const chartContainer = document.getElementById('practiceTimeChart');
     if (!chartContainer) {
@@ -18558,40 +18538,171 @@ function renderDailyActivityChart(chartData) {
         return;
     }
     
+    // Show loading
+    chartContainer.innerHTML = `
+        <div style="text-align: center; padding: 40px;">
+            <i class="fas fa-spinner fa-spin" style="font-size: 40px; color: #7a0000;"></i>
+            <p style="margin-top: 15px;">Loading data from database...</p>
+        </div>
+    `;
+    
+    try {
+        const token = localStorage.getItem('authToken') || authToken;
+        if (!token) {
+            throw new Error('No auth token');
+        }
+        
+        const LESSON_ID = 3; // Force FactoLearn only
+        const userId = AppState.currentUser?.id || 1;
+        
+        console.log(`👤 User ID: ${userId}, Lesson ID: ${LESSON_ID}`);
+        
+        // ===== GET DATES FOR LAST 14 DAYS =====
+        const dates = [];
+        const labels = [];
+        for (let i = 13; i >= 0; i--) {
+            const date = new Date();
+            date.setDate(date.getDate() - i);
+            
+            const month = date.toLocaleString('default', { month: 'short' });
+            const day = date.getDate();
+            labels.push(`${month} ${day}`);
+            
+            const dateStr = date.toISOString().split('T')[0];
+            dates.push(dateStr);
+        }
+        
+        // ===== FETCH DATA FROM DATABASE USING EXISTING ENDPOINTS =====
+        
+        // 1. GET LESSONS PROGRESS
+        console.log('📚 Fetching lessons progress...');
+        const lessonsResponse = await fetch(`/api/progress/lessons?lesson_id=${LESSON_ID}`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        
+        let lessonsData = [];
+        if (lessonsResponse.ok) {
+            const lessonsResult = await lessonsResponse.json();
+            console.log('✅ Lessons progress:', lessonsResult);
+            if (lessonsResult.success && lessonsResult.progress) {
+                lessonsData = lessonsResult.progress;
+            }
+        }
+        
+        // 2. GET PRACTICE ATTEMPTS
+        console.log('💪 Fetching practice attempts...');
+        const practiceResponse = await fetch(`/api/progress/practice-attempts?lesson_id=${LESSON_ID}`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        
+        let practiceData = [];
+        if (practiceResponse.ok) {
+            const practiceResult = await practiceResponse.json();
+            console.log('✅ Practice attempts:', practiceResult);
+            if (practiceResult.success && practiceResult.attempts) {
+                practiceData = practiceResult.attempts;
+            }
+        }
+        
+        // 3. GET QUIZ ATTEMPTS
+        console.log('🧠 Fetching quiz attempts...');
+        const quizResponse = await fetch(`/api/quiz/user/attempts?lesson_id=${LESSON_ID}`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        
+        let quizData = [];
+        if (quizResponse.ok) {
+            const quizResult = await quizResponse.json();
+            console.log('✅ Quiz attempts:', quizResult);
+            if (quizResult.success && quizResult.attempts) {
+                quizData = quizResult.attempts;
+            }
+        }
+        
+        // ===== PROCESS DATA FOR EACH DATE =====
+        const lessonsPerDay = [];
+        const exercisesPerDay = [];
+        const pointsPerDay = [];
+        
+        for (const dateStr of dates) {
+            // Count lessons completed on this date
+            const lessonsCount = lessonsData.filter(item => {
+                const itemDate = item.completed_at || item.last_accessed || item.created_at;
+                return itemDate && itemDate.startsWith(dateStr);
+            }).length;
+            
+            // Count exercises completed on this date
+            const exercisesCount = practiceData.filter(item => {
+                const itemDate = item.completed_at || item.created_at;
+                return itemDate && itemDate.startsWith(dateStr) && 
+                       (item.completion_status === 'completed' || item.status === 'completed');
+            }).length;
+            
+            // Calculate points earned on this date
+            let pointsTotal = 0;
+            
+            // Points from lessons (10 points each)
+            pointsTotal += lessonsData.filter(item => {
+                const itemDate = item.completed_at || item.last_accessed;
+                return itemDate && itemDate.startsWith(dateStr);
+            }).length * 10;
+            
+            // Points from practice (5 points each)
+            pointsTotal += practiceData.filter(item => {
+                const itemDate = item.completed_at;
+                return itemDate && itemDate.startsWith(dateStr) && 
+                       (item.completion_status === 'completed' || item.status === 'completed');
+            }).length * 5;
+            
+            // Points from quizzes (20 points each)
+            pointsTotal += quizData.filter(item => {
+                const itemDate = item.completed_at || item.submit_time;
+                return itemDate && itemDate.startsWith(dateStr) && 
+                       item.completion_status === 'completed';
+            }).length * 20;
+            
+            lessonsPerDay.push(lessonsCount * 10); // Scale for visibility
+            exercisesPerDay.push(exercisesCount * 8); // Scale for visibility
+            pointsPerDay.push(pointsTotal);
+        }
+        
+        console.log('📊 Processed data:', {
+            labels,
+            lessons: lessonsPerDay,
+            exercises: exercisesPerDay,
+            points: pointsPerDay
+        });
+        
+        // ===== RENDER THE CHART WITH REAL DATA =====
+        renderMultiLineChartWithData({
+            labels: labels,
+            lessons: lessonsPerDay,
+            exercises: exercisesPerDay,
+            points: pointsPerDay
+        }, chartContainer, true);
+        
+    } catch (error) {
+        console.error('❌ Error fetching from database:', error);
+        
+        // Show error and use sample data
+        chartContainer.innerHTML = `
+            <div style="text-align: center; padding: 20px;">
+                <i class="fas fa-exclamation-triangle" style="font-size: 40px; color: #e74c3c;"></i>
+                <p style="color: #666; margin: 10px 0;">Failed to load database data</p>
+                <p style="color: #999; font-size: 12px;">${error.message}</p>
+                <button onclick="renderDailyActivityChart()" style="margin-top: 10px; padding: 8px 15px; background: #7a0000; color: white; border: none; border-radius: 5px; cursor: pointer;">
+                    <i class="fas fa-redo"></i> Retry
+                </button>
+            </div>
+        `;
+    }
+}
+// ============================================
+// 🎨 Render Multi-Line Chart with Real Data
+// ============================================
+function renderMultiLineChartWithData(chartData, chartContainer, isRealData = true) {
     // Clear container
     chartContainer.innerHTML = '';
-    
-    // Check if data has the correct format
-    if (!chartData || !chartData.labels) {
-        console.warn('⚠️ Invalid chart data, using sample');
-        useSampleChartData();
-        return;
-    }
-    
-    // Extract data - support both old and new format
-    const labels = chartData.labels || [];
-    
-    // For multi-line chart, we need lessons, exercises, points
-    let lessonsData = [];
-    let exercisesData = [];
-    let pointsData = [];
-    
-    if (chartData.lessons && chartData.exercises && chartData.points) {
-        // New format: { lessons: [...], exercises: [...], points: [...] }
-        lessonsData = chartData.lessons;
-        exercisesData = chartData.exercises;
-        pointsData = chartData.points;
-    } else if (chartData.datasets && chartData.datasets.length >= 3) {
-        // Old format: datasets array
-        lessonsData = chartData.datasets[0]?.data || [];
-        exercisesData = chartData.datasets[1]?.data || [];
-        pointsData = chartData.datasets[2]?.data || [];
-    } else {
-        // If not enough data, use sample
-        console.warn('⚠️ Not enough data for multi-line chart, using sample');
-        useSampleChartData();
-        return;
-    }
     
     // Set container styles
     chartContainer.style.position = 'relative';
@@ -18609,6 +18720,12 @@ function renderDailyActivityChart(chartData) {
     svg.setAttribute('viewBox', '0 0 800 220');
     svg.style.display = 'block';
     svg.style.overflow = 'visible';
+    
+    // Extract data
+    const labels = chartData.labels || [];
+    const lessonsData = chartData.lessons || [];
+    const exercisesData = chartData.exercises || [];
+    const pointsData = chartData.points || [];
     
     // Find max value for scaling
     const allValues = [...lessonsData, ...exercisesData, ...pointsData];
@@ -18670,7 +18787,7 @@ function renderDailyActivityChart(chartData) {
         svg.appendChild(yLabel);
     });
     
-    // Draw X-axis labels (dates)
+    // Draw X-axis labels
     labels.forEach((label, index) => {
         const x = margin.left + (step * index);
         const y = margin.top + chartHeight + 20;
@@ -18720,7 +18837,6 @@ function renderDailyActivityChart(chartData) {
         linePath.setAttribute('stroke-linejoin', 'round');
         svg.appendChild(linePath);
         
-        // Draw points
         lessonsPoints.forEach(point => {
             const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
             circle.setAttribute('cx', point.x);
@@ -18817,22 +18933,23 @@ function renderDailyActivityChart(chartData) {
     
     chartContainer.appendChild(legendDiv);
     
-    // Add database connection indicator
-    const dbIndicator = document.createElement('div');
-    dbIndicator.style.marginTop = '10px';
-    dbIndicator.style.textAlign = 'right';
-    dbIndicator.style.padding = '0 10px';
-    dbIndicator.innerHTML = `
-        <span style="background: #27ae60; color: white; padding: 4px 10px; border-radius: 20px; font-size: 11px;">
-            <i class="fas fa-database"></i> Lesson ID: 3 (FactoLearn)
-        </span>
-    `;
+    // Add data source indicator
+    const sourceDiv = document.createElement('div');
+    sourceDiv.style.marginTop = '10px';
+    sourceDiv.style.textAlign = 'right';
+    sourceDiv.style.padding = '0 10px';
+    sourceDiv.innerHTML = isRealData ? 
+        `<span style="background: #27ae60; color: white; padding: 4px 10px; border-radius: 20px; font-size: 11px;">
+            <i class="fas fa-database"></i> Direct from Database (Lesson 3)
+        </span>` :
+        `<span style="background: #f39c12; color: white; padding: 4px 10px; border-radius: 20px; font-size: 11px;">
+            <i class="fas fa-info-circle"></i> Sample Data
+        </span>`;
     
-    chartContainer.appendChild(dbIndicator);
+    chartContainer.appendChild(sourceDiv);
     
-    console.log('✅ Multi-line chart rendered with database data (lesson_id=3)');
+    console.log(`✅ Multi-line chart rendered with ${isRealData ? 'REAL DATABASE' : 'SAMPLE'} data`);
 }
-
 // ============================================
 // Helper: Use sample chart data (matching screenshot)
 // ============================================
