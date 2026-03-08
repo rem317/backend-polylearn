@@ -5390,18 +5390,15 @@ function completeExercise(topicName) {
 // ============================================
 async function fetchDailyProgress() {
     try {
-        console.log('📊 Fetching Mathease daily progress...');
+        console.log('📊 Fetching MathEase daily progress...');
         
         const token = localStorage.getItem('authToken') || authToken;
         if (!token) {
             console.warn('No auth token available');
-            return getDefaultMatheaseDailyProgress();
+            return getDefaultMathEaseDailyProgress();
         }
         
-        // ✅ FORCE LESSON_ID = 1
-        const MATHEASE_LESSON_ID = 1;
-        
-        const response = await fetch(`/api/progress/daily?lesson_id=${MATHEASE_LESSON_ID}`, {
+        const response = await fetch(`/api/progress/daily?lesson_id=1`, {
             headers: {
                 'Authorization': `Bearer ${token}`,
                 'Content-Type': 'application/json'
@@ -5415,7 +5412,7 @@ async function fetchDailyProgress() {
         const data = await response.json();
         
         if (data.success && data.progress) {
-            console.log('✅ mathease daily progress loaded:', data.progress);
+            console.log('✅ MathEase daily progress loaded:', data.progress);
             
             return {
                 lessons_completed: data.progress.lessons_completed || 0,
@@ -5425,19 +5422,18 @@ async function fetchDailyProgress() {
                 time_spent_minutes: data.progress.time_spent_minutes || 0,
                 streak_days: data.progress.streak_maintained || 0
             };
-        } else {
-            console.warn('No daily progress data');
-            return getDefaultmatheaseDailyProgress();
         }
+        
+        return getDefaultMathEaseDailyProgress();
         
     } catch (error) {
         console.error('❌ Error fetching daily progress:', error);
-        return getDefaultMatheaseDailyProgress();
+        return getDefaultMathEaseDailyProgress();
     }
 }
 
 // ===== Default progress for factorial =====
-function getDefaultMatheaseDailyProgress() {
+function getDefaultMathEaseDailyProgress() {
     return {
         lessons_completed: 0,
         exercises_completed: 0,
@@ -5447,7 +5443,92 @@ function getDefaultMatheaseDailyProgress() {
         streak_days: 0
     };
 }
-
+async function fetchPracticeStatistics() {
+    try {
+        const token = localStorage.getItem('authToken') || authToken;
+        if (!token) {
+            console.error('❌ No auth token available');
+            return null;
+        }
+        
+        console.log('📊 Fetching MathEase practice statistics...');
+        
+        const [lessonsData, attemptsData, totalExercisesData] = await Promise.allSettled([
+            fetch(`/api/progress/lessons?lesson_id=1`, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            }).then(res => res.json()).catch(err => ({ success: false })),
+            
+            fetch(`/api/progress/practice-attempts?lesson_id=1`, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            }).then(res => res.json()).catch(err => ({ success: false })),
+            
+            fetch(`/api/practice/exercises/count?lesson_id=1`, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            }).then(res => res.json()).catch(err => ({ success: false }))
+        ]);
+        
+        let lessonsCompleted = 0;
+        let totalLessons = 0;
+        
+        if (lessonsData.status === 'fulfilled' && lessonsData.value.success) {
+            const progress = lessonsData.value.progress || [];
+            lessonsCompleted = progress.filter(p => 
+                p.completion_status === 'completed' || p.status === 'completed'
+            ).length;
+        }
+        
+        let totalExercises = 0;
+        if (totalExercisesData.status === 'fulfilled' && totalExercisesData.value.success) {
+            totalExercises = totalExercisesData.value.count || 0;
+        }
+        
+        let exercisesCompleted = 0;
+        let totalAttempts = 0;
+        let totalScore = 0;
+        let totalTimeSeconds = 0;
+        let averageScore = 0;
+        
+        if (attemptsData.status === 'fulfilled' && attemptsData.value.success) {
+            const attempts = attemptsData.value.attempts || [];
+            exercisesCompleted = attempts.filter(a => 
+                a.completion_status === 'completed' || a.percentage >= 70
+            ).length;
+            
+            totalAttempts = attempts.length;
+            
+            if (totalAttempts > 0) {
+                const totalScoreSum = attempts.reduce((sum, a) => sum + (a.score || 0), 0);
+                averageScore = Math.round(totalScoreSum / totalAttempts);
+            }
+            
+            totalTimeSeconds = attempts.reduce((sum, a) => sum + (a.time_spent_seconds || 0), 0);
+        }
+        
+        const stats = {
+            total_exercises_completed: exercisesCompleted,
+            total_attempts: totalAttempts,
+            average_score: averageScore,
+            lessons_completed: lessonsCompleted,
+            exercises_completed: exercisesCompleted,
+            practice_unlocked: true,
+            total_lessons: totalLessons || 10,
+            total_exercises: totalExercises,
+            total_time_minutes: Math.round(totalTimeSeconds / 60),
+            total_time_seconds: totalTimeSeconds,
+            accuracy_rate: averageScore,
+            lessons_display: `${lessonsCompleted}/${totalLessons || 10}`,
+            exercises_display: `${exercisesCompleted}`,
+            lessons_percentage: totalLessons > 0 ? Math.round((lessonsCompleted / totalLessons) * 100) : 0
+        };
+        
+        PracticeState.userPracticeProgress = stats;
+        return stats;
+        
+    } catch (error) {
+        console.error('❌ Error fetching practice statistics:', error);
+        return null;
+    }
+}
 function handleActivityResponse(data) {
     if (data.success) {
         // Handle different response formats
@@ -5545,8 +5626,7 @@ async function fetchCumulativeProgress() {
         
         console.log('📊 Fetching cumulative progress...');
         
-        // ✅ GUMAMIT NG FETCH, HINDI PROMISEPOOL
-        const response = await fetch(`/api/progress/overall`, {
+        const response = await fetch(`/api/progress/overall?lesson_id=1`, {
             headers: { 
                 'Authorization': `Bearer ${token}`,
                 'Content-Type': 'application/json'
@@ -5562,21 +5642,8 @@ async function fetchCumulativeProgress() {
         if (data.success) {
             console.log('✅ Overall progress loaded:', data.overall);
             
-            // Convert seconds to minutes
             const totalSeconds = data.overall.total_time_spent_minutes || 0;
             const totalMinutes = Math.floor(totalSeconds / 60);
-            
-            // Calculate average time per activity
-            const totalActivities = (data.overall.lessons_completed || 0) + 
-                                   (data.overall.practice_completed || 0) + 
-                                   (data.overall.quizzes_completed || 0);
-            
-            const avgPerActivity = totalActivities > 0 
-                ? Math.round(totalMinutes / totalActivities) 
-                : 5;
-            
-            // Calculate weekly improvement
-            const weeklyImprovement = calculateWeeklyImprovement(data.overall);
             
             const progress = {
                 total_lessons_completed: data.overall.lessons_completed || 0,
@@ -5587,8 +5654,6 @@ async function fetchCumulativeProgress() {
                 total_points_earned: data.overall.total_points || 0,
                 total_time_spent_minutes: totalMinutes,
                 weekly_time_spent: data.overall.weekly?.minutes || 0,
-                avg_time_per_activity: avgPerActivity,
-                weekly_improvement: weeklyImprovement,
                 total_time_display: formatTime(totalMinutes),
                 streak_days: data.overall.streak_days || 1,
                 weekly: data.overall.weekly || { 
@@ -5600,12 +5665,16 @@ async function fetchCumulativeProgress() {
                 }
             };
             
-            console.log(`📊 Progress loaded - Lessons: ${progress.total_lessons_completed}/${progress.total_lessons}`);
-            
             ProgressState.cumulativeProgress = progress;
-            
-            // IMMEDIATELY update display
-            updateOverallProgressDisplay(progress);
+            updateOverallProgressUI(
+                progress.overall_percentage,
+                progress.total_points_earned,
+                progress.total_time_spent_minutes * 60,
+                progress.exercises_completed,
+                progress.total_lessons_completed,
+                progress.total_lessons,
+                progress.total_quizzes_completed
+            );
             
             return progress;
         }
@@ -5617,6 +5686,7 @@ async function fetchCumulativeProgress() {
         return getDefaultProgress();
     }
 }
+
 // Helper function to calculate weekly improvement
 function calculateWeeklyImprovement(data) {
     // Get this week's activities
@@ -5638,16 +5708,14 @@ function calculateWeeklyImprovement(data) {
 
 // Helper function to format time
 function formatTime(minutes) {
-    const hours = Math.floor(minutes / 60);
-    const mins = minutes % 60;
-    
-    if (hours > 0) {
-        return `${hours}h ${mins}m`;
+    if (minutes < 60) {
+        return `${minutes}m`;
     } else {
-        return `${mins}m`;
+        const hours = Math.floor(minutes / 60);
+        const mins = minutes % 60;
+        return `${hours}h ${mins}m`;
     }
 }
-
 // ============================================
 // Helper: Get Default Progress
 // ============================================
@@ -5882,7 +5950,7 @@ async function fetchTopicMastery() {
         
         console.log('🧠 Fetching topic mastery...');
         
-        const response = await fetch(`/api/progress/topic-mastery`, {
+        const response = await fetch(`/api/progress/topic-mastery?lesson_id=1`, {
             headers: { 'Authorization': `Bearer ${token}` }
         });
         
@@ -5892,25 +5960,77 @@ async function fetchTopicMastery() {
         
         if (data.success && data.mastery) {
             console.log(`✅ Fetched mastery for ${data.mastery.length} topics`);
-            
-            // Store in ProgressState
             ProgressState.topicMastery = data.mastery;
-            
-            // FIXED: Remove the call to non-existent function
-            // Just store the data, don't try to update non-existent UI
-            // updateTopicProgressBreakdown(); // ← REMOVE THIS LINE
-            
-            // Instead, you can log the data or process it as needed
-            console.log('📊 Topic mastery data:', data.mastery);
-            
+            updateTopicProgressBreakdown();
             return data.mastery;
-        } else {
-            return {};
         }
+        
+        return {};
     } catch (error) {
         console.error('Error fetching topic mastery:', error);
         return {};
     }
+}
+function updateTopicProgressBreakdown() {
+    const container = document.getElementById('topicsProgressDetailed');
+    if (!container) return;
+    
+    const topics = ProgressState.topicMastery || [];
+    
+    if (!topics || topics.length === 0) {
+        container.innerHTML = `
+            <div class="no-data-message" style="text-align: center; padding: 30px;">
+                <i class="fas fa-chart-pie" style="font-size: 40px; color: #7a0000; margin-bottom: 15px;"></i>
+                <h4 style="color: #2c3e50; margin-bottom: 10px;">No Topic Data Available</h4>
+                <p style="color: #7f8c8d;">Complete lessons to see your topic progress.</p>
+            </div>
+        `;
+        return;
+    }
+    
+    let html = '<div class="topic-breakdown">';
+    
+    topics.slice(0, 5).forEach(topic => {
+        const progress = topic.completion_rate || 0;
+        const accuracy = topic.accuracy_rate || 0;
+        const masteryLevel = topic.mastery_level || 'Beginner';
+        
+        let masteryColor = '#95a5a6';
+        if (masteryLevel === 'Expert') masteryColor = '#f39c12';
+        else if (masteryLevel === 'Advanced') masteryColor = '#9b59b6';
+        else if (masteryLevel === 'Intermediate') masteryColor = '#3498db';
+        
+        html += `
+            <div class="topic-item" style="margin-bottom: 20px; padding: 15px; background: #f8f9fa; border-radius: 8px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                    <h4 style="margin: 0; color: #2c3e50;">${topic.topic_title || 'Topic'}</h4>
+                    <span style="background: ${masteryColor}; color: white; padding: 3px 10px; border-radius: 15px; font-size: 12px;">${masteryLevel}</span>
+                </div>
+                <div style="display: flex; gap: 20px; margin-bottom: 10px;">
+                    <div style="flex: 1;">
+                        <div style="font-size: 12px; color: #666;">Completion</div>
+                        <div style="height: 6px; background: #ecf0f1; border-radius: 3px; overflow: hidden; margin: 5px 0;">
+                            <div style="height: 100%; width: ${progress}%; background: #7a0000; border-radius: 3px;"></div>
+                        </div>
+                        <div style="font-size: 14px; font-weight: bold;">${progress}%</div>
+                    </div>
+                    <div style="flex: 1;">
+                        <div style="font-size: 12px; color: #666;">Accuracy</div>
+                        <div style="height: 6px; background: #ecf0f1; border-radius: 3px; overflow: hidden; margin: 5px 0;">
+                            <div style="height: 100%; width: ${accuracy}%; background: #27ae60; border-radius: 3px;"></div>
+                        </div>
+                        <div style="font-size: 14px; font-weight: bold;">${accuracy}%</div>
+                    </div>
+                </div>
+                <div style="font-size: 12px; color: #7f8c8d;">
+                    <i class="fas fa-clock"></i> Last: ${topic.last_practiced ? formatTimeAgo(topic.last_practiced) : 'Not started'}
+                </div>
+            </div>
+        `;
+    });
+    
+    html += '</div>';
+    container.innerHTML = html;
 }
 
 // ============================================
@@ -6074,16 +6194,12 @@ async function fetchAchievementTimeline(limit = 10) {
         const data = await response.json();
         
         if (data.success && data.achievements) {
-            console.log(`✅ Fetched ${data.achievements.length} achievements`);
             ProgressState.achievementTimeline = data.achievements;
-            
-            // Update UI
             updateAchievementTimeline();
-            
             return data.achievements;
-        } else {
-            return [];
         }
+        
+        return [];
     } catch (error) {
         console.error('Error fetching achievements:', error);
         return [];
@@ -7435,45 +7551,21 @@ async function updateDashboardWidgets(widgetConfig) {
 // INITIALIZE PROGRESS DASHBOARD - FIXED VERSION
 // ============================================
 async function initProgressDashboard() {
-    console.log('📈 Initializing progress dashboard with database integration...');
+    console.log('📈 Initializing MathEase progress dashboard...');
     
     try {
-        // Show loading state
         showProgressDashboardLoading();
-        
-        // Load all progress data
         await updateProgressDashboardFromDatabase();
-        
-        // Initialize charts
         await initProgressCharts();
-        
-        // ✅ FIX: Check if progressRefreshInterval exists
-        if (typeof progressRefreshInterval === 'undefined') {
-            window.progressRefreshInterval = null;
-        }
-        
-        // Start auto-refresh (every 60 seconds)
+        await fetchTopicMastery();
+        await fetchAchievementTimeline(10);
+        await fetchActivityLog(15);
         startProgressAutoRefresh(60);
         
-        console.log('✅ Progress dashboard initialized with database integration');
+        console.log('✅ Progress dashboard initialized');
     } catch (error) {
         console.error('❌ Error initializing progress dashboard:', error);
         hideProgressDashboardLoading();
-        
-        // Show error message in dashboard
-        const container = document.querySelector('#progress-page .container');
-        if (container) {
-            container.innerHTML = `
-                <div class="error-message" style="text-align: center; padding: 40px;">
-                    <i class="fas fa-exclamation-triangle" style="font-size: 48px; color: #e74c3c; margin-bottom: 20px;"></i>
-                    <h3 style="color: #2c3e50; margin-bottom: 10px;">Failed to load progress data</h3>
-                    <p style="color: #7f8c8d;">Please try refreshing the page.</p>
-                    <button onclick="location.reload()" class="btn-primary" style="margin-top: 20px;">
-                        <i class="fas fa-redo"></i> Refresh Page
-                    </button>
-                </div>
-            `;
-        }
     }
 }
 
@@ -7497,7 +7589,6 @@ function showProgressDashboardLoading() {
     elements.forEach(id => {
         const el = document.getElementById(id);
         if (el) {
-            // Store original content
             if (!el.hasAttribute('data-original')) {
                 el.setAttribute('data-original', el.innerHTML);
             }
@@ -7505,18 +7596,7 @@ function showProgressDashboardLoading() {
             el.style.opacity = '0.7';
         }
     });
-    
-    // Show loading sa charts
-    const chartContainers = document.querySelectorAll('.chart-container');
-    chartContainers.forEach(container => {
-        const chart = container.querySelector('.chart-bars, .chart-line');
-        if (chart) {
-            chart.style.opacity = '0.5';
-            chart.style.pointerEvents = 'none';
-        }
-    });
 }
-
 function hideProgressDashboardLoading() {
     console.log('✅ Hiding progress dashboard loading state...');
     
@@ -7537,36 +7617,45 @@ function hideProgressDashboardLoading() {
             el.style.opacity = '1';
         }
     });
-    
-    // Restore charts
-    const chartContainers = document.querySelectorAll('.chart-container');
-    chartContainers.forEach(container => {
-        const chart = container.querySelector('.chart-bars, .chart-line');
-        if (chart) {
-            chart.style.opacity = '1';
-            chart.style.pointerEvents = 'auto';
-        }
-    });
 }
 // ============================================
 // PROGRESS CHART FUNCTIONS
 // ============================================
 
 async function initProgressCharts() {
-    console.log('📊 Initializing progress charts...');
-    
     try {
-        // Load chart data
-        const chartData = await fetchProgressChartData(14);
+        await renderDailyActivityChart();
         
-        if (chartData) {
-            renderPracticeTimeChart(chartData.practiceTime);
-            renderAccuracyChart(chartData.accuracy);
+        const accuracyResponse = await fetch(`/api/progress/accuracy-rate?lesson_id=1`, {
+            headers: { 'Authorization': `Bearer ${localStorage.getItem('authToken')}` }
+        });
+        
+        if (accuracyResponse.ok) {
+            const accuracyData = await accuracyResponse.json();
+            if (accuracyData.success) {
+                const weeklyAccuracy = {
+                    labels: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
+                    accuracy: [
+                        accuracyData.accuracy.weekly?.mon || 85,
+                        accuracyData.accuracy.weekly?.tue || 82,
+                        accuracyData.accuracy.weekly?.wed || 88,
+                        accuracyData.accuracy.weekly?.thu || 84,
+                        accuracyData.accuracy.weekly?.fri || 90,
+                        accuracyData.accuracy.weekly?.sat || 87,
+                        accuracyData.accuracy.weekly?.sun || 85
+                    ]
+                };
+                renderAccuracyChart(weeklyAccuracy);
+            } else {
+                useSampleAccuracyData();
+            }
+        } else {
+            useSampleAccuracyData();
         }
         
-        console.log('✅ Progress charts initialized');
     } catch (error) {
         console.error('❌ Error initializing charts:', error);
+        useSampleAccuracyData();
     }
 }
 
@@ -7589,7 +7678,440 @@ async function fetchProgressChartData(days = 14) {
         return null;
     }
 }
-
+async function renderDailyActivityChart() {
+    const chartContainer = document.getElementById('practiceTimeChart');
+    if (!chartContainer) return;
+    
+    chartContainer.innerHTML = `
+        <div style="text-align: center; padding: 40px;">
+            <i class="fas fa-spinner fa-spin" style="font-size: 40px; color: #7a0000;"></i>
+            <p style="margin-top: 15px;">Loading data from database...</p>
+        </div>
+    `;
+    
+    try {
+        const token = localStorage.getItem('authToken') || authToken;
+        if (!token) throw new Error('No auth token');
+        
+        const LESSON_ID = 1;
+        
+        const dates = [];
+        const labels = [];
+        for (let i = 13; i >= 0; i--) {
+            const date = new Date();
+            date.setDate(date.getDate() - i);
+            
+            const month = date.toLocaleString('default', { month: 'short' });
+            const day = date.getDate();
+            labels.push(`${month} ${day}`);
+            
+            const dateStr = date.toISOString().split('T')[0];
+            dates.push(dateStr);
+        }
+        
+        const lessonsResponse = await fetch(`/api/progress/lessons?lesson_id=${LESSON_ID}`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        
+        let lessonsData = [];
+        if (lessonsResponse.ok) {
+            const lessonsResult = await lessonsResponse.json();
+            if (lessonsResult.success && lessonsResult.progress) {
+                lessonsData = lessonsResult.progress;
+            }
+        }
+        
+        const practiceResponse = await fetch(`/api/progress/practice-attempts?lesson_id=${LESSON_ID}`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        
+        let practiceData = [];
+        if (practiceResponse.ok) {
+            const practiceResult = await practiceResponse.json();
+            if (practiceResult.success && practiceResult.attempts) {
+                practiceData = practiceResult.attempts;
+            }
+        }
+        
+        const quizResponse = await fetch(`/api/quiz/user/attempts?lesson_id=${LESSON_ID}`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        
+        let quizData = [];
+        if (quizResponse.ok) {
+            const quizResult = await quizResponse.json();
+            if (quizResult.success && quizResult.attempts) {
+                quizData = quizResult.attempts;
+            }
+        }
+        
+        const lessonsPerDay = [];
+        const exercisesPerDay = [];
+        const pointsPerDay = [];
+        
+        for (const dateStr of dates) {
+            const lessonsCount = lessonsData.filter(item => {
+                const itemDate = item.completed_at || item.last_accessed || item.created_at;
+                return itemDate && itemDate.startsWith(dateStr);
+            }).length;
+            
+            const exercisesCount = practiceData.filter(item => {
+                const itemDate = item.completed_at || item.created_at;
+                return itemDate && itemDate.startsWith(dateStr) && 
+                       (item.completion_status === 'completed' || item.status === 'completed');
+            }).length;
+            
+            let pointsTotal = 0;
+            pointsTotal += lessonsCount * 10;
+            pointsTotal += exercisesCount * 5;
+            pointsTotal += quizData.filter(item => {
+                const itemDate = item.completed_at || item.submit_time;
+                return itemDate && itemDate.startsWith(dateStr) && 
+                       item.completion_status === 'completed';
+            }).length * 20;
+            
+            lessonsPerDay.push(lessonsCount * 10);
+            exercisesPerDay.push(exercisesCount * 8);
+            pointsPerDay.push(pointsTotal);
+        }
+        
+        renderMultiLineChartWithData({
+            labels: labels,
+            lessons: lessonsPerDay,
+            exercises: exercisesPerDay,
+            points: pointsPerDay
+        }, chartContainer, true);
+        
+    } catch (error) {
+        console.error('❌ Error fetching from database:', error);
+        
+        chartContainer.innerHTML = `
+            <div style="text-align: center; padding: 20px;">
+                <i class="fas fa-exclamation-triangle" style="font-size: 40px; color: #e74c3c;"></i>
+                <p style="color: #666; margin: 10px 0;">Failed to load database data</p>
+                <p style="color: #999; font-size: 12px;">${error.message}</p>
+                <button onclick="renderDailyActivityChart()" style="margin-top: 10px; padding: 8px 15px; background: #7a0000; color: white; border: none; border-radius: 5px; cursor: pointer;">
+                    <i class="fas fa-redo"></i> Retry
+                </button>
+            </div>
+        `;
+    }
+}
+function renderMultiLineChartWithData(chartData, chartContainer, isRealData = true) {
+    chartContainer.innerHTML = '';
+    
+    chartContainer.style.position = 'relative';
+    chartContainer.style.height = '300px';
+    chartContainer.style.background = 'white';
+    chartContainer.style.borderRadius = '12px';
+    chartContainer.style.padding = '20px 15px 15px 15px';
+    chartContainer.style.boxShadow = '0 4px 12px rgba(0,0,0,0.1)';
+    chartContainer.style.border = '1px solid #e0e0e0';
+    
+    const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    svg.setAttribute('width', '100%');
+    svg.setAttribute('height', '220');
+    svg.setAttribute('viewBox', '0 0 800 220');
+    svg.style.display = 'block';
+    svg.style.overflow = 'visible';
+    
+    const labels = chartData.labels || [];
+    const lessonsData = chartData.lessons || [];
+    const exercisesData = chartData.exercises || [];
+    const pointsData = chartData.points || [];
+    
+    const allValues = [...lessonsData, ...exercisesData, ...pointsData];
+    const maxValue = Math.max(...allValues, 580);
+    
+    const margin = { left: 50, right: 30, top: 20, bottom: 30 };
+    const chartWidth = 800 - margin.left - margin.right;
+    const chartHeight = 190 - margin.top;
+    const step = chartWidth / (labels.length - 1);
+    
+    const lessonsPoints = [];
+    const exercisesPoints = [];
+    const pointsPoints = [];
+    
+    lessonsData.forEach((value, index) => {
+        const x = margin.left + (step * index);
+        const y = margin.top + chartHeight - (value / maxValue) * chartHeight;
+        lessonsPoints.push({ x, y, value, label: labels[index] });
+    });
+    
+    exercisesData.forEach((value, index) => {
+        const x = margin.left + (step * index);
+        const y = margin.top + chartHeight - (value / maxValue) * chartHeight;
+        exercisesPoints.push({ x, y, value, label: labels[index] });
+    });
+    
+    pointsData.forEach((value, index) => {
+        const x = margin.left + (step * index);
+        const y = margin.top + chartHeight - (value / maxValue) * chartHeight;
+        pointsPoints.push({ x, y, value, label: labels[index] });
+    });
+    
+    const ySteps = [0, Math.round(maxValue * 0.2), Math.round(maxValue * 0.4), 
+                   Math.round(maxValue * 0.6), Math.round(maxValue * 0.8), maxValue];
+    
+    ySteps.forEach(yValue => {
+        const y = margin.top + chartHeight - (yValue / maxValue) * chartHeight;
+        
+        const gridLine = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+        gridLine.setAttribute('x1', margin.left);
+        gridLine.setAttribute('y1', y);
+        gridLine.setAttribute('x2', 800 - margin.right);
+        gridLine.setAttribute('y2', y);
+        gridLine.setAttribute('stroke', '#e0e0e0');
+        gridLine.setAttribute('stroke-width', '1');
+        gridLine.setAttribute('stroke-dasharray', '5,5');
+        svg.appendChild(gridLine);
+        
+        const yLabel = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+        yLabel.setAttribute('x', margin.left - 35);
+        yLabel.setAttribute('y', y + 4);
+        yLabel.setAttribute('fill', '#666');
+        yLabel.setAttribute('font-size', '11');
+        yLabel.textContent = yValue;
+        svg.appendChild(yLabel);
+    });
+    
+    labels.forEach((label, index) => {
+        const x = margin.left + (step * index);
+        const y = margin.top + chartHeight + 20;
+        
+        const xLabel = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+        xLabel.setAttribute('x', x);
+        xLabel.setAttribute('y', y);
+        xLabel.setAttribute('fill', '#666');
+        xLabel.setAttribute('font-size', '10');
+        xLabel.setAttribute('text-anchor', 'middle');
+        xLabel.textContent = label;
+        svg.appendChild(xLabel);
+    });
+    
+    const yAxis = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+    yAxis.setAttribute('x1', margin.left);
+    yAxis.setAttribute('y1', margin.top);
+    yAxis.setAttribute('x2', margin.left);
+    yAxis.setAttribute('y2', margin.top + chartHeight);
+    yAxis.setAttribute('stroke', '#333');
+    yAxis.setAttribute('stroke-width', '2');
+    svg.appendChild(yAxis);
+    
+    const xAxis = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+    xAxis.setAttribute('x1', margin.left);
+    xAxis.setAttribute('y1', margin.top + chartHeight);
+    xAxis.setAttribute('x2', 800 - margin.right);
+    xAxis.setAttribute('y2', margin.top + chartHeight);
+    xAxis.setAttribute('stroke', '#333');
+    xAxis.setAttribute('stroke-width', '2');
+    svg.appendChild(xAxis);
+    
+    if (lessonsPoints.length > 0) {
+        const linePath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+        let lineD = `M ${lessonsPoints[0].x},${lessonsPoints[0].y}`;
+        lessonsPoints.slice(1).forEach(point => {
+            lineD += ` L ${point.x},${point.y}`;
+        });
+        
+        linePath.setAttribute('d', lineD);
+        linePath.setAttribute('fill', 'none');
+        linePath.setAttribute('stroke', '#e74c3c');
+        linePath.setAttribute('stroke-width', '3');
+        linePath.setAttribute('stroke-linecap', 'round');
+        linePath.setAttribute('stroke-linejoin', 'round');
+        svg.appendChild(linePath);
+        
+        lessonsPoints.forEach(point => {
+            const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+            circle.setAttribute('cx', point.x);
+            circle.setAttribute('cy', point.y);
+            circle.setAttribute('r', '5');
+            circle.setAttribute('fill', '#e74c3c');
+            circle.setAttribute('stroke', 'white');
+            circle.setAttribute('stroke-width', '2');
+            svg.appendChild(circle);
+        });
+    }
+    
+    if (exercisesPoints.length > 0) {
+        const linePath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+        let lineD = `M ${exercisesPoints[0].x},${exercisesPoints[0].y}`;
+        exercisesPoints.slice(1).forEach(point => {
+            lineD += ` L ${point.x},${point.y}`;
+        });
+        
+        linePath.setAttribute('d', lineD);
+        linePath.setAttribute('fill', 'none');
+        linePath.setAttribute('stroke', '#27ae60');
+        linePath.setAttribute('stroke-width', '3');
+        linePath.setAttribute('stroke-linecap', 'round');
+        linePath.setAttribute('stroke-linejoin', 'round');
+        svg.appendChild(linePath);
+        
+        exercisesPoints.forEach(point => {
+            const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+            circle.setAttribute('cx', point.x);
+            circle.setAttribute('cy', point.y);
+            circle.setAttribute('r', '5');
+            circle.setAttribute('fill', '#27ae60');
+            circle.setAttribute('stroke', 'white');
+            circle.setAttribute('stroke-width', '2');
+            svg.appendChild(circle);
+        });
+    }
+    
+    if (pointsPoints.length > 0) {
+        const linePath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+        let lineD = `M ${pointsPoints[0].x},${pointsPoints[0].y}`;
+        pointsPoints.slice(1).forEach(point => {
+            lineD += ` L ${point.x},${point.y}`;
+        });
+        
+        linePath.setAttribute('d', lineD);
+        linePath.setAttribute('fill', 'none');
+        linePath.setAttribute('stroke', '#f1c40f');
+        linePath.setAttribute('stroke-width', '3');
+        linePath.setAttribute('stroke-linecap', 'round');
+        linePath.setAttribute('stroke-linejoin', 'round');
+        svg.appendChild(linePath);
+        
+        pointsPoints.forEach(point => {
+            const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+            circle.setAttribute('cx', point.x);
+            circle.setAttribute('cy', point.y);
+            circle.setAttribute('r', '5');
+            circle.setAttribute('fill', '#f1c40f');
+            circle.setAttribute('stroke', 'white');
+            circle.setAttribute('stroke-width', '2');
+            svg.appendChild(circle);
+        });
+    }
+    
+    chartContainer.appendChild(svg);
+    
+    const legendDiv = document.createElement('div');
+    legendDiv.style.display = 'flex';
+    legendDiv.style.justifyContent = 'center';
+    legendDiv.style.gap = '30px';
+    legendDiv.style.marginTop = '15px';
+    legendDiv.style.padding = '10px 0';
+    legendDiv.style.borderTop = '1px solid #f0f0f0';
+    
+    legendDiv.innerHTML = `
+        <div style="display: flex; align-items: center; gap: 8px;">
+            <div style="width: 20px; height: 4px; background: #e74c3c; border-radius: 2px;"></div>
+            <span style="color: #666; font-size: 13px;">Lessons</span>
+        </div>
+        <div style="display: flex; align-items: center; gap: 8px;">
+            <div style="width: 20px; height: 4px; background: #27ae60; border-radius: 2px;"></div>
+            <span style="color: #666; font-size: 13px;">Exercises</span>
+        </div>
+        <div style="display: flex; align-items: center; gap: 8px;">
+            <div style="width: 20px; height: 4px; background: #f1c40f; border-radius: 2px;"></div>
+            <span style="color: #666; font-size: 13px;">Points</span>
+        </div>
+    `;
+    
+    chartContainer.appendChild(legendDiv);
+    
+    const sourceDiv = document.createElement('div');
+    sourceDiv.style.marginTop = '10px';
+    sourceDiv.style.textAlign = 'right';
+    sourceDiv.style.padding = '0 10px';
+    sourceDiv.innerHTML = isRealData ? 
+        `<span style="background: #27ae60; color: white; padding: 4px 10px; border-radius: 20px; font-size: 11px;">
+            <i class="fas fa-database"></i> Direct from Database (Lesson 1)
+        </span>` :
+        `<span style="background: #f39c12; color: white; padding: 4px 10px; border-radius: 20px; font-size: 11px;">
+            <i class="fas fa-info-circle"></i> Sample Data
+        </span>`;
+    
+    chartContainer.appendChild(sourceDiv);
+}
+function renderAccuracyChart(accuracyData) {
+    const container = document.getElementById('accuracyChart');
+    if (!container) return;
+    
+    container.innerHTML = '';
+    
+    container.style.position = 'relative';
+    container.style.height = '220px';
+    container.style.background = 'linear-gradient(135deg, #3498db 0%, #2980b9 100%)';
+    container.style.borderRadius = '15px';
+    container.style.padding = '20px 15px 15px 15px';
+    container.style.boxShadow = '0 10px 30px rgba(52, 152, 219, 0.3)';
+    
+    const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    svg.setAttribute('width', '100%');
+    svg.setAttribute('height', '140');
+    svg.setAttribute('viewBox', '0 0 400 140');
+    svg.style.display = 'block';
+    
+    const points = [];
+    const step = 380 / (accuracyData.labels.length - 1);
+    
+    accuracyData.accuracy.forEach((value, index) => {
+        const x = 10 + (step * index);
+        const y = 130 - (value / 100) * 100;
+        points.push({ x, y });
+    });
+    
+    const linePath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+    let lineD = `M ${points[0].x},${points[0].y}`;
+    points.slice(1).forEach(point => {
+        lineD += ` L ${point.x},${point.y}`;
+    });
+    
+    linePath.setAttribute('d', lineD);
+    linePath.setAttribute('fill', 'none');
+    linePath.setAttribute('stroke', '#3498db');
+    linePath.setAttribute('stroke-width', '3');
+    linePath.setAttribute('stroke-linecap', 'round');
+    linePath.setAttribute('stroke-linejoin', 'round');
+    svg.appendChild(linePath);
+    
+    points.forEach((point, index) => {
+        const outerCircle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+        outerCircle.setAttribute('cx', point.x);
+        outerCircle.setAttribute('cy', point.y);
+        outerCircle.setAttribute('r', '6');
+        outerCircle.setAttribute('fill', '#ffffff');
+        svg.appendChild(outerCircle);
+        
+        const innerCircle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+        innerCircle.setAttribute('cx', point.x);
+        innerCircle.setAttribute('cy', point.y);
+        innerCircle.setAttribute('r', '4');
+        innerCircle.setAttribute('fill', '#3498db');
+        svg.appendChild(innerCircle);
+    });
+    
+    container.appendChild(svg);
+    
+    const labelsDiv = document.createElement('div');
+    labelsDiv.style.display = 'flex';
+    labelsDiv.style.justifyContent = 'space-between';
+    labelsDiv.style.marginTop = '10px';
+    labelsDiv.style.padding = '0 10px';
+    
+    accuracyData.labels.forEach(label => {
+        const labelSpan = document.createElement('span');
+        labelSpan.textContent = label;
+        labelSpan.style.color = 'rgba(255,255,255,0.9)';
+        labelSpan.style.fontSize = '11px';
+        labelsDiv.appendChild(labelSpan);
+    });
+    
+    container.appendChild(labelsDiv);
+}
+function useSampleAccuracyData() {
+    const accuracyData = {
+        labels: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
+        accuracy: [65, 72, 68, 85, 78, 82, 90]
+    };
+    renderAccuracyChart(accuracyData);
+}
 function renderPracticeTimeChart(data) {
     const barsContainer = document.getElementById('practiceTimeBars');
     const labelsContainer = document.getElementById('practiceTimeLabels');
@@ -7930,7 +8452,7 @@ function forceUpdateProgressUI(progress) {
 // ✅ FIXED: Load Progress Dashboard Data - MATHEASE ONLY
 // ============================================
 async function loadProgressDashboardData() {
-    console.log('📊 Loading Mathease progress dashboard data...');
+    console.log('📊 Loading MathEase progress dashboard data...');
     
     try {
         // Show loading state
@@ -7951,22 +8473,18 @@ async function loadProgressDashboardData() {
             quizStats,
             totalLessonsCount
         ] = await Promise.allSettled([
-            // 1. Get Mathease lessons progress
             fetch(`/api/progress/lessons?lesson_id=${MATHEASE_LESSON_ID}`, {
                 headers: { 'Authorization': `Bearer ${token}` }
             }).then(res => res.json()).catch(() => ({ success: false })),
             
-            // 2. Get Mathease practice stats
             fetch(`/api/progress/practice-attempts?lesson_id=${MATHEASE_LESSON_ID}`, {
                 headers: { 'Authorization': `Bearer ${token}` }
             }).then(res => res.json()).catch(() => ({ success: false })),
             
-            // 3. Get Mathease quiz stats
             fetch(`/api/quiz/user/attempts?lesson_id=${MATHEASE_LESSON_ID}`, {
                 headers: { 'Authorization': `Bearer ${token}` }
             }).then(res => res.json()).catch(() => ({ success: false })),
             
-            // 4. Get total Mathease lessons
             fetch(`/api/lessons-db/complete?lesson_id=${MATHEASE_LESSON_ID}`, {
                 headers: { 'Authorization': `Bearer ${token}` }
             }).then(res => res.json()).catch(() => ({ success: false }))
@@ -7981,7 +8499,7 @@ async function loadProgressDashboardData() {
             lessonsCompleted = progress.filter(p => 
                 p.completion_status === 'completed' || p.status === 'completed'
             ).length;
-            console.log(`✅ mathease lessons completed: ${lessonsCompleted}`);
+            console.log(`✅ MathEase lessons completed: ${lessonsCompleted}`);
         }
         
         if (totalLessonsCount.status === 'fulfilled' && totalLessonsCount.value?.success) {
@@ -7998,13 +8516,11 @@ async function loadProgressDashboardData() {
                 a.completion_status === 'completed' || a.percentage >= 70
             ).length;
             
-            // Calculate total practice time in seconds
             attempts.forEach(a => {
                 totalPracticeSeconds += a.time_spent_seconds || 0;
             });
             
-            console.log(`✅ mathease practice completed: ${exercisesCompleted}`);
-            console.log(`⏱️ Total practice seconds: ${totalPracticeSeconds}`);
+            console.log(`✅ MathEase practice completed: ${exercisesCompleted}`);
         }
         
         // ===== PROCESS QUIZ DATA =====
@@ -8015,128 +8531,31 @@ async function loadProgressDashboardData() {
             const attempts = quizStats.value.attempts || [];
             quizAttempts = attempts.length;
             
-            // Calculate points (10 points per correct answer)
             attempts.forEach(attempt => {
                 const correctAnswers = attempt.correct_answers || 0;
                 quizPoints += correctAnswers * 10;
             });
             
-            console.log(`✅ mathease quiz points: ${quizPoints}`);
+            console.log(`✅ MathEase quiz points: ${quizPoints}`);
         }
         
         // ===== CALCULATE OVERALL PROGRESS =====
-        // Base sa lessons lang dapat ang overall progress (0-100%)
         const overallPercentage = totalLessons > 0 
             ? Math.round((lessonsCompleted / totalLessons) * 100) 
             : 0;
         
         console.log(`📊 Overall progress: ${overallPercentage}% (${lessonsCompleted}/${totalLessons} lessons)`);
         
-        // ===== UPDATE OVERALL PROGRESS UI =====
-        const overallProgress = document.getElementById('overallProgress');
-        if (overallProgress) {
-             overallProgress.textContent = overallPercentage + '%';
-         }
-         
-         const progressBar = document.getElementById('overallProgressBar');
-         if (progressBar) {
-             progressBar.style.width = overallPercentage + '%';
-          }
-        
-        if (overallProgress) {
-            overallProgress.textContent = `${overallPercentage}%`;
-            
-            // Add animation
-            overallProgress.style.transition = 'all 0.3s';
-            overallProgress.style.transform = 'scale(1.1)';
-            overallProgress.style.color = '#7a0000';
-            setTimeout(() => {
-                overallProgress.style.transform = 'scale(1)';
-                overallProgress.style.color = '';
-            }, 300);
-        }
-        
-        if (overallProgressBar) {
-            overallProgressBar.style.width = `${overallPercentage}%`;
-            
-            // Set color based on progress
-            overallProgressBar.className = 'progress-fill';
-            if (overallPercentage >= 70) {
-                overallProgressBar.classList.add('progress-good');
-            } else if (overallPercentage >= 40) {
-                overallProgressBar.classList.add('progress-medium');
-            } else {
-                overallProgressBar.classList.add('progress-low');
-            }
-        }
-        
-        // ===== UPDATE TOTAL POINTS =====
-        const totalPointsProgress = document.getElementById('totalPointsProgress');
-        if (totalPointsProgress) {
-            totalPointsProgress.textContent = quizPoints;
-        }
-        
-        const pointsChange = document.getElementById('pointsChange');
-        if (pointsChange) {
-            // Compute points this week
-            const pointsThisWeek = Math.min(quizPoints, 10); // Sample computation
-            pointsChange.textContent = `+${pointsThisWeek} this week`;
-        }
-        
-        // ===== UPDATE TOTAL TIME =====
-        const totalTime = document.getElementById('totalTime');
-        if (totalTime) {
-            // Convert seconds to minutes
-            const totalMinutes = Math.floor(totalPracticeSeconds / 60);
-            
-            // Format display
-            let timeDisplay = '';
-            if (totalMinutes < 60) {
-                timeDisplay = `${totalMinutes}m`;
-            } else {
-                const hours = Math.floor(totalMinutes / 60);
-                const mins = totalMinutes % 60;
-                timeDisplay = `${hours}h ${mins}m`;
-            }
-            
-            totalTime.textContent = timeDisplay;
-            console.log(`⏱️ Display time: ${timeDisplay} (${totalMinutes} minutes)`);
-        }
-        
-        const timeChange = document.getElementById('timeChange');
-        if (timeChange) {
-            // Convert seconds to minutes for active days computation
-            const totalMinutes = Math.floor(totalPracticeSeconds / 60);
-            // Compute active days (1 day = 30 minutes of activity)
-            const activeDays = Math.max(1, Math.min(30, Math.ceil(totalMinutes / 30)));
-            timeChange.textContent = `${activeDays} days active`;
-        }
-        
-        // ===== UPDATE BADGES =====
-        const totalBadges = document.getElementById('totalBadges');
-        if (totalBadges) {
-            // Calculate badges based on achievements
-            let badgeCount = 0;
-            if (lessonsCompleted >= 1) badgeCount++;
-            if (lessonsCompleted >= 5) badgeCount++;
-            if (lessonsCompleted >= 10) badgeCount++;
-            if (exercisesCompleted >= 5) badgeCount++;
-            if (exercisesCompleted >= 15) badgeCount++;
-            if (quizAttempts >= 1) badgeCount++;
-            
-            totalBadges.textContent = `${badgeCount}/10`;
-        }
-        
-        const badgesChange = document.getElementById('badgesChange');
-        if (badgesChange) {
-            const badgesThisMonth = Math.floor(lessonsCompleted / 2) + Math.floor(exercisesCompleted / 5);
-            badgesChange.textContent = `+${badgesThisMonth} this month`;
-        }
-        
-        // Hide loading
-        hideProgressDashboardLoading();
-        
-        console.log('✅ FactoLearn progress dashboard updated');
+        // ===== UPDATE ALL UI ELEMENTS =====
+        updateOverallProgressUI(
+            overallPercentage, 
+            quizPoints, 
+            totalPracticeSeconds, 
+            exercisesCompleted, 
+            lessonsCompleted, 
+            totalLessons, 
+            quizAttempts
+        );
         
         // Store in ProgressState
         ProgressState.cumulativeProgress = {
@@ -8149,22 +8568,15 @@ async function loadProgressDashboardData() {
             total_time_spent_minutes: Math.floor(totalPracticeSeconds / 60)
         };
         
+        // Hide loading
+        hideProgressDashboardLoading();
+        
+        console.log('✅ MathEase progress dashboard updated');
+        
     } catch (error) {
         console.error('❌ Error loading progress dashboard:', error);
         hideProgressDashboardLoading();
-        
-        // Set fallback values
-        const overallProgress = document.getElementById('overallProgress');
-        if (overallProgress) overallProgress.textContent = '0%';
-        
-        const totalPointsProgress = document.getElementById('totalPointsProgress');
-        if (totalPointsProgress) totalPointsProgress.textContent = '0';
-        
-        const totalTime = document.getElementById('totalTime');
-        if (totalTime) totalTime.textContent = '0m';
-        
-        const totalBadges = document.getElementById('totalBadges');
-        if (totalBadges) totalBadges.textContent = '0/10';
+        setDefaultProgressUI();
     }
 }
 // ============================================
@@ -9434,9 +9846,9 @@ document.addEventListener('DOMContentLoaded', function() {
 async function fetchWeeklyImprovement() {
     try {
         const token = localStorage.getItem('authToken') || authToken;
-        if (!token) return 5; // Default value
+        if (!token) return 5;
         
-        const response = await fetch(`/api/progress/weekly-improvement`, {
+        const response = await fetch(`/api/progress/weekly-improvement?lesson_id=1`, {
             headers: { 'Authorization': `Bearer ${token}` }
         });
         
@@ -9993,9 +10405,6 @@ function initForgotPasswordLink() {
 document.addEventListener('DOMContentLoaded', function() {
     console.log('📄 DOM fully loaded - initializing all features');
     
-    // ✅ I-initialize ang progressRefreshInterval
-    progressRefreshInterval = null;
-    
     // Initialize app first
     initApp();
     
@@ -10009,34 +10418,6 @@ document.addEventListener('DOMContentLoaded', function() {
     addLessonContentStyles();
     addReviewModalStyles();
     
-  
-    
-    // Initialize forgot password link - call it multiple times to ensure it works
-    setTimeout(() => {
-        initForgotPasswordLink();
-    }, 100);
-    
-    setTimeout(() => {
-        initForgotPasswordLink();
-    }, 500);
-    
-    // Also check when login page becomes visible
-    const loginPage = document.getElementById('login-page');
-    if (loginPage) {
-        const observer = new MutationObserver(function(mutations) {
-            mutations.forEach(function(mutation) {
-                if (mutation.type === 'attributes' && mutation.attributeName === 'class') {
-                    if (!loginPage.classList.contains('hidden')) {
-                        console.log('📄 Login page became visible - initializing forgot link');
-                        setTimeout(initForgotPasswordLink, 200);
-                    }
-                }
-            });
-        });
-        
-        observer.observe(loginPage, { attributes: true });
-    }
-    
     // Initialize progress dashboard if visible
     const progressPage = document.getElementById('progress-page');
     if (progressPage) {
@@ -10048,7 +10429,6 @@ document.addEventListener('DOMContentLoaded', function() {
             }, 50);
         }
         
-        // Observe for when progress page becomes visible
         const progressObserver = new MutationObserver(function(mutations) {
             mutations.forEach(function(mutation) {
                 if (mutation.type === 'attributes' && mutation.attributeName === 'class') {
@@ -10059,7 +10439,6 @@ document.addEventListener('DOMContentLoaded', function() {
                             initProgressDashboard();
                         }, 300);
                     } else {
-                        // Stop refresh when hidden
                         if (typeof stopProgressAutoRefresh === 'function') {
                             stopProgressAutoRefresh();
                         }
@@ -10071,115 +10450,33 @@ document.addEventListener('DOMContentLoaded', function() {
         progressObserver.observe(progressPage, { attributes: true });
     }
     
-    // Initialize quiz dashboard if visible
-    const quizPage = document.getElementById('quiz-dashboard-page');
-    if (quizPage) {
-        if (!quizPage.classList.contains('hidden')) {
-            setTimeout(() => {
-                initQuizDashboard();
-            }, 300);
-        }
-        
-        const quizObserver = new MutationObserver(function(mutations) {
-            mutations.forEach(function(mutation) {
-                if (mutation.type === 'attributes' && mutation.attributeName === 'class') {
-                    if (!quizPage.classList.contains('hidden')) {
-                        console.log('🧠 Quiz page became visible');
-                        setTimeout(() => {
-                            initQuizDashboard();
-                        }, 300);
-                    }
-                }
-            });
-        });
-        
-        quizObserver.observe(quizPage, { attributes: true });
-    }
+    // Initialize hamburger menu
+    initHamburgerMenu();
     
-    // Initialize practice page if visible
-    const practicePage = document.getElementById('practice-exercises-page');
-    if (practicePage) {
-        if (!practicePage.classList.contains('hidden')) {
-            setTimeout(() => {
-                initPracticePage();
-            }, 300);
-        }
-        
-        const practiceObserver = new MutationObserver(function(mutations) {
-            mutations.forEach(function(mutation) {
-                if (mutation.type === 'attributes' && mutation.attributeName === 'class') {
-                    if (!practicePage.classList.contains('hidden')) {
-                        console.log('💪 Practice page became visible');
-                        setTimeout(() => {
-                            initPracticePage();
-                        }, 300);
-                    }
-                }
-            });
-        });
-        
-        practiceObserver.observe(practicePage, { attributes: true });
-    }
-    
-    // Initialize time tracker
-    setTimeout(() => {
-        if (typeof initializeTimeTracker === 'function') {
-            initializeTimeTracker();
-        }
-    }, 2000);
-    
-    // Check for reset token in URL
-    if (typeof checkForResetToken === 'function') {
-        checkForResetToken();
-    }
-    
-    // Ensure feedback history loads
-    if (typeof ensureFeedbackHistoryLoads === 'function') {
-        ensureFeedbackHistoryLoads();
-    }
+    // Update menu user info
+    updateMenuUserInfo();
     
     // Connect tool buttons
-    if (typeof connectToolButtons === 'function') {
-        connectToolButtons();
-    }
+    setTimeout(connectToolButtons, 500);
     
     // Connect review buttons
-    setTimeout(() => {
-        if (typeof connectReviewButtons === 'function') {
-            connectReviewButtons();
-        }
-        console.log('✅ Review buttons connected');
-    }, 1000);
-    
-    // Connect quiz buttons
-    setTimeout(() => {
-        if (typeof setupQuizButtons === 'function') {
-            setupQuizButtons();
-        }
-    }, 1000);
+    setTimeout(connectReviewButtons, 1000);
     
     // Check visibility on page load
-    setTimeout(() => {
-        if (typeof checkAndFixQuizVisibility === 'function') {
-            checkAndFixQuizVisibility();
-        }
-    }, 100);
+    setTimeout(checkAndFixQuizVisibility, 100);
     
     console.log('✅ All features initialized');
     
-    // Add window unload handler to clean up intervals
+    // Clean up intervals on unload
     window.addEventListener('beforeunload', function() {
         if (progressRefreshInterval) {
             clearInterval(progressRefreshInterval);
             progressRefreshInterval = null;
         }
-        
-        if (typeof stopQuizStatsAutoRefresh === 'function') {
-            stopQuizStatsAutoRefresh();
-        }
     });
 });
 
+console.log('✅ MathEase progress tracking fully implemented!');
 
 // ============================================
 // FIXED: Add a direct click handler as backup
@@ -11572,7 +11869,6 @@ function getActivityIcon(activityType) {
     
     return icons[activityType] || 'fas fa-circle';
 }
-
 // ============================================
 // GET ACTIVITY TEXT
 // ============================================
@@ -11644,10 +11940,9 @@ function formatTimeAgo(timestamp) {
     
     const date = new Date(timestamp);
     const now = new Date();
-    const diffMs = now - date;
-    const diffMins = Math.floor(diffMs / 60000);
-    const diffHours = Math.floor(diffMs / 3600000);
-    const diffDays = Math.floor(diffMs / 86400000);
+    const diffMins = Math.floor((now - date) / 60000);
+    const diffHours = Math.floor((now - date) / 3600000);
+    const diffDays = Math.floor((now - date) / 86400000);
     
     if (diffMins < 1) return 'Just now';
     if (diffMins < 60) return `${diffMins} min${diffMins > 1 ? 's' : ''} ago`;
@@ -15918,13 +16213,9 @@ async function fetchAccuracyRate() {
         const token = localStorage.getItem('authToken') || authToken;
         if (!token) return null;
         
-        // ✅ FORCE LESSON_ID = 3
-        const MATHEASE_LESSON_ID = 1;
+        console.log(`📊 Fetching MathEase accuracy rate...`);
         
-        console.log(`📊 Fetching mathease accuracy rate...`);
-        
-
-        const response = await fetch(`/api/progress/accuracy-rate?lesson_id=${MATHEASE_LESSON_ID}`, {
+        const response = await fetch(`/api/progress/accuracy-rate?lesson_id=1`, {
             headers: { 'Authorization': `Bearer ${token}` }
         });
         
@@ -15933,7 +16224,7 @@ async function fetchAccuracyRate() {
         const data = await response.json();
         
         if (data.success && data.accuracy) {
-            console.log('✅ mathease accuracy rate loaded:', data.accuracy);
+            console.log('✅ MathEase accuracy rate loaded:', data.accuracy);
             updateAccuracyRateDisplay(data.accuracy);
             return data.accuracy;
         }
@@ -16058,33 +16349,14 @@ setTimeout(() => {
 // UPDATE ACCURACY RATE DISPLAY
 // ============================================
 function updateAccuracyRateDisplay(accuracy) {
-    // Update accuracy in module dashboard sidebar
     const accuracyRate = document.getElementById('accuracyRate');
     if (accuracyRate) {
         accuracyRate.textContent = `${accuracy.overall}%`;
     }
     
-    // Update accuracy in quiz dashboard stats
     const quizAccuracy = document.getElementById('quizAccuracy');
     if (quizAccuracy) {
         quizAccuracy.textContent = `${accuracy.quiz}%`;
-    }
-    
-    // Update in progress page stats if they exist
-    const overallAccuracy = document.querySelector('.stat-value.accuracy');
-    if (overallAccuracy) {
-        overallAccuracy.textContent = `${accuracy.overall}%`;
-    }
-    
-    // Update topic mastery accuracy
-    if (ProgressState.topicMastery && ProgressState.topicMastery.length > 0) {
-        const avgTopicAccuracy = Math.round(
-            ProgressState.topicMastery.reduce((sum, t) => sum + (t.accuracy_rate || 0), 0) / 
-            ProgressState.topicMastery.length
-        );
-        
-        const accuracyElements = document.querySelectorAll('.topic-item .accuracy-value');
-        // Elements will be updated when topics are rendered
     }
 }
 function updateAccuracyDisplay(accuracy) {
@@ -20505,71 +20777,49 @@ async function updateProgressDashboardFromDatabase() {
     console.log('📊 Updating progress dashboard from database...');
     
     try {
-        // Show loading
-        if (typeof showProgressDashboardLoading === 'function') {
-            showProgressDashboardLoading();
-        }
+        showProgressDashboardLoading();
         
-        // Fetch all progress data
         const [cumulative, daily, topics, achievements, activities] = await Promise.allSettled([
-            typeof fetchCumulativeProgress === 'function' ? fetchCumulativeProgress() : Promise.resolve(null),
-            typeof fetchDailyProgress === 'function' ? fetchDailyProgress() : Promise.resolve(null),
-            typeof fetchTopicMastery === 'function' ? fetchTopicMastery() : Promise.resolve(null),
-            typeof fetchAchievementTimeline === 'function' ? fetchAchievementTimeline(10) : Promise.resolve(null),
-            typeof fetchActivityLog === 'function' ? fetchActivityLog(15) : Promise.resolve([])
+            fetchCumulativeProgress(),
+            fetchDailyProgress(),
+            fetchTopicMastery(),
+            fetchAchievementTimeline(10),
+            fetchActivityLog(15)
         ]);
         
-        // Update overall progress
         if (cumulative.status === 'fulfilled' && cumulative.value) {
-            if (typeof updateOverallProgressDisplay === 'function') {
-                updateOverallProgressDisplay(cumulative.value);
-            }
+            updateOverallProgressUI(
+                cumulative.value.overall_percentage,
+                cumulative.value.total_points_earned,
+                cumulative.value.total_time_spent_minutes * 60,
+                cumulative.value.exercises_completed,
+                cumulative.value.total_lessons_completed,
+                cumulative.value.total_lessons,
+                cumulative.value.total_quizzes_completed
+            );
         }
         
-        // Update daily stats
         if (daily.status === 'fulfilled' && daily.value) {
-            if (typeof updateDailyStats === 'function') {
-                updateDailyStats(daily.value);
-            }
+            updateDailyStats(daily.value);
         }
         
-        // Update topics progress
-        if (topics.status === 'fulfilled' && topics.value) {
-            // Just store the data, don't try to update non-existent UI
-            console.log('📚 Topics mastery data:', topics.value);
-        }
-        
-        // Update achievements
         if (achievements.status === 'fulfilled' && achievements.value) {
-            if (typeof updateAchievementTimeline === 'function') {
-                updateAchievementTimeline();
-            }
+            updateAchievementTimeline();
         }
         
-        // Update activity log
         if (activities.status === 'fulfilled' && activities.value) {
-            if (typeof updateActivityLog === 'function') {
-                updateActivityLog();
-            }
+            updateActivityLog();
         }
         
-        // Update charts
         if (typeof updateProgressCharts === 'function') {
             await updateProgressCharts();
         }
         
-        // Hide loading
-        if (typeof hideProgressDashboardLoading === 'function') {
-            hideProgressDashboardLoading();
-        }
-        
-        console.log('✅ Progress dashboard updated from database');
+        hideProgressDashboardLoading();
         
     } catch (error) {
         console.error('❌ Error updating progress dashboard:', error);
-        if (typeof hideProgressDashboardLoading === 'function') {
-            hideProgressDashboardLoading();
-        }
+        hideProgressDashboardLoading();
     }
 }
 function renderDailyActivityChart(chartData) {
@@ -20602,20 +20852,17 @@ function renderDailyActivityChart(chartData) {
 function updateDailyStats(dailyData) {
     console.log('📊 Updating daily stats:', dailyData);
     
-    // Update points change
     const pointsChange = document.getElementById('pointsChange');
     if (pointsChange) {
         pointsChange.textContent = `+${dailyData.points_earned || 0} today`;
     }
     
-    // Update time change
     const timeChange = document.getElementById('timeChange');
     if (timeChange) {
         const minutes = dailyData.time_spent_minutes || 0;
         timeChange.textContent = `${minutes} min today`;
     }
     
-    // Update badges change
     const badgesChange = document.getElementById('badgesChange');
     if (badgesChange) {
         badgesChange.textContent = `+${dailyData.badges_earned || 0} today`;
@@ -20628,7 +20875,6 @@ function updateDailyStats(dailyData) {
 let progressRefreshInterval = null;
 
 function startProgressAutoRefresh(intervalSeconds = 60) {
-    // Clear existing interval
     if (progressRefreshInterval) {
         clearInterval(progressRefreshInterval);
         progressRefreshInterval = null;
@@ -20637,7 +20883,6 @@ function startProgressAutoRefresh(intervalSeconds = 60) {
     console.log(`🔄 Starting progress auto-refresh every ${intervalSeconds} seconds`);
     
     progressRefreshInterval = setInterval(async () => {
-        // Check if progress page is visible
         const progressPage = document.getElementById('progress-page');
         if (progressPage && !progressPage.classList.contains('hidden')) {
             console.log('🔄 Auto-refreshing progress dashboard...');
@@ -23106,14 +23351,10 @@ function setupCompleteLessonButton() {
 async function fetchActivityLog(limit = 15) {
     try {
         const token = localStorage.getItem('authToken') || authToken;
-        if (!token) {
-            console.warn('No auth token available');
-            return [];
-        }
+        if (!token) return [];
         
-        console.log(`📋 Fetching activity log (limit: ${limit})...`);
+        console.log(`📋 Fetching activity log...`);
         
-        // Use the working endpoint
         const response = await fetch(`/api/progress/activity-feed?limit=${limit}`, {
             headers: {
                 'Authorization': `Bearer ${token}`,
@@ -23121,19 +23362,14 @@ async function fetchActivityLog(limit = 15) {
             }
         });
         
-        // If 404, try alternative endpoint
         if (response.status === 404) {
-            console.log('📋 Activity feed endpoint not found, trying daily progress...');
-            
-            // Try to get from daily progress as fallback
-            const dailyResponse = await fetch(`/api/progress/daily`, {
+            const dailyResponse = await fetch(`/api/progress/daily?lesson_id=1`, {
                 headers: { 'Authorization': `Bearer ${token}` }
             });
             
             if (dailyResponse.ok) {
                 const dailyData = await dailyResponse.json();
                 if (dailyData.success && dailyData.progress) {
-                    // Convert daily progress to activity format
                     const activities = [];
                     const today = new Date().toISOString().split('T')[0];
                     
@@ -23164,7 +23400,6 @@ async function fetchActivityLog(limit = 15) {
                         });
                     }
                     
-                    console.log(`✅ Created ${activities.length} activities from daily progress`);
                     ProgressState.activityLog = activities;
                     return activities;
                 }
@@ -23173,25 +23408,20 @@ async function fetchActivityLog(limit = 15) {
             return [];
         }
         
-        if (!response.ok) {
-            throw new Error(`Failed to fetch activity log: ${response.status}`);
-        }
+        if (!response.ok) return [];
         
         const data = await response.json();
         
         if (data.success && data.activities) {
-            console.log(`✅ Fetched ${data.activities.length} activities`);
             ProgressState.activityLog = data.activities;
+            updateActivityLog();
             return data.activities;
-        } else {
-            console.warn('No activities returned');
-            ProgressState.activityLog = [];
-            return [];
         }
+        
+        return [];
         
     } catch (error) {
         console.error('Error fetching activity log:', error);
-        ProgressState.activityLog = [];
         return [];
     }
 }
@@ -27862,7 +28092,6 @@ function addChartStyles() {
     const style = document.createElement('style');
     style.id = 'chart-styles';
     style.textContent = `
-        /* Chart Container Styles */
         .charts-grid {
             display: grid;
             grid-template-columns: 1fr 1fr;
@@ -27897,212 +28126,6 @@ function addChartStyles() {
             color: var(--primary);
         }
         
-        /* Simple Bar Chart */
-        .simple-bar-chart {
-            height: 200px;
-            display: flex;
-            flex-direction: column;
-        }
-        
-        .chart-bars {
-            flex: 1;
-            display: flex;
-            align-items: flex-end;
-            gap: 10px;
-            padding: 10px 0;
-        }
-        
-        .chart-bar {
-            flex: 1;
-            background: var(--primary);
-            border-radius: 6px 6px 0 0;
-            min-height: 4px;
-            transition: height 0.3s ease;
-            position: relative;
-        }
-        
-        .chart-bar:hover {
-            background: #c0392b;
-        }
-        
-        .chart-bar::after {
-            content: attr(data-value);
-            position: absolute;
-            top: -25px;
-            left: 50%;
-            transform: translateX(-50%);
-            background: var(--primary);
-            color: white;
-            padding: 4px 8px;
-            border-radius: 4px;
-            font-size: 12px;
-            opacity: 0;
-            transition: opacity 0.3s;
-            white-space: nowrap;
-            pointer-events: none;
-        }
-        
-        .chart-bar:hover::after {
-            opacity: 1;
-        }
-        
-        .chart-labels {
-            display: flex;
-            gap: 10px;
-            padding-top: 10px;
-            border-top: 1px solid var(--border-color);
-        }
-        
-        .chart-label {
-            flex: 1;
-            text-align: center;
-            font-size: 12px;
-            color: var(--text-light);
-        }
-        
-        /* Simple Line Chart */
-        .simple-line-chart {
-            height: 200px;
-            position: relative;
-            padding: 20px 0;
-        }
-        
-        .chart-line {
-            height: 100%;
-            position: relative;
-            background: linear-gradient(to top, rgba(122,0,0,0.1) 0%, transparent 100%);
-        }
-        
-        .chart-point {
-            position: absolute;
-            width: 10px;
-            height: 10px;
-            background: var(--primary);
-            border-radius: 50%;
-            transform: translate(-50%, 50%);
-            cursor: pointer;
-            transition: all 0.3s;
-            z-index: 2;
-        }
-        
-        .chart-point:hover {
-            transform: translate(-50%, 50%) scale(1.5);
-            background: #c0392b;
-            box-shadow: 0 0 10px rgba(122,0,0,0.5);
-        }
-        
-        .chart-point::after {
-            content: attr(data-value);
-            position: absolute;
-            top: -30px;
-            left: 50%;
-            transform: translateX(-50%);
-            background: var(--primary);
-            color: white;
-            padding: 4px 8px;
-            border-radius: 4px;
-            font-size: 12px;
-            opacity: 0;
-            transition: opacity 0.3s;
-            white-space: nowrap;
-            pointer-events: none;
-        }
-        
-        .chart-point:hover::after {
-            opacity: 1;
-        }
-        
-        .chart-line::before {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            border-left: 2px solid var(--border-color);
-            border-bottom: 2px solid var(--border-color);
-            pointer-events: none;
-        }
-        
-        /* Time Period Selector */
-        .time-period-selector {
-            margin-bottom: 20px;
-            text-align: right;
-        }
-        
-        .time-period-selector select {
-            padding: 8px 15px;
-            border: 1px solid var(--border-color);
-            border-radius: 6px;
-            font-size: 14px;
-            color: var(--text-color);
-            background: white;
-            cursor: pointer;
-        }
-        
-        .time-period-selector select:focus {
-            outline: none;
-            border-color: var(--primary);
-        }
-        
-        /* Progress Summary Stats */
-        .progress-summary-stats {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: 20px;
-            margin: 20px 0;
-        }
-        
-        .summary-stat {
-            background: white;
-            border-radius: 10px;
-            padding: 20px;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-            display: flex;
-            align-items: center;
-            gap: 15px;
-        }
-        
-        .summary-stat .stat-icon {
-            width: 50px;
-            height: 50px;
-            background: linear-gradient(135deg, var(--primary), #c0392b);
-            border-radius: 12px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            color: white;
-            font-size: 24px;
-        }
-        
-        .summary-stat .stat-content {
-            flex: 1;
-        }
-        
-        .summary-stat h3 {
-            margin: 0 0 5px 0;
-            font-size: 14px;
-            color: var(--text-light);
-        }
-        
-        .summary-stat .stat-value {
-            font-size: 28px;
-            font-weight: bold;
-            color: var(--text-color);
-            line-height: 1.2;
-        }
-        
-        .summary-stat .stat-change {
-            font-size: 12px;
-            color: #27ae60;
-            margin-top: 5px;
-        }
-        
-        .summary-stat .progress-bar-container.mini {
-            height: 4px;
-            margin-top: 8px;
-        }
-        
         .progress-good {
             background: linear-gradient(90deg, #27ae60, #2ecc71);
         }
@@ -28115,141 +28138,6 @@ function addChartStyles() {
             background: linear-gradient(90deg, #e74c3c, #c0392b);
         }
         
-        /* Topics Progress Detailed */
-        .topics-progress-detailed {
-            display: flex;
-            flex-direction: column;
-            gap: 15px;
-            margin: 20px 0;
-        }
-        
-        .topic-progress-item {
-            background: white;
-            border-radius: 8px;
-            padding: 15px;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
-            border: 1px solid var(--border-color);
-        }
-        
-        .topic-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 10px;
-        }
-        
-        .topic-header h4 {
-            margin: 0;
-            font-size: 16px;
-            color: var(--text-color);
-        }
-        
-        .topic-progress {
-            margin: 10px 0;
-        }
-        
-        .progress-info {
-            display: flex;
-            justify-content: space-between;
-            font-size: 13px;
-            color: var(--text-light);
-            margin-bottom: 5px;
-        }
-        
-        .topic-stats {
-            display: flex;
-            gap: 20px;
-            margin-top: 10px;
-            font-size: 13px;
-            color: var(--text-light);
-        }
-        
-        .topic-stat {
-            display: flex;
-            align-items: center;
-            gap: 5px;
-        }
-        
-        .topic-stat i {
-            color: var(--primary);
-        }
-        
-        .performance-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-            gap: 15px;
-            margin: 20px 0;
-        }
-        
-        .performance-card {
-            background: white;
-            border-radius: 10px;
-            padding: 20px;
-            text-align: center;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-            transition: transform 0.3s;
-        }
-        
-        .performance-card:hover {
-            transform: translateY(-3px);
-            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-        }
-        
-        .performance-card .value {
-            font-size: 32px;
-            font-weight: bold;
-            color: var(--primary);
-            margin-bottom: 5px;
-        }
-        
-        .performance-card .label {
-            font-size: 13px;
-            color: var(--text-light);
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-        }
-        
-        .learning-insights {
-            background: #f8f9fa;
-            border-radius: 10px;
-            padding: 20px;
-            margin-top: 20px;
-            border-left: 4px solid var(--primary);
-        }
-        
-        .learning-insights h4 {
-            margin: 0 0 15px 0;
-            color: var(--text-color);
-            display: flex;
-            align-items: center;
-            gap: 8px;
-        }
-        
-        .insights-list {
-            list-style: none;
-            padding: 0;
-            margin: 0;
-        }
-        
-        .insights-list li {
-            padding: 10px 0;
-            border-bottom: 1px solid var(--border-color);
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            color: var(--text-color);
-        }
-        
-        .insights-list li:last-child {
-            border-bottom: none;
-        }
-        
-        .insights-list li i {
-            color: var(--primary);
-            font-size: 14px;
-        }
-        
-        /* Loading States */
         .loading-container {
             text-align: center;
             padding: 40px;
@@ -28265,11 +28153,6 @@ function addChartStyles() {
             color: var(--text-light);
         }
         
-        /* Animations */
-        .animate-fade-in {
-            animation: fadeIn 0.5s ease forwards;
-        }
-        
         @keyframes fadeIn {
             from {
                 opacity: 0;
@@ -28283,8 +28166,8 @@ function addChartStyles() {
     `;
     
     document.head.appendChild(style);
-    console.log('✅ Chart styles added');
 }
+
 
 // ============================================
 // ✅ ADD MISSING SETTINGS STYLES FUNCTION
@@ -30149,3 +30032,102 @@ window.submitMathEasePractice = function(exerciseId) {
 };
 
 console.log('✅ MathEase emergency practice fix loaded!');
+
+function getDefaultPracticeStats() {
+    return {
+        totalSessions: 0,
+        totalQuestions: 0,
+        correctAnswers: 0,
+        averageScore: 0,
+        studyTime: 0,
+        weakAreas: [],
+        strongAreas: [],
+        recentActivity: []
+    };
+}
+function updateOverallProgressUI(percentage, points, seconds, exercises, lessons, totalLessons, attempts) {
+    // Update overall progress text
+    const overallProgress = document.getElementById('overallProgress');
+    const progressBar = document.getElementById('overallProgressBar');
+    
+    if (overallProgress) {
+        overallProgress.textContent = percentage + '%';
+        
+        // Add animation
+        overallProgress.style.transition = 'all 0.3s';
+        overallProgress.style.transform = 'scale(1.1)';
+        overallProgress.style.color = '#7a0000';
+        setTimeout(() => {
+            overallProgress.style.transform = 'scale(1)';
+            overallProgress.style.color = '';
+        }, 300);
+    }
+    
+    if (progressBar) {
+        progressBar.style.width = percentage + '%';
+        progressBar.className = 'progress-fill';
+        
+        // Set color based on progress
+        if (percentage >= 70) {
+            progressBar.classList.add('progress-good');
+        } else if (percentage >= 40) {
+            progressBar.classList.add('progress-medium');
+        } else {
+            progressBar.classList.add('progress-low');
+        }
+    }
+    
+    // Update total points
+    const totalPointsProgress = document.getElementById('totalPointsProgress');
+    if (totalPointsProgress) {
+        totalPointsProgress.textContent = points;
+    }
+    
+    const pointsChange = document.getElementById('pointsChange');
+    if (pointsChange) {
+        pointsChange.textContent = `+${Math.min(points, 10)} this week`;
+    }
+    
+    // Update total time
+    const totalTime = document.getElementById('totalTime');
+    if (totalTime) {
+        const totalMinutes = Math.floor(seconds / 60);
+        let timeDisplay = totalMinutes < 60 
+            ? `${totalMinutes}m` 
+            : `${Math.floor(totalMinutes / 60)}h ${totalMinutes % 60}m`;
+        totalTime.textContent = timeDisplay;
+    }
+    
+    const timeChange = document.getElementById('timeChange');
+    if (timeChange) {
+        const totalMinutes = Math.floor(seconds / 60);
+        const activeDays = Math.max(1, Math.min(30, Math.ceil(totalMinutes / 30)));
+        timeChange.textContent = `${activeDays} days active`;
+    }
+    
+    // Update badges
+    const totalBadges = document.getElementById('totalBadges');
+    if (totalBadges) {
+        let badgeCount = 0;
+        if (lessons >= 1) badgeCount++;
+        if (lessons >= 5) badgeCount++;
+        if (lessons >= 10) badgeCount++;
+        if (exercises >= 5) badgeCount++;
+        if (exercises >= 15) badgeCount++;
+        if (attempts >= 1) badgeCount++;
+        
+        totalBadges.textContent = `${badgeCount}/10`;
+    }
+    
+    const badgesChange = document.getElementById('badgesChange');
+    if (badgesChange) {
+        const badgesThisMonth = Math.floor(lessons / 2) + Math.floor(exercises / 5);
+        badgesChange.textContent = `+${badgesThisMonth} this month`;
+    }
+}
+function setDefaultProgressUI() {
+    document.getElementById('overallProgress').textContent = '0%';
+    document.getElementById('totalPointsProgress').textContent = '0';
+    document.getElementById('totalTime').textContent = '0m';
+    document.getElementById('totalBadges').textContent = '0/10';
+}
