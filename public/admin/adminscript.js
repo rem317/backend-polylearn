@@ -5452,7 +5452,7 @@ if (typeof animateNumber !== 'function') {
     }
 }
 
-// ===== FIXED: SAVE LESSON TO MYSQL WITH CORRECT LESSON ID =====
+// ===== FIXED: SAVE LESSON TO MYSQL WITH YOUTUBE URL =====
 async function saveLessonToMySQL() {
     console.log("=== SAVING TO MYSQL DATABASE ===");
     
@@ -5461,27 +5461,15 @@ async function saveLessonToMySQL() {
         const title = document.getElementById('createLessonTitle')?.value.trim();
         const description = document.getElementById('createLessonDescription')?.value.trim();
         
-        // ===== FIX 1: GET LESSON ID FROM SUBJECT SELECTION =====
-        // Get the selected subject from the subject buttons
-        const selectedSubjectId = selectedUploadSubjectId || 1; // Default to MathEase (ID 1)
+        // Get lesson_id (subject)
+        const lessonSelect = document.getElementById('lessonSelect');
+        const lesson_id = lessonSelect?.value;
         
-        // ===== FIX 2: MAP SUBJECT ID TO CORRECT LESSON ID =====
-        let lesson_id;
-        if (selectedSubjectId === 1) { // MathEase
-            lesson_id = 1;
-        } else if (selectedSubjectId === 2) { // PolyLearn
-            lesson_id = 2;
-        } else if (selectedSubjectId === 3) { // FactoLearn
-            lesson_id = 3;
-        } else {
-            lesson_id = 1; // Default to MathEase
-        }
-        
-        // ===== FIX 3: GET MODULE ID =====
+        // Get module_id
         const moduleSelect = document.getElementById('moduleSelect');
         const module_id = moduleSelect?.value;
         
-        // ===== FIX 4: GET TOPIC ID =====
+        // Get topic_id
         const topicSelect = document.getElementById('topicSelect');
         const topic_id = topicSelect?.value;
         
@@ -5500,7 +5488,7 @@ async function saveLessonToMySQL() {
         console.log('📋 Lesson data:', { 
             title, 
             description,
-            lesson_id,  // This will be 1, 2, or 3
+            lesson_id,
             subjectName,
             module_id,
             topic_id, 
@@ -5514,26 +5502,38 @@ async function saveLessonToMySQL() {
             return;
         }
         
+        if (!lesson_id) {
+            showNotification('error', 'Error', 'Please select a lesson');
+            console.error("❌ No lesson selected - lesson_id is empty");
+            return;
+        }
+        
         if (!topic_id) {
             showNotification('error', 'Error', 'Please select a topic. Click "New Topic" if needed.');
             return;
         }
         
-        // ===== DETERMINE CONTENT TYPE =====
+        // ===== GET CONTENT =====
         const videoFile = document.getElementById('videoFileInput')?.files[0];
-        const youtubeUrl = document.getElementById('videoYoutubeUrl')?.value;
-        const textContent = document.getElementById('textContentInput')?.value;
+        const youtubeUrl = document.getElementById('videoYoutubeUrl')?.value?.trim();
+        const textContent = document.getElementById('textContentInput')?.value?.trim();
         
+        // ===== DETERMINE CONTENT TYPE =====
         let contentType = 'text';
-        if (videoFile || youtubeUrl) {
+        let youtubeUrlToSave = null;
+        let videoFileToSave = null;
+        
+        if (youtubeUrl) {
             contentType = 'video';
-            console.log("🎬 Content type: VIDEO");
+            youtubeUrlToSave = youtubeUrl;
+            console.log("🎬 YouTube URL detected:", youtubeUrlToSave);
+        } else if (videoFile) {
+            contentType = 'video';
+            videoFileToSave = videoFile;
+            console.log("🎬 Video file detected:", videoFile.name);
         } else if (textContent) {
             contentType = 'text';
-            console.log("📝 Content type: TEXT");
-        } else {
-            contentType = 'text';
-            console.log("📝 Content type: TEXT (using description)");
+            console.log("📝 Text content detected");
         }
         
         // ===== CREATE FORMDATA =====
@@ -5541,50 +5541,62 @@ async function saveLessonToMySQL() {
         
         // Add basic info
         formData.append('title', title);
-        formData.append('description', description);
+        formData.append('description', description || '');
         
-        // ===== FIX 5: ADD LESSON_ID - THIS IS THE SUBJECT =====
-        formData.append('lesson_id', lesson_id);
-        console.log(`📦 Adding lesson_id: ${lesson_id} (${subjectName})`);
-        
-        // ===== FIX 6: ADD TOPIC_ID =====
-        if (topic_id) {
-            formData.append('topic_id', parseInt(topic_id));
-            console.log(`📦 Adding topic_id: ${topic_id}`);
+        // Add IDs
+        if (lesson_id) {
+            formData.append('lesson_id', parseInt(lesson_id));
         }
         
-        // ===== FIX 7: ADD MODULE_ID (if selected) =====
+        if (topic_id) {
+            formData.append('topic_id', parseInt(topic_id));
+        }
+        
         if (module_id && module_id !== '' && module_id !== 'create') {
             formData.append('module_id', parseInt(module_id));
-            console.log(`📦 Adding module_id: ${module_id}`);
         }
         
         // Add update flag if editing
         if (isUpdate) {
             formData.append('is_update', 'true');
             formData.append('content_id', editId);
-            console.log("🔄 Updating lesson ID:", editId);
         }
         
         // Add assigned teacher if admin specified one
         if (assignedTeacherId && assignedTeacherId !== '') {
             formData.append('assigned_teacher_id', parseInt(assignedTeacherId));
-            console.log(`👨‍🏫 Assigning to teacher ID: ${assignedTeacherId}`);
         }
         
         // ===== ADD CONTENT BASED ON TYPE =====
         if (contentType === 'video') {
-            if (youtubeUrl && youtubeUrl.trim() !== '') {
-                formData.append('youtube_url', youtubeUrl);
-                console.log("🔗 YouTube URL added:", youtubeUrl);
+            // ===== CRITICAL: Save YouTube URL properly =====
+            if (youtubeUrlToSave) {
+                formData.append('content_type', 'video');
+                formData.append('youtube_url', youtubeUrlToSave);
+                console.log("🔗 Adding YouTube URL to formData:", youtubeUrlToSave);
+                
+                // Also add as content_url for backward compatibility
+                formData.append('content_url', youtubeUrlToSave);
             }
-            if (videoFile) {
-                formData.append('video_file', videoFile);
-                console.log("🎬 Video file added:", videoFile.name);
+            
+            if (videoFileToSave) {
+                formData.append('content_type', 'video');
+                formData.append('video_file', videoFileToSave);
+                console.log("🎬 Adding video file:", videoFileToSave.name);
             }
-        } else if (contentType === 'text' && textContent && textContent.trim() !== '') {
+        } else if (contentType === 'text' && textContent) {
+            formData.append('content_type', 'text');
             formData.append('text_content', textContent);
-            console.log("📝 Text content added");
+        }
+        
+        // Log all form data for debugging
+        console.log("📦 FINAL FORMDATA CONTENTS:");
+        for (let pair of formData.entries()) {
+            if (pair[0] === 'video_file') {
+                console.log(`   ${pair[0]}: [File: ${pair[1].name}]`);
+            } else {
+                console.log(`   ${pair[0]}: ${pair[1]}`);
+            }
         }
         
         // ===== GET AUTH TOKEN =====
@@ -5592,6 +5604,14 @@ async function saveLessonToMySQL() {
         if (!token) {
             showNotification('error', 'Auth Error', 'Please login again');
             return;
+        }
+        
+        // ===== SHOW LOADING STATE =====
+        const saveBtn = document.querySelector('#createLessonModal .btn-primary');
+        const originalText = saveBtn ? saveBtn.innerHTML : 'Save';
+        if (saveBtn) {
+            saveBtn.disabled = true;
+            saveBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Saving...';
         }
         
         // ===== SEND TO SERVER =====
@@ -5605,43 +5625,54 @@ async function saveLessonToMySQL() {
             body: formData
         });
         
-        if (!response.ok) {
-            const errorText = await response.text();
-            console.error("❌ Server error response:", errorText);
-            throw new Error(`Server error (${response.status})`);
-        }
+        const responseText = await response.text();
+        console.log("📥 Raw server response:", responseText);
         
-        const result = await response.json();
-        console.log("📥 Server response:", result);
+        let result;
+        try {
+            result = JSON.parse(responseText);
+        } catch (e) {
+            console.error("❌ Failed to parse JSON response:", responseText);
+            throw new Error('Server returned invalid JSON');
+        }
         
         if (result.success) {
             let successMessage = isUpdate ? 'Lesson updated successfully!' : 'Lesson created successfully!';
-            successMessage += ` (${subjectName})`;
             
-            if (assignedTeacherId) {
-                successMessage += ' (Assigned to teacher)';
+            // Add YouTube URL confirmation to message
+            if (youtubeUrlToSave) {
+                successMessage += ' (YouTube URL saved)';
             }
             
             showNotification('success', 'Success!', successMessage);
             
-            console.log('📝 Lesson recorded with lesson_id:', lesson_id, `(${subjectName})`);
+            console.log('📝 Lesson saved with:');
+            console.log(`   - lesson_id: ${lesson_id} (${subjectName})`);
+            console.log(`   - topic_id: ${topic_id}`);
+            console.log(`   - content_type: ${contentType}`);
+            if (youtubeUrlToSave) {
+                console.log(`   - youtube_url: ${youtubeUrlToSave}`);
+            }
             
-            // Close modal
+            // Close modal and reset
             closeCreateLessonModal();
-            
-            // Reset form
             resetLessonForm();
-            
-            // Clear edit ID
             document.getElementById('editLessonId').value = '';
             
             // Refresh lessons lists
             setTimeout(() => {
+                console.log("🔄 Refreshing lessons...");
                 if (document.getElementById('adminLessonsTableBody')) {
-                    loadAdminLessons();
+                    if (typeof loadAdminLessons === 'function') {
+                        loadAdminLessons();
+                    }
                 }
-                loadRecentLessons();
-                fetchSubjectDataFromDatabase();
+                if (typeof loadRecentLessons === 'function') {
+                    loadRecentLessons();
+                }
+                if (typeof fetchSubjectDataFromDatabase === 'function') {
+                    fetchSubjectDataFromDatabase();
+                }
             }, 500);
             
         } else {
@@ -5651,6 +5682,212 @@ async function saveLessonToMySQL() {
     } catch (error) {
         console.error('❌ Save error:', error);
         showNotification('error', 'Save Failed', error.message);
+        
+    } finally {
+        const saveBtn = document.querySelector('#createLessonModal .btn-primary');
+        if (saveBtn) {
+            saveBtn.disabled = false;
+            saveBtn.innerHTML = '<i class="fas fa-database"></i> Save to MySQL';
+        }
+    }
+}
+
+// ===== FIXED: PREVIEW LESSON WITH YOUTUBE VIDEO =====
+async function previewLesson(lessonId) {
+    console.log("🎬 Previewing lesson:", lessonId);
+    
+    try {
+        const token = localStorage.getItem('admin_token') || localStorage.getItem('authToken');
+        
+        const response = await fetch(`/api/lessons-db/${lessonId}`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            const lesson = result.lesson;
+            
+            // Create preview modal
+            const modal = document.createElement('div');
+            modal.className = 'modal';
+            modal.id = 'previewLessonModal';
+            modal.style.cssText = 'display: flex; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); z-index: 10000; align-items: center; justify-content: center;';
+            
+            // Check if it's a YouTube URL
+            let videoEmbed = '';
+            if (lesson.content_url && lesson.content_url.includes('youtube.com')) {
+                // Extract YouTube video ID
+                let videoId = '';
+                const url = lesson.content_url;
+                
+                if (url.includes('watch?v=')) {
+                    videoId = url.split('watch?v=')[1].split('&')[0];
+                } else if (url.includes('youtu.be/')) {
+                    videoId = url.split('youtu.be/')[1].split('?')[0];
+                } else if (url.includes('embed/')) {
+                    videoId = url.split('embed/')[1].split('?')[0];
+                }
+                
+                if (videoId) {
+                    videoEmbed = `
+                        <div style="margin: 20px 0;">
+                            <iframe width="100%" height="400" src="https://www.youtube.com/embed/${videoId}" 
+                                    frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
+                                    allowfullscreen style="border-radius: 8px;"></iframe>
+                        </div>
+                    `;
+                } else {
+                    videoEmbed = `<p><a href="${lesson.content_url}" target="_blank">${lesson.content_url}</a></p>`;
+                }
+            } else if (lesson.video_filename) {
+                videoEmbed = `<p><strong>Video File:</strong> ${lesson.video_filename}</p>`;
+            }
+            
+            modal.innerHTML = `
+                <div class="modal-backdrop" onclick="closePreviewModal()" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%;"></div>
+                <div class="modal-content" style="max-width: 800px; width: 90%; background: white; border-radius: 12px; overflow: hidden; position: relative; z-index: 10001;">
+                    <div class="modal-header" style="background: #7a0000; color: white; padding: 18px 25px; display: flex; justify-content: space-between; align-items: center;">
+                        <h3 style="margin: 0; display: flex; align-items: center; gap: 10px;">
+                            <i class="fas fa-eye"></i> Lesson Preview
+                        </h3>
+                        <button class="modal-close" onclick="closePreviewModal()" style="background: none; border: none; color: white; font-size: 28px; cursor: pointer;">&times;</button>
+                    </div>
+                    <div class="modal-body" style="padding: 25px; max-height: 70vh; overflow-y: auto;">
+                        <h4 style="color: #7a0000; margin-bottom: 15px; font-size: 1.3rem;">${lesson.content_title}</h4>
+                        
+                        ${videoEmbed}
+                        
+                        <div style="background: #f8f9fa; padding: 20px; border-radius: 8px; margin: 20px 0;">
+                            <h5 style="margin-top: 0; color: #333; display: flex; align-items: center; gap: 8px;">
+                                <i class="fas fa-align-left" style="color: #7a0000;"></i> Description
+                            </h5>
+                            <p style="color: #666; line-height: 1.6;">${lesson.content_description || 'No description'}</p>
+                        </div>
+                        
+                        <div style="margin-top: 20px;">
+                            <h5 style="color: #333; margin-bottom: 15px; display: flex; align-items: center; gap: 8px;">
+                                <i class="fas fa-info-circle" style="color: #7a0000;"></i> Lesson Details
+                            </h5>
+                            <table style="width: 100%; border-collapse: collapse;">
+                                <tr>
+                                    <td style="padding: 10px; border-bottom: 1px solid #eee;"><strong>Type:</strong></td>
+                                    <td style="padding: 10px; border-bottom: 1px solid #eee;">
+                                        <span class="badge" style="background: ${lesson.content_type === 'video' ? '#f44336' : '#2196F3'}; color: white; padding: 4px 12px; border-radius: 20px;">
+                                            ${lesson.content_type || 'text'}
+                                        </span>
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td style="padding: 10px; border-bottom: 1px solid #eee;"><strong>Subject:</strong></td>
+                                    <td style="padding: 10px; border-bottom: 1px solid #eee;">${lesson.lesson_name || 'N/A'}</td>
+                                </tr>
+                                <tr>
+                                    <td style="padding: 10px; border-bottom: 1px solid #eee;"><strong>Module:</strong></td>
+                                    <td style="padding: 10px; border-bottom: 1px solid #eee;">${lesson.module_name || 'N/A'}</td>
+                                </tr>
+                                <tr>
+                                    <td style="padding: 10px; border-bottom: 1px solid #eee;"><strong>Topic:</strong></td>
+                                    <td style="padding: 10px; border-bottom: 1px solid #eee;">${lesson.topic_title || 'N/A'}</td>
+                                </tr>
+                                ${lesson.content_url ? `
+                                <tr>
+                                    <td style="padding: 10px; border-bottom: 1px solid #eee;"><strong>Video URL:</strong></td>
+                                    <td style="padding: 10px; border-bottom: 1px solid #eee;">
+                                        <a href="${lesson.content_url}" target="_blank" style="color: #7a0000; word-break: break-all;">
+                                            ${lesson.content_url}
+                                        </a>
+                                    </td>
+                                </tr>
+                                ` : ''}
+                            </table>
+                        </div>
+                    </div>
+                    <div class="modal-footer" style="padding: 18px 25px; border-top: 1px solid #eee; text-align: right;">
+                        <button class="btn btn-secondary" onclick="closePreviewModal()" style="padding: 10px 20px; margin-right: 10px;">Close</button>
+                        <button class="btn btn-primary" onclick="editLesson(${lessonId}); closePreviewModal();" style="background: #7a0000; color: white; border: none; padding: 10px 20px; border-radius: 4px; cursor: pointer;">
+                            <i class="fas fa-edit"></i> Edit
+                        </button>
+                    </div>
+                </div>
+            `;
+            
+            document.body.appendChild(modal);
+            
+        } else {
+            throw new Error(result.message || 'Failed to load lesson');
+        }
+        
+    } catch (error) {
+        console.error('❌ Error previewing lesson:', error);
+        showNotification('error', 'Error', 'Could not load lesson preview');
+    }
+}
+
+// ===== ADD THIS TO YOUR INITIALIZATION =====
+document.addEventListener('DOMContentLoaded', function() {
+    // Add YouTube URL input handler
+    const youtubeInput = document.getElementById('videoYoutubeUrl');
+    if (youtubeInput) {
+        youtubeInput.addEventListener('input', function() {
+            const url = this.value.trim();
+            if (url) {
+                // Auto-detect YouTube URL
+                if (url.includes('youtube.com') || url.includes('youtu.be')) {
+                    console.log("✅ YouTube URL detected:", url);
+                    
+                    // Hide file upload area if YouTube URL is provided
+                    const fileInfo = document.getElementById('videoFileInfo');
+                    if (fileInfo) fileInfo.style.display = 'none';
+                    
+                    const previewContainer = document.getElementById('videoPreviewContainer');
+                    if (previewContainer) previewContainer.style.display = 'none';
+                    
+                    // Show YouTube preview
+                    showYoutubePreview(url);
+                }
+            }
+        });
+    }
+});
+
+// ===== HELPER: Show YouTube Preview =====
+function showYoutubePreview(url) {
+    // Extract video ID
+    let videoId = '';
+    if (url.includes('watch?v=')) {
+        videoId = url.split('watch?v=')[1].split('&')[0];
+    } else if (url.includes('youtu.be/')) {
+        videoId = url.split('youtu.be/')[1].split('?')[0];
+    } else if (url.includes('embed/')) {
+        videoId = url.split('embed/')[1].split('?')[0];
+    }
+    
+    if (videoId) {
+        const previewContainer = document.getElementById('videoPreviewContainer');
+        const videoPreview = document.getElementById('videoPreview');
+        
+        if (previewContainer && videoPreview) {
+            // For video element, we'll just show a message
+            previewContainer.style.display = 'block';
+            videoPreview.style.display = 'none';
+            
+            // Add a message that YouTube video will be embedded
+            const messageDiv = document.createElement('div');
+            messageDiv.className = 'youtube-preview-message';
+            messageDiv.style.cssText = 'background: #f8f9fa; border: 2px solid #7a0000; border-radius: 8px; padding: 20px; text-align: center;';
+            messageDiv.innerHTML = `
+                <i class="fab fa-youtube" style="font-size: 48px; color: #ff0000; margin-bottom: 10px;"></i>
+                <p style="margin: 0; color: #333;">YouTube video will be embedded</p>
+                <p style="margin: 5px 0 0 0; font-size: 0.9rem; color: #666;">${url}</p>
+            `;
+            
+            // Remove any existing message
+            const existing = previewContainer.querySelector('.youtube-preview-message');
+            if (existing) existing.remove();
+            
+            previewContainer.appendChild(messageDiv);
+        }
     }
 }
 
