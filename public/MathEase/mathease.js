@@ -88,6 +88,385 @@ function addAppFilterToUrl(url) {
 }
 
 // ============================================
+// ✅ Fetch practice exercises by lesson ID
+// ============================================
+async function fetchPracticeByLesson(lessonId) {
+    console.log(`📝 Fetching practice exercises for lesson ${lessonId}`);
+    
+    try {
+        const token = localStorage.getItem('authToken') || authToken;
+        if (!token) return [];
+        
+        const response = await fetch(`/api/practice/lesson/${lessonId}?lesson_id=1`, {
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Accept': 'application/json'
+            }
+        });
+        
+        if (response.ok) {
+            const data = await response.json();
+            console.log(`✅ Found practice for lesson ${lessonId}:`, data);
+            
+            if (data.success && data.exercises) {
+                return data.exercises;
+            }
+        }
+        
+        // If endpoint doesn't exist, return mock exercises based on lesson
+        return getMockPracticeByLesson(lessonId);
+        
+    } catch (error) {
+        console.error('Error fetching practice by lesson:', error);
+        return getMockPracticeByLesson(lessonId);
+    }
+}
+
+// ============================================
+// ✅ Get mock practice exercises based on lesson
+// ============================================
+function getMockPracticeByLesson(lessonId) {
+    const mockExercises = {
+        1: [ // Basic Mathematical Operation
+            {
+                exercise_id: 101,
+                title: 'Basic Addition and Subtraction',
+                description: 'Practice basic addition and subtraction operations',
+                difficulty: 'easy',
+                points: 10,
+                lesson_id: 1,
+                questions: [
+                    {
+                        text: 'What is 15 + 7?',
+                        options: [
+                            { id: 1, text: '22', correct: true },
+                            { id: 2, text: '21', correct: false },
+                            { id: 3, text: '23', correct: false },
+                            { id: 4, text: '24', correct: false }
+                        ]
+                    },
+                    {
+                        text: 'What is 45 - 18?',
+                        options: [
+                            { id: 1, text: '27', correct: true },
+                            { id: 2, text: '28', correct: false },
+                            { id: 3, text: '26', correct: false },
+                            { id: 4, text: '29', correct: false }
+                        ]
+                    }
+                ]
+            },
+            {
+                exercise_id: 102,
+                title: 'Multiplication and Division',
+                description: 'Practice multiplication and division problems',
+                difficulty: 'medium',
+                points: 15,
+                lesson_id: 1,
+                questions: [
+                    {
+                        text: 'What is 8 × 7?',
+                        options: [
+                            { id: 1, text: '56', correct: true },
+                            { id: 2, text: '54', correct: false },
+                            { id: 3, text: '58', correct: false },
+                            { id: 4, text: '52', correct: false }
+                        ]
+                    }
+                ]
+            }
+        ],
+        2: [ // Basic Concept in Statistics
+            {
+                exercise_id: 201,
+                title: 'Mean, Median, Mode',
+                description: 'Calculate mean, median, and mode from data sets',
+                difficulty: 'easy',
+                points: 10,
+                lesson_id: 2,
+                questions: [
+                    {
+                        text: 'Find the mean of: 5, 8, 12, 15, 20',
+                        options: [
+                            { id: 1, text: '12', correct: true },
+                            { id: 2, text: '10', correct: false },
+                            { id: 3, text: '14', correct: false },
+                            { id: 4, text: '15', correct: false }
+                        ]
+                    }
+                ]
+            }
+        ],
+        3: [ // Frequency Distribution Table
+            {
+                exercise_id: 301,
+                title: 'Creating Frequency Tables',
+                description: 'Practice creating frequency distribution tables',
+                difficulty: 'medium',
+                points: 15,
+                lesson_id: 3,
+                questions: [
+                    {
+                        text: 'For the data set: 2,2,3,3,3,4,4,5, what is the frequency of 3?',
+                        options: [
+                            { id: 1, text: '3', correct: true },
+                            { id: 2, text: '2', correct: false },
+                            { id: 3, text: '4', correct: false },
+                            { id: 4, text: '1', correct: false }
+                        ]
+                    }
+                ]
+            }
+        ]
+    };
+    
+    return mockExercises[lessonId] || mockExercises[1];
+}
+
+// ============================================
+// ✅ Load lessons for practice (like in your image)
+// ============================================
+async function loadLessonsForPractice() {
+    try {
+        const container = document.getElementById('topicsContainer');
+        if (!container) return;
+        
+        const token = localStorage.getItem('authToken') || authToken;
+        
+        container.innerHTML = `<div class="loading-container">Loading lessons...</div>`;
+        
+        // Fetch lessons for MathEase
+        const response = await fetch('/api/lessons-db/complete?lesson_id=1', {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        
+        const data = await response.json();
+        
+        if (data.success && data.lessons) {
+            displayLessonsForPractice(data.lessons);
+        } else {
+            // Show mock lessons like in your image
+            displayMockLessons();
+        }
+        
+    } catch (error) {
+        console.error('Error loading lessons:', error);
+        displayMockLessons();
+    }
+}
+
+// ============================================
+// ✅ Display lessons for practice (like your image)
+// ============================================
+function displayLessonsForPractice(lessons) {
+    const container = document.getElementById('topicsContainer');
+    if (!container) return;
+    
+    let html = '';
+    
+    lessons.forEach((lesson, index) => {
+        const progress = lesson.progress?.percentage || 0;
+        const status = progress >= 100 ? 'Completed' : 
+                      progress > 0 ? 'In Progress' : 'Not Started';
+        const statusClass = progress >= 100 ? 'completed' : 
+                           progress > 0 ? 'in-progress' : 'not-started';
+        
+        html += `
+            <div class="lesson-practice-card" data-lesson-id="${lesson.content_id}" 
+                 style="background: white; border-radius: 12px; padding: 20px; margin-bottom: 15px;
+                        box-shadow: 0 4px 12px rgba(0,0,0,0.1); border-left: 4px solid #7a0000;
+                        transition: all 0.3s ease; cursor: pointer;">
+                
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                    <h3 style="margin: 0; color: #2c3e50; font-size: 18px;">
+                        <i class="fas fa-book" style="color: #7a0000; margin-right: 10px;"></i>
+                        ${lesson.content_title || 'Untitled Lesson'}
+                    </h3>
+                    <span style="background: ${statusClass === 'completed' ? '#27ae60' : 
+                                           statusClass === 'in-progress' ? '#f39c12' : '#95a5a6'}; 
+                                 color: white; padding: 5px 12px; border-radius: 20px; font-size: 12px;">
+                        ${status}
+                    </span>
+                </div>
+                
+                <p style="color: #666; margin-bottom: 15px; line-height: 1.5;">
+                    ${lesson.content_description || 'Practice exercises for this lesson.'}
+                </p>
+                
+                <div style="margin-bottom: 15px;">
+                    <div style="display: flex; justify-content: space-between; font-size: 13px; color: #666; margin-bottom: 5px;">
+                        <span>Progress</span>
+                        <span>${progress}%</span>
+                    </div>
+                    <div style="height: 6px; background: #ecf0f1; border-radius: 3px; overflow: hidden;">
+                        <div style="height: 100%; width: ${progress}%; background: #7a0000; border-radius: 3px;"></div>
+                    </div>
+                </div>
+                
+                <div style="display: flex; gap: 15px; color: #666; font-size: 13px; margin-bottom: 15px;">
+                    <span><i class="fas fa-clock" style="color: #7a0000;"></i> ${Math.floor((lesson.video_duration_seconds || 600) / 60)} min</span>
+                    <span><i class="fas fa-pencil-alt" style="color: #7a0000;"></i> Practice Available</span>
+                </div>
+                
+                <div style="display: flex; gap: 10px;">
+                    <button class="btn-primary practice-lesson-btn" data-lesson-id="${lesson.content_id}"
+                            style="flex: 1; padding: 10px; background: #7a0000; color: white; border: none; border-radius: 6px; cursor: pointer;">
+                        <i class="fas fa-play"></i> Start Practice
+                    </button>
+                    <button class="btn-secondary review-lesson-btn" data-lesson-id="${lesson.content_id}"
+                            style="flex: 1; padding: 10px; background: #ecf0f1; color: #2c3e50; border: 2px solid #7a0000; border-radius: 6px; cursor: pointer;">
+                        <i class="fas fa-redo"></i> Review Lesson
+                    </button>
+                </div>
+            </div>
+        `;
+    });
+    
+    container.innerHTML = html;
+    
+    // Add event listeners
+    document.querySelectorAll('.practice-lesson-btn').forEach(btn => {
+        btn.addEventListener('click', function(e) {
+            e.stopPropagation();
+            const lessonId = this.getAttribute('data-lesson-id');
+            loadPracticeForLesson(lessonId);
+        });
+    });
+    
+    document.querySelectorAll('.lesson-practice-card').forEach(card => {
+        card.addEventListener('click', function(e) {
+            if (e.target.closest('button')) return;
+            const lessonId = this.getAttribute('data-lesson-id');
+            loadPracticeForLesson(lessonId);
+        });
+    });
+}
+
+// ============================================
+// ✅ Display mock lessons (like in your image)
+// ============================================
+function displayMockLessons() {
+    const container = document.getElementById('topicsContainer');
+    if (!container) return;
+    
+    const mockLessons = [
+        {
+            content_id: 1,
+            content_title: 'Basic Mathematical Operation',
+            content_description: 'Learn addition, subtraction, multiplication, and division',
+            video_duration_seconds: 2400, // 40 min
+            progress: { percentage: 100, status: 'completed' }
+        },
+        {
+            content_id: 2,
+            content_title: 'Basic Concept in Statistics',
+            content_description: 'Introduction to mean, median, mode, and data analysis',
+            video_duration_seconds: 2400, // 40 min
+            progress: { percentage: 0, status: 'not_started' }
+        },
+        {
+            content_id: 3,
+            content_title: 'Frequency Distribution Table (Organizing Data)',
+            content_description: 'Learn how to organize data using frequency distribution tables',
+            video_duration_seconds: 2400, // 40 min
+            progress: { percentage: 0, status: 'not_started' }
+        }
+    ];
+    
+    displayLessonsForPractice(mockLessons);
+}
+
+// ============================================
+// ✅ Load practice exercises for a specific lesson
+// ============================================
+async function loadPracticeForLesson(lessonId) {
+    console.log(`📝 Loading practice for lesson ${lessonId}`);
+    
+    const exerciseArea = document.getElementById('exerciseArea');
+    if (!exerciseArea) return;
+    
+    exerciseArea.innerHTML = `<div class="loading-container">Loading practice exercises...</div>`;
+    
+    // Update title
+    const practiceTopicTitle = document.getElementById('practiceTopicTitle');
+    if (practiceTopicTitle) {
+        const lessonCard = document.querySelector(`[data-lesson-id="${lessonId}"]`);
+        const lessonTitle = lessonCard?.querySelector('h3')?.textContent || 'Lesson';
+        practiceTopicTitle.textContent = `Practicing: ${lessonTitle}`;
+    }
+    
+    const exercises = await fetchPracticeByLesson(lessonId);
+    
+    if (exercises && exercises.length > 0) {
+        displayLessonExercises(exercises);
+    } else {
+        exerciseArea.innerHTML = `
+            <div class="no-exercises" style="text-align: center; padding: 60px;">
+                <i class="fas fa-pencil-alt" style="font-size: 60px; color: #ccc;"></i>
+                <h3 style="color: #666;">No exercises yet</h3>
+                <p style="color: #999;">Practice exercises will appear here soon.</p>
+            </div>
+        `;
+    }
+}
+
+// ============================================
+// ✅ Display exercises for a lesson
+// ============================================
+function displayLessonExercises(exercises) {
+    const exerciseArea = document.getElementById('exerciseArea');
+    if (!exerciseArea) return;
+    
+    let html = '<div style="display: flex; flex-direction: column; gap: 15px;">';
+    
+    exercises.forEach((exercise, index) => {
+        const difficultyColor = 
+            exercise.difficulty === 'easy' ? '#27ae60' : 
+            exercise.difficulty === 'medium' ? '#f39c12' : 
+            exercise.difficulty === 'hard' ? '#e74c3c' : '#3498db';
+        
+        html += `
+            <div class="exercise-card" data-exercise-id="${exercise.exercise_id}"
+                 style="background: white; border-radius: 12px; padding: 20px; 
+                        box-shadow: 0 2px 8px rgba(0,0,0,0.1); border: 1px solid #e0e0e0;">
+                
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                    <h4 style="margin: 0; color: #2c3e50;">
+                        <i class="fas fa-pencil-alt" style="color: #7a0000; margin-right: 8px;"></i>
+                        Exercise ${index + 1}: ${exercise.title}
+                    </h4>
+                    <span style="background: ${difficultyColor}; color: white; padding: 4px 12px; border-radius: 20px; font-size: 12px; text-transform: uppercase;">
+                        ${exercise.difficulty}
+                    </span>
+                </div>
+                
+                <p style="color: #666; margin-bottom: 15px;">${exercise.description}</p>
+                
+                <div style="display: flex; gap: 20px; margin-bottom: 15px; color: #666; font-size: 13px;">
+                    <span><i class="fas fa-star" style="color: #f39c12;"></i> ${exercise.points} points</span>
+                    <span><i class="fas fa-question-circle" style="color: #3498db;"></i> ${exercise.questions?.length || 5} questions</span>
+                </div>
+                
+                <button class="btn-primary start-exercise" data-exercise-id="${exercise.exercise_id}"
+                        style="width: 100%; padding: 12px; background: #7a0000; color: white; border: none; border-radius: 8px; cursor: pointer;">
+                    <i class="fas fa-play"></i> Start Exercise
+                </button>
+            </div>
+        `;
+    });
+    
+    html += '</div>';
+    exerciseArea.innerHTML = html;
+    
+    // Add event listeners to exercise buttons
+    document.querySelectorAll('.start-exercise').forEach(btn => {
+        btn.addEventListener('click', function() {
+            const exerciseId = this.getAttribute('data-exercise-id');
+            startPractice(exerciseId);
+        });
+    });
+}
+// ============================================
 // ✅ FIXED: ToolManager with better error handling
 // ============================================
 class ToolManager {
@@ -21570,7 +21949,7 @@ async function loadPracticeExercises() {
     }
 }
 // ============================================
-// ✅ FIXED: Initialize Practice Page - MATHEASE ONLY
+// ✅ Updated initPracticePage
 // ============================================
 async function initPracticePage() {
     console.log('💪 Initializing MathEase practice page...');
@@ -21586,62 +21965,16 @@ async function initPracticePage() {
         });
     }
     
-    // Force MathEase lesson_id = 1
-    const MATHEASE_LESSON_ID = 1;
-    localStorage.setItem('currentLessonId', MATHEASE_LESSON_ID);
+    // Force MathEase
     localStorage.setItem('selectedApp', 'mathease');
+    localStorage.setItem('currentLessonFilter', '1');
     
-    console.log(`🎯 MathEase practice page - lesson_id = ${MATHEASE_LESSON_ID}`);
+    // Load lessons for practice (instead of topics)
+    await loadLessonsForPractice();
     
-    // Show loading
-    const exerciseArea = document.getElementById('exerciseArea');
-    if (exerciseArea) {
-        exerciseArea.innerHTML = `
-            <div class="loading-container" style="text-align: center; padding: 40px;">
-                <i class="fas fa-spinner fa-spin" style="font-size: 40px; color: #7a0000; margin-bottom: 15px;"></i>
-                <p style="color: #666;">Loading MathEase practice exercises...</p>
-            </div>
-        `;
-    }
+    // Load practice statistics
+    await loadPracticeStatistics();
     
-    // Show loading in topics container
-    const topicsContainer = document.getElementById('topicsContainer');
-    if (topicsContainer) {
-        topicsContainer.innerHTML = `
-            <div class="loading-container" style="text-align: center; padding: 40px;">
-                <i class="fas fa-spinner fa-spin" style="font-size: 40px; color: #7a0000;"></i>
-                <p style="margin-top: 15px;">Loading MathEase topics...</p>
-            </div>
-        `;
-    }
-    
-    try {
-        // Load practice statistics
-        await loadPracticeStatistics();
-        
-        // Load topics progress (this will now show MathEase topics)
-        await loadTopicsProgress();
-        
-        console.log('✅ MathEase practice page initialized');
-        
-    } catch (error) {
-        console.error('❌ Error initializing practice page:', error);
-        
-        if (exerciseArea) {
-            exerciseArea.innerHTML = `
-                <div class="error-message" style="text-align: center; padding: 40px;">
-                    <i class="fas fa-exclamation-triangle" style="font-size: 48px; color: #e74c3c;"></i>
-                    <h3 style="color: #666;">Failed to load practice exercises</h3>
-                    <p style="color: #999;">${error.message}</p>
-                    <button class="btn-primary" onclick="initPracticePage()" style="margin-top: 15px;">
-                        <i class="fas fa-redo"></i> Retry
-                    </button>
-                </div>
-            `;
-        }
-    }
-    
-    // Add practice styles
     addPracticeStyles();
 }
 // ============================================
