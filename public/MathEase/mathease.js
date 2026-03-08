@@ -28158,6 +28158,291 @@ mobileMenuItems.forEach((item, index) => {
     });
 });
 
+// ============================================
+// 🎬 UPDATE LESSON VIDEOS WITH YOUTUBE LINKS
+// ============================================
+async function updateLessonVideosWithYouTube() {
+    console.log('🎬 Updating lesson videos with YouTube links...');
+    
+    try {
+        const token = localStorage.getItem('authToken') || authToken;
+        if (!token) {
+            console.error('❌ No auth token found');
+            showNotification('Please login first', 'error');
+            return;
+        }
+        
+        // Confirm with user
+        if (!confirm('Update lesson videos with YouTube links? This will update 2 lessons.')) {
+            return;
+        }
+        
+        showNotification('info', 'Updating', 'Updating lesson videos...');
+        
+        // ===== LESSON 1: Basic Concept in Statistics (content_id = 2) =====
+        const lesson1Data = {
+            content_id: 2,
+            content_title: 'Basic Concept in Statistics',
+            content_url: 'https://youtu.be/NtfWQILgJyY?si=ZGSfZWOg4y6LxGYd',
+            video_filename: null, // Clear any existing video filename
+            content_type: 'video'
+        };
+        
+        // ===== LESSON 2: Frequency Distribution Table (content_id = 3) =====
+        const lesson2Data = {
+            content_id: 3,
+            content_title: 'Frequency Distribution Table (Organizing Data)',
+            content_url: 'https://youtu.be/f12LXXad0zM?si=MR-vnj1I0I8hhoaa',
+            video_filename: null, // Clear any existing video filename
+            content_type: 'video'
+        };
+        
+        // Update Lesson 1
+        console.log('📝 Updating Lesson 1: Basic Concept in Statistics');
+        const response1 = await fetch(`/api/admin/lessons/${lesson1Data.content_id}`, {
+            method: 'PUT',
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(lesson1Data)
+        });
+        
+        if (!response1.ok) {
+            const errorText = await response1.text();
+            console.error('❌ Lesson 1 update failed:', errorText);
+        } else {
+            const result1 = await response1.json();
+            console.log('✅ Lesson 1 updated:', result1);
+        }
+        
+        // Update Lesson 2
+        console.log('📝 Updating Lesson 2: Frequency Distribution Table');
+        const response2 = await fetch(`/api/admin/lessons/${lesson2Data.content_id}`, {
+            method: 'PUT',
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(lesson2Data)
+        });
+        
+        if (!response2.ok) {
+            const errorText = await response2.text();
+            console.error('❌ Lesson 2 update failed:', errorText);
+        } else {
+            const result2 = await response2.json();
+            console.log('✅ Lesson 2 updated:', result2);
+        }
+        
+        // Verify the updates
+        console.log('\n🔍 Verifying updates...');
+        
+        const verifyResponse = await fetch('/api/lessons-db/complete?lesson_id=1', {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        
+        if (verifyResponse.ok) {
+            const data = await verifyResponse.json();
+            if (data.success && data.lessons) {
+                const lesson1 = data.lessons.find(l => l.content_id == 2);
+                const lesson2 = data.lessons.find(l => l.content_id == 3);
+                
+                console.log('\n📊 VERIFICATION RESULTS:');
+                console.log('Lesson 1 (Basic Concept in Statistics):', {
+                    title: lesson1?.content_title,
+                    url: lesson1?.content_url,
+                    hasYouTube: lesson1?.content_url?.includes('youtu.be')
+                });
+                
+                console.log('Lesson 2 (Frequency Distribution Table):', {
+                    title: lesson2?.content_title,
+                    url: lesson2?.content_url,
+                    hasYouTube: lesson2?.content_url?.includes('youtu.be')
+                });
+            }
+        }
+        
+        showNotification('success', 'Success!', 'Lesson videos updated with YouTube links!');
+        
+        // Refresh the current lesson if it's open
+        if (LessonState.currentLesson) {
+            const currentId = LessonState.currentLesson.content_id;
+            if (currentId == 2 || currentId == 3) {
+                console.log('🔄 Refreshing current lesson...');
+                await loadVideoFromDatabase(currentId);
+            }
+        }
+        
+    } catch (error) {
+        console.error('❌ Error updating lesson videos:', error);
+        showNotification('error', 'Error', error.message);
+    }
+}
+
+// ============================================
+// 🔄 ALTERNATIVE METHOD: If PUT endpoint doesn't exist
+// ============================================
+async function updateLessonVideosDirectSQL() {
+    console.log('🎬 Updating lesson videos using direct SQL (via admin API)...');
+    
+    try {
+        const token = localStorage.getItem('authToken') || authToken;
+        if (!token) {
+            console.error('❌ No auth token found');
+            return;
+        }
+        
+        if (!confirm('Update lesson videos with YouTube links?')) return;
+        
+        // Use the admin SQL endpoint if available
+        const sqlQueries = [
+            {
+                query: "UPDATE lesson_content SET content_url = 'https://youtu.be/NtfWQILgJyY?si=ZGSfZWOg4y6LxGYd', video_filename = NULL, content_type = 'video' WHERE content_id = 2",
+                params: []
+            },
+            {
+                query: "UPDATE lesson_content SET content_url = 'https://youtu.be/f12LXXad0zM?si=MR-vnj1I0I8hhoaa', video_filename = NULL, content_type = 'video' WHERE content_id = 3",
+                params: []
+            }
+        ];
+        
+        for (const sql of sqlQueries) {
+            const response = await fetch('/api/admin/execute-sql', {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(sql)
+            });
+            
+            if (response.ok) {
+                console.log('✅ SQL executed successfully');
+            } else {
+                console.error('❌ SQL execution failed');
+            }
+        }
+        
+        showNotification('success', 'Success!', 'Lesson videos updated!');
+        
+    } catch (error) {
+        console.error('❌ Error:', error);
+    }
+}
+
+// ============================================
+// 🚀 ONE-CLICK FIX: Run this in console
+// ============================================
+window.fixLessonVideos = async function() {
+    console.log('🎬 FIXING LESSON VIDEOS WITH YOUTUBE LINKS');
+    console.log('==========================================');
+    
+    try {
+        const token = localStorage.getItem('authToken');
+        if (!token) {
+            console.error('❌ No auth token found. Please login first.');
+            return;
+        }
+        
+        console.log('📡 Attempting to update lessons...');
+        
+        // Try the main update function first
+        await updateLessonVideosWithYouTube();
+        
+        // If that fails, try the alternative method
+        setTimeout(async () => {
+            console.log('\n🔄 Trying alternative method if needed...');
+            const verifyResponse = await fetch('/api/lessons-db/complete?lesson_id=1', {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            
+            if (verifyResponse.ok) {
+                const data = await verifyResponse.json();
+                const lesson1 = data.lessons?.find(l => l.content_id == 2);
+                const lesson2 = data.lessons?.find(l => l.content_id == 3);
+                
+                if (!lesson1?.content_url?.includes('youtu.be') || !lesson2?.content_url?.includes('youtu.be')) {
+                    console.log('⚠️ Some lessons still not updated, trying direct SQL method...');
+                    await updateLessonVideosDirectSQL();
+                }
+            }
+        }, 2000);
+        
+    } catch (error) {
+        console.error('❌ Fatal error:', error);
+    }
+};
+
+// ============================================
+// 📺 TEST FUNCTION: Load and display the updated lessons
+// ============================================
+window.testLessonVideos = async function() {
+    console.log('📺 TESTING UPDATED LESSON VIDEOS');
+    console.log('================================');
+    
+    const token = localStorage.getItem('authToken');
+    if (!token) {
+        console.error('❌ No auth token');
+        return;
+    }
+    
+    // Fetch lesson 2
+    try {
+        const response = await fetch('/api/lessons-db/2', {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        
+        if (response.ok) {
+            const data = await response.json();
+            if (data.success && data.lesson) {
+                console.log('📚 Lesson 2:', {
+                    title: data.lesson.content_title,
+                    url: data.lesson.content_url,
+                    type: data.lesson.content_type,
+                    hasYouTube: data.lesson.content_url?.includes('youtu.be')
+                });
+            }
+        }
+    } catch (e) {
+        console.error('❌ Error fetching lesson 2:', e);
+    }
+    
+    // Fetch lesson 3
+    try {
+        const response = await fetch('/api/lessons-db/3', {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        
+        if (response.ok) {
+            const data = await response.json();
+            if (data.success && data.lesson) {
+                console.log('📚 Lesson 3:', {
+                    title: data.lesson.content_title,
+                    url: data.lesson.content_url,
+                    type: data.lesson.content_type,
+                    hasYouTube: data.lesson.content_url?.includes('youtu.be')
+                });
+            }
+        }
+    } catch (e) {
+        console.error('❌ Error fetching lesson 3:', e);
+    }
+};
+
+// ============================================
+// 🚀 AUTO-RUN WHEN PAGE LOADS (Optional)
+// ============================================
+document.addEventListener('DOMContentLoaded', function() {
+    // Check if we should show a prompt to update videos
+    setTimeout(() => {
+        const token = localStorage.getItem('authToken');
+        if (token) {
+            console.log('🎬 To update lesson videos with YouTube links, run: fixLessonVideos()');
+            console.log('📺 To test the updates, run: testLessonVideos()');
+        }
+    }, 3000);
+});
 
 // ============================================
 // 🔍 DEBUG: Fetch practice exercises for lesson_id=1
