@@ -6670,6 +6670,27 @@ function hideProgressDashboardLoading() {
         }
     });
 }
+
+// ============================================
+// ⚙️ SETTINGS DASHBOARD - LOAD USER DATA FROM DATABASE
+// ============================================
+async function initSettingsDashboard() {
+    console.log('⚙️ Initializing settings dashboard with database data...');
+    
+    // Show general section by default
+    setTimeout(() => {
+        showSection('general');
+    }, 100);
+    
+    // Load user settings from database
+    await loadUserSettingsFromDatabase();
+    
+    // Load saved preferences from localStorage
+    loadSavedPreferences();
+    
+    // Setup event listeners
+    setupSettingsEventListeners();
+}
 // ============================================
 // UPDATE INIT PROGRESS CHARTS
 // ============================================
@@ -13653,7 +13674,6 @@ function displayLeaderboard(leaderboard) {
     leaderboardList.innerHTML = html;
 }
 
-
 // ============================================
 // FIXED: initQuizDashboard - With container verification
 // ============================================
@@ -14172,8 +14192,140 @@ function showQuizModalLoading() {
     }
 }
 
+// ============================================
+// 💾 SAVE ALL SETTINGS TO DATABASE AND LOCALSTORAGE
+// ============================================
+async function saveAllSettings() {
+    console.log('💾 Saving all settings...');
+    
+    // Show loading state
+    const saveBtn = document.querySelector('.action-buttons .btn-primary');
+    const originalText = saveBtn ? saveBtn.innerHTML : 'Save Changes';
+    if (saveBtn) {
+        saveBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Saving...';
+        saveBtn.disabled = true;
+    }
+    
+    // Collect all settings
+    const settings = {
+        // Profile Settings
+        displayName: document.getElementById('displayName')?.value,
+        bio: document.getElementById('userBio')?.value,
+        location: document.getElementById('userLocation')?.value,
+        website: document.getElementById('userWebsite')?.value,
+        
+        // Account Settings
+        email: document.getElementById('userEmail')?.value,
+        username: document.getElementById('userName')?.value,
+        
+        // General Settings
+        language: document.getElementById('interfaceLanguage')?.value,
+        municipality: document.getElementById('batangas-municipalities')?.value,
+        timezone: document.getElementById('timeZone')?.value,
+        
+        // Learning Preferences
+        adaptiveDifficulty: document.getElementById('adaptiveDifficulty')?.checked || false,
+        preferredDifficulty: document.getElementById('preferredDifficulty')?.value,
+        showSolutions: document.getElementById('showSolutions')?.checked || false,
+        
+        // Privacy Settings
+        profileVisibility: document.getElementById('profileVisibility')?.value,
+        dataSharing: document.getElementById('dataSharing')?.checked || false,
+        
+        // Notification Settings
+        weeklyReport: document.getElementById('weeklyReport')?.checked || false,
+        practiceReminders: document.getElementById('practiceReminders')?.checked || false,
+        
+        // Appearance
+        theme: getSelectedTheme(),
+        fontSize: document.getElementById('fontSize')?.value
+    };
+    
+    console.log('📋 Collected settings:', settings);
+    
+    // Save to localStorage
+    try {
+        localStorage.setItem('user_settings', JSON.stringify(settings));
+        console.log('✅ Settings saved to localStorage');
+    } catch (error) {
+        console.warn('Could not save to localStorage:', error);
+    }
+    
+    // Save to database
+    try {
+        const token = localStorage.getItem('authToken') || authToken;
+        if (token) {
+            const response = await fetch('/api/user/settings', {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ settings })
+            });
+            
+            if (response.ok) {
+                const data = await response.json();
+                if (data.success) {
+                    console.log('✅ Settings saved to database');
+                }
+            }
+        }
+    } catch (error) {
+        console.warn('Could not save to database:', error);
+    }
+    
+    // Show success message
+    showNotification('success', 'Settings Saved', 'Your preferences have been updated.');
+    
+    // Restore button
+    if (saveBtn) {
+        saveBtn.innerHTML = originalText;
+        saveBtn.disabled = false;
+    }
+}
 
-
+// ============================================
+// 🔧 SETUP SETTINGS EVENT LISTENERS
+// ============================================
+function setupSettingsEventListeners() {
+    // Save All Settings button
+    const saveBtn = document.querySelector('.action-buttons .btn-primary');
+    if (saveBtn) {
+        // Remove existing listeners
+        const newSaveBtn = saveBtn.cloneNode(true);
+        saveBtn.parentNode.replaceChild(newSaveBtn, saveBtn);
+        
+        newSaveBtn.addEventListener('click', saveAllSettings);
+    }
+    
+    // Reset Settings button
+    const resetBtn = document.querySelector('.action-buttons .btn-secondary');
+    if (resetBtn) {
+        const newResetBtn = resetBtn.cloneNode(true);
+        resetBtn.parentNode.replaceChild(newResetBtn, resetBtn);
+        
+        newResetBtn.addEventListener('click', resetSettings);
+    }
+    
+    // Profile image upload
+    const profileUpload = document.getElementById('profileUpload');
+    if (profileUpload) {
+        profileUpload.addEventListener('change', handleProfileImageUpload);
+    }
+    
+    // Change Password button
+    const changePasswordBtn = document.getElementById('changePasswordBtn');
+    if (changePasswordBtn) {
+        changePasswordBtn.addEventListener('click', showChangePasswordModal);
+    }
+    
+    // Delete Account button
+    const deleteAccountBtn = document.getElementById('deleteAccountBtn');
+    if (deleteAccountBtn) {
+        deleteAccountBtn.addEventListener('click', confirmDeleteAccount);
+    }
+}
 
 // ============================================
 // LOAD QUIZ SYSTEM QUESTION - UPDATED
@@ -14397,6 +14549,253 @@ function loadQuizQuestionModal(index) {
     
     // Update progress dots
     updateQuizProgressDots();
+}
+// ============================================
+// 👤 LOAD USER SETTINGS FROM DATABASE
+// ============================================
+async function loadUserSettingsFromDatabase() {
+    console.log('📥 Loading user settings from database...');
+    
+    try {
+        const token = localStorage.getItem('authToken') || authToken;
+        if (!token) {
+            console.warn('⚠️ No auth token, using localStorage only');
+            loadUserSettingsFromLocal();
+            return;
+        }
+        
+        // Get user data from localStorage muna (for immediate display)
+        loadUserSettingsFromLocal();
+        
+        // Then try to get from database
+        const response = await fetch('/api/user/settings', {
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+            }
+        });
+        
+        if (response.ok) {
+            const data = await response.json();
+            console.log('✅ User settings loaded from database:', data);
+            
+            if (data.success && data.settings) {
+                applyUserSettings(data.settings);
+            }
+        } else {
+            console.warn('⚠️ Could not fetch from database, using localStorage');
+        }
+        
+    } catch (error) {
+        console.error('❌ Error loading settings from database:', error);
+        loadUserSettingsFromLocal();
+    }
+}
+// ============================================
+// 👤 LOAD USER SETTINGS FROM LOCALSTORAGE
+// ============================================
+function loadUserSettingsFromLocal() {
+    console.log('📥 Loading user settings from localStorage...');
+    
+    const userJson = localStorage.getItem('mathhub_user');
+    if (userJson) {
+        try {
+            const user = JSON.parse(userJson);
+            console.log('👤 User data from localStorage:', user);
+            
+            // Update profile section
+            updateProfileSection(user);
+            
+            // Update account section
+            updateAccountSection(user);
+            
+        } catch (e) {
+            console.error('❌ Error parsing user:', e);
+        }
+    } else {
+        // No user data - show demo user
+        showDemoUser();
+    }
+}
+
+// ============================================
+// 👤 UPDATE PROFILE SECTION
+// ============================================
+function updateProfileSection(user) {
+    // Profile Picture Preview
+    const profilePreview = document.getElementById('profilePreview');
+    if (profilePreview) {
+        const initials = (user.full_name || user.username || 'User').charAt(0).toUpperCase();
+        profilePreview.innerHTML = `<i class="fas fa-user-circle"></i>`;
+        profilePreview.setAttribute('data-initials', initials);
+    }
+    
+    // Display Name
+    const displayName = document.getElementById('displayName');
+    if (displayName) {
+        displayName.value = user.full_name || user.username || '';
+    }
+    
+    // Bio
+    const userBio = document.getElementById('userBio');
+    if (userBio) {
+        userBio.value = user.bio || 'Math enthusiast learning new concepts every day.';
+    }
+    
+    // Location
+    const userLocation = document.getElementById('userLocation');
+    if (userLocation) {
+        userLocation.value = user.location || 'Batangas, Philippines';
+    }
+    
+    // Website
+    const userWebsite = document.getElementById('userWebsite');
+    if (userWebsite) {
+        userWebsite.value = user.website || 'https://mathhub.com';
+    }
+}
+
+// ============================================
+// 👤 UPDATE ACCOUNT SECTION
+// ============================================
+function updateAccountSection(user) {
+    // Email
+    const userEmail = document.getElementById('userEmail');
+    if (userEmail) {
+        userEmail.value = user.email || 'student@mathhub.com';
+    }
+    
+    // Username
+    const userName = document.getElementById('userName');
+    if (userName) {
+        userName.value = user.username || 'student';
+    }
+    
+    // Member Since
+    const memberSince = document.getElementById('memberSince');
+    if (memberSince) {
+        const joinedDate = user.created_at ? new Date(user.created_at).toLocaleDateString() : 'January 2024';
+        memberSince.textContent = joinedDate;
+    }
+    
+    // Account Status
+    const accountStatus = document.getElementById('accountStatus');
+    if (accountStatus) {
+        accountStatus.innerHTML = '<span class="badge success">Active</span>';
+    }
+}
+
+// ============================================
+// 👤 SHOW DEMO USER (kung walang data)
+// ============================================
+function showDemoUser() {
+    console.log('👤 Showing demo user data');
+    
+    const demoUser = {
+        full_name: 'Demo Student',
+        username: 'demo_student',
+        email: 'demo@factolearn.com',
+        bio: 'Learning FactoPermCombi and enjoying every moment!',
+        location: 'Batangas, Philippines',
+        website: 'https://factolearn.com',
+        created_at: new Date().toISOString()
+    };
+    
+    updateProfileSection(demoUser);
+    updateAccountSection(demoUser);
+}
+
+// ============================================
+// 💾 APPLY USER SETTINGS FROM DATABASE
+// ============================================
+function applyUserSettings(settings) {
+    console.log('⚙️ Applying settings from database:', settings);
+    
+    // General Settings
+    if (settings.language) {
+        const langSelect = document.getElementById('interfaceLanguage');
+        if (langSelect) langSelect.value = settings.language;
+    }
+    
+    if (settings.municipality) {
+        const munSelect = document.getElementById('batangas-municipalities');
+        if (munSelect) munSelect.value = settings.municipality;
+    }
+    
+    if (settings.timezone) {
+        const tzSelect = document.getElementById('timeZone');
+        if (tzSelect) tzSelect.value = settings.timezone;
+    }
+    
+    // Learning Preferences
+    if (settings.adaptiveDifficulty !== undefined) {
+        const adaptive = document.getElementById('adaptiveDifficulty');
+        if (adaptive) adaptive.checked = settings.adaptiveDifficulty;
+    }
+    
+    if (settings.preferredDifficulty) {
+        const difficulty = document.getElementById('preferredDifficulty');
+        if (difficulty) difficulty.value = settings.preferredDifficulty;
+    }
+    
+    if (settings.showSolutions !== undefined) {
+        const solutions = document.getElementById('showSolutions');
+        if (solutions) solutions.checked = settings.showSolutions;
+    }
+    
+    // Privacy Settings
+    if (settings.profileVisibility) {
+        const visibility = document.getElementById('profileVisibility');
+        if (visibility) visibility.value = settings.profileVisibility;
+    }
+    
+    if (settings.dataSharing !== undefined) {
+        const sharing = document.getElementById('dataSharing');
+        if (sharing) sharing.checked = settings.dataSharing;
+    }
+    
+    // Notification Settings
+    if (settings.weeklyReport !== undefined) {
+        const report = document.getElementById('weeklyReport');
+        if (report) report.checked = settings.weeklyReport;
+    }
+    
+    if (settings.practiceReminders !== undefined) {
+        const reminders = document.getElementById('practiceReminders');
+        if (reminders) reminders.checked = settings.practiceReminders;
+    }
+    
+    // Appearance
+    if (settings.theme) {
+        const themeLight = document.getElementById('themeLight');
+        const themeDark = document.getElementById('themeDark');
+        const themeAuto = document.getElementById('themeAuto');
+        
+        if (settings.theme === 'light' && themeLight) themeLight.checked = true;
+        else if (settings.theme === 'dark' && themeDark) themeDark.checked = true;
+        else if (settings.theme === 'auto' && themeAuto) themeAuto.checked = true;
+    }
+    
+    if (settings.fontSize) {
+        const fontSize = document.getElementById('fontSize');
+        if (fontSize) fontSize.value = settings.fontSize;
+    }
+}
+
+// ============================================
+// 💾 LOAD SAVED PREFERENCES FROM LOCALSTORAGE
+// ============================================
+function loadSavedPreferences() {
+    try {
+        const saved = localStorage.getItem('user_settings');
+        if (saved) {
+            const settings = JSON.parse(saved);
+            console.log('📦 Loaded saved preferences:', settings);
+            applyUserSettings(settings);
+        }
+    } catch (error) {
+        console.warn('Could not load saved preferences:', error);
+    }
 }
 
 // Update progress dots
