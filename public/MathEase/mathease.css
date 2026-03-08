@@ -10453,7 +10453,66 @@ code {
     min-height: 100vh !important;
     overflow-y: auto !important;
 }   
+/* Interactive buttons styling */
+.lesson-interactive {
+    display: flex;
+    gap: 10px;
+    margin-top: 30px;
+    padding-top: 20px;
+    border-top: 1px solid var(--border-color);
+    flex-wrap: wrap;
+}
 
+.lesson-interactive .btn-secondary {
+    background: white;
+    color: var(--primary);
+    border: 2px solid var(--primary);
+    padding: 10px 20px;
+    border-radius: 8px;
+    font-weight: 600;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    transition: all 0.3s ease;
+}
+
+.lesson-interactive .btn-secondary:hover {
+    background: var(--primary);
+    color: white;
+    transform: translateY(-3px);
+    box-shadow: 0 5px 15px rgba(122, 0, 0, 0.3);
+}
+
+/* Extra examples styling */
+#extraExamplesContainer {
+    animation: fadeIn 0.5s ease;
+}
+
+#extraExamplesContainer h3 {
+    color: var(--primary);
+    margin-bottom: 20px;
+    padding-bottom: 10px;
+    border-bottom: 2px solid var(--primary);
+}
+
+#extraExamplesContainer .example {
+    background: white;
+    padding: 20px;
+    border-radius: 8px;
+    margin-bottom: 15px;
+    border: 1px solid var(--border-color);
+}
+
+#extraExamplesContainer .example h4 {
+    color: var(--text-color);
+    margin-bottom: 10px;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
 /* ============================================
    END OF CSS
    ============================================ */
