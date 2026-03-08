@@ -17655,7 +17655,85 @@ function setupFeedbackModalInteractions(feedbackId) {
         });
     }
 }
+// ============================================
+// TOGGLE FAQ DROPDOWN
+// ============================================
+function toggleFAQ(element) {
+    // Kunin ang sagot (next element)
+    const answer = element.nextElementSibling;
+    
+    // Kunin ang icon
+    const icon = element.querySelector('.fa-chevron-down');
+    
+    // Check kung bukas na
+    const isOpen = answer.classList.contains('show');
+    
+    // Isara lahat ng ibang FAQ (para isa lang bukas)
+    document.querySelectorAll('.faq-item').forEach(item => {
+        const ans = item.querySelector('.faq-answer');
+        const q = item.querySelector('.faq-question');
+        const icn = item.querySelector('.fa-chevron-down');
+        
+        if (ans && ans !== answer) {
+            ans.classList.remove('show');
+            if (q) q.classList.remove('active');
+            if (icn) icn.style.transform = 'rotate(0deg)';
+        }
+    });
+    
+    // Buksan o isara ang clinick
+    if (isOpen) {
+        answer.classList.remove('show');
+        element.classList.remove('active');
+        if (icon) icon.style.transform = 'rotate(0deg)';
+    } else {
+        answer.classList.add('show');
+        element.classList.add('active');
+        if (icon) icon.style.transform = 'rotate(180deg)';
+    }
+}
+// ============================================
+// TOGGLE FAQ DROPDOWN
+// ============================================
+function toggleFAQ(element) {
+    // Toggle current FAQ
+    const answer = element.nextElementSibling;
+    const icon = element.querySelector('.fa-chevron-down');
+    
+    // Check if already open
+    const isOpen = answer.classList.contains('show');
+    
+    // Optional: Close all other FAQs
+    const allFAQs = document.querySelectorAll('.faq-item');
+    allFAQs.forEach(item => {
+        const ans = item.querySelector('.faq-answer');
+        const q = item.querySelector('.faq-question');
+        const icn = item.querySelector('.fa-chevron-down');
+        if (ans && ans !== answer) {
+            ans.classList.remove('show');
+            if (q) q.classList.remove('active');
+            if (icn) icn.style.transform = 'rotate(0deg)';
+        }
+    });
+    
+    // Toggle current
+    if (isOpen) {
+        answer.classList.remove('show');
+        element.classList.remove('active');
+        if (icon) icon.style.transform = 'rotate(0deg)';
+    } else {
+        answer.classList.add('show');
+        element.classList.add('active');
+        if (icon) icon.style.transform = 'rotate(180deg)';
+    }
+}
 
+// ============================================
+// OPEN LIVE CHAT (placeholder function)
+// ============================================
+function openLiveChat() {
+    alert('Live chat feature coming soon! Please email support@mathhub.com for assistance.');
+}
 // Add CSS styles for feedback
 function addFeedbackStyles() {
     if (document.querySelector('#feedback-styles')) return;
