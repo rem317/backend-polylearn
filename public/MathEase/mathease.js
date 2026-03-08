@@ -14809,186 +14809,132 @@ function getMathEaseExtraExamples(topicId) {
     return examples[topicId] || '<h3>Additional Examples</h3><p>More examples coming soon!</p>';
 }
 // ============================================
-// Setup MathEase lesson interactions (Show More Examples, Download Notes, etc.)
+// Show Practice Problems Modal
 // ============================================
-function setupMathEaseLessonInteractions(currentLesson, topicId) {
-    // Show More Examples button
-    const showMoreExamplesBtn = document.getElementById('showMoreExamples');
-    if (showMoreExamplesBtn) {
-        showMoreExamplesBtn.addEventListener('click', function() {
-            const extraContainer = document.getElementById('extraExamplesContainer');
-            
-            if (extraContainer) {
-                if (extraContainer.style.display === 'none') {
-                    extraContainer.style.display = 'block';
-                    this.innerHTML = '<i class="fas fa-minus-circle"></i> Hide Examples';
-                } else {
-                    extraContainer.style.display = 'none';
-                    this.innerHTML = '<i class="fas fa-plus-circle"></i> Show More Examples';
-                }
-            } else {
-                // If container doesn't exist, create it
-                const lessonContent = document.getElementById('lessonContent');
-                const wrapper = lessonContent.querySelector('.lesson-content-wrapper');
-                
-                const newContainer = document.createElement('div');
-                newContainer.id = 'extraExamplesContainer';
-                newContainer.style.marginTop = '30px';
-                newContainer.innerHTML = getMathEaseExtraExamples(topicId);
-                
-                wrapper.insertBefore(newContainer, document.querySelector('.lesson-interactive'));
-                newContainer.style.display = 'block';
-                this.innerHTML = '<i class="fas fa-minus-circle"></i> Hide Examples';
-            }
-        });
+function showPracticeProblemsModal(topicId) {
+    console.log('Showing practice problems for topic:', topicId);
+    
+    // Get problems based on topic
+    let problemsHTML = '<div class="practice-modal-content"><h3><i class="fas fa-pencil-alt"></i> Practice Problems</h3>';
+    
+    if (topicId == 1) { // Basic Mathematical Operation
+        problemsHTML += `
+            <div class="problem-item">
+                <p><strong>Problem 1:</strong> 15 + 7 = ?</p>
+                <p><strong>Answer:</strong> 22</p>
+            </div>
+            <div class="problem-item">
+                <p><strong>Problem 2:</strong> 45 - 18 = ?</p>
+                <p><strong>Answer:</strong> 27</p>
+            </div>
+            <div class="problem-item">
+                <p><strong>Problem 3:</strong> 8 × 7 = ?</p>
+                <p><strong>Answer:</strong> 56</p>
+            </div>
+            <div class="problem-item">
+                <p><strong>Problem 4:</strong> 72 ÷ 8 = ?</p>
+                <p><strong>Answer:</strong> 9</p>
+            </div>
+        `;
+    } else if (topicId == 2) { // Basic Concept in Statistics
+        problemsHTML += `
+            <div class="problem-item">
+                <p><strong>Problem 1:</strong> Find the mean of: 5, 8, 12, 15, 20</p>
+                <p><strong>Answer:</strong> 12</p>
+            </div>
+            <div class="problem-item">
+                <p><strong>Problem 2:</strong> Find the median of: 3, 7, 9, 12, 15</p>
+                <p><strong>Answer:</strong> 9</p>
+            </div>
+            <div class="problem-item">
+                <p><strong>Problem 3:</strong> Find the mode of: 2, 4, 4, 6, 8, 8, 8, 10</p>
+                <p><strong>Answer:</strong> 8</p>
+            </div>
+        `;
+    } else if (topicId == 3) { // Frequency Distribution Table
+        problemsHTML += `
+            <div class="problem-item">
+                <p><strong>Problem 1:</strong> Create a frequency table for: 2,2,3,3,3,4,4,5</p>
+                <p><strong>Answer:</strong> 2 appears 2 times, 3 appears 3 times, 4 appears 2 times, 5 appears 1 time</p>
+            </div>
+            <div class="problem-item">
+                <p><strong>Problem 2:</strong> If class intervals are 0-10, 11-20, 21-30, what is the class width?</p>
+                <p><strong>Answer:</strong> 10</p>
+            </div>
+        `;
     }
     
-    // Practice Problems button (opens modal with solutions)
-    const practiceProblemsBtn = document.getElementById('practiceProblems');
-    if (practiceProblemsBtn) {
-        practiceProblemsBtn.addEventListener('click', function() {
-            const problems = getMathEasePracticeProblems(topicId).match(/<li>(.*?)<\/li>/g);
-            
-            let problemsHTML = '<div class="practice-modal"><h3>Practice Problems with Solutions</h3>';
-            
-            // Add problems and solutions based on topic
-            if (topicId == 1) {
-                problemsHTML += `
-                    <div class="problem">
-                        <p><strong>Problem 1:</strong> Simplify: 15 - 3 × 2 + 4² ÷ 2</p>
-                        <p><strong>Solution:</strong> 15 - 6 + 16 ÷ 2 = 15 - 6 + 8 = 17</p>
-                    </div>
-                    <div class="problem">
-                        <p><strong>Problem 2:</strong> A store sells apples at ₱30 each and oranges at ₱25 each. If Juan buys 4 apples and 3 oranges and pays with a ₱500 bill, how much change does he get?</p>
-                        <p><strong>Solution:</strong> Total = 4×30 + 3×25 = 120 + 75 = ₱195, Change = 500 - 195 = ₱305</p>
-                    </div>
-                    <div class="problem">
-                        <p><strong>Problem 3:</strong> Use the distributive property to calculate 8 × 97</p>
-                        <p><strong>Solution:</strong> 8 × (100 - 3) = 800 - 24 = 776</p>
-                    </div>
-                `;
-            } else if (topicId == 2) {
-                problemsHTML += `
-                    <div class="problem">
-                        <p><strong>Problem 1:</strong> Find the mean, median, and mode of: 12, 15, 12, 18, 20, 15, 14, 12, 16</p>
-                        <p><strong>Solution:</strong> Mean = (12+15+12+18+20+15+14+12+16)/9 = 134/9 ≈ 14.89<br>
-                        Sorted: 12,12,12,14,15,15,16,18,20 → Median = 15<br>
-                        Mode = 12 (appears 3 times)</p>
-                    </div>
-                    <div class="problem">
-                        <p><strong>Problem 2:</strong> The heights (in cm) of 8 students are: 152, 148, 165, 158, 162, 155, 150, 160. Find the mean height.</p>
-                        <p><strong>Solution:</strong> Sum = 152+148+165+158+162+155+150+160 = 1250, Mean = 1250/8 = 156.25 cm</p>
-                    </div>
-                `;
-            } else if (topicId == 3) {
-                problemsHTML += `
-                    <div class="problem">
-                        <p><strong>Problem 1:</strong> For the data set: 3, 5, 3, 4, 5, 3, 2, 4, 5, 3, 4, 2, what is the frequency of 4?</p>
-                        <p><strong>Solution:</strong> Count how many times 4 appears: positions 4, 8, 11 → 3 times</p>
-                    </div>
-                    <div class="problem">
-                        <p><strong>Problem 2:</strong> Create a frequency distribution table for these scores: 7, 8, 6, 7, 9, 8, 7, 6, 8, 9, 7, 8, 6, 7, 8</p>
-                        <p><strong>Solution:</strong> 6 appears 3 times, 7 appears 5 times, 8 appears 5 times, 9 appears 2 times</p>
-                    </div>
-                `;
-            }
-            
-            problemsHTML += '</div>';
-            showModal(problemsHTML);
-        });
-    }
+    problemsHTML += '</div>';
     
-    // Download Notes button
-    const downloadNotesBtn = document.getElementById('downloadNotes');
-    if (downloadNotesBtn) {
-        downloadNotesBtn.addEventListener('click', function() {
-            const lessonTitle = currentLesson?.content_title || 'MathEase Lesson';
-            const content = document.getElementById('lessonContent').innerText;
-            
-            // Create downloadable content
-            const blob = new Blob([`${lessonTitle}\n\n${content}`], { type: 'text/plain' });
-            const url = window.URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = `${lessonTitle.replace(/\s+/g, '_')}_notes.txt`;
-            document.body.appendChild(a);
-            a.click();
-            document.body.removeChild(a);
-            window.URL.revokeObjectURL(url);
-            
-            showNotification('Notes downloaded successfully!', 'success');
-        });
-    }
+    // Show in modal
+    showModal(problemsHTML, { title: 'Practice Problems' });
+}
+
+// ============================================
+// Download Lesson Notes
+// ============================================
+function downloadLessonNotes(lesson, topicId) {
+    console.log('Downloading notes for lesson:', lesson);
     
-    // Check Answers button (for practice problems)
-    const checkAnswersBtn = document.getElementById('checkAnswersBtn');
-    if (checkAnswersBtn) {
-        checkAnswersBtn.addEventListener('click', function() {
-            let answersHTML = '<div class="answers-modal"><h3>Answers to Practice Problems</h3>';
-            
-            if (topicId == 1) {
-                answersHTML += `
-                    <div class="answer">
-                        <p><strong>Problem 1:</strong> 17</p>
-                        <p><strong>Problem 2:</strong> ₱305</p>
-                        <p><strong>Problem 3:</strong> 776</p>
-                        <p><strong>Problem 4:</strong> 4</p>
-                        <p><strong>Problem 5:</strong> Pedro has 12, Maria has 36</p>
-                    </div>
-                `;
-            } else if (topicId == 2) {
-                answersHTML += `
-                    <div class="answer">
-                        <p><strong>Problem 1:</strong> Mean ≈ 14.89, Median = 15, Mode = 12</p>
-                        <p><strong>Problem 2:</strong> 156.25 cm</p>
-                        <p><strong>Problem 3:</strong> 85.67</p>
-                        <p><strong>Problem 4:</strong> 20</p>
-                        <p><strong>Problem 5:</strong> 24</p>
-                    </div>
-                `;
-            } else if (topicId == 3) {
-                answersHTML += `
-                    <div class="answer">
-                        <p><strong>Problem 1:</strong> Frequency of 4 is 3</p>
-                        <p><strong>Problem 2:</strong> 6:3, 7:5, 8:5, 9:2</p>
-                        <p><strong>Problem 3:</strong> Class with highest frequency: 75-84 (11 students)</p>
-                    </div>
-                `;
-            }
-            
-            answersHTML += '</div>';
-            showModal(answersHTML);
-        });
+    const lessonTitle = lesson?.content_title || 'MathEase Lesson';
+    const topicName = getMathEaseTopicName(topicId || 1);
+    
+    // Get main examples
+    let examples = getMathEaseMainExample(topicId || 1);
+    // Remove HTML tags for plain text
+    examples = examples.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
+    
+    // Create content
+    const content = `
+MATHHUB - MATHEASE LESSON NOTES
+================================
+Lesson: ${lessonTitle}
+Topic: ${topicName}
+Date: ${new Date().toLocaleDateString()}
+
+KEY FORMULAS:
+${getMathEaseKeyFormulas(topicId || 1).replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim()}
+
+EXAMPLES:
+${examples}
+
+PRACTICE PROBLEMS:
+${getMathEasePracticeProblems(topicId || 1).replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim()}
+
+---
+Generated by MathHub Mathease
+    `;
+    
+    // Create download
+    const blob = new Blob([content], { type: 'text/plain' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${lessonTitle.replace(/\s+/g, '_')}_notes.txt`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    window.URL.revokeObjectURL(url);
+    
+    // Show notification
+    if (typeof showNotification === 'function') {
+        showNotification('Notes downloaded successfully!', 'success');
+    } else {
+        alert('✅ Notes downloaded successfully!');
     }
 }
 // ============================================
-// Helper function to show modal
+// Show Modal helper function
 // ============================================
 function showModal(content, options = {}) {
-    const { closeable = true } = options;
-    
     // Remove existing modal
-    const existingModal = document.querySelector('.modal-overlay');
+    const existingModal = document.querySelector('.custom-modal-overlay');
     if (existingModal) existingModal.remove();
     
-    // Create modal
-    const modalOverlay = document.createElement('div');
-    modalOverlay.className = 'modal-overlay';
-    
-    let closeButton = '';
-    if (closeable) {
-        closeButton = '<button class="modal-close"><i class="fas fa-times"></i></button>';
-    }
-    
-    modalOverlay.innerHTML = `
-        <div class="modal-content">
-            ${closeButton}
-            ${content}
-        </div>
-    `;
-    
-    // Add styles
-    modalOverlay.style.cssText = `
+    // Create modal overlay
+    const overlay = document.createElement('div');
+    overlay.className = 'custom-modal-overlay';
+    overlay.style.cssText = `
         position: fixed;
         top: 0;
         left: 0;
@@ -14998,45 +14944,94 @@ function showModal(content, options = {}) {
         display: flex;
         align-items: center;
         justify-content: center;
-        z-index: 10000;
+        z-index: 100000;
         padding: 20px;
     `;
     
-    const modalContent = modalOverlay.querySelector('.modal-content');
+    // Create modal content
+    const modalContent = document.createElement('div');
     modalContent.style.cssText = `
         background: white;
-        padding: 30px;
-        border-radius: 10px;
-        max-width: 800px;
+        border-radius: 12px;
+        max-width: 600px;
         width: 100%;
-        max-height: 90vh;
+        max-height: 80vh;
         overflow-y: auto;
-        position: relative;
+        box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+        animation: slideUp 0.3s ease;
     `;
     
-    // Add close button functionality
-    if (closeable) {
-        const closeBtn = modalOverlay.querySelector('.modal-close');
-        closeBtn.style.cssText = `
-            position: absolute;
-            top: 10px;
-            right: 10px;
-            background: none;
-            border: none;
-            font-size: 20px;
-            cursor: pointer;
-            color: #666;
+    // Add header if title provided
+    if (options.title) {
+        const header = document.createElement('div');
+        header.style.cssText = `
+            background: #7a0000;
+            color: white;
+            padding: 15px 20px;
+            border-radius: 12px 12px 0 0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
         `;
+        header.innerHTML = `
+            <h3 style="margin: 0; font-size: 18px;"><i class="fas fa-book"></i> ${options.title}</h3>
+            <button class="modal-close" style="background: none; border: none; color: white; font-size: 24px; cursor: pointer;">&times;</button>
+        `;
+        modalContent.appendChild(header);
         
-        closeBtn.addEventListener('click', () => modalOverlay.remove());
-        modalOverlay.addEventListener('click', (e) => {
-            if (e.target === modalOverlay) modalOverlay.remove();
-        });
+        // Add close button functionality
+        const closeBtn = header.querySelector('.modal-close');
+        closeBtn.addEventListener('click', () => overlay.remove());
     }
     
-    document.body.appendChild(modalOverlay);
-    return modalOverlay;
+    // Add body
+    const body = document.createElement('div');
+    body.style.cssText = 'padding: 25px;';
+    
+    if (typeof content === 'string') {
+        body.innerHTML = content;
+    } else {
+        body.appendChild(content);
+    }
+    
+    modalContent.appendChild(body);
+    
+    // Add footer with close button if no title
+    if (!options.title) {
+        const footer = document.createElement('div');
+        footer.style.cssText = 'padding: 20px; border-top: 1px solid #eee; text-align: right;';
+        footer.innerHTML = '<button class="btn-secondary" onclick="this.closest(\'.custom-modal-overlay\').remove()">Close</button>';
+        modalContent.appendChild(footer);
+    }
+    
+    overlay.appendChild(modalContent);
+    document.body.appendChild(overlay);
+    
+    // Close when clicking outside
+    overlay.addEventListener('click', function(e) {
+        if (e.target === overlay) {
+            overlay.remove();
+        }
+    });
+    
+    return overlay;
 }
+
+// Add animation keyframes
+const style = document.createElement('style');
+style.textContent = `
+    @keyframes slideUp {
+        from {
+            opacity: 0;
+            transform: translateY(30px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+`;
+document.head.appendChild(style);
 // ============================================
 // ✅ FIXED: Display quizzes na parang dashboard card
 // ============================================
@@ -20994,25 +20989,15 @@ async function updateLessonProgress(contentId, progressData) {
 }
 
 // ============================================
-// LESSON CONTENT DISPLAY FUNCTIONS
+// ✅ COMPLETE: Display MathEase lesson content with button initialization
 // ============================================
-
-// Display lesson content from database
 async function displayLessonContent() {
     try {
         const lessonContentContainer = document.getElementById('lessonContent');
         if (!lessonContentContainer) {
-            console.error('Lesson content container not found');
+            console.error('❌ Lesson content container not found');
             return;
         }
-        
-        // Show loading state
-        lessonContentContainer.innerHTML = `
-            <div class="loading-content">
-                <i class="fas fa-spinner fa-spin"></i>
-                <p>Loading lesson content from database...</p>
-            </div>
-        `;
         
         const currentLesson = LessonState.currentLesson;
         if (!currentLesson) {
@@ -21026,25 +21011,35 @@ async function displayLessonContent() {
             return;
         }
         
+        // Get topic ID
+        const topicId = currentLesson.topic_id || 1;
+        const lessonTitle = currentLesson.content_title || '';
+        
+        // Check if lesson has custom content
         const contentDescription = currentLesson.content_description;
         
         if (!contentDescription || contentDescription.trim() === '') {
-            // If no content in database, show default content
-            lessonContentContainer.innerHTML = generateDefaultLessonContent(currentLesson);
+            // Generate content
+            lessonContentContainer.innerHTML = generateMathEaseLessonContent(currentLesson, topicId);
         } else {
-            // Convert markdown-like content to HTML
+            // Use existing content
             const htmlContent = convertMarkdownToHTML(contentDescription);
-            lessonContentContainer.innerHTML = htmlContent;
+            lessonContentContainer.innerHTML = `
+                <div class="lesson-content-wrapper">
+                    ${htmlContent}
+                    <div id="extraExamplesContainer" style="display: none; margin-top: 30px;">
+                        ${getMathEaseExtraExamples(topicId)}
+                    </div>
+                </div>
+            `;
         }
         
-        // Add event listeners to any interactive elements
-        setupLessonContentInteractions();
-        
-        // Add practice button if lesson is completed or almost completed
-        addPracticeButtonToLesson();
+        // ✅ CRITICAL: Initialize the button interactions HERE
+        console.log('🎯 Initializing lesson interactions for topic:', topicId);
+        setupMathEaseLessonInteractions(currentLesson, topicId);
         
     } catch (error) {
-        console.error('Error displaying lesson content:', error);
+        console.error('❌ Error displaying lesson content:', error);
         const lessonContentContainer = document.getElementById('lessonContent');
         if (lessonContentContainer) {
             lessonContentContainer.innerHTML = `
