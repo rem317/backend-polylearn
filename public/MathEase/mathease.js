@@ -20953,7 +20953,7 @@ async function testVideoAccessibility(url) {
 }
 
 // ============================================
-// FIXED: Load video from database with better error handling (from factolearn.js)
+// FIXED: Load video from database - Preserves lesson content
 // ============================================
 async function loadVideoFromDatabase(contentId = null) {
     console.log('🎬 loadVideoFromDatabase called with contentId:', contentId);
@@ -20964,38 +20964,10 @@ async function loadVideoFromDatabase(contentId = null) {
                          document.querySelector('#module-dashboard-page .video-section');
     
     const videoInfo = document.getElementById('videoInfo');
-    const refreshVideoBtn = document.getElementById('refreshVideoBtn');
     
     if (!videoContainer) {
-        console.error('❌ Video container not found! DOM structure:', {
-            videoContainer: document.getElementById('videoContainer'),
-            moduleDashboard: document.getElementById('module-dashboard-page'),
-            videoSection: document.querySelector('.video-section')
-        });
-        
-        // Create video container if it doesn't exist
-        const moduleDashboard = document.getElementById('module-dashboard-page');
-        if (moduleDashboard) {
-            const videoSection = moduleDashboard.querySelector('.video-section');
-            if (videoSection) {
-                console.log('🔄 Creating video container dynamically...');
-                videoSection.innerHTML = `
-                    <div id="videoContainer" style="background: #000; min-height: 300px; width: 100%;">
-                        <div style="background: #f0f0f0; height: 400px; display: flex; align-items: center; justify-content: center; flex-direction: column;">
-                            <i class="fas fa-spinner fa-spin" style="font-size: 40px; color: #7a0000; margin-bottom: 20px;"></i>
-                            <p style="color: #666;">Loading video...</p>
-                        </div>
-                    </div>
-                `;
-            }
-        }
-        
-        // Try to get container again
-        videoContainer = document.getElementById('videoContainer');
-        if (!videoContainer) {
-            console.error('❌ Still cannot find video container');
-            return null;
-        }
+        console.error('❌ Video container not found!');
+        return null;
     }
     
     try {
@@ -21007,12 +20979,12 @@ async function loadVideoFromDatabase(contentId = null) {
         // If still no contentId, try from URL
         if (!contentId) {
             const urlParams = new URLSearchParams(window.location.search);
-            contentId = urlParams.get('lessonId') || urlParams.get('id') || urlParams.get('contentId') || 1;
+            contentId = urlParams.get('lessonId') || urlParams.get('id') || 1;
         }
         
-        console.log(`🎬 Loading video for lesson ID: ${contentId} on MathEase`);
+        console.log(`🎬 Loading video for lesson ID: ${contentId}`);
         
-        // Show loading
+        // Show loading in video container ONLY
         videoContainer.innerHTML = `
             <div style="background: #f0f0f0; height: 400px; display: flex; align-items: center; justify-content: center; flex-direction: column;">
                 <i class="fas fa-spinner fa-spin" style="font-size: 40px; color: #7a0000; margin-bottom: 20px;"></i>
@@ -21024,70 +20996,104 @@ async function loadVideoFromDatabase(contentId = null) {
             videoInfo.innerHTML = '<p><i class="fas fa-spinner fa-spin"></i> Fetching video data...</p>';
         }
         
-        if (refreshVideoBtn) {
-            refreshVideoBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
-            refreshVideoBtn.disabled = true;
+        // Fetch lesson data
+        const token = localStorage.getItem('authToken') || authToken;
+        const response = await fetch(`/api/lessons-db/${contentId}`, {
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+            }
+        });
+        
+        if (!response.ok) {
+            throw new Error(`Failed to fetch lesson: ${response.status}`);
         }
         
-        // Use apiRequest for consistency
-        const lessonData = await apiRequest(`/api/lessons-db/${contentId}`);
+        const data = await response.json();
         
-        if (!lessonData.success || !lessonData.lesson) {
+        if (!data.success || !data.lesson) {
             throw new Error('Lesson not found');
         }
         
-        const lesson = lessonData.lesson;
+        const lesson = data.lesson;
         console.log('✅ Lesson data loaded:', lesson.content_title);
         
-        // Update lesson info
-        const titleElement = document.getElementById('videoLessonTitle');
-        if (titleElement) {
-            titleElement.textContent = lesson.content_title || 'Video Lesson';
+        // ===== UPDATE LESSON CONTENT (this is CRITICAL) =====
+        // Update lesson title and description in the sidebar
+        const moduleTitle = document.getElementById('moduleTitle');
+        if (moduleTitle) {
+            moduleTitle.textContent = lesson.content_title || 'MathEase Lesson';
         }
         
-        const descElement = document.getElementById('videoLessonDescription');
-        if (descElement) {
-            descElement.textContent = lesson.content_description || '';
+        const moduleSubtitle = document.getElementById('moduleSubtitle');
+        if (moduleSubtitle) {
+            const description = lesson.content_description || 
+                               lesson.description || 
+                               'Learn mathematics concepts with interactive lessons.';
+            moduleSubtitle.textContent = description.substring(0, 100) + 
+                                        (description.length > 100 ? '...' : '');
         }
         
+        // ===== UPDATE LESSON CONTENT AREA (samples, examples, etc.) =====
+        const lessonContent = document.getElementById('lessonContent');
+        if (lessonContent) {
+            // This is where your lesson content (samples, examples) should appear
+            const contentDescription = lesson.content_description || 
+                                      lesson.description || 
+                                      'No description available for this lesson.';
+            
+            lessonContent.innerHTML = `
+                <div class="lesson-content-wrapper">
+                    <h2 class="lesson-subtitle">About This Lesson</h2>
+                    <p class="lesson-paragraph">${contentDescription}</p>
+                    
+                    <h2 class="lesson-subtitle">Learning Objectives</h2>
+                    <ul class="lesson-list">
+                        <li>Understand key mathematical concepts</li>
+                        <li>Apply formulas and techniques</li>
+                        <li>Solve practice problems</li>
+                        <li>Test your knowledge with quizzes</li>
+                    </ul>
+                    
+                    <h2 class="lesson-subtitle">Sample Problems</h2>
+                    <div class="example-box">
+                        <p><strong>Example 1:</strong> Simplify 3(2x + 4)</p>
+                        <p><strong>Solution:</strong> 6x + 12</p>
+                    </div>
+                    
+                    <div class="example-box">
+                        <p><strong>Example 2:</strong> Solve for x: 2x + 5 = 15</p>
+                        <p><strong>Solution:</strong> x = 5</p>
+                    </div>
+                    
+                    <h2 class="lesson-subtitle">Practice Problems</h2>
+                    <div class="practice-box">
+                        <ol>
+                            <li>4(x - 3) = 20</li>
+                            <li>3(2x + 1) = 21</li>
+                            <li>5(x - 2) = 3x + 4</li>
+                        </ol>
+                        <button class="btn-primary" id="checkAnswersBtn">
+                            <i class="fas fa-check"></i> Check Answers
+                        </button>
+                    </div>
+                </div>
+            `;
+        }
+        
+        // ===== NOW HANDLE THE VIDEO =====
         // Determine video source
         let videoUrl = null;
-        let videoType = 'none';
         
         // Check for YouTube URL first
         if (lesson.content_url && (lesson.content_url.includes('youtube') || lesson.content_url.includes('youtu.be'))) {
             videoUrl = lesson.content_url;
-            videoType = 'youtube';
             console.log('🔗 Using YouTube video:', videoUrl);
-        }
-        // Check for video_filename (uploaded video)
-        else if (lesson.video_filename) {
-            if (lesson.video_filename.startsWith('http')) {
-                videoUrl = lesson.video_filename;
-            } else {
-                // For Railway, use absolute URL
-                videoUrl = `${window.location.origin}/videos/${lesson.video_filename}`;
-            }
-            videoType = 'uploaded';
-            console.log('🎬 Using uploaded video:', videoUrl);
-        }
-        // Check for video_path
-        else if (lesson.video_path) {
-            if (lesson.video_path.startsWith('http')) {
-                videoUrl = lesson.video_path;
-            } else {
-                const filename = lesson.video_path.split('/').pop();
-                videoUrl = `${window.location.origin}/videos/${filename}`;
-            }
-            videoType = 'path';
-            console.log('📁 Using video path:', videoUrl);
-        }
-        
-        // Clear container
-        videoContainer.innerHTML = '';
-        
-        // Handle YouTube videos
-        if (videoType === 'youtube' && videoUrl) {
+            
+            // Clear video container
+            videoContainer.innerHTML = '';
+            
+            // Handle YouTube video
             const videoId = extractYoutubeId(videoUrl);
             if (videoId) {
                 const iframe = document.createElement('iframe');
@@ -21105,9 +21111,22 @@ async function loadVideoFromDatabase(contentId = null) {
                         <p>${lesson.content_title || ''}</p>
                     `;
                 }
-                return;
+                return lesson; // Return early but keep lesson content loaded
             }
         }
+        
+        // Check for video_filename (uploaded video)
+        if (lesson.video_filename) {
+            if (lesson.video_filename.startsWith('http')) {
+                videoUrl = lesson.video_filename;
+            } else {
+                videoUrl = `/videos/${lesson.video_filename}`;
+            }
+            console.log('🎬 Using uploaded video:', videoUrl);
+        }
+        
+        // Clear video container
+        videoContainer.innerHTML = '';
         
         // Handle uploaded videos
         if (videoUrl) {
@@ -21135,7 +21154,9 @@ async function loadVideoFromDatabase(contentId = null) {
                     `;
                 }
                 // Initialize progress tracking
-                initVideoProgressTracking(video, contentId);
+                if (typeof initVideoProgressTracking === 'function') {
+                    initVideoProgressTracking(video, contentId);
+                }
             };
             
             // Error handler
@@ -21145,18 +21166,9 @@ async function loadVideoFromDatabase(contentId = null) {
                     <div style="background: #fee; height: 400px; display: flex; align-items: center; justify-content: center; flex-direction: column;">
                         <i class="fas fa-exclamation-triangle" style="font-size: 60px; color: #e74c3c; margin-bottom: 20px;"></i>
                         <h3 style="color: #c0392b;">Video not found</h3>
-                        <p style="color: #e74c3c;">The video file may be missing or inaccessible.</p>
-                        <p style="color: #666; font-size: 12px; margin-top: 10px;">Path: ${videoUrl}</p>
+                        <p style="color: #e74c3c;">The video file may be missing.</p>
                     </div>
                 `;
-                if (videoInfo) {
-                    videoInfo.innerHTML = `
-                        <p style="color: #e74c3c;">
-                            <i class="fas fa-exclamation-triangle"></i> 
-                            Video failed to load. Please check if the file exists.
-                        </p>
-                    `;
-                }
             };
             
             videoContainer.appendChild(video);
@@ -21170,35 +21182,27 @@ async function loadVideoFromDatabase(contentId = null) {
                     <p style="color: #999;">The video will appear here once uploaded.</p>
                 </div>
             `;
-            
-            if (videoInfo) {
-                videoInfo.innerHTML = `
-                    <p style="color: #f39c12;">
-                        <i class="fas fa-info-circle"></i> 
-                        This lesson has no video assigned.
-                    </p>
-                `;
-            }
         }
+        
+        // Store in LessonState
+        LessonState.currentLesson = lesson;
+        
+        return lesson;
         
     } catch (error) {
         console.error('❌ Error loading video:', error);
         
-        videoContainer.innerHTML = `
-            <div style="background: #fee; height: 400px; display: flex; align-items: center; justify-content: center; flex-direction: column;">
-                <i class="fas fa-exclamation-triangle" style="font-size: 60px; color: #e74c3c; margin-bottom: 20px;"></i>
-                <h3 style="color: #c0392b;">Failed to load video</h3>
-                <p style="color: #e74c3c;">${error.message}</p>
-                <button onclick="location.reload()" class="btn-primary" style="margin-top: 20px; padding: 10px 20px;">
-                    <i class="fas fa-redo"></i> Reload Page
-                </button>
-            </div>
-        `;
-    } finally {
-        if (refreshVideoBtn) {
-            refreshVideoBtn.innerHTML = '<i class="fas fa-sync-alt"></i>';
-            refreshVideoBtn.disabled = false;
+        if (videoContainer) {
+            videoContainer.innerHTML = `
+                <div style="background: #fee; height: 400px; display: flex; align-items: center; justify-content: center; flex-direction: column;">
+                    <i class="fas fa-exclamation-triangle" style="font-size: 60px; color: #e74c3c; margin-bottom: 20px;"></i>
+                    <h3 style="color: #c0392b;">Failed to load video</h3>
+                    <p style="color: #e74c3c;">${error.message}</p>
+                </div>
+            `;
         }
+        
+        return null;
     }
 }
 // Helper function to load video file
