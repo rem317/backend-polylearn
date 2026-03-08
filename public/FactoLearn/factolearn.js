@@ -3954,13 +3954,14 @@ async function fetchSubjects() {
  * @param {number|string} contentId - The ID of the lesson/content
  */
 
-// ===== HELPER FUNCTION TO UPDATE DISPLAY =====
+// ============================================
+// 📊 UPDATE CURRENT LESSON PROGRESS DISPLAY
+// ============================================
 function updateCurrentLessonDisplay() {
     const lessonProgressFill = document.getElementById('lessonProgressFill');
     const progressPercentage = document.getElementById('progressPercentage');
     const progressTime = document.getElementById('progressTime');
     const videoElement = document.getElementById('lessonVideo');
-    const videoTimeDisplay = document.getElementById('videoTime');
     
     if (!videoElement || !videoElement.duration) return;
     
@@ -3978,7 +3979,7 @@ function updateCurrentLessonDisplay() {
         progressPercentage.textContent = `${percentage}% Complete`;
     }
     
-    // Update time display in sidebar
+    // Update time display
     if (progressTime) {
         const currentMinutes = Math.floor(currentTime / 60);
         const currentSeconds = Math.floor(currentTime % 60);
@@ -3988,22 +3989,40 @@ function updateCurrentLessonDisplay() {
         progressTime.textContent = `${currentMinutes}:${currentSeconds.toString().padStart(2, '0')} / ${durationMinutes}:${durationSeconds.toString().padStart(2, '0')}`;
     }
     
-    // Update video time display
-    if (videoTimeDisplay) {
+    console.log(`🔄 Progress bar updated: ${percentage}% at ${currentTime.toFixed(1)}s`);
+}
+
+// ============================================
+// 🎬 UPDATE CURRENT LESSON PROGRESS - FROM VIDEO PLAYBACK
+// ============================================
+function updateCurrentLessonProgress(percentage, currentTime, duration) {
+    console.log(`📊 Updating lesson progress: ${percentage}%`);
+    
+    // Update progress bar
+    const progressFill = document.getElementById('lessonProgressFill');
+    const progressPercentage = document.getElementById('progressPercentage');
+    const progressTime = document.getElementById('progressTime');
+    
+    if (progressFill) {
+        progressFill.style.width = `${percentage}%`;
+    }
+    
+    if (progressPercentage) {
+        progressPercentage.textContent = `${percentage}% Complete`;
+    }
+    
+    if (progressTime && duration) {
         const currentMinutes = Math.floor(currentTime / 60);
         const currentSeconds = Math.floor(currentTime % 60);
         const durationMinutes = Math.floor(duration / 60);
         const durationSeconds = Math.floor(duration % 60);
         
-        videoTimeDisplay.innerHTML = `${currentMinutes}:${currentSeconds.toString().padStart(2, '0')} / ${durationMinutes}:${durationSeconds.toString().padStart(2, '0')}`;
+        progressTime.textContent = `${currentMinutes}:${currentSeconds.toString().padStart(2, '0')} / ${durationMinutes}:${durationSeconds.toString().padStart(2, '0')}`;
     }
-    
-    console.log(`🔄 Display updated: ${percentage}% at ${currentTime.toFixed(1)}s`);
 }
 
-
 // ============================================
-// 🎬 ENHANCED: Video Progress Tracking - With session reset
+// 🎬 ENHANCED: Video Progress Tracking - WITH PROGRESS BAR
 // ============================================
 function initVideoProgressTracking(videoElement, contentId) {
     if (!videoElement || !contentId) {
@@ -4052,7 +4071,7 @@ function initVideoProgressTracking(videoElement, contentId) {
     }
     
     // Update display after loading
-    setTimeout(updateCurrentLessonDisplay, 100);
+    setTimeout(() => updateCurrentLessonDisplay(), 100);
     
     /**
      * Save progress to server
@@ -4123,7 +4142,7 @@ function initVideoProgressTracking(videoElement, contentId) {
                         completeBtn.disabled = true;
                     }
                     
-                    showNotification('🎉 Lesson completed! Great job!', 'success');
+                    showNotification('success', '🎉 Lesson Completed!', 'Great job!');
                 }
             }
         } catch (error) {
@@ -4159,33 +4178,33 @@ function initVideoProgressTracking(videoElement, contentId) {
     });
     
     videoElement.addEventListener('loadedmetadata', function() {
-    videoDuration = videoElement.duration;
-    console.log(`📹 Video duration: ${videoDuration}s`);
-    updateCurrentLessonDisplay();
-    
-    // Show success in video info
-    const videoInfo = document.getElementById('videoInfo');
-    if (videoInfo) {
-        videoInfo.innerHTML = `
-            <p><i class="fas fa-check-circle" style="color: #27ae60;"></i> Video loaded successfully</p>
-            <p><i class="fas fa-clock"></i> Duration: ${Math.floor(videoDuration / 60)} min</p>
-        `;
-    }
-});
+        videoDuration = videoElement.duration;
+        console.log(`📹 Video duration: ${videoDuration}s`);
+        updateCurrentLessonDisplay();
+        
+        // Show success in video info
+        const videoInfo = document.getElementById('videoInfo');
+        if (videoInfo) {
+            videoInfo.innerHTML = `
+                <p><i class="fas fa-check-circle" style="color: #27ae60;"></i> Video loaded successfully</p>
+                <p><i class="fas fa-clock"></i> Duration: ${Math.floor(videoDuration / 60)} min</p>
+            `;
+        }
+    });
 
-// Add error event listener
-videoElement.addEventListener('error', function(e) {
-    console.error('❌ Video error:', e);
-    const videoInfo = document.getElementById('videoInfo');
-    if (videoInfo) {
-        videoInfo.innerHTML = `
-            <p style="color: #e74c3c;">
-                <i class="fas fa-exclamation-triangle"></i> 
-                Error loading video. Please check if the file exists.
-            </p>
-        `;
-    }
-});
+    // Add error event listener
+    videoElement.addEventListener('error', function(e) {
+        console.error('❌ Video error:', e);
+        const videoInfo = document.getElementById('videoInfo');
+        if (videoInfo) {
+            videoInfo.innerHTML = `
+                <p style="color: #e74c3c;">
+                    <i class="fas fa-exclamation-triangle"></i> 
+                    Error loading video. Please check if the file exists.
+                </p>
+            `;
+        }
+    });
     
     // ===== PLAY EVENT =====
     videoElement.addEventListener('play', function() {
@@ -4225,11 +4244,6 @@ videoElement.addEventListener('error', function(e) {
             const percentage = Math.floor((videoElement.currentTime / videoElement.duration) * 100);
             saveProgress('in_progress', percentage, videoElement.currentTime);
         }
-        
-        // Refresh Today's Learning
-        if (typeof updateTodaysLearningStats === 'function') {
-            setTimeout(updateTodaysLearningStats, 500);
-        }
     });
     
     // ===== TIME UPDATE =====
@@ -4247,7 +4261,6 @@ videoElement.addEventListener('error', function(e) {
             
             if (timeDiff < -10) {
                 console.log('🔄 Video restarted or rewound significantly');
-                updateCurrentLessonDisplay();
             }
         }
         
@@ -4284,10 +4297,6 @@ videoElement.addEventListener('error', function(e) {
         if (timeDisplay) {
             timeDisplay.classList.remove('watching');
         }
-        
-        if (typeof updateTodaysLearningStats === 'function') {
-            setTimeout(updateTodaysLearningStats, 500);
-        }
     });
     
     // ===== SEEKED EVENT =====
@@ -4304,10 +4313,6 @@ videoElement.addEventListener('error', function(e) {
             if (now - lastSaveTime > 2000) {
                 saveProgress('in_progress', percentage, currentTime);
             }
-        }
-        
-        if (typeof updateTodaysLearningStats === 'function') {
-            setTimeout(updateTodaysLearningStats, 500);
         }
     });
     
@@ -4335,45 +4340,17 @@ videoElement.addEventListener('error', function(e) {
         }
     });
     
-    console.log(`✅ Video progress tracking initialized for ${contentId}`);
+    // Initial progress bar update
+    setTimeout(() => {
+        if (videoElement.duration > 0) {
+            const percentage = Math.floor((videoElement.currentTime / videoElement.duration) * 100) || 0;
+            updateCurrentLessonDisplay();
+        }
+    }, 500);
+    
+    console.log(`✅ Video progress tracking initialized for ${contentId} - connected to progress bar`);
 }
-// ============================================
-// ✅ ADD THIS FUNCTION - Update Current Lesson Display
-// ============================================
-function updateCurrentLessonDisplay() {
-    const lessonProgressFill = document.getElementById('lessonProgressFill');
-    const progressPercentage = document.getElementById('progressPercentage');
-    const progressTime = document.getElementById('progressTime');
-    const videoElement = document.getElementById('lessonVideo');
-    
-    if (!videoElement || !videoElement.duration) return;
-    
-    const currentTime = videoElement.currentTime;
-    const duration = videoElement.duration;
-    const percentage = Math.floor((currentTime / duration) * 100);
-    
-    // Update progress bar
-    if (lessonProgressFill) {
-        lessonProgressFill.style.width = `${percentage}%`;
-    }
-    
-    // Update percentage text
-    if (progressPercentage) {
-        progressPercentage.textContent = `${percentage}% Complete`;
-    }
-    
-    // Update time display
-    if (progressTime) {
-        const currentMinutes = Math.floor(currentTime / 60);
-        const currentSeconds = Math.floor(currentTime % 60);
-        const durationMinutes = Math.floor(duration / 60);
-        const durationSeconds = Math.floor(duration % 60);
-        
-        progressTime.textContent = `${currentMinutes}:${currentSeconds.toString().padStart(2, '0')} / ${durationMinutes}:${durationSeconds.toString().padStart(2, '0')}`;
-    }
-    
-    console.log(`🔄 Display updated: ${percentage}% at ${currentTime.toFixed(1)}s`);
-}
+
 // ============================================
 // FUNCTION TO LOAD VIDEO LESSON
 // ============================================
