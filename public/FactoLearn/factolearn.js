@@ -6565,40 +6565,76 @@ async function updateDashboardWidgets(widgetConfig) {
 }
 
 // ============================================
-// PROGRESS DASHBOARD - MAIN INITIALIZATION
+// ✅ FIXED: initProgressDashboard - With better error handling
 // ============================================
-
 async function initProgressDashboard() {
-    console.log('📈 Initializing progress dashboard with database integration...');
+    console.log('📈 Initializing FactoLearn progress dashboard (lesson_id=3)...');
     
     try {
         // Show loading state
         showProgressDashboardLoading();
         
-        // Load all progress data
-        await updateProgressDashboardFromDatabase();
+        // Load all progress data with individual error handling
+        const results = await Promise.allSettled([
+            fetchCumulativeProgress().catch(() => null),
+            fetchDailyProgress().catch(() => null),
+            fetchTopicMastery().catch(() => null),
+            fetchActivityLog(15).catch(() => []),  // ← Now safe even if 404
+            fetchAchievementTimeline(10).catch(() => [])
+        ]);
         
-        // Load topic mastery for detailed breakdown
-        await fetchTopicMastery();
+        // Check results
+        if (results[0].status === 'fulfilled') {
+            console.log('✅ Cumulative progress loaded');
+        } else {
+            console.warn('⚠️ Could not load cumulative progress');
+        }
         
-        // Load achievements
-        await fetchAchievementTimeline(10);
+        if (results[1].status === 'fulfilled') {
+            console.log('✅ Daily progress loaded');
+        } else {
+            console.warn('⚠️ Could not load daily progress');
+        }
         
-        // Load activity log
-        await fetchActivityLog(15);
+        if (results[2].status === 'fulfilled') {
+            console.log('✅ Topic mastery loaded');
+        } else {
+            console.warn('⚠️ Could not load topic mastery');
+        }
+        
+        if (results[3].status === 'fulfilled') {
+            console.log(`✅ Activity log loaded with ${results[3].value.length} items`);
+        } else {
+            console.warn('⚠️ Could not load activity log, using empty array');
+            ProgressState.activityLog = [];
+        }
+        
+        if (results[4].status === 'fulfilled') {
+            console.log('✅ Achievement timeline loaded');
+        } else {
+            console.warn('⚠️ Could not load achievements');
+        }
+        
+        // Update UI even if some data is missing
+        updateProgressSummaryCards();
+        updateActivityLog();  // Will show empty state if no activities
         
         // Initialize charts
         await initProgressCharts();
         
-        // Start auto-refresh (every 60 seconds)
-        startProgressAutoRefresh(60);
+        // Hide loading
+        hideProgressDashboardLoading();
         
-        console.log('✅ Progress dashboard initialized with database integration');
+        console.log('✅ Progress dashboard initialized (with fallbacks)');
+        
     } catch (error) {
-        console.error('Error initializing progress dashboard:', error);
+        console.error('❌ Error initializing progress dashboard:', error);
+        hideProgressDashboardLoading();
+        
+        // Show error but still update with whatever data we have
+        showProgressDashboardError();
     }
 }
-
 // ============================================
 // PROGRESS DASHBOARD LOADING FUNCTIONS
 // ============================================
@@ -10409,48 +10445,108 @@ function updateLearningGoalsSection() {
 }
 
 // ============================================
-// UPDATE ACTIVITY LOG
+// ✅ FIXED: updateActivityLog - With better error handling
 // ============================================
-
 function updateActivityLog() {
     const container = document.getElementById('recentActivity');
     if (!container) return;
     
     const activities = ProgressState.activityLog || [];
     
+    console.log(`📋 Updating activity log with ${activities.length} activities`);
+    
     if (activities.length === 0) {
         container.innerHTML = `
-            <div class="no-activity">
-                <i class="fas fa-history"></i>
-                <p>No recent activity</p>
+            <div class="no-activity" style="text-align: center; padding: 30px;">
+                <i class="fas fa-history" style="font-size: 48px; color: #ccc; margin-bottom: 15px;"></i>
+                <h4 style="color: #666; margin-bottom: 5px;">No Recent Activity</h4>
+                <p style="color: #999; font-size: 14px;">Complete lessons and exercises to see your activity here.</p>
+                <div style="margin-top: 15px; font-size: 12px; color: #7a0000;">
+                    <i class="fas fa-database"></i> FactoLearn (Lesson ID: 3)
+                </div>
             </div>
         `;
         return;
     }
     
     let html = '';
-    activities.slice(0, 5).forEach(activity => {
+    activities.slice(0, 10).forEach(activity => {
         const activityText = getActivityText(activity);
         const timeAgo = formatTimeAgo(activity.activity_timestamp);
+        const icon = activity.icon || getActivityIcon(activity.activity_type);
+        const color = activity.color || getActivityColor(activity.activity_type);
         
         html += `
-            <div class="activity-item">
-                <div class="activity-icon">
-                    <i class="${getActivityIcon(activity.activity_type)}"></i>
+            <div class="activity-item" style="
+                display: flex;
+                align-items: center;
+                padding: 12px;
+                border-bottom: 1px solid #f0f0f0;
+                transition: all 0.3s;
+                background: white;
+                border-radius: 8px;
+                margin-bottom: 8px;
+            ">
+                <div class="activity-icon" style="
+                    width: 40px;
+                    height: 40px;
+                    background: ${color}20;
+                    border-radius: 50%;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    margin-right: 12px;
+                    color: ${color};
+                ">
+                    <i class="${icon}"></i>
                 </div>
-                <div class="activity-content">
-                    <div class="activity-text">${activityText}</div>
-                    <div class="activity-time">${timeAgo}</div>
+                <div class="activity-content" style="flex: 1;">
+                    <div class="activity-text" style="font-size: 14px; color: #2c3e50;">${activityText}</div>
+                    <div class="activity-time" style="font-size: 12px; color: #999;">${timeAgo}</div>
                 </div>
                 ${activity.points_earned > 0 ? `
-                    <div class="activity-points">+${activity.points_earned}</div>
+                    <div class="activity-points" style="
+                        background: #27ae60;
+                        color: white;
+                        padding: 3px 8px;
+                        border-radius: 12px;
+                        font-size: 11px;
+                        font-weight: bold;
+                    ">+${activity.points_earned}</div>
                 ` : ''}
             </div>
         `;
     });
     
+    // Add FactoLearn indicator
+    html += `
+        <div style="margin-top: 15px; text-align: right; font-size: 11px; color: #7a0000;">
+            <i class="fas fa-database"></i> FactoLearn (Lesson ID: 3)
+        </div>
+    `;
+    
     container.innerHTML = html;
 }
+// ============================================
+// ✅ HELPER: Get activity color
+// ============================================
+function getActivityColor(activityType) {
+    const colors = {
+        'lesson_completed': '#7a0000',
+        'practice_completed': '#27ae60',
+        'quiz_completed': '#9b59b6',
+        'login': '#3498db',
+        'logout': '#e74c3c',
+        'feedback_submitted': '#f39c12',
+        'points_earned': '#f1c40f',
+        'tool_used': '#1abc9c',
+        'default': '#95a5a6'
+    };
+    
+    return colors[activityType] || colors.default;
+}
+
+
 // Update progress trends chart
 function updateProgressTrendsChart() {
     const trendsContainer = document.getElementById('progressTrendsChart');
@@ -23166,90 +23262,196 @@ async function fetchActivityLog(limit = 15) {
             return [];
         }
         
-        console.log(`📋 Fetching activity log (limit: ${limit})...`);
+        console.log(`📋 Fetching activity log for FactoLearn (lesson_id=3, limit: ${limit})...`);
         
-        // Use the working endpoint
-        const response = await fetch(`/api/progress/activity-feed?limit=${limit}`, {
-            headers: {
-                'Authorization': `Bearer ${token}`,
-                'Content-Type': 'application/json'
-            }
-        });
-        
-        // If 404, try alternative endpoint
-        if (response.status === 404) {
-            console.log('📋 Activity feed endpoint not found, trying daily progress...');
-            
-            // Try to get from daily progress as fallback
-            const dailyResponse = await fetch(`/api/progress/daily`, {
-                headers: { 'Authorization': `Bearer ${token}` }
+        // TRY 1: Use the working endpoint with lesson_id=3
+        try {
+            const response = await fetch(`/api/progress/activity-feed?limit=${limit}&lesson_id=3`, {
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json'
+                }
             });
             
-            if (dailyResponse.ok) {
-                const dailyData = await dailyResponse.json();
-                if (dailyData.success && dailyData.progress) {
-                    // Convert daily progress to activity format
-                    const activities = [];
-                    const today = new Date().toISOString().split('T')[0];
-                    
-                    if (dailyData.progress.lessons_completed > 0) {
-                        activities.push({
-                            activity_type: 'lesson_completed',
-                            activity_timestamp: new Date().toISOString(),
-                            details: { count: dailyData.progress.lessons_completed },
-                            points_earned: dailyData.progress.lessons_completed * 10
-                        });
-                    }
-                    
-                    if (dailyData.progress.exercises_completed > 0) {
-                        activities.push({
-                            activity_type: 'practice_completed',
-                            activity_timestamp: new Date().toISOString(),
-                            details: { count: dailyData.progress.exercises_completed },
-                            points_earned: dailyData.progress.exercises_completed * 5
-                        });
-                    }
-                    
-                    if (dailyData.progress.quizzes_completed > 0) {
-                        activities.push({
-                            activity_type: 'quiz_completed',
-                            activity_timestamp: new Date().toISOString(),
-                            details: { count: dailyData.progress.quizzes_completed },
-                            points_earned: dailyData.progress.quizzes_completed * 20
-                        });
-                    }
-                    
-                    console.log(`✅ Created ${activities.length} activities from daily progress`);
-                    ProgressState.activityLog = activities;
-                    return activities;
-                }
+            // If 404, go to fallback
+            if (response.status === 404) {
+                console.log('📋 Activity feed endpoint not found (404) - using fallback method');
+                return await getActivityLogFromProgress(limit);
             }
             
-            return [];
-        }
-        
-        if (!response.ok) {
-            throw new Error(`Failed to fetch activity log: ${response.status}`);
-        }
-        
-        const data = await response.json();
-        
-        if (data.success && data.activities) {
-            console.log(`✅ Fetched ${data.activities.length} activities`);
-            ProgressState.activityLog = data.activities;
-            return data.activities;
-        } else {
-            console.warn('No activities returned');
-            ProgressState.activityLog = [];
-            return [];
+            if (!response.ok) {
+                throw new Error(`Failed to fetch activity log: ${response.status}`);
+            }
+            
+            const data = await response.json();
+            
+            if (data.success && data.activities) {
+                console.log(`✅ Fetched ${data.activities.length} activities from database`);
+                ProgressState.activityLog = data.activities;
+                return data.activities;
+            } else {
+                console.warn('No activities returned from endpoint');
+                return await getActivityLogFromProgress(limit);
+            }
+            
+        } catch (error) {
+            console.warn('⚠️ Error with activity-feed endpoint:', error.message);
+            return await getActivityLogFromProgress(limit);
         }
         
     } catch (error) {
-        console.error('Error fetching activity log:', error);
+        console.error('❌ Error in fetchActivityLog:', error);
         ProgressState.activityLog = [];
         return [];
     }
 }
+// ============================================
+// ✅ FALLBACK: Get activity log from progress data
+// ============================================
+async function getActivityLogFromProgress(limit = 15) {
+    console.log('📋 Using fallback method to generate activity log from progress data...');
+    
+    try {
+        const token = localStorage.getItem('authToken') || authToken;
+        const LESSON_ID = 3; // Force FactoLearn only
+        
+        // Fetch all progress data in parallel
+        const [dailyData, lessonsData, practiceData, quizData] = await Promise.allSettled([
+            fetch(`/api/progress/daily?lesson_id=${LESSON_ID}`, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            }).then(res => res.json()).catch(() => ({ success: false })),
+            
+            fetch(`/api/progress/lessons?lesson_id=${LESSON_ID}`, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            }).then(res => res.json()).catch(() => ({ success: false })),
+            
+            fetch(`/api/progress/practice-attempts?lesson_id=${LESSON_ID}`, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            }).then(res => res.json()).catch(() => ({ success: false })),
+            
+            fetch(`/api/quiz/user/attempts?lesson_id=${LESSON_ID}`, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            }).then(res => res.json()).catch(() => ({ success: false }))
+        ]);
+        
+        const activities = [];
+        const now = new Date();
+        
+        // 1. Add today's activities from daily progress
+        if (dailyData.status === 'fulfilled' && dailyData.value.success) {
+            const progress = dailyData.value.progress || {};
+            
+            if (progress.lessons_completed > 0) {
+                activities.push({
+                    activity_type: 'lesson_completed',
+                    activity_timestamp: now.toISOString(),
+                    details: { 
+                        count: progress.lessons_completed,
+                        lesson_id: LESSON_ID
+                    },
+                    points_earned: progress.lessons_completed * 10,
+                    icon: 'fas fa-check-circle',
+                    color: '#7a0000'
+                });
+            }
+            
+            if (progress.exercises_completed > 0) {
+                activities.push({
+                    activity_type: 'practice_completed',
+                    activity_timestamp: now.toISOString(),
+                    details: { 
+                        count: progress.exercises_completed,
+                        lesson_id: LESSON_ID
+                    },
+                    points_earned: progress.exercises_completed * 5,
+                    icon: 'fas fa-pencil-alt',
+                    color: '#27ae60'
+                });
+            }
+        }
+        
+        // 2. Add completed lessons from lessons progress
+        if (lessonsData.status === 'fulfilled' && lessonsData.value.success) {
+            const progress = lessonsData.value.progress || [];
+            const completedLessons = progress.filter(p => 
+                p.completion_status === 'completed' && p.completed_at
+            );
+            
+            completedLessons.slice(0, 5).forEach(lesson => {
+                activities.push({
+                    activity_type: 'lesson_completed',
+                    activity_timestamp: lesson.completed_at || now.toISOString(),
+                    details: { 
+                        lesson_id: lesson.content_id,
+                        lesson_title: lesson.content_title || 'Lesson',
+                        topic: lesson.topic_title
+                    },
+                    points_earned: 10,
+                    icon: 'fas fa-graduation-cap',
+                    color: '#3498db'
+                });
+            });
+        }
+        
+        // 3. Add practice attempts
+        if (practiceData.status === 'fulfilled' && practiceData.value.success) {
+            const attempts = practiceData.value.attempts || [];
+            attempts.slice(0, 5).forEach(attempt => {
+                if (attempt.completed_at) {
+                    activities.push({
+                        activity_type: 'practice_completed',
+                        activity_timestamp: attempt.completed_at,
+                        details: { 
+                            exercise_id: attempt.exercise_id,
+                            score: attempt.score,
+                            percentage: attempt.percentage
+                        },
+                        points_earned: Math.floor((attempt.score || 0) / 2),
+                        icon: 'fas fa-dumbbell',
+                        color: '#f39c12'
+                    });
+                }
+            });
+        }
+        
+        // 4. Add quiz attempts
+        if (quizData.status === 'fulfilled' && quizData.value.success) {
+            const attempts = quizData.value.attempts || [];
+            attempts.slice(0, 5).forEach(attempt => {
+                if (attempt.completed_at) {
+                    activities.push({
+                        activity_type: 'quiz_completed',
+                        activity_timestamp: attempt.completed_at,
+                        details: { 
+                            quiz_id: attempt.quiz_id,
+                            score: attempt.score,
+                            passed: attempt.passed
+                        },
+                        points_earned: (attempt.score || 0) * 2,
+                        icon: 'fas fa-question-circle',
+                        color: '#9b59b6'
+                    });
+                }
+            });
+        }
+        
+        // Sort by date (newest first)
+        activities.sort((a, b) => new Date(b.activity_timestamp) - new Date(a.activity_timestamp));
+        
+        // Limit to requested number
+        const limitedActivities = activities.slice(0, limit);
+        
+        console.log(`✅ Generated ${limitedActivities.length} activities from progress data`);
+        ProgressState.activityLog = limitedActivities;
+        
+        return limitedActivities;
+        
+    } catch (error) {
+        console.error('❌ Error in fallback activity log:', error);
+        return [];
+    }
+}
+
 // ============================================
 // HELPER: Load video and content
 // ============================================
