@@ -31926,3 +31926,274 @@ window.testTimer = function(questions = 40) {
     QuizSystem.timeLeft = 0;
     startUniversalTimer();
 };
+
+
+// ============================================
+// FIX: LESSON NAVIGATION FOR ALL 3 LESSONS
+// ============================================
+
+// Function to ensure all lessons are loaded and navigation works
+function ensureAllLessonsInNavigation() {
+    console.log('🔧 Ensuring all lessons are available for navigation...');
+    
+    // Check if we're on module page
+    const modulePage = document.getElementById('module-dashboard-page');
+    if (!modulePage || modulePage.classList.contains('hidden')) {
+        return;
+    }
+    
+    // Check if we already have the full lessons list
+    if (window.allLessons && window.allLessons.length >= 3) {
+        console.log(`✅ Already have ${window.allLessons.length} lessons`);
+        updateNavigationWithAllLessons();
+        return;
+    }
+    
+    // Fetch all lessons from the server
+    fetch('/api/lessons-db/complete')
+        .then(response => response.json())
+        .then(lessons => {
+            if (lessons && lessons.length > 0) {
+                window.allLessons = lessons;
+                console.log(`📚 Loaded ${lessons.length} lessons for navigation`);
+                
+                // Store in localStorage as backup
+                try {
+                    localStorage.setItem('allLessons', JSON.stringify(lessons));
+                } catch(e) {}
+                
+                updateNavigationWithAllLessons();
+            }
+        })
+        .catch(error => {
+            console.error('Error fetching lessons:', error);
+            
+            // Try to load from localStorage
+            try {
+                const cached = localStorage.getItem('allLessons');
+                if (cached) {
+                    window.allLessons = JSON.parse(cached);
+                    console.log(`📚 Loaded ${window.allLessons.length} lessons from cache`);
+                    updateNavigationWithAllLessons();
+                }
+            } catch(e) {}
+        });
+}
+
+// Function to update navigation with full lessons list
+function updateNavigationWithAllLessons() {
+    if (!window.allLessons || window.allLessons.length === 0) return;
+    
+    const prevBtn = document.getElementById('prevLessonBtn');
+    const nextBtn = document.getElementById('nextLessonBtn');
+    const completeBtn = document.getElementById('completeLessonBtn');
+    
+    if (!prevBtn || !nextBtn) return;
+    
+    // Get current lesson ID
+    const currentLessonId = completeBtn ? completeBtn.getAttribute('data-lesson-id') : null;
+    
+    if (!currentLessonId) {
+        // Try to get from URL or title
+        const moduleTitle = document.getElementById('moduleTitle')?.textContent;
+        if (moduleTitle) {
+            // Find lesson by title
+            const match = window.allLessons.find(l => 
+                l.title && moduleTitle.includes(l.title) || 
+                (l.title && l.title.includes(moduleTitle))
+            );
+            if (match) {
+                updateNavigationForLesson(match.id);
+            }
+        }
+        return;
+    }
+    
+    updateNavigationForLesson(currentLessonId);
+}
+
+// Update navigation for specific lesson
+function updateNavigationForLesson(lessonId) {
+    if (!window.allLessons || window.allLessons.length === 0) return;
+    
+    const prevBtn = document.getElementById('prevLessonBtn');
+    const nextBtn = document.getElementById('nextLessonBtn');
+    const completeBtn = document.getElementById('completeLessonBtn');
+    
+    // Find current index
+    const currentIndex = window.allLessons.findIndex(l => l.id == lessonId);
+    
+    if (currentIndex === -1) {
+        console.log('Current lesson not found in full list');
+        return;
+    }
+    
+    console.log(`📚 Navigation: Lesson ${currentIndex + 1} of ${window.allLessons.length}`);
+    
+    // Update previous button
+    if (currentIndex > 0) {
+        prevBtn.disabled = false;
+        // Store the previous lesson ID in a data attribute
+        prevBtn.setAttribute('data-prev-id', window.allLessons[currentIndex - 1].id);
+    } else {
+        prevBtn.disabled = true;
+        prevBtn.removeAttribute('data-prev-id');
+    }
+    
+    // Update next button
+    if (currentIndex < window.allLessons.length - 1) {
+        nextBtn.disabled = false;
+        // Store the next lesson ID in a data attribute
+        nextBtn.setAttribute('data-next-id', window.allLessons[currentIndex + 1].id);
+    } else {
+        nextBtn.disabled = true;
+        nextBtn.removeAttribute('data-next-id');
+    }
+    
+    // Update complete button with current lesson ID if needed
+    if (completeBtn && completeBtn.getAttribute('data-lesson-id') != lessonId) {
+        completeBtn.setAttribute('data-lesson-id', lessonId);
+    }
+}
+
+// Override the existing navigation click handlers
+function setupNavigationHandlers() {
+    const prevBtn = document.getElementById('prevLessonBtn');
+    const nextBtn = document.getElementById('nextLessonBtn');
+    
+    if (prevBtn) {
+        // Remove existing listeners
+        const newPrevBtn = prevBtn.cloneNode(true);
+        prevBtn.parentNode.replaceChild(newPrevBtn, prevBtn);
+        
+        // Add new listener
+        newPrevBtn.addEventListener('click', function(e) {
+            e.preventDefault();
+            const prevId = this.getAttribute('data-prev-id');
+            if (prevId && window.allLessons) {
+                loadLessonById(prevId);
+            }
+        });
+    }
+    
+    if (nextBtn) {
+        // Remove existing listeners
+        const newNextBtn = nextBtn.cloneNode(true);
+        nextBtn.parentNode.replaceChild(newNextBtn, nextBtn);
+        
+        // Add new listener
+        newNextBtn.addEventListener('click', function(e) {
+            e.preventDefault();
+            const nextId = this.getAttribute('data-next-id');
+            if (nextId && window.allLessons) {
+                loadLessonById(nextId);
+            }
+        });
+    }
+}
+
+// Load lesson by ID
+function loadLessonById(lessonId) {
+    console.log(`Loading lesson ID: ${lessonId}`);
+    
+    // Show loading state
+    const moduleTitle = document.getElementById('moduleTitle');
+    const moduleSubtitle = document.getElementById('moduleSubtitle');
+    const lessonContent = document.getElementById('lessonContent');
+    const lessonVideo = document.getElementById('lessonVideo');
+    
+    if (moduleTitle) moduleTitle.textContent = 'Loading...';
+    if (moduleSubtitle) moduleSubtitle.textContent = 'Please wait...';
+    
+    // Fetch lesson data
+    fetch(`/api/lesson/${lessonId}`)
+        .then(response => response.json())
+        .then(lesson => {
+            console.log('Lesson loaded:', lesson);
+            
+            // Update UI
+            if (moduleTitle) moduleTitle.textContent = lesson.title || 'Lesson';
+            if (moduleSubtitle) moduleSubtitle.textContent = lesson.description || '';
+            
+            if (lessonVideo && lesson.video_url) {
+                lessonVideo.src = lesson.video_url;
+                lessonVideo.load();
+            }
+            
+            if (lessonContent) {
+                let html = '';
+                if (lesson.content) html += `<p>${lesson.content}</p>`;
+                if (lesson.example) html += `<div class="math-example"><p><strong>Example:</strong> ${lesson.example}</p></div>`;
+                if (lesson.steps && lesson.steps.length) {
+                    html += '<ol class="steps">';
+                    lesson.steps.forEach(step => html += `<li>${step}</li>`);
+                    html += '</ol>';
+                }
+                lessonContent.innerHTML = html || '<p>Lesson content not available</p>';
+            }
+            
+            // Update complete button
+            const completeBtn = document.getElementById('completeLessonBtn');
+            if (completeBtn) completeBtn.setAttribute('data-lesson-id', lessonId);
+            
+            // Update navigation for new lesson
+            updateNavigationForLesson(lessonId);
+        })
+        .catch(error => {
+            console.error('Error loading lesson:', error);
+            if (lessonContent) {
+                lessonContent.innerHTML = '<p class="error">Error loading lesson. Please try again.</p>';
+            }
+        });
+}
+
+// Initialize when module page becomes visible
+const moduleObserver = new MutationObserver(function(mutations) {
+    mutations.forEach(function(mutation) {
+        if (mutation.attributeName === 'class') {
+            const modulePage = document.getElementById('module-dashboard-page');
+            if (modulePage && !modulePage.classList.contains('hidden')) {
+                setTimeout(() => {
+                    ensureAllLessonsInNavigation();
+                    setupNavigationHandlers();
+                }, 300);
+            }
+        }
+    });
+});
+
+// Start observing
+const modulePage = document.getElementById('module-dashboard-page');
+if (modulePage) {
+    moduleObserver.observe(modulePage, { attributes: true });
+}
+
+// Also trigger when review buttons are clicked
+document.addEventListener('click', function(e) {
+    if (e.target.closest('.review-btn') || 
+        e.target.closest('[onclick*="reviewLesson"]') ||
+        e.target.closest('[onclick*="showModuleDashboard"]')) {
+        setTimeout(() => {
+            ensureAllLessonsInNavigation();
+            setupNavigationHandlers();
+        }, 500);
+    }
+});
+
+// Run on page load
+document.addEventListener('DOMContentLoaded', function() {
+    if (!document.getElementById('module-dashboard-page')?.classList.contains('hidden')) {
+        setTimeout(() => {
+            ensureAllLessonsInNavigation();
+            setupNavigationHandlers();
+        }, 500);
+    }
+});
+
+// If we're already on module page, run immediately
+if (!document.getElementById('module-dashboard-page')?.classList.contains('hidden')) {
+    setTimeout(() => {
+        ensureAllLessonsInNavigation();
+        setupNavigationHandlers();
+    }, 500);
+}
