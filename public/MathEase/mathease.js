@@ -25308,24 +25308,6 @@ async function initializeVideo(contentId) {
 }
 
 
-// Navigate to previous lesson
-async function navigateToPreviousLesson() {
-    const currentLesson = LessonState.currentLesson;
-    if (!currentLesson?.adjacent?.previous) return;
-    
-    const prevLessonId = currentLesson.adjacent.previous.id;
-    await openLesson(prevLessonId);
-}
-
-// Navigate to next lesson
-async function navigateToNextLesson() {
-    const currentLesson = LessonState.currentLesson;
-    if (!currentLesson?.adjacent?.next) return;
-    
-    const nextLessonId = currentLesson.adjacent.next.id;
-    await openLesson(nextLessonId);
-}
-
 // ============================================
 // PRACTICE EXERCISES MANAGEMENT - FIXED
 // ============================================
@@ -31957,283 +31939,696 @@ window.testTimer = function(questions = 40) {
                 }
             } catch(e) {}
         });
+// mathease.js - MathEase Application
+
 // ============================================
-// FINAL FIX: LESSON NAVIGATION FOR ALL 3 LESSONS
+// API CONFIGURATION
 // ============================================
-(function() {
-    console.log('🎯 Installing final lesson navigation fix...');
+const API_BASE_URL = 'https://backend-polylearn-production.up.railway.app';
+let authToken = localStorage.getItem('authToken') || null;
+
+// ============================================
+// GLOBAL VARIABLES
+// ============================================
+let currentLesson = null;
+let allLessons = [];
+
+// ============================================
+// UTILITY FUNCTIONS
+// ============================================
+
+// Show notification
+function showNotification(message, type = 'success') {
+    console.log(`📢 ${type.toUpperCase()}: ${message}`);
     
-    // Store lessons globally with unique names to avoid conflicts
-    window.MathLessonsList = window.MathLessonsList || [];
-    window.MathLessonsMap = window.MathLessonsMap || {};
-    
-    // Intercept fetch to capture lessons
-    const originalFetch = window.fetch;
-    window.fetch = function() {
-        return originalFetch.apply(this, arguments)
-            .then(response => {
-                // Check if this is the lessons API
-                const url = arguments[0] || '';
-                if (typeof url === 'string' && (url.includes('/api/lessons-db/complete') || url.includes('/api/lessons'))) {
-                    
-                    response.clone().json().then(data => {
-                        if (data && data.length > 0) {
-                            console.log(`📚 Captured ${data.length} lessons from API`);
-                            window.MathLessonsList = data;
-                            window.MathLessonsMap = {};
-                            data.forEach(lesson => {
-                                window.MathLessonsMap[lesson.id] = lesson;
-                            });
-                        }
-                    }).catch(() => {});
-                }
-                return response;
-            })
-            .catch(err => { throw err; });
-    };
-    
-    // Main function to setup navigation
-    window.setupMathNavigation = function() {
-        // Check if we're on module page
-        const modulePage = document.getElementById('module-dashboard-page');
-        if (!modulePage || modulePage.classList.contains('hidden')) {
-            return;
-        }
-        
-        console.log('🔧 Setting up lesson navigation...');
-        
-        const prevBtn = document.getElementById('prevLessonBtn');
-        const nextBtn = document.getElementById('nextLessonBtn');
-        const completeBtn = document.getElementById('completeLessonBtn');
-        
-        if (!prevBtn || !nextBtn) {
-            console.log('Navigation buttons not found');
-            return;
-        }
-        
-        // Get current lesson ID
-        let currentId = completeBtn ? completeBtn.getAttribute('data-lesson-id') : null;
-        
-        // If no ID, try to get from title
-        if (!currentId) {
-            const titleEl = document.getElementById('moduleTitle');
-            if (titleEl && window.MathLessonsList.length) {
-                const title = titleEl.textContent;
-                const match = window.MathLessonsList.find(l => 
-                    l.title && (title.includes(l.title) || l.title.includes(title))
-                );
-                if (match) currentId = match.id;
-            }
-        }
-        
-        // If still no ID or no lessons, wait and retry
-        if (!currentId || window.MathLessonsList.length === 0) {
-            console.log('Waiting for lesson data...');
-            setTimeout(window.setupMathNavigation, 500);
-            return;
-        }
-        
-        // Find current index
-        const currentIndex = window.MathLessonsList.findIndex(l => l.id == currentId);
-        
-        if (currentIndex === -1) {
-            console.log('Current lesson not found in list');
-            return;
-        }
-        
-        console.log(`📚 Lesson ${currentIndex + 1} of ${window.MathLessonsList.length}`);
-        console.log('Lessons:', window.MathLessonsList.map(l => ({id: l.id, title: l.title})));
-        
-        // Setup Previous Button
-        if (currentIndex > 0) {
-            const prevLesson = window.MathLessonsList[currentIndex - 1];
-            prevBtn.disabled = false;
-            
-            // Remove all existing listeners by cloning
-            const newPrev = prevBtn.cloneNode(true);
-            prevBtn.parentNode.replaceChild(newPrev, prevBtn);
-            
-            // Add new listener
-            newPrev.addEventListener('click', function(e) {
-                e.preventDefault();
-                e.stopPropagation();
-                window.loadMathLesson(prevLesson.id);
-            });
-            
-            console.log(`✅ Previous: ${prevLesson.title} (ID: ${prevLesson.id})`);
-        } else {
-            prevBtn.disabled = true;
-            console.log('⛔ No previous lesson');
-        }
-        
-        // Setup Next Button
-        if (currentIndex < window.MathLessonsList.length - 1) {
-            const nextLesson = window.MathLessonsList[currentIndex + 1];
-            nextBtn.disabled = false;
-            
-            // Remove all existing listeners by cloning
-            const newNext = nextBtn.cloneNode(true);
-            nextBtn.parentNode.replaceChild(newNext, nextBtn);
-            
-            // Add new listener
-            newNext.addEventListener('click', function(e) {
-                e.preventDefault();
-                e.stopPropagation();
-                window.loadMathLesson(nextLesson.id);
-            });
-            
-            console.log(`✅ Next: ${nextLesson.title} (ID: ${nextLesson.id})`);
-        } else {
-            nextBtn.disabled = true;
-            console.log('⛔ No next lesson');
-        }
-        
-        // Update complete button
-        if (completeBtn) {
-            completeBtn.setAttribute('data-lesson-id', currentId);
-        }
-    };
-    
-    // Function to load a lesson
-    window.loadMathLesson = function(lessonId) {
-        console.log(`📖 Loading lesson ID: ${lessonId}`);
-        
-        // Show loading state
-        const titleEl = document.getElementById('moduleTitle');
-        const contentEl = document.getElementById('lessonContent');
-        const videoEl = document.getElementById('lessonVideo');
-        
-        if (titleEl) titleEl.textContent = 'Loading...';
-        if (contentEl) contentEl.innerHTML = '<p>Loading lesson content...</p>';
-        
-        // Check if we have it cached
-        if (window.MathLessonsMap[lessonId]) {
-            console.log('Using cached lesson data');
-            window.renderMathLesson(window.MathLessonsMap[lessonId]);
-            return;
-        }
-        
-        // Fetch from server
-        fetch(`/api/lesson/${lessonId}`)
-            .then(response => response.json())
-            .then(lesson => {
-                console.log('Lesson loaded:', lesson);
-                // Cache it
-                window.MathLessonsMap[lessonId] = lesson;
-                window.renderMathLesson(lesson);
-            })
-            .catch(error => {
-                console.error('Error loading lesson:', error);
-                if (contentEl) {
-                    contentEl.innerHTML = '<p class="error">Error loading lesson. Please try again.</p>';
-                }
-            });
-    };
-    
-    // Function to render a lesson
-    window.renderMathLesson = function(lesson) {
-        console.log('Rendering lesson:', lesson.title);
-        
-        // Update title
-        const titleEl = document.getElementById('moduleTitle');
-        if (titleEl) titleEl.textContent = lesson.title || 'Lesson';
-        
-        // Update subtitle
-        const subtitleEl = document.getElementById('moduleSubtitle');
-        if (subtitleEl) subtitleEl.textContent = lesson.description || '';
-        
-        // Update video
-        const videoEl = document.getElementById('lessonVideo');
-        if (videoEl && lesson.video_url) {
-            videoEl.src = lesson.video_url;
-            videoEl.load();
-        }
-        
-        // Update content
-        const contentEl = document.getElementById('lessonContent');
-        if (contentEl) {
-            let html = '';
-            
-            if (lesson.content) {
-                html += `<p>${lesson.content}</p>`;
-            }
-            
-            if (lesson.example) {
-                html += `<div class="math-example"><p><strong>Example:</strong> ${lesson.example}</p></div>`;
-            }
-            
-            if (lesson.steps && lesson.steps.length > 0) {
-                html += '<ol class="steps">';
-                lesson.steps.forEach(step => {
-                    html += `<li>${step}</li>`;
-                });
-                html += '</ol>';
-            }
-            
-            contentEl.innerHTML = html || '<p>Lesson content not available</p>';
-        }
-        
-        // Update complete button
-        const completeBtn = document.getElementById('completeLessonBtn');
-        if (completeBtn) {
-            completeBtn.setAttribute('data-lesson-id', lesson.id);
-        }
-        
-        // Update navigation for new lesson
-        setTimeout(window.setupMathNavigation, 100);
-    };
-    
-    // Watch for module page visibility changes
-    const observer = new MutationObserver(function(mutations) {
-        mutations.forEach(function(mutation) {
-            if (mutation.attributeName === 'class') {
-                const page = document.getElementById('module-dashboard-page');
-                if (page && !page.classList.contains('hidden')) {
-                    console.log('Module page became visible');
-                    setTimeout(window.setupMathNavigation, 300);
-                }
-            }
-        });
+    // Remove existing notifications
+    const existingNotifications = document.querySelectorAll('.notification');
+    existingNotifications.forEach(notification => {
+        notification.remove();
     });
     
-    const page = document.getElementById('module-dashboard-page');
-    if (page) {
-        observer.observe(page, { attributes: true });
+    // Create notification element
+    const notification = document.createElement('div');
+    notification.className = `notification notification-${type}`;
+    
+    const icon = type === 'success' ? 'fa-check-circle' : 
+                 type === 'error' ? 'fa-exclamation-circle' :
+                 type === 'warning' ? 'fa-exclamation-triangle' : 'fa-info-circle';
+    
+    notification.innerHTML = `
+        <div class="notification-content">
+            <i class="fas ${icon}"></i>
+            <span>${message}</span>
+        </div>
+    `;
+    
+    // Add styles
+    notification.style.cssText = `
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        background: ${type === 'success' ? '#27ae60' : 
+                    type === 'error' ? '#e74c3c' : 
+                    type === 'warning' ? '#f39c12' : '#3498db'};
+        color: white;
+        padding: 12px 20px;
+        border-radius: 8px;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+        z-index: 10000;
+        animation: slideInRight 0.3s ease, fadeOut 0.3s ease 2.7s;
+        max-width: 300px;
+        font-size: 0.95rem;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    `;
+    
+    // Add animation styles if not already present
+    if (!document.querySelector('#notification-styles')) {
+        const style = document.createElement('style');
+        style.id = 'notification-styles';
+        style.textContent = `
+            @keyframes slideInRight {
+                from { transform: translateX(100%); opacity: 0; }
+                to { transform: translateX(0); opacity: 1; }
+            }
+            @keyframes fadeOut {
+                from { opacity: 1; }
+                to { opacity: 0; }
+            }
+        `;
+        document.head.appendChild(style);
     }
     
-    // Listen for review button clicks
-    document.addEventListener('click', function(e) {
-        const isReviewButton = 
-            e.target.closest('.review-btn') || 
-            e.target.closest('[onclick*="reviewLesson"]') ||
-            e.target.closest('[onclick*="showModuleDashboard"]') ||
-            (e.target.closest('button') && e.target.textContent.includes('Review'));
-        
-        if (isReviewButton) {
-            console.log('Review button clicked');
-            setTimeout(window.setupMathNavigation, 600);
+    document.body.appendChild(notification);
+    
+    setTimeout(() => {
+        if (notification.parentNode) {
+            notification.parentNode.removeChild(notification);
+        }
+    }, 3000);
+    
+    notification.addEventListener('click', () => {
+        if (notification.parentNode) {
+            notification.parentNode.removeChild(notification);
         }
     });
-    
-    // Initial check
-    setTimeout(function() {
-        if (!document.getElementById('module-dashboard-page')?.classList.contains('hidden')) {
-            window.setupMathNavigation();
+}
+
+// Extract YouTube ID from URL
+function extractYoutubeId(url) {
+    const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|&v=)([^#&?]*).*/;
+    const match = url.match(regExp);
+    return (match && match[2].length === 11) ? match[2] : null;
+}
+
+// ============================================
+// FETCH ALL LESSONS FOR MATHEASE (lesson_id = 1)
+// ============================================
+async function fetchAllMatheaseLessons() {
+    try {
+        console.log('📚 Fetching all Mathease lessons...');
+        
+        const token = localStorage.getItem('authToken') || authToken;
+        if (!token) {
+            console.warn('No auth token');
+            return [];
         }
-    }, 1000);
-    
-    // Pre-load all lessons
-    fetch('/api/lessons-db/complete')
-        .then(res => res.json())
-        .then(lessons => {
-            if (lessons && lessons.length > 0) {
-                window.MathLessonsList = lessons;
-                lessons.forEach(l => window.MathLessonsMap[l.id] = l);
-                console.log(`✅ Pre-loaded ${lessons.length} lessons:`, 
-                    lessons.map(l => ({id: l.id, title: l.title})));
+        
+        // Mathease uses lesson_id = 1
+        const response = await fetch(`${API_BASE_URL}/api/lessons-db/complete?lesson_id=1`, {
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
             }
-        })
-        .catch(err => console.log('Could not pre-load lessons:', err));
+        });
+        
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        
+        const data = await response.json();
+        
+        if (data.success && data.lessons) {
+            console.log(`✅ Found ${data.lessons.length} Mathease lessons`);
+            allLessons = data.lessons;
+            return data.lessons;
+        } else {
+            console.warn('No lessons returned');
+            return [];
+        }
+    } catch (error) {
+        console.error('❌ Error fetching lessons:', error);
+        return [];
+    }
+}
+
+// ============================================
+// OPEN LESSON IN MATHEASE
+// ============================================
+async function openMatheaseLesson(lessonId) {
+    console.log('📖 Opening Mathease lesson:', lessonId);
     
-    console.log('✅ Navigation fix installed');
-})();
+    try {
+        const token = localStorage.getItem('authToken') || authToken;
+        
+        // Fetch lesson details
+        const response = await fetch(`${API_BASE_URL}/api/lessons-db/${lessonId}`, {
+            headers: {
+                'Authorization': `Bearer ${token}`
+            }
+        });
+        
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        
+        const data = await response.json();
+        
+        if (!data.success || !data.lesson) {
+            throw new Error('Lesson not found');
+        }
+        
+        const lesson = data.lesson;
+        console.log('✅ Lesson loaded:', lesson.content_title);
+        console.log('📋 Adjacent lessons from server:', lesson.adjacent);
+        
+        currentLesson = lesson;
+        
+        // Update URL without reload
+        const url = new URL(window.location);
+        url.searchParams.set('lessonId', lessonId);
+        window.history.pushState({}, '', url);
+        
+        // Update the page content
+        updateLessonUI(lesson);
+        
+        // Setup navigation buttons
+        setupMatheaseNavigationButtons();
+        
+        // Load video if available
+        await loadMatheaseVideo(lessonId);
+        
+        // Update complete button status
+        updateCompleteButtonStatus(lesson);
+        
+    } catch (error) {
+        console.error('Error opening lesson:', error);
+        showNotification('Error loading lesson: ' + error.message, 'error');
+    }
+}
+
+// ============================================
+// UPDATE LESSON UI
+// ============================================
+function updateLessonUI(lesson) {
+    // Update title
+    const titleElement = document.getElementById('lessonTitle');
+    if (titleElement) {
+        titleElement.textContent = lesson.content_title || 'MathEase Lesson';
+    }
+    
+    // Update description
+    const descElement = document.getElementById('lessonDescription');
+    if (descElement) {
+        descElement.textContent = lesson.content_description || '';
+    }
+    
+    // Update progress if available
+    if (lesson.progress) {
+        const progressBar = document.getElementById('lessonProgressBar');
+        const progressText = document.getElementById('progressText');
+        
+        if (progressBar) {
+            progressBar.style.width = `${lesson.progress.percentage || 0}%`;
+        }
+        
+        if (progressText) {
+            progressText.textContent = `${lesson.progress.percentage || 0}% Complete`;
+        }
+        
+        // Update complete button if already completed
+        if (lesson.progress.status === 'completed') {
+            const completeBtn = document.getElementById('completeLessonBtn');
+            if (completeBtn) {
+                completeBtn.innerHTML = '<i class="fas fa-check"></i> Lesson Completed';
+                completeBtn.disabled = true;
+                completeBtn.style.background = '#2ecc71';
+            }
+        }
+    }
+}
+
+// ============================================
+// LOAD MATHEASE VIDEO
+// ============================================
+async function loadMatheaseVideo(lessonId) {
+    const videoContainer = document.getElementById('videoContainer');
+    if (!videoContainer) return;
+    
+    // Show loading
+    videoContainer.innerHTML = `
+        <div style="background:#f0f0f0; height:400px; display:flex; align-items:center; justify-content:center;">
+            <i class="fas fa-spinner fa-spin" style="font-size:40px; color:#7a0000;"></i>
+            <p style="margin-left:15px;">Loading video...</p>
+        </div>
+    `;
+    
+    try {
+        const token = localStorage.getItem('authToken') || authToken;
+        const response = await fetch(`${API_BASE_URL}/api/lessons-db/${lessonId}`, {
+            headers: {
+                'Authorization': `Bearer ${token}`
+            }
+        });
+        
+        const data = await response.json();
+        
+        if (data.success && data.lesson) {
+            const lesson = data.lesson;
+            
+            // Clear container
+            videoContainer.innerHTML = '';
+            
+            // Determine video source
+            let videoUrl = null;
+            
+            // Check for YouTube URL first
+            if (lesson.content_url && (lesson.content_url.includes('youtube') || lesson.content_url.includes('youtu.be'))) {
+                const videoId = extractYoutubeId(lesson.content_url);
+                if (videoId) {
+                    videoContainer.innerHTML = `
+                        <iframe width="100%" height="400" 
+                            src="https://www.youtube.com/embed/${videoId}"
+                            frameborder="0" allowfullscreen>
+                        </iframe>
+                    `;
+                    return;
+                }
+            } 
+            // Check for uploaded video
+            else if (lesson.video_filename) {
+                if (lesson.video_filename.startsWith('http')) {
+                    videoUrl = lesson.video_filename;
+                } else {
+                    videoUrl = `${window.location.origin}/uploads/videos/${lesson.video_filename}`;
+                }
+            }
+            // Check for video path
+            else if (lesson.video_path) {
+                if (lesson.video_path.startsWith('http')) {
+                    videoUrl = lesson.video_path;
+                } else {
+                    const filename = lesson.video_path.split('/').pop();
+                    videoUrl = `${window.location.origin}/uploads/videos/${filename}`;
+                }
+            }
+            
+            if (videoUrl) {
+                videoContainer.innerHTML = `
+                    <video id="lessonVideo" controls style="width:100%; max-height:400px; background:#000;">
+                        <source src="${videoUrl}?v=${Date.now()}" type="video/mp4">
+                        Your browser does not support the video tag.
+                    </video>
+                `;
+                
+                // Add error handler
+                const video = document.getElementById('lessonVideo');
+                video.onerror = function() {
+                    console.error('Video failed to load');
+                    videoContainer.innerHTML = `
+                        <div style="background:#fee; height:400px; display:flex; align-items:center; justify-content:center; flex-direction:column;">
+                            <i class="fas fa-exclamation-triangle" style="font-size:60px; color:#e74c3c;"></i>
+                            <h3 style="color:#c0392b;">Video failed to load</h3>
+                            <p style="color:#e74c3c;">The video file may be missing.</p>
+                        </div>
+                    `;
+                };
+            } else {
+                videoContainer.innerHTML = `
+                    <div style="background:#f0f0f0; height:400px; display:flex; align-items:center; justify-content:center; flex-direction:column;">
+                        <i class="fas fa-video-slash" style="font-size:60px; color:#999;"></i>
+                        <h3 style="color:#666;">No video available</h3>
+                        <p style="color:#999;">This lesson has no video assigned.</p>
+                    </div>
+                `;
+            }
+        }
+    } catch (error) {
+        console.error('Error loading video:', error);
+        videoContainer.innerHTML = `
+            <div style="background:#fee; height:400px; display:flex; align-items:center; justify-content:center;">
+                <p style="color:#e74c3c;">Error loading video</p>
+            </div>
+        `;
+    }
+}
+
+// ============================================
+// SETUP NAVIGATION BUTTONS FOR MATHEASE
+// ============================================
+async function setupMatheaseNavigationButtons() {
+    console.log('🔘 Setting up Mathease navigation buttons...');
+    
+    if (!currentLesson) {
+        console.error('❌ No current lesson found');
+        return;
+    }
+    
+    console.log('📖 Current lesson:', currentLesson.content_title, 'ID:', currentLesson.content_id);
+    console.log('📋 Adjacent lessons:', currentLesson.adjacent);
+    
+    // Make sure we have all lessons
+    if (allLessons.length === 0) {
+        await fetchAllMatheaseLessons();
+    }
+    
+    // ===== PREVIOUS BUTTON =====
+    const prevBtn = document.getElementById('prevLessonBtn');
+    if (prevBtn) {
+        // Remove all existing listeners by cloning
+        const newPrevBtn = prevBtn.cloneNode(true);
+        prevBtn.parentNode.replaceChild(newPrevBtn, prevBtn);
+        
+        // Check if there's a previous lesson
+        const hasPrevious = currentLesson.adjacent?.previous || 
+                           (allLessons.length > 0 && 
+                            allLessons.findIndex(l => l.content_id == currentLesson.content_id) > 0);
+        
+        if (hasPrevious) {
+            newPrevBtn.disabled = false;
+            
+            if (currentLesson.adjacent?.previous) {
+                newPrevBtn.innerHTML = `<i class="fas fa-arrow-left"></i> Previous: ${currentLesson.adjacent.previous.title}`;
+                newPrevBtn.title = `Go to previous lesson: ${currentLesson.adjacent.previous.title}`;
+            } else {
+                // Find previous from allLessons
+                const currentIndex = allLessons.findIndex(l => l.content_id == currentLesson.content_id);
+                if (currentIndex > 0) {
+                    const prevLesson = allLessons[currentIndex - 1];
+                    newPrevBtn.innerHTML = `<i class="fas fa-arrow-left"></i> Previous: ${prevLesson.content_title}`;
+                    newPrevBtn.title = `Go to previous lesson: ${prevLesson.content_title}`;
+                } else {
+                    newPrevBtn.innerHTML = `<i class="fas fa-arrow-left"></i> Previous Lesson`;
+                }
+            }
+            
+            // Add click handler
+            newPrevBtn.addEventListener('click', async function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                await goToPreviousMatheaseLesson();
+            });
+            
+            console.log('✅ Previous button enabled');
+        } else {
+            newPrevBtn.disabled = true;
+            newPrevBtn.innerHTML = `<i class="fas fa-arrow-left"></i> Previous`;
+            console.log('ℹ️ No previous lesson available');
+        }
+    }
+    
+    // ===== NEXT BUTTON =====
+    const nextBtn = document.getElementById('nextLessonBtn');
+    if (nextBtn) {
+        // Remove all existing listeners by cloning
+        const newNextBtn = nextBtn.cloneNode(true);
+        nextBtn.parentNode.replaceChild(newNextBtn, nextBtn);
+        
+        // Check if there's a next lesson
+        const hasNext = currentLesson.adjacent?.next || 
+                       (allLessons.length > 0 && 
+                        allLessons.findIndex(l => l.content_id == currentLesson.content_id) < allLessons.length - 1);
+        
+        if (hasNext) {
+            newNextBtn.disabled = false;
+            
+            if (currentLesson.adjacent?.next) {
+                newNextBtn.innerHTML = `Next: ${currentLesson.adjacent.next.title} <i class="fas fa-arrow-right"></i>`;
+                newNextBtn.title = `Go to next lesson: ${currentLesson.adjacent.next.title}`;
+            } else {
+                // Find next from allLessons
+                const currentIndex = allLessons.findIndex(l => l.content_id == currentLesson.content_id);
+                if (currentIndex < allLessons.length - 1) {
+                    const nextLesson = allLessons[currentIndex + 1];
+                    newNextBtn.innerHTML = `Next: ${nextLesson.content_title} <i class="fas fa-arrow-right"></i>`;
+                    newNextBtn.title = `Go to next lesson: ${nextLesson.content_title}`;
+                } else {
+                    newNextBtn.innerHTML = `Next Lesson <i class="fas fa-arrow-right"></i>`;
+                }
+            }
+            
+            // Add click handler
+            newNextBtn.addEventListener('click', async function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                await goToNextMatheaseLesson();
+            });
+            
+            console.log('✅ Next button enabled');
+        } else {
+            newNextBtn.disabled = true;
+            newNextBtn.innerHTML = `Next <i class="fas fa-arrow-right"></i>`;
+            console.log('ℹ️ No next lesson available');
+        }
+    }
+}
+
+// ============================================
+// GO TO PREVIOUS LESSON
+// ============================================
+async function goToPreviousMatheaseLesson() {
+    console.log('⬅️ Going to previous Mathease lesson...');
+    
+    if (!currentLesson) {
+        console.log('No current lesson found');
+        return;
+    }
+    
+    // Try to use adjacent data first
+    if (currentLesson.adjacent && currentLesson.adjacent.previous) {
+        const prevLessonId = currentLesson.adjacent.previous.id;
+        console.log(`📖 Opening previous lesson ID: ${prevLessonId} from adjacent data`);
+        await openMatheaseLesson(prevLessonId);
+        return;
+    }
+    
+    // Fallback: Find from all lessons
+    if (allLessons.length === 0) {
+        await fetchAllMatheaseLessons();
+    }
+    
+    const currentIndex = allLessons.findIndex(l => l.content_id == currentLesson.content_id);
+    
+    if (currentIndex > 0) {
+        const prevLesson = allLessons[currentIndex - 1];
+        console.log(`✅ Found previous lesson via fallback:`, prevLesson.content_title);
+        await openMatheaseLesson(prevLesson.content_id);
+    } else {
+        console.log('No previous lesson found');
+        showNotification('This is the first lesson', 'info');
+    }
+}
+
+// ============================================
+// GO TO NEXT LESSON
+// ============================================
+async function goToNextMatheaseLesson() {
+    console.log('➡️ Going to next Mathease lesson...');
+    
+    if (!currentLesson) {
+        console.log('No current lesson found');
+        return;
+    }
+    
+    // Try to use adjacent data first
+    if (currentLesson.adjacent && currentLesson.adjacent.next) {
+        const nextLessonId = currentLesson.adjacent.next.id;
+        console.log(`📖 Opening next lesson ID: ${nextLessonId} from adjacent data`);
+        await openMatheaseLesson(nextLessonId);
+        return;
+    }
+    
+    // Fallback: Find from all lessons
+    if (allLessons.length === 0) {
+        await fetchAllMatheaseLessons();
+    }
+    
+    const currentIndex = allLessons.findIndex(l => l.content_id == currentLesson.content_id);
+    
+    if (currentIndex >= 0 && currentIndex < allLessons.length - 1) {
+        const nextLesson = allLessons[currentIndex + 1];
+        console.log(`✅ Found next lesson via fallback:`, nextLesson.content_title);
+        await openMatheaseLesson(nextLesson.content_id);
+    } else {
+        console.log('No next lesson found');
+        showNotification('This is the last lesson', 'info');
+    }
+}
+
+// ============================================
+// MARK LESSON COMPLETE
+// ============================================
+async function markLessonComplete() {
+    console.log('🎯 Marking lesson as complete...');
+    
+    const completeBtn = document.getElementById('completeLessonBtn');
+    if (!completeBtn) return;
+    
+    if (!currentLesson) {
+        showNotification('No lesson loaded', 'error');
+        return;
+    }
+    
+    const contentId = currentLesson.content_id;
+    
+    // Disable button
+    completeBtn.disabled = true;
+    const originalText = completeBtn.innerHTML;
+    completeBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Saving...';
+    
+    try {
+        const token = localStorage.getItem('authToken') || authToken;
+        
+        // Calculate time spent (if video exists)
+        let timeSpentSeconds = 300; // Default 5 minutes
+        const videoElement = document.getElementById('lessonVideo');
+        if (videoElement && videoElement.currentTime) {
+            timeSpentSeconds = Math.floor(videoElement.currentTime);
+        }
+        
+        // Update lesson progress
+        const response = await fetch(`${API_BASE_URL}/api/lessons-db/${contentId}/progress`, {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                completion_status: 'completed',
+                percentage: 100,
+                time_spent_seconds: timeSpentSeconds
+            })
+        });
+        
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            console.log('✅ Lesson completed!');
+            
+            completeBtn.innerHTML = '<i class="fas fa-check"></i> Lesson Completed!';
+            completeBtn.style.background = '#2ecc71';
+            
+            showNotification('✅ Lesson marked as complete!', 'success');
+            
+            // Refresh after 2 seconds
+            setTimeout(() => {
+                location.reload();
+            }, 2000);
+        } else {
+            throw new Error(data.message || 'Failed to update');
+        }
+    } catch (error) {
+        console.error('❌ Error:', error);
+        showNotification('Error: ' + error.message, 'error');
+        
+        completeBtn.innerHTML = originalText;
+        completeBtn.disabled = false;
+    }
+}
+
+// ============================================
+// UPDATE COMPLETE BUTTON STATUS
+// ============================================
+function updateCompleteButtonStatus(lesson) {
+    const completeBtn = document.getElementById('completeLessonBtn');
+    if (!completeBtn) return;
+    
+    if (lesson.progress && lesson.progress.status === 'completed') {
+        completeBtn.innerHTML = '<i class="fas fa-check"></i> Lesson Completed';
+        completeBtn.disabled = true;
+        completeBtn.style.background = '#2ecc71';
+    } else {
+        completeBtn.innerHTML = '<i class="fas fa-check-circle"></i> Mark Lesson Complete';
+        completeBtn.disabled = false;
+        completeBtn.style.background = '#7a0000';
+        
+        // Add click handler
+        completeBtn.onclick = function(e) {
+            e.preventDefault();
+            markLessonComplete();
+        };
+    }
+}
+
+// ============================================
+// INITIALIZE MATHEASE LESSON PAGE
+// ============================================
+async function initMatheaseLessonPage() {
+    console.log('📚 Initializing Mathease lesson page...');
+    
+    // Check URL for lesson ID
+    const urlParams = new URLSearchParams(window.location.search);
+    let lessonId = urlParams.get('lessonId');
+    
+    if (!lessonId) {
+        // Try to get first lesson
+        const lessons = await fetchAllMatheaseLessons();
+        if (lessons.length > 0) {
+            lessonId = lessons[0].content_id;
+            console.log(`📖 Loading first lesson: ${lessonId}`);
+        } else {
+            console.error('No lessons available');
+            const container = document.querySelector('.container');
+            if (container) {
+                container.innerHTML = `
+                    <div style="text-align:center; padding:50px;">
+                        <i class="fas fa-book-open" style="font-size:60px; color:#ccc;"></i>
+                        <h2 style="color:#666;">No Lessons Available</h2>
+                        <p style="color:#999;">Please check back later for Mathease lessons.</p>
+                    </div>
+                `;
+            }
+            return;
+        }
+    }
+    
+    // Open the lesson
+    await openMatheaseLesson(lessonId);
+}
+
+// ============================================
+// SETUP BACK BUTTON
+// ============================================
+function setupBackButton() {
+    const backBtn = document.getElementById('backToDashboardBtn');
+    if (backBtn) {
+        backBtn.addEventListener('click', function(e) {
+            e.preventDefault();
+            window.location.href = 'mathease.html';
+        });
+    }
+}
+
+// ============================================
+// RUN ON PAGE LOAD
+// ============================================
+document.addEventListener('DOMContentLoaded', function() {
+    console.log('📄 Mathease page loaded');
+    
+    // Check if we're on a lesson page (has lesson container)
+    if (document.getElementById('lessonContainer') || document.querySelector('.lesson-page')) {
+        initMatheaseLessonPage();
+        setupBackButton();
+    }
+});
+
+// Make functions globally available
+window.goToPreviousMatheaseLesson = goToPreviousMatheaseLesson;
+window.goToNextMatheaseLesson = goToNextMatheaseLesson;
+window.markLessonComplete = markLessonComplete;
+window.showNotification = showNotification;
