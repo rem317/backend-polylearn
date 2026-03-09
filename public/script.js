@@ -35800,195 +35800,77 @@ console.log('   - resetCompleteButton() - Reset button to "Mark Complete"');
 console.log('   - forceCompleteLesson() - Emergency complete lesson');
 
 
-// ============================================
-// 🚨 ULTIMATE AGGRESSIVE FIX - NO SYNTAX ERRORS
-// ============================================
-
+// DIRECT CONSOLE FIX - Copy and paste this whole block
 (function() {
-    console.log('🔧 ACTIVATING ULTIMATE AGGRESSIVE FIX...');
-    
-    // Function to forcefully change the button
-    function forceButtonToMarkComplete() {
-        const btn = document.getElementById('completeLessonBtn');
-        
-        if (!btn) return false;
-        
-        // Check if button needs fixing
-        const needsFix = btn.innerHTML.includes('Lesson Completed') || 
-                         btn.innerHTML.includes('✅') ||
-                         btn.className.includes('btn-success') ||
-                         btn.disabled === true;
-        
-        if (needsFix) {
-            console.log('⚠️ Force fixing button...');
-            
-            // Create new button
-            const newBtn = document.createElement('button');
-            newBtn.id = 'completeLessonBtn';
-            newBtn.className = 'btn-primary';
-            newBtn.setAttribute('data-lesson-id', btn.getAttribute('data-lesson-id') || '1');
-            newBtn.innerHTML = '<i class="fas fa-check-circle"></i> Mark Lesson Complete';
-            
-            // Apply styles
-            newBtn.style.background = '#7a0000';
-            newBtn.style.color = 'white';
-            newBtn.style.border = 'none';
-            newBtn.style.padding = '10px 20px';
-            newBtn.style.borderRadius = '5px';
-            newBtn.style.cursor = 'pointer';
-            newBtn.style.fontSize = '14px';
-            newBtn.style.fontWeight = '600';
-            newBtn.disabled = false;
-            
-            // Replace old button
-            if (btn.parentNode) {
-                btn.parentNode.replaceChild(newBtn, btn);
-            }
-            
-            return newBtn;
-        }
-        
-        return btn;
-    }
-    
-    // Function to attach click handler
-    function attachHandler(btn) {
-        if (!btn) return;
-        
-        btn.onclick = async function(e) {
-            e.preventDefault();
-            e.stopPropagation();
-            
-            console.log('🎯 Button clicked');
-            
-            if (this.disabled) return;
-            
-            // Get lesson ID
-            const urlParams = new URLSearchParams(window.location.search);
-            let lessonId = urlParams.get('lessonId') || this.getAttribute('data-lesson-id');
-            
-            if (!lessonId && window.LessonState && window.LessonState.currentLesson) {
-                lessonId = window.LessonState.currentLesson.content_id;
-            }
-            
-            if (!lessonId) {
-                alert('Cannot identify lesson');
-                return;
-            }
-            
-            this.disabled = true;
-            this.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Saving...';
-            
-            try {
-                const token = localStorage.getItem('authToken');
-                const response = await fetch(`/api/lessons-db/${lessonId}/progress`, {
-                    method: 'POST',
-                    headers: {
-                        'Authorization': `Bearer ${token}`,
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({
-                        completion_status: 'completed',
-                        percentage: 100
-                    })
-                });
-                
-                const data = await response.json();
-                
-                if (data.success) {
-                    this.innerHTML = '<i class="fas fa-check"></i> Lesson Completed!';
-                    this.style.background = '#2ecc71';
-                    alert('✅ Lesson completed!');
-                    setTimeout(() => location.reload(), 2000);
-                } else {
-                    throw new Error(data.message || 'Failed to update');
-                }
-                
-            } catch (error) {
-                console.error('Error:', error);
-                alert('Error: ' + error.message);
-                this.innerHTML = '<i class="fas fa-check-circle"></i> Mark Lesson Complete';
-                this.style.background = '#7a0000';
-                this.disabled = false;
-            }
-        };
-    }
-    
-    // Run fix multiple times
-    let attempts = 0;
-    let fixedButton = null;
-    
-    const fixInterval = setInterval(() => {
-        attempts++;
-        
-        const btn = forceButtonToMarkComplete();
-        
-        if (btn && btn !== fixedButton) {
-            attachHandler(btn);
-            fixedButton = btn;
-            console.log(`✅ Fix applied at attempt #${attempts}`);
-        }
-        
-        if (attempts >= 20) { // Stop after 2 seconds (20 * 100ms)
-            clearInterval(fixInterval);
-            console.log('🛑 Fix interval stopped');
-        }
-    }, 100);
-    
-    // Watch for DOM changes
-    const observer = new MutationObserver(function(mutations) {
-        mutations.forEach(function(mutation) {
-            if (mutation.type === 'attributes' || mutation.type === 'childList') {
-                const btn = document.getElementById('completeLessonBtn');
-                if (btn && btn.innerHTML.includes('Lesson Completed') && !btn.innerHTML.includes('Mark')) {
-                    console.log('⚠️ DOM change detected - re-fixing...');
-                    forceButtonToMarkComplete();
-                }
-            }
-        });
-    });
-    
-    observer.observe(document.body, {
-        childList: true,
-        subtree: true,
-        attributes: true
-    });
-    
-    console.log('🚀 Aggressive fix running');
-    
-})();
-
-// Manual fix function
-window.fixButtonNow = function() {
     const btn = document.getElementById('completeLessonBtn');
     if (btn) {
+        // Create new button
         const newBtn = document.createElement('button');
         newBtn.id = 'completeLessonBtn';
         newBtn.className = 'btn-primary';
         newBtn.setAttribute('data-lesson-id', btn.getAttribute('data-lesson-id') || '1');
         newBtn.innerHTML = '<i class="fas fa-check-circle"></i> Mark Lesson Complete';
+        
+        // Apply styles
         newBtn.style.background = '#7a0000';
         newBtn.style.color = 'white';
         newBtn.style.border = 'none';
         newBtn.style.padding = '10px 20px';
         newBtn.style.borderRadius = '5px';
         newBtn.style.cursor = 'pointer';
+        newBtn.style.fontSize = '14px';
+        newBtn.style.fontWeight = '600';
         newBtn.disabled = false;
         
+        // Replace button
         if (btn.parentNode) {
             btn.parentNode.replaceChild(newBtn, btn);
+            console.log('✅ Button fixed! It should now say "Mark Lesson Complete"');
+            
+            // Add click handler
+            newBtn.onclick = async function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                
+                if (this.disabled) return;
+                
+                const lessonId = this.getAttribute('data-lesson-id');
+                this.disabled = true;
+                this.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Saving...';
+                
+                try {
+                    const token = localStorage.getItem('authToken');
+                    const response = await fetch(`/api/lessons-db/${lessonId}/progress`, {
+                        method: 'POST',
+                        headers: {
+                            'Authorization': `Bearer ${token}`,
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            completion_status: 'completed',
+                            percentage: 100
+                        })
+                    });
+                    
+                    const data = await response.json();
+                    
+                    if (data.success) {
+                        this.innerHTML = '<i class="fas fa-check"></i> Lesson Completed!';
+                        this.style.background = '#2ecc71';
+                        alert('✅ Lesson completed!');
+                        setTimeout(() => location.reload(), 2000);
+                    } else {
+                        throw new Error(data.message);
+                    }
+                } catch (error) {
+                    alert('Error: ' + error.message);
+                    this.innerHTML = '<i class="fas fa-check-circle"></i> Mark Lesson Complete';
+                    this.style.background = '#7a0000';
+                    this.disabled = false;
+                }
+            };
         }
-        
-        console.log('✅ Manual fix applied');
-        return newBtn;
+    } else {
+        console.log('❌ Button not found!');
     }
-    return null;
-};
-
-// Quick console fix
-window.quickFix = function() { 
-    const btn = document.getElementById('completeLessonBtn');
-    if (btn) {
-        btn.outerHTML = '<button id="completeLessonBtn" class="btn-primary" data-lesson-id="1"><i class="fas fa-check-circle"></i> Mark Lesson Complete</button>';
-    }
-};
+})();
