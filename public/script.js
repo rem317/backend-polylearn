@@ -35801,7 +35801,7 @@ console.log('   - forceCompleteLesson() - Emergency complete lesson');
 
 
 // ============================================
-// 🚨 ULTIMATE AGGRESSIVE FIX - Override everything
+// 🚨 ULTIMATE AGGRESSIVE FIX - NO SYNTAX ERRORS
 // ============================================
 
 (function() {
@@ -35822,26 +35822,25 @@ console.log('   - forceCompleteLesson() - Emergency complete lesson');
         if (needsFix) {
             console.log('⚠️ Force fixing button...');
             
-            // Directly modify properties (most reliable)
-            btn.innerHTML = '<i class="fas fa-check-circle"></i> Mark Lesson Complete';
-            btn.className = 'btn-primary';
-            btn.disabled = false;
-            btn.style.background = '#7a0000';
-            btn.style.color = 'white';
-            btn.style.border = 'none';
-            
-            // Remove all event listeners by replacing with clone
-            const newBtn = btn.cloneNode(false); // false = don't clone children
-            newBtn.innerHTML = '<i class="fas fa-check-circle"></i> Mark Lesson Complete';
+            // Create new button
+            const newBtn = document.createElement('button');
+            newBtn.id = 'completeLessonBtn';
             newBtn.className = 'btn-primary';
-            newBtn.disabled = false;
+            newBtn.setAttribute('data-lesson-id', btn.getAttribute('data-lesson-id') || '1');
+            newBtn.innerHTML = '<i class="fas fa-check-circle"></i> Mark Lesson Complete';
+            
+            // Apply styles
             newBtn.style.background = '#7a0000';
             newBtn.style.color = 'white';
             newBtn.style.border = 'none';
             newBtn.style.padding = '10px 20px';
             newBtn.style.borderRadius = '5px';
             newBtn.style.cursor = 'pointer';
+            newBtn.style.fontSize = '14px';
+            newBtn.style.fontWeight = '600';
+            newBtn.disabled = false;
             
+            // Replace old button
             if (btn.parentNode) {
                 btn.parentNode.replaceChild(newBtn, btn);
             }
@@ -35868,8 +35867,8 @@ console.log('   - forceCompleteLesson() - Emergency complete lesson');
             const urlParams = new URLSearchParams(window.location.search);
             let lessonId = urlParams.get('lessonId') || this.getAttribute('data-lesson-id');
             
-            if (!lessonId && LessonState.currentLesson) {
-                lessonId = LessonState.currentLesson.content_id;
+            if (!lessonId && window.LessonState && window.LessonState.currentLesson) {
+                lessonId = window.LessonState.currentLesson.content_id;
             }
             
             if (!lessonId) {
@@ -35902,10 +35901,11 @@ console.log('   - forceCompleteLesson() - Emergency complete lesson');
                     alert('✅ Lesson completed!');
                     setTimeout(() => location.reload(), 2000);
                 } else {
-                    throw new Error(data.message);
+                    throw new Error(data.message || 'Failed to update');
                 }
                 
             } catch (error) {
+                console.error('Error:', error);
                 alert('Error: ' + error.message);
                 this.innerHTML = '<i class="fas fa-check-circle"></i> Mark Lesson Complete';
                 this.style.background = '#7a0000';
@@ -35914,14 +35914,13 @@ console.log('   - forceCompleteLesson() - Emergency complete lesson');
         };
     }
     
-    // Run fix EVERY 100ms for 10 seconds
+    // Run fix multiple times
     let attempts = 0;
     let fixedButton = null;
     
-    const aggressiveInterval = setInterval(() => {
+    const fixInterval = setInterval(() => {
         attempts++;
         
-        // Force the button to correct state
         const btn = forceButtonToMarkComplete();
         
         if (btn && btn !== fixedButton) {
@@ -35930,52 +35929,66 @@ console.log('   - forceCompleteLesson() - Emergency complete lesson');
             console.log(`✅ Fix applied at attempt #${attempts}`);
         }
         
-        // Stop after 10 seconds (100 attempts)
-        if (attempts >= 100) {
-            clearInterval(aggressiveInterval);
-            console.log('🛑 Aggressive fix stopped after 10 seconds');
-            
-            // Final check
-            setTimeout(() => {
-                const finalBtn = document.getElementById('completeLessonBtn');
-                if (finalBtn && finalBtn.innerHTML.includes('Lesson Completed')) {
-                    console.log('❌ Button is STILL completed! Manual fix needed.');
-                    console.log('Type: fixButtonManually() in console');
-                } else {
-                    console.log('✅ Button is now correct!');
-                }
-            }, 500);
+        if (attempts >= 20) { // Stop after 2 seconds (20 * 100ms)
+            clearInterval(fixInterval);
+            console.log('🛑 Fix interval stopped');
         }
     }, 100);
     
-    // Also run on DOM changes
-    const observer = new MutationObserver(() => {
-        const btn = document.getElementById('completeLessonBtn');
-        if (btn && btn.innerHTML.includes('Lesson Completed')) {
-            console.log('⚠️ DOM mutation detected - re-fixing...');
-            forceButtonToMarkComplete();
-        }
+    // Watch for DOM changes
+    const observer = new MutationObserver(function(mutations) {
+        mutations.forEach(function(mutation) {
+            if (mutation.type === 'attributes' || mutation.type === 'childList') {
+                const btn = document.getElementById('completeLessonBtn');
+                if (btn && btn.innerHTML.includes('Lesson Completed') && !btn.innerHTML.includes('Mark')) {
+                    console.log('⚠️ DOM change detected - re-fixing...');
+                    forceButtonToMarkComplete();
+                }
+            }
+        });
     });
     
     observer.observe(document.body, {
         childList: true,
         subtree: true,
-        attributes: true,
-        attributeFilter: ['class', 'style']
+        attributes: true
     });
     
-    console.log('🚀 Aggressive fix running - will check every 100ms');
+    console.log('🚀 Aggressive fix running');
     
 })();
 
-// Manual emergency function
-window.fixButtonManually = function() {
+// Manual fix function
+window.fixButtonNow = function() {
+    const btn = document.getElementById('completeLessonBtn');
+    if (btn) {
+        const newBtn = document.createElement('button');
+        newBtn.id = 'completeLessonBtn';
+        newBtn.className = 'btn-primary';
+        newBtn.setAttribute('data-lesson-id', btn.getAttribute('data-lesson-id') || '1');
+        newBtn.innerHTML = '<i class="fas fa-check-circle"></i> Mark Lesson Complete';
+        newBtn.style.background = '#7a0000';
+        newBtn.style.color = 'white';
+        newBtn.style.border = 'none';
+        newBtn.style.padding = '10px 20px';
+        newBtn.style.borderRadius = '5px';
+        newBtn.style.cursor = 'pointer';
+        newBtn.disabled = false;
+        
+        if (btn.parentNode) {
+            btn.parentNode.replaceChild(newBtn, btn);
+        }
+        
+        console.log('✅ Manual fix applied');
+        return newBtn;
+    }
+    return null;
+};
+
+// Quick console fix
+window.quickFix = function() { 
     const btn = document.getElementById('completeLessonBtn');
     if (btn) {
         btn.outerHTML = '<button id="completeLessonBtn" class="btn-primary" data-lesson-id="1"><i class="fas fa-check-circle"></i> Mark Lesson Complete</button>';
-        console.log('✅ Manual fix applied');
     }
 };
-
-// One-liner for console
-window.oneClickFix = function() { document.getElementById('completeLessonBtn')?.outerHTML = '<button id="completeLessonBtn" class="btn-primary"><i class="fas fa-check-circle"></i> Mark Lesson Complete</button>'; };
