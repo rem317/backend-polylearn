@@ -35874,3 +35874,94 @@ console.log('   - forceCompleteLesson() - Emergency complete lesson');
         console.log('❌ Button not found!');
     }
 })();
+
+// STEP 1: Hanapin kung saan galing ang button
+console.log('🔍 TRACING BUTTON SOURCE...');
+
+// I-override ang createElement para makita kung sino gumagawa ng button
+const originalCreateElement = document.createElement;
+document.createElement = function(tagName) {
+    const element = originalCreateElement.call(this, tagName);
+    
+    if (tagName.toLowerCase() === 'button') {
+        // Check kung ito ang complete lesson button
+        setTimeout(() => {
+            if (element.id === 'completeLessonBtn' || 
+                (element.innerHTML && element.innerHTML.includes('Lesson Completed'))) {
+                console.log('⚠️ BUTTON CREATED BY:', element);
+                console.trace('Creation stack trace:');
+            }
+        }, 0);
+    }
+    
+    return element;
+};
+
+// STEP 2: I-override ang innerHTML setter para makita kung sino nag-change
+Object.defineProperty(HTMLElement.prototype, 'innerHTML', {
+    set: function(value) {
+        if (this.id === 'completeLessonBtn' && value.includes('Lesson Completed')) {
+            console.log('⚠️ BUTTON CHANGED TO COMPLETED BY:');
+            console.trace();
+            console.log('New value:', value);
+            
+            // Force change it back immediately
+            setTimeout(() => {
+                if (this && this.parentNode) {
+                    console.log('🔄 Force changing back to Mark Complete');
+                    this.innerHTML = '<i class="fas fa-check-circle"></i> Mark Lesson Complete';
+                    this.className = 'btn-primary';
+                    this.disabled = false;
+                    this.style.background = '#7a0000';
+                }
+            }, 10);
+        }
+        
+        // Call original setter
+        this._innerHTML = value;
+    },
+    get: function() {
+        return this._innerHTML;
+    }
+});
+
+// STEP 3: I-override ang setAttribute
+const originalSetAttribute = HTMLElement.prototype.setAttribute;
+HTMLElement.prototype.setAttribute = function(name, value) {
+    if (this.id === 'completeLessonBtn' && name === 'class' && value.includes('btn-success')) {
+        console.log('⚠️ BUTTON CLASS CHANGED TO btn-success BY:');
+        console.trace();
+        
+        // Force change back
+        setTimeout(() => {
+            if (this && this.parentNode) {
+                this.setAttribute('class', 'btn-primary');
+            }
+        }, 10);
+    }
+    
+    return originalSetAttribute.call(this, name, value);
+};
+
+// STEP 4: I-override ang disabled property
+Object.defineProperty(HTMLButtonElement.prototype, 'disabled', {
+    set: function(value) {
+        if (this.id === 'completeLessonBtn' && value === true) {
+            console.log('⚠️ BUTTON DISABLED BY:');
+            console.trace();
+            
+            // Don't actually disable if it's not supposed to be
+            if (!this.getAttribute('data-completed')) {
+                console.log('🔄 Preventing disable');
+                return;
+            }
+        }
+        
+        this._disabled = value;
+    },
+    get: function() {
+        return this._disabled;
+    }
+});
+
+console.log('✅ TRACING ACTIVATED - I-refresh ang page at tingnan ang console');
