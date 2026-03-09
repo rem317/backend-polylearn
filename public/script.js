@@ -35719,3 +35719,260 @@ window.manualCompleteLesson = async function() {
 
 console.log('🚀 Ultimate complete button fix applied!');
 console.log('💡 To manually complete: manualCompleteLesson()');
+
+
+// ============================================
+// 🚨 FINAL FIX: Mark Lesson Complete Button
+// ============================================
+
+// Single, definitive fix for the complete lesson button
+(function fixCompleteLessonButton() {
+    console.log('🔧 Applying final fix for complete lesson button...');
+    
+    // Function to attach the button handler
+    function attachCompleteHandler() {
+        const completeBtn = document.getElementById('completeLessonBtn');
+        
+        if (!completeBtn) {
+            console.log('⏳ Complete button not found yet...');
+            return false;
+        }
+        
+        console.log('✅ Found complete button - attaching handler');
+        
+        // Remove ALL previous event listeners by cloning
+        const newBtn = completeBtn.cloneNode(true);
+        if (completeBtn.parentNode) {
+            completeBtn.parentNode.replaceChild(newBtn, completeBtn);
+        }
+        
+        // Store original content
+        const originalHTML = newBtn.innerHTML;
+        let isProcessing = false;
+        
+        // Check if already completed
+        async function checkInitialStatus() {
+            try {
+                const urlParams = new URLSearchParams(window.location.search);
+                let contentId = urlParams.get('lessonId');
+                
+                if (!contentId && LessonState.currentLesson) {
+                    contentId = LessonState.currentLesson.content_id;
+                }
+                
+                if (!contentId) return;
+                
+                const token = localStorage.getItem('authToken');
+                const response = await fetch(`/api/lessons-db/${contentId}`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                
+                const data = await response.json();
+                
+                if (data.success && data.lesson?.progress?.status === 'completed') {
+                    newBtn.innerHTML = '<i class="fas fa-check"></i> Lesson Completed!';
+                    newBtn.style.background = '#2ecc71';
+                    newBtn.disabled = true;
+                    console.log('✅ Lesson already completed');
+                }
+            } catch (error) {
+                console.log('Status check failed:', error.message);
+            }
+        }
+        
+        // Run initial check
+        checkInitialStatus();
+        
+        // Add click handler
+        newBtn.onclick = async function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            
+            console.log('🎯 Complete button clicked');
+            
+            // Prevent double-click
+            if (this.disabled || isProcessing) {
+                console.log('⏳ Already processing...');
+                return;
+            }
+            
+            // Get lesson ID
+            const urlParams = new URLSearchParams(window.location.search);
+            let contentId = urlParams.get('lessonId');
+            
+            if (!contentId && LessonState.currentLesson) {
+                contentId = LessonState.currentLesson.content_id;
+            }
+            
+            if (!contentId) {
+                alert('Cannot identify lesson. Please refresh the page.');
+                return;
+            }
+            
+            console.log(`📝 Completing lesson ID: ${contentId}`);
+            
+            isProcessing = true;
+            this.disabled = true;
+            this.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Saving...';
+            
+            try {
+                const token = localStorage.getItem('authToken');
+                
+                // Calculate time spent from video if available
+                let timeSpentSeconds = 300; // default 5 minutes
+                const videoElement = document.getElementById('lessonVideo');
+                if (videoElement && videoElement.currentTime) {
+                    timeSpentSeconds = Math.floor(videoElement.currentTime);
+                }
+                
+                // Update lesson progress
+                const progressResponse = await fetch(`/api/lessons-db/${contentId}/progress`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        completion_status: 'completed',
+                        percentage: 100,
+                        time_spent_seconds: timeSpentSeconds
+                    })
+                });
+                
+                if (!progressResponse.ok) {
+                    throw new Error(`HTTP error! status: ${progressResponse.status}`);
+                }
+                
+                const progressData = await progressResponse.json();
+                
+                if (progressData.success) {
+                    console.log('✅ Lesson completed!');
+                    
+                    // Update button
+                    this.innerHTML = '<i class="fas fa-check"></i> Lesson Completed!';
+                    this.style.background = '#2ecc71';
+                    
+                    // Update daily progress (non-blocking)
+                    try {
+                        await fetch('/api/progress/update-daily', {
+                            method: 'POST',
+                            headers: {
+                                'Authorization': `Bearer ${token}`,
+                                'Content-Type': 'application/json'
+                            },
+                            body: JSON.stringify({ lessons_completed: 1 })
+                        });
+                    } catch (e) {
+                        console.log('Daily progress update failed (non-critical)');
+                    }
+                    
+                    // Show success message
+                    alert('✅ Lesson marked as complete!');
+                    
+                    // Refresh page after 2 seconds
+                    setTimeout(() => {
+                        location.reload();
+                    }, 2000);
+                    
+                } else {
+                    throw new Error(progressData.message || 'Failed to update');
+                }
+                
+            } catch (error) {
+                console.error('❌ Error:', error);
+                alert('Error: ' + error.message);
+                
+                // Restore button
+                this.innerHTML = originalHTML;
+                this.disabled = false;
+                isProcessing = false;
+            }
+        };
+        
+        console.log('✅ Complete button handler attached successfully');
+        return true;
+    }
+    
+    // Try to attach immediately
+    if (!attachCompleteHandler()) {
+        // If button not found, try multiple times
+        let attempts = 0;
+        const maxAttempts = 15;
+        
+        const interval = setInterval(() => {
+            attempts++;
+            console.log(`🔄 Attempt ${attempts}/${maxAttempts} to attach...`);
+            
+            if (attachCompleteHandler() || attempts >= maxAttempts) {
+                clearInterval(interval);
+                if (attempts >= maxAttempts) {
+                    console.log('❌ Failed to attach after', maxAttempts, 'attempts');
+                }
+            }
+        }, 500);
+    }
+    
+    // Watch for module dashboard visibility
+    const modulePage = document.getElementById('module-dashboard-page');
+    if (modulePage) {
+        const observer = new MutationObserver(() => {
+            if (!modulePage.classList.contains('hidden')) {
+                console.log('📚 Module dashboard visible - checking button');
+                setTimeout(attachCompleteHandler, 500);
+            }
+        });
+        observer.observe(modulePage, { attributes: true });
+    }
+    
+    // Watch for URL changes
+    const originalPushState = history.pushState;
+    history.pushState = function() {
+        originalPushState.apply(this, arguments);
+        setTimeout(attachCompleteHandler, 500);
+    };
+    
+    window.addEventListener('popstate', () => {
+        setTimeout(attachCompleteHandler, 500);
+    });
+    
+})();
+
+// Emergency manual function
+window.forceCompleteLesson = async function() {
+    const urlParams = new URLSearchParams(window.location.search);
+    let contentId = urlParams.get('lessonId');
+    
+    if (!contentId) {
+        contentId = prompt("Enter lesson ID:");
+        if (!contentId) return;
+    }
+    
+    try {
+        const token = localStorage.getItem('authToken');
+        const response = await fetch(`/api/lessons-db/${contentId}/progress`, {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                completion_status: 'completed',
+                percentage: 100
+            })
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            alert('✅ Lesson completed successfully!');
+            location.reload();
+        } else {
+            alert('❌ Failed: ' + data.message);
+        }
+    } catch (error) {
+        alert('Error: ' + error.message);
+    }
+};
+
+console.log('🚀 Final complete button fix applied!');
+console.log('💡 Use forceCompleteLesson() in console for emergency completion');
