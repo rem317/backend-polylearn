@@ -35801,127 +35801,149 @@ console.log('   - forceCompleteLesson() - Emergency complete lesson');
 
 
 // ============================================
-// 🚨 HARDCODED HTML FIX - Override the button text
+// 🚨 FINAL FIX - Override hardcoded button
 // ============================================
 
 (function() {
-    console.log('🔧 Checking for hardcoded button text...');
+    console.log('🔧 Fixing hardcoded completed button...');
     
-    function fixButtonText() {
-        const btn = document.getElementById('completeLessonBtn');
+    function replaceButton() {
+        const oldBtn = document.getElementById('completeLessonBtn');
         
-        if (!btn) {
-            console.log('⏳ Button not found yet...');
+        if (!oldBtn) {
+            console.log('⏳ Button not found...');
             return false;
         }
         
-        // Check if button has hardcoded "Completed" text
-        const btnHTML = btn.innerHTML;
-        const btnText = btn.textContent || '';
+        console.log('Found button:', oldBtn.outerHTML);
         
-        console.log('Current button HTML:', btnHTML);
-        console.log('Current button text:', btnText);
+        // Create brand new button
+        const newBtn = document.createElement('button');
+        newBtn.id = 'completeLessonBtn';
+        newBtn.className = 'btn-primary';  // Change from btn-success to btn-primary
+        newBtn.setAttribute('data-lesson-id', oldBtn.getAttribute('data-lesson-id') || '1');
+        newBtn.innerHTML = '<i class="fas fa-check-circle"></i> Mark Lesson Complete';
         
-        // If it says "Completed" or has checkmark, override it
-        if (btnHTML.includes('Lesson Completed') || 
-            btnHTML.includes('✅') || 
-            btnText.includes('Completed')) {
-            
-            console.log('⚠️ Found hardcoded "Completed" button! Overriding...');
-            
-            // Completely replace the button
-            const newBtn = document.createElement('button');
-            newBtn.id = 'completeLessonBtn';
-            newBtn.className = 'btn-primary';
-            newBtn.innerHTML = '<i class="fas fa-check-circle"></i> Mark Lesson Complete';
-            newBtn.style.background = '#7a0000';
-            newBtn.style.color = 'white';
-            newBtn.style.border = 'none';
-            newBtn.style.padding = '10px 20px';
-            newBtn.style.borderRadius = '5px';
-            newBtn.style.cursor = 'pointer';
-            
-            // Replace the old button
-            if (btn.parentNode) {
-                btn.parentNode.replaceChild(newBtn, btn);
-            }
-            
+        // Style it properly
+        newBtn.style.background = '#7a0000';
+        newBtn.style.color = 'white';
+        newBtn.style.border = 'none';
+        newBtn.style.padding = '10px 20px';
+        newBtn.style.borderRadius = '5px';
+        newBtn.style.cursor = 'pointer';
+        newBtn.style.fontSize = '14px';
+        newBtn.style.fontWeight = '600';
+        newBtn.disabled = false;  // Make sure it's NOT disabled
+        
+        // Replace the old button
+        if (oldBtn.parentNode) {
+            oldBtn.parentNode.replaceChild(newBtn, oldBtn);
             console.log('✅ Button replaced successfully');
             return newBtn;
         }
         
-        return btn;
+        return null;
     }
     
-    // Try multiple times
-    let attempts = 0;
-    const maxAttempts = 20;
+    // Try to replace immediately
+    let newButton = replaceButton();
     
-    const interval = setInterval(() => {
-        attempts++;
-        const btn = fixButtonText();
+    // If not found, try again multiple times
+    if (!newButton) {
+        let attempts = 0;
+        const maxAttempts = 20;
         
-        if (btn || attempts >= maxAttempts) {
-            if (btn) {
-                // Attach click handler
-                btn.onclick = async function(e) {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    
-                    if (this.disabled) return;
-                    
-                    this.disabled = true;
-                    this.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Saving...';
-                    
-                    try {
-                        const urlParams = new URLSearchParams(window.location.search);
-                        let contentId = urlParams.get('lessonId');
-                        
-                        if (!contentId && LessonState.currentLesson) {
-                            contentId = LessonState.currentLesson.content_id;
-                        }
-                        
-                        if (!contentId) {
-                            alert('No lesson ID found');
-                            this.innerHTML = '<i class="fas fa-check-circle"></i> Mark Lesson Complete';
-                            this.disabled = false;
-                            return;
-                        }
-                        
-                        const token = localStorage.getItem('authToken');
-                        const response = await fetch(`/api/lessons-db/${contentId}/progress`, {
-                            method: 'POST',
-                            headers: {
-                                'Authorization': `Bearer ${token}`,
-                                'Content-Type': 'application/json'
-                            },
-                            body: JSON.stringify({
-                                completion_status: 'completed',
-                                percentage: 100
-                            })
-                        });
-                        
-                        const data = await response.json();
-                        
-                        if (data.success) {
-                            this.innerHTML = '<i class="fas fa-check"></i> Lesson Completed!';
-                            this.style.background = '#2ecc71';
-                            alert('✅ Lesson completed!');
-                            setTimeout(() => location.reload(), 2000);
-                        } else {
-                            throw new Error(data.message);
-                        }
-                    } catch (error) {
-                        alert('Error: ' + error.message);
-                        this.innerHTML = '<i class="fas fa-check-circle"></i> Mark Lesson Complete';
-                        this.style.background = '#7a0000';
-                        this.disabled = false;
-                    }
-                };
+        const interval = setInterval(() => {
+            attempts++;
+            newButton = replaceButton();
+            
+            if (newButton || attempts >= maxAttempts) {
+                clearInterval(interval);
+                
+                if (newButton) {
+                    // Attach click handler to the new button
+                    attachClickHandler(newButton);
+                }
             }
-            clearInterval(interval);
-        }
-    }, 250);
+        }, 250);
+    } else {
+        // Attach click handler immediately
+        attachClickHandler(newButton);
+    }
     
-    console.log('🚀 HTML override activated - will replace hardcoded button');
+    function attachClickHandler(btn) {
+        btn.onclick = async function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            
+            console.log('🎯 New button clicked');
+            
+            if (this.disabled) return;
+            
+            // Get lesson ID
+            const lessonId = this.getAttribute('data-lesson-id');
+            
+            this.disabled = true;
+            this.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Saving...';
+            
+            try {
+                const token = localStorage.getItem('authToken');
+                
+                const response = await fetch(`/api/lessons-db/${lessonId}/progress`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        completion_status: 'completed',
+                        percentage: 100,
+                        time_spent_seconds: 300
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    this.innerHTML = '<i class="fas fa-check"></i> Lesson Completed!';
+                    this.style.background = '#2ecc71';
+                    alert('✅ Lesson marked as complete!');
+                    setTimeout(() => location.reload(), 2000);
+                } else {
+                    throw new Error(data.message || 'Failed to update');
+                }
+                
+            } catch (error) {
+                console.error('Error:', error);
+                alert('Error: ' + error.message);
+                this.innerHTML = '<i class="fas fa-check-circle"></i> Mark Lesson Complete';
+                this.style.background = '#7a0000';
+                this.disabled = false;
+            }
+        };
+        
+        console.log('✅ Click handler attached to new button');
+    }
+    
+    // Also watch for any code that might try to reset it
+    setInterval(() => {
+        const btn = document.getElementById('completeLessonBtn');
+        if (btn && btn.className.includes('btn-success') && !btn.innerHTML.includes('Mark Lesson Complete')) {
+            console.log('⚠️ Button was changed back to completed! Re-fixing...');
+            replaceButton();
+        }
+    }, 500);
+    
 })();
+
+// Manual override function
+window.fixButtonNow = function() {
+    const btn = document.getElementById('completeLessonBtn');
+    if (btn) {
+        btn.className = 'btn-primary';
+        btn.innerHTML = '<i class="fas fa-check-circle"></i> Mark Lesson Complete';
+        btn.style.background = '#7a0000';
+        btn.disabled = false;
+        console.log('✅ Button manually fixed');
+    }
+};
