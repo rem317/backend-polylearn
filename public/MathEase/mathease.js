@@ -945,7 +945,7 @@ class ToolManager {
         console.log('📦 Creating tool modals...');
         // Check if modals already exist
         const existingModals = [
-            'calculatorModal', 'graphModal', 'whiteboardModal', 
+            'calculatorModal', 'whiteboardModal', 
             'notepadModal', 'formulaModal', 'timerModal'
         ];
         
@@ -978,25 +978,6 @@ class ToolManager {
                             <div class="calculator-history">
                                 <h3><i class="fas fa-history"></i> History</h3>
                                 <div class="history-list" id="calcHistory"></div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-            
-            <!-- Graph Modal -->
-            <div id="graphModal" class="modal-overlay">
-                <div class="modal-container">
-                    <div class="modal-header" style="background: #7a0000; color: white;">
-                        <h3 style="margin: 0;"><i class="fas fa-chart-line"></i> Graph Tool</h3>
-                        <button class="modal-close" onclick="window.toolManager.closeTool()" style="color: white;">&times;</button>
-                    </div>
-                    <div class="modal-body">
-                        <div class="graph-tool">
-                            <canvas id="graphCanvas" width="600" height="400"></canvas>
-                            <div class="graph-controls">
-                                <input type="text" id="graphExpression" placeholder="f(x) = " value="x^3 - 2x^2 + x - 1">
-                                <button id="plotGraphBtn">Plot</button>
                             </div>
                         </div>
                     </div>
@@ -1091,7 +1072,6 @@ class ToolManager {
             notepad: new Notepad(),
             formula: new FormulaSheet(),
             timer: new StudyTimer(),
-            graph: new GraphTool()
         };
     }
 
@@ -1194,7 +1174,6 @@ function connectLessonToolButtons(lesson) {
     
     const tools = [
         { id: 'openCalculator', name: 'calculator', icon: 'fa-calculator' },
-        { id: 'openGraphTools', name: 'graph', icon: 'fa-chart-line' },
         { id: 'openWhiteboard', name: 'whiteboard', icon: 'fa-paint-brush' },
         { id: 'openNotepad', name: 'notepad', icon: 'fa-sticky-note' },
         { id: 'openFormulaSheet', name: 'formula', icon: 'fa-square-root-alt' },
@@ -3269,7 +3248,6 @@ console.log('✅ ToolManager initialized and attached to window');
 // MAKE TOOLS GLOBALLY AVAILABLE
 // ========================================
 window.Calculator = Calculator;
-window.GraphTool = GraphTool;
 window.Whiteboard = Whiteboard;
 window.Notepad = Notepad;
 window.FormulaSheet = FormulaSheet;
@@ -11360,7 +11338,6 @@ function connectToolButtons() {
     // Define tool buttons and their corresponding modals
     const tools = [
         { id: 'openCalculator', name: 'calculator' },
-        { id: 'openGraphTools', name: 'graph' },
         { id: 'openNotepad', name: 'notepad' },
         { id: 'openFormulaSheet', name: 'formula' },
         { id: 'openWhiteboard', name: 'whiteboard' },
@@ -12771,7 +12748,6 @@ function getActivityIcon(activityType) {
         'feedback_submitted': 'fas fa-comment',
         'points_earned': 'fas fa-coins',
         'tool_used': 'fas fa-tools',
-        'graph_saved': 'fas fa-chart-line',
         'note_saved': 'fas fa-sticky-note',
         'timer_session': 'fas fa-clock'
     };
