@@ -2389,7 +2389,7 @@ function selectTopicForPractice(topicId) {
 }
 
 // ============================================
-// ✅ LOAD PRACTICE EXERCISES FOR TOPIC
+// ✅ FIXED: loadPracticeExercisesForTopic - DATABASE ONLY (NO GENERATION)
 // ============================================
 async function loadPracticeExercisesForTopic(topicId) {
     try {
@@ -2419,7 +2419,7 @@ async function loadPracticeExercisesForTopic(topicId) {
             return;
         }
         
-        // ✅ Try multiple endpoints to get exercises
+        // ✅ TRY MULTIPLE ENDPOINTS TO GET EXERCISES FROM DATABASE
         let exercises = [];
         let success = false;
         
@@ -2480,7 +2480,7 @@ async function loadPracticeExercisesForTopic(topicId) {
             }
         }
         
-        // Endpoint 3: Get exercises by lesson ID (fallback)
+        // Endpoint 3: Get exercises by content ID (fallback)
         if (!success) {
             try {
                 const endpoint = `/api/practice/lesson/${MATHEASE_LESSON_ID}?lesson_id=${MATHEASE_LESSON_ID}`;
@@ -2497,6 +2497,7 @@ async function loadPracticeExercisesForTopic(topicId) {
                 if (response.ok && contentType && contentType.includes('application/json')) {
                     const data = await response.json();
                     if (data.success && data.exercises) {
+                        // Filter exercises that belong to this topic
                         exercises = data.exercises.filter(ex => 
                             ex.topic_id == topicId
                         );
@@ -2511,11 +2512,11 @@ async function loadPracticeExercisesForTopic(topicId) {
             }
         }
         
-        // If we have exercises from database, display them
+        // ✅ NO GENERATION - Only show from database or show empty message
         if (success && exercises.length > 0) {
             displayPracticeExercises(exercises);
         } else {
-            // Show no exercises message
+            // Show empty state - NO HARDCODED EXERCISES
             exerciseArea.innerHTML = `
                 <div class="error-message" style="text-align: center; padding: 40px;">
                     <i class="fas fa-database" style="font-size: 48px; color: #3498db; margin-bottom: 15px;"></i>
@@ -2548,7 +2549,7 @@ async function loadPracticeExercisesForTopic(topicId) {
 }
 
 // ============================================
-// ✅ DISPLAY PRACTICE EXERCISES
+// ✅ DISPLAY PRACTICE EXERCISES - ONLY SHOWS DATABASE DATA
 // ============================================
 function displayPracticeExercises(exercises) {
     const exerciseArea = document.getElementById('exerciseArea');
@@ -2557,9 +2558,9 @@ function displayPracticeExercises(exercises) {
     if (!exercises || exercises.length === 0) {
         exerciseArea.innerHTML = `
             <div class="no-exercises" style="text-align: center; padding: 40px;">
-                <i class="fas fa-pencil-alt" style="font-size: 48px; color: #ccc; margin-bottom: 15px;"></i>
-                <h3 style="color: #666;">No Practice Exercises</h3>
-                <p style="color: #999;">There are no practice exercises available for this topic yet.</p>
+                <i class="fas fa-database" style="font-size: 48px; color: #ccc; margin-bottom: 15px;"></i>
+                <h3 style="color: #666;">No Practice Exercises in Database</h3>
+                <p style="color: #999;">Please add exercises to the database first.</p>
             </div>
         `;
         return;
@@ -2568,7 +2569,7 @@ function displayPracticeExercises(exercises) {
     let html = '<div class="exercises-list">';
     
     exercises.forEach((exercise, index) => {
-        // Parse content_json if it exists and is a string
+        // Parse content_json if it exists
         let questions = [];
         if (exercise.content_json) {
             try {
@@ -2588,14 +2589,14 @@ function displayPracticeExercises(exercises) {
         html += `
             <div class="exercise-card ${isCompleted ? 'completed' : ''}" data-exercise-id="${exercise.exercise_id}">
                 <div class="exercise-header">
-                    <h3>Exercise ${index + 1}: ${exercise.title || 'Practice Exercise'}</h3>
+                    <h3>${exercise.title || 'Practice Exercise'}</h3>
                     <span class="difficulty-badge difficulty-${difficultyClass}">
                         ${exercise.difficulty || 'medium'}
                     </span>
                 </div>
                 
                 <div class="exercise-body">
-                    <p>${exercise.description || 'Test your knowledge with this practice exercise.'}</p>
+                    <p>${exercise.description || 'Practice exercise from database.'}</p>
                     
                     <div class="exercise-meta">
                         <span class="meta-item">
@@ -2607,6 +2608,10 @@ function displayPracticeExercises(exercises) {
                         <span class="meta-item">
                             <i class="fas fa-check-circle"></i> ${userProgress.attempts || 0} attempts
                         </span>
+                    </div>
+                    
+                    <div class="database-indicator" style="background: #e3f2fd; color: #1976d2; padding: 4px 8px; border-radius: 4px; font-size: 11px; margin-top: 8px; display: inline-block;">
+                        <i class="fas fa-database"></i> From Database (ID: ${exercise.exercise_id})
                     </div>
                     
                     ${userProgress.score > 0 ? `
@@ -2638,7 +2643,7 @@ function displayPracticeExercises(exercises) {
     html += '</div>';
     exerciseArea.innerHTML = html;
     
-    // Setup event listeners for the exercise buttons
+    // Setup event listeners
     setupPracticeExerciseInteractions();
 }
 
