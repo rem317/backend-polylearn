@@ -35801,94 +35801,87 @@ console.log('   - forceCompleteLesson() - Emergency complete lesson');
 
 
 // ============================================
-// 🚨 FINAL FIX - Override hardcoded button
+// 🚨 ULTIMATE AGGRESSIVE FIX - Override everything
 // ============================================
 
 (function() {
-    console.log('🔧 Fixing hardcoded completed button...');
+    console.log('🔧 ACTIVATING ULTIMATE AGGRESSIVE FIX...');
     
-    function replaceButton() {
-        const oldBtn = document.getElementById('completeLessonBtn');
+    // Function to forcefully change the button
+    function forceButtonToMarkComplete() {
+        const btn = document.getElementById('completeLessonBtn');
         
-        if (!oldBtn) {
-            console.log('⏳ Button not found...');
-            return false;
-        }
+        if (!btn) return false;
         
-        console.log('Found button:', oldBtn.outerHTML);
+        // Check if button needs fixing
+        const needsFix = btn.innerHTML.includes('Lesson Completed') || 
+                         btn.innerHTML.includes('✅') ||
+                         btn.className.includes('btn-success') ||
+                         btn.disabled === true;
         
-        // Create brand new button
-        const newBtn = document.createElement('button');
-        newBtn.id = 'completeLessonBtn';
-        newBtn.className = 'btn-primary';  // Change from btn-success to btn-primary
-        newBtn.setAttribute('data-lesson-id', oldBtn.getAttribute('data-lesson-id') || '1');
-        newBtn.innerHTML = '<i class="fas fa-check-circle"></i> Mark Lesson Complete';
-        
-        // Style it properly
-        newBtn.style.background = '#7a0000';
-        newBtn.style.color = 'white';
-        newBtn.style.border = 'none';
-        newBtn.style.padding = '10px 20px';
-        newBtn.style.borderRadius = '5px';
-        newBtn.style.cursor = 'pointer';
-        newBtn.style.fontSize = '14px';
-        newBtn.style.fontWeight = '600';
-        newBtn.disabled = false;  // Make sure it's NOT disabled
-        
-        // Replace the old button
-        if (oldBtn.parentNode) {
-            oldBtn.parentNode.replaceChild(newBtn, oldBtn);
-            console.log('✅ Button replaced successfully');
+        if (needsFix) {
+            console.log('⚠️ Force fixing button...');
+            
+            // Directly modify properties (most reliable)
+            btn.innerHTML = '<i class="fas fa-check-circle"></i> Mark Lesson Complete';
+            btn.className = 'btn-primary';
+            btn.disabled = false;
+            btn.style.background = '#7a0000';
+            btn.style.color = 'white';
+            btn.style.border = 'none';
+            
+            // Remove all event listeners by replacing with clone
+            const newBtn = btn.cloneNode(false); // false = don't clone children
+            newBtn.innerHTML = '<i class="fas fa-check-circle"></i> Mark Lesson Complete';
+            newBtn.className = 'btn-primary';
+            newBtn.disabled = false;
+            newBtn.style.background = '#7a0000';
+            newBtn.style.color = 'white';
+            newBtn.style.border = 'none';
+            newBtn.style.padding = '10px 20px';
+            newBtn.style.borderRadius = '5px';
+            newBtn.style.cursor = 'pointer';
+            
+            if (btn.parentNode) {
+                btn.parentNode.replaceChild(newBtn, btn);
+            }
+            
             return newBtn;
         }
         
-        return null;
+        return btn;
     }
     
-    // Try to replace immediately
-    let newButton = replaceButton();
-    
-    // If not found, try again multiple times
-    if (!newButton) {
-        let attempts = 0;
-        const maxAttempts = 20;
+    // Function to attach click handler
+    function attachHandler(btn) {
+        if (!btn) return;
         
-        const interval = setInterval(() => {
-            attempts++;
-            newButton = replaceButton();
-            
-            if (newButton || attempts >= maxAttempts) {
-                clearInterval(interval);
-                
-                if (newButton) {
-                    // Attach click handler to the new button
-                    attachClickHandler(newButton);
-                }
-            }
-        }, 250);
-    } else {
-        // Attach click handler immediately
-        attachClickHandler(newButton);
-    }
-    
-    function attachClickHandler(btn) {
         btn.onclick = async function(e) {
             e.preventDefault();
             e.stopPropagation();
             
-            console.log('🎯 New button clicked');
+            console.log('🎯 Button clicked');
             
             if (this.disabled) return;
             
             // Get lesson ID
-            const lessonId = this.getAttribute('data-lesson-id');
+            const urlParams = new URLSearchParams(window.location.search);
+            let lessonId = urlParams.get('lessonId') || this.getAttribute('data-lesson-id');
+            
+            if (!lessonId && LessonState.currentLesson) {
+                lessonId = LessonState.currentLesson.content_id;
+            }
+            
+            if (!lessonId) {
+                alert('Cannot identify lesson');
+                return;
+            }
             
             this.disabled = true;
             this.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Saving...';
             
             try {
                 const token = localStorage.getItem('authToken');
-                
                 const response = await fetch(`/api/lessons-db/${lessonId}/progress`, {
                     method: 'POST',
                     headers: {
@@ -35897,8 +35890,7 @@ console.log('   - forceCompleteLesson() - Emergency complete lesson');
                     },
                     body: JSON.stringify({
                         completion_status: 'completed',
-                        percentage: 100,
-                        time_spent_seconds: 300
+                        percentage: 100
                     })
                 });
                 
@@ -35907,43 +35899,83 @@ console.log('   - forceCompleteLesson() - Emergency complete lesson');
                 if (data.success) {
                     this.innerHTML = '<i class="fas fa-check"></i> Lesson Completed!';
                     this.style.background = '#2ecc71';
-                    alert('✅ Lesson marked as complete!');
+                    alert('✅ Lesson completed!');
                     setTimeout(() => location.reload(), 2000);
                 } else {
-                    throw new Error(data.message || 'Failed to update');
+                    throw new Error(data.message);
                 }
                 
             } catch (error) {
-                console.error('Error:', error);
                 alert('Error: ' + error.message);
                 this.innerHTML = '<i class="fas fa-check-circle"></i> Mark Lesson Complete';
                 this.style.background = '#7a0000';
                 this.disabled = false;
             }
         };
-        
-        console.log('✅ Click handler attached to new button');
     }
     
-    // Also watch for any code that might try to reset it
-    setInterval(() => {
-        const btn = document.getElementById('completeLessonBtn');
-        if (btn && btn.className.includes('btn-success') && !btn.innerHTML.includes('Mark Lesson Complete')) {
-            console.log('⚠️ Button was changed back to completed! Re-fixing...');
-            replaceButton();
+    // Run fix EVERY 100ms for 10 seconds
+    let attempts = 0;
+    let fixedButton = null;
+    
+    const aggressiveInterval = setInterval(() => {
+        attempts++;
+        
+        // Force the button to correct state
+        const btn = forceButtonToMarkComplete();
+        
+        if (btn && btn !== fixedButton) {
+            attachHandler(btn);
+            fixedButton = btn;
+            console.log(`✅ Fix applied at attempt #${attempts}`);
         }
-    }, 500);
+        
+        // Stop after 10 seconds (100 attempts)
+        if (attempts >= 100) {
+            clearInterval(aggressiveInterval);
+            console.log('🛑 Aggressive fix stopped after 10 seconds');
+            
+            // Final check
+            setTimeout(() => {
+                const finalBtn = document.getElementById('completeLessonBtn');
+                if (finalBtn && finalBtn.innerHTML.includes('Lesson Completed')) {
+                    console.log('❌ Button is STILL completed! Manual fix needed.');
+                    console.log('Type: fixButtonManually() in console');
+                } else {
+                    console.log('✅ Button is now correct!');
+                }
+            }, 500);
+        }
+    }, 100);
+    
+    // Also run on DOM changes
+    const observer = new MutationObserver(() => {
+        const btn = document.getElementById('completeLessonBtn');
+        if (btn && btn.innerHTML.includes('Lesson Completed')) {
+            console.log('⚠️ DOM mutation detected - re-fixing...');
+            forceButtonToMarkComplete();
+        }
+    });
+    
+    observer.observe(document.body, {
+        childList: true,
+        subtree: true,
+        attributes: true,
+        attributeFilter: ['class', 'style']
+    });
+    
+    console.log('🚀 Aggressive fix running - will check every 100ms');
     
 })();
 
-// Manual override function
-window.fixButtonNow = function() {
+// Manual emergency function
+window.fixButtonManually = function() {
     const btn = document.getElementById('completeLessonBtn');
     if (btn) {
-        btn.className = 'btn-primary';
-        btn.innerHTML = '<i class="fas fa-check-circle"></i> Mark Lesson Complete';
-        btn.style.background = '#7a0000';
-        btn.disabled = false;
-        console.log('✅ Button manually fixed');
+        btn.outerHTML = '<button id="completeLessonBtn" class="btn-primary" data-lesson-id="1"><i class="fas fa-check-circle"></i> Mark Lesson Complete</button>';
+        console.log('✅ Manual fix applied');
     }
 };
+
+// One-liner for console
+window.oneClickFix = function() { document.getElementById('completeLessonBtn')?.outerHTML = '<button id="completeLessonBtn" class="btn-primary"><i class="fas fa-check-circle"></i> Mark Lesson Complete</button>'; };
