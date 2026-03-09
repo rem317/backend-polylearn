@@ -35719,3 +35719,221 @@ window.manualCompleteLesson = async function() {
 
 console.log('🚀 Ultimate complete button fix applied!');
 console.log('💡 To manually complete: manualCompleteLesson()');
+
+
+// ============================================
+// 🚨 EMERGENCY FIX: Unlock and Reset Completed Lesson
+// ============================================
+
+// Function to reset lesson completion (para makapag-test ulit)
+window.resetLessonCompletion = async function() {
+    console.log('🔄 Resetting lesson completion status...');
+    
+    const urlParams = new URLSearchParams(window.location.search);
+    let contentId = urlParams.get('lessonId');
+    
+    if (!contentId && LessonState.currentLesson) {
+        contentId = LessonState.currentLesson.content_id;
+    }
+    
+    if (!contentId) {
+        contentId = prompt("Enter lesson ID to reset:");
+        if (!contentId) return;
+    }
+    
+    try {
+        const token = localStorage.getItem('authToken') || authToken;
+        
+        // Update database to "in_progress" instead of "completed"
+        const response = await fetch(`${API_BASE_URL}/api/lessons-db/${contentId}/progress`, {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                completion_status: 'in_progress',  // Change back to in_progress
+                percentage: 50,                     // Set to 50% progress
+                time_spent_seconds: 150             // 2.5 minutes
+            })
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            console.log('✅ Lesson reset to "in_progress"!');
+            
+            // Update button
+            const completeBtn = document.getElementById('completeLessonBtn');
+            if (completeBtn) {
+                completeBtn.innerHTML = '<i class="fas fa-check-circle"></i> Mark Lesson Complete';
+                completeBtn.style.background = '';
+                completeBtn.disabled = false;
+                
+                // Re-attach handler
+                setupFreshButton();
+            }
+            
+            // Update progress bar
+            const progressBar = document.getElementById('lessonProgressFill');
+            const progressText = document.getElementById('progressPercentage');
+            if (progressBar) progressBar.style.width = '50%';
+            if (progressText) progressText.textContent = '50% Complete';
+            
+            alert('✅ Lesson reset successfully! You can now mark it complete again.');
+            
+        } else {
+            throw new Error(data.message || 'Failed to reset');
+        }
+        
+    } catch (error) {
+        console.error('❌ Error resetting lesson:', error);
+        alert('Error: ' + error.message);
+    }
+};
+
+// Function to completely reset button and re-enable it
+window.forceEnableButton = function() {
+    console.log('🔧 Force enabling complete button...');
+    
+    const completeBtn = document.getElementById('completeLessonBtn');
+    if (!completeBtn) {
+        console.log('❌ Button not found');
+        return;
+    }
+    
+    // Enable button
+    completeBtn.disabled = false;
+    completeBtn.innerHTML = '<i class="fas fa-check-circle"></i> Mark Lesson Complete';
+    completeBtn.style.background = '';
+    
+    // Remove all styles that might be disabling it
+    completeBtn.classList.remove('btn-success');
+    completeBtn.classList.add('btn-primary');
+    
+    console.log('✅ Button enabled!');
+};
+
+// Function to setup fresh button (after reset)
+function setupFreshButton() {
+    const completeBtn = document.getElementById('completeLessonBtn');
+    if (!completeBtn) return;
+    
+    // Remove all existing listeners
+    const newBtn = completeBtn.cloneNode(true);
+    completeBtn.parentNode.replaceChild(newBtn, completeBtn);
+    
+    // Add new click handler
+    newBtn.onclick = async function(e) {
+        e.preventDefault();
+        e.stopPropagation();
+        
+        if (this.disabled) return;
+        
+        const urlParams = new URLSearchParams(window.location.search);
+        let contentId = urlParams.get('lessonId');
+        
+        if (!contentId && LessonState.currentLesson) {
+            contentId = LessonState.currentLesson.content_id;
+        }
+        
+        if (!contentId) {
+            alert('Cannot identify lesson');
+            return;
+        }
+        
+        this.disabled = true;
+        this.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Saving...';
+        
+        try {
+            const token = localStorage.getItem('authToken') || authToken;
+            
+            const response = await fetch(`${API_BASE_URL}/api/lessons-db/${contentId}/progress`, {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    completion_status: 'completed',
+                    percentage: 100,
+                    time_spent_seconds: 300
+                })
+            });
+            
+            const data = await response.json();
+            
+            if (data.success) {
+                this.innerHTML = '<i class="fas fa-check"></i> Lesson Completed!';
+                this.style.background = '#2ecc71';
+                alert('✅ Lesson completed!');
+                setTimeout(() => location.reload(), 1500);
+            } else {
+                throw new Error('Failed');
+            }
+            
+        } catch (error) {
+            alert('Error: ' + error.message);
+            this.innerHTML = '<i class="fas fa-check-circle"></i> Mark Lesson Complete';
+            this.disabled = false;
+        }
+    };
+}
+
+// Function to check current status
+window.checkLessonStatus = async function() {
+    const urlParams = new URLSearchParams(window.location.search);
+    let contentId = urlParams.get('lessonId');
+    
+    if (!contentId && LessonState.currentLesson) {
+        contentId = LessonState.currentLesson.content_id;
+    }
+    
+    if (!contentId) {
+        console.log('No lesson ID found');
+        return;
+    }
+    
+    try {
+        const token = localStorage.getItem('authToken') || authToken;
+        const response = await fetch(`${API_BASE_URL}/api/lessons-db/${contentId}`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            const progress = data.lesson.progress || {};
+            console.log('📊 Lesson Status:', {
+                status: progress.status,
+                percentage: progress.percentage,
+                time_spent: progress.time_spent_seconds
+            });
+            
+            if (progress.status === 'completed') {
+                console.log('✅ Lesson is COMPLETED in database');
+            } else {
+                console.log('⏳ Lesson is IN PROGRESS');
+            }
+        }
+    } catch (error) {
+        console.error('Error checking status:', error);
+    }
+};
+
+// Quick fix - just enable the button
+window.enableButton = function() {
+    const btn = document.getElementById('completeLessonBtn');
+    if (btn) {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fas fa-check-circle"></i> Mark Lesson Complete';
+        console.log('✅ Button enabled!');
+    }
+};
+
+console.log('🚀 Reset functions loaded!');
+console.log('💡 Commands:');
+console.log('   - resetLessonCompletion() - Reset lesson to 50% (para makapag-test ulit)');
+console.log('   - forceEnableButton() - Just enable the button');
+console.log('   - checkLessonStatus() - Check current status in database');
+console.log('   - enableButton() - Quick enable button');
