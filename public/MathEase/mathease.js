@@ -24649,7 +24649,7 @@ window.checkPracticeRecords = async function() {
 };
 
 // ============================================
-// ✅ FIXED: loadTopicsProgress - FORCED LESSON_ID = 1 FOR MATHEASE
+// ✅ FIXED: loadTopicsProgress - REAL DATABASE ONLY, NO FALLBACKS
 // ============================================
 async function loadTopicsProgress() {
     try {
@@ -24662,125 +24662,112 @@ async function loadTopicsProgress() {
         const token = localStorage.getItem('authToken') || authToken;
         if (!token) {
             topicsContainer.innerHTML = `
-                <div class="error-message" style="text-align: center; padding: 40px;">
-                    <i class="fas fa-exclamation-triangle" style="font-size: 48px; color: #e74c3c;"></i>
-                    <h3 style="color: #2c3e50;">Please login to view topics</h3>
-                    <p style="color: #7f8c8d;">You need to be logged in to see your progress.</p>
+                <div class="error-message">
+                    <i class="fas fa-exclamation-triangle"></i>
+                    <h3>Please login to view topics</h3>
                 </div>
             `;
             return;
         }
         
-        console.log('📊 Loading MathEase topics progress...');
+        console.log('📊 Fetching Mathease topics progress from database...');
         
-        // Show loading
-        topicsContainer.innerHTML = `
-            <div class="loading-container" style="text-align: center; padding: 40px;">
-                <i class="fas fa-spinner fa-spin" style="font-size: 40px; color: #7a0000;"></i>
-                <p style="margin-top: 15px;">Loading MathEase topics from database...</p>
-            </div>
-        `;
+        // ✅ Force Mathease lesson_id = 1
+        const MATHEASE_LESSON_ID = 1;
         
-        // Try to get lessons first (since topics might be generated from lessons)
-        const lessonsResponse = await fetch(`/api/lessons-db/complete?lesson_id=1`, {
+        const response = await fetch(`/api/topics/progress?lesson_id=${MATHEASE_LESSON_ID}`, {
             headers: { 
                 'Authorization': `Bearer ${token}`,
-                'Accept': 'application/json'
+                'Content-Type': 'application/json'
             }
         });
         
-        let topics = [];
+        console.log(`📡 Response status: ${response.status}`);
         
-        if (lessonsResponse.ok) {
-            const lessonsData = await lessonsResponse.json();
-            if (lessonsData.success && lessonsData.lessons) {
-                // Group lessons by topic to create topics
-                const topicMap = new Map();
-                
-                lessonsData.lessons.forEach(lesson => {
-                    const topicId = lesson.topic_id || 1;
-                    const topicTitle = lesson.topic_title || getMathEaseTopicName(topicId);
-                    
-                    if (!topicMap.has(topicId)) {
-                        topicMap.set(topicId, {
-                            topic_id: topicId,
-                            topic_title: topicTitle,
-                            module_name: lesson.module_name || 'MathEase Module',
-                            lesson_id: 1,
-                            lessons: [],
-                            lessons_completed: 0,
-                            total_lessons: 0,
-                            practice_unlocked: false,
-                            practice_completed: false
-                        });
-                    }
-                    
-                    const topic = topicMap.get(topicId);
-                    topic.lessons.push(lesson);
-                    topic.total_lessons++;
-                    
-                    // Check if lesson is completed (you'd need progress data for this)
-                    // For now, we'll assume some are completed
-                });
-                
-                topics = Array.from(topicMap.values());
-                
-                // Add progress data (you'd fetch this from progress endpoint)
-                topics.forEach((topic, index) => {
-                    // Simulate some progress
-                    topic.lessons_completed = index === 0 ? 2 : index === 1 ? 1 : 0;
-                    topic.lesson_progress_percentage = Math.round((topic.lessons_completed / topic.total_lessons) * 100);
-                    topic.practice_unlocked = topic.lessons_completed > 0;
-                });
-                
-                console.log(`✅ Generated ${topics.length} MathEase topics from lessons`);
-            }
-        }
-        
-        // If no topics from lessons, use hardcoded MathEase topics
-        if (topics.length === 0) {
-            console.log('📚 Using hardcoded MathEase topics');
-            topics = getMathEaseHardcodedTopics();
+        // Check if response is JSON
+        const contentType = response.headers.get('content-type');
+        if (!contentType || !contentType.includes('application/json')) {
+            const text = await response.text();
+            console.error('❌ Non-JSON response:', text.substring(0, 200));
             
-            // Show demo indicator
-            const demoIndicator = document.createElement('div');
-            demoIndicator.style.cssText = `
-                background: #f39c12;
-                color: white;
-                padding: 8px 15px;
-                border-radius: 5px;
-                margin-bottom: 15px;
-                text-align: center;
-                font-size: 14px;
+            topicsContainer.innerHTML = `
+                <div class="error-message">
+                    <i class="fas fa-exclamation-triangle"></i>
+                    <h3>Server Error</h3>
+                    <p>The topics endpoint returned an invalid response.</p>
+                    <p class="error-detail">Status: ${response.status}</p>
+                </div>
             `;
-            demoIndicator.innerHTML = '<i class="fas fa-info-circle"></i> Using demo MathEase topics';
+            return;
+        }
+        
+        if (!response.ok) {
+            const errorData = await response.json();
+            console.error('❌ API Error:', errorData);
             
-            if (!document.querySelector('.demo-indicator')) {
-                demoIndicator.classList.add('demo-indicator');
-                topicsContainer.parentNode.insertBefore(demoIndicator, topicsContainer);
-            }
+            topicsContainer.innerHTML = `
+                <div class="error-message">
+                    <i class="fas fa-exclamation-triangle"></i>
+                    <h3>Failed to Load Topics</h3>
+                    <p>${errorData.message || `Server returned ${response.status}`}</p>
+                </div>
+            `;
+            return;
         }
         
-        // Display the topics
-        displayMathEaseTopics(topics);
+        const data = await response.json();
+        console.log('📥 Server response:', data);
         
-        // Update unlocked count
-        const unlockedCount = document.getElementById('unlockedCount');
-        if (unlockedCount) {
-            const unlocked = topics.filter(t => t.practice_unlocked).length;
-            unlockedCount.textContent = unlocked;
+        if (!data.success || !data.topics) {
+            topicsContainer.innerHTML = `
+                <div class="error-message">
+                    <i class="fas fa-info-circle"></i>
+                    <h3>No Topics Found</h3>
+                    <p>No topics are available in the database for Mathease.</p>
+                </div>
+            `;
+            return;
         }
+        
+        // ✅ Filter to ensure only lesson_id = 1
+        const matheaseTopics = data.topics.filter(topic => {
+            const topicLessonId = topic.lesson_id || topic.lessonId;
+            return topicLessonId == MATHEASE_LESSON_ID;
+        });
+        
+        console.log(`🎯 Database returned ${matheaseTopics.length} topics for Mathease`);
+        
+        if (matheaseTopics.length === 0) {
+            topicsContainer.innerHTML = `
+                <div class="error-message">
+                    <i class="fas fa-folder-open"></i>
+                    <h3>No Mathease Topics</h3>
+                    <p>There are no topics with lesson_id = ${MATHEASE_LESSON_ID} in the database.</p>
+                </div>
+            `;
+            return;
+        }
+        
+        displayTopics(matheaseTopics);
         
     } catch (error) {
-        console.error('❌ Error loading topics:', error);
+        console.error('❌ Error loading topics progress:', error);
         const topicsContainer = document.getElementById('topicsContainer');
         if (topicsContainer) {
-            // Show hardcoded topics as fallback
-            const topics = getMathEaseHardcodedTopics();
-            displayMathEaseTopics(topics);
+            topicsContainer.innerHTML = `
+                <div class="error-message">
+                    <i class="fas fa-exclamation-triangle"></i>
+                    <h3>Connection Error</h3>
+                    <p>${error.message}</p>
+                    <button class="btn-primary" onclick="loadTopicsProgress()" style="margin-top: 15px;">
+                        <i class="fas fa-redo"></i> Retry
+                    </button>
+                </div>
+            `;
         }
     }
 }
+
 function displayMathEaseTopics(topics) {
     const container = document.getElementById('topicsContainer');
     if (!container) return;
@@ -24875,7 +24862,6 @@ function validateTopicForCurrentApp(topicId) {
     return parseInt(topicId) === expectedTopicId;
 }
 
-
 // ============================================
 // ✅ FIXED: displayTopics - WITH BETTER DEBUGGING
 // ============================================
@@ -24886,7 +24872,7 @@ function displayTopics(topics) {
         return;
     }
     
-    console.log(`📋 Displaying ${topics.length} topics:`, topics);
+    console.log(`📋 Displaying ${topics.length} Mathease topics:`, topics);
     
     if (!topics || topics.length === 0) {
         topicsContainer.innerHTML = `
@@ -24990,6 +24976,134 @@ function displayTopics(topics) {
             selectTopicForPractice(topicId);
         });
     });
+}
+
+// ============================================
+// ✅ FIXED: loadPracticeExercisesForTopic - DATABASE ONLY
+// ============================================
+async function loadPracticeExercisesForTopic(topicId) {
+    try {
+        console.log(`📝 Getting practice exercises for topic ${topicId} from database`);
+        
+        const MATHEASE_LESSON_ID = 1;
+        const exerciseArea = document.getElementById('exerciseArea');
+        
+        if (!exerciseArea) return;
+        
+        exerciseArea.innerHTML = `
+            <div class="loading-container" style="text-align: center; padding: 30px;">
+                <i class="fas fa-spinner fa-spin" style="font-size: 30px; color: #7a0000;"></i>
+                <p style="margin-top: 10px;">Loading exercises from database...</p>
+            </div>
+        `;
+        
+        const token = localStorage.getItem('authToken') || authToken;
+        if (!token) {
+            exerciseArea.innerHTML = `
+                <div class="error-message" style="text-align: center; padding: 40px;">
+                    <i class="fas fa-exclamation-triangle" style="font-size: 48px; color: #e74c3c;"></i>
+                    <h3 style="color: #666;">Authentication Required</h3>
+                    <p style="color: #999;">Please login to view practice exercises.</p>
+                </div>
+            `;
+            return;
+        }
+        
+        // ✅ Single endpoint - no fallbacks
+        const endpoint = `/api/practice/topic/${topicId}?lesson_id=${MATHEASE_LESSON_ID}`;
+        console.log(`📡 Fetching from: ${endpoint}`);
+        
+        const response = await fetch(endpoint, {
+            headers: { 
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+            }
+        });
+        
+        console.log(`📥 Response status: ${response.status}`);
+        
+        // Check if response is JSON
+        const contentType = response.headers.get('content-type');
+        if (!contentType || !contentType.includes('application/json')) {
+            const text = await response.text();
+            console.error('❌ Non-JSON response:', text.substring(0, 200));
+            
+            exerciseArea.innerHTML = `
+                <div class="error-message" style="text-align: center; padding: 40px;">
+                    <i class="fas fa-exclamation-triangle" style="font-size: 48px; color: #e74c3c;"></i>
+                    <h3 style="color: #666;">Server Error</h3>
+                    <p style="color: #999;">The practice endpoint returned an invalid response.</p>
+                    <p class="error-detail">Status: ${response.status}</p>
+                </div>
+            `;
+            return;
+        }
+        
+        if (!response.ok) {
+            const errorData = await response.json();
+            console.error('❌ API Error:', errorData);
+            
+            exerciseArea.innerHTML = `
+                <div class="error-message" style="text-align: center; padding: 40px;">
+                    <i class="fas fa-exclamation-triangle" style="font-size: 48px; color: #e74c3c;"></i>
+                    <h3 style="color: #666;">Failed to Load Exercises</h3>
+                    <p style="color: #999;">${errorData.message || `Server returned ${response.status}`}</p>
+                </div>
+            `;
+            return;
+        }
+        
+        const data = await response.json();
+        console.log('📥 Server response:', data);
+        
+        if (!data.success || !data.exercises) {
+            exerciseArea.innerHTML = `
+                <div class="error-message" style="text-align: center; padding: 40px;">
+                    <i class="fas fa-info-circle" style="font-size: 48px; color: #3498db;"></i>
+                    <h3 style="color: #666;">No Exercises Available</h3>
+                    <p style="color: #999;">There are no practice exercises in the database for this topic.</p>
+                </div>
+            `;
+            return;
+        }
+        
+        // Filter to ensure only lesson_id = 1
+        const matheaseExercises = data.exercises.filter(ex => {
+            const exLessonId = ex.lesson_id || ex.lessonId;
+            return exLessonId == MATHEASE_LESSON_ID;
+        });
+        
+        console.log(`✅ Database returned ${matheaseExercises.length} exercises for Mathease`);
+        
+        if (matheaseExercises.length === 0) {
+            exerciseArea.innerHTML = `
+                <div class="error-message" style="text-align: center; padding: 40px;">
+                    <i class="fas fa-info-circle" style="font-size: 48px; color: #3498db;"></i>
+                    <h3 style="color: #666;">No Mathease Exercises</h3>
+                    <p style="color: #999;">There are no exercises with lesson_id = ${MATHEASE_LESSON_ID} in the database.</p>
+                </div>
+            `;
+            return;
+        }
+        
+        displayPracticeExercises(matheaseExercises);
+        
+    } catch (error) {
+        console.error('❌ Error loading exercises:', error);
+        const exerciseArea = document.getElementById('exerciseArea');
+        if (exerciseArea) {
+            exerciseArea.innerHTML = `
+                <div class="error-message" style="text-align: center; padding: 40px;">
+                    <i class="fas fa-exclamation-triangle" style="font-size: 48px; color: #e74c3c;"></i>
+                    <h3 style="color: #666;">Connection Error</h3>
+                    <p style="color: #999;">${error.message}</p>
+                    <button class="btn-primary" onclick="loadPracticeExercisesForTopic('${topicId}')" style="margin-top: 15px;">
+                        <i class="fas fa-redo"></i> Retry
+                    </button>
+                </div>
+            `;
+        }
+    }
 }
 
 // ============================================
