@@ -20279,21 +20279,86 @@ async function openLesson(lessonId) {
         navigateTo('moduleDashboard');
         
         // Inside openLesson function, after loading the video:
-      // Inside openLesson function
-      setTimeout(async () => {
-          updateLessonUI(lesson);
-          setupNavigationButtons();
-          await loadVideoFromDatabase(lessonId);
-          setupCompleteLessonButton();  // ← ADD THIS LINE
-          await checkLessonCompletionStatus();
-          console.log('✅ Lesson fully loaded');
-      }, 500);
+        setTimeout(async () => {
+            updateLessonUI(lesson); // This now includes the merged progress container
+            setupNavigationButtons();
+            await loadVideoFromDatabase(lessonId);
+            setupCompleteLessonButton();
+            await checkLessonCompletionStatus();
+            console.log('✅ Lesson fully loaded with merged progress container');
+        }, 500);
         
     } catch (error) {
         console.error('Error opening lesson:', error);
         showNotification('Error loading lesson: ' + error.message, 'error');
     }
 }
+
+// Add this CSS to style the merged container
+function addMergedContainerStyles() {
+    const style = document.createElement('style');
+    style.textContent = `
+        /* Styles for the merged progress container */
+        .lesson-progress-container {
+            animation: slideDown 0.5s ease;
+        }
+        
+        @keyframes slideDown {
+            from {
+                opacity: 0;
+                transform: translateY(-20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        
+        .lesson-progress-container .progress-badge {
+            transition: all 0.3s ease;
+        }
+        
+        .lesson-progress-container .progress-badge:hover {
+            transform: scale(1.05);
+        }
+        
+        .lesson-progress-container .stat-value {
+            transition: all 0.3s ease;
+        }
+        
+        .lesson-progress-container [id$="ProgressStat"],
+        .lesson-progress-container [id^="daily"] {
+            transition: all 0.3s ease;
+        }
+        
+        .lesson-progress-container [id$="ProgressStat"]:hover,
+        .lesson-progress-container [id^="daily"]:hover {
+            transform: scale(1.1);
+        }
+        
+        /* Mobile responsive */
+        @media (max-width: 768px) {
+            .lesson-progress-container > div:first-child {
+                grid-template-columns: repeat(2, 1fr) !important;
+            }
+            
+            .lesson-progress-container > div:first-child > div {
+                padding: 8px !important;
+            }
+            
+            .lesson-progress-container > div:first-child > div div:first-child {
+                font-size: 20px !important;
+            }
+        }
+    `;
+    document.head.appendChild(style);
+}
+
+// Add the styles when the page loads
+document.addEventListener('DOMContentLoaded', function() {
+    addMergedContainerStyles();
+    console.log('✅ Merged container styles added');
+});
 // ============================================
 // 🔍 DEBUG: Check Lesson Button
 // ============================================
@@ -21862,10 +21927,12 @@ function initModuleDashboardJS() {
     console.log('✅ Module dashboard initialized with Railway fixes');
 }
 
-// ============================================
-// HELPER: Update UI with lesson data
-// ============================================
+// Find this section in your code (around where the lesson dashboard is built)
+// This function updates the lesson UI with the merged containers
+
 function updateLessonUI(lesson) {
+    console.log('📚 Updating lesson UI with merged containers...');
+    
     // Module title
     const moduleTitle = document.getElementById('moduleTitle');
     if (moduleTitle) {
@@ -21886,8 +21953,226 @@ function updateLessonUI(lesson) {
         moduleSubtitle.textContent = subtitle;
     }
     
-    // Progress bar
-    updateProgressDisplay(lesson);
+    // Get the lesson container
+    const lessonContainer = document.querySelector('.lesson-content-container');
+    if (!lessonContainer) {
+        console.warn('⚠️ Lesson container not found');
+        return;
+    }
+    
+    // Check if we need to add the progress container
+    let progressContainer = document.getElementById('lessonProgressContainer');
+    
+    if (!progressContainer) {
+        // Create the merged progress container
+        progressContainer = document.createElement('div');
+        progressContainer.id = 'lessonProgressContainer';
+        progressContainer.className = 'lesson-progress-container';
+        progressContainer.style.cssText = `
+            margin: 20px 0;
+            padding: 20px;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+            border: 1px solid var(--border-color);
+        `;
+        
+        // Add the merged content
+        progressContainer.innerHTML = `
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                <h3 style="margin: 0; color: var(--text-color);">
+                    <i class="fas fa-chart-line" style="color: #7a0000;"></i> 
+                    Your Learning Progress
+                </h3>
+                <span class="progress-badge" style="background: #7a0000; color: white; padding: 4px 12px; border-radius: 20px; font-size: 12px;">
+                    <i class="fas fa-clock"></i> Today's Learning
+                </span>
+            </div>
+            
+            <!-- Combined Progress Stats -->
+            <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 15px; margin-bottom: 20px;">
+                <!-- Lessons Progress -->
+                <div style="text-align: center; padding: 10px; background: #f8f9fa; border-radius: 8px;">
+                    <div style="font-size: 24px; font-weight: bold; color: #7a0000;" id="lessonsProgressStat">0/3</div>
+                    <div style="font-size: 12px; color: #666;">Lessons</div>
+                </div>
+                
+                <!-- Exercises Progress -->
+                <div style="text-align: center; padding: 10px; background: #f8f9fa; border-radius: 8px;">
+                    <div style="font-size: 24px; font-weight: bold; color: #27ae60;" id="exercisesProgressStat">0</div>
+                    <div style="font-size: 12px; color: #666;">Exercises</div>
+                </div>
+                
+                <!-- Time Spent -->
+                <div style="text-align: center; padding: 10px; background: #f8f9fa; border-radius: 8px;">
+                    <div style="font-size: 24px; font-weight: bold; color: #3498db;" id="timeSpentStat">0m</div>
+                    <div style="font-size: 12px; color: #666;">Time Spent</div>
+                </div>
+                
+                <!-- Accuracy -->
+                <div style="text-align: center; padding: 10px; background: #f8f9fa; border-radius: 8px;">
+                    <div style="font-size: 24px; font-weight: bold; color: #f39c12;" id="accuracyStat">0%</div>
+                    <div style="font-size: 12px; color: #666;">Accuracy</div>
+                </div>
+            </div>
+            
+            <!-- Current Lesson Progress Bar -->
+            <div style="margin-bottom: 20px;">
+                <div style="display: flex; justify-content: space-between; margin-bottom: 5px;">
+                    <span><i class="fas fa-video"></i> Current Lesson Progress</span>
+                    <span id="progressPercentage">0% Complete</span>
+                </div>
+                <div style="height: 10px; background: #ecf0f1; border-radius: 5px; overflow: hidden;">
+                    <div id="lessonProgressFill" style="height: 100%; width: 0%; background: #7a0000; border-radius: 5px;"></div>
+                </div>
+                <div style="display: flex; justify-content: space-between; margin-top: 5px; font-size: 12px; color: #666;">
+                    <span id="progressTime">0:00 / 0:00</span>
+                    <span><i class="fas fa-clock"></i> <span id="totalLearningTime">0m</span> today</span>
+                </div>
+            </div>
+            
+            <!-- Daily Learning Stats -->
+            <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 8px; padding: 15px; color: white;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                    <span><i class="fas fa-calendar-day"></i> Today's Learning</span>
+                    <span class="streak-badge" style="background: rgba(255,255,255,0.2); padding: 4px 10px; border-radius: 20px;">
+                        <i class="fas fa-fire"></i> <span id="streakCount">1</span> day streak
+                    </span>
+                </div>
+                <div style="display: flex; gap: 15px; flex-wrap: wrap;">
+                    <div style="flex: 1; text-align: center;">
+                        <div style="font-size: 20px; font-weight: bold;" id="dailyLessons">0</div>
+                        <div style="font-size: 11px; opacity: 0.9;">Lessons</div>
+                    </div>
+                    <div style="flex: 1; text-align: center;">
+                        <div style="font-size: 20px; font-weight: bold;" id="dailyExercises">0</div>
+                        <div style="font-size: 11px; opacity: 0.9;">Exercises</div>
+                    </div>
+                    <div style="flex: 1; text-align: center;">
+                        <div style="font-size: 20px; font-weight: bold;" id="dailyPoints">0</div>
+                        <div style="font-size: 11px; opacity: 0.9;">Points</div>
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        // Insert the progress container at the top of the lesson container
+        lessonContainer.insertBefore(progressContainer, lessonContainer.firstChild);
+        console.log('✅ Progress container added to lesson container');
+    }
+    
+    // Update progress display
+    updateLessonProgressStats(lesson);
+}
+
+// Add this function to update the stats in the merged container
+async function updateLessonProgressStats(lesson) {
+    const contentId = lesson.content_id;
+    
+    try {
+        // Get progress data
+        let lessonsCompleted = 0;
+        let exercisesCompleted = 0;
+        let totalTimeSeconds = 0;
+        let accuracy = 0;
+        let dailyStats = { lessons: 0, exercises: 0, points: 0 };
+        let streakDays = 1;
+        
+        // Fetch from database
+        const token = localStorage.getItem('authToken');
+        if (token) {
+            // Get cumulative progress
+            const progressResponse = await fetch(`/api/progress/overall?lesson_id=3`, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            
+            if (progressResponse.ok) {
+                const progressData = await progressResponse.json();
+                if (progressData.success) {
+                    lessonsCompleted = progressData.overall?.lessons_completed || 0;
+                    exercisesCompleted = progressData.overall?.practice_completed || 0;
+                    totalTimeSeconds = progressData.overall?.total_time_spent_minutes || 0;
+                }
+            }
+            
+            // Get daily stats
+            const dailyResponse = await fetch(`/api/progress/daily?lesson_id=3`, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            
+            if (dailyResponse.ok) {
+                const dailyData = await dailyResponse.json();
+                if (dailyData.success && dailyData.progress) {
+                    dailyStats = {
+                        lessons: dailyData.progress.lessons_completed || 0,
+                        exercises: dailyData.progress.exercises_completed || 0,
+                        points: dailyData.progress.points_earned || 0
+                    };
+                    streakDays = dailyData.progress.streak_days || 1;
+                }
+            }
+            
+            // Get accuracy
+            const accuracyResponse = await fetch(`/api/progress/accuracy-rate?lesson_id=3`, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            
+            if (accuracyResponse.ok) {
+                const accuracyData = await accuracyResponse.json();
+                if (accuracyData.success) {
+                    accuracy = accuracyData.accuracy?.overall || 0;
+                }
+            }
+        }
+        
+        // Update the DOM elements
+        const elements = {
+            lessonsProgressStat: document.getElementById('lessonsProgressStat'),
+            exercisesProgressStat: document.getElementById('exercisesProgressStat'),
+            timeSpentStat: document.getElementById('timeSpentStat'),
+            accuracyStat: document.getElementById('accuracyStat'),
+            streakCount: document.getElementById('streakCount'),
+            dailyLessons: document.getElementById('dailyLessons'),
+            dailyExercises: document.getElementById('dailyExercises'),
+            dailyPoints: document.getElementById('dailyPoints')
+        };
+        
+        if (elements.lessonsProgressStat) {
+            elements.lessonsProgressStat.textContent = `${lessonsCompleted}/3`;
+        }
+        
+        if (elements.exercisesProgressStat) {
+            elements.exercisesProgressStat.textContent = exercisesCompleted;
+        }
+        
+        if (elements.timeSpentStat) {
+            const minutes = Math.floor(totalTimeSeconds / 60);
+            elements.timeSpentStat.textContent = minutes > 0 ? `${minutes}m` : '0m';
+        }
+        
+        if (elements.accuracyStat) {
+            elements.accuracyStat.textContent = `${accuracy}%`;
+        }
+        
+        if (elements.streakCount) {
+            elements.streakCount.textContent = streakDays;
+        }
+        
+        if (elements.dailyLessons) {
+            elements.dailyLessons.textContent = dailyStats.lessons;
+        }
+        
+        if (elements.dailyExercises) {
+            elements.dailyExercises.textContent = dailyStats.exercises;
+        }
+        
+        if (elements.dailyPoints) {
+            elements.dailyPoints.textContent = dailyStats.points;
+        }
+        
+    } catch (error) {
+        console.error('Error updating lesson progress stats:', error);
+    }
 }
 // ============================================
 // UPDATE TOPIC PROGRESS BREAKDOWN (Topics Progress)
