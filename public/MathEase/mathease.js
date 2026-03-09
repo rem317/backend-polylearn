@@ -31941,10 +31941,14 @@ window.testTimer = function(questions = 40) {
         });
 // mathease.js - MathEase Application
 
+// mathease.js - MathEase Application
+
 // ============================================
-// API CONFIGURATION
+// API CONFIGURATION - Use your existing API_BASE_URL
 // ============================================
-const API_BASE_URL = 'https://backend-polylearn-production.up.railway.app';
+// Make sure API_BASE_URL is already defined in your file
+// If not, uncomment the line below:
+// const API_BASE_URL = 'https://backend-polylearn-production.up.railway.app';
 let authToken = localStorage.getItem('authToken') || null;
 
 // ============================================
