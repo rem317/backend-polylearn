@@ -28014,6 +28014,352 @@ function setupRatingStars() {
     });
 }
 
+
+// ============================================
+// 🚨 ABSOLUTE FIX: Lesson Completed Button - DATABASE ONLY
+// ============================================
+
+// Global function to check lesson status directly from database
+window.forceCheckLessonStatus = async function() {
+    console.log('🔍 FORCE CHECK: Checking lesson status directly from database...');
+    
+    const urlParams = new URLSearchParams(window.location.search);
+    let contentId = urlParams.get('lessonId');
+    
+    if (!contentId && LessonState.currentLesson) {
+        contentId = LessonState.currentLesson.content_id;
+    }
+    
+    if (!contentId) {
+        console.log('❌ No content ID found');
+        return false;
+    }
+    
+    try {
+        const token = localStorage.getItem('authToken') || authToken;
+        if (!token) {
+            console.log('❌ No auth token');
+            return false;
+        }
+        
+        // DIRECT DATABASE CHECK - bypass all caching
+        const response = await fetch(`${API_BASE_URL}/api/lessons-db/${contentId}`, {
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Cache-Control': 'no-cache, no-store, must-revalidate',
+                'Pragma': 'no-cache',
+                'Expires': '0'
+            }
+        });
+        
+        if (!response.ok) {
+            console.error(`❌ HTTP error: ${response.status}`);
+            return false;
+        }
+        
+        const data = await response.json();
+        
+        if (data.success && data.lesson) {
+            const progress = data.lesson.progress || {};
+            const isCompleted = progress.status === 'completed';
+            
+            console.log(`📊 Database status: ${progress.status || 'not_started'}, Completed: ${isCompleted}`);
+            
+            // Update button based on database
+            const completeBtn = document.getElementById('completeLessonBtn');
+            if (completeBtn) {
+                if (isCompleted) {
+                    completeBtn.innerHTML = '<i class="fas fa-check-double"></i> Lesson Completed!';
+                    completeBtn.classList.remove('btn-primary');
+                    completeBtn.classList.add('btn-success');
+                    completeBtn.disabled = true;
+                    console.log('✅ Button set to COMPLETED (from database)');
+                } else {
+                    completeBtn.innerHTML = '<i class="fas fa-check-circle"></i> Mark Lesson Complete';
+                    completeBtn.classList.remove('btn-success');
+                    completeBtn.classList.add('btn-primary');
+                    completeBtn.disabled = false;
+                    console.log('✅ Button set to INCOMPLETE (from database)');
+                }
+            }
+            
+            return isCompleted;
+        } else {
+            console.log('❌ No lesson data returned');
+            return false;
+        }
+        
+    } catch (error) {
+        console.error('❌ Error checking status:', error);
+        return false;
+    }
+};
+
+// Complete override of the button setup
+(function ultimateButtonFix() {
+    console.log('🔧 ULTIMATE FIX: Rebuilding complete lesson button with database-only check...');
+    
+    // Function to create the button from scratch
+    function createButton() {
+        const container = document.querySelector('.lesson-actions');
+        if (!container) {
+            console.log('⏳ Waiting for lesson actions container...');
+            return false;
+        }
+        
+        // Check if button already exists
+        let button = document.getElementById('completeLessonBtn');
+        
+        if (button) {
+            // Remove old button
+            button.remove();
+        }
+        
+        // Create new button
+        button = document.createElement('button');
+        button.id = 'completeLessonBtn';
+        button.className = 'btn-primary';
+        button.innerHTML = '<i class="fas fa-check-circle"></i> Mark Lesson Complete';
+        button.style.cssText = `
+            background: #7a0000;
+            color: white;
+            border: none;
+            padding: 12px 25px;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            transition: all 0.3s;
+        `;
+        
+        // Add to container
+        container.appendChild(button);
+        
+        console.log('✅ New button created');
+        
+        // Add click handler
+        button.onclick = async function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            
+            console.log('🎯 New button clicked');
+            
+            if (this.disabled) {
+                console.log('⏳ Already processing...');
+                return;
+            }
+            
+            const urlParams = new URLSearchParams(window.location.search);
+            let contentId = urlParams.get('lessonId');
+            
+            if (!contentId && LessonState.currentLesson) {
+                contentId = LessonState.currentLesson.content_id;
+            }
+            
+            if (!contentId) {
+                alert('Cannot identify lesson. Please refresh the page.');
+                return;
+            }
+            
+            // Disable button
+            this.disabled = true;
+            const originalHTML = this.innerHTML;
+            this.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Saving to database...';
+            
+            try {
+                const token = localStorage.getItem('authToken') || authToken;
+                
+                // DIRECT DATABASE UPDATE
+                const response = await fetch(`${API_BASE_URL}/api/lessons-db/${contentId}/progress`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        completion_status: 'completed',
+                        percentage: 100,
+                        time_spent_seconds: 300
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    console.log('✅ Lesson completed in database!');
+                    
+                    // Update button
+                    this.innerHTML = '<i class="fas fa-check-double"></i> Lesson Completed!';
+                    this.style.background = '#2ecc71';
+                    
+                    // Update local state
+                    if (!LessonState.userProgress) LessonState.userProgress = {};
+                    if (!LessonState.userProgress[contentId]) LessonState.userProgress[contentId] = {};
+                    LessonState.userProgress[contentId].status = 'completed';
+                    
+                    // Show success
+                    const notification = document.createElement('div');
+                    notification.style.cssText = `
+                        position: fixed;
+                        top: 20px;
+                        right: 20px;
+                        background: #27ae60;
+                        color: white;
+                        padding: 15px 25px;
+                        border-radius: 8px;
+                        box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+                        z-index: 10000;
+                        animation: slideInRight 0.3s;
+                    `;
+                    notification.innerHTML = '<i class="fas fa-check-circle"></i> Lesson completed successfully!';
+                    document.body.appendChild(notification);
+                    
+                    setTimeout(() => {
+                        notification.remove();
+                    }, 3000);
+                    
+                } else {
+                    throw new Error(data.message || 'Failed to update database');
+                }
+                
+            } catch (error) {
+                console.error('❌ Error:', error);
+                alert('Error: ' + error.message);
+                this.innerHTML = originalHTML;
+                this.disabled = false;
+            }
+        };
+        
+        // Check status from database
+        setTimeout(() => {
+            window.forceCheckLessonStatus();
+        }, 100);
+        
+        return true;
+    }
+    
+    // Try to create button immediately
+    if (!createButton()) {
+        // If container not found, wait for it
+        const checkInterval = setInterval(() => {
+            if (createButton()) {
+                clearInterval(checkInterval);
+            }
+        }, 300);
+        
+        // Stop after 10 seconds
+        setTimeout(() => {
+            clearInterval(checkInterval);
+        }, 10000);
+    }
+    
+    // Also observe for module dashboard
+    const modulePage = document.getElementById('module-dashboard-page');
+    if (modulePage) {
+        const observer = new MutationObserver(function(mutations) {
+            mutations.forEach(function(mutation) {
+                if (mutation.type === 'attributes' && mutation.attributeName === 'class') {
+                    if (!modulePage.classList.contains('hidden')) {
+                        console.log('📚 Module dashboard visible - rechecking button');
+                        setTimeout(createButton, 500);
+                        setTimeout(window.forceCheckLessonStatus, 600);
+                    }
+                }
+            });
+        });
+        
+        observer.observe(modulePage, { attributes: true });
+    }
+    
+})();
+
+// Add CSS animation
+const style = document.createElement('style');
+style.textContent = `
+    @keyframes slideInRight {
+        from {
+            transform: translateX(100%);
+            opacity: 0;
+        }
+        to {
+            transform: translateX(0);
+            opacity: 1;
+        }
+    }
+    
+    #completeLessonBtn {
+        transition: all 0.3s ease;
+    }
+    
+    #completeLessonBtn:not(:disabled):hover {
+        transform: translateY(-2px);
+        box-shadow: 0 5px 15px rgba(122, 0, 0, 0.3);
+    }
+    
+    #completeLessonBtn.btn-success {
+        background: #2ecc71 !important;
+    }
+    
+    #completeLessonBtn.btn-success:not(:disabled):hover {
+        background: #27ae60 !important;
+        transform: translateY(-2px);
+        box-shadow: 0 5px 15px rgba(46, 204, 113, 0.3);
+    }
+`;
+document.head.appendChild(style);
+
+// Make functions available globally
+window.forceCheckLessonStatus = window.forceCheckLessonStatus;
+window.resetLessonStatus = async function() {
+    const urlParams = new URLSearchParams(window.location.search);
+    let contentId = urlParams.get('lessonId');
+    
+    if (!contentId && LessonState.currentLesson) {
+        contentId = LessonState.currentLesson.content_id;
+    }
+    
+    if (!contentId) {
+        alert('No lesson ID found');
+        return;
+    }
+    
+    try {
+        const token = localStorage.getItem('authToken') || authToken;
+        
+        const response = await fetch(`${API_BASE_URL}/api/lessons-db/${contentId}/progress`, {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                completion_status: 'in_progress',
+                percentage: 50
+            })
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            alert('✅ Lesson reset to in_progress');
+            window.forceCheckLessonStatus();
+        } else {
+            alert('❌ Failed to reset');
+        }
+    } catch (error) {
+        alert('Error: ' + error.message);
+    }
+};
+
+console.log('✅ Ultimate button fix complete!');
+console.log('💡 Commands:');
+console.log('   - forceCheckLessonStatus() - Check current status from database');
+console.log('   - resetLessonStatus() - Reset lesson to 50% for testing');
+
+
 // ============================================
 // ✅ FIXED: Feedback form - SAVES TO DATABASE
 // ============================================
