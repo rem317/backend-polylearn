@@ -31928,27 +31928,6 @@ window.testTimer = function(questions = 40) {
 };
 
 
-// ============================================
-// FIX: LESSON NAVIGATION FOR ALL 3 LESSONS
-// ============================================
-
-// Function to ensure all lessons are loaded and navigation works
-function ensureAllLessonsInNavigation() {
-    console.log('🔧 Ensuring all lessons are available for navigation...');
-    
-    // Check if we're on module page
-    const modulePage = document.getElementById('module-dashboard-page');
-    if (!modulePage || modulePage.classList.contains('hidden')) {
-        return;
-    }
-    
-    // Check if we already have the full lessons list
-    if (window.allLessons && window.allLessons.length >= 3) {
-        console.log(`✅ Already have ${window.allLessons.length} lessons`);
-        updateNavigationWithAllLessons();
-        return;
-    }
-    
     // Fetch all lessons from the server
     fetch('/api/lessons-db/complete')
         .then(response => response.json())
@@ -31979,474 +31958,283 @@ function ensureAllLessonsInNavigation() {
             } catch(e) {}
         });
 }
-
-// Function to update navigation with full lessons list
-function updateNavigationWithAllLessons() {
-    if (!window.allLessons || window.allLessons.length === 0) return;
-    
-    const prevBtn = document.getElementById('prevLessonBtn');
-    const nextBtn = document.getElementById('nextLessonBtn');
-    const completeBtn = document.getElementById('completeLessonBtn');
-    
-    if (!prevBtn || !nextBtn) return;
-    
-    // Get current lesson ID
-    const currentLessonId = completeBtn ? completeBtn.getAttribute('data-lesson-id') : null;
-    
-    if (!currentLessonId) {
-        // Try to get from URL or title
-        const moduleTitle = document.getElementById('moduleTitle')?.textContent;
-        if (moduleTitle) {
-            // Find lesson by title
-            const match = window.allLessons.find(l => 
-                l.title && moduleTitle.includes(l.title) || 
-                (l.title && l.title.includes(moduleTitle))
-            );
-            if (match) {
-                updateNavigationForLesson(match.id);
-            }
-        }
-        return;
-    }
-    
-    updateNavigationForLesson(currentLessonId);
-}
-
-// Update navigation for specific lesson
-function updateNavigationForLesson(lessonId) {
-    if (!window.allLessons || window.allLessons.length === 0) return;
-    
-    const prevBtn = document.getElementById('prevLessonBtn');
-    const nextBtn = document.getElementById('nextLessonBtn');
-    const completeBtn = document.getElementById('completeLessonBtn');
-    
-    // Find current index
-    const currentIndex = window.allLessons.findIndex(l => l.id == lessonId);
-    
-    if (currentIndex === -1) {
-        console.log('Current lesson not found in full list');
-        return;
-    }
-    
-    console.log(`📚 Navigation: Lesson ${currentIndex + 1} of ${window.allLessons.length}`);
-    
-    // Update previous button
-    if (currentIndex > 0) {
-        prevBtn.disabled = false;
-        // Store the previous lesson ID in a data attribute
-        prevBtn.setAttribute('data-prev-id', window.allLessons[currentIndex - 1].id);
-    } else {
-        prevBtn.disabled = true;
-        prevBtn.removeAttribute('data-prev-id');
-    }
-    
-    // Update next button
-    if (currentIndex < window.allLessons.length - 1) {
-        nextBtn.disabled = false;
-        // Store the next lesson ID in a data attribute
-        nextBtn.setAttribute('data-next-id', window.allLessons[currentIndex + 1].id);
-    } else {
-        nextBtn.disabled = true;
-        nextBtn.removeAttribute('data-next-id');
-    }
-    
-    // Update complete button with current lesson ID if needed
-    if (completeBtn && completeBtn.getAttribute('data-lesson-id') != lessonId) {
-        completeBtn.setAttribute('data-lesson-id', lessonId);
-    }
-}
-
-// Override the existing navigation click handlers
-function setupNavigationHandlers() {
-    const prevBtn = document.getElementById('prevLessonBtn');
-    const nextBtn = document.getElementById('nextLessonBtn');
-    
-    if (prevBtn) {
-        // Remove existing listeners
-        const newPrevBtn = prevBtn.cloneNode(true);
-        prevBtn.parentNode.replaceChild(newPrevBtn, prevBtn);
-        
-        // Add new listener
-        newPrevBtn.addEventListener('click', function(e) {
-            e.preventDefault();
-            const prevId = this.getAttribute('data-prev-id');
-            if (prevId && window.allLessons) {
-                loadLessonById(prevId);
-            }
-        });
-    }
-    
-    if (nextBtn) {
-        // Remove existing listeners
-        const newNextBtn = nextBtn.cloneNode(true);
-        nextBtn.parentNode.replaceChild(newNextBtn, nextBtn);
-        
-        // Add new listener
-        newNextBtn.addEventListener('click', function(e) {
-            e.preventDefault();
-            const nextId = this.getAttribute('data-next-id');
-            if (nextId && window.allLessons) {
-                loadLessonById(nextId);
-            }
-        });
-    }
-}
-
 // ============================================
-// FIX: LESSON NAVIGATION - ALL 3 LESSONS
+// FINAL FIX: LESSON NAVIGATION FOR ALL 3 LESSONS
 // ============================================
-
-// Store all lessons globally when they're loaded
 (function() {
-    console.log('🎯 Installing lesson navigation fix...');
+    console.log('🎯 Installing final lesson navigation fix...');
     
-    // Intercept the existing loadLessons function
+    // Store lessons globally with unique names to avoid conflicts
+    window.MathLessonsList = window.MathLessonsList || [];
+    window.MathLessonsMap = window.MathLessonsMap || {};
+    
+    // Intercept fetch to capture lessons
     const originalFetch = window.fetch;
     window.fetch = function() {
         return originalFetch.apply(this, arguments)
             .then(response => {
-                // Clone response so we can read it twice
-                const clonedResponse = response.clone();
-                
                 // Check if this is the lessons API
-                if (arguments[0] && arguments[0].includes && arguments[0].includes('/api/lessons-db/complete')) {
-                    clonedResponse.json().then(data => {
+                const url = arguments[0] || '';
+                if (typeof url === 'string' && (url.includes('/api/lessons-db/complete') || url.includes('/api/lessons'))) {
+                    
+                    response.clone().json().then(data => {
                         if (data && data.length > 0) {
-                            console.log(`📚 Storing ${data.length} lessons globally`);
-                            window.allLessons = data;
-                            
-                            // Also store by ID for quick access
-                            window.lessonsById = {};
+                            console.log(`📚 Captured ${data.length} lessons from API`);
+                            window.MathLessonsList = data;
+                            window.MathLessonsMap = {};
                             data.forEach(lesson => {
-                                window.lessonsById[lesson.id] = lesson;
+                                window.MathLessonsMap[lesson.id] = lesson;
                             });
-                            
-                            // Store in localStorage as backup
-                            try {
-                                localStorage.setItem('allLessons', JSON.stringify(data));
-                            } catch(e) {}
                         }
                     }).catch(() => {});
                 }
                 return response;
             })
-            .catch(error => {
-                throw error;
-            });
+            .catch(err => { throw err; });
     };
     
-    // Load from localStorage on startup
-    try {
-        const cached = localStorage.getItem('allLessons');
-        if (cached) {
-            window.allLessons = JSON.parse(cached);
-            window.lessonsById = {};
-            window.allLessons.forEach(lesson => {
-                window.lessonsById[lesson.id] = lesson;
-            });
-            console.log(`📚 Loaded ${window.allLessons.length} lessons from cache`);
+    // Main function to setup navigation
+    window.setupMathNavigation = function() {
+        // Check if we're on module page
+        const modulePage = document.getElementById('module-dashboard-page');
+        if (!modulePage || modulePage.classList.contains('hidden')) {
+            return;
         }
-    } catch(e) {}
-})();
-
-// Function to fix navigation when entering module page
-function fixLessonNavigation() {
-    console.log('🔧 Fixing lesson navigation...');
-    
-    const modulePage = document.getElementById('module-dashboard-page');
-    if (!modulePage || modulePage.classList.contains('hidden')) {
-        return;
-    }
-    
-    // Get current lesson ID
-    const completeBtn = document.getElementById('completeLessonBtn');
-    const currentLessonId = completeBtn ? completeBtn.getAttribute('data-lesson-id') : null;
-    
-    if (!currentLessonId) {
-        console.log('No current lesson ID found');
-        return;
-    }
-    
-    console.log(`Current lesson ID: ${currentLessonId}`);
-    
-    // Make sure we have all lessons
-    if (!window.allLessons || window.allLessons.length === 0) {
-        console.log('No lessons in memory, fetching...');
-        fetch('/api/lessons-db/complete')
-            .then(res => res.json())
-            .then(lessons => {
-                window.allLessons = lessons;
-                window.lessonsById = {};
-                lessons.forEach(l => window.lessonsById[l.id] = l);
-                setupNavigationForLesson(currentLessonId);
+        
+        console.log('🔧 Setting up lesson navigation...');
+        
+        const prevBtn = document.getElementById('prevLessonBtn');
+        const nextBtn = document.getElementById('nextLessonBtn');
+        const completeBtn = document.getElementById('completeLessonBtn');
+        
+        if (!prevBtn || !nextBtn) {
+            console.log('Navigation buttons not found');
+            return;
+        }
+        
+        // Get current lesson ID
+        let currentId = completeBtn ? completeBtn.getAttribute('data-lesson-id') : null;
+        
+        // If no ID, try to get from title
+        if (!currentId) {
+            const titleEl = document.getElementById('moduleTitle');
+            if (titleEl && window.MathLessonsList.length) {
+                const title = titleEl.textContent;
+                const match = window.MathLessonsList.find(l => 
+                    l.title && (title.includes(l.title) || l.title.includes(title))
+                );
+                if (match) currentId = match.id;
+            }
+        }
+        
+        // If still no ID or no lessons, wait and retry
+        if (!currentId || window.MathLessonsList.length === 0) {
+            console.log('Waiting for lesson data...');
+            setTimeout(window.setupMathNavigation, 500);
+            return;
+        }
+        
+        // Find current index
+        const currentIndex = window.MathLessonsList.findIndex(l => l.id == currentId);
+        
+        if (currentIndex === -1) {
+            console.log('Current lesson not found in list');
+            return;
+        }
+        
+        console.log(`📚 Lesson ${currentIndex + 1} of ${window.MathLessonsList.length}`);
+        console.log('Lessons:', window.MathLessonsList.map(l => ({id: l.id, title: l.title})));
+        
+        // Setup Previous Button
+        if (currentIndex > 0) {
+            const prevLesson = window.MathLessonsList[currentIndex - 1];
+            prevBtn.disabled = false;
+            
+            // Remove all existing listeners by cloning
+            const newPrev = prevBtn.cloneNode(true);
+            prevBtn.parentNode.replaceChild(newPrev, prevBtn);
+            
+            // Add new listener
+            newPrev.addEventListener('click', function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                window.loadMathLesson(prevLesson.id);
             });
-    } else {
-        setupNavigationForLesson(currentLessonId);
-    }
-}
-
-// Setup navigation for a specific lesson
-function setupNavigationForLesson(lessonId) {
-    if (!window.allLessons || window.allLessons.length === 0) {
-        console.log('No lessons available');
-        return;
-    }
-    
-    const prevBtn = document.getElementById('prevLessonBtn');
-    const nextBtn = document.getElementById('nextLessonBtn');
-    const completeBtn = document.getElementById('completeLessonBtn');
-    
-    if (!prevBtn || !nextBtn) {
-        console.log('Navigation buttons not found');
-        return;
-    }
-    
-    // Find current index
-    const currentIndex = window.allLessons.findIndex(l => l.id == lessonId);
-    
-    if (currentIndex === -1) {
-        console.log(`Lesson ${lessonId} not found in list`);
-        return;
-    }
-    
-    console.log(`📚 Current lesson: ${currentIndex + 1} of ${window.allLessons.length}`);
-    console.log(`   Lessons:`, window.allLessons.map(l => ({id: l.id, title: l.title})));
-    
-    // Store all lessons in a data attribute on the container
-    const container = document.querySelector('.lesson-navigation') || document.body;
-    container.setAttribute('data-total-lessons', window.allLessons.length);
-    container.setAttribute('data-current-index', currentIndex);
-    
-    // Update previous button
-    if (currentIndex > 0) {
-        const prevLesson = window.allLessons[currentIndex - 1];
-        prevBtn.disabled = false;
-        prevBtn.setAttribute('data-lesson-id', prevLesson.id);
-        prevBtn.setAttribute('data-lesson-title', prevLesson.title);
+            
+            console.log(`✅ Previous: ${prevLesson.title} (ID: ${prevLesson.id})`);
+        } else {
+            prevBtn.disabled = true;
+            console.log('⛔ No previous lesson');
+        }
         
-        // Replace click handler
-        prevBtn.onclick = function(e) {
-            e.preventDefault();
-            e.stopPropagation();
-            loadLessonById(prevLesson.id);
-        };
+        // Setup Next Button
+        if (currentIndex < window.MathLessonsList.length - 1) {
+            const nextLesson = window.MathLessonsList[currentIndex + 1];
+            nextBtn.disabled = false;
+            
+            // Remove all existing listeners by cloning
+            const newNext = nextBtn.cloneNode(true);
+            nextBtn.parentNode.replaceChild(newNext, nextBtn);
+            
+            // Add new listener
+            newNext.addEventListener('click', function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                window.loadMathLesson(nextLesson.id);
+            });
+            
+            console.log(`✅ Next: ${nextLesson.title} (ID: ${nextLesson.id})`);
+        } else {
+            nextBtn.disabled = true;
+            console.log('⛔ No next lesson');
+        }
         
-        console.log(`✅ Previous enabled: ${prevLesson.title} (ID: ${prevLesson.id})`);
-    } else {
-        prevBtn.disabled = true;
-        prevBtn.removeAttribute('data-lesson-id');
-        prevBtn.onclick = null;
-        console.log('⛔ Previous disabled (first lesson)');
-    }
+        // Update complete button
+        if (completeBtn) {
+            completeBtn.setAttribute('data-lesson-id', currentId);
+        }
+    };
     
-    // Update next button
-    if (currentIndex < window.allLessons.length - 1) {
-        const nextLesson = window.allLessons[currentIndex + 1];
-        nextBtn.disabled = false;
-        nextBtn.setAttribute('data-lesson-id', nextLesson.id);
-        nextBtn.setAttribute('data-lesson-title', nextLesson.title);
+    // Function to load a lesson
+    window.loadMathLesson = function(lessonId) {
+        console.log(`📖 Loading lesson ID: ${lessonId}`);
         
-        // Replace click handler
-        nextBtn.onclick = function(e) {
-            e.preventDefault();
-            e.stopPropagation();
-            loadLessonById(nextLesson.id);
-        };
+        // Show loading state
+        const titleEl = document.getElementById('moduleTitle');
+        const contentEl = document.getElementById('lessonContent');
+        const videoEl = document.getElementById('lessonVideo');
         
-        console.log(`✅ Next enabled: ${nextLesson.title} (ID: ${nextLesson.id})`);
-    } else {
-        nextBtn.disabled = true;
-        nextBtn.removeAttribute('data-lesson-id');
-        nextBtn.onclick = null;
-        console.log('⛔ Next disabled (last lesson)');
-    }
-    
-    // Update complete button
-    if (completeBtn) {
-        completeBtn.setAttribute('data-lesson-id', lessonId);
-    }
-}
-
-// Load a lesson by ID
-function loadLessonById(lessonId) {
-    console.log(`📖 Loading lesson ID: ${lessonId}`);
-    
-    // Find lesson data
-    const lesson = window.lessonsById ? window.lessonsById[lessonId] : null;
-    
-    if (!lesson) {
-        // Fetch if not in memory
+        if (titleEl) titleEl.textContent = 'Loading...';
+        if (contentEl) contentEl.innerHTML = '<p>Loading lesson content...</p>';
+        
+        // Check if we have it cached
+        if (window.MathLessonsMap[lessonId]) {
+            console.log('Using cached lesson data');
+            window.renderMathLesson(window.MathLessonsMap[lessonId]);
+            return;
+        }
+        
+        // Fetch from server
         fetch(`/api/lesson/${lessonId}`)
-            .then(res => res.json())
-            .then(lessonData => {
-                renderLesson(lessonData);
+            .then(response => response.json())
+            .then(lesson => {
+                console.log('Lesson loaded:', lesson);
+                // Cache it
+                window.MathLessonsMap[lessonId] = lesson;
+                window.renderMathLesson(lesson);
             })
-            .catch(err => {
-                console.error('Error loading lesson:', err);
+            .catch(error => {
+                console.error('Error loading lesson:', error);
+                if (contentEl) {
+                    contentEl.innerHTML = '<p class="error">Error loading lesson. Please try again.</p>';
+                }
             });
-    } else {
-        renderLesson(lesson);
-    }
-}
-
-// Render lesson data
-function renderLesson(lesson) {
-    console.log('Rendering lesson:', lesson);
-    
-    // Update title
-    const titleEl = document.getElementById('moduleTitle');
-    if (titleEl) titleEl.textContent = lesson.title || 'Lesson';
-    
-    // Update subtitle
-    const subtitleEl = document.getElementById('moduleSubtitle');
-    if (subtitleEl) subtitleEl.textContent = lesson.description || '';
-    
-    // Update video
-    const videoEl = document.getElementById('lessonVideo');
-    if (videoEl && lesson.video_url) {
-        videoEl.src = lesson.video_url;
-        videoEl.load();
-    }
-    
-    // Update content
-    const contentEl = document.getElementById('lessonContent');
-    if (contentEl) {
-        let html = '';
-        
-        if (lesson.content) {
-            html += `<p>${lesson.content}</p>`;
-        }
-        
-        if (lesson.example) {
-            html += `<div class="math-example"><p><strong>Example:</strong> ${lesson.example}</p></div>`;
-        }
-        
-        if (lesson.steps && lesson.steps.length > 0) {
-            html += '<ol class="steps">';
-            lesson.steps.forEach(step => {
-                html += `<li>${step}</li>`;
-            });
-            html += '</ol>';
-        }
-        
-        contentEl.innerHTML = html || '<p>Lesson content not available</p>';
-    }
-    
-    // Update complete button
-    const completeBtn = document.getElementById('completeLessonBtn');
-    if (completeBtn) {
-        completeBtn.setAttribute('data-lesson-id', lesson.id);
-    }
-    
-    // Update navigation for new lesson
-    setupNavigationForLesson(lesson.id);
-}
-
-// Intercept the showModuleDashboard function
-const originalShowModuleDashboard = window.showModuleDashboard;
-if (originalShowModuleDashboard) {
-    window.showModuleDashboard = function(event, lessonId) {
-        console.log('🎯 Intercepted showModuleDashboard with lessonId:', lessonId);
-        
-        // Call original
-        originalShowModuleDashboard(event, lessonId);
-        
-        // Fix navigation after a delay
-        setTimeout(fixLessonNavigation, 500);
     };
-}
-
-// Also intercept any review button clicks
-document.addEventListener('click', function(e) {
-    const reviewBtn = e.target.closest('.review-btn') || 
-                      e.target.closest('[onclick*="reviewLesson"]') ||
-                      e.target.closest('[onclick*="showModuleDashboard"]');
     
-    if (reviewBtn) {
-        console.log('🎯 Review button clicked');
-        setTimeout(fixLessonNavigation, 600);
-    }
-});
-
-// Watch for module page visibility
-const pageObserver = new MutationObserver(function(mutations) {
-    mutations.forEach(function(mutation) {
-        if (mutation.attributeName === 'class') {
-            const modulePage = document.getElementById('module-dashboard-page');
-            if (modulePage && !modulePage.classList.contains('hidden')) {
-                console.log('📄 Module page became visible');
-                setTimeout(fixLessonNavigation, 300);
+    // Function to render a lesson
+    window.renderMathLesson = function(lesson) {
+        console.log('Rendering lesson:', lesson.title);
+        
+        // Update title
+        const titleEl = document.getElementById('moduleTitle');
+        if (titleEl) titleEl.textContent = lesson.title || 'Lesson';
+        
+        // Update subtitle
+        const subtitleEl = document.getElementById('moduleSubtitle');
+        if (subtitleEl) subtitleEl.textContent = lesson.description || '';
+        
+        // Update video
+        const videoEl = document.getElementById('lessonVideo');
+        if (videoEl && lesson.video_url) {
+            videoEl.src = lesson.video_url;
+            videoEl.load();
+        }
+        
+        // Update content
+        const contentEl = document.getElementById('lessonContent');
+        if (contentEl) {
+            let html = '';
+            
+            if (lesson.content) {
+                html += `<p>${lesson.content}</p>`;
             }
+            
+            if (lesson.example) {
+                html += `<div class="math-example"><p><strong>Example:</strong> ${lesson.example}</p></div>`;
+            }
+            
+            if (lesson.steps && lesson.steps.length > 0) {
+                html += '<ol class="steps">';
+                lesson.steps.forEach(step => {
+                    html += `<li>${step}</li>`;
+                });
+                html += '</ol>';
+            }
+            
+            contentEl.innerHTML = html || '<p>Lesson content not available</p>';
+        }
+        
+        // Update complete button
+        const completeBtn = document.getElementById('completeLessonBtn');
+        if (completeBtn) {
+            completeBtn.setAttribute('data-lesson-id', lesson.id);
+        }
+        
+        // Update navigation for new lesson
+        setTimeout(window.setupMathNavigation, 100);
+    };
+    
+    // Watch for module page visibility changes
+    const observer = new MutationObserver(function(mutations) {
+        mutations.forEach(function(mutation) {
+            if (mutation.attributeName === 'class') {
+                const page = document.getElementById('module-dashboard-page');
+                if (page && !page.classList.contains('hidden')) {
+                    console.log('Module page became visible');
+                    setTimeout(window.setupMathNavigation, 300);
+                }
+            }
+        });
+    });
+    
+    const page = document.getElementById('module-dashboard-page');
+    if (page) {
+        observer.observe(page, { attributes: true });
+    }
+    
+    // Listen for review button clicks
+    document.addEventListener('click', function(e) {
+        const isReviewButton = 
+            e.target.closest('.review-btn') || 
+            e.target.closest('[onclick*="reviewLesson"]') ||
+            e.target.closest('[onclick*="showModuleDashboard"]') ||
+            (e.target.closest('button') && e.target.textContent.includes('Review'));
+        
+        if (isReviewButton) {
+            console.log('Review button clicked');
+            setTimeout(window.setupMathNavigation, 600);
         }
     });
-});
-
-const modulePage = document.getElementById('module-dashboard-page');
-if (modulePage) {
-    pageObserver.observe(modulePage, { attributes: true });
-}
-
-// Run on page load
-document.addEventListener('DOMContentLoaded', function() {
-    if (!document.getElementById('module-dashboard-page')?.classList.contains('hidden')) {
-        setTimeout(fixLessonNavigation, 500);
-    }
-});
-
-// Run immediately if already on module page
-if (!document.getElementById('module-dashboard-page')?.classList.contains('hidden')) {
-    setTimeout(fixLessonNavigation, 500);
-}
-
-console.log('✅ Lesson navigation fix installed');
-
-// Initialize when module page becomes visible
-const moduleObserver = new MutationObserver(function(mutations) {
-    mutations.forEach(function(mutation) {
-        if (mutation.attributeName === 'class') {
-            const modulePage = document.getElementById('module-dashboard-page');
-            if (modulePage && !modulePage.classList.contains('hidden')) {
-                setTimeout(() => {
-                    ensureAllLessonsInNavigation();
-                    setupNavigationHandlers();
-                }, 300);
-            }
+    
+    // Initial check
+    setTimeout(function() {
+        if (!document.getElementById('module-dashboard-page')?.classList.contains('hidden')) {
+            window.setupMathNavigation();
         }
-    });
-});
-
-// Start observing
-const modulePage = document.getElementById('module-dashboard-page');
-if (modulePage) {
-    moduleObserver.observe(modulePage, { attributes: true });
-}
-
-// Also trigger when review buttons are clicked
-document.addEventListener('click', function(e) {
-    if (e.target.closest('.review-btn') || 
-        e.target.closest('[onclick*="reviewLesson"]') ||
-        e.target.closest('[onclick*="showModuleDashboard"]')) {
-        setTimeout(() => {
-            ensureAllLessonsInNavigation();
-            setupNavigationHandlers();
-        }, 500);
-    }
-});
-
-// Run on page load
-document.addEventListener('DOMContentLoaded', function() {
-    if (!document.getElementById('module-dashboard-page')?.classList.contains('hidden')) {
-        setTimeout(() => {
-            ensureAllLessonsInNavigation();
-            setupNavigationHandlers();
-        }, 500);
-    }
-});
-
-// If we're already on module page, run immediately
-if (!document.getElementById('module-dashboard-page')?.classList.contains('hidden')) {
-    setTimeout(() => {
-        ensureAllLessonsInNavigation();
-        setupNavigationHandlers();
-    }, 500);
-}
+    }, 1000);
+    
+    // Pre-load all lessons
+    fetch('/api/lessons-db/complete')
+        .then(res => res.json())
+        .then(lessons => {
+            if (lessons && lessons.length > 0) {
+                window.MathLessonsList = lessons;
+                lessons.forEach(l => window.MathLessonsMap[l.id] = l);
+                console.log(`✅ Pre-loaded ${lessons.length} lessons:`, 
+                    lessons.map(l => ({id: l.id, title: l.title})));
+            }
+        })
+        .catch(err => console.log('Could not pre-load lessons:', err));
+    
+    console.log('✅ Navigation fix installed');
+})();
