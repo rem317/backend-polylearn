@@ -35798,3 +35798,130 @@ console.log('🚀 Final complete button fix applied!');
 console.log('💡 Commands:');
 console.log('   - resetCompleteButton() - Reset button to "Mark Complete"');
 console.log('   - forceCompleteLesson() - Emergency complete lesson');
+
+
+// ============================================
+// 🚨 HARDCODED HTML FIX - Override the button text
+// ============================================
+
+(function() {
+    console.log('🔧 Checking for hardcoded button text...');
+    
+    function fixButtonText() {
+        const btn = document.getElementById('completeLessonBtn');
+        
+        if (!btn) {
+            console.log('⏳ Button not found yet...');
+            return false;
+        }
+        
+        // Check if button has hardcoded "Completed" text
+        const btnHTML = btn.innerHTML;
+        const btnText = btn.textContent || '';
+        
+        console.log('Current button HTML:', btnHTML);
+        console.log('Current button text:', btnText);
+        
+        // If it says "Completed" or has checkmark, override it
+        if (btnHTML.includes('Lesson Completed') || 
+            btnHTML.includes('✅') || 
+            btnText.includes('Completed')) {
+            
+            console.log('⚠️ Found hardcoded "Completed" button! Overriding...');
+            
+            // Completely replace the button
+            const newBtn = document.createElement('button');
+            newBtn.id = 'completeLessonBtn';
+            newBtn.className = 'btn-primary';
+            newBtn.innerHTML = '<i class="fas fa-check-circle"></i> Mark Lesson Complete';
+            newBtn.style.background = '#7a0000';
+            newBtn.style.color = 'white';
+            newBtn.style.border = 'none';
+            newBtn.style.padding = '10px 20px';
+            newBtn.style.borderRadius = '5px';
+            newBtn.style.cursor = 'pointer';
+            
+            // Replace the old button
+            if (btn.parentNode) {
+                btn.parentNode.replaceChild(newBtn, btn);
+            }
+            
+            console.log('✅ Button replaced successfully');
+            return newBtn;
+        }
+        
+        return btn;
+    }
+    
+    // Try multiple times
+    let attempts = 0;
+    const maxAttempts = 20;
+    
+    const interval = setInterval(() => {
+        attempts++;
+        const btn = fixButtonText();
+        
+        if (btn || attempts >= maxAttempts) {
+            if (btn) {
+                // Attach click handler
+                btn.onclick = async function(e) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    
+                    if (this.disabled) return;
+                    
+                    this.disabled = true;
+                    this.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Saving...';
+                    
+                    try {
+                        const urlParams = new URLSearchParams(window.location.search);
+                        let contentId = urlParams.get('lessonId');
+                        
+                        if (!contentId && LessonState.currentLesson) {
+                            contentId = LessonState.currentLesson.content_id;
+                        }
+                        
+                        if (!contentId) {
+                            alert('No lesson ID found');
+                            this.innerHTML = '<i class="fas fa-check-circle"></i> Mark Lesson Complete';
+                            this.disabled = false;
+                            return;
+                        }
+                        
+                        const token = localStorage.getItem('authToken');
+                        const response = await fetch(`/api/lessons-db/${contentId}/progress`, {
+                            method: 'POST',
+                            headers: {
+                                'Authorization': `Bearer ${token}`,
+                                'Content-Type': 'application/json'
+                            },
+                            body: JSON.stringify({
+                                completion_status: 'completed',
+                                percentage: 100
+                            })
+                        });
+                        
+                        const data = await response.json();
+                        
+                        if (data.success) {
+                            this.innerHTML = '<i class="fas fa-check"></i> Lesson Completed!';
+                            this.style.background = '#2ecc71';
+                            alert('✅ Lesson completed!');
+                            setTimeout(() => location.reload(), 2000);
+                        } else {
+                            throw new Error(data.message);
+                        }
+                    } catch (error) {
+                        alert('Error: ' + error.message);
+                        this.innerHTML = '<i class="fas fa-check-circle"></i> Mark Lesson Complete';
+                        this.style.background = '#7a0000';
+                        this.disabled = false;
+                    }
+                };
+            }
+            clearInterval(interval);
+        }
+    }, 250);
+    
+    console.log('🚀 HTML override activated - will replace hardcoded button');
+})();
