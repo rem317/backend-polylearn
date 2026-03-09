@@ -1516,521 +1516,6 @@ class Calculator {
 }
 
 // ========================================
-// GRAPH TOOL - FOR ANY POLYNOMIAL FUNCTION
-// ========================================
-class GraphTool {
-    constructor() {
-        this.canvas = null;
-        this.ctx = null;
-        this.expression = 'x^3 - 2x^2 + x - 1'; // Default polynomial
-        this.range = { min: -5, max: 5 };
-        this.points = [];
-        this.isDarkMode = false;
-        this.xRoots = []; // X-intercepts (y=0)
-        this.yRoots = []; // Y-intercepts (x=0)
-        this.turningPoints = []; // Local maxima/minima
-    }
-
-    onOpen() {
-        setTimeout(() => {
-            this.canvas = document.getElementById('graphCanvas');
-            if (this.canvas) {
-                this.ctx = this.canvas.getContext('2d');
-                this.setupCanvas();
-                this.setupEventListeners();
-                this.drawGrid();
-                this.plotFunction();
-            }
-        }, 100);
-    }
-
-    setupCanvas() {
-        // Set canvas size
-        this.canvas.width = this.canvas.offsetWidth;
-        this.canvas.height = this.canvas.offsetHeight;
-        
-        // Set default styles
-        this.ctx.lineWidth = 2;
-        this.ctx.strokeStyle = '#667eea';
-        this.ctx.fillStyle = '#667eea';
-        this.ctx.font = '12px Arial';
-    }
-
-    setupEventListeners() {
-        // Expression input
-        const exprInput = document.getElementById('graphExpression');
-        if (exprInput) {
-            exprInput.addEventListener('input', (e) => {
-                this.expression = e.target.value;
-            });
-        }
-
-        // Plot button
-        const plotBtn = document.getElementById('plotGraphBtn');
-        if (plotBtn) {
-            plotBtn.addEventListener('click', () => {
-                this.plotFunction();
-            });
-        }
-
-        // Range inputs
-        const minRange = document.getElementById('graphMinRange');
-        const maxRange = document.getElementById('graphMaxRange');
-        
-        if (minRange) {
-            minRange.addEventListener('change', (e) => {
-                this.range.min = parseFloat(e.target.value) || -5;
-                this.drawGrid();
-                this.plotFunction();
-            });
-        }
-        
-        if (maxRange) {
-            maxRange.addEventListener('change', (e) => {
-                this.range.max = parseFloat(e.target.value) || 5;
-                this.drawGrid();
-                this.plotFunction();
-            });
-        }
-
-        // Clear button
-        const clearBtn = document.getElementById('clearGraphBtn');
-        if (clearBtn) {
-            clearBtn.addEventListener('click', () => {
-                this.expression = 'x^3 - 2x^2 + x - 1';
-                if (exprInput) exprInput.value = 'x^3 - 2x^2 + x - 1';
-                this.drawGrid();
-                this.plotFunction();
-            });
-        }
-
-        // Save button
-        const saveBtn = document.getElementById('saveGraphBtn');
-        if (saveBtn) {
-            saveBtn.addEventListener('click', () => {
-                this.saveGraph();
-            });
-        }
-
-        // Dark mode toggle
-        const darkModeBtn = document.getElementById('graphDarkMode');
-        if (darkModeBtn) {
-            darkModeBtn.addEventListener('click', () => {
-                this.isDarkMode = !this.isDarkMode;
-                this.drawGrid();
-                this.plotFunction();
-            });
-        }
-    }
-
-    f(x) {
-        // Evaluate ANY polynomial function
-        try {
-            if (!this.expression || this.expression.trim() === '') {
-                return 0;
-            }
-            
-            // Replace ^ with ** for JavaScript exponentiation
-            let expr = this.expression.replace(/\^/g, '**');
-            
-            // Handle implicit multiplication (e.g., "2x" becomes "2*x")
-            expr = expr.replace(/(\d)(x)/g, '$1*$2');
-            
-            // Create a safe evaluation function
-            const fn = new Function('x', `return ${expr}`);
-            return fn(x);
-        } catch (e) {
-            console.error('Error evaluating function:', e);
-            return NaN;
-        }
-    }
-
-    generatePoints() {
-        this.points = [];
-        const step = (this.range.max - this.range.min) / 500; // Higher resolution for better accuracy
-        
-        for (let x = this.range.min; x <= this.range.max; x += step) {
-            try {
-                const y = this.f(x);
-                
-                if (isFinite(y) && !isNaN(y) && Math.abs(y) < 100) { // Limit y-range to avoid extreme values
-                    this.points.push({ x, y });
-                }
-            } catch (e) {
-                // Skip points where function fails
-            }
-        }
-    }
-
-    findRoots() {
-        this.xRoots = []; // X-intercepts (y=0)
-        this.yRoots = []; // Y-intercepts (x=0)
-        this.turningPoints = []; // Local maxima/minima
-        
-        // Find Y-intercept (x=0)
-        try {
-            const yAtZero = this.f(0);
-            if (isFinite(yAtZero) && !isNaN(yAtZero) && Math.abs(yAtZero) < 100) {
-                this.yRoots.push({ x: 0, y: yAtZero });
-            }
-        } catch (e) {
-            console.log('Could not calculate y-intercept');
-        }
-        
-        // Find X-intercepts (where y=0) using zero-crossing detection
-        if (this.points.length < 2) return;
-        
-        for (let i = 1; i < this.points.length; i++) {
-            const p1 = this.points[i-1];
-            const p2 = this.points[i];
-            
-            // Check if function crosses zero
-            if (p1.y * p2.y <= 0 && Math.abs(p1.y) < 100 && Math.abs(p2.y) < 100) {
-                // Linear interpolation to find root
-                const rootX = p1.x - p1.y * (p2.x - p1.x) / (p2.y - p1.y);
-                
-                // Check if this root is unique (avoid duplicates)
-                const isDuplicate = this.xRoots.some(r => Math.abs(r.x - rootX) < 0.01);
-                
-                if (!isDuplicate && rootX >= this.range.min && rootX <= this.range.max) {
-                    this.xRoots.push({ x: rootX, y: 0 });
-                }
-            }
-        }
-        
-        // Find turning points (where derivative changes sign)
-        for (let i = 1; i < this.points.length - 1; i++) {
-            const prev = this.points[i-1];
-            const curr = this.points[i];
-            const next = this.points[i+1];
-            
-            // Check for local maximum
-            if (curr.y > prev.y && curr.y > next.y) {
-                this.turningPoints.push({ x: curr.x, y: curr.y, type: 'max' });
-            }
-            
-            // Check for local minimum
-            if (curr.y < prev.y && curr.y < next.y) {
-                this.turningPoints.push({ x: curr.x, y: curr.y, type: 'min' });
-            }
-        }
-        
-        // Display all features
-        this.displayFeatures();
-    }
-
-    displayFeatures() {
-        const rootsEl = document.getElementById('graphRoots');
-        if (!rootsEl) return;
-        
-        let html = '<div class="roots-container">';
-        
-        // Display X-intercepts
-        if (this.xRoots.length > 0) {
-            html += '<div class="roots-section">';
-            html += '<h4 style="color: #e74c3c;"><i class="fas fa-arrow-right"></i> X-Intercepts (y=0):</h4>';
-            html += '<ul>';
-            this.xRoots.forEach((root, index) => {
-                html += `<li>x = ${root.x.toFixed(3)}</li>`;
-            });
-            html += '</ul>';
-            html += '</div>';
-        }
-        
-        // Display Y-intercept
-        if (this.yRoots.length > 0) {
-            html += '<div class="roots-section">';
-            html += '<h4 style="color: #2980b9;"><i class="fas fa-arrow-up"></i> Y-Intercept (x=0):</h4>';
-            html += '<ul>';
-            this.yRoots.forEach(root => {
-                html += `<li>y = ${root.y.toFixed(3)}</li>`;
-            });
-            html += '</ul>';
-            html += '</div>';
-        }
-        
-        // Display Turning Points
-        if (this.turningPoints.length > 0) {
-            html += '<div class="roots-section">';
-            html += '<h4 style="color: #f39c12;"><i class="fas fa-chart-line"></i> Turning Points:</h4>';
-            html += '<ul>';
-            this.turningPoints.forEach(point => {
-                const icon = point.type === 'max' ? '▲' : '▼';
-                html += `<li>${icon} (${point.x.toFixed(3)}, ${point.y.toFixed(3)}) - ${point.type === 'max' ? 'Maximum' : 'Minimum'}</li>`;
-            });
-            html += '</ul>';
-            html += '</div>';
-        }
-        
-        // If no features found
-        if (this.xRoots.length === 0 && this.yRoots.length === 0 && this.turningPoints.length === 0) {
-            html += '<p class="no-roots">No intercepts or turning points found in current range</p>';
-        }
-        
-        html += '</div>';
-        rootsEl.innerHTML = html;
-    }
-
-    drawGrid() {
-        if (!this.ctx || !this.canvas) return;
-        
-        const w = this.canvas.width;
-        const h = this.canvas.height;
-        
-        // Clear canvas
-        this.ctx.clearRect(0, 0, w, h);
-        
-        // Set colors based on mode
-        const gridColor = this.isDarkMode ? '#333' : '#ddd';
-        const axisColor = this.isDarkMode ? '#666' : '#999';
-        const textColor = this.isDarkMode ? '#ccc' : '#333';
-        const bgColor = this.isDarkMode ? '#1a1a1a' : '#fff';
-        
-        // Fill background
-        this.ctx.fillStyle = bgColor;
-        this.ctx.fillRect(0, 0, w, h);
-        
-        // Calculate y-range based on function values
-        let yMin = -10, yMax = 10;
-        if (this.points.length > 0) {
-            const yValues = this.points.map(p => p.y).filter(y => isFinite(y) && !isNaN(y) && Math.abs(y) < 100);
-            if (yValues.length > 0) {
-                yMin = Math.min(...yValues);
-                yMax = Math.max(...yValues);
-                // Add some padding
-                const padding = (yMax - yMin) * 0.1;
-                yMin -= padding;
-                yMax += padding;
-            }
-        }
-        
-        const yRange = yMax - yMin;
-        
-        // Pixel to coordinate mapping
-        const xToPx = (x) => ((x - this.range.min) / (this.range.max - this.range.min)) * w;
-        const yToPx = (y) => h - ((y - yMin) / yRange) * h;
-        
-        // Draw grid lines
-        this.ctx.strokeStyle = gridColor;
-        this.ctx.lineWidth = 0.5;
-        
-        // Vertical grid lines (every integer)
-        for (let x = Math.ceil(this.range.min); x <= this.range.max; x++) {
-            if (x === 0) continue; // Skip axis
-            const px = xToPx(x);
-            if (px >= 0 && px <= w) {
-                this.ctx.beginPath();
-                this.ctx.moveTo(px, 0);
-                this.ctx.lineTo(px, h);
-                this.ctx.stroke();
-            }
-        }
-        
-        // Horizontal grid lines (every integer in y-range)
-        for (let y = Math.ceil(yMin); y <= yMax; y++) {
-            if (y === 0) continue; // Skip axis
-            const py = yToPx(y);
-            if (py >= 0 && py <= h) {
-                this.ctx.beginPath();
-                this.ctx.moveTo(0, py);
-                this.ctx.lineTo(w, py);
-                this.ctx.stroke();
-            }
-        }
-        
-        // Draw axes
-        this.ctx.strokeStyle = axisColor;
-        this.ctx.lineWidth = 2;
-        
-        // Y-axis
-        const xZero = xToPx(0);
-        if (xZero >= 0 && xZero <= w) {
-            this.ctx.beginPath();
-            this.ctx.moveTo(xZero, 0);
-            this.ctx.lineTo(xZero, h);
-            this.ctx.stroke();
-        }
-        
-        // X-axis
-        const yZero = yToPx(0);
-        if (yZero >= 0 && yZero <= h) {
-            this.ctx.beginPath();
-            this.ctx.moveTo(0, yZero);
-            this.ctx.lineTo(w, yZero);
-            this.ctx.stroke();
-        }
-        
-        // Draw axis labels
-        this.ctx.fillStyle = textColor;
-        this.ctx.font = '12px Arial';
-        
-        // X-axis labels
-        for (let x = Math.ceil(this.range.min); x <= this.range.max; x++) {
-            if (x === 0) continue;
-            const px = xToPx(x);
-            const py = yZero;
-            if (px >= 0 && px <= w && py >= 0 && py <= h) {
-                this.ctx.fillText(x, px - 5, py - 5);
-            }
-        }
-        
-        // Y-axis labels
-        for (let y = Math.ceil(yMin); y <= yMax; y++) {
-            if (y === 0) continue;
-            const px = xZero;
-            const py = yToPx(y);
-            if (px >= 0 && px <= w && py >= 0 && py <= h) {
-                this.ctx.fillText(y, px + 5, py - 5);
-            }
-        }
-        
-        // Draw origin
-        if (xZero >= 0 && xZero <= w && yZero >= 0 && yZero <= h) {
-            this.ctx.fillStyle = textColor;
-            this.ctx.fillText('0', xZero + 5, yZero - 5);
-        }
-    }
-
-    plotFunction() {
-        this.generatePoints();
-        this.findRoots();
-        this.drawGrid();
-        
-        if (this.points.length === 0) return;
-        
-        const w = this.canvas.width;
-        const h = this.canvas.height;
-        
-        // Calculate y-range
-        let yMin = -10, yMax = 10;
-        const yValues = this.points.map(p => p.y).filter(y => isFinite(y) && !isNaN(y) && Math.abs(y) < 100);
-        if (yValues.length > 0) {
-            yMin = Math.min(...yValues);
-            yMax = Math.max(...yValues);
-            const padding = (yMax - yMin) * 0.1;
-            yMin -= padding;
-            yMax += padding;
-        }
-        
-        const yRange = yMax - yMin;
-        
-        // Pixel to coordinate mapping
-        const xToPx = (x) => ((x - this.range.min) / (this.range.max - this.range.min)) * w;
-        const yToPx = (y) => h - ((y - yMin) / yRange) * h;
-        
-        // Draw function
-        this.ctx.strokeStyle = '#667eea';
-        this.ctx.lineWidth = 3;
-        this.ctx.beginPath();
-        
-        let first = true;
-        for (const point of this.points) {
-            const px = xToPx(point.x);
-            const py = yToPx(point.y);
-            
-            if (px >= 0 && px <= w && py >= 0 && py <= h) {
-                if (first) {
-                    this.ctx.moveTo(px, py);
-                    first = false;
-                } else {
-                    this.ctx.lineTo(px, py);
-                }
-            } else {
-                first = true; // Break line when going out of bounds
-            }
-        }
-        
-        this.ctx.stroke();
-        
-        // Draw X-intercepts (red circles)
-        const yZero = yToPx(0);
-        this.ctx.fillStyle = '#e74c3c';
-        this.xRoots.forEach(root => {
-            const px = xToPx(root.x);
-            if (px >= 0 && px <= w && yZero >= 0 && yZero <= h) {
-                this.ctx.beginPath();
-                this.ctx.arc(px, yZero, 6, 0, 2 * Math.PI);
-                this.ctx.fill();
-                
-                // Add label
-                this.ctx.fillStyle = this.isDarkMode ? '#fff' : '#000';
-                this.ctx.font = 'bold 10px Arial';
-                this.ctx.fillText(`x=${root.x.toFixed(2)}`, px - 25, yZero - 15);
-                this.ctx.fillStyle = '#e74c3c';
-            }
-        });
-        
-        // Draw Y-intercept (blue circle)
-        const xZero = xToPx(0);
-        this.ctx.fillStyle = '#2980b9';
-        this.yRoots.forEach(root => {
-            const px = xZero;
-            const py = yToPx(root.y);
-            if (px >= 0 && px <= w && py >= 0 && py <= h) {
-                this.ctx.beginPath();
-                this.ctx.arc(px, py, 6, 0, 2 * Math.PI);
-                this.ctx.fill();
-                
-                // Add label
-                this.ctx.fillStyle = this.isDarkMode ? '#fff' : '#000';
-                this.ctx.font = 'bold 10px Arial';
-                this.ctx.fillText(`y=${root.y.toFixed(2)}`, px + 10, py - 10);
-                this.ctx.fillStyle = '#2980b9';
-            }
-        });
-        
-        // Draw Turning Points (orange circles)
-        this.ctx.fillStyle = '#f39c12';
-        this.turningPoints.forEach(point => {
-            const px = xToPx(point.x);
-            const py = yToPx(point.y);
-            if (px >= 0 && px <= w && py >= 0 && py <= h) {
-                this.ctx.beginPath();
-                this.ctx.arc(px, py, 5, 0, 2 * Math.PI);
-                this.ctx.fill();
-            }
-        });
-    }
-
-    async saveGraph() {
-        try {
-            const token = localStorage.getItem('authToken') || authToken;
-            if (!token) {
-                alert('Please login to save graphs');
-                return;
-            }
-            
-            const response = await fetch(`/api/graph/save`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${token}`
-                },
-                body: JSON.stringify({
-                    expression: this.expression,
-                    graph_type: 'polynomial',
-                    range: this.range,
-                    xRoots: this.xRoots,
-                    yRoots: this.yRoots,
-                    turningPoints: this.turningPoints
-                })
-            });
-            
-            const data = await response.json();
-            
-            if (data.success) {
-                alert('Graph saved successfully!');
-            } else {
-                alert('Failed to save graph');
-            }
-        } catch (error) {
-            console.error('Error saving graph:', error);
-            alert('Error saving graph');
-        }
-    }
-}
-
-// ========================================
 // WHITEBOARD TOOL - MOBILE FIXED VERSION
 // ========================================
 class Whiteboard {
@@ -2568,7 +2053,946 @@ class FormulaSheet {
         console.log(`✅ Displayed ${formulas.length} formulas`);
     }
 }
+// ============================================
+// ✅ PRACTICE PAGE INITIALIZATION
+// ============================================
+async function initPracticePage() {
+    console.log('💪 Initializing Mathease practice page - DATABASE ONLY');
+    
+    // Update date
+    const practiceDate = document.getElementById('practiceDate');
+    if (practiceDate) {
+        const now = new Date();
+        practiceDate.textContent = now.toLocaleDateString('en-US', { 
+            weekday: 'long',
+            month: 'short', 
+            day: 'numeric' 
+        });
+    }
+    
+    // ✅ Force Mathease lesson_id = 1
+    const MATHEASE_LESSON_ID = 1;
+    localStorage.setItem('currentLessonId', MATHEASE_LESSON_ID);
+    
+    console.log(`🎯 Forced lesson_id: ${MATHEASE_LESSON_ID} (Mathease only)`);
+    
+    // Reset current topic if needed
+    if (!PracticeState.currentTopic) {
+        PracticeState.currentTopic = '1';
+    }
+    
+    try {
+        // Show loading states
+        const exerciseArea = document.getElementById('exerciseArea');
+        if (exerciseArea) {
+            exerciseArea.innerHTML = `
+                <div class="loading-container" style="text-align: center; padding: 40px;">
+                    <i class="fas fa-spinner fa-spin" style="font-size: 40px; color: #7a0000;"></i>
+                    <p style="margin-top: 15px;">Loading Mathease data from database...</p>
+                </div>
+            `;
+        }
+        
+        // Load ALL data in parallel with error handling for each
+        const [statsResult, topicsResult] = await Promise.allSettled([
+            fetchPracticeStatistics(),
+            loadTopicsProgress()
+        ]);
+        
+        // Check statistics - BUT DON'T THROW ERROR
+        if (statsResult.status === 'rejected') {
+            console.error('❌ Failed to load practice statistics:', statsResult.reason);
+            // Show default stats
+            const practiceStats = document.getElementById('practiceStats');
+            if (practiceStats) {
+                practiceStats.innerHTML = `
+                    <div class="stat-card">
+                        <div class="stat-value">0</div>
+                        <div class="stat-label">LESSONS COMPLETED</div>
+                        <div class="stat-subtext">out of 3</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value">0</div>
+                        <div class="stat-label">EXERCISES COMPLETED</div>
+                        <div class="stat-subtext">total completed</div>
+                    </div>
+                `;
+            }
+        }
+        
+        // Check topics - BUT DON'T THROW ERROR
+        if (topicsResult.status === 'rejected') {
+            console.error('❌ Failed to load topics:', topicsResult.reason);
+        }
+        
+    } catch (error) {
+        console.error('❌ Error in initPracticePage:', error);
+        
+        // Show fallback UI
+        const exerciseArea = document.getElementById('exerciseArea');
+        if (exerciseArea) {
+            exerciseArea.innerHTML = `
+                <div class="error-message" style="text-align: center; padding: 40px;">
+                    <i class="fas fa-exclamation-triangle" style="font-size: 48px; color: #e74c3c;"></i>
+                    <h3 style="color: #666;">Connection Error</h3>
+                    <p style="color: #999;">Unable to connect to database.</p>
+                    <button class="btn-primary" onclick="initPracticePage()" style="margin-top: 15px;">
+                        <i class="fas fa-redo"></i> Retry
+                    </button>
+                </div>
+            `;
+        }
+    }
+    
+    addPracticeStyles();
+    console.log('✅ Mathease practice page initialization complete');
+}
 
+// ============================================
+// ✅ LOAD TOPICS PROGRESS FROM DATABASE
+// ============================================
+async function loadTopicsProgress() {
+    try {
+        const topicsContainer = document.getElementById('topicsContainer');
+        if (!topicsContainer) {
+            console.log('❌ topicsContainer not found');
+            return;
+        }
+        
+        const token = localStorage.getItem('authToken') || authToken;
+        if (!token) {
+            topicsContainer.innerHTML = `
+                <div class="error-message">
+                    <i class="fas fa-exclamation-triangle"></i>
+                    <h3>Please login to view topics</h3>
+                </div>
+            `;
+            return;
+        }
+        
+        console.log('📊 Fetching Mathease topics progress from database...');
+        
+        // ✅ Force Mathease lesson_id = 1
+        const MATHEASE_LESSON_ID = 1;
+        
+        const response = await fetch(`/api/topics/progress?lesson_id=${MATHEASE_LESSON_ID}`, {
+            headers: { 
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+            }
+        });
+        
+        console.log(`📡 Response status: ${response.status}`);
+        
+        // Check if response is JSON
+        const contentType = response.headers.get('content-type');
+        if (!contentType || !contentType.includes('application/json')) {
+            const text = await response.text();
+            console.error('❌ Non-JSON response:', text.substring(0, 200));
+            
+            topicsContainer.innerHTML = `
+                <div class="error-message">
+                    <i class="fas fa-exclamation-triangle"></i>
+                    <h3>Server Error</h3>
+                    <p>The topics endpoint returned an invalid response.</p>
+                    <p class="error-detail">Status: ${response.status}</p>
+                </div>
+            `;
+            return;
+        }
+        
+        if (!response.ok) {
+            const errorData = await response.json();
+            console.error('❌ API Error:', errorData);
+            
+            topicsContainer.innerHTML = `
+                <div class="error-message">
+                    <i class="fas fa-exclamation-triangle"></i>
+                    <h3>Failed to Load Topics</h3>
+                    <p>${errorData.message || `Server returned ${response.status}`}</p>
+                </div>
+            `;
+            return;
+        }
+        
+        const data = await response.json();
+        console.log('📥 Server response:', data);
+        
+        if (!data.success || !data.topics) {
+            topicsContainer.innerHTML = `
+                <div class="error-message">
+                    <i class="fas fa-info-circle"></i>
+                    <h3>No Topics Found</h3>
+                    <p>No topics are available in the database for Mathease.</p>
+                </div>
+            `;
+            return;
+        }
+        
+        // ✅ Filter to ensure only lesson_id = 1
+        const matheaseTopics = data.topics.filter(topic => {
+            const topicLessonId = topic.lesson_id || topic.lessonId;
+            return topicLessonId == MATHEASE_LESSON_ID;
+        });
+        
+        console.log(`🎯 Database returned ${matheaseTopics.length} topics for Mathease`);
+        
+        if (matheaseTopics.length === 0) {
+            topicsContainer.innerHTML = `
+                <div class="error-message">
+                    <i class="fas fa-folder-open"></i>
+                    <h3>No Mathease Topics</h3>
+                    <p>There are no topics with lesson_id = ${MATHEASE_LESSON_ID} in the database.</p>
+                </div>
+            `;
+            return;
+        }
+        
+        displayTopics(matheaseTopics);
+        
+    } catch (error) {
+        console.error('❌ Error loading topics progress:', error);
+        const topicsContainer = document.getElementById('topicsContainer');
+        if (topicsContainer) {
+            topicsContainer.innerHTML = `
+                <div class="error-message">
+                    <i class="fas fa-exclamation-triangle"></i>
+                    <h3>Connection Error</h3>
+                    <p>${error.message}</p>
+                    <button class="btn-primary" onclick="loadTopicsProgress()" style="margin-top: 15px;">
+                        <i class="fas fa-redo"></i> Retry
+                    </button>
+                </div>
+            `;
+        }
+    }
+}
+
+// ============================================
+// ✅ DISPLAY TOPICS
+// ============================================
+function displayTopics(topics) {
+    const topicsContainer = document.getElementById('topicsContainer');
+    if (!topicsContainer) {
+        console.error('❌ topicsContainer not found in displayTopics');
+        return;
+    }
+    
+    console.log(`📋 Displaying ${topics.length} Mathease topics:`, topics);
+    
+    if (!topics || topics.length === 0) {
+        topicsContainer.innerHTML = `
+            <div class="no-topics" style="text-align: center; padding: 40px;">
+                <i class="fas fa-folder-open" style="font-size: 48px; color: #ccc; margin-bottom: 15px;"></i>
+                <h3 style="color: #666;">No topics available</h3>
+                <p style="color: #999;">Complete lessons to unlock topics.</p>
+            </div>
+        `;
+        return;
+    }
+    
+    let html = '';
+    
+    topics.forEach(topic => {
+        const progressPercentage = topic.lesson_progress_percentage || 0;
+        const isPracticeUnlocked = topic.practice_unlocked || false;
+        const isPracticeCompleted = topic.practice_completed || false;
+        const isSelected = PracticeState.currentTopic == topic.topic_id;
+        
+        html += `
+            <div class="topic-card ${isPracticeUnlocked ? 'unlocked' : 'locked'} ${isPracticeCompleted ? 'completed' : ''} ${isSelected ? 'selected' : ''}" 
+                 data-topic-id="${topic.topic_id}"
+                 data-practice-unlocked="${isPracticeUnlocked}"
+                 style="cursor: pointer; background: white; border-radius: 8px; padding: 15px; margin-bottom: 10px; border: 2px solid ${isSelected ? '#7a0000' : 'transparent'};">
+                 
+                <div class="topic-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                    <h3 class="topic-title" style="margin: 0; font-size: 16px;">${topic.topic_title || 'Topic'}</h3>
+                    <div class="topic-status">
+                        ${isPracticeCompleted ? 
+                            '<span style="color: #27ae60;"><i class="fas fa-check-circle"></i> Completed</span>' :
+                            isPracticeUnlocked ?
+                            '<span style="color: #7a0000;"><i class="fas fa-unlock"></i> Unlocked</span>' :
+                            '<span style="color: #999;"><i class="fas fa-lock"></i> Locked</span>'
+                        }
+                    </div>
+                </div>
+                
+                <div class="topic-body">
+                    <p style="margin: 0 0 10px 0; color: #666; font-size: 14px;">${topic.module_name || 'Module'} - ${topic.topic_title}</p>
+                    
+                    <div class="topic-progress" style="margin: 10px 0;">
+                        <div class="progress-info" style="display: flex; justify-content: space-between; font-size: 13px; color: #666; margin-bottom: 5px;">
+                            <span>Lessons: ${topic.lessons_completed || 0}/${topic.total_lessons || 0}</span>
+                            <span>${progressPercentage}%</span>
+                        </div>
+                        <div class="progress-bar" style="height: 6px; background: #ecf0f1; border-radius: 3px; overflow: hidden;">
+                            <div class="progress-fill" style="height: 100%; width: ${progressPercentage}%; background: #7a0000;"></div>
+                        </div>
+                    </div>
+                    
+                    <div class="topic-practice-info" style="font-size: 13px; margin-top: 5px;">
+                        ${isPracticeCompleted ? 
+                            '<span style="color: #27ae60;"><i class="fas fa-trophy"></i> Practice Completed</span>' :
+                            isPracticeUnlocked ?
+                            '<span style="color: #7a0000;"><i class="fas fa-pencil-alt"></i> Practice Available</span>' :
+                            `<span style="color: #999;">Complete ${(topic.total_lessons || 0) - (topic.lessons_completed || 0)} more lessons</span>`
+                        }
+                    </div>
+                </div>
+                
+                <div class="topic-actions" style="margin-top: 15px;">
+                    ${isPracticeUnlocked ? 
+                        `<button class="btn-primary practice-topic-btn" data-topic-id="${topic.topic_id}" 
+                                style="width: 100%; padding: 8px; background: #7a0000; color: white; border: none; border-radius: 5px; cursor: pointer;">
+                            <i class="fas fa-play"></i> Start Practice
+                        </button>` :
+                        `<button class="btn-secondary" disabled 
+                                style="width: 100%; padding: 8px; background: #95a5a6; color: white; border: none; border-radius: 5px;">
+                            <i class="fas fa-lock"></i> Complete Lessons First
+                        </button>`
+                    }
+                </div>
+            </div>
+        `;
+    });
+    
+    topicsContainer.innerHTML = html;
+    
+    // Add event listeners to topic cards
+    document.querySelectorAll('.topic-card.unlocked').forEach(card => {
+        card.addEventListener('click', function(e) {
+            if (e.target.closest('button')) return;
+            const topicId = this.getAttribute('data-topic-id');
+            console.log('🎯 Topic card clicked:', topicId);
+            selectTopicForPractice(topicId);
+        });
+    });
+    
+    // Add event listeners to practice buttons
+    document.querySelectorAll('.practice-topic-btn').forEach(button => {
+        button.addEventListener('click', function(e) {
+            e.stopPropagation();
+            const topicId = this.getAttribute('data-topic-id');
+            console.log('🎯 Practice button clicked:', topicId);
+            selectTopicForPractice(topicId);
+        });
+    });
+}
+
+// ============================================
+// ✅ SELECT TOPIC FOR PRACTICE
+// ============================================
+function selectTopicForPractice(topicId) {
+    console.log('🎯 Selecting Mathease topic for practice:', topicId);
+    
+    PracticeState.currentTopic = topicId;
+    
+    // Update UI - remove selected class from all, add to current
+    document.querySelectorAll('.topic-card').forEach(card => {
+        card.classList.remove('selected');
+        if (card.getAttribute('data-topic-id') == topicId) {
+            card.classList.add('selected');
+        }
+    });
+    
+    // Update topic title
+    const practiceTopicTitle = document.getElementById('practiceTopicTitle');
+    if (practiceTopicTitle) {
+        const selectedCard = document.querySelector(`.topic-card[data-topic-id="${topicId}"]`);
+        const topicName = selectedCard ? 
+            selectedCard.querySelector('h3').textContent : 
+            'Mathease Topic';
+        practiceTopicTitle.innerHTML = `<i class="fas fa-pencil-alt"></i> Practicing: ${topicName}`;
+    }
+    
+    // Load exercises for this topic
+    loadPracticeExercisesForTopic(topicId);
+}
+
+// ============================================
+// ✅ LOAD PRACTICE EXERCISES FOR TOPIC
+// ============================================
+async function loadPracticeExercisesForTopic(topicId) {
+    try {
+        console.log(`📝 Getting practice exercises for topic ${topicId} from database`);
+        
+        const MATHEASE_LESSON_ID = 1;
+        const exerciseArea = document.getElementById('exerciseArea');
+        
+        if (!exerciseArea) return;
+        
+        exerciseArea.innerHTML = `
+            <div class="loading-container" style="text-align: center; padding: 30px;">
+                <i class="fas fa-spinner fa-spin" style="font-size: 30px; color: #7a0000;"></i>
+                <p style="margin-top: 10px;">Loading exercises from database...</p>
+            </div>
+        `;
+        
+        const token = localStorage.getItem('authToken') || authToken;
+        if (!token) {
+            exerciseArea.innerHTML = `
+                <div class="error-message" style="text-align: center; padding: 40px;">
+                    <i class="fas fa-exclamation-triangle" style="font-size: 48px; color: #e74c3c;"></i>
+                    <h3 style="color: #666;">Authentication Required</h3>
+                    <p style="color: #999;">Please login to view practice exercises.</p>
+                </div>
+            `;
+            return;
+        }
+        
+        // ✅ Try multiple endpoints to get exercises
+        let exercises = [];
+        let success = false;
+        
+        // Endpoint 1: Get exercises by topic with lesson_id filter
+        try {
+            const endpoint = `/api/practice/topic/${topicId}?lesson_id=${MATHEASE_LESSON_ID}`;
+            console.log(`📡 Fetching from: ${endpoint}`);
+            
+            const response = await fetch(endpoint, {
+                headers: { 
+                    'Authorization': `Bearer ${token}`,
+                    'Accept': 'application/json'
+                }
+            });
+            
+            const contentType = response.headers.get('content-type');
+            if (response.ok && contentType && contentType.includes('application/json')) {
+                const data = await response.json();
+                if (data.success && data.exercises && data.exercises.length > 0) {
+                    exercises = data.exercises;
+                    success = true;
+                    console.log(`✅ Found ${exercises.length} exercises from topic endpoint`);
+                }
+            }
+        } catch (e) {
+            console.log('⚠️ Topic endpoint failed:', e.message);
+        }
+        
+        // Endpoint 2: Get all exercises and filter by lesson_id
+        if (!success) {
+            try {
+                const endpoint = `/api/practice/exercises?lesson_id=${MATHEASE_LESSON_ID}`;
+                console.log(`📡 Fetching from: ${endpoint}`);
+                
+                const response = await fetch(endpoint, {
+                    headers: { 
+                        'Authorization': `Bearer ${token}`,
+                        'Accept': 'application/json'
+                    }
+                });
+                
+                const contentType = response.headers.get('content-type');
+                if (response.ok && contentType && contentType.includes('application/json')) {
+                    const data = await response.json();
+                    if (data.success && data.exercises) {
+                        // Filter exercises that belong to this topic
+                        exercises = data.exercises.filter(ex => 
+                            ex.topic_id == topicId
+                        );
+                        if (exercises.length > 0) {
+                            success = true;
+                            console.log(`✅ Found ${exercises.length} exercises from exercises endpoint`);
+                        }
+                    }
+                }
+            } catch (e) {
+                console.log('⚠️ Exercises endpoint failed:', e.message);
+            }
+        }
+        
+        // Endpoint 3: Get exercises by lesson ID (fallback)
+        if (!success) {
+            try {
+                const endpoint = `/api/practice/lesson/${MATHEASE_LESSON_ID}?lesson_id=${MATHEASE_LESSON_ID}`;
+                console.log(`📡 Fetching from: ${endpoint}`);
+                
+                const response = await fetch(endpoint, {
+                    headers: { 
+                        'Authorization': `Bearer ${token}`,
+                        'Accept': 'application/json'
+                    }
+                });
+                
+                const contentType = response.headers.get('content-type');
+                if (response.ok && contentType && contentType.includes('application/json')) {
+                    const data = await response.json();
+                    if (data.success && data.exercises) {
+                        exercises = data.exercises.filter(ex => 
+                            ex.topic_id == topicId
+                        );
+                        if (exercises.length > 0) {
+                            success = true;
+                            console.log(`✅ Found ${exercises.length} exercises from lesson endpoint`);
+                        }
+                    }
+                }
+            } catch (e) {
+                console.log('⚠️ Lesson endpoint failed:', e.message);
+            }
+        }
+        
+        // If we have exercises from database, display them
+        if (success && exercises.length > 0) {
+            displayPracticeExercises(exercises);
+        } else {
+            // Show no exercises message
+            exerciseArea.innerHTML = `
+                <div class="error-message" style="text-align: center; padding: 40px;">
+                    <i class="fas fa-database" style="font-size: 48px; color: #3498db; margin-bottom: 15px;"></i>
+                    <h3 style="color: #666; margin-bottom: 10px;">No Exercises in Database</h3>
+                    <p style="color: #999; margin-bottom: 15px;">There are no practice exercises for this topic in the database.</p>
+                    <p style="color: #999; font-size: 12px; margin-top: 10px;">Topic ID: ${topicId}, Lesson ID: ${MATHEASE_LESSON_ID}</p>
+                    <button class="btn-primary" onclick="checkMatheaseDatabase()" style="margin-top: 15px;">
+                        <i class="fas fa-database"></i> Check Database
+                    </button>
+                </div>
+            `;
+        }
+        
+    } catch (error) {
+        console.error('❌ Error loading exercises:', error);
+        const exerciseArea = document.getElementById('exerciseArea');
+        if (exerciseArea) {
+            exerciseArea.innerHTML = `
+                <div class="error-message" style="text-align: center; padding: 40px;">
+                    <i class="fas fa-exclamation-triangle" style="font-size: 48px; color: #e74c3c;"></i>
+                    <h3 style="color: #666;">Connection Error</h3>
+                    <p style="color: #999;">${error.message}</p>
+                    <button class="btn-primary" onclick="loadPracticeExercisesForTopic('${topicId}')" style="margin-top: 15px;">
+                        <i class="fas fa-redo"></i> Retry
+                    </button>
+                </div>
+            `;
+        }
+    }
+}
+
+// ============================================
+// ✅ DISPLAY PRACTICE EXERCISES
+// ============================================
+function displayPracticeExercises(exercises) {
+    const exerciseArea = document.getElementById('exerciseArea');
+    if (!exerciseArea) return;
+    
+    if (!exercises || exercises.length === 0) {
+        exerciseArea.innerHTML = `
+            <div class="no-exercises" style="text-align: center; padding: 40px;">
+                <i class="fas fa-pencil-alt" style="font-size: 48px; color: #ccc; margin-bottom: 15px;"></i>
+                <h3 style="color: #666;">No Practice Exercises</h3>
+                <p style="color: #999;">There are no practice exercises available for this topic yet.</p>
+            </div>
+        `;
+        return;
+    }
+    
+    let html = '<div class="exercises-list">';
+    
+    exercises.forEach((exercise, index) => {
+        // Parse content_json if it exists and is a string
+        let questions = [];
+        if (exercise.content_json) {
+            try {
+                const content = typeof exercise.content_json === 'string' 
+                    ? JSON.parse(exercise.content_json) 
+                    : exercise.content_json;
+                questions = content.questions || [];
+            } catch (e) {
+                console.error('Error parsing content_json:', e);
+            }
+        }
+        
+        const userProgress = exercise.user_progress || {};
+        const isCompleted = userProgress.completion_status === 'completed';
+        const difficultyClass = exercise.difficulty || 'medium';
+        
+        html += `
+            <div class="exercise-card ${isCompleted ? 'completed' : ''}" data-exercise-id="${exercise.exercise_id}">
+                <div class="exercise-header">
+                    <h3>Exercise ${index + 1}: ${exercise.title || 'Practice Exercise'}</h3>
+                    <span class="difficulty-badge difficulty-${difficultyClass}">
+                        ${exercise.difficulty || 'medium'}
+                    </span>
+                </div>
+                
+                <div class="exercise-body">
+                    <p>${exercise.description || 'Test your knowledge with this practice exercise.'}</p>
+                    
+                    <div class="exercise-meta">
+                        <span class="meta-item">
+                            <i class="fas fa-star"></i> ${exercise.points || 10} points
+                        </span>
+                        <span class="meta-item">
+                            <i class="fas fa-question-circle"></i> ${questions.length} questions
+                        </span>
+                        <span class="meta-item">
+                            <i class="fas fa-check-circle"></i> ${userProgress.attempts || 0} attempts
+                        </span>
+                    </div>
+                    
+                    ${userProgress.score > 0 ? `
+                        <div class="score-display">
+                            <strong>Best Score:</strong> ${userProgress.score}/${exercise.points || 10}
+                            (${Math.round((userProgress.score / (exercise.points || 10)) * 100)}%)
+                        </div>
+                    ` : ''}
+                </div>
+                
+                <div class="exercise-actions">
+                    ${isCompleted ? `
+                        <button class="btn-secondary review-exercise" data-exercise-id="${exercise.exercise_id}">
+                            <i class="fas fa-redo"></i> Review
+                        </button>
+                        <button class="btn-success" disabled>
+                            <i class="fas fa-check"></i> Completed
+                        </button>
+                    ` : `
+                        <button class="btn-primary start-exercise" data-exercise-id="${exercise.exercise_id}">
+                            <i class="fas fa-play"></i> ${userProgress.status === 'in_progress' ? 'Continue' : 'Start'}
+                        </button>
+                    `}
+                </div>
+            </div>
+        `;
+    });
+    
+    html += '</div>';
+    exerciseArea.innerHTML = html;
+    
+    // Setup event listeners for the exercise buttons
+    setupPracticeExerciseInteractions();
+}
+
+// ============================================
+// ✅ SETUP PRACTICE EXERCISE INTERACTIONS
+// ============================================
+function setupPracticeExerciseInteractions() {
+    // Start exercise buttons
+    document.querySelectorAll('.start-exercise').forEach(button => {
+        button.addEventListener('click', function() {
+            const exerciseId = this.getAttribute('data-exercise-id');
+            startPractice(exerciseId);
+        });
+    });
+    
+    // Review exercise buttons
+    document.querySelectorAll('.review-exercise').forEach(button => {
+        button.addEventListener('click', function() {
+            const exerciseId = this.getAttribute('data-exercise-id');
+            startPractice(exerciseId, true);
+        });
+    });
+}
+
+// ============================================
+// ✅ FETCH PRACTICE STATISTICS
+// ============================================
+async function fetchPracticeStatistics() {
+    try {
+        const token = localStorage.getItem('authToken') || authToken;
+        if (!token) {
+            console.warn('No auth token available');
+            return getDefaultPracticeStats();
+        }
+        
+        console.log('📊 Fetching Mathease practice statistics FROM DATABASE...');
+        
+        const MATHEASE_LESSON_ID = 1;
+        
+        // ===== STEP 1: GET LESSONS COMPLETED =====
+        let lessonsCompleted = 0;
+        let totalLessons = 3; // Default
+        
+        try {
+            const progressResponse = await fetch(`/api/progress/lessons?lesson_id=${MATHEASE_LESSON_ID}`, {
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Accept': 'application/json'
+                }
+            });
+            
+            // Check if response is JSON
+            const contentType = progressResponse.headers.get('content-type');
+            if (contentType && contentType.includes('application/json') && progressResponse.ok) {
+                const progressData = await progressResponse.json();
+                if (progressData.success && progressData.progress) {
+                    lessonsCompleted = progressData.progress.filter(p => 
+                        p.completion_status === 'completed' || p.status === 'completed'
+                    ).length;
+                    console.log(`✅ Found ${lessonsCompleted} completed lessons`);
+                }
+            }
+            
+            // Get total lessons count
+            const lessonsResponse = await fetch(`/api/lessons-db/complete?lesson_id=${MATHEASE_LESSON_ID}`, {
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Accept': 'application/json'
+                }
+            });
+            
+            if (lessonsResponse.ok) {
+                const contentType = lessonsResponse.headers.get('content-type');
+                if (contentType && contentType.includes('application/json')) {
+                    const lessonsData = await lessonsResponse.json();
+                    if (lessonsData.success && lessonsData.lessons) {
+                        totalLessons = lessonsData.lessons.length;
+                    }
+                }
+            }
+            
+        } catch (lessonsError) {
+            console.warn('⚠️ Could not fetch lessons:', lessonsError.message);
+        }
+        
+        // ===== STEP 2: GET PRACTICE ATTEMPTS =====
+        let exercisesCompleted = 0;
+        let totalAttempts = 0;
+        let totalScore = 0;
+        let totalTimeSeconds = 0;
+        
+        try {
+            const attemptsResponse = await fetch(`/api/progress/practice-attempts?lesson_id=${MATHEASE_LESSON_ID}`, {
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Accept': 'application/json'
+                }
+            });
+            
+            if (attemptsResponse.ok) {
+                const contentType = attemptsResponse.headers.get('content-type');
+                if (contentType && contentType.includes('application/json')) {
+                    const attemptsData = await attemptsResponse.json();
+                    
+                    if (attemptsData.success && attemptsData.attempts) {
+                        const attempts = attemptsData.attempts;
+                        
+                        // Count COMPLETED exercises
+                        exercisesCompleted = attempts.filter(a => 
+                            a.completion_status === 'completed' || 
+                            a.status === 'completed' ||
+                            (a.percentage && a.percentage >= 70)
+                        ).length;
+                        
+                        totalAttempts = attempts.length;
+                        
+                        // Compute average score
+                        if (totalAttempts > 0) {
+                            const totalScoreSum = attempts.reduce((sum, a) => sum + (a.score || 0), 0);
+                            totalScore = Math.round(totalScoreSum / totalAttempts);
+                        }
+                        
+                        // Calculate total time spent
+                        totalTimeSeconds = attempts.reduce((sum, a) => sum + (a.time_spent_seconds || 0), 0);
+                        
+                        console.log(`✅ Found ${exercisesCompleted} completed exercises`);
+                    }
+                }
+            }
+            
+        } catch (attemptsError) {
+            console.warn('⚠️ Could not fetch practice attempts:', attemptsError.message);
+        }
+        
+        // ===== CREATE STATS OBJECT =====
+        const stats = {
+            total_exercises_completed: exercisesCompleted,
+            total_attempts: totalAttempts,
+            average_score: totalScore,
+            lessons_completed: lessonsCompleted,
+            exercises_completed: exercisesCompleted,
+            practice_unlocked: true,
+            total_lessons: totalLessons,
+            total_time_minutes: Math.round(totalTimeSeconds / 60),
+            total_time_seconds: totalTimeSeconds,
+            accuracy_rate: totalScore,
+            lessons_display: `${lessonsCompleted}/${totalLessons}`,
+            exercises_display: `${exercisesCompleted}`,
+            lessons_percentage: totalLessons > 0 ? Math.round((lessonsCompleted / totalLessons) * 100) : 0
+        };
+        
+        console.log('✅ FINAL PRACTICE STATISTICS:', stats);
+        
+        // Save to PracticeState
+        PracticeState.userPracticeProgress = stats;
+        
+        // Update the UI
+        const practiceStats = document.getElementById('practiceStats');
+        if (practiceStats) {
+            practiceStats.innerHTML = `
+                <div class="stat-card">
+                    <div class="stat-value">${lessonsCompleted}</div>
+                    <div class="stat-label">LESSONS COMPLETED</div>
+                    <div class="stat-subtext">out of ${totalLessons}</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value">${exercisesCompleted}</div>
+                    <div class="stat-label">EXERCISES COMPLETED</div>
+                    <div class="stat-subtext">total completed</div>
+                </div>
+            `;
+        }
+        
+        return stats;
+        
+    } catch (error) {
+        console.error('❌ Error in fetchPracticeStatistics:', error);
+        
+        // Show error but don't break
+        const practiceStats = document.getElementById('practiceStats');
+        if (practiceStats) {
+            practiceStats.innerHTML = `
+                <div class="stat-card">
+                    <div class="stat-value">0</div>
+                    <div class="stat-label">LESSONS COMPLETED</div>
+                    <div class="stat-subtext">out of 3</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value">0</div>
+                    <div class="stat-label">EXERCISES COMPLETED</div>
+                    <div class="stat-subtext">total completed</div>
+                </div>
+            `;
+        }
+        
+        return getDefaultPracticeStats();
+    }
+}
+
+// ============================================
+// ✅ DEFAULT PRACTICE STATS
+// ============================================
+function getDefaultPracticeStats() {
+    return {
+        total_exercises_completed: 0,
+        total_attempts: 0,
+        average_score: 0,
+        lessons_completed: 0,
+        exercises_completed: 0,
+        practice_unlocked: true,
+        total_lessons: 3,
+        total_time_minutes: 0,
+        total_time_seconds: 0,
+        accuracy_rate: 0,
+        lessons_display: '0/3',
+        exercises_display: '0',
+        lessons_percentage: 0
+    };
+}
+
+// ============================================
+// ✅ LOAD PRACTICE STATISTICS
+// ============================================
+async function loadPracticeStatistics() {
+    try {
+        const practiceStats = document.getElementById('practiceStats');
+        if (!practiceStats) {
+            console.log('Practice stats element not found');
+            return;
+        }
+        
+        console.log('📊 Loading practice statistics...');
+        
+        // Show loading state
+        practiceStats.innerHTML = `
+            <div class="loading-container" style="grid-column: 1/-1; text-align: center; padding: 20px;">
+                <i class="fas fa-spinner fa-spin" style="font-size: 24px; color: #7a0000;"></i>
+                <p style="margin-top: 10px; color: #666;">Loading statistics from database...</p>
+            </div>
+        `;
+        
+        const stats = await fetchPracticeStatistics();
+        
+        console.log('📊 Stats received for display:', stats);
+        
+        const exercisesCompleted = Number(stats.exercises_completed) || 0;
+        const lessonsCompleted = Number(stats.lessons_completed) || 0;
+        const totalLessons = Number(stats.total_lessons) || 3;
+        
+        practiceStats.innerHTML = `
+            <div class="stat-card">
+                <div class="stat-value">${lessonsCompleted}</div>
+                <div class="stat-label">LESSONS COMPLETED</div>
+                <div class="stat-subtext">out of ${totalLessons}</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value">${exercisesCompleted}</div>
+                <div class="stat-label">EXERCISES COMPLETED</div>
+                <div class="stat-subtext">total completed</div>
+            </div>
+        `;
+        
+        console.log('✅ Practice statistics display updated');
+        
+    } catch (error) {
+        console.error('❌ Error loading practice statistics:', error);
+        const practiceStats = document.getElementById('practiceStats');
+        if (practiceStats) {
+            practiceStats.innerHTML = `
+                <div class="stat-card">
+                    <div class="stat-value">0</div>
+                    <div class="stat-label">LESSONS COMPLETED</div>
+                    <div class="stat-subtext">out of 3</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value">0</div>
+                    <div class="stat-label">EXERCISES COMPLETED</div>
+                    <div class="stat-subtext">total completed</div>
+                </div>
+            `;
+        }
+    }
+}
+
+// ============================================
+// ✅ DEBUG FUNCTION - Check Mathease Database
+// ============================================
+window.checkMatheaseDatabase = async function() {
+    console.log('🔍 CHECKING MATHEASE DATABASE (lesson_id=1)');
+    console.log('==========================================');
+    
+    const token = localStorage.getItem('authToken');
+    
+    if (!token) {
+        console.error('❌ No auth token found');
+        return;
+    }
+    
+    // Check topics
+    try {
+        const topicsRes = await fetch('/api/topics/progress?lesson_id=1', {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        const topicsData = await topicsRes.json();
+        console.log('📚 TOPICS IN DATABASE:', topicsData);
+    } catch (e) {
+        console.log('❌ Topics error:', e.message);
+    }
+    
+    // Check practice exercises
+    try {
+        const practiceRes = await fetch('/api/practice/exercises?lesson_id=1', {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        const practiceData = await practiceRes.json();
+        console.log('💪 PRACTICE EXERCISES:', practiceData);
+    } catch (e) {
+        console.log('❌ Practice error:', e.message);
+    }
+    
+    // Check lessons
+    try {
+        const lessonsRes = await fetch('/api/lessons-db/complete?lesson_id=1', {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        const lessonsData = await lessonsRes.json();
+        console.log('📖 LESSONS:', lessonsData);
+    } catch (e) {
+        console.log('❌ Lessons error:', e.message);
+    }
+    
+    console.log('✅ Mathease DB check complete');
+};
 // ========================================
 // STUDY TIMER TOOL - ULTIMATE FIXED VERSION WITH MUTATION OBSERVER
 // ========================================
@@ -5511,92 +5935,7 @@ function getDefaultMathEaseDailyProgress() {
         streak_days: 0
     };
 }
-async function fetchPracticeStatistics() {
-    try {
-        const token = localStorage.getItem('authToken') || authToken;
-        if (!token) {
-            console.error('❌ No auth token available');
-            return null;
-        }
-        
-        console.log('📊 Fetching MathEase practice statistics...');
-        
-        const [lessonsData, attemptsData, totalExercisesData] = await Promise.allSettled([
-            fetch(`/api/progress/lessons?lesson_id=1`, {
-                headers: { 'Authorization': `Bearer ${token}` }
-            }).then(res => res.json()).catch(err => ({ success: false })),
-            
-            fetch(`/api/progress/practice-attempts?lesson_id=1`, {
-                headers: { 'Authorization': `Bearer ${token}` }
-            }).then(res => res.json()).catch(err => ({ success: false })),
-            
-            fetch(`/api/practice/exercises/count?lesson_id=1`, {
-                headers: { 'Authorization': `Bearer ${token}` }
-            }).then(res => res.json()).catch(err => ({ success: false }))
-        ]);
-        
-        let lessonsCompleted = 0;
-        let totalLessons = 0;
-        
-        if (lessonsData.status === 'fulfilled' && lessonsData.value.success) {
-            const progress = lessonsData.value.progress || [];
-            lessonsCompleted = progress.filter(p => 
-                p.completion_status === 'completed' || p.status === 'completed'
-            ).length;
-        }
-        
-        let totalExercises = 0;
-        if (totalExercisesData.status === 'fulfilled' && totalExercisesData.value.success) {
-            totalExercises = totalExercisesData.value.count || 0;
-        }
-        
-        let exercisesCompleted = 0;
-        let totalAttempts = 0;
-        let totalScore = 0;
-        let totalTimeSeconds = 0;
-        let averageScore = 0;
-        
-        if (attemptsData.status === 'fulfilled' && attemptsData.value.success) {
-            const attempts = attemptsData.value.attempts || [];
-            exercisesCompleted = attempts.filter(a => 
-                a.completion_status === 'completed' || a.percentage >= 70
-            ).length;
-            
-            totalAttempts = attempts.length;
-            
-            if (totalAttempts > 0) {
-                const totalScoreSum = attempts.reduce((sum, a) => sum + (a.score || 0), 0);
-                averageScore = Math.round(totalScoreSum / totalAttempts);
-            }
-            
-            totalTimeSeconds = attempts.reduce((sum, a) => sum + (a.time_spent_seconds || 0), 0);
-        }
-        
-        const stats = {
-            total_exercises_completed: exercisesCompleted,
-            total_attempts: totalAttempts,
-            average_score: averageScore,
-            lessons_completed: lessonsCompleted,
-            exercises_completed: exercisesCompleted,
-            practice_unlocked: true,
-            total_lessons: totalLessons || 10,
-            total_exercises: totalExercises,
-            total_time_minutes: Math.round(totalTimeSeconds / 60),
-            total_time_seconds: totalTimeSeconds,
-            accuracy_rate: averageScore,
-            lessons_display: `${lessonsCompleted}/${totalLessons || 10}`,
-            exercises_display: `${exercisesCompleted}`,
-            lessons_percentage: totalLessons > 0 ? Math.round((lessonsCompleted / totalLessons) * 100) : 0
-        };
-        
-        PracticeState.userPracticeProgress = stats;
-        return stats;
-        
-    } catch (error) {
-        console.error('❌ Error fetching practice statistics:', error);
-        return null;
-    }
-}
+
 function handleActivityResponse(data) {
     if (data.success) {
         // Handle different response formats
@@ -24478,75 +24817,7 @@ async function loadPracticeExercises() {
         loadDemoPracticeExercises();
     }
 }
-// ============================================
-// ✅ FIXED: Initialize Practice Page - DATABASE ONLY
-// ============================================
-async function initPracticePage() {
-    console.log('💪 Initializing MathEase practice page - DATABASE ONLY');
-    
-    // Update date
-    const practiceDate = document.getElementById('practiceDate');
-    if (practiceDate) {
-        const now = new Date();
-        practiceDate.textContent = now.toLocaleDateString('en-US', { 
-            weekday: 'long', month: 'short', day: 'numeric' 
-        });
-    }
-    
-    // Clear any existing content
-    const topicsContainer = document.getElementById('topicsContainer');
-    const exerciseArea = document.getElementById('exerciseArea');
-    
-    if (topicsContainer) {
-        topicsContainer.innerHTML = `
-            <div class="loading-container" style="text-align: center; padding: 40px;">
-                <i class="fas fa-spinner fa-spin" style="font-size: 40px; color: #7a0000;"></i>
-                <p>Loading MathEase lessons from database...</p>
-            </div>
-        `;
-    }
-    
-    if (exerciseArea) {
-        exerciseArea.innerHTML = `
-            <div class="no-topic-selected">
-                <i class="fas fa-mouse-pointer"></i>
-                <h3>Select a Lesson</h3>
-                <p>Choose a lesson from the list above to start practicing</p>
-            </div>
-        `;
-    }
-    
-    try {
-        // Load lessons from database
-        await loadMathEaseLessons();
-        
-        // Load practice statistics
-        await loadPracticeStatistics();
-        
-        // ===== ADD THIS LINE HERE =====
-        setTimeout(() => {
-            setupPracticeTopicButtons();
-        }, 500);
-        // ==============================
-        
-    } catch (error) {
-        console.error('❌ Error initializing practice page:', error);
-        if (topicsContainer) {
-            topicsContainer.innerHTML = `
-                <div class="error-message" style="text-align: center; padding: 40px;">
-                    <i class="fas fa-exclamation-triangle" style="font-size: 48px; color: #e74c3c;"></i>
-                    <h3>Database Connection Error</h3>
-                    <p>${error.message}</p>
-                    <button onclick="initPracticePage()" class="btn-primary" style="margin-top: 15px;">
-                        <i class="fas fa-redo"></i> Retry
-                    </button>
-                </div>
-            `;
-        }
-    }
-    
-    addPracticeStyles();
-}
+
 // ============================================
 // FORCE MATHEASE MODE - ALWAYS LESSON_ID = 1
 // ============================================
@@ -24863,250 +25134,6 @@ function validateTopicForCurrentApp(topicId) {
 }
 
 // ============================================
-// ✅ FIXED: displayTopics - WITH BETTER DEBUGGING
-// ============================================
-function displayTopics(topics) {
-    const topicsContainer = document.getElementById('topicsContainer');
-    if (!topicsContainer) {
-        console.error('❌ topicsContainer not found in displayTopics');
-        return;
-    }
-    
-    console.log(`📋 Displaying ${topics.length} Mathease topics:`, topics);
-    
-    if (!topics || topics.length === 0) {
-        topicsContainer.innerHTML = `
-            <div class="no-topics" style="text-align: center; padding: 40px;">
-                <i class="fas fa-folder-open" style="font-size: 48px; color: #ccc; margin-bottom: 15px;"></i>
-                <h3 style="color: #666;">No topics available</h3>
-                <p style="color: #999;">Complete lessons to unlock topics.</p>
-            </div>
-        `;
-        return;
-    }
-    
-    let html = '';
-    
-    topics.forEach(topic => {
-        const progressPercentage = topic.lesson_progress_percentage || 0;
-        const isPracticeUnlocked = topic.practice_unlocked || false;
-        const isPracticeCompleted = topic.practice_completed || false;
-        const isSelected = PracticeState.currentTopic == topic.topic_id;
-        
-        console.log(`Topic card: ${topic.topic_title}, unlocked=${isPracticeUnlocked}, selected=${isSelected}`);
-        
-        html += `
-            <div class="topic-card ${isPracticeUnlocked ? 'unlocked' : 'locked'} ${isPracticeCompleted ? 'completed' : ''} ${isSelected ? 'selected' : ''}" 
-                 data-topic-id="${topic.topic_id}"
-                 data-practice-unlocked="${isPracticeUnlocked}"
-                 style="cursor: pointer; background: white; border-radius: 8px; padding: 15px; margin-bottom: 10px; border: 2px solid ${isSelected ? '#7a0000' : 'transparent'};">
-                 
-                <div class="topic-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
-                    <h3 class="topic-title" style="margin: 0; font-size: 16px;">${topic.topic_title || 'Topic'}</h3>
-                    <div class="topic-status">
-                        ${isPracticeCompleted ? 
-                            '<span style="color: #27ae60;"><i class="fas fa-check-circle"></i> Completed</span>' :
-                            isPracticeUnlocked ?
-                            '<span style="color: #7a0000;"><i class="fas fa-unlock"></i> Unlocked</span>' :
-                            '<span style="color: #999;"><i class="fas fa-lock"></i> Locked</span>'
-                        }
-                    </div>
-                </div>
-                
-                <div class="topic-body">
-                    <p style="margin: 0 0 10px 0; color: #666; font-size: 14px;">${topic.module_name || 'Module'} - ${topic.topic_title}</p>
-                    
-                    <div class="topic-progress" style="margin: 10px 0;">
-                        <div class="progress-info" style="display: flex; justify-content: space-between; font-size: 13px; color: #666; margin-bottom: 5px;">
-                            <span>Lessons: ${topic.lessons_completed || 0}/${topic.total_lessons || 0}</span>
-                            <span>${progressPercentage}%</span>
-                        </div>
-                        <div class="progress-bar" style="height: 6px; background: #ecf0f1; border-radius: 3px; overflow: hidden;">
-                            <div class="progress-fill" style="height: 100%; width: ${progressPercentage}%; background: #7a0000;"></div>
-                        </div>
-                    </div>
-                    
-                    <div class="topic-practice-info" style="font-size: 13px; margin-top: 5px;">
-                        ${isPracticeCompleted ? 
-                            '<span style="color: #27ae60;"><i class="fas fa-trophy"></i> Practice Completed</span>' :
-                            isPracticeUnlocked ?
-                            '<span style="color: #7a0000;"><i class="fas fa-pencil-alt"></i> Practice Available</span>' :
-                            `<span style="color: #999;">Complete ${(topic.total_lessons || 0) - (topic.lessons_completed || 0)} more lessons</span>`
-                        }
-                    </div>
-                </div>
-                
-                <div class="topic-actions" style="margin-top: 15px;">
-                    ${isPracticeUnlocked ? 
-                        `<button class="btn-primary practice-topic-btn" data-topic-id="${topic.topic_id}" 
-                                style="width: 100%; padding: 8px; background: #7a0000; color: white; border: none; border-radius: 5px; cursor: pointer;">
-                            <i class="fas fa-play"></i> Start Practice
-                        </button>` :
-                        `<button class="btn-secondary" disabled 
-                                style="width: 100%; padding: 8px; background: #95a5a6; color: white; border: none; border-radius: 5px;">
-                            <i class="fas fa-lock"></i> Complete Lessons First
-                        </button>`
-                    }
-                </div>
-            </div>
-        `;
-    });
-    
-    topicsContainer.innerHTML = html;
-    console.log('✅ Topics displayed, container HTML length:', html.length);
-    
-    // Add event listeners to topic cards
-    document.querySelectorAll('.topic-card.unlocked').forEach(card => {
-        card.addEventListener('click', function(e) {
-            // Don't trigger if clicking the button
-            if (e.target.closest('button')) return;
-            
-            const topicId = this.getAttribute('data-topic-id');
-            console.log('🎯 Topic card clicked:', topicId);
-            selectTopicForPractice(topicId);
-        });
-    });
-    
-    // Add event listeners to practice buttons
-    document.querySelectorAll('.practice-topic-btn').forEach(button => {
-        button.addEventListener('click', function(e) {
-            e.stopPropagation();
-            const topicId = this.getAttribute('data-topic-id');
-            console.log('🎯 Practice button clicked:', topicId);
-            selectTopicForPractice(topicId);
-        });
-    });
-}
-
-// ============================================
-// ✅ FIXED: loadPracticeExercisesForTopic - DATABASE ONLY
-// ============================================
-async function loadPracticeExercisesForTopic(topicId) {
-    try {
-        console.log(`📝 Getting practice exercises for topic ${topicId} from database`);
-        
-        const MATHEASE_LESSON_ID = 1;
-        const exerciseArea = document.getElementById('exerciseArea');
-        
-        if (!exerciseArea) return;
-        
-        exerciseArea.innerHTML = `
-            <div class="loading-container" style="text-align: center; padding: 30px;">
-                <i class="fas fa-spinner fa-spin" style="font-size: 30px; color: #7a0000;"></i>
-                <p style="margin-top: 10px;">Loading exercises from database...</p>
-            </div>
-        `;
-        
-        const token = localStorage.getItem('authToken') || authToken;
-        if (!token) {
-            exerciseArea.innerHTML = `
-                <div class="error-message" style="text-align: center; padding: 40px;">
-                    <i class="fas fa-exclamation-triangle" style="font-size: 48px; color: #e74c3c;"></i>
-                    <h3 style="color: #666;">Authentication Required</h3>
-                    <p style="color: #999;">Please login to view practice exercises.</p>
-                </div>
-            `;
-            return;
-        }
-        
-        // ✅ Single endpoint - no fallbacks
-        const endpoint = `/api/practice/topic/${topicId}?lesson_id=${MATHEASE_LESSON_ID}`;
-        console.log(`📡 Fetching from: ${endpoint}`);
-        
-        const response = await fetch(endpoint, {
-            headers: { 
-                'Authorization': `Bearer ${token}`,
-                'Content-Type': 'application/json'
-            }
-        });
-        
-        console.log(`📥 Response status: ${response.status}`);
-        
-        // Check if response is JSON
-        const contentType = response.headers.get('content-type');
-        if (!contentType || !contentType.includes('application/json')) {
-            const text = await response.text();
-            console.error('❌ Non-JSON response:', text.substring(0, 200));
-            
-            exerciseArea.innerHTML = `
-                <div class="error-message" style="text-align: center; padding: 40px;">
-                    <i class="fas fa-exclamation-triangle" style="font-size: 48px; color: #e74c3c;"></i>
-                    <h3 style="color: #666;">Server Error</h3>
-                    <p style="color: #999;">The practice endpoint returned an invalid response.</p>
-                    <p class="error-detail">Status: ${response.status}</p>
-                </div>
-            `;
-            return;
-        }
-        
-        if (!response.ok) {
-            const errorData = await response.json();
-            console.error('❌ API Error:', errorData);
-            
-            exerciseArea.innerHTML = `
-                <div class="error-message" style="text-align: center; padding: 40px;">
-                    <i class="fas fa-exclamation-triangle" style="font-size: 48px; color: #e74c3c;"></i>
-                    <h3 style="color: #666;">Failed to Load Exercises</h3>
-                    <p style="color: #999;">${errorData.message || `Server returned ${response.status}`}</p>
-                </div>
-            `;
-            return;
-        }
-        
-        const data = await response.json();
-        console.log('📥 Server response:', data);
-        
-        if (!data.success || !data.exercises) {
-            exerciseArea.innerHTML = `
-                <div class="error-message" style="text-align: center; padding: 40px;">
-                    <i class="fas fa-info-circle" style="font-size: 48px; color: #3498db;"></i>
-                    <h3 style="color: #666;">No Exercises Available</h3>
-                    <p style="color: #999;">There are no practice exercises in the database for this topic.</p>
-                </div>
-            `;
-            return;
-        }
-        
-        // Filter to ensure only lesson_id = 1
-        const matheaseExercises = data.exercises.filter(ex => {
-            const exLessonId = ex.lesson_id || ex.lessonId;
-            return exLessonId == MATHEASE_LESSON_ID;
-        });
-        
-        console.log(`✅ Database returned ${matheaseExercises.length} exercises for Mathease`);
-        
-        if (matheaseExercises.length === 0) {
-            exerciseArea.innerHTML = `
-                <div class="error-message" style="text-align: center; padding: 40px;">
-                    <i class="fas fa-info-circle" style="font-size: 48px; color: #3498db;"></i>
-                    <h3 style="color: #666;">No Mathease Exercises</h3>
-                    <p style="color: #999;">There are no exercises with lesson_id = ${MATHEASE_LESSON_ID} in the database.</p>
-                </div>
-            `;
-            return;
-        }
-        
-        displayPracticeExercises(matheaseExercises);
-        
-    } catch (error) {
-        console.error('❌ Error loading exercises:', error);
-        const exerciseArea = document.getElementById('exerciseArea');
-        if (exerciseArea) {
-            exerciseArea.innerHTML = `
-                <div class="error-message" style="text-align: center; padding: 40px;">
-                    <i class="fas fa-exclamation-triangle" style="font-size: 48px; color: #e74c3c;"></i>
-                    <h3 style="color: #666;">Connection Error</h3>
-                    <p style="color: #999;">${error.message}</p>
-                    <button class="btn-primary" onclick="loadPracticeExercisesForTopic('${topicId}')" style="margin-top: 15px;">
-                        <i class="fas fa-redo"></i> Retry
-                    </button>
-                </div>
-            `;
-        }
-    }
-}
-
-// ============================================
 // 🔍 DEBUG: Check Topics Progress
 // ============================================
 window.debugTopicsProgress = async function() {
@@ -25165,35 +25192,6 @@ window.debugTopicsProgress = async function() {
     }
 };
 
-// ============================================
-// ✅ FIXED: Select topic for practice - WITH APP VALIDATION
-// ============================================
-function selectTopicForPractice(topicId) {
-    console.log('🎯 Selecting MathEase topic for practice:', topicId);
-    
-    PracticeState.currentTopic = topicId;
-    
-    // Update UI - remove selected class from all, add to current
-    document.querySelectorAll('.topic-card').forEach(card => {
-        card.classList.remove('selected');
-        if (card.getAttribute('data-topic-id') == topicId) {
-            card.classList.add('selected');
-        }
-    });
-    
-    // Update topic title
-    const practiceTopicTitle = document.getElementById('practiceTopicTitle');
-    if (practiceTopicTitle) {
-        const selectedCard = document.querySelector(`.topic-card[data-topic-id="${topicId}"]`);
-        const topicName = selectedCard ? 
-            selectedCard.querySelector('h3').textContent : 
-            'MathEase Topic';
-        practiceTopicTitle.innerHTML = `<i class="fas fa-pencil-alt"></i> Practicing: ${topicName}`;
-    }
-    
-    // Load exercises for this topic
-    loadPracticeExercisesForTopic(topicId);
-}
 function setupPracticeTopicButtons() {
     console.log('🔧 Setting up practice topic buttons...');
     
@@ -25438,93 +25436,6 @@ function getDemoPracticeExercises(topicId) {
         }
     ];
 }
-// ============================================
-// ✅ UPDATED: loadPracticeStatistics - WITH FORCED REFRESH
-// ============================================
-async function loadPracticeStatistics() {
-    try {
-        const practiceStats = document.getElementById('practiceStats');
-        if (!practiceStats) {
-            console.log('Practice stats element not found');
-            return;
-        }
-        
-        console.log('📊 Loading practice statistics...');
-        
-        // Show loading state
-        practiceStats.innerHTML = `
-            <div class="loading-container" style="grid-column: 1/-1; text-align: center; padding: 20px;">
-                <i class="fas fa-spinner fa-spin" style="font-size: 24px; color: #7a0000;"></i>
-                <p style="margin-top: 10px; color: #666;">Loading statistics from database...</p>
-            </div>
-        `;
-        
-        // ✅ CALL YOUR fetchPracticeStatistics function
-        const stats = await fetchPracticeStatistics();
-        
-        console.log('📊 Stats received for display:', stats);
-        
-        // ✅ ENSURE VALUES ARE NUMBERS
-        const exercisesCompleted = Number(stats.exercises_completed) || 0;
-        const lessonsCompleted = Number(stats.lessons_completed) || 0;
-        const totalLessons = Number(stats.total_lessons) || 3;
-        
-        console.log(`📊 DISPLAY VALUES - Lessons: ${lessonsCompleted}, Exercises: ${exercisesCompleted}`);
-        
-        // ✅ UPDATE THE DISPLAY
-        practiceStats.innerHTML = `
-            <div class="stat-card">
-                <div class="stat-value">${lessonsCompleted}</div>
-                <div class="stat-label">LESSONS COMPLETED</div>
-                <div class="stat-subtext">out of ${totalLessons}</div>
-            </div>
-            <div class="stat-card">
-                <div class="stat-value">${exercisesCompleted}</div>
-                <div class="stat-label">EXERCISES COMPLETED</div>
-                <div class="stat-subtext">total completed</div>
-            </div>
-        `;
-        
-        console.log('✅ Practice statistics display updated');
-        
-    } catch (error) {
-        console.error('❌ Error loading practice statistics:', error);
-        const practiceStats = document.getElementById('practiceStats');
-        if (practiceStats) {
-            practiceStats.innerHTML = `
-                <div class="stat-card">
-                    <div class="stat-value">0</div>
-                    <div class="stat-label">LESSONS COMPLETED</div>
-                    <div class="stat-subtext">out of 3</div>
-                </div>
-                <div class="stat-card">
-                    <div class="stat-value">0</div>
-                    <div class="stat-label">EXERCISES COMPLETED</div>
-                    <div class="stat-subtext">total completed</div>
-                </div>
-            `;
-        }
-    }
-}
-
-// Helper function for default stats
-function getDefaultPracticeStatsHTML() {
-    return `
-        <div class="stat-card">
-            <div class="stat-value">0</div>
-            <div class="stat-label">LESSONS COMPLETED</div>
-            <div class="stat-subtext">out of 3</div>
-        </div>
-        <div class="stat-card">
-            <div class="stat-value">0</div>
-            <div class="stat-label">EXERCISES COMPLETED</div>
-            <div class="stat-subtext">total completed</div>
-        </div>
-    `;
-}
-
-// Helper function para i-update ang progress summary cards
-
 
 // Default stats kung walang data
 function getDefaultPracticeStatsHTML() {
@@ -30984,18 +30895,6 @@ window.submitMathEasePractice = function(exerciseId) {
 
 console.log('✅ MathEase emergency practice fix loaded!');
 
-function getDefaultPracticeStats() {
-    return {
-        totalSessions: 0,
-        totalQuestions: 0,
-        correctAnswers: 0,
-        averageScore: 0,
-        studyTime: 0,
-        weakAreas: [],
-        strongAreas: [],
-        recentActivity: []
-    };
-}
 function updateOverallProgressUI(percentage, points, seconds, exercises, lessons, totalLessons, attempts) {
     // Update overall progress text
     const overallProgress = document.getElementById('overallProgress');
