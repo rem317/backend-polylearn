@@ -35497,11 +35497,11 @@ console.log('   - refreshLessons() - Force refresh lessons');
 
 
 // ============================================
-// 🚨 ULTIMATE FIX: Mark Lesson Complete Button
+// 🚨 FIXED: Complete Lesson Button - NO AUTO-COMPLETE
 // ============================================
 
 (function fixCompleteLessonButton() {
-    console.log('🔧 Applying final fix for complete lesson button...');
+    console.log('🔧 Applying fix for complete lesson button - NO AUTO-COMPLETE');
     
     // Function to attach the button handler
     function attachCompleteHandler() {
@@ -35520,14 +35520,16 @@ console.log('   - refreshLessons() - Force refresh lessons');
             completeBtn.parentNode.replaceChild(newBtn, completeBtn);
         }
         
-        // ✅ FORCE INITIAL STATE - NOT COMPLETED
+        // ✅ FORCE INITIAL STATE - ALWAYS "Mark Lesson Complete" UNLESS VERIFIED
         newBtn.innerHTML = '<i class="fas fa-check-circle"></i> Mark Lesson Complete';
         newBtn.style.background = '#7a0000';
+        newBtn.classList.remove('btn-success');
+        newBtn.classList.add('btn-primary');
         newBtn.disabled = false;
         
         let isProcessing = false;
         
-        // ✅ SIMPLIFIED STATUS CHECK - Only check if needed
+        // ✅ CHECK ACTUAL STATUS - ONLY mark completed if DATABASE says so
         async function checkActualStatus() {
             try {
                 const urlParams = new URLSearchParams(window.location.search);
@@ -35549,35 +35551,44 @@ console.log('   - refreshLessons() - Force refresh lessons');
                 });
                 
                 if (!response.ok) {
-                    console.log('Status check failed - keeping as not completed');
+                    console.log('⚠️ Status check failed - keeping as not completed');
                     return;
                 }
                 
                 const data = await response.json();
                 
-                // ✅ Only mark as completed if database explicitly says completed
+                // ✅ ONLY mark as completed if database explicitly says completed
                 if (data.success && data.lesson?.progress?.status === 'completed') {
-                    console.log('✅ Lesson is actually completed in database');
-                    newBtn.innerHTML = '<i class="fas fa-check"></i> Lesson Completed!';
+                    console.log('✅ Lesson is completed in database');
+                    newBtn.innerHTML = '<i class="fas fa-check-double"></i> Lesson Completed!';
                     newBtn.style.background = '#2ecc71';
+                    newBtn.classList.remove('btn-primary');
+                    newBtn.classList.add('btn-success');
                     newBtn.disabled = true;
+                    newBtn.setAttribute('data-completed', 'true');
                 } else {
-                    // ✅ Keep as "Mark Complete" for all other cases
+                    // ✅ KEEP as "Mark Complete" for all other cases
                     console.log('📝 Lesson is NOT completed - keeping as Mark Complete');
                     newBtn.innerHTML = '<i class="fas fa-check-circle"></i> Mark Lesson Complete';
                     newBtn.style.background = '#7a0000';
+                    newBtn.classList.remove('btn-success');
+                    newBtn.classList.add('btn-primary');
                     newBtn.disabled = false;
+                    newBtn.removeAttribute('data-completed');
                 }
             } catch (error) {
-                console.log('Status check error:', error.message);
+                console.log('⚠️ Status check error:', error.message);
                 // On error, keep as "Mark Complete"
                 newBtn.innerHTML = '<i class="fas fa-check-circle"></i> Mark Lesson Complete';
                 newBtn.style.background = '#7a0000';
+                newBtn.classList.remove('btn-success');
+                newBtn.classList.add('btn-primary');
                 newBtn.disabled = false;
+                newBtn.removeAttribute('data-completed');
             }
         }
         
-        // ✅ Run status check but DON'T change button if there's an error
+        // ✅ Run status check but DON'T auto-mark as completed on error
         setTimeout(checkActualStatus, 500);
         
         // Add click handler
@@ -35610,6 +35621,7 @@ console.log('   - refreshLessons() - Force refresh lessons');
             
             isProcessing = true;
             this.disabled = true;
+            const originalText = this.innerHTML;
             this.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Saving...';
             
             try {
@@ -35622,7 +35634,7 @@ console.log('   - refreshLessons() - Force refresh lessons');
                     timeSpentSeconds = Math.floor(videoElement.currentTime);
                 }
                 
-                // Update lesson progress
+                // ✅ Update lesson progress
                 const progressResponse = await fetch(`/api/lessons-db/${contentId}/progress`, {
                     method: 'POST',
                     headers: {
@@ -35643,11 +35655,14 @@ console.log('   - refreshLessons() - Force refresh lessons');
                 const progressData = await progressResponse.json();
                 
                 if (progressData.success) {
-                    console.log('✅ Lesson completed!');
+                    console.log('✅ Lesson completed successfully!');
                     
                     // Update button to completed state
-                    this.innerHTML = '<i class="fas fa-check"></i> Lesson Completed!';
+                    this.innerHTML = '<i class="fas fa-check-double"></i> Lesson Completed!';
                     this.style.background = '#2ecc71';
+                    this.classList.remove('btn-primary');
+                    this.classList.add('btn-success');
+                    this.setAttribute('data-completed', 'true');
                     
                     // Update daily progress (non-blocking)
                     try {
@@ -35663,10 +35678,16 @@ console.log('   - refreshLessons() - Force refresh lessons');
                         console.log('Daily progress update failed (non-critical)');
                     }
                     
-                    // Show success message
-                    alert('✅ Lesson marked as complete!');
+                    // Update LessonState
+                    if (!LessonState.userProgress) LessonState.userProgress = {};
+                    if (!LessonState.userProgress[contentId]) LessonState.userProgress[contentId] = {};
+                    LessonState.userProgress[contentId].status = 'completed';
+                    LessonState.userProgress[contentId].percentage = 100;
                     
-                    // Refresh page after 2 seconds
+                    // Show success message
+                    showNotification('🎉 Lesson marked as complete!', 'success');
+                    
+                    // Optional: Refresh after 2 seconds to update other UI
                     setTimeout(() => {
                         location.reload();
                     }, 2000);
@@ -35677,12 +35698,15 @@ console.log('   - refreshLessons() - Force refresh lessons');
                 
             } catch (error) {
                 console.error('❌ Error:', error);
-                alert('Error: ' + error.message);
+                showNotification('Error: ' + error.message, 'error');
                 
                 // Restore button
-                this.innerHTML = '<i class="fas fa-check-circle"></i> Mark Lesson Complete';
+                this.innerHTML = originalText;
                 this.style.background = '#7a0000';
+                this.classList.remove('btn-success');
+                this.classList.add('btn-primary');
                 this.disabled = false;
+                this.removeAttribute('data-completed');
                 isProcessing = false;
             }
         };
@@ -35735,6 +35759,41 @@ console.log('   - refreshLessons() - Force refresh lessons');
     
 })();
 
+// ✅ Emergency function to reset button if stuck
+window.resetCompleteButton = function() {
+    const btn = document.getElementById('completeLessonBtn');
+    if (btn) {
+        btn.innerHTML = '<i class="fas fa-check-circle"></i> Mark Lesson Complete';
+        btn.style.background = '#7a0000';
+        btn.classList.remove('btn-success');
+        btn.classList.add('btn-primary');
+        btn.disabled = false;
+        btn.removeAttribute('data-completed');
+        console.log('✅ Button reset to "Mark Complete"');
+    }
+};
+
+// ✅ Run this immediately to fix any existing button
+setTimeout(() => {
+    const btn = document.getElementById('completeLessonBtn');
+    if (btn) {
+        // Check if button is incorrectly set to completed
+        if (btn.innerHTML.includes('Lesson Completed') || 
+            btn.classList.contains('btn-success') || 
+            btn.style.background === 'rgb(46, 204, 113)' || 
+            btn.style.background === '#2ecc71' ||
+            btn.disabled === true) {
+            
+            console.log('🔧 Fixing button that was incorrectly set to completed...');
+            btn.innerHTML = '<i class="fas fa-check-circle"></i> Mark Lesson Complete';
+            btn.style.background = '#7a0000';
+            btn.classList.remove('btn-success');
+            btn.classList.add('btn-primary');
+            btn.disabled = false;
+            btn.removeAttribute('data-completed');
+        }
+    }
+}, 500);
 // ✅ Emergency function to reset button if stuck
 window.resetCompleteButton = function() {
     const btn = document.getElementById('completeLessonBtn');
