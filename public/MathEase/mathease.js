@@ -1117,12 +1117,12 @@ async function startPractice(exerciseId, isReview = false) {
 }
 
 // ============================================
-// ✅ SHOW PRACTICE MODAL
+// ✅ SHOW PRACTICE MODAL (FIXED - NO DUPLICATE timerInterval)
 // ============================================
 function showPracticeModal(exercise, isReview = false) {
     const startTime = Date.now();
-    let timerInterval = null;
     let timeLeft = 300;
+    let practiceTimer = null; // CHANGED: renamed from timerInterval to avoid conflict
     
     document.querySelectorAll('.practice-only-modal').forEach(el => el.remove());
     
@@ -1229,7 +1229,8 @@ function showPracticeModal(exercise, isReview = false) {
     
     document.body.insertAdjacentHTML('beforeend', modalHTML);
     
-    const timerInterval = setInterval(() => {
+    // Start timer - using practiceTimer (not timerInterval)
+    practiceTimer = setInterval(() => {
         const minutes = Math.floor(timeLeft / 60);
         const seconds = timeLeft % 60;
         const timerSpan = document.getElementById('practiceTimer');
@@ -1238,7 +1239,7 @@ function showPracticeModal(exercise, isReview = false) {
         }
         
         if (timeLeft <= 0) {
-            clearInterval(timerInterval);
+            clearInterval(practiceTimer);
             submitPracticeAnswers();
         }
         timeLeft--;
@@ -1253,12 +1254,12 @@ function showPracticeModal(exercise, isReview = false) {
     });
     
     window.closePracticeModal = function() {
-        clearInterval(timerInterval);
+        clearInterval(practiceTimer);
         document.querySelectorAll('.practice-only-modal').forEach(el => el.remove());
     };
     
     window.submitPracticeAnswers = async function() {
-        clearInterval(timerInterval);
+        clearInterval(practiceTimer);
         
         const timeSpentSeconds = Math.floor((Date.now() - startTime) / 1000);
         
