@@ -31958,6 +31958,7 @@ window.testTimer = function(questions = 40) {
             } catch(e) {}
         });
 }
+}
 // ============================================
 // FINAL FIX: LESSON NAVIGATION FOR ALL 3 LESSONS
 // ============================================
