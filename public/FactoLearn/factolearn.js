@@ -29627,4 +29627,15 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 });
 
+// For FactoLearn page (ilagay ito sa FactoLearn/factolearn.html)
+window.goBackToMainApp = function() {
+    console.log('⬅️ Going back to main app from FactoLearn');
+    
+    // Save that we're coming from FactoLearn
+    sessionStorage.setItem('returningFrom', 'factolearn');
+    sessionStorage.setItem('previousApp', 'factolearn');
+    
+    // Go back to main app
+    window.location.href = '../index.html#appSelection';
+};
 
