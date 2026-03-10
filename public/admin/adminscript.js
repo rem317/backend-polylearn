@@ -22813,27 +22813,52 @@ function addOption(questionId) {
     
     optionsContainer.insertAdjacentHTML('beforeend', optionHtml);
 }
-// ===== FIXED: SAVE QUIZ TO MYSQL WITH CORRECT LESSON ID =====
+// ===== DEBUGGED VERSION: SAVE QUIZ TO MYSQL =====
 async function saveQuizToMySQL() {
     console.log("💾 ===== SAVING QUIZ TO MYSQL DATABASE =====");
     
     // Get form values
     const title = document.getElementById('quizTitle')?.value.trim();
     const description = document.getElementById('quizDescription')?.value.trim();
-    const subjectId = document.getElementById('quizSubject')?.value; // This is the lesson_id
-    const topicId = document.getElementById('quizTopic')?.value;
+    const subjectId = document.getElementById('quizSubject')?.value; // This is the category_id
+    const topicSelect = document.getElementById('quizTopic');
+    const topicId = topicSelect?.value;
     
-    // ===== FIX: USE SUBJECT ID AS LESSON ID =====
-    let lesson_id;
-    if (subjectId == 1) { // MathEase
-        lesson_id = 1;
-    } else if (subjectId == 2) { // PolyLearn
-        lesson_id = 2;
-    } else if (subjectId == 3) { // FactoLearn
-        lesson_id = 3;
-    } else {
-        lesson_id = 1; // Default to MathEase
+    // ===== DEBUG: Check what subjectId actually is =====
+    console.log("🔍 DEBUG - subjectId from dropdown:", subjectId);
+    console.log("🔍 DEBUG - subjectId type:", typeof subjectId);
+    console.log("🔍 DEBUG - subjectId value:", subjectId);
+    
+    // ===== FIX: USE SUBJECT ID AS CATEGORY ID =====
+    let category_id;
+    
+    // First, check if subjectId exists
+    if (!subjectId) {
+        console.error("❌ No subject selected!");
+        showNotification('error', 'Error', 'Please select a subject');
+        return;
     }
+    
+    // Convert subjectId to number for comparison
+    const subjectNum = parseInt(subjectId);
+    console.log("🔍 DEBUG - subjectNum after parseInt:", subjectNum);
+    
+    if (subjectNum === 1) { // MathEase
+        category_id = 1;
+        console.log("✅ Selected MathEase (category_id=1)");
+    } else if (subjectNum === 2) { // PolyLearn
+        category_id = 2;
+        console.log("✅ Selected PolyLearn (category_id=2)");
+    } else if (subjectNum === 3) { // FactoLearn
+        category_id = 3;
+        console.log("✅ Selected FactoLearn (category_id=3)");
+    } else {
+        // If subjectId is not 1,2,3, use default
+        console.warn("⚠️ Unknown subject ID, defaulting to MathEase (1)");
+        category_id = 1;
+    }
+    
+    console.log("🔍 DEBUG - Final category_id:", category_id);
     
     const timeLimit = document.getElementById('quizTimeLimit')?.value;
     const passingScore = document.getElementById('quizPassingScore')?.value;
@@ -22847,33 +22872,27 @@ async function saveQuizToMySQL() {
     
     // Get subject name for logging
     let subjectName = '';
-    if (lesson_id == 1) subjectName = 'MathEase';
-    else if (lesson_id == 2) subjectName = 'PolyLearn';
-    else if (lesson_id == 3) subjectName = 'FactoLearn';
+    if (category_id === 1) subjectName = 'MathEase';
+    else if (category_id === 2) subjectName = 'PolyLearn';
+    else if (category_id === 3) subjectName = 'FactoLearn';
     
-    console.log('📋 Quiz data:', { 
+    console.log('📋 Quiz data summary:', { 
         title, 
         description,
-        lesson_id,  // This will be 1, 2, or 3
+        category_id,
         subjectName,
-        topicId,
+        topicId: topicId || 'none',
         timeLimit, 
         passingScore, 
         maxAttempts,
         difficulty, 
         status, 
-        editId: editId || 'new',
-        assignedTeacherId: assignedTeacherId || 'none (self)'
+        editId: editId || 'new'
     });
     
     // ===== VALIDATION =====
     if (!title) {
         showNotification('error', 'Error', 'Please enter a quiz title');
-        return;
-    }
-    
-    if (!subjectId) {
-        showNotification('error', 'Error', 'Please select a subject');
         return;
     }
     
@@ -22935,8 +22954,8 @@ async function saveQuizToMySQL() {
     
     // ===== PREPARE DATA FOR SERVER =====
     const quizData = {
-        lesson_id: lesson_id,  // Use lesson_id, not category_id
-        topic_id: topicId ? parseInt(topicId) : null,
+        category_id: category_id,  // Make sure this is set
+        topic_id: topicId && topicId !== '' ? parseInt(topicId) : null,
         title: title,
         description: description || '',
         difficulty: difficulty || 'medium',
@@ -22957,7 +22976,15 @@ async function saveQuizToMySQL() {
         quizData.quiz_id = parseInt(editId);
     }
     
-    console.log("📤 Sending quiz data:", quizData);
+    // ===== FINAL DEBUG CHECK =====
+    console.log("📤 FINAL QUIZ DATA TO SEND:", JSON.stringify(quizData, null, 2));
+    console.log("🔍 FINAL CHECK - category_id in quizData:", quizData.category_id);
+    
+    if (!quizData.category_id) {
+        console.error("❌ CRITICAL: category_id is still null/undefined!");
+        showNotification('error', 'Error', 'Subject selection failed. Please try again.');
+        return;
+    }
     
     try {
         const token = localStorage.getItem('admin_token') || localStorage.getItem('authToken');
@@ -22979,6 +23006,8 @@ async function saveQuizToMySQL() {
             ? `/api/admin/quizzes/${editId}`
             : `/api/admin/quizzes`;
         
+        console.log(`📡 Sending to: ${url}`);
+        
         const response = await fetch(url, {
             method: editId ? 'PUT' : 'POST',
             headers: {
@@ -22988,7 +23017,16 @@ async function saveQuizToMySQL() {
             body: JSON.stringify(quizData)
         });
         
-        const result = await response.json();
+        const responseText = await response.text();
+        console.log("📥 Raw response:", responseText);
+        
+        let result;
+        try {
+            result = JSON.parse(responseText);
+        } catch (e) {
+            console.error("❌ Failed to parse JSON:", responseText);
+            throw new Error('Server returned invalid JSON');
+        }
         
         if (!response.ok) {
             throw new Error(result.message || `Server error: ${response.status}`);
@@ -23022,7 +23060,6 @@ async function saveQuizToMySQL() {
         }
     }
 }
-
 // ===== CLOSE CREATE QUIZ MODAL =====
 function closeCreateQuizModal() {
     const modal = document.getElementById('createQuizModal');
