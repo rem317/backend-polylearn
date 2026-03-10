@@ -29354,301 +29354,174 @@ mobileMenuItems.forEach((item, index) => {
     });
 });
 // ============================================
-// 📱 RESPONSIVE CONTAINER FIX - ADD AT THE END
+// 📏 ADJUST EXISTING CONTAINER SIZES - ADD AT THE END
 // ============================================
 
-// Make all containers responsive and equal size
-(function makeAllContainersResponsive() {
-    console.log('📏 Making all containers responsive...');
+(function adjustExistingContainerSizes() {
+    console.log('📏 Adjusting existing container sizes...');
     
-    // Add CSS styles
+    // Get all page containers
+    const pages = [
+        'dashboard-page',
+        'module-dashboard-page',
+        'practice-exercises-page',
+        'quiz-dashboard-page',
+        'progress-page',
+        'settings-page',
+        'feedback-page'
+    ];
+    
+    pages.forEach(pageId => {
+        const page = document.getElementById(pageId);
+        if (page) {
+            // Find the main container inside each page
+            const containers = page.querySelectorAll('div:first-child > div, .container, [class*="container"]');
+            
+            containers.forEach(container => {
+                // Apply styles directly to existing containers
+                container.style.cssText = `
+                    width: 100%;
+                    max-width: 1400px;
+                    margin: 0 auto;
+                    padding: 20px;
+                    box-sizing: border-box;
+                `;
+            });
+            
+            // Find all cards and make them equal height
+            const cards = page.querySelectorAll('.card, [class*="card"]');
+            cards.forEach(card => {
+                card.style.cssText += `
+                    width: 100%;
+                    height: auto;
+                    min-height: 200px;
+                    margin-bottom: 20px;
+                    box-sizing: border-box;
+                `;
+            });
+            
+            // Find all grids
+            const grids = page.querySelectorAll('[class*="grid"]');
+            grids.forEach(grid => {
+                grid.style.cssText += `
+                    display: grid;
+                    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+                    gap: 20px;
+                    width: 100%;
+                `;
+            });
+            
+            // Find video containers
+            const videoContainers = page.querySelectorAll('[class*="video"]');
+            videoContainers.forEach(vc => {
+                if (vc.querySelector('video, iframe')) {
+                    vc.style.cssText += `
+                        width: 100%;
+                        aspect-ratio: 16/9;
+                        background: #000;
+                        border-radius: 12px;
+                        overflow: hidden;
+                        margin-bottom: 20px;
+                    `;
+                }
+            });
+        }
+    });
+    
+    // Add responsive media queries
     const style = document.createElement('style');
-    style.id = 'responsive-container-styles';
     style.textContent = `
-        /* Make all containers responsive */
-        .container, 
-        .dashboard-container, 
-        .module-container,
-        .practice-container,
-        .quiz-container,
-        .progress-container,
-        .settings-container,
-        .feedback-container,
-        .lesson-dashboard,
-        [class*="container"],
-        [class*="dashboard"],
-        [class*="wrapper"] {
-            width: 100% !important;
-            max-width: 1400px !important;
-            margin: 0 auto !important;
-            padding: 20px !important;
-            box-sizing: border-box !important;
-        }
-        
-        /* Make all cards equal height and responsive */
-        .card, 
-        [class*="card"],
-        .stat-card,
-        .topic-card,
-        .lesson-card,
-        .quiz-card,
-        .practice-card {
-            width: 100% !important;
-            height: auto !important;
-            min-height: 200px !important;
-            background: white;
-            border-radius: 12px;
-            padding: 20px;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
-            border: 1px solid #e0e0e0;
-            box-sizing: border-box;
-            margin-bottom: 20px;
-        }
-        
-        /* Responsive grid - auto adjust columns */
-        .grid-container,
-        [class*="grid"],
-        .stats-grid,
-        .cards-grid,
-        .topics-grid,
-        .quizzes-grid {
-            display: grid !important;
-            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)) !important;
-            gap: 20px !important;
-            width: 100% !important;
-        }
-        
-        /* Progress bar - full width */
-        .progress-bar-container,
-        [class*="progress-bar"] {
-            width: 100% !important;
-        }
-        
-        /* Video container - perfect ratio */
-        .video-container,
-        [class*="video"] {
-            width: 100% !important;
-            aspect-ratio: 16/9 !important;
-            background: #000;
-            border-radius: 12px;
-            overflow: hidden;
-            margin-bottom: 20px;
-        }
-        
-        .video-container video,
-        .video-container iframe {
-            width: 100% !important;
-            height: 100% !important;
-            object-fit: contain;
-        }
-        
-        /* Flex containers - wrap automatically */
-        .flex-container,
-        [class*="flex"] {
-            display: flex !important;
-            flex-wrap: wrap !important;
-            gap: 20px !important;
-            width: 100% !important;
-        }
-        
-        .flex-item {
-            flex: 1 1 300px !important;
-            min-width: 250px !important;
-        }
-        
-        /* Buttons - full width on mobile */
-        .btn,
-        button,
-        [class*="btn"] {
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            padding: 12px 24px;
-            border-radius: 8px;
-            font-weight: 600;
-            cursor: pointer;
-            transition: all 0.3s;
-        }
-        
-        /* Navigation buttons - side by side */
-        .nav-buttons,
-        [class*="nav"] {
-            display: flex !important;
-            gap: 10px !important;
-            width: 100% !important;
-        }
-        
-        .nav-buttons .btn {
-            flex: 1 !important;
-        }
-        
-        /* Lesson progress stats - responsive */
-        .lesson-progress-stats,
-        [class*="stats"] {
-            display: grid !important;
-            grid-template-columns: repeat(4, 1fr) !important;
-            gap: 15px !important;
-            width: 100% !important;
-        }
-        
-        /* Mobile styles */
+        /* Mobile */
         @media (max-width: 768px) {
-            .container, 
-            .dashboard-container,
-            .lesson-dashboard {
+            #dashboard-page > div,
+            #module-dashboard-page > div,
+            #practice-exercises-page > div,
+            #quiz-dashboard-page > div,
+            #progress-page > div,
+            #settings-page > div,
+            #feedback-page > div {
                 padding: 15px !important;
             }
             
-            .lesson-progress-stats,
-            [class*="stats"] {
+            [class*="grid"] {
                 grid-template-columns: repeat(2, 1fr) !important;
-            }
-            
-            .btn,
-            button {
-                width: 100% !important;
-                white-space: normal !important;
             }
         }
         
         /* Small mobile */
         @media (max-width: 480px) {
-            .container, 
-            .dashboard-container,
-            .lesson-dashboard {
+            #dashboard-page > div,
+            #module-dashboard-page > div,
+            #practice-exercises-page > div,
+            #quiz-dashboard-page > div,
+            #progress-page > div,
+            #settings-page > div,
+            #feedback-page > div {
                 padding: 10px !important;
             }
             
-            .lesson-progress-stats,
-            [class*="stats"] {
-                grid-template-columns: 1fr !important;
-            }
-            
-            .grid-container,
             [class*="grid"] {
                 grid-template-columns: 1fr !important;
             }
             
-            .flex-item {
-                flex: 1 1 100% !important;
-            }
-            
-            .card {
-                padding: 15px !important;
+            .card, [class*="card"] {
                 min-height: 150px !important;
-            }
-        }
-        
-        /* Tablet */
-        @media (min-width: 769px) and (max-width: 1024px) {
-            .grid-container,
-            [class*="grid"] {
-                grid-template-columns: repeat(2, 1fr) !important;
+                padding: 15px !important;
             }
         }
         
         /* Large desktop */
-        @media (min-width: 1401px) {
-            .container, 
-            .dashboard-container,
-            .lesson-dashboard {
+        @media (min-width: 1400px) {
+            #dashboard-page > div,
+            #module-dashboard-page > div,
+            #practice-exercises-page > div,
+            #quiz-dashboard-page > div,
+            #progress-page > div,
+            #settings-page > div,
+            #feedback-page > div {
                 max-width: 1600px !important;
-            }
-        }
-        
-        /* Fix for all elements */
-        * {
-            box-sizing: border-box !important;
-        }
-        
-        /* Ensure images are responsive */
-        img {
-            max-width: 100% !important;
-            height: auto !important;
-        }
-        
-        /* Tables responsive */
-        table {
-            width: 100% !important;
-            border-collapse: collapse;
-        }
-        
-        .table-responsive {
-            width: 100% !important;
-            overflow-x: auto !important;
-        }
-        
-        /* Lesson content */
-        .lesson-content,
-        [class*="content"] {
-            width: 100% !important;
-            padding: 20px;
-            background: white;
-            border-radius: 12px;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
-            box-sizing: border-box;
-        }
-        
-        /* Tools section */
-        .tools-section {
-            display: flex !important;
-            flex-wrap: wrap !important;
-            gap: 10px !important;
-            width: 100% !important;
-        }
-        
-        .tool-btn {
-            flex: 1 1 auto !important;
-            min-width: 120px;
-        }
-        
-        @media (max-width: 480px) {
-            .tool-btn {
-                flex: 1 1 calc(50% - 5px) !important;
             }
         }
     `;
     
     document.head.appendChild(style);
-    console.log('✅ Responsive container styles added');
     
-    // Force apply to existing elements
-    function applyToAllElements() {
-        // Make all containers use the container class
-        document.querySelectorAll('[id$="-page"] > div').forEach(el => {
-            if (!el.classList.contains('container') && 
-                !el.classList.contains('dashboard-container')) {
-                el.classList.add('container');
-            }
-        });
-        
-        // Make all cards use card class
-        document.querySelectorAll('[class*="card"]').forEach(el => {
-            el.classList.add('card');
-        });
-        
-        // Make all grids responsive
-        document.querySelectorAll('[class*="grid"]').forEach(el => {
-            el.classList.add('grid-container');
-        });
-        
-        console.log('✅ Classes applied to existing elements');
-    }
+    console.log('✅ Existing container sizes adjusted');
     
-    // Apply immediately
-    applyToAllElements();
-    
-    // Apply after navigation
-    const navObserver = new MutationObserver(function() {
-        setTimeout(applyToAllElements, 100);
+    // Re-adjust when navigating
+    const observer = new MutationObserver(function() {
+        setTimeout(() => {
+            pages.forEach(pageId => {
+                const page = document.getElementById(pageId);
+                if (page && !page.classList.contains('hidden')) {
+                    // Adjust visible page
+                    const containers = page.querySelectorAll('div:first-child > div');
+                    containers.forEach(container => {
+                        if (!container.hasAttribute('data-adjusted')) {
+                            container.style.cssText = `
+                                width: 100%;
+                                max-width: 1400px;
+                                margin: 0 auto;
+                                padding: 20px;
+                                box-sizing: border-box;
+                            `;
+                            container.setAttribute('data-adjusted', 'true');
+                        }
+                    });
+                }
+            });
+        }, 200);
     });
     
-    navObserver.observe(document.body, { childList: true, subtree: true });
+    observer.observe(document.body, { 
+        attributes: true, 
+        attributeFilter: ['class'],
+        subtree: true 
+    });
     
 })();
 
-console.log('✅ Responsive container fix applied at the end');
-
+console.log('✅ Container size adjustment complete');
 // ============================================
 // 🎯 FORCE DISPLAY THE DATABASE CATEGORY
 // ============================================
