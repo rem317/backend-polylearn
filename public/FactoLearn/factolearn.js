@@ -3042,7 +3042,157 @@ async function createTopic(moduleId, topicName, topicDescription = '') {
         return null;
     }
 }
+// Add this function to update welcome messages with user's name
+function updateWelcomeMessages() {
+    console.log('👤 Updating welcome messages with user name...');
+    
+    // Get user data from localStorage
+    const userJson = localStorage.getItem('mathhub_user');
+    if (!userJson) {
+        console.log('ℹ️ No user data found');
+        return;
+    }
+    
+    try {
+        const user = JSON.parse(userJson);
+        const userName = user.full_name || user.username || 'Student';
+        const firstName = userName.split(' ')[0]; // Get first name only
+        
+        console.log(`👤 User name: ${userName}`);
+        
+        // Update dashboard welcome title
+        const welcomeTitle = document.getElementById('dashboardWelcomeTitle');
+        if (welcomeTitle) {
+            // Check if it contains "FactoLearn" and replace
+            if (welcomeTitle.innerHTML.includes('FactoLearn')) {
+                welcomeTitle.innerHTML = `Welcome back, ${firstName}!`;
+            } else {
+                welcomeTitle.textContent = `Welcome back, ${firstName}!`;
+            }
+            console.log('✅ Updated welcome title');
+        }
+        
+        // Update dashboard user name
+        const dashboardUserName = document.getElementById('dashboardUserName');
+        if (dashboardUserName) {
+            // The span inside might contain "FactoPermCombi"
+            const span = dashboardUserName.querySelector('span');
+            if (span) {
+                dashboardUserName.innerHTML = `Welcome back <span>${userName}</span>!`;
+            } else {
+                dashboardUserName.textContent = `Welcome back, ${userName}!`;
+            }
+            console.log('✅ Updated dashboard user name');
+        }
+        
+        // Update user initial in avatar
+        const userInitial = document.getElementById('userInitial');
+        if (userInitial) {
+            userInitial.textContent = userName.charAt(0).toUpperCase();
+            console.log('✅ Updated user initial');
+        }
+        
+        // Update menu user name
+        const menuUserName = document.getElementById('menuUserName');
+        if (menuUserName) {
+            menuUserName.textContent = userName;
+        }
+        
+        // Update any other welcome messages in the app
+        const otherWelcomeElements = document.querySelectorAll('[id*="Welcome"], [class*="welcome"]');
+        otherWelcomeElements.forEach(el => {
+            if (el.id !== 'dashboardWelcomeTitle' && el.id !== 'dashboardUserName') {
+                const text = el.textContent || '';
+                if (text.includes('Welcome') && !text.includes(userName)) {
+                    // Don't override if it already has the user name
+                    if (!text.includes(userName)) {
+                        console.log(`Found other welcome element: ${el.id || el.className}`);
+                    }
+                }
+            }
+        });
+        
+    } catch (error) {
+        console.error('❌ Error updating welcome messages:', error);
+    }
+}
 
+// Also update the dashboard initialization to use real user data
+function updateDashboardWithUserData() {
+    console.log('📊 Updating dashboard with real user data...');
+    
+    const userJson = localStorage.getItem('mathhub_user');
+    if (!userJson) return;
+    
+    try {
+        const user = JSON.parse(userJson);
+        const userName = user.full_name || user.username || 'Student';
+        
+        // Update all welcome messages
+        updateWelcomeMessages();
+        
+        // Update achievement badge with real data
+        const achievementBadge = document.getElementById('userAchievementBadge');
+        if (achievementBadge) {
+            // You can fetch real achievement data here
+            const streak = localStorage.getItem('user_streak') || '1';
+            achievementBadge.innerHTML = `<i class="fas fa-medal"></i> ${streak}-Day Streak!`;
+        }
+        
+        console.log(`✅ Dashboard updated for user: ${userName}`);
+        
+    } catch (error) {
+        console.error('Error updating dashboard:', error);
+    }
+}
+
+// Modify the initApp function to call these updates
+const originalInitApp = initApp;
+initApp = function() {
+    console.log('🎮 Initializing app with user data...');
+    
+    // Call original initApp first
+    if (typeof originalInitApp === 'function') {
+        originalInitApp();
+    }
+    
+    // Update welcome messages after a short delay
+    setTimeout(() => {
+        updateWelcomeMessages();
+        updateDashboardWithUserData();
+    }, 300);
+    
+    // Also update when dashboard becomes visible
+    const dashboardPage = document.getElementById('dashboard-page');
+    if (dashboardPage) {
+        const observer = new MutationObserver(function(mutations) {
+            mutations.forEach(function(mutation) {
+                if (mutation.type === 'attributes' && mutation.attributeName === 'class') {
+                    if (!dashboardPage.classList.contains('hidden')) {
+                        console.log('📊 Dashboard became visible, updating user data...');
+                        setTimeout(() => {
+                            updateWelcomeMessages();
+                            updateDashboardWithUserData();
+                        }, 100);
+                    }
+                }
+            });
+        });
+        
+        observer.observe(dashboardPage, { attributes: true });
+    }
+};
+
+// Also update when user logs in
+window.addEventListener('storage', function(e) {
+    if (e.key === 'mathhub_user') {
+        console.log('👤 User data changed, updating welcome messages...');
+        updateWelcomeMessages();
+        updateDashboardWithUserData();
+    }
+});
+
+console.log('✅ Welcome message fix applied');
 // ============================================
 // QUICK LESSON MODAL - CREATE LESSON ON THE FLY
 // ============================================
