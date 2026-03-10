@@ -36095,26 +36095,4 @@ function goToAppSelection(e) {
 window.goToAppSelection = goToAppSelection;
 
 
-// ============================================
-// 🌐 GLOBAL FUNCTION - para sa HTML na hindi babaguhin
-// ============================================
-window.goToAppSelection = function(e) {
-    if (e) {
-        e.preventDefault();
-        e.stopPropagation();
-    }
-    
-    console.log('🎯 Going to App Selection from PolyLearn (via global function)');
-    
-    // Close mobile menu if open
-    const mobileMenuOverlay = document.getElementById('mobileMenuOverlay');
-    const mobileMenuPanel = document.getElementById('mobileMenuPanel');
-    
-    if (mobileMenuOverlay) mobileMenuOverlay.classList.remove('active');
-    if (mobileMenuPanel) mobileMenuPanel.classList.remove('active');
-    document.body.style.overflow = '';
-    
-    // Navigate to app selection
-    navigateTo('appSelection');
-};
 
