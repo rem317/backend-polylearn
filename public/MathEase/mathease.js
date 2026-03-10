@@ -31772,8 +31772,6 @@ window.testTimer = function(questions = 40) {
 // ============================================
 // GLOBAL VARIABLES
 // ============================================
-let currentLesson = null;
-let allLessons = [];
 
 // ============================================
 // UTILITY FUNCTIONS
