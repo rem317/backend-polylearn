@@ -22842,7 +22842,7 @@ function addOption(questionId) {
     
     optionsContainer.insertAdjacentHTML('beforeend', optionHtml);
 }
-// ===== FIXED: SAVE QUIZ TO MYSQL WITH CORRECT LESSON ID =====
+// ===== FIXED: SAVE QUIZ TO MYSQL WITH PROPER TOPIC HANDLING =====
 async function saveQuizToMySQL() {
     console.log("💾 ===== SAVING QUIZ TO MYSQL DATABASE =====");
     
@@ -22850,7 +22850,12 @@ async function saveQuizToMySQL() {
     const title = document.getElementById('quizTitle')?.value.trim();
     const description = document.getElementById('quizDescription')?.value.trim();
     const subjectId = document.getElementById('quizSubject')?.value; // This is the lesson_id
-    const topicId = document.getElementById('quizTopic')?.value;
+    const topicSelect = document.getElementById('quizTopic');
+    const topicId = topicSelect?.value;
+    
+    // ===== FIX: CHECK TOPIC VALUE PROPERLY =====
+    console.log("🔍 Topic select value:", topicId);
+    console.log("🔍 Topic select innerHTML:", topicSelect?.innerHTML);
     
     // ===== FIX: USE SUBJECT ID AS LESSON ID =====
     let lesson_id;
@@ -22883,9 +22888,9 @@ async function saveQuizToMySQL() {
     console.log('📋 Quiz data:', { 
         title, 
         description,
-        lesson_id,  // This will be 1, 2, or 3
+        lesson_id,
         subjectName,
-        topicId,
+        topicId: topicId || 'EMPTY',
         timeLimit, 
         passingScore, 
         maxAttempts,
@@ -22905,6 +22910,10 @@ async function saveQuizToMySQL() {
         showNotification('error', 'Error', 'Please select a subject');
         return;
     }
+    
+    // ===== FIX: ALLOW NULL TOPIC =====
+    // If no topic selected, set to null (server should handle)
+    const finalTopicId = topicId && topicId !== '' ? parseInt(topicId) : null;
     
     // ===== COLLECT QUESTIONS =====
     const questions = [];
@@ -22964,8 +22973,8 @@ async function saveQuizToMySQL() {
     
     // ===== PREPARE DATA FOR SERVER =====
     const quizData = {
-        lesson_id: lesson_id,  // Use lesson_id, not category_id
-        topic_id: topicId ? parseInt(topicId) : null,
+        lesson_id: lesson_id,
+        topic_id: finalTopicId,  // Can be null
         title: title,
         description: description || '',
         difficulty: difficulty || 'medium',
@@ -22986,7 +22995,7 @@ async function saveQuizToMySQL() {
         quizData.quiz_id = parseInt(editId);
     }
     
-    console.log("📤 Sending quiz data:", quizData);
+    console.log("📤 Sending quiz data:", JSON.stringify(quizData, null, 2));
     
     try {
         const token = localStorage.getItem('admin_token') || localStorage.getItem('authToken');
@@ -23008,6 +23017,8 @@ async function saveQuizToMySQL() {
             ? `/api/admin/quizzes/${editId}`
             : `/api/admin/quizzes`;
         
+        console.log(`📡 Sending to: ${url}`);
+        
         const response = await fetch(url, {
             method: editId ? 'PUT' : 'POST',
             headers: {
@@ -23017,7 +23028,16 @@ async function saveQuizToMySQL() {
             body: JSON.stringify(quizData)
         });
         
-        const result = await response.json();
+        const responseText = await response.text();
+        console.log("📥 Raw response:", responseText);
+        
+        let result;
+        try {
+            result = JSON.parse(responseText);
+        } catch (e) {
+            console.error("❌ Failed to parse JSON:", responseText);
+            throw new Error('Server returned invalid JSON');
+        }
         
         if (!response.ok) {
             throw new Error(result.message || `Server error: ${response.status}`);
