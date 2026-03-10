@@ -24186,17 +24186,20 @@ function setupAppSelectionListeners() {
 }
 
 // ============================================
-// FIXED: Handle app selection with proper folder paths
-// PolyLearn stays in main app, others redirect to folders
+// ✅ FIXED: Handle app selection with proper back navigation
 // ============================================
 function handleAppSelection(appName) {
     console.log(`📱 Handling app selection: ${appName}`);
     
     // Save selected app to localStorage and state
     AppState.selectedApp = appName;
-    localStorage.setItem('selectedApp', appName);
     AppState.hasSelectedApp = true;
+    
+    // Save with persistence
+    localStorage.setItem('selectedApp', appName);
     localStorage.setItem('hasSelectedApp', 'true');
+    localStorage.setItem('lastSelectedApp', appName);
+    localStorage.setItem('appLastVisited', new Date().toISOString());
     
     // Set the lesson filter based on the selected app
     let lessonId = 2; // Default to PolyLearn
@@ -24211,6 +24214,10 @@ function handleAppSelection(appName) {
     
     localStorage.setItem('currentLessonFilter', lessonId.toString());
     console.log(`🔍 Setting lesson filter: ${lessonId} for ${appName}`);
+    
+    // Save current app for back navigation
+    localStorage.setItem('currentApp', appName);
+    sessionStorage.setItem('currentApp', appName);
     
     // IMPORTANT: PolyLearn stays in the main app (index.html)
     // MathEase and FactoLearn redirect to their folders
@@ -24228,6 +24235,10 @@ function handleAppSelection(appName) {
         console.log('🎯 MathEase selected - redirecting to MathEase folder');
         showNotification('Opening MathEase...', 'info');
         
+        // Save that we're going to MathEase
+        sessionStorage.setItem('redirectingTo', 'mathease');
+        sessionStorage.setItem('previousApp', 'mathease');
+        
         // Redirect to MathEase folder
         setTimeout(() => {
             window.location.href = 'MathEase/mathease.html';
@@ -24236,6 +24247,10 @@ function handleAppSelection(appName) {
     else if (appName === 'factolearn' || appName === 'factorial') {
         console.log('🎯 FactoLearn selected - redirecting to FactoLearn folder');
         showNotification('Opening FactoLearn...', 'info');
+        
+        // Save that we're going to FactoLearn
+        sessionStorage.setItem('redirectingTo', 'factolearn');
+        sessionStorage.setItem('previousApp', 'factolearn');
         
         // Redirect to FactoLearn folder
         setTimeout(() => {
@@ -36063,7 +36078,7 @@ console.log('✅ TRACING ACTIVATED - I-refresh ang page at tingnan ang console')
 
 
 // ============================================
-// 🎯 NEW: Go to App Selection from Menu
+// 🎯 Go to App Selection from Menu
 // ============================================
 function goToAppSelection(e) {
     if (e) {
@@ -36071,6 +36086,7 @@ function goToAppSelection(e) {
         e.stopPropagation();
     }
     
+    console.log('🎯 Going to App Selection page');
     closeMobileMenu();
     navigateTo('appSelection');
 }
