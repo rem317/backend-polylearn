@@ -24059,10 +24059,14 @@ function logoutAndRedirect() {
         logUserActivity('logout', null, {}, 0);
     }
     
-    // Clear local storage
+    // Clear all authentication data
     localStorage.removeItem('authToken');
     localStorage.removeItem('mathhub_user');
     localStorage.removeItem('hasSelectedApp');
+    localStorage.removeItem('selectedApp');
+    localStorage.removeItem('userLoggedIn'); // ✅ IMPORTANT
+    localStorage.removeItem('lastLogin');
+    sessionStorage.clear();
     
     // Reset app state
     AppState.currentUser = null;
@@ -36056,3 +36060,20 @@ Object.defineProperty(HTMLButtonElement.prototype, 'disabled', {
 });
 
 console.log('✅ TRACING ACTIVATED - I-refresh ang page at tingnan ang console');
+
+
+// ============================================
+// 🎯 NEW: Go to App Selection from Menu
+// ============================================
+function goToAppSelection(e) {
+    if (e) {
+        e.preventDefault();
+        e.stopPropagation();
+    }
+    
+    closeMobileMenu();
+    navigateTo('appSelection');
+}
+
+// Make it globally available
+window.goToAppSelection = goToAppSelection;
