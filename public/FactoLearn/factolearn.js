@@ -29639,3 +29639,19 @@ window.goBackToMainApp = function() {
     window.location.href = '../index.html#appSelection';
 };
 
+// ============================================
+// 🌐 GLOBAL FUNCTION - para sa HTML na hindi babaguhin
+// ============================================
+window.goToAppSelection = function(e) {
+    if (e) {
+        e.preventDefault();
+        e.stopPropagation();
+    }
+    
+    console.log('🎯 Going to App Selection from FactoLearn (via global function)');
+    closeFactoMenu();
+    
+    // Go back to main app's App Selection
+    window.location.href = '../index.html#appSelection';
+};
+
