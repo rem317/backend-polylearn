@@ -23166,68 +23166,47 @@ function addProgressStyles() {
     document.head.appendChild(style);
 }
 
-// ============================================
-// CORE FUNCTIONS
-// ============================================
-
-// Initialize application
+// ✅ FIXED: Initialize application - WITH SESSION CHECK
 function initApp() {
     console.log('🎮 MathHub Application Initializing...');
     
-    // Clear session for fresh start
-    localStorage.removeItem('mathhub_user');
-    localStorage.removeItem('authToken');
+    // ✅ CHECK FOR EXISTING SESSION FIRST
+    const savedUser = localStorage.getItem('mathhub_user');
+    const token = localStorage.getItem('authToken');
+    const userLoggedIn = localStorage.getItem('userLoggedIn') === 'true';
     
-    // Reset app state
-    AppState.currentUser = null;
-    AppState.isAuthenticated = false;
-    AppState.hasSelectedApp = false;
-    AppState.selectedApp = null;
-    AppState.currentLessonData = null;
-    AppState.currentVideoData = null;
-    authToken = null;
-    
-    // Reset lesson state
-    LessonState.lessons = [];
-    LessonState.currentLesson = null;
-    LessonState.userProgress = {};
-    LessonState.continueLearningLesson = null;
-    LessonState.currentTopic = null;
-    
-    // Reset practice state
-    PracticeState.currentTopic = null;
-    PracticeState.currentExercise = null;
-    PracticeState.exercises = [];
-    PracticeState.timer = 300;
-    PracticeState.timerInterval = null;
-    PracticeState.isExerciseActive = false;
-    PracticeState.isReviewMode = false;
-    PracticeState.userPracticeProgress = {};
-    
-    // Reset quiz state
-    QuizState.currentQuiz = null;
-    QuizState.currentQuestionIndex = 0;
-    QuizState.questions = [];
-    QuizState.userAnswers = {};
-    QuizState.timer = 0;
-    QuizState.timerInterval = null;
-    QuizState.isQuizActive = false;
-    QuizState.currentAttemptId = null;
-    QuizState.quizResults = null;
-    QuizState.selectedCategory = null;
-    QuizState.quizCategories = [];
-    
-    // Reset progress state
-    ProgressState.dailyProgress = null;
-    ProgressState.weeklyProgress = null;
-    ProgressState.monthlyProgress = null;
-    ProgressState.learningGoals = [];
-    ProgressState.topicMastery = {};
-    ProgressState.moduleProgress = {};
-    ProgressState.activityLog = [];
-    ProgressState.dashboardStats = null;
-    ProgressState.progressTrends = [];
-    ProgressState.achievementTimeline = [];
+    if (savedUser && token && userLoggedIn) {
+        try {
+            const user = JSON.parse(savedUser);
+            
+            // Restore app state
+            AppState.currentUser = user;
+            AppState.isAuthenticated = true;
+            authToken = token;
+            
+            console.log('✅ Session restored for user:', user.username);
+            
+            // Check if user has selected an app
+            const hasSelectedApp = localStorage.getItem('hasSelectedApp') === 'true';
+            const selectedApp = localStorage.getItem('selectedApp');
+            
+            if (hasSelectedApp && selectedApp) {
+                AppState.hasSelectedApp = true;
+                AppState.selectedApp = selectedApp;
+            }
+        } catch (error) {
+            console.error('Error restoring session:', error);
+            // Clear invalid session
+            localStorage.removeItem('mathhub_user');
+            localStorage.removeItem('authToken');
+            localStorage.removeItem('userLoggedIn');
+        }
+    } else {
+        // Clear session if no valid data
+        localStorage.removeItem('mathhub_user');
+        localStorage.removeItem('authToken');
+        localStorage.removeItem('userLoggedIn');
+    }
     
     // Initialize forms
     setupLoginForm();
@@ -23250,13 +23229,13 @@ function initApp() {
     // Setup app selection listeners
     setupAppSelectionListeners();
     
-    // Simulate loading before showing login page
+    // Simulate loading before showing appropriate page
     simulateLoading();
     
     console.log('🎮 MathHub Application Initialized');
 }
 
-// Simulate Loading
+// ✅ FIXED: simulateLoading - WITH SESSION CHECK
 function simulateLoading() {
     let progress = 0;
     const loadingProgress = document.getElementById('loadingProgress');
@@ -23273,9 +23252,11 @@ function simulateLoading() {
             clearInterval(loadingInterval);
             
             setTimeout(() => {
+                // ✅ CHECK FOR EXISTING SESSION
                 const savedUser = localStorage.getItem('mathhub_user');
+                const userLoggedIn = localStorage.getItem('userLoggedIn') === 'true';
                 
-                if (savedUser) {
+                if (savedUser && userLoggedIn) {
                     try {
                         const user = JSON.parse(savedUser);
                         AppState.currentUser = user;
@@ -23284,13 +23265,17 @@ function simulateLoading() {
                         const hasSelectedApp = localStorage.getItem('hasSelectedApp') === 'true';
                         
                         if (hasSelectedApp) {
-                            loadInitialData().then(); 
-                            navigateTo('dashboard');
+                            loadInitialData().then(() => {
+                                navigateTo('dashboard');
+                            });
                         } else {
                             navigateTo('appSelection');
                         }
                     } catch (error) {
-                        logoutAndRedirect();
+                        // If error parsing user, clear invalid data
+                        localStorage.removeItem('mathhub_user');
+                        localStorage.removeItem('userLoggedIn');
+                        navigateTo('login');
                     }
                 } else {
                     navigateTo('login');
@@ -23305,9 +23290,11 @@ function simulateLoading() {
     if (skipLoadingBtn) {
         skipLoadingBtn.addEventListener('click', () => {
             clearInterval(loadingInterval);
-            const savedUser = localStorage.getItem('mathhub_user');
             
-            if (savedUser) {
+            const savedUser = localStorage.getItem('mathhub_user');
+            const userLoggedIn = localStorage.getItem('userLoggedIn') === 'true';
+            
+            if (savedUser && userLoggedIn) {
                 try {
                     const user = JSON.parse(savedUser);
                     AppState.currentUser = user;
@@ -23321,7 +23308,9 @@ function simulateLoading() {
                         navigateTo('appSelection');
                     }
                 } catch (error) {
-                    logoutAndRedirect();
+                    localStorage.removeItem('mathhub_user');
+                    localStorage.removeItem('userLoggedIn');
+                    navigateTo('login');
                 }
             } else {
                 navigateTo('login');
@@ -23329,7 +23318,6 @@ function simulateLoading() {
         });
     }
 }
-
 // ============================================
 // 🚀 NEW: Show/hide loading states
 // ============================================
@@ -23620,11 +23608,7 @@ app.get('/api/teachers/:userId', authenticateUser, async (req, res) => {
         });
     }
 });
-// ============================================
-// AUTHENTICATION FUNCTIONS
-// ============================================
-
-// Login function
+// ✅ FIXED: Login function - Keep user logged in
 async function login(email, password) {
     console.log('🔐 Attempting login for:', email);
     
@@ -23660,10 +23644,14 @@ async function login(email, password) {
         }
         
         if (data.success && data.token) {
-            // Store token and user data
+            // ✅ STORE TOKEN AND USER DATA PROPERLY
             authToken = data.token;
             localStorage.setItem('authToken', authToken);
             localStorage.setItem('mathhub_user', JSON.stringify(data.user));
+            
+            // ✅ ADD THESE LINES TO ENSURE PERSISTENCE
+            localStorage.setItem('userLoggedIn', 'true');
+            localStorage.setItem('lastLogin', new Date().toISOString());
             
             // Update app state
             AppState.currentUser = data.user;
@@ -23900,6 +23888,10 @@ function setupSignupForm() {
                 authToken = data.token;
                 localStorage.setItem('authToken', authToken);
                 localStorage.setItem('mathhub_user', JSON.stringify(data.user));
+
+               // ✅ ADD THESE LINES
+    localStorage.setItem('userLoggedIn', 'true');
+    localStorage.setItem('lastLogin', new Date().toISOString());
                 
                 // Update app state
                 AppState.currentUser = data.user;
@@ -24132,23 +24124,36 @@ function logoutAndRedirect() {
     showNotification('Logged out successfully', 'info');
 }
 
-// Check authentication
+// ✅ FIXED: Check authentication - WITH PERSISTENCE CHECK
 function checkAuthentication() {
-    // Check if user is authenticated
-    if (!AppState.isAuthenticated) {
-        console.log('🔐 User is not authenticated');
-        return false;
+    // Check if user is authenticated in app state
+    if (AppState.isAuthenticated && AppState.currentUser) {
+        return true;
     }
     
-    // Additional check: verify token is still valid
+    // Check localStorage for saved session
     const savedUser = localStorage.getItem('mathhub_user');
-    if (!savedUser) {
-        console.log('🔐 No user data found in localStorage');
-        AppState.isAuthenticated = false;
-        return false;
+    const token = localStorage.getItem('authToken');
+    const userLoggedIn = localStorage.getItem('userLoggedIn') === 'true';
+    
+    if (savedUser && token && userLoggedIn) {
+        try {
+            const user = JSON.parse(savedUser);
+            
+            // Restore app state
+            AppState.currentUser = user;
+            AppState.isAuthenticated = true;
+            authToken = token;
+            
+            console.log('✅ Session restored from localStorage');
+            return true;
+        } catch (error) {
+            console.error('Error restoring session:', error);
+            return false;
+        }
     }
     
-    return true;
+    return false;
 }
 
 // ============================================
@@ -24918,7 +24923,7 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 
 // ============================================
-// 🍔 UPDATED: initHamburgerMenu - With logout confirmation
+// 🍔 UPDATED: initHamburgerMenu - With Back to App Selection
 // ============================================
 function initHamburgerMenu() {
     const hamburgerBtn = document.getElementById('footerHamburgerBtn');
@@ -24986,9 +24991,9 @@ function initHamburgerMenu() {
     }
     
     adjustContentPadding();
-    
     window.addEventListener('resize', adjustContentPadding);
     
+    // ✅ I-UPDATE ANG MGA FOOTER NAV ITEMS
     const footerNavItems = document.querySelectorAll('.footer-nav-item');
     
     footerNavItems.forEach(item => {
@@ -25025,22 +25030,49 @@ function initHamburgerMenu() {
         });
     });
     
+    // ✅ I-UPDATE ANG MGA MOBILE MENU ITEMS - DAGDAG ANG "BACK TO APP SELECTION"
     const mobileMenuItems = document.querySelectorAll('.mobile-menu-item');
-    mobileMenuItems.forEach((item, index) => {
-        item.addEventListener('click', function(e) {
-            e.preventDefault();
-            if (index === 0) showDashboard(e);
-            else if (index === 1) showPracticeDashboard(e);
-            else if (index === 2) showQuizDashboard(e);
-            else if (index === 3) showProgressPage(e);
-            else if (index === 4) showFeedbackPage(e);
-            else if (index === 5) showSettingsPage(e);
-            else if (index === 6) goToModuleDashboard(e);
-            else if (index === 7) logoutUser(e);
+    
+    // Kung may 8 items na, i-update ang index 7 (last item) para maging "Back to App Selection"
+    if (mobileMenuItems.length >= 8) {
+        // Baguhin ang last item (index 7) para maging Back to App Selection
+        const lastItem = mobileMenuItems[7];
+        if (lastItem) {
+            lastItem.innerHTML = '<i class="fas fa-arrow-left"></i> Back to App Selection';
+            lastItem.removeEventListener('click', logoutUser); // Remove old listener
+            lastItem.addEventListener('click', function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                closeMobileMenu();
+                navigateTo('appSelection');
+            });
+        }
+    } 
+    // Kung kulang, i-add ang mga event listeners sa existing items
+    else {
+        mobileMenuItems.forEach((item, index) => {
+            if (index === 0) item.addEventListener('click', showDashboard);
+            else if (index === 1) item.addEventListener('click', showPracticeDashboard);
+            else if (index === 2) item.addEventListener('click', showQuizDashboard);
+            else if (index === 3) item.addEventListener('click', showProgressPage);
+            else if (index === 4) item.addEventListener('click', showFeedbackPage);
+            else if (index === 5) item.addEventListener('click', showSettingsPage);
+            else if (index === 6) item.addEventListener('click', goToModuleDashboard);
+            else if (index === 7) {
+                // Ang index 7 ay magiging Back to App Selection
+                item.innerHTML = '<i class="fas fa-arrow-left"></i> Back to App Selection';
+                item.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    closeMobileMenu();
+                    navigateTo('appSelection');
+                });
+            }
         });
-    });
+    }
+    
+    console.log('✅ Hamburger menu updated with Back to App Selection');
 }
-
 // ✅ Helper function to close mobile menu
 function closeMobileMenu() {
     const mobileMenuOverlay = document.getElementById('mobileMenuOverlay');
