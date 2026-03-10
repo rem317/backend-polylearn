@@ -27509,27 +27509,51 @@ window.showDashboardManually = function() {
     }
 };
 
-// 🎯 Enhanced navigateTo function na kayang mag-handle ng external pages
+// Enhanced navigateTo function na kayang mag-handle ng external pages
 window.navigateTo = function(page) {
     console.log(`🧭 Navigating to: ${page}`);
     
-    // Special case for appSelection - redirect to main app
-    if (page === 'appSelection') {
-        console.log('🔄 Redirecting to main app selection...');
-        window.location.href = '../index.html#appSelection';
+    // List of pages that exist in the main app only (public/index.html)
+    const mainAppPages = ['appSelection', 'landing', 'login', 'signup', 'home'];
+    
+    // Check if this is a main app page
+    if (mainAppPages.includes(page)) {
+        console.log(`🔄 Redirecting to main app page: ${page} in public/index.html`);
+        
+        // Save current state
+        localStorage.setItem('previousApp', 'factolearn');
+        localStorage.setItem('returningFrom', 'factolearn');
+        localStorage.setItem('requestedPage', page);
+        
+        // Redirect to main index.html with hash
+        // Gumamit ng '../' para umakyat sa public folder
+        window.location.href = `../index.html#${page}`;
         return;
     }
     
-    // Regular internal navigation
+    // Regular internal navigation for FactoLearn pages
     const pageElement = document.getElementById(page + '-page') || 
                        document.getElementById(page);
     
     if (!pageElement) {
-        console.error(`❌ Page "${page}" not found!`);
+        console.error(`❌ Page "${page}" not found in FactoLearn!`);
+        
+        // Try to find any element with that ID
+        const element = document.getElementById(page);
+        if (element) {
+            console.log(`✅ Found element with id "${page}" but it's not a page container`);
+            // Show it anyway
+            document.querySelectorAll('[id$="-page"], .page').forEach(p => {
+                p.classList.add('hidden');
+            });
+            element.classList.remove('hidden');
+            return;
+        }
+        
         return;
     }
     
-    // Hide all pages
+    // Hide all FactoLearn pages
     document.querySelectorAll('[id$="-page"], .page').forEach(p => {
         p.classList.add('hidden');
     });
@@ -27545,7 +27569,7 @@ window.navigateTo = function(page) {
     // Scroll to top
     window.scrollTo({ top: 0, behavior: 'smooth' });
     
-    console.log(`✅ Navigated to ${page}`);
+    console.log(`✅ Navigated to ${page} in FactoLearn`);
 };
 // ============================================
 // 🍔 MOBILE MENU - FIXED SCROLLING VERSION
@@ -29619,18 +29643,26 @@ window.goBackToMainApp = function() {
     window.location.href = '../index.html#appSelection';
 };
 
-// 🎯 Go to App Selection from Menu - REDIRECT TO MAIN APP
+// 🎯 Go to App Selection from Menu - REDIRECT TO MAIN INDEX.HTML
 function goToAppSelection(e) {
     if (e) {
         e.preventDefault();
         e.stopPropagation();
     }
     
-    console.log('🎯 Going to App Selection page in main app');
+    console.log('🎯 Going to App Selection page in main app (public/index.html)');
     closeMobileMenu();
     
-    // I-redirect sa main index.html na may app selection
+    // I-save kung saang app galing
+    localStorage.setItem('previousApp', 'factolearn');
+    localStorage.setItem('returningFrom', 'factolearn');
+    
+    // I-redirect sa main index.html (nasa parent folder)
+    // Dahil ang factolearn.html ay nasa public/FactoLearn/factolearn.html
+    // Ang ../ ay babalik sa public/ folder
     window.location.href = '../index.html#appSelection';
 }
 
+// Make it globally available
+window.goToAppSelection = goToAppSelection;
 
