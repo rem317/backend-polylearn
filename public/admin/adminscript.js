@@ -6206,7 +6206,7 @@ function addSaveButtonToModuleModal() {
     console.log("✅ Save button added to module modal");
 }
 
-// ===== LOAD QUIZ DETAILS FOR EDITING - WITH DEBUGGING =====
+// ===== FIXED: LOAD QUIZ DETAILS FOR EDITING - WITH PROPER TOPIC LOADING =====
 async function loadQuizDetailsForEditing(quizId) {
     console.log("📥 LOADING QUIZ DETAILS FOR EDITING:", quizId);
     
@@ -6233,17 +6233,14 @@ async function loadQuizDetailsForEditing(quizId) {
         
         const result = await response.json();
         
-        // ===== IMPORTANT: I-DISPLAY ANG BUONG RESPONSE =====
         console.log("📥 FULL RESPONSE FROM SERVER:", result);
         
         if (result.success) {
             const quiz = result.quiz;
             
-            // ===== I-DISPLAY ANG EXACT STRUCTURE =====
-            console.log("📋 QUIZ OBJECT KEYS:", Object.keys(quiz));
             console.log("📋 QUIZ DATA:", quiz);
             
-            // ===== I-TRY ANG LAHAT NG POSIBLENG PROPERTY NAMES =====
+            // ===== TRY ALL POSSIBLE TITLE PROPERTIES =====
             const possibleTitleProps = ['title', 'quiz_title', 'name', 'quiz_name'];
             let actualTitle = 'No title';
             
@@ -6256,12 +6253,12 @@ async function loadQuizDetailsForEditing(quizId) {
             }
             
             // Set edit ID
-            document.getElementById('editQuizId').value = quiz.id;
+            document.getElementById('editQuizId').value = quiz.id || quiz.quiz_id;
             
-            // ===== SET TITLE - GAMITIN ANG NATUKLASAN =====
+            // Set title
             document.getElementById('quizTitle').value = actualTitle;
             
-            // ===== I-SET ANG DESCRIPTION =====
+            // Set description
             const possibleDescProps = ['description', 'quiz_description', 'desc'];
             let actualDesc = '';
             
@@ -6274,44 +6271,77 @@ async function loadQuizDetailsForEditing(quizId) {
             }
             document.getElementById('quizDescription').value = actualDesc;
             
-            // ===== I-SET ANG SUBJECT =====
-            const possibleSubjectProps = ['subject_id', 'category_id', 'lesson_id'];
-            for (let prop of possibleSubjectProps) {
-                if (quiz[prop]) {
-                    document.getElementById('quizSubject').value = quiz[prop];
-                    console.log(`✅ Found subject using property: ${prop} = ${quiz[prop]}`);
-                    break;
-                }
+            // Set subject
+            const subjectId = quiz.category_id || quiz.subject_id || quiz.lesson_id;
+            if (subjectId) {
+                document.getElementById('quizSubject').value = subjectId;
+                console.log(`✅ Subject set to: ${subjectId}`);
             }
             
-            // ===== I-SET ANG IBA PANG FIELDS =====
+            // ===== IMPORTANT: Load topics based on subject =====
+            await loadQuizTopics();
+            
+            // ===== Set topic after topics are loaded =====
+            if (quiz.topic_id) {
+                console.log(`⏳ Setting topic to: ${quiz.topic_id} after topics load...`);
+                
+                // Try multiple times to set the topic
+                let attempts = 0;
+                const maxAttempts = 10;
+                
+                const setTopicInterval = setInterval(() => {
+                    const topicSelect = document.getElementById('quizTopic');
+                    if (topicSelect && topicSelect.options.length > 1) {
+                        // Check if the value exists in options
+                        let valueExists = false;
+                        for (let i = 0; i < topicSelect.options.length; i++) {
+                            if (topicSelect.options[i].value == quiz.topic_id) {
+                                valueExists = true;
+                                break;
+                            }
+                        }
+                        
+                        if (valueExists) {
+                            topicSelect.value = quiz.topic_id;
+                            console.log(`✅ Topic set to: ${quiz.topic_id}`);
+                            clearInterval(setTopicInterval);
+                        } else {
+                            console.log(`⚠️ Topic value ${quiz.topic_id} not found in dropdown options`);
+                        }
+                    }
+                    
+                    attempts++;
+                    if (attempts >= maxAttempts) {
+                        console.log('❌ Max attempts reached, stopping topic set attempts');
+                        clearInterval(setTopicInterval);
+                    }
+                }, 200);
+            }
+            
+            // Set other fields
             document.getElementById('quizTimeLimit').value = quiz.time_limit_minutes || quiz.time_limit || 30;
             document.getElementById('quizPassingScore').value = quiz.passing_score || quiz.pass_score || 70;
             document.getElementById('quizMaxAttempts').value = quiz.max_attempts || quiz.attempts_limit || 3;
             document.getElementById('quizDifficulty').value = quiz.difficulty || 'medium';
-            document.getElementById('quizStatus').value = quiz.status || (quiz.is_active ? 'active' : 'inactive');
             
-            // ===== LOAD TOPICS =====
-            await loadQuizTopics();
-            
-            // ===== SET TOPIC IF EXISTS =====
-            if (quiz.topic_id) {
-                setTimeout(() => {
-                    const topicSelect = document.getElementById('quizTopic');
-                    if (topicSelect) {
-                        topicSelect.value = quiz.topic_id;
-                    }
-                }, 500);
+            // Status handling
+            let status = 'active';
+            if (quiz.is_active === 0 || quiz.is_active === false) {
+                status = 'inactive';
+            } else if (quiz.status === 'inactive') {
+                status = 'inactive';
             }
+            document.getElementById('quizStatus').value = status;
             
-            // ===== LOAD QUESTIONS =====
+            // Load questions
             const container = document.getElementById('questionsContainer');
             container.innerHTML = '';
             
-            // Check different possible question property names
             const questions = quiz.questions || quiz.question_list || [];
             
             if (questions.length > 0) {
+                console.log(`📝 Loading ${questions.length} questions`);
+                
                 questions.forEach((q, index) => {
                     addQuestionField();
                     
@@ -6364,7 +6394,6 @@ async function loadQuizDetailsForEditing(quizId) {
         addQuestionField();
     }
 }
-
 // ===== FIXED CREATE MODULE MODAL WITH VISIBLE BUTTONS =====
 function createQuickModuleModal() {
     // Remove existing modal if any
