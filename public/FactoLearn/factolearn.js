@@ -29640,18 +29640,20 @@ window.goBackToMainApp = function() {
 };
 
 // ============================================
-// 🌐 GLOBAL FUNCTION - para sa HTML na hindi babaguhin
+// 🎯 Go to App Selection from Menu
 // ============================================
-window.goToAppSelection = function(e) {
+function goToAppSelection(e) {
     if (e) {
         e.preventDefault();
         e.stopPropagation();
     }
     
-    console.log('🎯 Going to App Selection from FactoLearn (via global function)');
-    closeFactoMenu();
-    
-    // Go back to main app's App Selection
-    window.location.href = '../index.html#appSelection';
-};
+    console.log('🎯 Going to App Selection page');
+    closeMobileMenu();
+    navigateTo('appSelection');
+}
+
+// Make it globally available
+window.goToAppSelection = goToAppSelection;
+
 
