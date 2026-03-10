@@ -27509,53 +27509,33 @@ window.showDashboardManually = function() {
     }
 };
 
-// ============================================
-// NAVIGATION FUNCTION - FIXED
-// ============================================
+// 🎯 Enhanced navigateTo function na kayang mag-handle ng external pages
 window.navigateTo = function(page) {
     console.log(`🧭 Navigating to: ${page}`);
     
-    // Define page elements - CHECK KUNG MAY LOGIN PAGE
-    const pages = {
-        'dashboard': document.getElementById('dashboard-page'),
-        'practice': document.getElementById('practice-exercises-page'),
-        'quizDashboard': document.getElementById('quiz-dashboard-page'),
-        'progress': document.getElementById('progress-page'),
-        'feedback': document.getElementById('feedback-page'),
-        'settings': document.getElementById('settings-page'),
-        'moduleDashboard': document.getElementById('module-dashboard-page'),
-        'appSelection': document.getElementById('app-selection-page'),
-        'login': document.getElementById('login-page'),        // ITO ANG USER LOGIN PAGE
-        'signup': document.getElementById('signup-page'),
-        'loading': document.getElementById('loading-page'),
-        'landing': document.getElementById('landing-page')
-    };
+    // Special case for appSelection - redirect to main app
+    if (page === 'appSelection') {
+        console.log('🔄 Redirecting to main app selection...');
+        window.location.href = '../index.html#appSelection';
+        return;
+    }
     
-    // Check if page exists
-    if (!pages[page]) {
+    // Regular internal navigation
+    const pageElement = document.getElementById(page + '-page') || 
+                       document.getElementById(page);
+    
+    if (!pageElement) {
         console.error(`❌ Page "${page}" not found!`);
-        
-        // Try to find any element with that ID
-        const element = document.getElementById(page);
-        if (element) {
-            console.log(`✅ Found element with id "${page}" but it's not in pages object`);
-            pages[page] = element;
-        } else {
-            // If login page doesn't exist, show alert
-            if (page === 'login') {
-                alert('Login page not found! Please check your HTML.');
-            }
-            return;
-        }
+        return;
     }
     
     // Hide all pages
-    Object.values(pages).forEach(p => {
-        if (p) p.classList.add('hidden');
+    document.querySelectorAll('[id$="-page"], .page').forEach(p => {
+        p.classList.add('hidden');
     });
     
     // Show target page
-    pages[page].classList.remove('hidden');
+    pageElement.classList.remove('hidden');
     
     // Update current page in AppState
     if (window.AppState) {
@@ -29639,21 +29619,18 @@ window.goBackToMainApp = function() {
     window.location.href = '../index.html#appSelection';
 };
 
-// ============================================
-// 🎯 Go to App Selection from Menu
-// ============================================
+// 🎯 Go to App Selection from Menu - REDIRECT TO MAIN APP
 function goToAppSelection(e) {
     if (e) {
         e.preventDefault();
         e.stopPropagation();
     }
     
-    console.log('🎯 Going to App Selection page');
+    console.log('🎯 Going to App Selection page in main app');
     closeMobileMenu();
-    navigateTo('appSelection');
+    
+    // I-redirect sa main index.html na may app selection
+    window.location.href = '../index.html#appSelection';
 }
-
-// Make it globally available
-window.goToAppSelection = goToAppSelection;
 
 
