@@ -3064,7 +3064,7 @@ function updateWelcomeMessages() {
         const welcomeTitle = document.getElementById('dashboardWelcomeTitle');
         if (welcomeTitle) {
             // Check if it contains "FactoLearn" and replace
-            if (welcomeTitle.innerHTML.includes('FactoLearn')) {
+            if (welcomeTitle.innerHTML.includes('FactoPermCombi')) {
                 welcomeTitle.innerHTML = `Welcome back, ${firstName}!`;
             } else {
                 welcomeTitle.textContent = `Welcome back, ${firstName}!`;
