@@ -31868,7 +31868,6 @@ function extractYoutubeId(url) {
 // ============================================
 
 // Store all lessons globally for navigation
-let allLessons = [];
 
 // Fetch all lessons when page loads
 async function fetchAllLessonsForNavigation() {
