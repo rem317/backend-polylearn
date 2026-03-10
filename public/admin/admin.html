@@ -967,7 +967,7 @@
                                 <select class="form-control small" onchange="updateScoreDistribution()" id="scoreDistributionFilter">
                                     <option value="all">All Students</option>
                                     <option value="polynomial">Polynomial</option>
-                                    <option value="factorial">Factorial</option>
+                                    <option value="factorial">Factorial, Permutation and Combination</option>
                                     <option value="mdas">MDAS</option>
                                 </select>
                             </div>
@@ -986,7 +986,7 @@
                                 <select class="form-control small" onchange="filterTopPerformers()" id="topPerformersFilter">
                                     <option value="all">All Subjects</option>
                                     <option value="polynomial">Polynomial</option>
-                                    <option value="factorial">Factorial</option>
+                                    <option value="factorial">Factorial, Permutation and Combination</option>
                                     <option value="mdas">MDAS</option>
                                 </select>
                             </div>
@@ -1186,7 +1186,7 @@
                                 <option value="all">All Subjects</option>
                                 <option value="1">MathEase</option>
                                 <option value="2">PolyLearn</option>
-                                <option value="3">FactoLearn</option>
+                                <option value="3">FactoPermCombi</option>
                             </select>
                             <select id="adminPracticeStatusFilter" class="filter-select" onchange="filterAdminPractice()">
                                 <option value="all">All Status</option>
@@ -1295,7 +1295,7 @@
                                         <i class="fas fa-exclamation-circle"></i>
                                     </div>
                                     <div class="subject-info">
-                                        <h4>FactoLearn <span class="subject-badge-mini badge-factorial">Teaching</span></h4>
+                                        <h4>FactoPermCombi <span class="subject-badge-mini badge-factorial">Teaching</span></h4>
                                         <p class="subject-description">Product of all positive integers less than or equal to n</p>
                                         <div class="subject-stats">
                                             <span><i class="fas fa-chalkboard-teacher"></i> <span id="factLessons">0</span> Lessons</span>
@@ -1541,7 +1541,7 @@
                             <i class="fas fa-divide"></i> MathEase
                         </button>
                         <button class="subject-tab" onclick="filterQuizzesBySubject(3)" id="filterFact">
-                            <i class="fas fa-exclamation"></i> FactoLearn
+                            <i class="fas fa-exclamation"></i> FactoPermCombi
                         </button>
                     </div>
 
@@ -1983,7 +1983,7 @@
                                 <option value="">-- Select Subject --</option>
                                 <option value="1">MathEase</option>
                                 <option value="2">PolyLearn</option>
-                                <option value="3">FactoLearn</option>
+                                <option value="3">FactoPermCombi</option>
                             </select>
                             <p style="font-size: 0.8rem; color: #666; margin-top: 5px;">
                                 <i class="fas fa-info-circle"></i> Select subject first to load available topics
@@ -2981,7 +2981,7 @@
                                 <option value="">-- Select Subject --</option>
                                 <option value="2">PolyLearn</option>
                                 <option value="1">MathEase</option>
-                                <option value="3">FactoLearn</option>
+                                <option value="3">FactoPermCombi</option>
                             </select>
                         </div>
                         
