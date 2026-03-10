@@ -36095,4 +36095,47 @@ function goToAppSelection(e) {
 window.goToAppSelection = goToAppSelection;
 
 
+// Sa index.html, kapag may #appSelection sa URL
+document.addEventListener('DOMContentLoaded', function() {
+    // Check kung may hash sa URL
+    if (window.location.hash) {
+        const page = window.location.hash.substring(1); // remove #
+        console.log(`📍 Hash detected: ${page}`);
+        
+        // Show the requested page
+        if (typeof navigateTo === 'function') {
+            navigateTo(page);
+        }
+        
+        // Check if coming from FactoLearn
+        const previousApp = localStorage.getItem('previousApp');
+        if (previousApp === 'factolearn') {
+            showNotification('info', 'Welcome back!', 'You came from FactoLearn');
+            
+            // Show which app they came from
+            const appIndicator = document.createElement('div');
+            appIndicator.className = 'app-indicator';
+            appIndicator.innerHTML = `
+                <i class="fas fa-arrow-left"></i> 
+                Returning from FactoLearn
+                <button onclick="goToFactoLearn()" class="btn-sm btn-primary">
+                    <i class="fas fa-redo"></i> Go Back
+                </button>
+            `;
+            
+            // Add to page
+            const container = document.querySelector('.page-container');
+            if (container) {
+                container.insertBefore(appIndicator, container.firstChild);
+            }
+            
+            // Clear the flag
+            localStorage.removeItem('previousApp');
+        }
+    }
+});
 
+// Function to go back to FactoLearn
+function goToFactoLearn() {
+    window.location.href = 'FactoLearn/factolearn.html';
+}
