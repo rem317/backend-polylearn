@@ -29643,25 +29643,27 @@ window.goBackToMainApp = function() {
     window.location.href = '../index.html#appSelection';
 };
 
-// 🎯 Go to App Selection from Menu - REDIRECT TO MAIN INDEX.HTML
+// 🎯 Go directly to App Selection page in index.html
 function goToAppSelection(e) {
     if (e) {
         e.preventDefault();
         e.stopPropagation();
     }
     
-    console.log('🎯 Going to App Selection page in main app (public/index.html)');
+    console.log('🎯 Going directly to App Selection page in index.html');
     closeMobileMenu();
     
-    // I-save kung saang app galing
-    localStorage.setItem('previousApp', 'factolearn');
-    localStorage.setItem('returningFrom', 'factolearn');
+    // I-save na galing sa FactoLearn (optional)
+    localStorage.setItem('lastApp', 'factolearn');
     
-    // I-redirect sa main index.html (nasa parent folder)
+    // Diretso sa app selection page sa index.html
     // Dahil ang factolearn.html ay nasa public/FactoLearn/factolearn.html
-    // Ang ../ ay babalik sa public/ folder
+    // Ang ../ ay babalik sa public/ folder, tapos ididirect sa appSelection
     window.location.href = '../index.html#appSelection';
 }
+
+// Make it globally available
+window.goToAppSelection = goToAppSelection;
 
 // Make it globally available
 window.goToAppSelection = goToAppSelection;
