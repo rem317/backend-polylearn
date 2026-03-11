@@ -15837,7 +15837,7 @@ function displayQuizCategories(categories, isHardcoded = false) {
             <div class="card-header" style="padding: 20px 25px 0;">
                 <h2 class="card-title" style="display: flex; align-items: center; gap: 10px; font-size: 1.4rem; color: var(--text-color); margin-bottom: 5px;">
                     <i class="fas fa-folder" style="color: #7a0000;"></i> 
-                    FactoPermCombi Quiz Categories
+                    MathEase Quiz Categories
                 </h2>
                 <p class="card-subtitle" style="color: var(--text-light); font-size: 0.95rem;">
                     Select a category to start practicing
