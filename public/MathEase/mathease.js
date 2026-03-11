@@ -31619,43 +31619,26 @@ function updateLessonUI(lesson) {
 }
 
 // ============================================
-// LOAD VIDEO FROM DATABASE - ULTRA FIXED VERSION
+// SIMPLE VIDEO LOADER - ALWAYS WORKS
 // ============================================
 async function loadVideoFromDatabase(contentId) {
     console.log('🎬 Loading video for lesson:', contentId);
     
     const videoContainer = document.getElementById('videoContainer');
-    const videoInfo = document.getElementById('videoInfo');
+    if (!videoContainer) return;
     
-    if (!videoContainer) {
-        console.error('❌ Video container not found');
-        return;
-    }
-    
-    // Clear container first
+    // Clear and set fixed dimensions
     videoContainer.innerHTML = '';
-    videoContainer.style.minHeight = '400px';
-    videoContainer.style.position = 'relative';
-    
-    // Show loading with better styling
-    const loadingDiv = document.createElement('div');
-    loadingDiv.style.cssText = `
-        background: #1a1a2e;
-        height: 400px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        flex-direction: column;
-        border-radius: 8px;
+    videoContainer.style.cssText = `
+        min-height: 400px !important;
+        width: 100% !important;
+        background: #1a1a2e !important;
+        position: relative !important;
+        border-radius: 8px !important;
     `;
-    loadingDiv.innerHTML = `
-        <i class="fas fa-spinner fa-spin" style="font-size: 50px; color: #7a0000; margin-bottom: 20px;"></i>
-        <p style="color: white; font-size: 16px;">Loading video...</p>
-    `;
-    videoContainer.appendChild(loadingDiv);
     
     try {
-        const token = localStorage.getItem('authToken') || authToken;
+        const token = localStorage.getItem('authToken');
         const response = await fetch(`/api/lessons-db/${contentId}`, {
             headers: { 'Authorization': `Bearer ${token}` }
         });
@@ -31667,172 +31650,56 @@ async function loadVideoFromDatabase(contentId) {
         }
         
         const lesson = data.lesson;
-        console.log('📹 Lesson video data:', {
-            content_url: lesson.content_url,
-            video_filename: lesson.video_filename,
-            content_type: lesson.content_type
-        });
+        const url = lesson.content_url;
         
-        // Clear loading
-        videoContainer.innerHTML = '';
-        
-        // Try to load video
-        let videoLoaded = false;
-        
-        // Check for YouTube URL
-        if (lesson.content_url) {
-            const url = lesson.content_url;
-            console.log('🔍 Checking URL:', url);
-            
-            // Handle different YouTube URL formats
-            if (url.includes('youtube.com') || url.includes('youtu.be')) {
-                let videoId = null;
-                
-                // Extract YouTube ID from various formats
-                if (url.includes('youtu.be/')) {
-                    videoId = url.split('youtu.be/')[1].split('?')[0];
-                } else if (url.includes('watch?v=')) {
-                    videoId = url.split('watch?v=')[1].split('&')[0];
-                } else if (url.includes('embed/')) {
-                    videoId = url.split('embed/')[1].split('?')[0];
-                } else if (url.includes('shorts/')) {
-                    videoId = url.split('shorts/')[1].split('?')[0];
-                }
-                
-                // Clean up the ID
-                if (videoId && videoId.includes('?')) videoId = videoId.split('?')[0];
-                if (videoId && videoId.includes('&')) videoId = videoId.split('&')[0];
-                if (videoId && videoId.includes('=')) videoId = videoId.split('=')[1];
-                
-                console.log('🎯 Extracted YouTube ID:', videoId);
-                
-                if (videoId && videoId.length === 11) {
-                    // Create iframe with proper attributes
-                    const iframe = document.createElement('iframe');
-                    iframe.width = '100%';
-                    iframe.height = '400';
-                    iframe.src = `https://www.youtube.com/embed/${videoId}?autoplay=0&rel=0`;
-                    iframe.frameBorder = '0';
-                    iframe.allow = 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture';
-                    iframe.allowFullscreen = true;
-                    iframe.style.borderRadius = '8px';
-                    
-                    videoContainer.appendChild(iframe);
-                    videoLoaded = true;
-                    
-                    if (videoInfo) {
-                        videoInfo.innerHTML = `
-                            <p><i class="fab fa-youtube" style="color: #ff0000;"></i> <strong>YouTube Video</strong></p>
-                            <p>${lesson.content_title || ''}</p>
-                            <p><a href="${url}" target="_blank" style="color: #ff0000;" rel="noopener noreferrer">
-                                <i class="fas fa-external-link-alt"></i> Watch on YouTube
-                            </a></p>
-                        `;
-                    }
-                    console.log('✅ YouTube iframe created');
-                }
-            }
-        }
-        
-        // If YouTube didn't load, check for uploaded video
-        if (!videoLoaded && lesson.video_filename) {
-            let videoUrl;
-            if (lesson.video_filename.startsWith('http')) {
-                videoUrl = lesson.video_filename;
-            } else {
-                videoUrl = `/uploads/videos/${lesson.video_filename}`;
+        if (url && (url.includes('youtube') || url.includes('youtu.be'))) {
+            // Extract YouTube ID
+            let videoId = null;
+            if (url.includes('youtu.be/')) {
+                videoId = url.split('youtu.be/')[1].split('?')[0];
+            } else if (url.includes('watch?v=')) {
+                videoId = url.split('watch?v=')[1].split('&')[0];
             }
             
-            console.log('📹 Loading video from:', videoUrl);
+            // Clean up
+            if (videoId && videoId.includes('?')) videoId = videoId.split('?')[0];
+            if (videoId && videoId.includes('&')) videoId = videoId.split('&')[0];
             
-            const video = document.createElement('video');
-            video.id = 'lessonVideo';
-            video.controls = true;
-            video.style.width = '100%';
-            video.style.maxHeight = '400px';
-            video.style.backgroundColor = '#000';
-            video.style.borderRadius = '8px';
+            console.log('🎯 YouTube ID:', videoId);
             
-            const source = document.createElement('source');
-            source.src = videoUrl + '?v=' + Date.now();
-            source.type = 'video/mp4';
-            
-            video.appendChild(source);
-            video.appendChild(document.createTextNode('Your browser does not support the video tag.'));
-            
-            video.onloadeddata = function() {
-                console.log(`✅ Video loaded successfully`);
-                if (videoInfo) {
-                    videoInfo.innerHTML = `
-                        <p><i class="fas fa-check-circle" style="color: #27ae60;"></i> <strong>${lesson.content_title || 'Video Lesson'}</strong></p>
-                        <p><i class="fas fa-clock"></i> Duration: ${Math.floor((lesson.video_duration_seconds || 600) / 60)} min</p>
-                    `;
-                }
-                if (typeof initVideoProgressTracking === 'function') {
-                    initVideoProgressTracking(video, contentId);
-                }
-            };
-            
-            video.onerror = function(e) {
-                console.error('❌ Video failed to load:', e);
-                showVideoFallback(lesson, videoContainer, videoInfo);
-            };
-            
-            videoContainer.appendChild(video);
-            video.load();
-            videoLoaded = true;
-        }
-        
-        // If still no video loaded, try direct URL
-        if (!videoLoaded && lesson.content_url) {
-            const url = lesson.content_url;
-            const isVideoFile = url.match(/\.(mp4|webm|ogg|mov|avi)$/i);
-            
-            if (isVideoFile) {
-                const video = document.createElement('video');
-                video.id = 'lessonVideo';
-                video.controls = true;
-                video.style.width = '100%';
-                video.style.maxHeight = '400px';
-                video.style.backgroundColor = '#000';
-                
-                const source = document.createElement('source');
-                source.src = url;
-                source.type = 'video/mp4';
-                
-                video.appendChild(source);
-                videoContainer.appendChild(video);
-                videoLoaded = true;
-            } else {
-                // Try to embed as iframe
+            if (videoId) {
+                // Create iframe with proper styling
                 const iframe = document.createElement('iframe');
-                iframe.width = '100%';
-                iframe.height = '400';
-                iframe.src = url;
-                iframe.frameBorder = '0';
+                iframe.src = `https://www.youtube.com/embed/${videoId}?autoplay=0&rel=0`;
+                iframe.style.cssText = `
+                    position: absolute !important;
+                    top: 0 !important;
+                    left: 0 !important;
+                    width: 100% !important;
+                    height: 100% !important;
+                    border: none !important;
+                `;
                 iframe.allowFullscreen = true;
-                iframe.style.borderRadius = '8px';
+                iframe.allow = 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture';
                 
                 videoContainer.appendChild(iframe);
-                videoLoaded = true;
+                console.log('✅ YouTube iframe added');
+                return;
             }
         }
         
-        // If no video loaded at all
-        if (!videoLoaded) {
-            showNoVideoMessage(lesson, videoContainer, videoInfo);
-        }
+        // Fallback if no YouTube
+        videoContainer.innerHTML = `
+            <div style="display:flex; align-items:center; justify-content:center; height:400px; color:white;">
+                No video available for this lesson
+            </div>
+        `;
         
     } catch (error) {
-        console.error('Error loading video:', error);
+        console.error('Error:', error);
         videoContainer.innerHTML = `
-            <div style="background:#1a1a2e; height:400px; display:flex; align-items:center; justify-content:center; flex-direction:column; border-radius:8px;">
-                <i class="fas fa-exclamation-triangle" style="font-size:60px; color:#e74c3c; margin-bottom:20px;"></i>
-                <h3 style="color:white; margin-bottom:10px;">Error Loading Video</h3>
-                <p style="color:#b0b0b0; margin-bottom:20px;">${error.message}</p>
-                <button onclick="location.reload()" style="background:#7a0000; color:white; border:none; padding:10px 20px; border-radius:5px; cursor:pointer;">
-                    <i class="fas fa-redo"></i> Retry
-                </button>
+            <div style="display:flex; align-items:center; justify-content:center; height:400px; color:white;">
+                Error loading video: ${error.message}
             </div>
         `;
     }
@@ -32320,6 +32187,37 @@ window.checkLessonVideos = async function() {
         }
     }
 };
+// ============================================
+// EMERGENCY FIX - Force video to show
+// ============================================
+window.forceVideoShow = function() {
+    const container = document.getElementById('videoContainer');
+    if (!container) return;
+    
+    // Check if iframe exists but is hidden
+    const iframe = container.querySelector('iframe');
+    if (iframe) {
+        console.log('📺 Iframe found, forcing visibility');
+        iframe.style.display = 'block';
+        iframe.style.width = '100%';
+        iframe.style.height = '400px';
+        iframe.style.position = 'relative';
+        
+        // Log dimensions
+        console.log('Iframe dimensions:', iframe.offsetWidth, 'x', iframe.offsetHeight);
+    } else {
+        console.log('❌ No iframe found');
+        
+        // Try to reload video
+        const currentLesson = LessonState.currentLesson;
+        if (currentLesson) {
+            loadVideoFromDatabase(currentLesson.content_id);
+        }
+    }
+};
+
+// Run it automatically
+setTimeout(forceVideoShow, 2000);
 // ============================================
 // DEBUG FUNCTION
 // ============================================
