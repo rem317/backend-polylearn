@@ -8814,7 +8814,88 @@ app.get('/api/debug/practice-attempts', authenticateAdmin, async (req, res) => {
     }
 });
 
-
+// ===== FIXED: UPDATE PRACTICE EXERCISE =====
+app.put('/api/admin/practice/:practiceId', authenticateAdmin, async (req, res) => {
+    try {
+        const { practiceId } = req.params;
+        const { 
+            title, 
+            description, 
+            topic_id, 
+            difficulty, 
+            content_type, 
+            points, 
+            is_active,
+            content_json 
+        } = req.body;
+        
+        console.log(`📝 Updating practice exercise ID: ${practiceId}`);
+        
+        // Check if exercise exists
+        const [existing] = await promisePool.query(
+            'SELECT exercise_id FROM practice_exercises WHERE exercise_id = ?',
+            [practiceId]
+        );
+        
+        if (existing.length === 0) {
+            return res.status(404).json({
+                success: false,
+                message: 'Practice exercise not found'
+            });
+        }
+        
+        // Start transaction
+        const connection = await promisePool.getConnection();
+        await connection.beginTransaction();
+        
+        try {
+            // Update basic info
+            await connection.query(`
+                UPDATE practice_exercises 
+                SET title = COALESCE(?, title),
+                    description = COALESCE(?, description),
+                    topic_id = COALESCE(?, topic_id),
+                    difficulty = COALESCE(?, difficulty),
+                    content_type = COALESCE(?, content_type),
+                    points = COALESCE(?, points),
+                    content_json = COALESCE(?, content_json),
+                    is_active = COALESCE(?, is_active),
+                    updated_at = NOW()
+                WHERE exercise_id = ?
+            `, [
+                title,
+                description,
+                topic_id,
+                difficulty,
+                content_type,
+                points,
+                content_json,
+                is_active,
+                practiceId
+            ]);
+            
+            await connection.commit();
+            connection.release();
+            
+            res.json({
+                success: true,
+                message: 'Practice exercise updated successfully'
+            });
+            
+        } catch (error) {
+            await connection.rollback();
+            connection.release();
+            throw error;
+        }
+        
+    } catch (error) {
+        console.error('❌ Error updating practice exercise:', error);
+        res.status(500).json({ 
+            success: false, 
+            message: error.message 
+        });
+    }
+});
 // ===== UPDATE PRACTICE EXERCISE =====
 // ===== UPDATE PRACTICE EXERCISE =====
 app.put('/api/admin/practice/exercises/:id', authenticateToken, async (req, res) => {
