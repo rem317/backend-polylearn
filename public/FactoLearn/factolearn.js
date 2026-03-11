@@ -1,6 +1,5 @@
 
 
-
 // script.js - MathHub Application with Complete Database-Driven Progress Tracking
 // Includes lesson management, practice exercises, quiz system, and full progress integration
 
@@ -27510,57 +27509,53 @@ window.showDashboardManually = function() {
     }
 };
 
-// Enhanced navigateTo function na kayang mag-handle ng external pages
+// ============================================
+// NAVIGATION FUNCTION - FIXED
+// ============================================
 window.navigateTo = function(page) {
     console.log(`🧭 Navigating to: ${page}`);
     
-    // List of pages that exist in the main app only (public/index.html)
-    const mainAppPages = ['appSelection', 'landing', 'login', 'signup', 'home'];
+    // Define page elements - CHECK KUNG MAY LOGIN PAGE
+    const pages = {
+        'dashboard': document.getElementById('dashboard-page'),
+        'practice': document.getElementById('practice-exercises-page'),
+        'quizDashboard': document.getElementById('quiz-dashboard-page'),
+        'progress': document.getElementById('progress-page'),
+        'feedback': document.getElementById('feedback-page'),
+        'settings': document.getElementById('settings-page'),
+        'moduleDashboard': document.getElementById('module-dashboard-page'),
+        'appSelection': document.getElementById('app-selection-page'),
+        'login': document.getElementById('login-page'),        // ITO ANG USER LOGIN PAGE
+        'signup': document.getElementById('signup-page'),
+        'loading': document.getElementById('loading-page'),
+        'landing': document.getElementById('landing-page')
+    };
     
-    // Check if this is a main app page
-    if (mainAppPages.includes(page)) {
-        console.log(`🔄 Redirecting to main app page: ${page} in public/index.html`);
-        
-        // Save current state
-        localStorage.setItem('previousApp', 'factolearn');
-        localStorage.setItem('returningFrom', 'factolearn');
-        localStorage.setItem('requestedPage', page);
-        
-        // Redirect to main index.html with hash
-        // Gumamit ng '../' para umakyat sa public folder
-        window.location.href = `../index.html#${page}`;
-        return;
-    }
-    
-    // Regular internal navigation for FactoLearn pages
-    const pageElement = document.getElementById(page + '-page') || 
-                       document.getElementById(page);
-    
-    if (!pageElement) {
-        console.error(`❌ Page "${page}" not found in FactoLearn!`);
+    // Check if page exists
+    if (!pages[page]) {
+        console.error(`❌ Page "${page}" not found!`);
         
         // Try to find any element with that ID
         const element = document.getElementById(page);
         if (element) {
-            console.log(`✅ Found element with id "${page}" but it's not a page container`);
-            // Show it anyway
-            document.querySelectorAll('[id$="-page"], .page').forEach(p => {
-                p.classList.add('hidden');
-            });
-            element.classList.remove('hidden');
+            console.log(`✅ Found element with id "${page}" but it's not in pages object`);
+            pages[page] = element;
+        } else {
+            // If login page doesn't exist, show alert
+            if (page === 'login') {
+                alert('Login page not found! Please check your HTML.');
+            }
             return;
         }
-        
-        return;
     }
     
-    // Hide all FactoLearn pages
-    document.querySelectorAll('[id$="-page"], .page').forEach(p => {
-        p.classList.add('hidden');
+    // Hide all pages
+    Object.values(pages).forEach(p => {
+        if (p) p.classList.add('hidden');
     });
     
     // Show target page
-    pageElement.classList.remove('hidden');
+    pages[page].classList.remove('hidden');
     
     // Update current page in AppState
     if (window.AppState) {
@@ -27570,7 +27565,7 @@ window.navigateTo = function(page) {
     // Scroll to top
     window.scrollTo({ top: 0, behavior: 'smooth' });
     
-    console.log(`✅ Navigated to ${page} in FactoLearn`);
+    console.log(`✅ Navigated to ${page}`);
 };
 // ============================================
 // 🍔 MOBILE MENU - FIXED SCROLLING VERSION
@@ -29632,40 +29627,4 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 });
 
-// For FactoLearn page (ilagay ito sa FactoLearn/factolearn.html)
-window.goBackToMainApp = function() {
-    console.log('⬅️ Going back to main app from FactoLearn');
-    
-    // Save that we're coming from FactoLearn
-    sessionStorage.setItem('returningFrom', 'factolearn');
-    sessionStorage.setItem('previousApp', 'factolearn');
-    
-    // Go back to main app
-    window.location.href = '../index.html#appSelection';
-};
-
-// 🎯 Go directly to App Selection page in index.html
-function goToAppSelection(e) {
-    if (e) {
-        e.preventDefault();
-        e.stopPropagation();
-    }
-    
-    console.log('🎯 Going directly to App Selection page in index.html');
-    closeMobileMenu();
-    
-    // I-save na galing sa FactoLearn (optional)
-    localStorage.setItem('lastApp', 'factolearn');
-    
-    // Diretso sa app selection page sa index.html
-    // Dahil ang factolearn.html ay nasa public/FactoLearn/factolearn.html
-    // Ang ../ ay babalik sa public/ folder, tapos ididirect sa appSelection
-    window.location.href = '../index.html#appSelection';
-}
-
-// Make it globally available
-window.goToAppSelection = goToAppSelection;
-
-// Make it globally available
-window.goToAppSelection = goToAppSelection;
 
