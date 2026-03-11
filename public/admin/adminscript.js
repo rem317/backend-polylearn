@@ -23169,52 +23169,149 @@ function closeViewQuizModal() {
     }
 }
 
-// ===== FIXED: EDIT QUIZ FUNCTION =====
+// ===== EDIT QUIZ FUNCTION - ITO ANG KAILANGAN MO I-FIX =====
 async function editQuiz(quizId) {
-    console.log("✏️ Editing quiz:", quizId);
+    console.log("✏️ Opening edit modal for quiz:", quizId);
     
     try {
         const token = localStorage.getItem('admin_token') || localStorage.getItem('authToken');
         
-        if (!token) {
-            showNotification('error', 'Auth Error', 'Please login first');
-            return;
-        }
-        
-        // Show loading notification
-        showNotification('info', 'Loading', 'Fetching quiz data...');
-        
         const response = await fetch(`/api/admin/quizzes/${quizId}`, {
-            headers: {
-                'Authorization': `Bearer ${token}`
-            }
+            headers: { 'Authorization': `Bearer ${token}` }
         });
         
-        if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
-        }
-        
         const result = await response.json();
-        console.log('📥 Edit quiz response:', result);
         
         if (result.success) {
             const quiz = result.quiz;
-            console.log('✅ Quiz data received:', quiz);
-            console.log('📋 Quiz title:', quiz.quiz_title);
             
-            // Open the modal with the quiz data
-            await openCreateQuizModal(quizId, quiz);
+            // Open the modal
+            const modal = document.getElementById('createQuizModal');
+            
+            // CHANGE THE MODAL TITLE
+            const modalTitle = modal.querySelector('.modal-header h3');
+            if (modalTitle) {
+                modalTitle.innerHTML = '<i class="fas fa-edit"></i> Edit Quiz';
+            }
+            
+            // CHANGE THE SAVE BUTTON TEXT (but still use the same function)
+            const saveBtn = modal.querySelector('.btn-primary');
+            if (saveBtn) {
+                saveBtn.innerHTML = '<i class="fas fa-save"></i> Update Quiz';
+                // HUWAG baguhin ang onclick - keep it as saveQuizToMySQL
+                // saveBtn.setAttribute('onclick', 'saveQuizToMySQL()'); // <- ITO ANG IMPORTANTE
+            }
+            
+            // ===== I-SET ANG EDIT QUIZ ID =====
+            document.getElementById('editQuizId').value = quiz.quiz_id || quiz.id;
+            console.log("✅ Set editQuizId to:", document.getElementById('editQuizId').value);
+            
+            // Populate form fields
+            document.getElementById('quizTitle').value = quiz.title || quiz.quiz_title || '';
+            document.getElementById('quizDescription').value = quiz.description || '';
+            
+            // Set subject
+            const subjectId = quiz.category_id || quiz.subject_id;
+            if (subjectId) {
+                document.getElementById('quizSubject').value = subjectId;
+                console.log("✅ Set subject to:", subjectId);
+            }
+            
+            // Load topics and set topic
+            await loadQuizTopics();
+            
+            // Set topic after topics are loaded
+            setTimeout(() => {
+                if (quiz.topic_id) {
+                    const topicSelect = document.getElementById('quizTopic');
+                    if (topicSelect) {
+                        topicSelect.value = quiz.topic_id;
+                        console.log("✅ Set topic to:", quiz.topic_id);
+                    }
+                }
+            }, 500);
+            
+            // Set other fields
+            document.getElementById('quizTimeLimit').value = quiz.time_limit_minutes || quiz.time_limit || 30;
+            document.getElementById('quizPassingScore').value = quiz.passing_score || quiz.pass_score || 70;
+            document.getElementById('quizMaxAttempts').value = quiz.max_attempts || quiz.attempts_limit || 3;
+            document.getElementById('quizDifficulty').value = quiz.difficulty || 'medium';
+            
+            // Status
+            const status = quiz.is_active === 1 ? 'active' : 'inactive';
+            document.getElementById('quizStatus').value = status;
+            
+            // Load questions
+            const container = document.getElementById('questionsContainer');
+            container.innerHTML = '';
+            
+            if (quiz.questions && quiz.questions.length > 0) {
+                quiz.questions.forEach((q, index) => {
+                    addQuestionField();
+                    
+                    setTimeout(() => {
+                        const qNum = index + 1;
+                        
+                        // Question text
+                        const questionInput = document.getElementById(`q_${qNum}_text`);
+                        if (questionInput) {
+                            questionInput.value = q.question_text || q.text || '';
+                        }
+                        
+                        // Options
+                        if (q.options && q.options.length > 0) {
+                            const letters = ['a', 'b', 'c', 'd', 'e', 'f'];
+                            
+                            q.options.forEach((opt, optIndex) => {
+                                const letter = letters[optIndex];
+                                if (!letter) return;
+                                
+                                const optInput = document.getElementById(`q_${qNum}_opt_${letter}`);
+                                if (optInput) {
+                                    optInput.value = opt.option_text || opt.text || '';
+                                }
+                                
+                                if (opt.is_correct || opt.correct) {
+                                    const radio = document.querySelector(`input[name="q_${qNum}_correct"][value="${letter}"]`);
+                                    if (radio) radio.checked = true;
+                                }
+                            });
+                        }
+                    }, 100 * (index + 1));
+                });
+            } else {
+                addQuestionField();
+            }
+            
+            // Show modal
+            modal.style.display = 'flex';
+            document.body.classList.add('modal-open');
             
         } else {
-            throw new Error(result.message || 'Failed to load quiz');
+            showNotification('error', 'Error', 'Failed to load quiz data');
         }
         
     } catch (error) {
-        console.error('❌ Error editing quiz:', error);
-        showNotification('error', 'Error', 'Failed to load quiz for editing');
+        console.error('❌ Error loading quiz for edit:', error);
+        showNotification('error', 'Error', error.message);
     }
 }
 
+// ===== SEPARATE FUNCTION PARA SA EDIT (KUNG Kailangan) =====
+async function updateQuiz() {
+    console.log("✏️ ===== UPDATING QUIZ =====");
+    
+    // Set na may editId para sure
+    const editId = document.getElementById('editQuizId')?.value;
+    
+    if (!editId) {
+        showNotification('error', 'Error', 'No quiz ID found for update');
+        return;
+    }
+    
+    // Tawagin lang ang main function
+    await saveQuizToMySQL();
+}
 // ===== DELETE QUIZ =====
 async function deleteQuiz(quizId) {
     if (!confirm('Are you sure you want to delete this quiz? This action cannot be undone.')) {
