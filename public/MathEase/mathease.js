@@ -32610,3 +32610,68 @@ function initFAQListeners() {
 window.toggleFAQ = toggleFAQ;
 window.showFeedbackPage = showFeedbackPage;
 window.initFAQListeners = initFAQListeners;
+
+
+// ============================================
+// FAQ TOGGLE FUNCTION - EXACT POLYLEARN VERSION
+// ============================================
+
+// Make sure this function exists and is working
+window.toggleFAQ = function(element) {
+    console.log('FAQ clicked'); // For debugging
+    
+    // Find the parent FAQ item
+    const faqItem = element.closest('.faq-item');
+    if (!faqItem) {
+        console.log('FAQ item not found');
+        return;
+    }
+    
+    // Toggle active class
+    faqItem.classList.toggle('active');
+    
+    // Find the answer
+    const answer = faqItem.querySelector('.faq-answer');
+    if (!answer) {
+        console.log('FAQ answer not found');
+        return;
+    }
+    
+    // Toggle answer visibility based on active class
+    if (faqItem.classList.contains('active')) {
+        answer.style.display = 'block';
+    } else {
+        answer.style.display = 'none';
+    }
+    
+    // Rotate chevron
+    const chevron = element.querySelector('.fas.fa-chevron-down');
+    if (chevron) {
+        if (faqItem.classList.contains('active')) {
+            chevron.style.transform = 'rotate(180deg)';
+        } else {
+            chevron.style.transform = 'rotate(0deg)';
+        }
+    }
+};
+
+// Initialize FAQ listeners when page loads
+document.addEventListener('DOMContentLoaded', function() {
+    console.log('Initializing FAQ listeners...');
+    
+    // Find all FAQ questions
+    const faqQuestions = document.querySelectorAll('.faq-question');
+    console.log('Found', faqQuestions.length, 'FAQ questions');
+    
+    faqQuestions.forEach((question, index) => {
+        // Remove any existing onclick attribute
+        question.removeAttribute('onclick');
+        
+        // Add click event listener
+        question.addEventListener('click', function(e) {
+            e.preventDefault();
+            console.log('FAQ question', index, 'clicked');
+            window.toggleFAQ(this);
+        });
+    });
+});
