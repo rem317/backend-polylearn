@@ -32171,7 +32171,7 @@ window.showNotification = showNotification;
 window.fetchAllLessonsForNavigation = fetchAllLessonsForNavigation;
 
 // ============================================
-// GO TO APP SELECTION PAGE - MATHEASE FIXED
+// GO TO APP SELECTION PAGE - DIRECT TO APP SELECTION
 // ============================================
 window.goToAppSelection = function(e) {
     if (e) {
@@ -32179,7 +32179,7 @@ window.goToAppSelection = function(e) {
         e.stopPropagation();
     }
     
-    console.log('🔄 MathEase: Going to App Selection page');
+    console.log('🔄 MathEase: Going directly to App Selection page');
     
     // Close mobile menu
     closeMobileMenu();
@@ -32195,12 +32195,8 @@ window.goToAppSelection = function(e) {
         showNotification('info', 'Redirecting', 'Going back to app selection...');
     }
     
-    // Add flag to let index.html know we're returning
-    sessionStorage.setItem('returningFromApp', 'true');
-    sessionStorage.setItem('previousApp', 'mathease');
-    
-    // ✅ FIXED: Redirect to the same pattern as PolyLearn
-    // PolyLearn uses "/#appSelection" directly
+    // ✅ DIRECT REDIRECT to main page with app selection hash
+    // This tells the main page to show app selection immediately
     setTimeout(() => {
         window.location.href = '/#appSelection';
     }, 300);
