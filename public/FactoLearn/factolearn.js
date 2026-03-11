@@ -29682,7 +29682,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
 // Setup app selection listeners
 function setupAppSelectionListeners() {
-    console.log('🔄 Setting up app selection listeners...');
+    console.log('🔄 Setting up FactoLearn app selection listeners...');
     
     // Listen for app card clicks
     document.addEventListener('click', function(event) {
@@ -29701,7 +29701,8 @@ function setupAppSelectionListeners() {
     });
 }
 
-// ✅ FIXED: Handle app selection with proper back navigation
+
+// Handle app selection - FactoLearn version
 function handleAppSelection(appName) {
     console.log(`📱 Handling app selection: ${appName}`);
     
@@ -29716,67 +29717,43 @@ function handleAppSelection(appName) {
     localStorage.setItem('appLastVisited', new Date().toISOString());
     
     // Set the lesson filter based on the selected app
-    let lessonId = 2; // Default to PolyLearn
+    let lessonId = 3; // Default to FactoLearn
     
-    if (appName === 'mathease') {
-        lessonId = 1;
-    } else if (appName === 'polylearn') {
-        lessonId = 2;
-    } else if (appName === 'factolearn' || appName === 'factorial') {
+    if (appName === 'factolearn') {
         lessonId = 3;
     }
     
     localStorage.setItem('currentLessonFilter', lessonId.toString());
+    localStorage.setItem('currentLessonId', lessonId.toString());
     console.log(`🔍 Setting lesson filter: ${lessonId} for ${appName}`);
     
     // Save current app for back navigation
     localStorage.setItem('currentApp', appName);
     sessionStorage.setItem('currentApp', appName);
     
-    // IMPORTANT: PolyLearn stays in the main app (index.html)
-    // MathEase and FactoLearn redirect to their folders
-    if (appName === 'polylearn') {
-        console.log('🎯 PolyLearn selected - staying in main app');
-        showNotification('Opening PolyLearn...', 'info');
-        
-        // Just navigate to dashboard within the same page
-        navigateTo('dashboard');
-        
-        // Update the dashboard for PolyLearn
-        updateDashboardForPolyLearn();
-    } 
-    else if (appName === 'mathease') {
-        console.log('🎯 MathEase selected - redirecting to MathEase folder');
-        showNotification('Opening MathEase...', 'info');
-        
-        // Save that we're going to MathEase
-        sessionStorage.setItem('redirectingTo', 'mathease');
-        sessionStorage.setItem('previousApp', 'mathease');
-        
-        // Redirect to MathEase folder
-        setTimeout(() => {
-            window.location.href = 'MathEase/mathease.html';
-        }, 500);
-    }
-    else if (appName === 'factolearn' || appName === 'factorial') {
-        console.log('🎯 FactoLearn selected - redirecting to FactoLearn folder');
-        showNotification('Opening FactoLearn...', 'info');
-        
-        // Save that we're going to FactoLearn
-        sessionStorage.setItem('redirectingTo', 'factolearn');
-        sessionStorage.setItem('previousApp', 'factolearn');
-        
-        // Redirect to FactoLearn folder
-        setTimeout(() => {
-            window.location.href = 'FactoLearn/factolearn.html';
-        }, 500);
-    }
+    // Show notification
+    showNotification(`Opening ${appName}...`, 'info');
+    
+    // FOR FACTOLEARN - stay in same page, navigate to dashboard
+    console.log('🎯 FactoLearn selected - staying in same app');
+    
+    // Setup back to app selection button
+    setupBackToAppSelectionButton();
+    
+    // Navigate to dashboard
+    navigateTo('dashboard');
+    
+    // Update dashboard for FactoLearn
+    updateDashboardForFactoLearn();
 }
 
+// ============================================
+// APP SELECTION PAGE FUNCTIONS
+// ============================================
 
 // Initialize app selection page
 async function initAppSelectionPage() {
-    console.log('🚀 Initializing app selection page...');
+    console.log('🚀 Initializing FactoLearn app selection page...');
     
     // Update user info if needed
     if (AppState.currentUser) {
@@ -29789,9 +29766,14 @@ async function initAppSelectionPage() {
     // Setup app selection listeners
     setupAppSelectionListeners();
     
-    console.log('✅ App selection page initialized');
+    // Hide footer navigation on app selection page
+    const navigation = document.querySelector('.footer-nav');
+    if (navigation) {
+        navigation.style.display = 'none';
+    }
+    
+    console.log('✅ FactoLearn app selection page initialized');
 }
-
 // Setup app selection navigation
 function setupAppSelectionNavigation() {
     console.log('🧭 Setting up app selection navigation...');
@@ -29805,7 +29787,7 @@ function setupAppSelectionNavigation() {
         });
     }
     
-    // Setup back to app selection button
+    // Setup back to app selection button (kung nasa loob ng app selection page)
     const backToAppSelectionBtn = document.getElementById('backToAppSelectionBtn');
     if (backToAppSelectionBtn) {
         backToAppSelectionBtn.addEventListener('click', function(e) {
@@ -29816,7 +29798,8 @@ function setupAppSelectionNavigation() {
 }
 
 
-// 🎯 Go to App Selection from Menu
+
+// Go to App Selection from Menu
 function goToAppSelection(e) {
     if (e) {
         e.preventDefault();
@@ -29824,13 +29807,61 @@ function goToAppSelection(e) {
     }
     
     console.log('🎯 Going to App Selection page');
+    
+    // Close mobile menu first
     closeMobileMenu();
+    
+    // Navigate to app selection page
     navigateTo('appSelection');
+    
+    // Ensure footer navigation is hidden
+    setTimeout(() => {
+        const navigation = document.querySelector('.footer-nav');
+        if (navigation) {
+            navigation.style.display = 'none';
+        }
+        
+        // Reset container padding
+        resetContainerBottomPadding();
+        
+        // Update active nav
+        updateActiveNav('appSelection');
+    }, 100);
+    
+    // Setup app selection navigation
+    setupAppSelectionNavigation();
 }
 
 // Make it globally available
 window.goToAppSelection = goToAppSelection;
 
-
+// Setup back to app selection button
+function setupBackToAppSelectionButton() {
+    console.log('🔧 Setting up back to app selection button...');
+    
+    // Wait for DOM to be ready
+    setTimeout(() => {
+        // Hanapin ang back to app selection button
+        const backBtn = document.getElementById('backToAppSelectionBtn');
+        
+        if (backBtn) {
+            // Remove existing listeners
+            const newBackBtn = backBtn.cloneNode(true);
+            backBtn.parentNode.replaceChild(newBackBtn, backBtn);
+            
+            // Add new click handler
+            newBackBtn.addEventListener('click', function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                console.log('🔙 Back to app selection button clicked');
+                goToAppSelection();
+            });
+            
+            console.log('✅ Back to app selection button handler attached');
+        } else {
+            console.log('ℹ️ Back to app selection button not found');
+        }
+    }, 500);
+}
 
 
