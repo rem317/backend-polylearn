@@ -13885,7 +13885,6 @@ html {
 
 /* Main Settings Area */
 .main-settings {
-    background: white;
     border-radius: 12px;
     padding: 30px;
     box-shadow: 0 4px 12px rgba(0,0,0,0.1);
@@ -14417,7 +14416,7 @@ input:checked + .toggle-slider:before {
 }
 
 #emergencyHelp {
-    color: white;
+background: #3498db !important;
     border: none;
     padding: 12px 24px;
     border-radius: 8px;
