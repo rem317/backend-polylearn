@@ -32171,7 +32171,7 @@ window.showNotification = showNotification;
 window.fetchAllLessonsForNavigation = fetchAllLessonsForNavigation;
 
 // ============================================
-// GO TO APP SELECTION PAGE - SAME PAGE VERSION
+// GO TO APP SELECTION PAGE - FOR MATHEASE (copied from index.html)
 // ============================================
 window.goToAppSelection = function(e) {
     if (e) {
@@ -32190,36 +32190,7 @@ window.goToAppSelection = function(e) {
     localStorage.removeItem('currentLessonId');
     localStorage.removeItem('hasSelectedApp');
     
-    // Check if app selection page exists in this HTML
-    const appSelectionPage = document.getElementById('app-selection-page');
-    
-    if (appSelectionPage) {
-        // Hide all pages
-        const pages = [
-            'dashboard-page',
-            'module-dashboard-page',
-            'practice-exercises-page',
-            'quiz-dashboard-page',
-            'progress-page',
-            'settings-page',
-            'feedback-page'
-        ];
-        
-        pages.forEach(id => {
-            const page = document.getElementById(id);
-            if (page) page.classList.add('hidden');
-        });
-        
-        // Show app selection page
-        appSelectionPage.classList.remove('hidden');
-        
-        // Show notification
-        if (typeof showNotification === 'function') {
-            showNotification('info', 'App Selection', 'Choose another app to continue learning');
-        }
-    } else {
-        // If app selection page doesn't exist, redirect to index.html
-        console.log('App selection page not found, redirecting to index.html');
-        window.location.href = '../index.html';
-    }
+    // Navigate to the app selection page (in index.html)
+    // Since MathEase is in a subfolder, go up one level
+    window.location.href = '../index.html';
 };
