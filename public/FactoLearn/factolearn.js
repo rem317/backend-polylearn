@@ -6268,10 +6268,10 @@ window.goToNextPractice = function() {
 // Call this function when initializing practice page
 addPracticeResultModalStyles();
 // ============================================
-// ✅ FIXED: fetchPracticeExercisesFromDB - Remove hardcoded topic
+// ✅ FIXED: fetchPracticeExercisesFromDB - Use the topic ID as is
 // ============================================
 async function fetchPracticeExercisesFromDB(topicId) {
-    console.log(`📝 Getting practice exercises from database for topic ${topicId}`);
+    console.log(`📝 Getting practice exercises from database for topic ID: ${topicId}`);
     
     try {
         const token = localStorage.getItem('authToken') || authToken;
@@ -6280,7 +6280,7 @@ async function fetchPracticeExercisesFromDB(topicId) {
             return [];
         }
         
-        // ✅ GAMITIN ANG ORIGINAL TOPIC ID (hindi na pilit na 5)
+        // ✅ GAMITIN ANG TOPIC ID NA IPINASA (5,6,7,8)
         const endpoint = `/api/practice/topic/${topicId}?lesson_id=3`;
         
         console.log(`📡 Fetching from: ${endpoint}`);
@@ -6299,7 +6299,7 @@ async function fetchPracticeExercisesFromDB(topicId) {
         
         const data = await response.json();
         
-        // Extract exercises from different response formats
+        // Extract exercises
         let exercises = [];
         if (data.success && data.exercises) {
             exercises = data.exercises;
@@ -6322,7 +6322,6 @@ async function fetchPracticeExercisesFromDB(topicId) {
         return [];
     }
 }
-
 // ============================================
 // ✅ HELPER: Generate exercises from topic data
 // ============================================
@@ -24256,41 +24255,30 @@ function validateTopicForCurrentApp(topicId) {
 
 
 // ============================================
-// ✅ FIXED: displayTopics - WITH BETTER DEBUGGING
+// ✅ FIXED: displayTopics - Show exercise topic ID
 // ============================================
 function displayTopics(topics) {
     const topicsContainer = document.getElementById('topicsContainer');
-    if (!topicsContainer) {
-        console.error('❌ topicsContainer not found in displayTopics');
-        return;
-    }
-    
-    console.log(`📋 Displaying ${topics.length} topics:`, topics);
+    if (!topicsContainer) return;
     
     if (!topics || topics.length === 0) {
-        topicsContainer.innerHTML = `
-            <div class="no-topics" style="text-align: center; padding: 40px;">
-                <i class="fas fa-folder-open" style="font-size: 48px; color: #ccc; margin-bottom: 15px;"></i>
-                <h3 style="color: #666;">No topics available</h3>
-                <p style="color: #999;">Complete lessons to unlock topics.</p>
-            </div>
-        `;
+        topicsContainer.innerHTML = '<p class="no-topics">No topics available</p>';
         return;
     }
     
     let html = '';
     
     topics.forEach(topic => {
+        const progressTopicId = topic.topic_id;
+        const exerciseTopicId = getExerciseTopicId(progressTopicId);
         const progressPercentage = topic.lesson_progress_percentage || 0;
         const isPracticeUnlocked = topic.practice_unlocked || false;
         const isPracticeCompleted = topic.practice_completed || false;
-        const isSelected = PracticeState.currentTopic == topic.topic_id;
-        
-        console.log(`Topic card: ${topic.topic_title}, unlocked=${isPracticeUnlocked}, selected=${isSelected}`);
+        const isSelected = PracticeState.currentTopic == progressTopicId;
         
         html += `
             <div class="topic-card ${isPracticeUnlocked ? 'unlocked' : 'locked'} ${isPracticeCompleted ? 'completed' : ''} ${isSelected ? 'selected' : ''}" 
-                 data-topic-id="${topic.topic_id}"
+                 data-topic-id="${progressTopicId}"
                  data-practice-unlocked="${isPracticeUnlocked}"
                  style="cursor: pointer; background: white; border-radius: 8px; padding: 15px; margin-bottom: 10px; border: 2px solid ${isSelected ? '#7a0000' : 'transparent'};">
                  
@@ -24307,7 +24295,7 @@ function displayTopics(topics) {
                 </div>
                 
                 <div class="topic-body">
-                    <p style="margin: 0 0 10px 0; color: #666; font-size: 14px;">${topic.module_name || 'Module'} - ${topic.topic_title}</p>
+                    <p style="margin: 0 0 10px 0; color: #666; font-size: 14px;">${topic.module_name || 'Module'}</p>
                     
                     <div class="topic-progress" style="margin: 10px 0;">
                         <div class="progress-info" style="display: flex; justify-content: space-between; font-size: 13px; color: #666; margin-bottom: 5px;">
@@ -24323,7 +24311,7 @@ function displayTopics(topics) {
                         ${isPracticeCompleted ? 
                             '<span style="color: #27ae60;"><i class="fas fa-trophy"></i> Practice Completed</span>' :
                             isPracticeUnlocked ?
-                            '<span style="color: #7a0000;"><i class="fas fa-pencil-alt"></i> Practice Available</span>' :
+                            `<span style="color: #7a0000;"><i class="fas fa-pencil-alt"></i> Practice Available (Topic ${exerciseTopicId})</span>` :
                             `<span style="color: #999;">Complete ${(topic.total_lessons || 0) - (topic.lessons_completed || 0)} more lessons</span>`
                         }
                     </div>
@@ -24331,7 +24319,7 @@ function displayTopics(topics) {
                 
                 <div class="topic-actions" style="margin-top: 15px;">
                     ${isPracticeUnlocked ? 
-                        `<button class="btn-primary practice-topic-btn" data-topic-id="${topic.topic_id}" 
+                        `<button class="btn-primary practice-topic-btn" data-topic-id="${progressTopicId}" 
                                 style="width: 100%; padding: 8px; background: #7a0000; color: white; border: none; border-radius: 5px; cursor: pointer;">
                             <i class="fas fa-play"></i> Start Practice
                         </button>` :
@@ -24346,31 +24334,24 @@ function displayTopics(topics) {
     });
     
     topicsContainer.innerHTML = html;
-    console.log('✅ Topics displayed, container HTML length:', html.length);
     
-    // Add event listeners to topic cards
+    // Add event listeners
     document.querySelectorAll('.topic-card.unlocked').forEach(card => {
         card.addEventListener('click', function(e) {
-            // Don't trigger if clicking the button
             if (e.target.closest('button')) return;
-            
             const topicId = this.getAttribute('data-topic-id');
-            console.log('🎯 Topic card clicked:', topicId);
             selectTopicForPractice(topicId);
         });
     });
     
-    // Add event listeners to practice buttons
     document.querySelectorAll('.practice-topic-btn').forEach(button => {
         button.addEventListener('click', function(e) {
             e.stopPropagation();
             const topicId = this.getAttribute('data-topic-id');
-            console.log('🎯 Practice button clicked:', topicId);
             selectTopicForPractice(topicId);
         });
     });
 }
-
 // ============================================
 // 🔍 DEBUG: Check Topics Progress
 // ============================================
@@ -24429,13 +24410,12 @@ window.debugTopicsProgress = async function() {
         console.error('❌ Debug error:', error);
     }
 };
-
 // ============================================
-// ✅ FIXED: selectTopicForPractice - Check unlock status first
+// ✅ FIXED: selectTopicForPractice - With proper mapping
 // ============================================
 async function selectTopicForPractice(topicId) {
     try {
-        console.log(`🎯 Selecting topic ${topicId} for practice`);
+        console.log(`🎯 Selecting progress topic ${topicId} for practice`);
         
         PracticeState.currentTopic = topicId;
         
@@ -24455,7 +24435,7 @@ async function selectTopicForPractice(topicId) {
             }
         }
         
-        // ✅ Check if practice is unlocked for this topic
+        // Check if practice is unlocked
         const isUnlocked = await checkPracticeUnlocked(topicId);
         
         if (!isUnlocked) {
@@ -24470,24 +24450,16 @@ async function selectTopicForPractice(topicId) {
                         <p style="color: #7f8c8d; margin-bottom: 25px;">
                             Complete at least 1 lesson in this topic to unlock practice exercises.
                         </p>
-                        <div class="progress-summary" style="background: #f8f9fa; padding: 15px; border-radius: 8px; margin: 20px 0;">
-                            <p>Complete lessons first to unlock practice exercises.</p>
-                        </div>
-                        <div class="lock-actions">
-                            <button class="btn-primary" onclick="navigateTo('moduleDashboard')" style="padding: 12px 25px;">
-                                <i class="fas fa-book"></i> Go to Lessons
-                            </button>
-                            <button class="btn-secondary" onclick="loadTopicsProgress()" style="padding: 12px 25px;">
-                                <i class="fas fa-sync-alt"></i> Refresh Progress
-                            </button>
-                        </div>
+                        <button class="btn-primary" onclick="navigateTo('moduleDashboard')" style="padding: 12px 25px;">
+                            <i class="fas fa-book"></i> Go to Lessons
+                        </button>
                     </div>
                 `;
             }
             return;
         }
         
-        // ✅ Load practice exercises for this topic
+        // ✅ I-map sa exercise topic ID at i-load ang exercises
         await loadPracticeExercisesForTopic(topicId);
         
     } catch (error) {
@@ -24495,14 +24467,42 @@ async function selectTopicForPractice(topicId) {
         showNotification('error', 'Error', 'Failed to load practice exercises');
     }
 }
+// ============================================
+// ✅ TOPIC ID MAPPING - Para sa practice exercises
+// ============================================
+const TOPIC_ID_MAP = {
+    1: 5,  // Topic 1 (Factorial Basics) → exercises topic 5
+    2: 6,  // Topic 2 (Factorial Operations) → exercises topic 6
+    3: 7,  // Topic 3 (Permutations) → exercises topic 7
+    4: 8   // Topic 4 (Combinations) → exercises topic 8
+};
 
+// Reverse mapping (kung kailangan)
+const REVERSE_TOPIC_MAP = {
+    5: 1,
+    6: 2,
+    7: 3,
+    8: 4
+};
+
+function getExerciseTopicId(progressTopicId) {
+    return TOPIC_ID_MAP[progressTopicId] || progressTopicId;
+}
+
+function getProgressTopicId(exerciseTopicId) {
+    return REVERSE_TOPIC_MAP[exerciseTopicId] || exerciseTopicId;
+}
 
 // ============================================
-// ✅ FIXED: loadPracticeExercisesForTopic - Use actual topic ID
+// ✅ FIXED: loadPracticeExercisesForTopic - With topic mapping
 // ============================================
 async function loadPracticeExercisesForTopic(topicId) {
     try {
-        console.log(`📝 Loading practice exercises for topic ${topicId}`);
+        console.log(`📝 Loading practice exercises for progress topic ${topicId}`);
+        
+        // ✅ I-map sa actual exercise topic ID
+        const exerciseTopicId = getExerciseTopicId(parseInt(topicId));
+        console.log(`🔍 Mapped to exercise topic ID: ${exerciseTopicId}`);
         
         const exerciseArea = document.getElementById('exerciseArea');
         if (!exerciseArea) return;
@@ -24510,27 +24510,34 @@ async function loadPracticeExercisesForTopic(topicId) {
         exerciseArea.innerHTML = `
             <div class="loading-container" style="text-align: center; padding: 40px;">
                 <i class="fas fa-spinner fa-spin" style="font-size: 40px; color: #7a0000;"></i>
-                <p style="margin-top: 15px;">Loading practice exercises from database...</p>
+                <p style="margin-top: 15px;">Loading practice exercises...</p>
             </div>
         `;
         
-        // ✅ GAMITIN ANG TAMANG TOPIC ID (hindi na ginagawang 5)
-        const actualTopicId = topicId;
-        
-        // Fetch exercises from database
-        const exercises = await fetchPracticeExercisesFromDB(actualTopicId);
+        // Fetch exercises from database using the mapped topic ID
+        const exercises = await fetchPracticeExercisesFromDB(exerciseTopicId);
         
         if (exercises && exercises.length > 0) {
-            console.log(`✅ Found ${exercises.length} exercises for topic ${actualTopicId}`);
-            displayPracticeExercises(exercises);
+            console.log(`✅ Found ${exercises.length} exercises for exercise topic ${exerciseTopicId}`);
+            
+            // Add original topic ID for reference
+            const exercisesWithTopic = exercises.map(ex => ({
+                ...ex,
+                progress_topic_id: topicId,
+                original_topic_id: exerciseTopicId
+            }));
+            
+            displayPracticeExercises(exercisesWithTopic);
             setupPracticeExerciseInteractions();
         } else {
             exerciseArea.innerHTML = `
                 <div class="no-exercises" style="text-align: center; padding: 60px; background: white; border-radius: 10px;">
                     <i class="fas fa-pencil-alt" style="font-size: 60px; color: #ccc; margin-bottom: 20px;"></i>
                     <h3 style="color: #666;">No Practice Exercises Yet</h3>
-                    <p style="color: #999; margin-bottom: 25px;">The admin hasn't uploaded exercises for this topic.</p>
-                    <p style="color: #7f8c8d; font-size: 13px;">Topic ID: ${actualTopicId}</p>
+                    <p style="color: #999; margin-bottom: 25px;">
+                        The admin hasn't uploaded exercises for this topic yet.<br>
+                        (Exercise Topic ID: ${exerciseTopicId})
+                    </p>
                 </div>
             `;
         }
