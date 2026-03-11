@@ -14144,3 +14144,296 @@ input:checked + .toggle-slider:before {
         transform: translateY(0);
     }
 }
+
+
+/* ============================================
+   FEEDBACK PAGE - POLYLEARN DESIGN
+   ============================================ */
+
+.help-dashboard-container {
+    padding: 40px 30px 80px 30px;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 30px;
+    min-height: 600px;
+}
+
+@media (max-width: 768px) {
+    .help-dashboard-container {
+        grid-template-columns: 1fr;
+        padding: 20px 15px 40px 15px;
+        gap: 20px;
+    }
+}
+
+.help-header {
+    grid-column: 1 / -1;
+    background: linear-gradient(135deg, var(--primary) 0%, var(--primary-light) 100%);
+    border-radius: var(--radius);
+    padding: 25px 30px;
+    color: white;
+    margin-bottom: 0;
+    position: relative;
+    overflow: hidden;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 20px;
+}
+
+.help-header::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 5px;
+    background: linear-gradient(to right, var(--primary), var(--accent), var(--primary));
+}
+
+.help-header h1 {
+    font-size: 1.8rem;
+    margin-bottom: 8px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-weight: 700;
+}
+
+.help-header p {
+    font-size: 0.9rem;
+    opacity: 0.9;
+}
+
+.header-right {
+    display: flex;
+    gap: 15px;
+}
+
+.dashboard-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 30px;
+}
+
+@media (max-width: 768px) {
+    .dashboard-grid {
+        grid-template-columns: 1fr;
+        gap: 20px;
+    }
+}
+
+.card {
+    background: var(--white);
+    border-radius: var(--radius);
+    padding: 0 !important;
+    box-shadow: var(--shadow);
+    position: relative;
+    overflow: hidden;
+    border: 1px solid rgba(139, 0, 0, 0.1);
+    margin-bottom: 0;
+    height: fit-content;
+}
+
+.card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 5px;
+    background: linear-gradient(to right, var(--primary), var(--accent), var(--primary));
+}
+
+.card-header {
+    padding: 20px 25px 0;
+    display: flex;
+    align-items: center;
+    gap: 15px;
+}
+
+.card-header h2 {
+    margin: 10px 0 0 0;
+    color: var(--text-color);
+    font-size: 1.4rem;
+}
+
+.card-icon {
+    width: 50px;
+    height: 50px;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.5rem !important;
+    color: white;
+    flex-shrink: 0;
+}
+
+.icon-faq {
+    background: linear-gradient(135deg, #3498db, #2980b9);
+}
+
+.icon-contact {
+    background: linear-gradient(135deg, #27ae60, #219653);
+}
+
+.card-body {
+    padding: 25px;
+}
+
+.faq-item {
+    margin-bottom: 20px;
+    border: 1px solid rgba(139, 0, 0, 0.1);
+    border-radius: 8px;
+    overflow: hidden;
+    transition: all 0.3s ease;
+    background: rgba(139, 0, 0, 0.02);
+}
+
+.faq-item:hover {
+    border-color: var(--primary-light);
+}
+
+.faq-question {
+    padding: 12px 15px;
+    background: rgba(139, 0, 0, 0.03);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    cursor: pointer;
+    font-weight: 600;
+    transition: all 0.3s ease;
+    font-size: 1rem;
+    color: var(--text);
+}
+
+.faq-question:hover {
+    background: rgba(139, 0, 0, 0.08);
+}
+
+.faq-answer {
+    display: none;
+    padding: 15px 20px;
+    background: #f8f9fa;
+    border-radius: 0 0 8px 8px;
+    margin-top: 0;
+    border-top: 1px solid #eee;
+    line-height: 1.6;
+    color: var(--text-light);
+}
+
+.faq-answer p {
+    margin: 0;
+}
+
+.faq-item.active .faq-answer {
+    display: block !important;
+}
+
+.faq-question .fas.fa-chevron-down {
+    transition: transform 0.3s ease;
+}
+
+.faq-item.active .faq-question .fas.fa-chevron-down {
+    transform: rotate(180deg);
+}
+
+.contact-methods {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+    margin-bottom: 15px;
+}
+
+.contact-method {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    padding: 12px 15px;
+    border: 1px solid rgba(139, 0, 0, 0.1);
+    border-radius: 8px;
+    transition: all 0.3s ease;
+    background: rgba(139, 0, 0, 0.02);
+}
+
+.contact-method:hover {
+    background: rgba(139, 0, 0, 0.05);
+    border-color: var(--primary-light);
+    transform: translateY(-3px);
+}
+
+.contact-icon {
+    width: 42px;
+    height: 42px;
+    border-radius: 10px;
+    background: var(--primary-gradient);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-size: 1.3rem !important;
+    flex-shrink: 0;
+}
+
+.contact-method h4 {
+    margin: 0 0 5px 0;
+    color: var(--text);
+    font-size: 1rem;
+}
+
+.contact-method p {
+    margin: 0;
+    color: var(--text-light);
+    font-size: 0.85rem;
+}
+
+.response-time, .hours {
+    font-size: 0.8rem;
+    color: #999;
+    margin-top: 5px;
+}
+
+.btn-primary {
+    background: linear-gradient(to right, var(--primary), var(--primary-light));
+    color: white;
+    border: none;
+    padding: 12px 24px;
+    border-radius: 8px;
+    font-size: 0.95rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+}
+
+.btn-primary:hover {
+    background: linear-gradient(to right, var(--primary-light), var(--primary));
+    transform: translateY(-2px);
+    box-shadow: 0 5px 15px rgba(139, 0, 0, 0.3);
+}
+
+#emergencyHelp {
+    background: #e74c3c;
+    color: white;
+    border: none;
+    padding: 12px 24px;
+    border-radius: 8px;
+    font-weight: 600;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    transition: all 0.3s;
+    font-size: 0.95rem;
+}
+
+#emergencyHelp:hover {
+    background: #c0392b;
+    transform: translateY(-2px);
+    box-shadow: 0 5px 15px rgba(231, 76, 60, 0.3);
+}
