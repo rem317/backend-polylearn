@@ -31619,7 +31619,7 @@ function updateLessonUI(lesson) {
 }
 
 // ============================================
-// LOAD VIDEO FROM DATABASE - FIXED FOR YOUTUBE
+// LOAD VIDEO FROM DATABASE - ULTRA FIXED VERSION
 // ============================================
 async function loadVideoFromDatabase(contentId) {
     console.log('🎬 Loading video for lesson:', contentId);
@@ -31627,15 +31627,32 @@ async function loadVideoFromDatabase(contentId) {
     const videoContainer = document.getElementById('videoContainer');
     const videoInfo = document.getElementById('videoInfo');
     
-    if (!videoContainer) return;
+    if (!videoContainer) {
+        console.error('❌ Video container not found');
+        return;
+    }
     
-    // Show loading
-    videoContainer.innerHTML = `
-        <div style="background: #f0f0f0; height: 400px; display: flex; align-items: center; justify-content: center; flex-direction: column;">
-            <i class="fas fa-spinner fa-spin" style="font-size: 40px; color: #7a0000; margin-bottom: 20px;"></i>
-            <p style="color: #666;">Loading video from database...</p>
-        </div>
+    // Clear container first
+    videoContainer.innerHTML = '';
+    videoContainer.style.minHeight = '400px';
+    videoContainer.style.position = 'relative';
+    
+    // Show loading with better styling
+    const loadingDiv = document.createElement('div');
+    loadingDiv.style.cssText = `
+        background: #1a1a2e;
+        height: 400px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-direction: column;
+        border-radius: 8px;
     `;
+    loadingDiv.innerHTML = `
+        <i class="fas fa-spinner fa-spin" style="font-size: 50px; color: #7a0000; margin-bottom: 20px;"></i>
+        <p style="color: white; font-size: 16px;">Loading video...</p>
+    `;
+    videoContainer.appendChild(loadingDiv);
     
     try {
         const token = localStorage.getItem('authToken') || authToken;
@@ -31656,8 +31673,11 @@ async function loadVideoFromDatabase(contentId) {
             content_type: lesson.content_type
         });
         
-        // Clear container
+        // Clear loading
         videoContainer.innerHTML = '';
+        
+        // Try to load video
+        let videoLoaded = false;
         
         // Check for YouTube URL
         if (lesson.content_url) {
@@ -31679,40 +31699,43 @@ async function loadVideoFromDatabase(contentId) {
                     videoId = url.split('shorts/')[1].split('?')[0];
                 }
                 
-                // Remove any extra parameters
-                if (videoId && videoId.includes('?')) {
-                    videoId = videoId.split('?')[0];
-                }
-                if (videoId && videoId.includes('&')) {
-                    videoId = videoId.split('&')[0];
-                }
+                // Clean up the ID
+                if (videoId && videoId.includes('?')) videoId = videoId.split('?')[0];
+                if (videoId && videoId.includes('&')) videoId = videoId.split('&')[0];
+                if (videoId && videoId.includes('=')) videoId = videoId.split('=')[1];
                 
                 console.log('🎯 Extracted YouTube ID:', videoId);
                 
                 if (videoId && videoId.length === 11) {
-                    videoContainer.innerHTML = `
-                        <iframe width="100%" height="400" 
-                            src="https://www.youtube.com/embed/${videoId}"
-                            frameborder="0" 
-                            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
-                            allowfullscreen>
-                        </iframe>
-                    `;
+                    // Create iframe with proper attributes
+                    const iframe = document.createElement('iframe');
+                    iframe.width = '100%';
+                    iframe.height = '400';
+                    iframe.src = `https://www.youtube.com/embed/${videoId}?autoplay=0&rel=0`;
+                    iframe.frameBorder = '0';
+                    iframe.allow = 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture';
+                    iframe.allowFullscreen = true;
+                    iframe.style.borderRadius = '8px';
+                    
+                    videoContainer.appendChild(iframe);
+                    videoLoaded = true;
                     
                     if (videoInfo) {
                         videoInfo.innerHTML = `
                             <p><i class="fab fa-youtube" style="color: #ff0000;"></i> <strong>YouTube Video</strong></p>
                             <p>${lesson.content_title || ''}</p>
-                            <p><a href="${url}" target="_blank" style="color: #ff0000;">Watch on YouTube <i class="fas fa-external-link-alt"></i></a></p>
+                            <p><a href="${url}" target="_blank" style="color: #ff0000;" rel="noopener noreferrer">
+                                <i class="fas fa-external-link-alt"></i> Watch on YouTube
+                            </a></p>
                         `;
                     }
-                    return;
+                    console.log('✅ YouTube iframe created');
                 }
             }
         }
         
-        // Check for uploaded video
-        if (lesson.video_filename) {
+        // If YouTube didn't load, check for uploaded video
+        if (!videoLoaded && lesson.video_filename) {
             let videoUrl;
             if (lesson.video_filename.startsWith('http')) {
                 videoUrl = lesson.video_filename;
@@ -31722,14 +31745,20 @@ async function loadVideoFromDatabase(contentId) {
             
             console.log('📹 Loading video from:', videoUrl);
             
-            videoContainer.innerHTML = `
-                <video id="lessonVideo" controls style="width:100%; max-height:400px; background:#000;">
-                    <source src="${videoUrl}?v=${Date.now()}" type="video/mp4">
-                    Your browser does not support the video tag.
-                </video>
-            `;
+            const video = document.createElement('video');
+            video.id = 'lessonVideo';
+            video.controls = true;
+            video.style.width = '100%';
+            video.style.maxHeight = '400px';
+            video.style.backgroundColor = '#000';
+            video.style.borderRadius = '8px';
             
-            const video = document.getElementById('lessonVideo');
+            const source = document.createElement('source');
+            source.src = videoUrl + '?v=' + Date.now();
+            source.type = 'video/mp4';
+            
+            video.appendChild(source);
+            video.appendChild(document.createTextNode('Your browser does not support the video tag.'));
             
             video.onloadeddata = function() {
                 console.log(`✅ Video loaded successfully`);
@@ -31744,75 +31773,139 @@ async function loadVideoFromDatabase(contentId) {
                 }
             };
             
-            video.onerror = function() {
-                console.error('❌ Video failed to load');
-                videoContainer.innerHTML = `
-                    <div style="background:#fee; height:400px; display:flex; align-items:center; justify-content:center; flex-direction:column;">
-                        <i class="fas fa-exclamation-triangle" style="font-size:60px; color:#e74c3c;"></i>
-                        <h3 style="color:#c0392b;">Video failed to load</h3>
-                        <p style="color:#e74c3c;">The video file may be missing.</p>
-                        ${lesson.content_url ? `
-                            <p style="margin-top:15px;">
-                                <a href="${lesson.content_url}" target="_blank" style="background:#7a0000; color:white; padding:10px 20px; border-radius:5px; text-decoration:none;">
-                                    <i class="fas fa-play"></i> Watch on YouTube
-                                </a>
-                            </p>
-                        ` : ''}
-                    </div>
-                `;
+            video.onerror = function(e) {
+                console.error('❌ Video failed to load:', e);
+                showVideoFallback(lesson, videoContainer, videoInfo);
             };
             
+            videoContainer.appendChild(video);
             video.load();
-            return;
+            videoLoaded = true;
         }
         
-        // If we have a URL but it's not YouTube (maybe direct video link)
-        if (lesson.content_url) {
+        // If still no video loaded, try direct URL
+        if (!videoLoaded && lesson.content_url) {
             const url = lesson.content_url;
             const isVideoFile = url.match(/\.(mp4|webm|ogg|mov|avi)$/i);
             
             if (isVideoFile) {
-                videoContainer.innerHTML = `
-                    <video id="lessonVideo" controls style="width:100%; max-height:400px; background:#000;">
-                        <source src="${url}" type="video/mp4">
-                        Your browser does not support the video tag.
-                    </video>
-                `;
-                return;
+                const video = document.createElement('video');
+                video.id = 'lessonVideo';
+                video.controls = true;
+                video.style.width = '100%';
+                video.style.maxHeight = '400px';
+                video.style.backgroundColor = '#000';
+                
+                const source = document.createElement('source');
+                source.src = url;
+                source.type = 'video/mp4';
+                
+                video.appendChild(source);
+                videoContainer.appendChild(video);
+                videoLoaded = true;
             } else {
-                // Try to embed as iframe for other video platforms
-                videoContainer.innerHTML = `
-                    <iframe width="100%" height="400" 
-                        src="${url}"
-                        frameborder="0" 
-                        allowfullscreen>
-                    </iframe>
-                `;
-                return;
+                // Try to embed as iframe
+                const iframe = document.createElement('iframe');
+                iframe.width = '100%';
+                iframe.height = '400';
+                iframe.src = url;
+                iframe.frameBorder = '0';
+                iframe.allowFullscreen = true;
+                iframe.style.borderRadius = '8px';
+                
+                videoContainer.appendChild(iframe);
+                videoLoaded = true;
             }
         }
         
-        // No video available
-        videoContainer.innerHTML = `
-            <div style="background:#f0f0f0; height:400px; display:flex; align-items:center; justify-content:center; flex-direction:column;">
-                <i class="fas fa-video-slash" style="font-size:60px; color:#999;"></i>
-                <h3 style="color:#666;">No video available</h3>
-                <p style="color:#999;">This lesson has no video assigned.</p>
-            </div>
-        `;
+        // If no video loaded at all
+        if (!videoLoaded) {
+            showNoVideoMessage(lesson, videoContainer, videoInfo);
+        }
         
     } catch (error) {
         console.error('Error loading video:', error);
         videoContainer.innerHTML = `
-            <div style="background:#fee; height:400px; display:flex; align-items:center; justify-content:center; flex-direction:column;">
-                <i class="fas fa-exclamation-triangle" style="font-size:60px; color:#e74c3c;"></i>
-                <h3 style="color:#c0392b;">Error loading video</h3>
-                <p style="color:#e74c3c;">${error.message}</p>
+            <div style="background:#1a1a2e; height:400px; display:flex; align-items:center; justify-content:center; flex-direction:column; border-radius:8px;">
+                <i class="fas fa-exclamation-triangle" style="font-size:60px; color:#e74c3c; margin-bottom:20px;"></i>
+                <h3 style="color:white; margin-bottom:10px;">Error Loading Video</h3>
+                <p style="color:#b0b0b0; margin-bottom:20px;">${error.message}</p>
+                <button onclick="location.reload()" style="background:#7a0000; color:white; border:none; padding:10px 20px; border-radius:5px; cursor:pointer;">
+                    <i class="fas fa-redo"></i> Retry
+                </button>
             </div>
         `;
     }
 }
 
+// Helper function to show fallback when video fails
+function showVideoFallback(lesson, container, info) {
+    container.innerHTML = `
+        <div style="background:#1a1a2e; height:400px; display:flex; align-items:center; justify-content:center; flex-direction:column; border-radius:8px;">
+            <i class="fas fa-exclamation-triangle" style="font-size:60px; color:#e74c3c; margin-bottom:20px;"></i>
+            <h3 style="color:white; margin-bottom:10px;">Video Failed to Load</h3>
+            <p style="color:#b0b0b0; margin-bottom:20px;">The video file may be missing.</p>
+            ${lesson.content_url ? `
+                <a href="${lesson.content_url}" target="_blank" rel="noopener noreferrer" 
+                   style="background:#7a0000; color:white; padding:12px 25px; border-radius:5px; text-decoration:none; display:inline-flex; align-items:center; gap:8px;">
+                    <i class="fas fa-play"></i> Watch on YouTube
+                </a>
+            ` : ''}
+        </div>
+    `;
+    
+    if (info) {
+        info.innerHTML = `
+            <p><i class="fas fa-exclamation-triangle" style="color: #e74c3c;"></i> <strong>Video unavailable</strong></p>
+        `;
+    }
+}
+
+// Helper function to show no video message
+function showNoVideoMessage(lesson, container, info) {
+    container.innerHTML = `
+        <div style="background:#1a1a2e; height:400px; display:flex; align-items:center; justify-content:center; flex-direction:column; border-radius:8px;">
+            <i class="fas fa-video-slash" style="font-size:60px; color:#999; margin-bottom:20px;"></i>
+            <h3 style="color:white; margin-bottom:10px;">No Video Available</h3>
+            <p style="color:#b0b0b0; margin-bottom:20px;">This lesson has no video assigned.</p>
+            ${lesson.content_url ? `
+                <a href="${lesson.content_url}" target="_blank" rel="noopener noreferrer" 
+                   style="background:#7a0000; color:white; padding:12px 25px; border-radius:5px; text-decoration:none; display:inline-flex; align-items:center; gap:8px;">
+                    <i class="fas fa-external-link-alt"></i> Open Link
+                </a>
+            ` : ''}
+        </div>
+    `;
+    
+    if (info) {
+        info.innerHTML = `
+            <p><i class="fas fa-info-circle" style="color: #3498db;"></i> No video available</p>
+        `;
+    }
+}
+
+// ============================================
+// TEST YOUTUBE VIDEO
+// ============================================
+window.testYouTubeVideo = function(videoId = 'NtfWQILgJyY') {
+    const container = document.getElementById('videoContainer');
+    if (!container) {
+        alert('Video container not found');
+        return;
+    }
+    
+    container.innerHTML = `
+        <iframe width="100%" height="400" 
+            src="https://www.youtube.com/embed/${videoId}?autoplay=0&rel=0"
+            frameborder="0" 
+            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
+            allowfullscreen
+            style="border-radius:8px;">
+        </iframe>
+    `;
+    
+    console.log('✅ Test video loaded with ID:', videoId);
+};
 // ============================================
 // MARK LESSON COMPLETE
 // ============================================
