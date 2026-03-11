@@ -27893,3 +27893,144 @@ async function debugSubjectData() {
         console.error("❌ Debug error:", error);
     }
 }
+
+
+// ============================================
+// BULK EDIT QUIZZES - Ilipat sa FactoPermCombi
+// ============================================
+async function bulkEditQuizzes() {
+    const token = localStorage.getItem('admin_token') || localStorage.getItem('authToken');
+    if (!token) {
+        alert('Please login first');
+        return;
+    }
+    
+    console.log('🔄 Updating quizzes...');
+    
+    // Kunin muna ang tamang category ID
+    try {
+        const catRes = await fetch('/api/quiz/categories', {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        const catData = await catRes.json();
+        
+        // Hanapin ang FactoPermCombi category
+        const factoCategory = catData.categories.find(c => 
+            c.category_name === 'FactoPermCombi' || 
+            c.category_name.includes('Facto')
+        );
+        
+        if (!factoCategory) {
+            console.error('❌ FactoPermCombi category not found');
+            return;
+        }
+        
+        const targetCategoryId = factoCategory.category_id;
+        console.log(`🎯 Target Category ID: ${targetCategoryId}`);
+        
+        // I-ask kung tuloy
+        if (!confirm(`Ilipat ang mga quizzes sa "${factoCategory.category_name}" (ID: ${targetCategoryId})?`)) {
+            return;
+        }
+        
+        const quizIds = [14, 15, 16, 6, 7]; // Lahat ng FactoLearn quizzes
+        
+        let successCount = 0;
+        
+        for (const id of quizIds) {
+            try {
+                // Kunin ang kasalukuyang quiz data
+                const getRes = await fetch(`/api/admin/quizzes/${id}`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                
+                if (!getRes.ok) {
+                    console.log(`⚠️ Quiz ${id} not found, skipping...`);
+                    continue;
+                }
+                
+                const quizData = await getRes.json();
+                const quiz = quizData.quiz || quizData;
+                
+                // Baguhin ang category
+                quiz.category_id = targetCategoryId;
+                
+                // I-save
+                const updateRes = await fetch(`/api/admin/quizzes/${id}`, {
+                    method: 'PUT',
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(quiz)
+                });
+                
+                if (updateRes.ok) {
+                    successCount++;
+                    console.log(`✅ Quiz ${id} updated to "${factoCategory.category_name}"`);
+                } else {
+                    console.error(`❌ Quiz ${id} update failed`);
+                }
+            } catch (error) {
+                console.error(`❌ Quiz ${id} error:`, error);
+            }
+        }
+        
+        alert(`✅ ${successCount} quizzes updated successfully!`);
+        
+    } catch (error) {
+        console.error('❌ Error:', error);
+        alert('Failed to update quizzes');
+    }
+}
+
+// ============================================
+// SINGLE QUIZ FIX - Para sa isa-isa
+// ============================================
+async function fixQuizCategory(quizId, categoryName = 'FactoPermCombi') {
+    const token = localStorage.getItem('admin_token') || localStorage.getItem('authToken');
+    
+    try {
+        // Kunin ang category ID
+        const catRes = await fetch('/api/quiz/categories', {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        const catData = await catRes.json();
+        
+        const category = catData.categories.find(c => 
+            c.category_name === categoryName || c.category_name.includes(categoryName)
+        );
+        
+        if (!category) {
+            alert(`Category "${categoryName}" not found`);
+            return;
+        }
+        
+        // Kunin ang quiz
+        const getRes = await fetch(`/api/admin/quizzes/${quizId}`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        
+        const quizData = await getRes.json();
+        const quiz = quizData.quiz || quizData;
+        
+        // I-update
+        quiz.category_id = category.category_id;
+        
+        const updateRes = await fetch(`/api/admin/quizzes/${quizId}`, {
+            method: 'PUT',
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(quiz)
+        });
+        
+        if (updateRes.ok) {
+            alert(`✅ Quiz ${quizId} updated to "${category.category_name}"`);
+        }
+    } catch (error) {
+        console.error(error);
+        alert('Failed to update quiz');
+    }
+}
