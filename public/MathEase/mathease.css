@@ -2465,7 +2465,55 @@ input:checked + .toggle-slider:before {
         bottom: max(90px, calc(env(safe-area-inset-bottom) + 70px)) !important;
     }
 }
+/* ============================================
+   FIXED TOOL ICONS - PREVENT ICON CHANGES
+   ============================================ */
 
+/* Force tool icons to keep their original icons */
+.tool-item-compact .tool-icon i,
+#openCalculator i,
+#openNotepad i,
+#openFormulaSheet i,
+#openWhiteboard i,
+#openTimer i {
+    font-family: "Font Awesome 6 Free" !important;
+    font-weight: 900 !important;
+    font-style: normal !important;
+}
+
+/* Specific icon fixes */
+#openCalculator i:before,
+.tool-item-compact[data-tool="calculator"] i:before {
+    content: "\f1ec" !important; /* fa-calculator */
+}
+
+#openNotepad i:before,
+.tool-item-compact[data-tool="notepad"] i:before {
+    content: "\f249" !important; /* fa-sticky-note */
+}
+
+#openFormulaSheet i:before,
+.tool-item-compact[data-tool="formula"] i:before {
+    content: "\f02d" !important; /* fa-book */
+}
+
+#openWhiteboard i:before,
+.tool-item-compact[data-tool="whiteboard"] i:before {
+    content: "\f1fc" !important; /* fa-paint-brush */
+}
+
+#openTimer i:before,
+.tool-item-compact[data-tool="timer"] i:before {
+    content: "\f017" !important; /* fa-clock */
+}
+
+/* Prevent any transformations that might affect icons */
+.tool-item-compact:hover .tool-icon i,
+.tool-item-compact:active .tool-icon i,
+.tool-item-compact:focus .tool-icon i {
+    transform: none !important;
+    transition: none !important;
+}
 /* ============================================
    END OF CSS
    ============================================ */
