@@ -22814,26 +22814,34 @@ function addOption(questionId) {
     
     optionsContainer.insertAdjacentHTML('beforeend', optionHtml);
 }
-// ===== FIXED: SAVE QUIZ TO MYSQL WITH CORRECT LESSON ID =====
+// ===== UPDATED: Save Quiz with lesson_id from subject =====
 async function saveQuizToMySQL() {
     console.log("💾 ===== SAVING QUIZ TO MYSQL DATABASE =====");
     
     // Get form values
     const title = document.getElementById('quizTitle')?.value.trim();
     const description = document.getElementById('quizDescription')?.value.trim();
-    const subjectId = document.getElementById('quizSubject')?.value; // This is the lesson_id
+    const subjectId = document.getElementById('quizSubject')?.value;  // ← ITO ANG LESSON_ID (1,2,3)
     const topicId = document.getElementById('quizTopic')?.value;
+    const editId = document.getElementById('editQuizId')?.value;
     
-    // ===== FIX: USE SUBJECT ID AS LESSON ID =====
-    let lesson_id;
-    if (subjectId == 1) { // MathEase
-        lesson_id = 1;
-    } else if (subjectId == 2) { // PolyLearn
-        lesson_id = 2;
-    } else if (subjectId == 3) { // FactoLearn
-        lesson_id = 3;
-    } else {
-        lesson_id = 1; // Default to MathEase
+    // Check if editing
+    const isEditMode = editId && editId !== '';
+    
+    // ✅ LESSON ID AY MULA SA SUBJECT (1, 2, or 3)
+    const lesson_id = parseInt(subjectId);
+    
+    console.log("🔍 Mode:", isEditMode ? "EDIT" : "CREATE", "Quiz ID:", editId || 'new');
+    console.log("📋 Lesson ID from subject:", lesson_id);
+    
+    // ===== GET CATEGORY ID FROM SUBJECT =====
+    let category_id;
+    if (subjectId == 1) category_id = 1;      // MathEase
+    else if (subjectId == 2) category_id = 2; // PolyLearn
+    else if (subjectId == 3) category_id = 3; // FactoLearn
+    else {
+        showNotification('error', 'Error', 'Please select a valid subject');
+        return;
     }
     
     const timeLimit = document.getElementById('quizTimeLimit')?.value;
@@ -22841,31 +22849,7 @@ async function saveQuizToMySQL() {
     const maxAttempts = document.getElementById('quizMaxAttempts')?.value;
     const difficulty = document.getElementById('quizDifficulty')?.value;
     const status = document.getElementById('quizStatus')?.value;
-    const editId = document.getElementById('editQuizId')?.value;
-    
-    // Get assigned teacher
     const assignedTeacherId = document.getElementById('quizAssignedTeacherId')?.value;
-    
-    // Get subject name for logging
-    let subjectName = '';
-    if (lesson_id == 1) subjectName = 'MathEase';
-    else if (lesson_id == 2) subjectName = 'PolyLearn';
-    else if (lesson_id == 3) subjectName = 'FactoLearn';
-    
-    console.log('📋 Quiz data:', { 
-        title, 
-        description,
-        lesson_id,  // This will be 1, 2, or 3
-        subjectName,
-        topicId,
-        timeLimit, 
-        passingScore, 
-        maxAttempts,
-        difficulty, 
-        status, 
-        editId: editId || 'new',
-        assignedTeacherId: assignedTeacherId || 'none (self)'
-    });
     
     // ===== VALIDATION =====
     if (!title) {
@@ -22934,10 +22918,11 @@ async function saveQuizToMySQL() {
         });
     }
     
-    // ===== PREPARE DATA FOR SERVER =====
+    // ===== PREPARE DATA FOR SERVER WITH LESSON ID =====
     const quizData = {
-        lesson_id: lesson_id,  // Use lesson_id, not category_id
-        topic_id: topicId ? parseInt(topicId) : null,
+        lesson_id: lesson_id,                    // ← ITO ANG MAHALAGA!
+        category_id: category_id,
+        topic_id: topicId && topicId !== '' ? parseInt(topicId) : null,
         title: title,
         description: description || '',
         difficulty: difficulty || 'medium',
@@ -22954,11 +22939,12 @@ async function saveQuizToMySQL() {
         quizData.assigned_teacher_id = parseInt(assignedTeacherId);
     }
     
-    if (editId) {
+    if (isEditMode) {
         quizData.quiz_id = parseInt(editId);
     }
     
-    console.log("📤 Sending quiz data:", quizData);
+    console.log("📤 Sending quiz data with lesson_id:", lesson_id);
+    console.log("📤 Full data:", JSON.stringify(quizData, null, 2));
     
     try {
         const token = localStorage.getItem('admin_token') || localStorage.getItem('authToken');
@@ -22973,15 +22959,18 @@ async function saveQuizToMySQL() {
         const originalText = saveBtn?.innerHTML;
         if (saveBtn) {
             saveBtn.disabled = true;
-            saveBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Saving...';
+            saveBtn.innerHTML = isEditMode 
+                ? '<i class="fas fa-spinner fa-spin"></i> Updating...' 
+                : '<i class="fas fa-spinner fa-spin"></i> Saving...';
         }
         
-        const url = editId
-            ? `/api/admin/quizzes/${editId}`
-            : `/api/admin/quizzes`;
+        const url = isEditMode ? `/api/admin/quizzes/${editId}` : `/api/admin/quizzes`;
+        const method = isEditMode ? 'PUT' : 'POST';
+        
+        console.log(`📡 ${method} to: ${url}`);
         
         const response = await fetch(url, {
-            method: editId ? 'PUT' : 'POST',
+            method: method,
             headers: {
                 'Authorization': `Bearer ${token}`,
                 'Content-Type': 'application/json'
@@ -22989,32 +22978,40 @@ async function saveQuizToMySQL() {
             body: JSON.stringify(quizData)
         });
         
-        const result = await response.json();
+        const responseText = await response.text();
+        console.log("📥 Raw response:", responseText);
+        
+        let result;
+        try {
+            result = JSON.parse(responseText);
+        } catch (e) {
+            console.error("❌ Failed to parse JSON:", responseText);
+            throw new Error('Server returned invalid JSON');
+        }
         
         if (!response.ok) {
             throw new Error(result.message || `Server error: ${response.status}`);
         }
         
         if (result.success) {
-            let message = editId 
+            const message = isEditMode 
                 ? 'Quiz updated successfully!' 
                 : 'Quiz created successfully!';
-            message += ` (${subjectName})`;
             
-            if (assignedTeacherId) {
-                message += ' (Assigned to teacher)';
-            }
+            // Ipakita kung saang lesson na-save
+            const lessonName = lesson_id == 1 ? 'MathEase' : 
+                              lesson_id == 2 ? 'PolyLearn' : 'FactoLearn';
             
-            showNotification('success', 'Success!', message);
+            showNotification('success', 'Success!', `${message} (${lessonName})`);
             closeCreateQuizModal();
-            await loadQuizzesFromMySQL();
+            await loadQuizzesFromMySQL(); // Refresh the list
         } else {
-            throw new Error(result.message || 'Failed to save quiz');
+            throw new Error(result.message || `Failed to ${isEditMode ? 'update' : 'create'} quiz`);
         }
         
     } catch (error) {
-        console.error('❌ Error saving quiz:', error);
-        showNotification('error', 'Save Failed', error.message);
+        console.error(`❌ Error ${isEditMode ? 'updating' : 'creating'} quiz:`, error);
+        showNotification('error', `${isEditMode ? 'Update' : 'Create'} Failed`, error.message);
     } finally {
         const saveBtn = document.querySelector('#createQuizModal .btn-primary');
         if (saveBtn) {
@@ -23023,7 +23020,6 @@ async function saveQuizToMySQL() {
         }
     }
 }
-
 // ===== CLOSE CREATE QUIZ MODAL =====
 function closeCreateQuizModal() {
     const modal = document.getElementById('createQuizModal');
@@ -26278,8 +26274,7 @@ function openCreatePracticeModal() {
         subjectSelect.value = '3';
     }
     
-    // ✅ REMOVE or COMMENT OUT the problematic line
-    // document.getElementById('practiceLessonId').value = '3';
+  
     
     document.getElementById('practiceTopic').innerHTML = '<option value="">-- Select Subject First --</option>';
     document.getElementById('practiceTopic').disabled = true;
@@ -26608,12 +26603,12 @@ function deletePracticeExercise(exerciseId) {
 }
 
 
-// ===== FIXED: SAVE PRACTICE EXERCISE WITH CORRECT LESSON ID =====
+// ===== UPDATED: Save Practice Exercise with lesson_id from subject =====
 async function savePracticeExercise() {
     console.log("💾 ===== SAVING PRACTICE EXERCISE TO DATABASE =====");
     
     // Get form values
-    const subjectId = document.getElementById('practiceSubject')?.value; // This is the lesson_id
+    const subjectId = document.getElementById('practiceSubject')?.value;  // ← ITO ANG LESSON_ID
     const topicId = document.getElementById('practiceTopic')?.value;
     const title = document.getElementById('practiceTitle')?.value.trim();
     const description = document.getElementById('practiceDescription')?.value.trim();
@@ -26626,23 +26621,30 @@ async function savePracticeExercise() {
     // Get assigned teacher
     const assignedTeacherId = document.getElementById('practiceAssignedTeacherId')?.value;
     
-    // ===== FIX: USE SUBJECT ID AS LESSON ID =====
-    let lesson_id;
-    if (subjectId == 1) { // MathEase
-        lesson_id = 1;
-    } else if (subjectId == 2) { // PolyLearn
-        lesson_id = 2;
-    } else if (subjectId == 3) { // FactoLearn
-        lesson_id = 3;
-    } else {
-        lesson_id = 1; // Default to MathEase
+    // ✅ LESSON ID AY MULA SA SUBJECT (1, 2, or 3)
+    const lesson_id = parseInt(subjectId);
+    
+    // Check if editing
+    const isEditMode = practiceId && practiceId !== '';
+    console.log("🔍 Mode:", isEditMode ? "EDIT" : "CREATE", "ID:", practiceId || 'new');
+    console.log("📋 Lesson ID from subject:", lesson_id);
+    
+    // ===== VALIDATION =====
+    if (!subjectId) {
+        showNotification('error', 'Error', 'Please select a subject');
+        return;
     }
     
-    // Get subject name for display
-    let subjectName = '';
-    if (lesson_id == 1) subjectName = 'MathEase';
-    else if (lesson_id == 2) subjectName = 'PolyLearn';
-    else if (lesson_id == 3) subjectName = 'FactoLearn';
+    if (!topicId || topicId === '') {
+        showNotification('error', 'Error', 'Please select a topic');
+        console.error("❌ No topic selected!");
+        return;
+    }
+    
+    if (!title) {
+        showNotification('error', 'Error', 'Please enter a title');
+        return;
+    }
     
     // Map content type to database format
     const contentTypeMap = {
@@ -26652,35 +26654,6 @@ async function savePracticeExercise() {
     };
     
     const dbContentType = contentTypeMap[contentType] || 'multiple_choice';
-    
-    console.log('📝 Practice data:', { 
-        lesson_id,
-        subjectName,
-        topicId,
-        title, 
-        difficulty, 
-        dbContentType,
-        points,
-        status,
-        isUpdate: !!practiceId,
-        assignedTeacherId: assignedTeacherId || 'none (self)'
-    });
-    
-    // ===== VALIDATION =====
-    if (!subjectId) {
-        showNotification('error', 'Error', 'Please select a subject');
-        return;
-    }
-    
-    if (!topicId) {
-        showNotification('error', 'Error', 'Please select a topic');
-        return;
-    }
-    
-    if (!title) {
-        showNotification('error', 'Error', 'Please enter a title');
-        return;
-    }
     
     // ===== COLLECT QUESTIONS =====
     const questions = [];
@@ -26692,7 +26665,6 @@ async function savePracticeExercise() {
     }
     
     for (let i = 0; i < questionItems.length; i++) {
-        const q = questionItems[i];
         const qId = i + 1;
         
         const questionText = document.getElementById(`practice_q_${qId}_text`)?.value.trim();
@@ -26735,7 +26707,7 @@ async function savePracticeExercise() {
         });
     }
     
-    // ===== PREPARE DATA FOR SERVER =====
+    // ===== PREPARE DATA FOR SERVER WITH LESSON ID =====
     const contentJson = {
         questions: questions
     };
@@ -26743,7 +26715,7 @@ async function savePracticeExercise() {
     const isActive = status === 'active' ? 1 : 0;
     
     const practiceData = {
-        lesson_id: lesson_id,  // Use lesson_id, not subject_id
+        lesson_id: lesson_id,                    // ← ITO ANG MAHALAGA!
         topic_id: parseInt(topicId),
         title: title,
         description: description || '',
@@ -26755,15 +26727,17 @@ async function savePracticeExercise() {
     };
     
     // Add teacher assignment if selected
-    if (assignedTeacherId) {
+    if (assignedTeacherId && assignedTeacherId !== '') {
         practiceData.assigned_teacher_id = parseInt(assignedTeacherId);
     }
     
-    if (practiceId) {
+    // Add ID if editing
+    if (isEditMode) {
         practiceData.exercise_id = parseInt(practiceId);
     }
     
-    console.log("📤 Sending practice data:", practiceData);
+    console.log("📤 Sending practice data with lesson_id:", lesson_id);
+    console.log("📤 Full data:", JSON.stringify(practiceData, null, 2));
     
     try {
         const token = localStorage.getItem('admin_token') || localStorage.getItem('authToken');
@@ -26778,15 +26752,21 @@ async function savePracticeExercise() {
         const originalText = saveBtn?.innerHTML;
         if (saveBtn) {
             saveBtn.disabled = true;
-            saveBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Saving...';
+            saveBtn.innerHTML = isEditMode 
+                ? '<i class="fas fa-spinner fa-spin"></i> Updating...' 
+                : '<i class="fas fa-spinner fa-spin"></i> Creating...';
         }
         
-        const url = practiceId 
+        const url = isEditMode 
             ? `/api/admin/practice/${practiceId}`
             : `/api/admin/practice`;
         
+        const method = isEditMode ? 'PUT' : 'POST';
+        
+        console.log(`📡 ${method} to: ${url}`);
+        
         const response = await fetch(url, {
-            method: practiceId ? 'PUT' : 'POST',
+            method: method,
             headers: {
                 'Authorization': `Bearer ${token}`,
                 'Content-Type': 'application/json'
@@ -26794,37 +26774,47 @@ async function savePracticeExercise() {
             body: JSON.stringify(practiceData)
         });
         
-        const result = await response.json();
+        const responseText = await response.text();
+        console.log("📥 Raw response:", responseText);
+        
+        let result;
+        try {
+            result = JSON.parse(responseText);
+        } catch (e) {
+            console.error("❌ Failed to parse JSON:", responseText);
+            throw new Error('Server returned invalid JSON');
+        }
         
         if (!response.ok) {
             throw new Error(result.message || `Server error: ${response.status}`);
         }
         
         if (result.success) {
-            let message = practiceId 
+            let message = isEditMode 
                 ? 'Practice exercise updated successfully!' 
                 : 'Practice exercise created successfully!';
-            message += ` (${subjectName})`;
             
-            if (assignedTeacherId) {
-                message += ' (Assigned to teacher)';
-            }
+            // Ipakita kung saang lesson na-save
+            const lessonName = lesson_id == 1 ? 'MathEase' : 
+                              lesson_id == 2 ? 'PolyLearn' : 'FactoLearn';
             
-            showNotification('success', 'Success!', message);
+            showNotification('success', 'Success!', `${message} (${lessonName})`);
             closeCreatePracticeModal();
-            await loadAdminPracticeExercises();
+            await loadAdminPracticeExercises(); // Refresh the list
         } else {
-            throw new Error(result.message || 'Failed to save practice exercise');
+            throw new Error(result.message || `Failed to ${isEditMode ? 'update' : 'create'} practice exercise`);
         }
         
     } catch (error) {
-        console.error('❌ Error saving practice exercise:', error);
-        showNotification('error', 'Save Failed', error.message);
+        console.error(`❌ Error ${isEditMode ? 'updating' : 'creating'} practice exercise:`, error);
+        showNotification('error', `${isEditMode ? 'Update' : 'Create'} Failed`, error.message);
     } finally {
         const saveBtn = document.querySelector('#createPracticeModal .btn-primary');
         if (saveBtn) {
             saveBtn.disabled = false;
-            saveBtn.innerHTML = '<i class="fas fa-save"></i> Save Exercise';
+            saveBtn.innerHTML = isEditMode 
+                ? '<i class="fas fa-save"></i> Update Exercise' 
+                : '<i class="fas fa-save"></i> Create Exercise';
         }
     }
 }
