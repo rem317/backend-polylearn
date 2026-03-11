@@ -14168,7 +14168,6 @@ input:checked + .toggle-slider:before {
 
 .help-header {
     grid-column: 1 / -1;
-    background: linear-gradient(135deg, var(--primary) 0%, var(--primary-light) 100%);
     border-radius: var(--radius);
     padding: 25px 30px;
     color: white;
@@ -14418,7 +14417,6 @@ input:checked + .toggle-slider:before {
 }
 
 #emergencyHelp {
-    background: #e74c3c;
     color: white;
     border: none;
     padding: 12px 24px;
