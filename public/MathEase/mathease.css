@@ -13292,4 +13292,383 @@ html {
     0% { transform: rotate(0deg); }
     100% { transform: rotate(360deg); }
 }
+/* ============================================
+   SETTINGS PAGE STYLES - MATHEASE VERSION
+   ============================================ */
 
+/* Settings Page Layout */
+.page-container {
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 20px;
+}
+
+.main-header {
+    background: white;
+    padding: 20px;
+    border-radius: 12px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    margin-bottom: 25px;
+    border: 1px solid var(--border-color);
+}
+
+.main-header h1 {
+    margin: 0;
+    color: var(--text-color);
+    font-size: 24px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.main-header h1 i {
+    color: var(--primary);
+}
+
+/* Settings Sidebar */
+.settings-sidebar {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+.sidebar-card {
+    background: white;
+    border-radius: 12px;
+    padding: 20px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    border: 1px solid var(--border-color);
+}
+
+.sidebar-card h3 {
+    margin: 0 0 10px 0;
+    color: var(--text-color);
+    font-size: 18px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.sidebar-card h3 i {
+    color: var(--primary);
+}
+
+.sidebar-subtitle {
+    color: var(--text-light);
+    font-size: 14px;
+    margin-bottom: 20px;
+    padding-bottom: 15px;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.sidebar-menu {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+.sidebar-menu li {
+    margin-bottom: 5px;
+}
+
+.sidebar-menu a {
+    display: block;
+    padding: 12px 15px;
+    border-radius: 8px;
+    color: var(--text-color);
+    text-decoration: none;
+    transition: all 0.3s;
+    font-weight: 500;
+}
+
+.sidebar-menu a i {
+    width: 24px;
+    color: var(--primary);
+    margin-right: 10px;
+}
+
+.sidebar-menu a:hover {
+    background: var(--sidebar-bg);
+}
+
+.sidebar-menu a.active {
+    background: var(--primary);
+    color: white;
+}
+
+.sidebar-menu a.active i {
+    color: white;
+}
+
+/* Action Buttons */
+.action-buttons {
+    display: flex;
+    gap: 10px;
+    margin-top: 20px;
+}
+
+.action-buttons button {
+    flex: 1;
+}
+
+/* Main Settings Area */
+.main-settings {
+    background: white;
+    border-radius: 12px;
+    padding: 30px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    border: 1px solid var(--border-color);
+}
+
+.settings-section {
+    display: none;
+}
+
+.settings-section.active {
+    display: block;
+    animation: fadeIn 0.5s ease;
+}
+
+.section-header {
+    margin-bottom: 30px;
+}
+
+.section-header h2 {
+    margin: 0 0 10px 0;
+    color: var(--text-color);
+    font-size: 22px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.section-header h2 i {
+    color: var(--primary);
+}
+
+.section-subtitle {
+    color: var(--text-light);
+    font-size: 14px;
+}
+
+.settings-card {
+    background: var(--sidebar-bg);
+    border-radius: 10px;
+    padding: 25px;
+    margin-bottom: 25px;
+    border: 1px solid var(--border-color);
+}
+
+.settings-card h3 {
+    margin: 0 0 20px 0;
+    color: var(--text-color);
+    font-size: 18px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding-bottom: 15px;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.settings-card h3 i {
+    color: var(--primary);
+}
+
+.form-row {
+    margin-bottom: 20px;
+}
+
+.form-row:last-child {
+    margin-bottom: 0;
+}
+
+.form-label {
+    display: block;
+    margin-bottom: 8px;
+    font-weight: 500;
+    color: var(--text-color);
+}
+
+.form-control {
+    width: 100%;
+    padding: 12px 15px;
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    font-size: 14px;
+    transition: all 0.3s;
+    background: white;
+}
+
+.form-control:focus {
+    outline: none;
+    border-color: var(--primary);
+    box-shadow: 0 0 0 3px rgba(122,0,0,0.1);
+}
+
+/* Toggle Switch */
+.toggle-switch {
+    position: relative;
+    display: inline-block;
+    width: 50px;
+    height: 24px;
+}
+
+.toggle-switch input {
+    opacity: 0;
+    width: 0;
+    height: 0;
+}
+
+.toggle-slider {
+    position: absolute;
+    cursor: pointer;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: #ccc;
+    transition: .4s;
+    border-radius: 24px;
+}
+
+.toggle-slider:before {
+    position: absolute;
+    content: "";
+    height: 20px;
+    width: 20px;
+    left: 2px;
+    bottom: 2px;
+    background-color: white;
+    transition: .4s;
+    border-radius: 50%;
+}
+
+input:checked + .toggle-slider {
+    background-color: var(--primary);
+}
+
+input:checked + .toggle-slider:before {
+    transform: translateX(26px);
+}
+
+/* Radio Group */
+.radio-group {
+    display: flex;
+    gap: 20px;
+    flex-wrap: wrap;
+}
+
+.radio-option {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
+}
+
+.radio-option input[type="radio"] {
+    width: 18px;
+    height: 18px;
+    accent-color: var(--primary);
+}
+
+/* File Upload */
+.file-upload {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    flex-wrap: wrap;
+}
+
+.profile-preview {
+    width: 80px;
+    height: 80px;
+    background: var(--sidebar-bg);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 40px;
+    color: var(--primary);
+    border: 2px solid var(--primary);
+    overflow: hidden;
+}
+
+/* Info Box */
+.info-box {
+    background: #e3f2fd;
+    border-left: 4px solid #2196f3;
+    padding: 15px;
+    border-radius: 6px;
+    margin-top: 15px;
+}
+
+.info-box p {
+    margin: 5px 0;
+    color: #0c5460;
+    font-size: 14px;
+}
+
+.info-box i {
+    margin-right: 8px;
+    color: #2196f3;
+}
+
+/* Buttons */
+.btn {
+    padding: 12px 24px;
+    border-radius: 8px;
+    font-weight: 600;
+    cursor: pointer;
+    border: none;
+    transition: all 0.3s;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.btn-primary {
+    background: var(--primary);
+    color: white;
+}
+
+.btn-primary:hover {
+    background: #5a0000;
+    transform: translateY(-2px);
+    box-shadow: 0 5px 15px rgba(122,0,0,0.3);
+}
+
+.btn-secondary {
+    background: var(--sidebar-bg);
+    color: var(--text-color);
+    border: 1px solid var(--border-color);
+}
+
+.btn-secondary:hover {
+    background: #e9ecef;
+    transform: translateY(-2px);
+}
+
+.btn-danger {
+    background: #e74c3c;
+    color: white;
+}
+
+.btn-danger:hover {
+    background: #c0392b;
+}
+
+/* Danger Zone Card */
+.settings-card[style*="border-left: 4px solid #e74c3c"] {
+    background: #fff5f5;
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
