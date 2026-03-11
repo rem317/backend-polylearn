@@ -2779,31 +2779,12 @@
 
                     <!-- Sidebar -->
                     <div class="settings-sidebar">
-                        <!-- Navigation Menu -->
-                        <div class="sidebar-card">
-                            <h3><i class="fas fa-cogs"></i> MathHub Settings</h3>
-                            <p class="sidebar-subtitle">Customize your learning experience and account preferences</p>
-                            
-                            <ul class="sidebar-menu">
-                                <li><a href="#" class="active" onclick="showSection('general')"><i class="fas fa-user"></i> General</a></li>
-                                <li><a href="#" onclick="showSection('learning')"><i class="fas fa-graduation-cap"></i> Learning</a></li>
-                                <li><a href="#" onclick="showSection('privacy')"><i class="fas fa-shield-alt"></i> Privacy & Security</a></li>
-                                <li><a href="#" onclick="showSection('notifications')"><i class="fas fa-bell"></i> Notifications</a></li>
-                                <li><a href="#" onclick="showSection('display')"><i class="fas fa-desktop"></i> Display</a></li>
-                                <li><a href="#" onclick="showSection('account')"><i class="fas fa-user-cog"></i> Account</a></li>
-                            </ul>
-                        </div>
-
                         <!-- Action Buttons -->
                         <div class="action-buttons">
                             <button class="btn btn-secondary" onclick="resetSettings()"><i class="fas fa-undo"></i> Reset to Defaults</button>
                             <button class="btn btn-primary" onclick="saveSettings()"><i class="fas fa-save"></i> Save Changes</button>
                         </div>
                     </div>
-                </div>
-            </div>
-        </div>
-
         <!-- NEW: Feedback Dashboard Page -->
         <div id="feedback-page" class="hidden">
             <!-- Feedback content remains the same -->
@@ -2923,54 +2904,6 @@
                             </div>
                         </div>
                     </div>
-
-                    <!-- Send Feedback -->
-                    <div class="card">
-                        <div class="card-header">
-                            <div class="card-icon icon-feedback">
-                                <i class="fas fa-comment-alt"></i>
-                            </div>
-                            <h2>Send Feedback</h2>
-                        </div>
-                        <div class="card-body">
-                            <form id="feedbackForm">
-                                <div class="form-group">
-                                    <label for="feedbackType">Feedback Type</label>
-                                    <select id="feedbackType" class="form-control">
-                                        <option value="suggestion">Suggestion</option>
-                                        <option value="bug">Bug Report</option>
-                                        <option value="praise">Praise</option>
-                                        <option value="other">Other</option>
-                                    </select>
-                                </div>
-
-                                <div class="form-group">
-                                    <label for="feedbackMessage">Your Feedback</label>
-                                    <textarea id="feedbackMessage" class="form-control" placeholder="Tell us what you think..."></textarea>
-                                </div>
-
-                                <div class="form-group">
-                                    <label>Overall Rating</label>
-                                    <div class="rating">
-                                        <span class="star" onclick="rate(1)">★</span>
-                                        <span class="star" onclick="rate(2)">★</span>
-                                        <span class="star" onclick="rate(3)">★</span>
-                                        <span class="star" onclick="rate(4)">★</span>
-                                        <span class="star" onclick="rate(5)">★</span>
-                                    </div>
-                                    <input type="hidden" id="ratingValue" value="0">
-                                </div>
-
-                                <button type="submit" class="btn btn-primary" style="width: 100%;">
-                                    <i class="fas fa-paper-plane"></i>
-                                    Submit Feedback
-                                </button>
-                            </form>
-                            <div class="success-message" id="feedbackSuccess" style="display: none;">
-                                <i class="fas fa-check-circle"></i>
-                                Thank you for your feedback! We'll review it shortly.
-                            </div>
-                        </div>
                     </div>
                 </div>
             </div>
