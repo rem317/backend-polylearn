@@ -441,7 +441,60 @@ function connectLessonToolButtons(lesson) {
     }
 }
 
+// ============================================
+// APP STATE MANAGEMENT - TRACK LAST ACTIVE APP
+// ============================================
 
+// Store which app was last active
+function setLastActiveApp(appName) {
+    localStorage.setItem('lastActiveApp', appName);
+    console.log(`💾 Saved last active app: ${appName}`);
+}
+
+// Get the last active app
+function getLastActiveApp() {
+    return localStorage.getItem('lastActiveApp') || 'polylearn'; // Default to polylearn
+}
+
+// Check if we should redirect based on last active app
+function checkAndRedirectToLastApp() {
+    // Only redirect if coming from a fresh page load (not navigation within app)
+    const isPageReload = performance.navigation.type === 1; // 1 = reload
+    const isNewSession = !sessionStorage.getItem('appSessionStarted');
+    
+    if (isPageReload || isNewSession) {
+        const lastApp = getLastActiveApp();
+        
+        // Don't redirect if we're already on the correct app's main page
+        const currentPath = window.location.pathname;
+        
+        console.log('🔍 Checking redirect:', {
+            lastApp: lastApp,
+            currentPath: currentPath,
+            isReload: isPageReload,
+            isNewSession: isNewSession
+        });
+        
+        if (lastApp === 'polylearn' && !currentPath.includes('/MathEase/') && !currentPath.includes('/FactoLearn/')) {
+            // Already in PolyLearn, no redirect needed
+            return false;
+        }
+        else if (lastApp === 'mathease' && !currentPath.includes('/MathEase/')) {
+            console.log('🔄 Redirecting to MathEase...');
+            window.location.href = 'MathEase/mathease.html';
+            return true;
+        }
+        else if (lastApp === 'factolearn' && !currentPath.includes('/FactoLearn/')) {
+            console.log('🔄 Redirecting to FactoLearn...');
+            window.location.href = 'FactoLearn/factolearn.html';
+            return true;
+        }
+    }
+    
+    // Mark that session has started
+    sessionStorage.setItem('appSessionStarted', 'true');
+    return false;
+}
 
 // ========================================
 // CALCULATOR TOOL - FIXED VERSION
@@ -36345,3 +36398,33 @@ function goToFactoLearn() {
     console.log('✅ FINAL button fix applied!');
     console.log('💡 The button will now always start as "Mark Lesson Complete"');
 })();
+
+
+// ============================================
+// 🚀 INITIALIZE - CHECK AND REDIRECT TO LAST APP
+// ============================================
+
+// Run this check IMMEDIATELY when script loads
+(function() {
+    console.log('🔍 Checking for last active app...');
+    
+    // Small delay to ensure everything is loaded
+    setTimeout(() => {
+        const redirected = checkAndRedirectToLastApp();
+        if (!redirected) {
+            console.log('✅ Staying in current app');
+        }
+    }, 100);
+})();
+
+// Also check when page becomes fully loaded
+window.addEventListener('load', function() {
+    // Check again after full load
+    const lastApp = getLastActiveApp();
+    const currentPath = window.location.pathname;
+    
+    console.log('📊 Final check:', {
+        lastApp: lastApp,
+        currentPath: currentPath
+    });
+});
