@@ -32193,7 +32193,40 @@ function extractYoutubeId(url) {
     
     return null;
 }
-
+// ============================================
+// DEBUG: Check video URLs for all lessons
+// ============================================
+window.checkLessonVideos = async function() {
+    console.log('🔍 CHECKING LESSON VIDEOS:');
+    
+    if (!allLessons || allLessons.length === 0) {
+        await fetchAllLessonsForNavigation();
+    }
+    
+    console.log('📚 Lessons:', allLessons.map(l => ({
+        id: l.content_id,
+        title: l.content_title,
+        video_url: l.content_url,
+        video_filename: l.video_filename,
+        hasYouTube: l.content_url ? (l.content_url.includes('youtube') || l.content_url.includes('youtu.be')) : false
+    })));
+    
+    // Test each video URL
+    for (const lesson of allLessons) {
+        if (lesson.content_url) {
+            console.log(`\n📹 Testing lesson ${lesson.content_id}: ${lesson.content_title}`);
+            console.log(`URL: ${lesson.content_url}`);
+            
+            if (lesson.content_url.includes('youtube') || lesson.content_url.includes('youtu.be')) {
+                console.log('✅ This is a YouTube link');
+            } else {
+                console.log('⚠️ This is not a YouTube link');
+            }
+        } else {
+            console.log(`\n📹 Lesson ${lesson.content_id}: No video URL`);
+        }
+    }
+};
 // ============================================
 // DEBUG FUNCTION
 // ============================================
