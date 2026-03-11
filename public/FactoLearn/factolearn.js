@@ -47,6 +47,15 @@ const APP_LESSON_MAP = {
     }
 };
 
+
+// ============================================
+// APP STATE MANAGEMENT - FOR MathEase/FactoLearn
+// ============================================
+
+// Set this as the last active app when this script loads
+localStorage.setItem('lastActiveApp', 'mathease'); // or 'factolearn' for FactoLearn
+console.log('✅ Set last active app to mathease');
+
 // ============================================
 // factorial CONSTANTS - FORCE LESSON_ID = 3
 // ============================================
