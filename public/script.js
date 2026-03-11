@@ -36139,3 +36139,253 @@ document.addEventListener('DOMContentLoaded', function() {
 function goToFactoLearn() {
     window.location.href = 'FactoLearn/factolearn.html';
 }
+
+
+// ============================================
+// 🚨 ULTIMATE FIX: Lesson Complete Button
+// Force it to ALWAYS show "Mark Lesson Complete" unless actually completed
+// ============================================
+
+(function ultimateButtonFix() {
+    console.log('🔧 Applying ULTIMATE button fix...');
+    
+    // Function to force button to correct state
+    function forceButtonCorrectState() {
+        const btn = document.getElementById('completeLessonBtn');
+        if (!btn) return false;
+        
+        // Get lesson ID from URL or state
+        const urlParams = new URLSearchParams(window.location.search);
+        let lessonId = urlParams.get('lessonId');
+        
+        if (!lessonId && LessonState.currentLesson) {
+            lessonId = LessonState.currentLesson.content_id;
+        }
+        
+        // Check if this lesson is actually completed
+        let isActuallyCompleted = false;
+        
+        // Check LessonState first
+        if (lessonId && LessonState.userProgress && LessonState.userProgress[lessonId]) {
+            isActuallyCompleted = LessonState.userProgress[lessonId].status === 'completed';
+        }
+        
+        // If not in state, check localStorage
+        if (!isActuallyCompleted && lessonId) {
+            try {
+                const savedProgress = localStorage.getItem(`video_progress_${lessonId}`);
+                if (savedProgress) {
+                    const progress = JSON.parse(savedProgress);
+                    isActuallyCompleted = progress.status === 'completed';
+                }
+            } catch (e) {}
+        }
+        
+        // FORCE the button to the correct state
+        if (isActuallyCompleted) {
+            // Only show completed if it's actually completed
+            btn.innerHTML = '<i class="fas fa-check-double"></i> Lesson Completed!';
+            btn.className = 'btn-success';
+            btn.disabled = true;
+            btn.style.background = '#2ecc71';
+            btn.style.color = 'white';
+            btn.style.border = 'none';
+            console.log('✅ Button set to completed (lesson is actually completed)');
+        } else {
+            // Force "Mark Lesson Complete" for all other cases
+            btn.innerHTML = '<i class="fas fa-check-circle"></i> Mark Lesson Complete';
+            btn.className = 'btn-primary';
+            btn.disabled = false;
+            btn.style.background = '#7a0000';
+            btn.style.color = 'white';
+            btn.style.border = 'none';
+            btn.style.padding = '10px 20px';
+            btn.style.borderRadius = '5px';
+            btn.style.cursor = 'pointer';
+            btn.style.fontSize = '14px';
+            btn.style.fontWeight = '600';
+            console.log('✅ Button set to "Mark Lesson Complete"');
+        }
+        
+        return true;
+    }
+    
+    // Run immediately
+    forceButtonCorrectState();
+    
+    // Run after short delays (to override any other scripts)
+    setTimeout(forceButtonCorrectState, 100);
+    setTimeout(forceButtonCorrectState, 300);
+    setTimeout(forceButtonCorrectState, 500);
+    setTimeout(forceButtonCorrectState, 1000);
+    setTimeout(forceButtonCorrectState, 2000);
+    
+    // Observe for changes to the button
+    const observer = new MutationObserver(function(mutations) {
+        mutations.forEach(function(mutation) {
+            const btn = document.getElementById('completeLessonBtn');
+            if (btn) {
+                // Check if button is incorrectly showing completed
+                if (!btn.disabled && btn.innerHTML.includes('Completed')) {
+                    console.log('⚠️ Button incorrectly showing completed - fixing...');
+                    forceButtonCorrectState();
+                }
+                
+                // Check if button is disabled but shouldn't be
+                if (btn.disabled && !btn.innerHTML.includes('Completed')) {
+                    console.log('⚠️ Button incorrectly disabled - fixing...');
+                    forceButtonCorrectState();
+                }
+                
+                // Check if class is wrong
+                if (btn.classList.contains('btn-success') && !btn.innerHTML.includes('Completed')) {
+                    console.log('⚠️ Button has wrong class - fixing...');
+                    forceButtonCorrectState();
+                }
+            }
+        });
+    });
+    
+    // Start observing
+    const btn = document.getElementById('completeLessonBtn');
+    if (btn) {
+        observer.observe(btn, { 
+            attributes: true, 
+            childList: true, 
+            subtree: true,
+            attributeFilter: ['class', 'disabled', 'style']
+        });
+    }
+    
+    // Also observe the module dashboard
+    const modulePage = document.getElementById('module-dashboard-page');
+    if (modulePage) {
+        const pageObserver = new MutationObserver(function() {
+            if (!modulePage.classList.contains('hidden')) {
+                setTimeout(forceButtonCorrectState, 200);
+            }
+        });
+        pageObserver.observe(modulePage, { attributes: true });
+    }
+    
+    // Override any function that might change the button
+    const originalUpdateCompleteButtonState = window.updateCompleteButtonState;
+    window.updateCompleteButtonState = function(isCompleted) {
+        console.log('🛑 Intercepted updateCompleteButtonState:', isCompleted);
+        
+        // Get the actual lesson ID
+        const urlParams = new URLSearchParams(window.location.search);
+        let lessonId = urlParams.get('lessonId');
+        
+        // Check if this lesson is ACTUALLY completed
+        let isActuallyCompleted = false;
+        if (lessonId && LessonState.userProgress && LessonState.userProgress[lessonId]) {
+            isActuallyCompleted = LessonState.userProgress[lessonId].status === 'completed';
+        }
+        
+        // Only allow the update if it matches reality
+        if (isActuallyCompleted === isCompleted) {
+            if (originalUpdateCompleteButtonState) {
+                return originalUpdateCompleteButtonState(isCompleted);
+            }
+        } else {
+            console.log('⚠️ Ignoring incorrect button state update');
+            forceButtonCorrectState();
+        }
+    };
+    
+    // Emergency override for the complete button's onclick
+    const completeBtn = document.getElementById('completeLessonBtn');
+    if (completeBtn) {
+        const originalOnClick = completeBtn.onclick;
+        completeBtn.onclick = async function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            
+            // Don't allow click if already completed
+            if (this.disabled || this.innerHTML.includes('Completed')) {
+                console.log('⛔ Button is already completed');
+                return;
+            }
+            
+            console.log('🎯 Mark lesson as complete clicked');
+            
+            // Get lesson ID
+            const urlParams = new URLSearchParams(window.location.search);
+            let lessonId = urlParams.get('lessonId');
+            
+            if (!lessonId && LessonState.currentLesson) {
+                lessonId = LessonState.currentLesson.content_id;
+            }
+            
+            if (!lessonId) {
+                alert('Cannot identify lesson');
+                return;
+            }
+            
+            // Show loading
+            this.disabled = true;
+            const originalText = this.innerHTML;
+            this.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Saving...';
+            
+            try {
+                const token = localStorage.getItem('authToken') || authToken;
+                
+                // Update lesson progress
+                const response = await fetch(`/api/lessons-db/${lessonId}/progress`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        completion_status: 'completed',
+                        percentage: 100
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    // Update state
+                    if (!LessonState.userProgress) LessonState.userProgress = {};
+                    if (!LessonState.userProgress[lessonId]) LessonState.userProgress[lessonId] = {};
+                    LessonState.userProgress[lessonId].status = 'completed';
+                    
+                    // Update button
+                    this.innerHTML = '<i class="fas fa-check-double"></i> Lesson Completed!';
+                    this.className = 'btn-success';
+                    this.style.background = '#2ecc71';
+                    
+                    // Save to localStorage
+                    try {
+                        localStorage.setItem(`video_progress_${lessonId}`, JSON.stringify({
+                            status: 'completed',
+                            percentage: 100,
+                            timestamp: new Date().toISOString()
+                        }));
+                    } catch (e) {}
+                    
+                    alert('✅ Lesson completed successfully!');
+                    
+                    // Reload after 2 seconds to update everything
+                    setTimeout(() => {
+                        location.reload();
+                    }, 2000);
+                    
+                } else {
+                    throw new Error(data.message || 'Failed to complete');
+                }
+                
+            } catch (error) {
+                console.error('❌ Error:', error);
+                alert('Error: ' + error.message);
+                this.innerHTML = originalText;
+                this.disabled = false;
+            }
+        };
+    }
+    
+    console.log('✅ ULTIMATE button fix applied!');
+    console.log('💡 The button will now correctly show "Mark Lesson Complete" until actually completed');
+})();
