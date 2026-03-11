@@ -26261,7 +26261,6 @@ function refreshPracticeData() {
     loadAdminPracticeExercises();
 }
 
-// ===== OPEN CREATE PRACTICE MODAL =====
 function openCreatePracticeModal() {
     console.log("📝 Opening create practice modal...");
     
@@ -26272,15 +26271,25 @@ function openCreatePracticeModal() {
     document.getElementById('practiceId').value = '';
     document.getElementById('practiceTitle').value = '';
     document.getElementById('practiceDescription').value = '';
-    document.getElementById('practiceSubject').value = '';
+    
+    // ✅ Set default subject to FactoLearn (lesson_id = 3)
+    const subjectSelect = document.getElementById('practiceSubject');
+    if (subjectSelect) {
+        subjectSelect.value = '3';
+    }
+    
+    // ✅ REMOVE or COMMENT OUT the problematic line
+    // document.getElementById('practiceLessonId').value = '3';
+    
     document.getElementById('practiceTopic').innerHTML = '<option value="">-- Select Subject First --</option>';
     document.getElementById('practiceTopic').disabled = true;
     document.getElementById('practiceDifficulty').value = 'medium';
     document.getElementById('practiceType').value = 'multiple-choice';
     document.getElementById('practicePoints').value = '10';
     document.getElementById('practiceStatus').value = 'active';
+    document.getElementById('practiceId').value = '';
     
-    // Clear teacher dropdown (show loading)
+    // Clear teacher dropdown
     const teacherSelect = document.getElementById('practiceAssignedTeacherId');
     if (teacherSelect) {
         teacherSelect.innerHTML = '<option value="">Loading teachers...</option>';
@@ -26288,7 +26297,10 @@ function openCreatePracticeModal() {
     }
     
     // Clear questions
-    document.getElementById('practiceQuestionsContainer').innerHTML = '';
+    const container = document.getElementById('practiceQuestionsContainer');
+    if (container) {
+        container.innerHTML = '';
+    }
     
     // Add one default question
     addPracticeQuestion();
@@ -26304,12 +26316,16 @@ function openCreatePracticeModal() {
     }, 300);
     
     // Add event listener for subject change
-    const subjectSelect = document.getElementById('practiceSubject');
-    subjectSelect.addEventListener('change', loadPracticeTopicsBySubject);
+    if (subjectSelect) {
+        // Remove existing listeners to avoid duplicates
+        const newSubjectSelect = subjectSelect.cloneNode(true);
+        subjectSelect.parentNode.replaceChild(newSubjectSelect, subjectSelect);
+        
+        newSubjectSelect.addEventListener('change', loadPracticeTopicsBySubject);
+    }
     
     showNotification('info', 'Create Practice', 'Select a subject to load available topics');
 }
-
 // ===== LOAD TOPICS BY SUBJECT =====
 async function loadPracticeTopicsBySubject() {
     console.log("📚 Loading topics for selected subject...");
