@@ -32530,3 +32530,83 @@ document.addEventListener('DOMContentLoaded', function() {
         observer.observe(settingsPage, { attributes: true });
     }
 });
+
+// ============================================
+// FEEDBACK FUNCTIONS - POLYLEARN DESIGN
+// ============================================
+
+// Toggle FAQ dropdown
+function toggleFAQ(element) {
+    console.log('📋 FAQ clicked');
+    
+    // Find the parent FAQ item
+    const faqItem = element.closest('.faq-item');
+    if (!faqItem) return;
+    
+    // Toggle active class
+    faqItem.classList.toggle('active');
+    
+    // Find the answer
+    const answer = faqItem.querySelector('.faq-answer');
+    if (!answer) return;
+    
+    // Toggle display
+    if (faqItem.classList.contains('active')) {
+        answer.style.display = 'block';
+    } else {
+        answer.style.display = 'none';
+    }
+    
+    // Rotate chevron
+    const chevron = element.querySelector('.fas.fa-chevron-down');
+    if (chevron) {
+        if (faqItem.classList.contains('active')) {
+            chevron.style.transform = 'rotate(180deg)';
+        } else {
+            chevron.style.transform = 'rotate(0deg)';
+        }
+    }
+}
+
+// Show feedback page
+function showFeedbackPage(e) {
+    if (e) {
+        e.preventDefault();
+        e.stopPropagation();
+    }
+    console.log('💬 Navigating to Feedback');
+    closeMobileMenu();
+    navigateTo('feedback');
+    updateActiveNav('feedback');
+    
+    // Initialize FAQ listeners
+    setTimeout(() => {
+        initFAQListeners();
+    }, 500);
+}
+
+// Initialize FAQ listeners
+function initFAQListeners() {
+    console.log('📋 Initializing FAQ listeners');
+    
+    const faqQuestions = document.querySelectorAll('.faq-question');
+    console.log(`Found ${faqQuestions.length} FAQ questions`);
+    
+    faqQuestions.forEach(question => {
+        // Remove existing listeners
+        const newQuestion = question.cloneNode(true);
+        question.parentNode.replaceChild(newQuestion, question);
+        
+        // Add new listener
+        newQuestion.addEventListener('click', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            toggleFAQ(this);
+        });
+    });
+}
+
+// Make functions globally available
+window.toggleFAQ = toggleFAQ;
+window.showFeedbackPage = showFeedbackPage;
+window.initFAQListeners = initFAQListeners;
