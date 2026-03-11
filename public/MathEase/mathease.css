@@ -11259,6 +11259,29 @@ function addPracticeStyles() {
     `;
     document.head.appendChild(style);
 }
+/* Force video container to be visible */
+#videoContainer {
+    min-height: 400px !important;
+    width: 100% !important;
+    background: #1a1a2e !important;
+    position: relative !important;
+    overflow: hidden !important;
+    border-radius: 8px !important;
+}
+
+#videoContainer iframe {
+    position: absolute !important;
+    top: 0 !important;
+    left: 0 !important;
+    width: 100% !important;
+    height: 100% !important;
+    border: none !important;
+}
+
+#videoContainer > div {
+    width: 100% !important;
+    height: 100% !important;
+}
 /* ============================================
    END OF CSS
    ============================================ */
