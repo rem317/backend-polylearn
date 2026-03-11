@@ -31619,7 +31619,7 @@ function updateLessonUI(lesson) {
 }
 
 // ============================================
-// LOAD VIDEO FROM DATABASE
+// LOAD VIDEO FROM DATABASE - FIXED FOR YOUTUBE
 // ============================================
 async function loadVideoFromDatabase(contentId) {
     console.log('🎬 Loading video for lesson:', contentId);
@@ -31650,44 +31650,78 @@ async function loadVideoFromDatabase(contentId) {
         }
         
         const lesson = data.lesson;
+        console.log('📹 Lesson video data:', {
+            content_url: lesson.content_url,
+            video_filename: lesson.video_filename,
+            content_type: lesson.content_type
+        });
         
         // Clear container
         videoContainer.innerHTML = '';
         
-        // Determine video source
-        let videoUrl = null;
-        
-        // Check for YouTube URL first
-        if (lesson.content_url && (lesson.content_url.includes('youtube') || lesson.content_url.includes('youtu.be'))) {
-            const videoId = extractYoutubeId(lesson.content_url);
-            if (videoId) {
-                videoContainer.innerHTML = `
-                    <iframe width="100%" height="400" 
-                        src="https://www.youtube.com/embed/${videoId}"
-                        frameborder="0" allowfullscreen>
-                    </iframe>
-                `;
+        // Check for YouTube URL
+        if (lesson.content_url) {
+            const url = lesson.content_url;
+            console.log('🔍 Checking URL:', url);
+            
+            // Handle different YouTube URL formats
+            if (url.includes('youtube.com') || url.includes('youtu.be')) {
+                let videoId = null;
                 
-                if (videoInfo) {
-                    videoInfo.innerHTML = `
-                        <p><i class="fab fa-youtube" style="color: #ff0000;"></i> <strong>YouTube Video</strong></p>
-                        <p>${lesson.content_title || ''}</p>
-                    `;
+                // Extract YouTube ID from various formats
+                if (url.includes('youtu.be/')) {
+                    videoId = url.split('youtu.be/')[1].split('?')[0];
+                } else if (url.includes('watch?v=')) {
+                    videoId = url.split('watch?v=')[1].split('&')[0];
+                } else if (url.includes('embed/')) {
+                    videoId = url.split('embed/')[1].split('?')[0];
+                } else if (url.includes('shorts/')) {
+                    videoId = url.split('shorts/')[1].split('?')[0];
                 }
-                return;
+                
+                // Remove any extra parameters
+                if (videoId && videoId.includes('?')) {
+                    videoId = videoId.split('?')[0];
+                }
+                if (videoId && videoId.includes('&')) {
+                    videoId = videoId.split('&')[0];
+                }
+                
+                console.log('🎯 Extracted YouTube ID:', videoId);
+                
+                if (videoId && videoId.length === 11) {
+                    videoContainer.innerHTML = `
+                        <iframe width="100%" height="400" 
+                            src="https://www.youtube.com/embed/${videoId}"
+                            frameborder="0" 
+                            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
+                            allowfullscreen>
+                        </iframe>
+                    `;
+                    
+                    if (videoInfo) {
+                        videoInfo.innerHTML = `
+                            <p><i class="fab fa-youtube" style="color: #ff0000;"></i> <strong>YouTube Video</strong></p>
+                            <p>${lesson.content_title || ''}</p>
+                            <p><a href="${url}" target="_blank" style="color: #ff0000;">Watch on YouTube <i class="fas fa-external-link-alt"></i></a></p>
+                        `;
+                    }
+                    return;
+                }
             }
         }
         
         // Check for uploaded video
         if (lesson.video_filename) {
+            let videoUrl;
             if (lesson.video_filename.startsWith('http')) {
                 videoUrl = lesson.video_filename;
             } else {
                 videoUrl = `/uploads/videos/${lesson.video_filename}`;
             }
-        }
-        
-        if (videoUrl) {
+            
+            console.log('📹 Loading video from:', videoUrl);
+            
             videoContainer.innerHTML = `
                 <video id="lessonVideo" controls style="width:100%; max-height:400px; background:#000;">
                     <source src="${videoUrl}?v=${Date.now()}" type="video/mp4">
@@ -31695,20 +31729,8 @@ async function loadVideoFromDatabase(contentId) {
                 </video>
             `;
             
-            // Add error handler
             const video = document.getElementById('lessonVideo');
-            video.onerror = function() {
-                console.error('Video failed to load');
-                videoContainer.innerHTML = `
-                    <div style="background:#fee; height:400px; display:flex; align-items:center; justify-content:center; flex-direction:column;">
-                        <i class="fas fa-exclamation-triangle" style="font-size:60px; color:#e74c3c;"></i>
-                        <h3 style="color:#c0392b;">Video failed to load</h3>
-                        <p style="color:#e74c3c;">The video file may be missing.</p>
-                    </div>
-                `;
-            };
             
-            // Success handler
             video.onloadeddata = function() {
                 console.log(`✅ Video loaded successfully`);
                 if (videoInfo) {
@@ -31717,27 +31739,75 @@ async function loadVideoFromDatabase(contentId) {
                         <p><i class="fas fa-clock"></i> Duration: ${Math.floor((lesson.video_duration_seconds || 600) / 60)} min</p>
                     `;
                 }
-                // Initialize progress tracking
                 if (typeof initVideoProgressTracking === 'function') {
                     initVideoProgressTracking(video, contentId);
                 }
             };
             
+            video.onerror = function() {
+                console.error('❌ Video failed to load');
+                videoContainer.innerHTML = `
+                    <div style="background:#fee; height:400px; display:flex; align-items:center; justify-content:center; flex-direction:column;">
+                        <i class="fas fa-exclamation-triangle" style="font-size:60px; color:#e74c3c;"></i>
+                        <h3 style="color:#c0392b;">Video failed to load</h3>
+                        <p style="color:#e74c3c;">The video file may be missing.</p>
+                        ${lesson.content_url ? `
+                            <p style="margin-top:15px;">
+                                <a href="${lesson.content_url}" target="_blank" style="background:#7a0000; color:white; padding:10px 20px; border-radius:5px; text-decoration:none;">
+                                    <i class="fas fa-play"></i> Watch on YouTube
+                                </a>
+                            </p>
+                        ` : ''}
+                    </div>
+                `;
+            };
+            
             video.load();
-        } else {
-            videoContainer.innerHTML = `
-                <div style="background:#f0f0f0; height:400px; display:flex; align-items:center; justify-content:center; flex-direction:column;">
-                    <i class="fas fa-video-slash" style="font-size:60px; color:#999;"></i>
-                    <h3 style="color:#666;">No video available</h3>
-                    <p style="color:#999;">This lesson has no video assigned.</p>
-                </div>
-            `;
+            return;
         }
+        
+        // If we have a URL but it's not YouTube (maybe direct video link)
+        if (lesson.content_url) {
+            const url = lesson.content_url;
+            const isVideoFile = url.match(/\.(mp4|webm|ogg|mov|avi)$/i);
+            
+            if (isVideoFile) {
+                videoContainer.innerHTML = `
+                    <video id="lessonVideo" controls style="width:100%; max-height:400px; background:#000;">
+                        <source src="${url}" type="video/mp4">
+                        Your browser does not support the video tag.
+                    </video>
+                `;
+                return;
+            } else {
+                // Try to embed as iframe for other video platforms
+                videoContainer.innerHTML = `
+                    <iframe width="100%" height="400" 
+                        src="${url}"
+                        frameborder="0" 
+                        allowfullscreen>
+                    </iframe>
+                `;
+                return;
+            }
+        }
+        
+        // No video available
+        videoContainer.innerHTML = `
+            <div style="background:#f0f0f0; height:400px; display:flex; align-items:center; justify-content:center; flex-direction:column;">
+                <i class="fas fa-video-slash" style="font-size:60px; color:#999;"></i>
+                <h3 style="color:#666;">No video available</h3>
+                <p style="color:#999;">This lesson has no video assigned.</p>
+            </div>
+        `;
+        
     } catch (error) {
         console.error('Error loading video:', error);
         videoContainer.innerHTML = `
-            <div style="background:#fee; height:400px; display:flex; align-items:center; justify-content:center;">
-                <p style="color:#e74c3c;">Error loading video</p>
+            <div style="background:#fee; height:400px; display:flex; align-items:center; justify-content:center; flex-direction:column;">
+                <i class="fas fa-exclamation-triangle" style="font-size:60px; color:#e74c3c;"></i>
+                <h3 style="color:#c0392b;">Error loading video</h3>
+                <p style="color:#e74c3c;">${error.message}</p>
             </div>
         `;
     }
