@@ -32169,3 +32169,57 @@ window.markLessonComplete = markLessonComplete;
 window.goToPracticePage = goToPracticePage;
 window.showNotification = showNotification;
 window.fetchAllLessonsForNavigation = fetchAllLessonsForNavigation;
+
+// ============================================
+// GO TO APP SELECTION PAGE - SAME PAGE VERSION
+// ============================================
+window.goToAppSelection = function(e) {
+    if (e) {
+        e.preventDefault();
+        e.stopPropagation();
+    }
+    
+    console.log('🔄 MathEase: Going to App Selection page');
+    
+    // Close mobile menu
+    closeMobileMenu();
+    
+    // Clear app-specific data but keep user logged in
+    localStorage.removeItem('selectedApp');
+    localStorage.removeItem('currentLessonFilter');
+    localStorage.removeItem('currentLessonId');
+    localStorage.removeItem('hasSelectedApp');
+    
+    // Check if app selection page exists in this HTML
+    const appSelectionPage = document.getElementById('app-selection-page');
+    
+    if (appSelectionPage) {
+        // Hide all pages
+        const pages = [
+            'dashboard-page',
+            'module-dashboard-page',
+            'practice-exercises-page',
+            'quiz-dashboard-page',
+            'progress-page',
+            'settings-page',
+            'feedback-page'
+        ];
+        
+        pages.forEach(id => {
+            const page = document.getElementById(id);
+            if (page) page.classList.add('hidden');
+        });
+        
+        // Show app selection page
+        appSelectionPage.classList.remove('hidden');
+        
+        // Show notification
+        if (typeof showNotification === 'function') {
+            showNotification('info', 'App Selection', 'Choose another app to continue learning');
+        }
+    } else {
+        // If app selection page doesn't exist, redirect to index.html
+        console.log('App selection page not found, redirecting to index.html');
+        window.location.href = '../index.html';
+    }
+};
