@@ -36345,3 +36345,194 @@ function goToFactoLearn() {
     console.log('✅ FINAL button fix applied!');
     console.log('💡 The button will now always start as "Mark Lesson Complete"');
 })();
+
+
+// ============================================
+// 🚀 DIRECT FIX: Skip loading page when returning from MathEase/FactoLearn
+// ============================================
+
+(function fixAppNavigation() {
+    console.log('🚀 Applying direct navigation fix for MathEase/FactoLearn returns');
+    
+    // Check if we're coming back from another app
+    const previousApp = sessionStorage.getItem('previousApp');
+    const returningFrom = sessionStorage.getItem('redirectingTo');
+    const currentApp = localStorage.getItem('selectedApp');
+    
+    console.log('📱 Navigation check:', { previousApp, returningFrom, currentApp });
+    
+    // If we're in PolyLearn and came from another app, skip loading page
+    if (currentApp === 'polylearn' && (previousApp || returningFrom)) {
+        console.log('🎯 Detected return from MathEase/FactoLearn - bypassing loading page');
+        
+        // Clear the flags
+        sessionStorage.removeItem('previousApp');
+        sessionStorage.removeItem('redirectingTo');
+        
+        // Directly navigate to dashboard instead of loading page
+        setTimeout(() => {
+            if (typeof navigateTo === 'function') {
+                navigateTo('dashboard');
+            } else {
+                // Fallback: hide loading and show dashboard
+                const loadingPage = document.getElementById('loading-page');
+                const dashboardPage = document.getElementById('dashboard-page');
+                
+                if (loadingPage) loadingPage.classList.add('hidden');
+                if (dashboardPage) {
+                    dashboardPage.classList.remove('hidden');
+                    AppState.currentPage = 'dashboard';
+                }
+            }
+            
+            // Update dashboard for PolyLearn
+            if (typeof updateDashboardForPolyLearn === 'function') {
+                updateDashboardForPolyLearn();
+            }
+            
+            // Show welcome back message
+            showNotification('Welcome back to PolyLearn!', 'success');
+        }, 100);
+    }
+    
+    // Override the navigateTo function to handle direct dashboard access
+    const originalNavigateTo = window.navigateTo;
+    if (originalNavigateTo) {
+        window.navigateTo = function(page) {
+            // If trying to go to loading page but we have an active session with selected app
+            if (page === 'loading' && 
+                localStorage.getItem('hasSelectedApp') === 'true' && 
+                localStorage.getItem('selectedApp') === 'polylearn') {
+                
+                console.log('🔄 Bypassing loading page - going directly to dashboard');
+                originalNavigateTo('dashboard');
+                return;
+            }
+            
+            // Otherwise, proceed normally
+            originalNavigateTo(page);
+        };
+    }
+})();
+
+// ============================================
+// 🎯 Force immediate dashboard for PolyLearn
+// ============================================
+
+// This runs immediately when the script loads
+(function forcePolyLearnDashboard() {
+    const selectedApp = localStorage.getItem('selectedApp');
+    const hasSelectedApp = localStorage.getItem('hasSelectedApp') === 'true';
+    const currentPath = window.location.pathname;
+    
+    console.log('🔍 Checking PolyLearn status:', { selectedApp, hasSelectedApp, currentPath });
+    
+    // If we're in the main app (index.html) and PolyLearn is selected
+    if (selectedApp === 'polylearn' && hasSelectedApp && 
+        (currentPath.endsWith('index.html') || currentPath === '/' || currentPath === '')) {
+        
+        console.log('✅ PolyLearn is selected - preparing to skip loading page');
+        
+        // Wait for DOM to be ready
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', () => {
+                setTimeout(() => {
+                    hideLoadingShowDashboard();
+                }, 10);
+            });
+        } else {
+            setTimeout(() => {
+                hideLoadingShowDashboard();
+            }, 10);
+        }
+    }
+    
+    function hideLoadingShowDashboard() {
+        console.log('🎯 Hiding loading page and showing dashboard directly');
+        
+        const loadingPage = document.getElementById('loading-page');
+        const dashboardPage = document.getElementById('dashboard-page');
+        
+        if (loadingPage) {
+            loadingPage.classList.add('hidden');
+        }
+        
+        if (dashboardPage) {
+            dashboardPage.classList.remove('hidden');
+            AppState.currentPage = 'dashboard';
+            
+            // Update dashboard for PolyLearn
+            if (typeof updateDashboardForPolyLearn === 'function') {
+                updateDashboardForPolyLearn();
+            } else {
+                // Fallback dashboard updates
+                updateUserInfo();
+                loadInitialData();
+            }
+            
+            console.log('✅ Dashboard shown directly without loading page');
+        }
+    }
+})();
+
+// ============================================
+// 🔗 Fix for when coming from MathEase/FactoLearn links
+// ============================================
+
+// Check URL parameters for return flags
+(function checkReturnFlags() {
+    const urlParams = new URLSearchParams(window.location.search);
+    const from = urlParams.get('from');
+    const app = urlParams.get('app');
+    
+    if (from === 'mathease' || from === 'factolearn' || app === 'polylearn') {
+        console.log(`🔄 Detected return from ${from || 'another app'} via URL parameter`);
+        
+        // Ensure PolyLearn is selected
+        localStorage.setItem('selectedApp', 'polylearn');
+        localStorage.setItem('hasSelectedApp', 'true');
+        
+        // Clear URL parameters
+        const newUrl = window.location.pathname;
+        window.history.replaceState({}, document.title, newUrl);
+        
+        // Go directly to dashboard
+        setTimeout(() => {
+            if (typeof navigateTo === 'function') {
+                navigateTo('dashboard');
+            }
+        }, 50);
+    }
+})();
+
+// ============================================
+// 🛡️ Protect the simulateLoading function
+// ============================================
+
+// Store the original simulateLoading function
+const originalSimulateLoading = window.simulateLoading;
+
+// Override it to skip for PolyLearn
+window.simulateLoading = function() {
+    const selectedApp = localStorage.getItem('selectedApp');
+    const hasSelectedApp = localStorage.getItem('hasSelectedApp') === 'true';
+    
+    console.log('⏳ simulateLoading called:', { selectedApp, hasSelectedApp });
+    
+    // If PolyLearn is already selected, skip loading and go straight to dashboard
+    if (selectedApp === 'polylearn' && hasSelectedApp) {
+        console.log('⏩ Skipping loading page - going directly to dashboard');
+        setTimeout(() => {
+            navigateTo('dashboard');
+        }, 10);
+        return;
+    }
+    
+    // Otherwise, proceed with normal loading
+    if (originalSimulateLoading) {
+        originalSimulateLoading();
+    }
+};
+
+console.log('✅ Direct navigation fixes applied!');
+console.log('📌 Now when coming from MathEase/FactoLearn, you will go directly to the PolyLearn dashboard');
