@@ -31507,10 +31507,10 @@ function sortLessonsInCustomOrder(lessons) {
 }
 
 // ============================================
-// FIXED navigation setup function - WITHOUT TITLES
+// FIXED navigation setup function - WITH AUTO-SCROLL
 // ============================================
 function setupNavigationButtons() {
-    console.log('🔧 Setting up FIXED navigation buttons...');
+    console.log('🔧 Setting up FIXED navigation buttons with auto-scroll...');
     
     const currentLesson = LessonState.currentLesson;
     if (!currentLesson) {
@@ -31545,9 +31545,33 @@ function setupNavigationButtons() {
             newPrevBtn.addEventListener('click', function(e) {
                 e.preventDefault();
                 e.stopPropagation();
+                
+                // Show loading state
+                const originalText = newPrevBtn.innerHTML;
+                newPrevBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Loading...';
+                newPrevBtn.disabled = true;
+                
                 const prevLesson = allLessons[currentIndex - 1];
                 console.log('⬅️ Going to previous lesson:', prevLesson.content_id);
-                openLesson(prevLesson.content_id);
+                
+                // Open the lesson and then scroll to video
+                openLesson(prevLesson.content_id).then(() => {
+                    // Scroll to video after lesson loads
+                    setTimeout(() => {
+                        const videoContainer = document.getElementById('videoContainer');
+                        if (videoContainer) {
+                            videoContainer.scrollIntoView({ 
+                                behavior: 'smooth', 
+                                block: 'start' 
+                            });
+                            console.log('📺 Scrolled to video');
+                        }
+                    }, 800);
+                }).catch(() => {
+                    // Restore button if error
+                    newPrevBtn.innerHTML = originalText;
+                    newPrevBtn.disabled = false;
+                });
             });
             
             console.log('✅ Previous button enabled');
@@ -31571,9 +31595,33 @@ function setupNavigationButtons() {
             newNextBtn.addEventListener('click', function(e) {
                 e.preventDefault();
                 e.stopPropagation();
+                
+                // Show loading state
+                const originalText = newNextBtn.innerHTML;
+                newNextBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Loading...';
+                newNextBtn.disabled = true;
+                
                 const nextLesson = allLessons[currentIndex + 1];
                 console.log('➡️ Going to next lesson:', nextLesson.content_id);
-                openLesson(nextLesson.content_id);
+                
+                // Open the lesson and then scroll to video
+                openLesson(nextLesson.content_id).then(() => {
+                    // Scroll to video after lesson loads
+                    setTimeout(() => {
+                        const videoContainer = document.getElementById('videoContainer');
+                        if (videoContainer) {
+                            videoContainer.scrollIntoView({ 
+                                behavior: 'smooth', 
+                                block: 'start' 
+                            });
+                            console.log('📺 Scrolled to video');
+                        }
+                    }, 800);
+                }).catch(() => {
+                    // Restore button if error
+                    newNextBtn.innerHTML = originalText;
+                    newNextBtn.disabled = false;
+                });
             });
             
             console.log('✅ Next button enabled');
@@ -31584,7 +31632,6 @@ function setupNavigationButtons() {
         }
     }
 }
-
 // ============================================
 // UPDATE LESSON UI
 // ============================================
