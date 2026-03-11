@@ -22507,10 +22507,7 @@ async function openCreateQuizModal(quizId = null, quizData = null) {
     document.getElementById('quizTitle').value = '';
     document.getElementById('quizDescription').value = '';
     document.getElementById('quizSubject').value = '';
-    
-    // Set default lesson_id (FactoLearn = 3)
-    document.getElementById('quizLessonId').value = '3';
-    
+   
     // Reset topic dropdown
     const topicSelect = document.getElementById('quizTopic');
     topicSelect.innerHTML = '<option value="">-- Select Subject First --</option>';
