@@ -31507,7 +31507,7 @@ function sortLessonsInCustomOrder(lessons) {
 }
 
 // ============================================
-// FIXED navigation setup function
+// FIXED navigation setup function - WITHOUT TITLES
 // ============================================
 function setupNavigationButtons() {
     console.log('🔧 Setting up FIXED navigation buttons...');
@@ -31531,7 +31531,6 @@ function setupNavigationButtons() {
     }
     
     console.log(`📍 Current index: ${currentIndex}/${allLessons.length - 1}`);
-    console.log(`📋 Lesson order:`, allLessons.map(l => ({ id: l.content_id, title: l.content_title })));
     
     // ===== PREVIOUS BUTTON =====
     const prevBtn = document.getElementById('prevLessonBtn');
@@ -31540,13 +31539,13 @@ function setupNavigationButtons() {
         prevBtn.parentNode.replaceChild(newPrevBtn, prevBtn);
         
         if (currentIndex > 0) {
-            const prevLesson = allLessons[currentIndex - 1];
             newPrevBtn.disabled = false;
-            newPrevBtn.innerHTML = `<i class="fas fa-arrow-left"></i> Previous: ${prevLesson.content_title || 'Lesson'}`;
+            newPrevBtn.innerHTML = `<i class="fas fa-arrow-left"></i> Previous Lesson`;
             
             newPrevBtn.addEventListener('click', function(e) {
                 e.preventDefault();
                 e.stopPropagation();
+                const prevLesson = allLessons[currentIndex - 1];
                 console.log('⬅️ Going to previous lesson:', prevLesson.content_id);
                 openLesson(prevLesson.content_id);
             });
@@ -31554,7 +31553,7 @@ function setupNavigationButtons() {
             console.log('✅ Previous button enabled');
         } else {
             newPrevBtn.disabled = true;
-            newPrevBtn.innerHTML = `<i class="fas fa-arrow-left"></i> No Previous Lesson`;
+            newPrevBtn.innerHTML = `<i class="fas fa-arrow-left"></i> Previous Lesson`;
             console.log('ℹ️ No previous lesson');
         }
     }
@@ -31566,13 +31565,13 @@ function setupNavigationButtons() {
         nextBtn.parentNode.replaceChild(newNextBtn, nextBtn);
         
         if (currentIndex >= 0 && currentIndex < allLessons.length - 1) {
-            const nextLesson = allLessons[currentIndex + 1];
             newNextBtn.disabled = false;
-            newNextBtn.innerHTML = `Next: ${nextLesson.content_title || 'Lesson'} <i class="fas fa-arrow-right"></i>`;
+            newNextBtn.innerHTML = `Next Lesson <i class="fas fa-arrow-right"></i>`;
             
             newNextBtn.addEventListener('click', function(e) {
                 e.preventDefault();
                 e.stopPropagation();
+                const nextLesson = allLessons[currentIndex + 1];
                 console.log('➡️ Going to next lesson:', nextLesson.content_id);
                 openLesson(nextLesson.content_id);
             });
@@ -31580,7 +31579,7 @@ function setupNavigationButtons() {
             console.log('✅ Next button enabled');
         } else {
             newNextBtn.disabled = true;
-            newNextBtn.innerHTML = `No Next Lesson <i class="fas fa-arrow-right"></i>`;
+            newNextBtn.innerHTML = `Next Lesson <i class="fas fa-arrow-right"></i>`;
             console.log('ℹ️ No next lesson');
         }
     }
