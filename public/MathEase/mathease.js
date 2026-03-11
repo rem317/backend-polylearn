@@ -28446,7 +28446,7 @@ window.showDashboardManually = function() {
 window.navigateTo = function(page) {
     console.log(`🧭 Navigating to: ${page}`);
     
-    // Define page elements - CHECK KUNG MAY LOGIN PAGE
+    // Define page elements - MAKE SURE 'appSelection' is included
     const pages = {
         'dashboard': document.getElementById('dashboard-page'),
         'practice': document.getElementById('practice-exercises-page'),
@@ -28455,8 +28455,8 @@ window.navigateTo = function(page) {
         'feedback': document.getElementById('feedback-page'),
         'settings': document.getElementById('settings-page'),
         'moduleDashboard': document.getElementById('module-dashboard-page'),
-        'appSelection': document.getElementById('app-selection-page'),
-        'login': document.getElementById('login-page'),        // ITO ANG USER LOGIN PAGE
+        'appSelection': document.getElementById('app-selection-page'), // ADD THIS LINE
+        'login': document.getElementById('login-page'),
         'signup': document.getElementById('signup-page'),
         'loading': document.getElementById('loading-page'),
         'landing': document.getElementById('landing-page')
@@ -32236,25 +32236,3 @@ window.showAppSelectionPage = function(e) {
         console.log('✅ Returned to App Selection page');
     }
 };
-                                                      // Find this function in your code and update the pages object
-window.navigateTo = function(page) {
-    console.log(`🧭 Navigating to: ${page}`);
-    
-    // Define page elements - MAKE SURE 'appSelection' is included
-    const pages = {
-        'dashboard': document.getElementById('dashboard-page'),
-        'practice': document.getElementById('practice-exercises-page'),
-        'quizDashboard': document.getElementById('quiz-dashboard-page'),
-        'progress': document.getElementById('progress-page'),
-        'feedback': document.getElementById('feedback-page'),
-        'settings': document.getElementById('settings-page'),
-        'moduleDashboard': document.getElementById('module-dashboard-page'),
-        'appSelection': document.getElementById('app-selection-page'), // ADD THIS LINE
-        'login': document.getElementById('login-page'),
-        'signup': document.getElementById('signup-page'),
-        'loading': document.getElementById('loading-page'),
-        'landing': document.getElementById('landing-page')
-    };
-    
-    // Rest of your function remains the same...
-    // (keep all your existing code below this)
