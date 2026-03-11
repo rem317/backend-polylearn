@@ -29679,3 +29679,158 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 
 
+
+// Setup app selection listeners
+function setupAppSelectionListeners() {
+    console.log('🔄 Setting up app selection listeners...');
+    
+    // Listen for app card clicks
+    document.addEventListener('click', function(event) {
+        // Check if clicked element is an app card or inside an app card
+        const appCard = event.target.closest('.app-card');
+        if (appCard) {
+            const appName = appCard.getAttribute('data-app');
+            if (appName) {
+                event.preventDefault();
+                event.stopPropagation();
+                
+                console.log(`🎮 App selected: ${appName}`);
+                handleAppSelection(appName);
+            }
+        }
+    });
+}
+
+// ✅ FIXED: Handle app selection with proper back navigation
+function handleAppSelection(appName) {
+    console.log(`📱 Handling app selection: ${appName}`);
+    
+    // Save selected app to localStorage and state
+    AppState.selectedApp = appName;
+    AppState.hasSelectedApp = true;
+    
+    // Save with persistence
+    localStorage.setItem('selectedApp', appName);
+    localStorage.setItem('hasSelectedApp', 'true');
+    localStorage.setItem('lastSelectedApp', appName);
+    localStorage.setItem('appLastVisited', new Date().toISOString());
+    
+    // Set the lesson filter based on the selected app
+    let lessonId = 2; // Default to PolyLearn
+    
+    if (appName === 'mathease') {
+        lessonId = 1;
+    } else if (appName === 'polylearn') {
+        lessonId = 2;
+    } else if (appName === 'factolearn' || appName === 'factorial') {
+        lessonId = 3;
+    }
+    
+    localStorage.setItem('currentLessonFilter', lessonId.toString());
+    console.log(`🔍 Setting lesson filter: ${lessonId} for ${appName}`);
+    
+    // Save current app for back navigation
+    localStorage.setItem('currentApp', appName);
+    sessionStorage.setItem('currentApp', appName);
+    
+    // IMPORTANT: PolyLearn stays in the main app (index.html)
+    // MathEase and FactoLearn redirect to their folders
+    if (appName === 'polylearn') {
+        console.log('🎯 PolyLearn selected - staying in main app');
+        showNotification('Opening PolyLearn...', 'info');
+        
+        // Just navigate to dashboard within the same page
+        navigateTo('dashboard');
+        
+        // Update the dashboard for PolyLearn
+        updateDashboardForPolyLearn();
+    } 
+    else if (appName === 'mathease') {
+        console.log('🎯 MathEase selected - redirecting to MathEase folder');
+        showNotification('Opening MathEase...', 'info');
+        
+        // Save that we're going to MathEase
+        sessionStorage.setItem('redirectingTo', 'mathease');
+        sessionStorage.setItem('previousApp', 'mathease');
+        
+        // Redirect to MathEase folder
+        setTimeout(() => {
+            window.location.href = 'MathEase/mathease.html';
+        }, 500);
+    }
+    else if (appName === 'factolearn' || appName === 'factorial') {
+        console.log('🎯 FactoLearn selected - redirecting to FactoLearn folder');
+        showNotification('Opening FactoLearn...', 'info');
+        
+        // Save that we're going to FactoLearn
+        sessionStorage.setItem('redirectingTo', 'factolearn');
+        sessionStorage.setItem('previousApp', 'factolearn');
+        
+        // Redirect to FactoLearn folder
+        setTimeout(() => {
+            window.location.href = 'FactoLearn/factolearn.html';
+        }, 500);
+    }
+}
+
+
+// Initialize app selection page
+async function initAppSelectionPage() {
+    console.log('🚀 Initializing app selection page...');
+    
+    // Update user info if needed
+    if (AppState.currentUser) {
+        const userNameElement = document.querySelector('#app-selection-page .student-name span');
+        if (userNameElement) {
+            userNameElement.textContent = AppState.currentUser.full_name || AppState.currentUser.username;
+        }
+    }
+    
+    // Setup app selection listeners
+    setupAppSelectionListeners();
+    
+    console.log('✅ App selection page initialized');
+}
+
+// Setup app selection navigation
+function setupAppSelectionNavigation() {
+    console.log('🧭 Setting up app selection navigation...');
+    
+    // Setup logout button in app selection if it exists
+    const logoutBtnAppSelection = document.getElementById('logoutBtnAppSelection');
+    if (logoutBtnAppSelection) {
+        logoutBtnAppSelection.addEventListener('click', function(e) {
+            e.preventDefault();
+            logoutAndRedirect();
+        });
+    }
+    
+    // Setup back to app selection button
+    const backToAppSelectionBtn = document.getElementById('backToAppSelectionBtn');
+    if (backToAppSelectionBtn) {
+        backToAppSelectionBtn.addEventListener('click', function(e) {
+            e.preventDefault();
+            navigateTo('appSelection');
+        });
+    }
+}
+
+
+// 🎯 Go to App Selection from Menu
+function goToAppSelection(e) {
+    if (e) {
+        e.preventDefault();
+        e.stopPropagation();
+    }
+    
+    console.log('🎯 Going to App Selection page');
+    closeMobileMenu();
+    navigateTo('appSelection');
+}
+
+// Make it globally available
+window.goToAppSelection = goToAppSelection;
+
+
+
+
