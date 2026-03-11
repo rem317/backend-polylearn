@@ -32248,3 +32248,285 @@ window.goToAppSelection = function(e) {
         window.location.href = '/#appSelection';
     }, 300);
 };
+// ============================================
+// SETTINGS PAGE FUNCTIONS - MATHEASE VERSION
+// ============================================
+
+// Show settings section
+window.showSection = function(sectionId) {
+    console.log(`⚙️ Showing settings section: ${sectionId}`);
+    
+    // Hide all settings sections
+    document.querySelectorAll('.settings-section').forEach(section => {
+        section.classList.remove('active');
+        section.style.display = 'none';
+    });
+    
+    // Show selected section
+    const targetSection = document.getElementById(sectionId);
+    if (targetSection) {
+        targetSection.classList.add('active');
+        targetSection.style.display = 'block';
+        
+        // Update active state in sidebar
+        document.querySelectorAll('.sidebar-menu a').forEach(link => {
+            link.classList.remove('active');
+        });
+        
+        // Find and activate the clicked link
+        const activeLink = document.querySelector(`[onclick="showSection('${sectionId}')"]`);
+        if (activeLink) {
+            activeLink.classList.add('active');
+        }
+        
+        console.log(`✅ Settings section "${sectionId}" is now visible`);
+    } else {
+        console.error(`❌ Section "${sectionId}" not found`);
+        
+        // Show general section as fallback
+        const generalSection = document.getElementById('general');
+        if (generalSection) {
+            generalSection.classList.add('active');
+            generalSection.style.display = 'block';
+            
+            document.querySelectorAll('.sidebar-menu a').forEach(link => {
+                link.classList.remove('active');
+            });
+            
+            const generalLink = document.querySelector('[onclick="showSection(\'general\')"]');
+            if (generalLink) {
+                generalLink.classList.add('active');
+            }
+        }
+    }
+};
+
+// Load profile data
+async function loadProfileData() {
+    try {
+        const userJson = localStorage.getItem('mathhub_user');
+        if (userJson) {
+            const user = JSON.parse(userJson);
+            
+            const displayName = document.getElementById('displayName');
+            const userEmail = document.getElementById('userEmail');
+            
+            if (displayName) displayName.value = user.full_name || user.username || '';
+            if (userEmail) userEmail.value = user.email || '';
+            
+            // Update profile preview
+            const profilePreview = document.getElementById('profilePreview');
+            if (profilePreview) {
+                const name = user.full_name || user.username || 'U';
+                const initial = name.charAt(0).toUpperCase();
+                profilePreview.innerHTML = `
+                    <div style="width: 100%; height: 100%; background: #7a0000; color: white; display: flex; align-items: center; justify-content: center; font-size: 32px; font-weight: bold;">
+                        ${initial}
+                    </div>
+                `;
+            }
+        }
+    } catch (error) {
+        console.error('Error loading profile:', error);
+    }
+}
+
+// Load saved settings from localStorage
+function loadSavedSettings() {
+    try {
+        const settings = JSON.parse(localStorage.getItem('mathease_settings'));
+        if (!settings) return;
+        
+        // Set values
+        if (settings.language) document.getElementById('interfaceLanguage').value = settings.language;
+        if (settings.municipality) document.getElementById('batangas-municipalities').value = settings.municipality;
+        if (settings.timezone) document.getElementById('timeZone').value = settings.timezone;
+        
+        // Checkboxes
+        document.getElementById('adaptiveDifficulty').checked = settings.adaptiveDifficulty !== false;
+        document.getElementById('showSolutions').checked = settings.showSolutions !== false;
+        document.getElementById('twoFactorAuth').checked = settings.twoFactorAuth === true;
+        document.getElementById('dataSharing').checked = settings.dataSharing === true;
+        document.getElementById('weeklyReport').checked = settings.weeklyReport !== false;
+        document.getElementById('featureAnnouncements').checked = settings.featureAnnouncements !== false;
+        document.getElementById('practiceReminders').checked = settings.practiceReminders !== false;
+        document.getElementById('achievementAlerts').checked = settings.achievementAlerts !== false;
+        document.getElementById('highContrast').checked = settings.highContrast === true;
+        
+        // Selects
+        if (settings.preferredDifficulty) document.getElementById('preferredDifficulty').value = settings.preferredDifficulty;
+        if (settings.profileVisibility) document.getElementById('profileVisibility').value = settings.profileVisibility;
+        if (settings.fontSize) document.getElementById('fontSize').value = settings.fontSize;
+        
+        // Theme
+        if (settings.theme === 'dark') document.getElementById('themeDark').checked = true;
+        else if (settings.theme === 'auto') document.getElementById('themeAuto').checked = true;
+        else document.getElementById('themeLight').checked = true;
+        
+    } catch (e) {
+        console.log('No saved settings found');
+    }
+}
+
+// Get selected theme
+function getSelectedTheme() {
+    const themeLight = document.getElementById('themeLight');
+    const themeDark = document.getElementById('themeDark');
+    const themeAuto = document.getElementById('themeAuto');
+    
+    if (themeLight?.checked) return 'light';
+    if (themeDark?.checked) return 'dark';
+    if (themeAuto?.checked) return 'auto';
+    return 'light';
+}
+
+// Save all settings
+window.saveAllSettings = function() {
+    console.log('💾 Saving settings...');
+    
+    const displayName = document.getElementById('displayName')?.value;
+    const userEmail = document.getElementById('userEmail')?.value;
+    
+    // Update localStorage user
+    const userJson = localStorage.getItem('mathhub_user');
+    if (userJson) {
+        try {
+            const user = JSON.parse(userJson);
+            if (displayName) user.full_name = displayName;
+            if (userEmail) user.email = userEmail;
+            localStorage.setItem('mathhub_user', JSON.stringify(user));
+        } catch (e) {
+            console.error('Error saving user:', e);
+        }
+    }
+    
+    // Save other settings to localStorage
+    const settings = {
+        displayName: displayName,
+        language: document.getElementById('interfaceLanguage')?.value,
+        municipality: document.getElementById('batangas-municipalities')?.value,
+        timezone: document.getElementById('timeZone')?.value,
+        adaptiveDifficulty: document.getElementById('adaptiveDifficulty')?.checked,
+        preferredDifficulty: document.getElementById('preferredDifficulty')?.value,
+        showSolutions: document.getElementById('showSolutions')?.checked,
+        twoFactorAuth: document.getElementById('twoFactorAuth')?.checked,
+        profileVisibility: document.getElementById('profileVisibility')?.value,
+        dataSharing: document.getElementById('dataSharing')?.checked,
+        weeklyReport: document.getElementById('weeklyReport')?.checked,
+        featureAnnouncements: document.getElementById('featureAnnouncements')?.checked,
+        practiceReminders: document.getElementById('practiceReminders')?.checked,
+        achievementAlerts: document.getElementById('achievementAlerts')?.checked,
+        theme: getSelectedTheme(),
+        highContrast: document.getElementById('highContrast')?.checked,
+        fontSize: document.getElementById('fontSize')?.value
+    };
+    
+    localStorage.setItem('mathease_settings', JSON.stringify(settings));
+    showNotification('Settings saved successfully!', 'success');
+};
+
+// Reset settings
+window.resetSettings = function() {
+    if (confirm('Reset all settings to default?')) {
+        localStorage.removeItem('mathease_settings');
+        location.reload();
+    }
+};
+
+// View profile
+window.viewProfile = function() {
+    window.open('/profile', '_blank');
+};
+
+// Export data
+window.exportData = function() {
+    console.log('📤 Exporting data...');
+    showNotification('Data export coming soon!', 'info');
+};
+
+// Delete account
+window.deleteAccount = function() {
+    if (confirm('Are you sure you want to delete your account? This action cannot be undone.')) {
+        console.log('🗑️ Deleting account...');
+        showNotification('Account deletion coming soon!', 'info');
+    }
+};
+
+// Setup photo upload
+function setupPhotoUpload() {
+    const uploadBtn = document.getElementById('uploadPhotoBtn');
+    if (!uploadBtn) return;
+    
+    uploadBtn.addEventListener('click', function() {
+        const fileInput = document.createElement('input');
+        fileInput.type = 'file';
+        fileInput.accept = 'image/*';
+        
+        fileInput.onchange = function(e) {
+            const file = e.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = function(event) {
+                    const profilePreview = document.getElementById('profilePreview');
+                    if (profilePreview) {
+                        profilePreview.innerHTML = `<img src="${event.target.result}" style="width: 100%; height: 100%; object-fit: cover;">`;
+                    }
+                    showNotification('Profile picture updated!', 'success');
+                };
+                reader.readAsDataURL(file);
+            }
+        };
+        
+        fileInput.click();
+    });
+}
+
+// Setup password change
+function setupPasswordChange() {
+    const passwordBtn = document.getElementById('changePasswordBtn');
+    if (!passwordBtn) return;
+    
+    passwordBtn.addEventListener('click', function() {
+        showNotification('Password change feature coming soon!', 'info');
+    });
+}
+
+// Initialize settings dashboard
+window.initSettingsDashboard = function() {
+    console.log('⚙️ Initializing settings dashboard...');
+    
+    // Show general section by default
+    setTimeout(() => {
+        showSection('general');
+    }, 100);
+    
+    // Load user profile
+    loadProfileData();
+    
+    // Load saved settings
+    loadSavedSettings();
+    
+    // Setup photo upload
+    setupPhotoUpload();
+    
+    // Setup password change
+    setupPasswordChange();
+};
+
+// Make sure settings page loads when visible
+document.addEventListener('DOMContentLoaded', function() {
+    const settingsPage = document.getElementById('settings-page');
+    if (settingsPage) {
+        const observer = new MutationObserver(function(mutations) {
+            mutations.forEach(function(mutation) {
+                if (mutation.type === 'attributes' && mutation.attributeName === 'class') {
+                    if (!settingsPage.classList.contains('hidden')) {
+                        console.log('⚙️ Settings page became visible');
+                        setTimeout(initSettingsDashboard, 300);
+                    }
+                }
+            });
+        });
+        observer.observe(settingsPage, { attributes: true });
+    }
+});
