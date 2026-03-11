@@ -32171,7 +32171,7 @@ window.showNotification = showNotification;
 window.fetchAllLessonsForNavigation = fetchAllLessonsForNavigation;
 
 // ============================================
-// GO TO APP SELECTION PAGE - FOR MATHEASE
+// GO TO APP SELECTION PAGE - MATHEASE FIXED
 // ============================================
 window.goToAppSelection = function(e) {
     if (e) {
@@ -32184,24 +32184,24 @@ window.goToAppSelection = function(e) {
     // Close mobile menu
     closeMobileMenu();
     
-    // Show notification
-    if (typeof showNotification === 'function') {
-        showNotification('info', 'Redirecting', 'Going back to app selection...');
-    }
-    
     // Clear app-specific data but keep user logged in
     localStorage.removeItem('selectedApp');
     localStorage.removeItem('currentLessonFilter');
     localStorage.removeItem('currentLessonId');
     localStorage.removeItem('hasSelectedApp');
     
+    // Show notification
+    if (typeof showNotification === 'function') {
+        showNotification('info', 'Redirecting', 'Going back to app selection...');
+    }
+    
     // Add flag to let index.html know we're returning
     sessionStorage.setItem('returningFromApp', 'true');
     sessionStorage.setItem('previousApp', 'mathease');
     
-    // Redirect to main index.html (app selection page)
-    // Based on your console test, this is correct
+    // ✅ FIXED: Redirect to the same pattern as PolyLearn
+    // PolyLearn uses "/#appSelection" directly
     setTimeout(() => {
-        window.location.href = '../index.html';
+        window.location.href = '/#appSelection';
     }, 300);
 };
