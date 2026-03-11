@@ -1990,104 +1990,83 @@
             </div>
         </div>
 
-        <!-- Module Dashboard Page - DATABASE DRIVEN -->
-        <div id="module-dashboard-page" class="hidden">
-            <!-- Page Container -->
-            <div id="module-page-container">
-                <!-- Header -->
-
-                <!-- Dashboard Content -->
-                <div class="dashboard-container">
-                    <!-- Main Content -->
-                    <main class="main-content">
-                        <!-- Lesson Content Card -->
-                        <div class="card">
-                            <div class="card-header">
-                                <h2 class="card-title">
-                                    <i class="fas fa-book-open"></i> Lesson: <span id="moduleTitle">Loading...</span>
-                                </h2>
-                                <p class="card-subtitle" id="moduleSubtitle">Loading lesson content...</p>
+<!-- Module Dashboard Page - DATABASE DRIVEN -->
+<div id="module-dashboard-page" class="hidden">
+    <!-- Page Container -->
+    <div id="module-page-container">
+        <!-- Dashboard Content - SINGLE COLUMN LIKE POLYLEARN -->
+        <div class="dashboard-container" style="display: flex; flex-direction: column; gap: 20px; max-width: 1000px; margin: 0 auto; padding: 8px;">
+            
+            <!-- Main Content - Full Width -->
+            <main class="main-content" style="width: 100%;">
+                <!-- Lesson Content Card -->
+                <div class="card">
+                    <div class="card-header">
+                        <h2 class="card-title">
+                            <i class="fas fa-book-open"></i> Lesson: <span id="moduleTitle">Loading...</span>
+                        </h2>
+                        <p class="card-subtitle" id="moduleSubtitle">Loading lesson content...</p>
+                    </div>
+                    
+                    <div class="lesson-content">
+                        <!-- Video Section -->
+                        <div class="media-container">
+                            <div class="media-header">
+                                <span><i class="fas fa-video"></i> Lesson Video</span>
+                                <div class="media-controls">
+                                    <span id="videoTime" style="font-family: monospace; color: white;">0:00 / 0:00</span>
+                                    <button class="refresh-video-btn" id="refreshVideoBtn" title="Reload video">
+                                        <i class="fas fa-sync-alt"></i>
+                                    </button>
+                                </div>
                             </div>
-                            
-                            <div class="lesson-content">
-<!-- Video Section -->
-<div class="media-container">
-    <div class="media-header">
-        <span><i class="fas fa-video"></i> Lesson Video</span>
-        <div class="media-controls">
-            <span id="videoTime" style="font-family: monospace; color: white;">0:00 / 0:00</span>
-            <button class="refresh-video-btn" id="refreshVideoBtn" title="Reload video">
-                <i class="fas fa-sync-alt"></i>
-            </button>
-        </div>
-    </div>
-    <div class="video-container" id="videoContainer">
-        <!-- VIDEO: Loaded from database -->
-        <video id="lessonVideo" width="100%" height="100%" controls>
-            <source src="" type="video/mp4">
-            Your browser does not support the video tag.
-        </video>
-    </div>
-    <div class="video-info" id="videoInfo">
-        <p><i class="fas fa-info-circle"></i> Video loaded from database. Changes will appear automatically.</p>
-    </div>
-</div>
-                            
-<!-- Example Section -->
-<div class="step-container" id="exampleSection">
-    <div class="step-title">
-        <span class="step-number"><i class="fas fa-book"></i></span> Lesson Content
-    </div>
-    <div class="step-content" id="lessonContent">
-        <p>Loading lesson content from database...</p>
-        <div class="math-example">
-            <p><strong>Loading example...</strong></p>
-        </div>
-        <ol class="steps">
-            <li>Lesson steps will appear here</li>
-            <li>Loaded dynamically from database</li>
-        </ol>
-    </div>
-</div>
-                                
-                                <!-- Divider Line -->
-                                <div style="height: 1px; background: var(--border-color); margin: 30px 0;"></div>
-                                
-                                
-<!-- Lesson Navigation -->
-<div class="lesson-navigation">
-    <button class="lesson-nav-btn nav-prev" id="prevLessonBtn" disabled>
-        <i class="fas fa-arrow-left"></i> Previous
-    </button>
-    
-    <!-- CRITICAL: Admin Connection - data-lesson-id added for backend tracking -->
-    <button class="btn-primary" id="completeLessonBtn" data-lesson-id="1">
-        <i class="fas fa-check-circle"></i> Mark Lesson Complete
-    </button>
-    
-    <button class="lesson-nav-btn nav-next" id="nextLessonBtn" disabled>
-        Next <i class="fas fa-arrow-right"></i>
-    </button>
-</div>
+                            <div class="video-container" id="videoContainer">
+                                <!-- VIDEO: Loaded from database -->
+                                <video id="lessonVideo" width="100%" height="100%" controls>
+                                    <source src="" type="video/mp4">
+                                    Your browser does not support the video tag.
+                                </video>
+                            </div>
+                            <div class="video-info" id="videoInfo">
+                                <p><i class="fas fa-info-circle"></i> Video loaded from database. Changes will appear automatically.</p>
                             </div>
                         </div>
-                    </main>
-                    
-                    <!-- Sidebar -->
-                    <aside class="sidebar">
-                        <!-- Progress and Learning Tool -->
-                        <div class="progress-learning-tool">
-                            <h2 class="progress-title">
+                        
+                        <!-- Example Section -->
+                        <div class="step-container" id="exampleSection">
+                            <div class="step-title">
+                                <span class="step-number"><i class="fas fa-book"></i></span> Lesson Content
+                            </div>
+                            <div class="step-content" id="lessonContent">
+                                <p>Loading lesson content from database...</p>
+                                <div class="math-example">
+                                    <p><strong>Loading example...</strong></p>
+                                </div>
+                                <ol class="steps">
+                                    <li>Lesson steps will appear here</li>
+                                    <li>Loaded dynamically from database</li>
+                                </ol>
+                            </div>
+                        </div>
+                        
+                        <!-- Divider Line -->
+                        <div style="height: 1px; background: var(--border-color); margin: 20px 0;"></div>
+                        
+                        <!-- Progress and Learning Tool - MOVED INSIDE MAIN CONTENT (LIKE POLYLEARN) -->
+                        <div class="progress-learning-tool" style="background: white; border-radius: 12px; padding: 15px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); margin-top: 15px;">
+                            <h2 class="progress-title" style="display: flex; align-items: center; gap: 10px; font-size: 1.3rem; margin-bottom: 15px; color: var(--text-color);">
                                 <i class="fas fa-chart-line"></i> Your Progress & Learning
                             </h2>
                             
                             <!-- Current Lesson Progress -->
-                            <div class="lesson-progress-section">
-                                <h3><i class="fas fa-book"></i> Current Lesson Progress</h3>
-                                <div class="progress-bar-container">
-                                    <div class="progress-fill" id="lessonProgressFill" style="width: 0%"></div>
+                            <div class="lesson-progress-section" style="margin-bottom: 20px;">
+                                <h3 style="display: flex; align-items: center; gap: 10px; font-size: 1.1rem; margin-bottom: 10px; color: var(--text-color);">
+                                    <i class="fas fa-book"></i> Current Lesson Progress
+                                </h3>
+                                <div class="progress-bar-container" style="height: 8px; background: #ecf0f1; border-radius: 4px; overflow: hidden;">
+                                    <div class="progress-fill" id="lessonProgressFill" style="height: 100%; width: 0%; background: linear-gradient(90deg, #7a0000, #c0392b);"></div>
                                 </div>
-                                <div class="progress-details">
+                                <div class="progress-details" style="display: flex; justify-content: space-between; font-size: 0.9rem; color: var(--text-light); margin-top: 8px;">
                                     <span id="progressPercentage">0% Complete</span>
                                     <span id="progressTime">0/0 min</span>
                                 </div>
@@ -2095,41 +2074,65 @@
                             
                             <!-- Learning Statistics -->
                             <div class="learning-stats">
-                                <h3><i class="fas fa-chart-bar"></i> Today's Learning</h3>
-                                <div class="stat-item">
-                                    <div class="stat-icon">
+                                <h3 style="display: flex; align-items: center; gap: 10px; font-size: 1.1rem; margin-bottom: 15px; color: var(--text-color);">
+                                    <i class="fas fa-chart-bar"></i> Today's Learning
+                                </h3>
+                                
+                                <div class="stat-item" style="display: flex; align-items: center; gap: 15px; margin-bottom: 15px; padding-bottom: 15px; border-bottom: 1px solid var(--border-color);">
+                                    <div class="stat-icon" style="width: 45px; height: 45px; background: linear-gradient(135deg, #7a0000, #c0392b); border-radius: 10px; display: flex; align-items: center; justify-content: center; color: white; font-size: 1.2rem;">
                                         <i class="fas fa-clock"></i>
                                     </div>
-                                    <div class="stat-content">
-                                        <div class="stat-value" id="totalLearningTime">0 min</div>
-                                        <div class="stat-label">Total Learning Time</div>
+                                    <div class="stat-content" style="flex-grow: 1;">
+                                        <div class="stat-value" id="totalLearningTime" style="font-size: 1.3rem; font-weight: 700; color: var(--text-color);">0 min</div>
+                                        <div class="stat-label" style="font-size: 0.85rem; color: var(--text-light);">Total Learning Time</div>
                                     </div>
                                 </div>
-                                <div class="stat-item">
-                                    <div class="stat-icon">
+                                
+                                <div class="stat-item" style="display: flex; align-items: center; gap: 15px; margin-bottom: 15px; padding-bottom: 15px; border-bottom: 1px solid var(--border-color);">
+                                    <div class="stat-icon" style="width: 45px; height: 45px; background: linear-gradient(135deg, #27ae60, #2ecc71); border-radius: 10px; display: flex; align-items: center; justify-content: center; color: white; font-size: 1.2rem;">
                                         <i class="fas fa-check-circle"></i>
                                     </div>
-                                    <div class="stat-content">
-                                        <div class="stat-value" id="accuracyRate">0%</div>
-                                        <div class="stat-label">Accuracy Rate</div>
+                                    <div class="stat-content" style="flex-grow: 1;">
+                                        <div class="stat-value" id="accuracyRate" style="font-size: 1.3rem; font-weight: 700; color: var(--text-color);">0%</div>
+                                        <div class="stat-label" style="font-size: 0.85rem; color: var(--text-light);">Accuracy Rate</div>
                                     </div>
                                 </div>
-                                <div class="stat-item">
-                                    <div class="stat-icon">
+                                
+                                <div class="stat-item" style="display: flex; align-items: center; gap: 15px; margin-bottom: 0;">
+                                    <div class="stat-icon" style="width: 45px; height: 45px; background: linear-gradient(135deg, #f39c12, #e67e22); border-radius: 10px; display: flex; align-items: center; justify-content: center; color: white; font-size: 1.2rem;">
                                         <i class="fas fa-bolt"></i>
                                     </div>
-                                    <div class="stat-content">
-                                        <div class="stat-value" id="exercisesCompleted">0/0</div>
-                                        <div class="stat-label">Exercises Completed</div>
+                                    <div class="stat-content" style="flex-grow: 1;">
+                                        <div class="stat-value" id="exercisesCompleted" style="font-size: 1.3rem; font-weight: 700; color: var(--text-color);">0/5</div>
+                                        <div class="stat-label" style="font-size: 0.85rem; color: var(--text-light);">Exercises Completed</div>
                                     </div>
                                 </div>
-                            </div>                      
+                            </div>
                         </div>
+                        
+                        <!-- Lesson Navigation -->
+                        <div class="lesson-navigation" style="display: flex; justify-content: space-between; align-items: center; margin-top: 20px; padding-top: 15px; border-top: 1px solid var(--border-color);">
+                            <button class="lesson-nav-btn nav-prev" id="prevLessonBtn" disabled style="padding: 10px 20px; background: white; color: #7a0000; border: 2px solid #7a0000; border-radius: 8px; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 8px;">
+                                <i class="fas fa-arrow-left"></i> Previous Lesson
+                            </button>
+                            
+                            <button class="btn-primary" id="completeLessonBtn" data-lesson-id="1" style="padding: 10px 20px; background: #7a0000; color: white; border: none; border-radius: 8px; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 8px;">
+                                <i class="fas fa-check-circle"></i> Mark Lesson Complete
+                            </button>
+                            
+                            <button class="lesson-nav-btn nav-next" id="nextLessonBtn" disabled style="padding: 10px 20px; background: linear-gradient(135deg, #7a0000, #c0392b); color: white; border: none; border-radius: 8px; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 8px;">
+                                Next Lesson <i class="fas fa-arrow-right"></i>
+                            </button>
                         </div>
-                    </aside>
+                    </div>
                 </div>
-            </div>
+            </main>
+            
+            <!-- NO SEPARATE SIDEBAR - Progress moved inside main content (like PolyLearn) -->
+            
         </div>
+    </div>
+</div>
 
         <!-- Practice Exercises Page -->
         <div id="practice-exercises-page" class="hidden">
@@ -3240,8 +3243,8 @@
         </div>
     </footer>
 
-    <!-- Mobile Menu Overlay -->
-    <div class="mobile-menu-overlay" id="mobileMenuOverlay"></div>
+<!-- Mobile Menu Overlay -->
+<div class="mobile-menu-overlay" id="mobileMenuOverlay"></div>
 <div class="mobile-menu-panel" id="mobileMenuPanel">
     <div class="mobile-menu-header">
         <h3><i class="fas fa-bars"></i> Menu</h3>
@@ -3278,7 +3281,7 @@
             <i class="fas fa-graduation-cap"></i>
             <span>Lessons</span>
         </a>
-        <!-- ✅ ADD THIS: Back to App Selection Button (same style as PolyLearn) -->
+        <!-- Back to App Selection Button -->
         <a href="#" class="mobile-menu-item" onclick="goToAppSelection(event)" style="border-top: 1px solid #eee; margin-top: 5px; padding-top: 15px;">
             <i class="fas fa-arrow-left"></i>
             <span>Back to App Selection</span>
