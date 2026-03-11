@@ -22039,6 +22039,7 @@ async function initializeQuizDashboard() {
 }
 
 // ===== LOAD QUIZZES FROM MYSQL - WITH CORRECT SUBJECT MAPPING =====
+// ===== UPDATED: Load quizzes from MySQL - Use lesson_id =====
 async function loadQuizzesFromMySQL() {
     console.log("📥 Loading quizzes from MySQL...");
     
@@ -22056,95 +22057,44 @@ async function loadQuizzesFromMySQL() {
             return;
         }
         
-        // Try new endpoint first
-        try {
-            const response = await fetch(`/api/admin/quizzes-with-subjects`, {
-                headers: { 'Authorization': `Bearer ${token}` }
-            });
-            
-            if (response.ok) {
-                const result = await response.json();
-                console.log('📥 Server response:', result);
-                
-                if (result.success) {
-                    quizData = (result.quizzes || []).map(quiz => {
-                        // ✅ FIXED: Correct subject mapping based on category_id
-                        let subject_id = quiz.category_id || quiz.subject_id;
-                        let subject_name = 'Unknown';
-                        
-                        // Map subject_id to display name
-                        if (subject_id == 2) subject_name = 'PolyLearn';
-                        else if (subject_id == 1) subject_name = 'MathEase';
-                        else if (subject_id == 3) subject_name = 'FactoLearn';
-                        
-                        return {
-                            id: quiz.quiz_id || quiz.id,
-                            title: quiz.quiz_title || quiz.title,
-                            description: quiz.description,
-                            subject_id: subject_id,
-                            subject_name: subject_name,
-                            difficulty: quiz.difficulty,
-                            question_count: quiz.question_count || 0,
-                            attempts: quiz.attempts || 0,
-                            avg_score: Math.round(quiz.avg_score || 0),
-                            status: quiz.is_active === 1 ? 'active' : 'draft',
-                            created_at: quiz.created_at
-                        };
-                    });
-                    
-                    console.log(`✅ Loaded ${quizData.length} quizzes with correct subject mapping`);
-                    console.log('📊 Sample quiz data:', quizData.slice(0, 2));
-                    
-                    updateQuizStats();
-                    displayQuizzes();
-                    updateTopQuizzes();
-                    //updateRecentResults();//
-                    return;
-                }
-            }
-        } catch (error) {
-            console.log('⚠️ New endpoint failed, trying fallback:', error.message);
-        }
-        
-        // Fallback: Try regular endpoint
-        const fallbackResponse = await fetch(`/api/admin/quizzes`, {
+        const response = await fetch(`/api/admin/quizzes`, {
             headers: { 'Authorization': `Bearer ${token}` }
         });
         
-        const fallbackResult = await fallbackResponse.json();
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
         
-        if (fallbackResult.success) {
-            quizData = (fallbackResult.quizzes || []).map(quiz => {
-                // ✅ FIXED: Correct subject mapping
-                let subject_id = quiz.subject_id || quiz.category_id;
-                let subject_name = 'Unknown';
-                
-                if (subject_id == 2) subject_name = 'PolyLearn';
-                else if (subject_id == 1) subject_name = 'MathEase';
-                else if (subject_id == 3) subject_name = 'FactoLearn';
+        const result = await response.json();
+        
+        if (result.success) {
+            quizData = (result.quizzes || []).map(quiz => {
+                // ✅ Use lesson_id for filtering
+                let lesson_id = quiz.lesson_id || 0;
                 
                 return {
-                    id: quiz.id || quiz.quiz_id,
-                    title: quiz.title || quiz.quiz_title,
+                    id: quiz.quiz_id || quiz.id,
+                    title: quiz.quiz_title || quiz.title,
                     description: quiz.description,
-                    subject_id: subject_id,
-                    subject_name: subject_name,
+                    lesson_id: lesson_id,
                     difficulty: quiz.difficulty,
                     question_count: quiz.question_count || 0,
                     attempts: quiz.attempts || 0,
                     avg_score: Math.round(quiz.avg_score || 0),
-                    status: quiz.status || (quiz.is_active ? 'active' : 'draft'),
+                    status: quiz.is_active === 1 ? 'active' : 'draft',
                     created_at: quiz.created_at
                 };
             });
             
-            console.log(`✅ Loaded ${quizData.length} quizzes with fallback mapping`);
+            console.log(`✅ Loaded ${quizData.length} quizzes with lesson_id`);
             console.log('📊 Sample quiz data:', quizData.slice(0, 2));
             
             updateQuizStats();
             displayQuizzes();
             updateTopQuizzes();
-            updateRecentResults();
+            
+        } else {
+            throw new Error(result.message || 'Failed to load quizzes');
         }
         
     } catch (error) {
@@ -22184,7 +22134,7 @@ function getErrorHTML(errorMessage) {
         </tr>
     `;
 }
-// ===== FIXED: UPDATE QUIZ STATS WITH CORRECT ELEMENT ID =====
+// ===== UPDATED: Update quiz stats with lesson_id =====
 function updateQuizStats() {
     const totalQuizzes = quizData.length;
     const activeQuizzes = quizData.filter(q => q.status === 'active').length;
@@ -22202,8 +22152,7 @@ function updateQuizStats() {
         totalQuizzes,
         activeQuizzes,
         totalAttempts,
-        avgScore,
-        quizzesWithScores: quizzesWithScores.length
+        avgScore
     });
     
     // Update Quiz Dashboard stats
@@ -22216,25 +22165,21 @@ function updateQuizStats() {
     const totalAttemptsEl = document.getElementById('totalAttempts');
     if (totalAttemptsEl) totalAttemptsEl.textContent = totalAttempts;
     
-    // ✅ FIXED: Use the correct element ID 'performanceAvgScore'
     const avgScoreEl = document.getElementById('performanceAvgScore');
     if (avgScoreEl) {
         avgScoreEl.textContent = avgScore + '%';
-        console.log('✅ Updated quiz avgScore to:', avgScore + '%');
-    } else {
-        console.warn('⚠️ Element #performanceAvgScore not found in DOM');
     }
     
-    // Update subject counts
-    const polyQuizzes = quizData.filter(q => q.subject_id === 2).length; // PolyLearn
-    const mathQuizzes = quizData.filter(q => q.subject_id === 1).length; // MathEase
-    const factQuizzes = quizData.filter(q => q.subject_id === 3).length; // FactoLearn
-    
-    const polyEl = document.getElementById('polyLessonCount');
-    if (polyEl) polyEl.textContent = polyQuizzes;
+    // Update lesson counts
+    const mathQuizzes = quizData.filter(q => q.lesson_id === 1).length; // MathEase
+    const polyQuizzes = quizData.filter(q => q.lesson_id === 2).length; // PolyLearn
+    const factQuizzes = quizData.filter(q => q.lesson_id === 3).length; // FactoLearn
     
     const mathEl = document.getElementById('mathLessonCount');
     if (mathEl) mathEl.textContent = mathQuizzes;
+    
+    const polyEl = document.getElementById('polyLessonCount');
+    if (polyEl) polyEl.textContent = polyQuizzes;
     
     const factEl = document.getElementById('factLessonCount');
     if (factEl) factEl.textContent = factQuizzes;
@@ -22242,8 +22187,7 @@ function updateQuizStats() {
     const totalEl = document.getElementById('totalLessonCount');
     if (totalEl) totalEl.textContent = totalQuizzes;
 }
-
-// ===== DISPLAY QUIZZES - WITH PROPER FILTERING =====
+// ===== UPDATED: Display quizzes - Filter by LESSON ID =====
 function displayQuizzes() {
     const tableBody = document.getElementById('quizTableBody');
     if (!tableBody) {
@@ -22251,19 +22195,19 @@ function displayQuizzes() {
         return;
     }
     
-    console.log("📊 Current filter:", currentQuizFilter);
+    console.log("📊 Current filter (lesson_id):", currentQuizFilter);
     console.log("📊 Total quizzes before filter:", quizData.length);
     
-    // Filter quizzes based on currentQuizFilter
+    // Filter quizzes based on currentQuizFilter (lesson_id)
     let filteredQuizzes = [...quizData];
     
     if (currentQuizFilter !== 'all') {
         // Convert both to numbers for comparison
         const filterId = parseInt(currentQuizFilter);
         filteredQuizzes = filteredQuizzes.filter(q => {
-            const match = q.subject_id == filterId;
+            const match = q.lesson_id == filterId;
             if (match) {
-                console.log(`✅ Match: ${q.title} (subject_id: ${q.subject_id}) with filter: ${filterId}`);
+                console.log(`✅ Match: ${q.title} (lesson_id: ${q.lesson_id}) with filter: ${filterId}`);
             }
             return match;
         });
@@ -22284,7 +22228,7 @@ function displayQuizzes() {
                     <h4 style="color: #666;">No Quizzes Found</h4>
                     <p style="color: #999; margin-bottom: 20px;">
                         ${currentQuizFilter !== 'all' ? 
-                          `No quizzes for this subject. Create your first quiz.` : 
+                          `No quizzes for lesson_id = ${currentQuizFilter}. Create your first quiz.` : 
                           'Create your first quiz to get started.'}
                     </p>
                     <button class="btn btn-primary" onclick="openCreateQuizModal()">
@@ -22308,6 +22252,11 @@ function displayQuizzes() {
         else if (quiz.avg_score >= 60) scoreClass = 'score-medium';
         else scoreClass = 'score-low';
         
+        // Get lesson name
+        const lessonName = quiz.lesson_id == 1 ? 'MathEase' :
+                          quiz.lesson_id == 2 ? 'PolyLearn' : 
+                          quiz.lesson_id == 3 ? 'FactoLearn' : 'Unknown';
+        
         html += `
             <tr>
                 <td>#${quiz.id}</td>
@@ -22318,7 +22267,7 @@ function displayQuizzes() {
                         <span class="difficulty-badge ${difficultyClass}">${quiz.difficulty || 'medium'}</span>
                     </div>
                 </td>
-                <td><span class="subject-badge ${quiz.subject_name.toLowerCase()}">${quiz.subject_name}</span></td>
+                <td><span class="subject-badge ${lessonName.toLowerCase()}">${lessonName}</span></td>
                 <td>${quiz.question_count || 0}</td>
                 <td>${quiz.attempts || 0}</td>
                 <td><span class="${scoreClass}">${quiz.avg_score || 0}%</span></td>
@@ -22346,15 +22295,13 @@ function displayQuizzes() {
     tableBody.innerHTML = html;
     updateQuizPagination(filteredQuizzes.length);
 }
-
-// ===== FILTER QUIZZES BY SUBJECT =====
-// ===== FILTER QUIZZES BY SUBJECT - FIXED WITH DEBUGGING =====
-function filterQuizzesBySubject(subjectId) {
-    console.log("🔍 Filtering quizzes by subject:", subjectId);
+// ===== UPDATED: Filter quizzes by LESSON ID =====
+function filterQuizzesBySubject(lessonId) {
+    console.log("🔍 Filtering quizzes by lesson_id:", lessonId);
     console.log("📊 Current quizData before filter:", quizData.map(q => ({
         id: q.id,
         title: q.title,
-        subject_id: q.subject_id,
+        lesson_id: q.lesson_id,
         subject_name: q.subject_name
     })));
     
@@ -22363,38 +22310,38 @@ function filterQuizzesBySubject(subjectId) {
         tab.classList.remove('active');
     });
     
-    if (subjectId === 'all') {
+    if (lessonId === 'all') {
         document.getElementById('filterAll').classList.add('active');
         currentQuizFilter = 'all';
-        console.log("✅ Activated: All Subjects");
+        console.log("✅ Activated: All Lessons");
     } else {
         // Convert to number for comparison
-        const subId = parseInt(subjectId);
+        const lesId = parseInt(lessonId);
         
-        // Map subject ID to tab ID
+        // Map lesson ID to tab ID
         let tabId = '';
-        let subjectName = '';
+        let lessonName = '';
         
-        if (subId === 2) {           // PolyLearn
+        if (lesId === 2) {           // PolyLearn
             tabId = 'filterPoly';
-            subjectName = 'PolyLearn';
-        } else if (subId === 1) {     // MathEase
+            lessonName = 'PolyLearn';
+        } else if (lesId === 1) {     // MathEase
             tabId = 'filterMath';
-            subjectName = 'MathEase';
-        } else if (subId === 3) {     // FactoLearn
+            lessonName = 'MathEase';
+        } else if (lesId === 3) {     // FactoLearn
             tabId = 'filterFact';
-            subjectName = 'FactoLearn';
+            lessonName = 'FactoLearn';
         }
         
-        console.log(`🎯 Activating tab: ${tabId} for ${subjectName} (ID: ${subId})`);
+        console.log(`🎯 Activating tab: ${tabId} for ${lessonName} (ID: ${lesId})`);
         
         const tabElement = document.getElementById(tabId);
         if (tabElement) {
             tabElement.classList.add('active');
-            console.log(`✅ Activated: ${subjectName} tab`);
+            console.log(`✅ Activated: ${lessonName} tab`);
         }
         
-        currentQuizFilter = subId;
+        currentQuizFilter = lesId;
     }
     
     currentQuizPage = 1;
