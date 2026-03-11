@@ -6710,7 +6710,7 @@ input:checked + .toggle-slider:before {
 
 .help-header {
     grid-column: 1 / -1;
-    background: var(--white);
+    background: var(--white) !important;
     border-radius: var(--radius);
     padding: 25px 30px;
     box-shadow: var(--shadow);
@@ -12893,7 +12893,7 @@ function addPracticeStyles() {
 
 .help-header {
     grid-column: 1 / -1;
-    background: var(--white);
+    background: var(--white !important);
     border-radius: var(--radius);
     padding: 25px 30px;
     box-shadow: var(--shadow);
