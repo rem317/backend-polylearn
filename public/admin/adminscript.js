@@ -22496,7 +22496,7 @@ function changeQuizPage(direction) {
     displayQuizzes();
 }
 
-// ===== UPDATED: Open Create Quiz Modal with lesson_id =====
+// ===== FIXED: Open Create Quiz Modal - Use subject for lesson_id =====
 async function openCreateQuizModal(quizId = null, quizData = null) {
     console.log("📝 Opening quiz modal for:", quizId ? `edit #${quizId}` : 'create new');
     
@@ -22506,12 +22506,19 @@ async function openCreateQuizModal(quizId = null, quizData = null) {
     // Reset form
     document.getElementById('quizTitle').value = '';
     document.getElementById('quizDescription').value = '';
-    document.getElementById('quizSubject').value = '';
-   
+    
+    // ✅ Set default subject to FactoLearn (lesson_id = 3)
+    const subjectSelect = document.getElementById('quizSubject');
+    if (subjectSelect) {
+        subjectSelect.value = '3'; // FactoLearn
+    }
+    
     // Reset topic dropdown
     const topicSelect = document.getElementById('quizTopic');
-    topicSelect.innerHTML = '<option value="">-- Select Subject First --</option>';
-    topicSelect.disabled = true;
+    if (topicSelect) {
+        topicSelect.innerHTML = '<option value="">-- Select Subject First --</option>';
+        topicSelect.disabled = true;
+    }
     
     document.getElementById('quizTimeLimit').value = '30';
     document.getElementById('quizPassingScore').value = '70';
@@ -22529,7 +22536,9 @@ async function openCreateQuizModal(quizId = null, quizData = null) {
     
     // Clear questions
     const container = document.getElementById('questionsContainer');
-    container.innerHTML = '';
+    if (container) {
+        container.innerHTML = '';
+    }
     
     // Add one default question for create mode
     if (!quizId) {
@@ -22560,11 +22569,6 @@ async function openCreateQuizModal(quizId = null, quizData = null) {
             // ===== SET EDIT ID =====
             document.getElementById('editQuizId').value = quizData.quiz_id || quizData.id;
             
-            // ===== SET LESSON ID =====
-            if (quizData.lesson_id) {
-                document.getElementById('quizLessonId').value = quizData.lesson_id;
-            }
-            
             // ===== SET TITLE =====
             const titleValue = quizData.quiz_title || quizData.title || '';
             document.getElementById('quizTitle').value = titleValue;
@@ -22572,10 +22576,12 @@ async function openCreateQuizModal(quizId = null, quizData = null) {
             // ===== SET DESCRIPTION =====
             document.getElementById('quizDescription').value = quizData.description || '';
             
-            // ===== SET SUBJECT =====
-            const subjectSelect = document.getElementById('quizSubject');
+            // ===== SET SUBJECT (LESSON ID) =====
             if (subjectSelect) {
-                subjectSelect.value = quizData.category_id || quizData.subject_id || '';
+                // Kunin ang lesson_id mula sa quiz data
+                const lessonId = quizData.lesson_id || quizData.category_id || 3;
+                subjectSelect.value = lessonId;
+                console.log(`✅ Subject set to: ${lessonId}`);
             }
             
             // ===== Load topics based on subject =====
@@ -22587,6 +22593,7 @@ async function openCreateQuizModal(quizId = null, quizData = null) {
                     const topicSelect = document.getElementById('quizTopic');
                     if (topicSelect) {
                         topicSelect.value = quizData.topic_id;
+                        console.log(`✅ Topic set to: ${quizData.topic_id}`);
                     }
                 }
             }, 500);
@@ -22607,11 +22614,11 @@ async function openCreateQuizModal(quizId = null, quizData = null) {
             document.getElementById('quizStatus').value = status;
             
             // ===== Clear and add questions =====
-            container.innerHTML = '';
+            if (container) {
+                container.innerHTML = '';
+            }
             
             if (quizData.questions && quizData.questions.length > 0) {
-                console.log(`📝 Loading ${quizData.questions.length} questions`);
-                
                 quizData.questions.forEach((q, index) => {
                     addQuestionField();
                     
@@ -22753,22 +22760,25 @@ function addOption(questionId) {
     
     optionsContainer.insertAdjacentHTML('beforeend', optionHtml);
 }
-// ===== UPDATED: Save Quiz with lesson_id =====
+// ===== UPDATED: Save Quiz WITH LESSON ID FROM SUBJECT =====
 async function saveQuizToMySQL() {
     console.log("💾 ===== SAVING QUIZ TO MYSQL DATABASE =====");
     
     // Get form values
     const title = document.getElementById('quizTitle')?.value.trim();
     const description = document.getElementById('quizDescription')?.value.trim();
-    const subjectId = document.getElementById('quizSubject')?.value;
+    const subjectId = document.getElementById('quizSubject')?.value;  // 1, 2, or 3
     const topicId = document.getElementById('quizTopic')?.value;
-    const lessonId = document.getElementById('quizLessonId')?.value || '3'; // Kunin ang lesson_id
     const editId = document.getElementById('editQuizId')?.value;
     
+    // Check if editing
     const isEditMode = editId && editId !== '';
     
+    // ✅ LESSON ID AY MULA SA SUBJECT (1, 2, or 3)
+    const lesson_id = parseInt(subjectId);
+    
     console.log("🔍 Mode:", isEditMode ? "EDIT" : "CREATE", "Quiz ID:", editId || 'new');
-    console.log("📋 Lesson ID:", lessonId);
+    console.log("📋 Lesson ID from subject:", lesson_id);
     
     // ===== GET CATEGORY ID FROM SUBJECT =====
     let category_id;
@@ -22854,9 +22864,9 @@ async function saveQuizToMySQL() {
         });
     }
     
-    // ===== PREPARE DATA FOR SERVER =====
+    // ===== PREPARE DATA FOR SERVER WITH LESSON ID =====
     const quizData = {
-        lesson_id: parseInt(lessonId),      // ← Dito idinadagdag ang lesson_id
+        lesson_id: lesson_id,                    // ← LESSON ID MULA SA SUBJECT
         category_id: category_id,
         topic_id: topicId && topicId !== '' ? parseInt(topicId) : null,
         title: title,
@@ -22879,7 +22889,8 @@ async function saveQuizToMySQL() {
         quizData.quiz_id = parseInt(editId);
     }
     
-    console.log("📤 Sending quiz data:", JSON.stringify(quizData, null, 2));
+    console.log("📤 Sending quiz data with lesson_id:", lesson_id);
+    console.log("📤 Full data:", JSON.stringify(quizData, null, 2));
     
     try {
         const token = localStorage.getItem('admin_token') || localStorage.getItem('authToken');
@@ -22933,7 +22944,11 @@ async function saveQuizToMySQL() {
                 ? 'Quiz updated successfully!' 
                 : 'Quiz created successfully!';
             
-            showNotification('success', 'Success!', message);
+            // Ipakita kung saang lesson na-save
+            const lessonName = lesson_id == 1 ? 'MathEase' : 
+                              lesson_id == 2 ? 'PolyLearn' : 'FactoLearn';
+            
+            showNotification('success', 'Success!', `${message} (${lessonName})`);
             closeCreateQuizModal();
             await loadQuizzesFromMySQL(); // Refresh the list
         } else {
@@ -26285,7 +26300,7 @@ function refreshPracticeData() {
     loadAdminPracticeExercises();
 }
 
-// ===== UPDATED: Open Create Practice Modal with lesson_id =====
+// ===== FIXED: Open Create Practice Modal - Use subject for lesson_id =====
 function openCreatePracticeModal() {
     console.log("📝 Opening create practice modal...");
     
@@ -26296,10 +26311,12 @@ function openCreatePracticeModal() {
     document.getElementById('practiceId').value = '';
     document.getElementById('practiceTitle').value = '';
     document.getElementById('practiceDescription').value = '';
-    document.getElementById('practiceSubject').value = '';
     
-    // Set default lesson_id (FactoLearn = 3)
-    document.getElementById('practiceLessonId').value = '3';
+    // ✅ Set default subject to FactoLearn (lesson_id = 3)
+    const subjectSelect = document.getElementById('practiceSubject');
+    if (subjectSelect) {
+        subjectSelect.value = '3'; // FactoLearn
+    }
     
     document.getElementById('practiceTopic').innerHTML = '<option value="">-- Select Subject First --</option>';
     document.getElementById('practiceTopic').disabled = true;
@@ -26308,7 +26325,7 @@ function openCreatePracticeModal() {
     document.getElementById('practicePoints').value = '10';
     document.getElementById('practiceStatus').value = 'active';
     
-    // Clear teacher dropdown (show loading)
+    // Clear teacher dropdown
     const teacherSelect = document.getElementById('practiceAssignedTeacherId');
     if (teacherSelect) {
         teacherSelect.innerHTML = '<option value="">Loading teachers...</option>';
@@ -26316,7 +26333,10 @@ function openCreatePracticeModal() {
     }
     
     // Clear questions
-    document.getElementById('practiceQuestionsContainer').innerHTML = '';
+    const container = document.getElementById('practiceQuestionsContainer');
+    if (container) {
+        container.innerHTML = '';
+    }
     
     // Add one default question
     addPracticeQuestion();
@@ -26332,8 +26352,13 @@ function openCreatePracticeModal() {
     }, 300);
     
     // Add event listener for subject change
-    const subjectSelect = document.getElementById('practiceSubject');
-    subjectSelect.addEventListener('change', loadPracticeTopicsBySubject);
+    if (subjectSelect) {
+        // Remove existing listeners to avoid duplicates
+        const newSubjectSelect = subjectSelect.cloneNode(true);
+        subjectSelect.parentNode.replaceChild(newSubjectSelect, subjectSelect);
+        
+        newSubjectSelect.addEventListener('change', loadPracticeTopicsBySubject);
+    }
     
     showNotification('info', 'Create Practice', 'Select a subject to load available topics');
 }
@@ -26619,12 +26644,12 @@ function deletePracticeExercise(exerciseId) {
 }
 
 
-// ===== UPDATED: Save Practice Exercise with lesson_id =====
+// ===== UPDATED: Save Practice Exercise WITH LESSON ID FROM SUBJECT =====
 async function savePracticeExercise() {
     console.log("💾 ===== SAVING PRACTICE EXERCISE TO DATABASE =====");
     
     // Get form values
-    const subjectId = document.getElementById('practiceSubject')?.value;
+    const subjectId = document.getElementById('practiceSubject')?.value;  // 1, 2, or 3
     const topicId = document.getElementById('practiceTopic')?.value;
     const title = document.getElementById('practiceTitle')?.value.trim();
     const description = document.getElementById('practiceDescription')?.value.trim();
@@ -26633,12 +26658,17 @@ async function savePracticeExercise() {
     const points = parseInt(document.getElementById('practicePoints')?.value) || 10;
     const status = document.getElementById('practiceStatus')?.value;
     const practiceId = document.getElementById('practiceId')?.value;
-    const lessonId = document.getElementById('practiceLessonId')?.value || '3'; // Kunin ang lesson_id
+    
+    // Get assigned teacher
+    const assignedTeacherId = document.getElementById('practiceAssignedTeacherId')?.value;
+    
+    // ✅ LESSON ID AY MULA SA SUBJECT (1, 2, or 3)
+    const lesson_id = parseInt(subjectId);
     
     // Check if editing
     const isEditMode = practiceId && practiceId !== '';
     console.log("🔍 Mode:", isEditMode ? "EDIT" : "CREATE", "ID:", practiceId || 'new');
-    console.log("📋 Lesson ID:", lessonId);
+    console.log("📋 Lesson ID from subject:", lesson_id);
     
     // ===== VALIDATION =====
     if (!subjectId) {
@@ -26718,7 +26748,7 @@ async function savePracticeExercise() {
         });
     }
     
-    // ===== PREPARE DATA FOR SERVER =====
+    // ===== PREPARE DATA FOR SERVER WITH LESSON ID =====
     const contentJson = {
         questions: questions
     };
@@ -26726,7 +26756,7 @@ async function savePracticeExercise() {
     const isActive = status === 'active' ? 1 : 0;
     
     const practiceData = {
-        lesson_id: parseInt(lessonId),      // ← Dito idinadagdag ang lesson_id
+        lesson_id: lesson_id,                    // ← LESSON ID MULA SA SUBJECT
         topic_id: parseInt(topicId),
         title: title,
         description: description || '',
@@ -26747,7 +26777,8 @@ async function savePracticeExercise() {
         practiceData.exercise_id = parseInt(practiceId);
     }
     
-    console.log("📤 Sending practice data:", JSON.stringify(practiceData, null, 2));
+    console.log("📤 Sending practice data with lesson_id:", lesson_id);
+    console.log("📤 Full data:", JSON.stringify(practiceData, null, 2));
     
     try {
         const token = localStorage.getItem('admin_token') || localStorage.getItem('authToken');
@@ -26805,7 +26836,11 @@ async function savePracticeExercise() {
                 ? 'Practice exercise updated successfully!' 
                 : 'Practice exercise created successfully!';
             
-            showNotification('success', 'Success!', message);
+            // Ipakita kung saang lesson na-save
+            const lessonName = lesson_id == 1 ? 'MathEase' : 
+                              lesson_id == 2 ? 'PolyLearn' : 'FactoLearn';
+            
+            showNotification('success', 'Success!', `${message} (${lessonName})`);
             closeCreatePracticeModal();
             await loadAdminPracticeExercises(); // Refresh the list
         } else {
