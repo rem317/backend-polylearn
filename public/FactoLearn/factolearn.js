@@ -29702,19 +29702,31 @@ function setupAppSelectionListeners() {
 }
 
 
-// Add this function near the top of your factolearn.js file
 function handleAppSelection(appName) {
     console.log(`🎯 App selected: ${appName}`);
     
     if (appName === 'mathease') {
-        // Navigate to Mathease app
-        window.location.href = 'MathEase/mathease.html';
+        // Navigate to Mathease dashboard
+        window.location.href = '../MathEase/mathease.html';
+        
     } else if (appName === 'polylearn') {
-        // Navigate to PolyLearn app (index.html)
-        window.location.href = '../index.html';
+        // Navigate directly to PolyLearn dashboard (index.html)
+        console.log('📚 Going directly to PolyLearn dashboard');
+        
+        const currentPath = window.location.pathname;
+        
+        if (currentPath.includes('/FactoLearn/') || currentPath.includes('/factolearn/')) {
+            // From FactoLearn subfolder to PolyLearn dashboard
+            window.location.href = '../PolyLearn/index.html';
+        } else if (currentPath.endsWith('factolearn.html')) {
+            window.location.href = 'PolyLearn/index.html';
+        } else {
+            window.location.href = '/PolyLearn/index.html';
+        }
+        
     } else if (appName === 'factorial' || appName === 'factolearn') {
-        // Stay in FactoLearn
-        console.log('📚 Staying in FactoLearn');
+        // Stay in FactoLearn dashboard
+        console.log('📚 Staying in FactoLearn dashboard');
         AppState.selectedApp = 'factorial';
         localStorage.setItem('selectedApp', 'factorial');
         localStorage.setItem('currentLessonId', '3');
