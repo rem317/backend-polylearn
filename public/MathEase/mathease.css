@@ -14861,3 +14861,36 @@ textarea.feedback-form-control {
     gap: 10px;
 }
 
+/* ============================================
+   FAQ FIX - Force PolyLearn behavior
+   ============================================ */
+
+/* Force hide all answers by default */
+.faq-answer {
+    display: none !important;
+}
+
+/* Show only when parent has active class */
+.faq-item.active .faq-answer {
+    display: block !important;
+}
+
+/* Style for question */
+.faq-question {
+    cursor: pointer !important;
+    user-select: none !important;
+}
+
+/* Chevron rotation */
+.faq-question .fas.fa-chevron-down {
+    transition: transform 0.3s ease !important;
+}
+
+.faq-item.active .faq-question .fas.fa-chevron-down {
+    transform: rotate(180deg) !important;
+}
+
+/* Remove any conflicting styles */
+.faq-answer[style*="display: block"] {
+    /* This will be overridden by the !important rules above */
+}
