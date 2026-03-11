@@ -17694,7 +17694,7 @@ window.debugMatheaseData = async function() {
 // Run it immediately
 setTimeout(() => {
     console.log('🔍 Auto-running mathease debug...');
-    debugmatheaseData();
+    debugMatheaseData();
 }, 2000);
 
 // ============================================
