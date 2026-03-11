@@ -22813,21 +22813,25 @@ function addOption(questionId) {
     
     optionsContainer.insertAdjacentHTML('beforeend', optionHtml);
 }
-// ===== DEBUGGED VERSION: SAVE QUIZ TO MYSQL =====
+// ===== SINGLE FUNCTION FOR BOTH CREATE AND EDIT QUIZ =====
 async function saveQuizToMySQL() {
     console.log("💾 ===== SAVING QUIZ TO MYSQL DATABASE =====");
     
     // Get form values
     const title = document.getElementById('quizTitle')?.value.trim();
     const description = document.getElementById('quizDescription')?.value.trim();
-    const subjectId = document.getElementById('quizSubject')?.value; // This is the category_id
+    const subjectId = document.getElementById('quizSubject')?.value;
     const topicSelect = document.getElementById('quizTopic');
     const topicId = topicSelect?.value;
+    const editId = document.getElementById('editQuizId')?.value;
+    
+    // ===== DETERMINE IF EDIT OR CREATE MODE =====
+    const isEditMode = editId && editId !== '';
+    console.log("🔍 Mode:", isEditMode ? "EDIT" : "CREATE", "Quiz ID:", editId || 'new');
     
     // ===== DEBUG: Check what subjectId actually is =====
     console.log("🔍 DEBUG - subjectId from dropdown:", subjectId);
     console.log("🔍 DEBUG - subjectId type:", typeof subjectId);
-    console.log("🔍 DEBUG - subjectId value:", subjectId);
     
     // ===== FIX: USE SUBJECT ID AS CATEGORY ID =====
     let category_id;
@@ -22853,7 +22857,6 @@ async function saveQuizToMySQL() {
         category_id = 3;
         console.log("✅ Selected FactoLearn (category_id=3)");
     } else {
-        // If subjectId is not 1,2,3, use default
         console.warn("⚠️ Unknown subject ID, defaulting to MathEase (1)");
         category_id = 1;
     }
@@ -22865,7 +22868,6 @@ async function saveQuizToMySQL() {
     const maxAttempts = document.getElementById('quizMaxAttempts')?.value;
     const difficulty = document.getElementById('quizDifficulty')?.value;
     const status = document.getElementById('quizStatus')?.value;
-    const editId = document.getElementById('editQuizId')?.value;
     
     // Get assigned teacher
     const assignedTeacherId = document.getElementById('quizAssignedTeacherId')?.value;
@@ -22887,12 +22889,18 @@ async function saveQuizToMySQL() {
         maxAttempts,
         difficulty, 
         status, 
-        editId: editId || 'new'
+        mode: isEditMode ? 'EDIT' : 'CREATE',
+        editId: editId || 'none'
     });
     
     // ===== VALIDATION =====
     if (!title) {
         showNotification('error', 'Error', 'Please enter a quiz title');
+        return;
+    }
+    
+    if (!category_id) {
+        showNotification('error', 'Error', 'Subject selection failed');
         return;
     }
     
@@ -22954,7 +22962,7 @@ async function saveQuizToMySQL() {
     
     // ===== PREPARE DATA FOR SERVER =====
     const quizData = {
-        category_id: category_id,  // Make sure this is set
+        category_id: category_id,
         topic_id: topicId && topicId !== '' ? parseInt(topicId) : null,
         title: title,
         description: description || '',
@@ -22972,19 +22980,14 @@ async function saveQuizToMySQL() {
         quizData.assigned_teacher_id = parseInt(assignedTeacherId);
     }
     
-    if (editId) {
+    // Add quiz_id ONLY if in edit mode
+    if (isEditMode) {
         quizData.quiz_id = parseInt(editId);
     }
     
     // ===== FINAL DEBUG CHECK =====
     console.log("📤 FINAL QUIZ DATA TO SEND:", JSON.stringify(quizData, null, 2));
     console.log("🔍 FINAL CHECK - category_id in quizData:", quizData.category_id);
-    
-    if (!quizData.category_id) {
-        console.error("❌ CRITICAL: category_id is still null/undefined!");
-        showNotification('error', 'Error', 'Subject selection failed. Please try again.');
-        return;
-    }
     
     try {
         const token = localStorage.getItem('admin_token') || localStorage.getItem('authToken');
@@ -22994,22 +22997,24 @@ async function saveQuizToMySQL() {
             return;
         }
         
-        // Show loading
+        // Show loading - different message for edit vs create
         const saveBtn = document.querySelector('#createQuizModal .btn-primary');
         const originalText = saveBtn?.innerHTML;
         if (saveBtn) {
             saveBtn.disabled = true;
-            saveBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Saving...';
+            saveBtn.innerHTML = isEditMode 
+                ? '<i class="fas fa-spinner fa-spin"></i> Updating...' 
+                : '<i class="fas fa-spinner fa-spin"></i> Creating...';
         }
         
-        const url = editId
-            ? `/api/admin/quizzes/${editId}`
-            : `/api/admin/quizzes`;
+        // Choose URL and method based on mode
+        const url = isEditMode ? `/api/admin/quizzes/${editId}` : `/api/admin/quizzes`;
+        const method = isEditMode ? 'PUT' : 'POST';
         
-        console.log(`📡 Sending to: ${url}`);
+        console.log(`📡 ${method} to: ${url}`);
         
         const response = await fetch(url, {
-            method: editId ? 'PUT' : 'POST',
+            method: method,
             headers: {
                 'Authorization': `Bearer ${token}`,
                 'Content-Type': 'application/json'
@@ -23033,30 +23038,30 @@ async function saveQuizToMySQL() {
         }
         
         if (result.success) {
-            let message = editId 
+            // Different success message for edit vs create
+            const message = isEditMode 
                 ? 'Quiz updated successfully!' 
                 : 'Quiz created successfully!';
-            message += ` (${subjectName})`;
             
-            if (assignedTeacherId) {
-                message += ' (Assigned to teacher)';
-            }
+            showNotification('success', 'Success!', `${message} (${subjectName})`);
             
-            showNotification('success', 'Success!', message);
             closeCreateQuizModal();
             await loadQuizzesFromMySQL();
         } else {
-            throw new Error(result.message || 'Failed to save quiz');
+            throw new Error(result.message || `Failed to ${isEditMode ? 'update' : 'create'} quiz`);
         }
         
     } catch (error) {
-        console.error('❌ Error saving quiz:', error);
-        showNotification('error', 'Save Failed', error.message);
+        console.error(`❌ Error ${isEditMode ? 'updating' : 'creating'} quiz:`, error);
+        showNotification('error', `${isEditMode ? 'Update' : 'Create'} Failed`, error.message);
     } finally {
         const saveBtn = document.querySelector('#createQuizModal .btn-primary');
         if (saveBtn) {
             saveBtn.disabled = false;
-            saveBtn.innerHTML = '<i class="fas fa-save"></i> Save Quiz';
+            // Restore original button text based on mode
+            saveBtn.innerHTML = isEditMode 
+                ? '<i class="fas fa-save"></i> Update Quiz' 
+                : '<i class="fas fa-save"></i> Create Quiz';
         }
     }
 }
