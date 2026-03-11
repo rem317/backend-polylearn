@@ -32169,3 +32169,92 @@ window.markLessonComplete = markLessonComplete;
 window.goToPracticePage = goToPracticePage;
 window.showNotification = showNotification;
 window.fetchAllLessonsForNavigation = fetchAllLessonsForNavigation;
+
+// ============================================
+// SHOW APP SELECTION PAGE
+// ============================================
+window.showAppSelectionPage = function(e) {
+    if (e) {
+        e.preventDefault();
+        e.stopPropagation();
+    }
+    
+    console.log('🔄 Navigating to App Selection page...');
+    
+    // Hide all main pages
+    const pages = [
+        'dashboard-page',
+        'module-dashboard-page',
+        'practice-exercises-page',
+        'quiz-dashboard-page',
+        'progress-page',
+        'settings-page',
+        'feedback-page'
+    ];
+    
+    pages.forEach(id => {
+        const page = document.getElementById(id);
+        if (page) {
+            page.classList.add('hidden');
+        }
+    });
+    
+    // Show app selection page
+    const appSelectionPage = document.getElementById('app-selection-page');
+    if (appSelectionPage) {
+        appSelectionPage.classList.remove('hidden');
+        console.log('✅ App Selection page is now visible');
+    } else {
+        console.error('❌ App selection page not found!');
+        alert('App selection page not found!');
+    }
+    
+    // Update active state in footer
+    document.querySelectorAll('.footer-nav-item').forEach(item => {
+        item.classList.remove('active');
+    });
+    if (e && e.target) {
+        const clickedItem = e.target.closest('.footer-nav-item');
+        if (clickedItem) {
+            clickedItem.classList.add('active');
+        }
+    }
+    
+    // Clear app-specific data but keep user logged in
+    localStorage.removeItem('selectedApp');
+    localStorage.removeItem('currentLessonFilter');
+    localStorage.removeItem('currentLessonId');
+    localStorage.removeItem('hasSelectedApp');
+    
+    // Scroll to top
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+    
+    // Show notification
+    if (typeof showNotification === 'function') {
+        showNotification('info', 'App Selection', 'Choose another app to continue learning');
+    } else {
+        console.log('✅ Returned to App Selection page');
+    }
+};
+                                                      // Find this function in your code and update the pages object
+window.navigateTo = function(page) {
+    console.log(`🧭 Navigating to: ${page}`);
+    
+    // Define page elements - MAKE SURE 'appSelection' is included
+    const pages = {
+        'dashboard': document.getElementById('dashboard-page'),
+        'practice': document.getElementById('practice-exercises-page'),
+        'quizDashboard': document.getElementById('quiz-dashboard-page'),
+        'progress': document.getElementById('progress-page'),
+        'feedback': document.getElementById('feedback-page'),
+        'settings': document.getElementById('settings-page'),
+        'moduleDashboard': document.getElementById('module-dashboard-page'),
+        'appSelection': document.getElementById('app-selection-page'), // ADD THIS LINE
+        'login': document.getElementById('login-page'),
+        'signup': document.getElementById('signup-page'),
+        'loading': document.getElementById('loading-page'),
+        'landing': document.getElementById('landing-page')
+    };
+    
+    // Rest of your function remains the same...
+    // (keep all your existing code below this)
