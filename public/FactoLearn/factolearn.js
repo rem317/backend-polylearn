@@ -6268,23 +6268,20 @@ window.goToNextPractice = function() {
 // Call this function when initializing practice page
 addPracticeResultModalStyles();
 // ============================================
-// ✅ FIXED: Use topic_id=5 for lesson_id=3
+// ✅ FIXED: fetchPracticeExercisesFromDB - Remove hardcoded topic
 // ============================================
 async function fetchPracticeExercisesFromDB(topicId) {
-    console.log(`📝 Getting practice exercises for lesson_id=3, topic ${topicId}`);
+    console.log(`📝 Getting practice exercises from database for topic ${topicId}`);
     
     try {
         const token = localStorage.getItem('authToken') || authToken;
         if (!token) {
             console.warn('⚠️ No auth token');
-            return getDemoPracticeExercises(topicId);
+            return [];
         }
         
-        // FORCE use topic_id=5 kasi yan ang may data
-        const ACTUAL_TOPIC_ID = 5;
-        
-        // Use the working endpoint with correct topic_id
-        const endpoint = `/api/practice/topic/${ACTUAL_TOPIC_ID}?lesson_id=3`;
+        // ✅ GAMITIN ANG ORIGINAL TOPIC ID (hindi na pilit na 5)
+        const endpoint = `/api/practice/topic/${topicId}?lesson_id=3`;
         
         console.log(`📡 Fetching from: ${endpoint}`);
         
@@ -6295,25 +6292,30 @@ async function fetchPracticeExercisesFromDB(topicId) {
             }
         });
         
-        if (response.ok) {
-            const data = await response.json();
-            console.log('✅ Response:', data);
-            
-            // Check if there are exercises
-            if (data.success && data.exercises && data.exercises.length > 0) {
-                console.log(`✅ Found ${data.exercises.length} exercises from database for topic_id=5`);
-                
-                // Ensure lesson_id=3
-                return data.exercises.map(ex => ({
-                    ...ex,
-                    lesson_id: 3
-                }));
-            } else {
-                console.log('⚠️ No exercises in database for topic_id=5');
-            }
+        if (!response.ok) {
+            console.log(`⚠️ Server returned ${response.status}`);
+            return [];
         }
         
-        return [];
+        const data = await response.json();
+        
+        // Extract exercises from different response formats
+        let exercises = [];
+        if (data.success && data.exercises) {
+            exercises = data.exercises;
+        } else if (data.exercises) {
+            exercises = data.exercises;
+        } else if (Array.isArray(data)) {
+            exercises = data;
+        }
+        
+        if (exercises.length > 0) {
+            console.log(`✅ Found ${exercises.length} exercises for topic ${topicId}`);
+            return exercises;
+        } else {
+            console.log(`ℹ️ No exercises found for topic ${topicId}`);
+            return [];
+        }
         
     } catch (error) {
         console.error('❌ Error:', error);
@@ -23882,13 +23884,8 @@ async function navigateToNextLesson() {
 // PRACTICE EXERCISES MANAGEMENT - FIXED
 // ============================================
 
-// Check if practice is unlocked for a topic
 // ============================================
-// FIXED: Check Practice Unlocked - RELIABLE VERSION
-// ============================================
-// I-update ang checkPracticeUnlocked function
-// ============================================
-// FIXED: checkPracticeUnlocked - With better error handling
+// ✅ FIXED: checkPracticeUnlocked - Check if at least 1 lesson completed
 // ============================================
 async function checkPracticeUnlocked(topicId) {
     try {
@@ -23897,45 +23894,59 @@ async function checkPracticeUnlocked(topicId) {
         
         console.log(`🔍 Checking practice unlock status for topic ${topicId}...`);
         
-        // Try multiple endpoints
-        const endpoints = [
-            `/practice/${topicId}/check-progress`,
-            `/api/practice/${topicId}/status`,
-            `/progress/topic/${topicId}/practice-status`
-        ];
-        
-        for (const endpoint of endpoints) {
-            try {
-                const response = await fetch(endpoint, {
-                    headers: {
-                        'Authorization': `Bearer ${token}`,
-                        'Accept': 'application/json'
-                    }
-                });
-                
-                const contentType = response.headers.get('content-type');
-                if (response.ok && contentType && contentType.includes('application/json')) {
-                    const data = await response.json();
-                    if (data.success && data.unlocked !== undefined) {
-                        console.log(`✅ Practice unlock check via ${endpoint}: ${data.unlocked ? 'UNLOCKED' : 'LOCKED'}`);
-                        return data.unlocked;
-                    }
+        // Try to check from API
+        try {
+            const response = await fetch(`/api/practice/${topicId}/check-progress`, {
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json'
                 }
-            } catch (e) {
-                console.log(`⚠️ Endpoint ${endpoint} failed:`, e.message);
+            });
+            
+            if (response.ok) {
+                const data = await response.json();
+                if (data.unlocked !== undefined) {
+                    console.log(`✅ API says: ${data.unlocked ? 'UNLOCKED' : 'LOCKED'}`);
+                    return data.unlocked;
+                }
+            }
+        } catch (e) {
+            console.log(`⚠️ Check progress API failed:`, e.message);
+        }
+        
+        // Fallback: Check from topics progress
+        const topicsResponse = await fetch('/api/topics/progress', {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        
+        if (topicsResponse.ok) {
+            const topicsData = await topicsResponse.json();
+            if (topicsData.success && topicsData.topics) {
+                const topic = topicsData.topics.find(t => t.topic_id == topicId);
+                if (topic) {
+                    const lessonsCompleted = topic.lessons_completed || 0;
+                    const isUnlocked = lessonsCompleted > 0;
+                    console.log(`✅ From topics progress: ${lessonsCompleted} lessons completed → ${isUnlocked ? 'UNLOCKED' : 'LOCKED'}`);
+                    return isUnlocked;
+                }
             }
         }
         
-        // If all endpoints fail, assume unlocked for demo purposes
-        console.log('ℹ️ Using demo mode - practice unlocked by default');
-        return true;
+        // If all fails, check local state
+        if (LessonState.userProgress) {
+            const topicLessons = Object.values(LessonState.userProgress).filter(
+                p => p.topic_id == topicId && p.status === 'completed'
+            );
+            return topicLessons.length > 0;
+        }
+        
+        return false;
         
     } catch (error) {
         console.error('❌ Error in checkPracticeUnlocked:', error);
-        return true; // Default to unlocked in demo mode
+        return false;
     }
 }
-
 // MAG-ADD NG FUNCTION PARA I-CREATE ANG DEFAULT PROGRESS
 async function createDefaultPracticeProgress(topicId) {
     try {
@@ -24420,34 +24431,22 @@ window.debugTopicsProgress = async function() {
 };
 
 // ============================================
-// ✅ FIXED: Select topic for practice - WITH APP VALIDATION
+// ✅ FIXED: selectTopicForPractice - Check unlock status first
 // ============================================
 async function selectTopicForPractice(topicId) {
     try {
-        // Check if this topic belongs to the current app
-        const selectedApp = localStorage.getItem('selectedApp') || 'factorial';
-        const expectedTopicId = APP_LESSON_MAP[selectedApp]?.lessonId || 2;
-        
-        if (parseInt(topicId) !== expectedTopicId) {
-            console.log(`⚠️ Topic ${topicId} doesn't match app ${selectedApp} (expected topic ${expectedTopicId})`);
-            showNotification(`This topic belongs to a different app. Please switch apps first.`, 'warning');
-            return;
-        }
+        console.log(`🎯 Selecting topic ${topicId} for practice`);
         
         PracticeState.currentTopic = topicId;
         
         // Update UI
         document.querySelectorAll('.topic-card').forEach(card => {
             card.classList.remove('selected');
-            if (card.getAttribute('data-topic-id') === topicId) {
+            if (card.getAttribute('data-topic-id') == topicId) {
                 card.classList.add('selected');
             }
         });
         
-        // Load practice exercises for this topic
-        await loadPracticeExercisesForTopic(topicId);
-        
-        // Update topic title
         const practiceTopicTitle = document.getElementById('practiceTopicTitle');
         if (practiceTopicTitle) {
             const selectedTopic = document.querySelector(`.topic-card[data-topic-id="${topicId}"] .topic-title`);
@@ -24456,43 +24455,88 @@ async function selectTopicForPractice(topicId) {
             }
         }
         
+        // ✅ Check if practice is unlocked for this topic
+        const isUnlocked = await checkPracticeUnlocked(topicId);
+        
+        if (!isUnlocked) {
+            const exerciseArea = document.getElementById('exerciseArea');
+            if (exerciseArea) {
+                exerciseArea.innerHTML = `
+                    <div class="practice-lock-screen" style="text-align: center; padding: 40px; background: white; border-radius: 10px;">
+                        <div class="lock-icon" style="font-size: 60px; color: #e74c3c; margin-bottom: 20px;">
+                            <i class="fas fa-lock"></i>
+                        </div>
+                        <h3 style="color: #2c3e50; margin-bottom: 15px;">Practice Locked</h3>
+                        <p style="color: #7f8c8d; margin-bottom: 25px;">
+                            Complete at least 1 lesson in this topic to unlock practice exercises.
+                        </p>
+                        <div class="progress-summary" style="background: #f8f9fa; padding: 15px; border-radius: 8px; margin: 20px 0;">
+                            <p>Complete lessons first to unlock practice exercises.</p>
+                        </div>
+                        <div class="lock-actions">
+                            <button class="btn-primary" onclick="navigateTo('moduleDashboard')" style="padding: 12px 25px;">
+                                <i class="fas fa-book"></i> Go to Lessons
+                            </button>
+                            <button class="btn-secondary" onclick="loadTopicsProgress()" style="padding: 12px 25px;">
+                                <i class="fas fa-sync-alt"></i> Refresh Progress
+                            </button>
+                        </div>
+                    </div>
+                `;
+            }
+            return;
+        }
+        
+        // ✅ Load practice exercises for this topic
+        await loadPracticeExercisesForTopic(topicId);
+        
     } catch (error) {
-        console.error('Error selecting topic:', error);
-        showNotification('Failed to select topic', 'error');
+        console.error('❌ Error selecting topic:', error);
+        showNotification('error', 'Error', 'Failed to load practice exercises');
     }
 }
 
 
 // ============================================
-// ✅ UPDATED: Load Practice Exercises For Topic
+// ✅ FIXED: loadPracticeExercisesForTopic - Use actual topic ID
 // ============================================
 async function loadPracticeExercisesForTopic(topicId) {
     try {
         console.log(`📝 Loading practice exercises for topic ${topicId}`);
         
-        // FORCE use topic_id=5 kung ang topicId ay 1
-        const actualTopicId = (topicId == 1) ? 5 : topicId;
-        
         const exerciseArea = document.getElementById('exerciseArea');
         if (!exerciseArea) return;
         
-        exerciseArea.innerHTML = `<div class="loading-container">Loading...</div>`;
+        exerciseArea.innerHTML = `
+            <div class="loading-container" style="text-align: center; padding: 40px;">
+                <i class="fas fa-spinner fa-spin" style="font-size: 40px; color: #7a0000;"></i>
+                <p style="margin-top: 15px;">Loading practice exercises from database...</p>
+            </div>
+        `;
+        
+        // ✅ GAMITIN ANG TAMANG TOPIC ID (hindi na ginagawang 5)
+        const actualTopicId = topicId;
         
         // Fetch exercises from database
         const exercises = await fetchPracticeExercisesFromDB(actualTopicId);
         
         if (exercises && exercises.length > 0) {
-            console.log(`✅ Found ${exercises.length} exercises`);
+            console.log(`✅ Found ${exercises.length} exercises for topic ${actualTopicId}`);
             displayPracticeExercises(exercises);
-            
-            // ===== ATTACH HANDLERS AFTER DISPLAYING =====
-            setTimeout(attachStartButtonHandlers, 200);
+            setupPracticeExerciseInteractions();
         } else {
-            exerciseArea.innerHTML = `<div class="no-exercises">No exercises found</div>`;
+            exerciseArea.innerHTML = `
+                <div class="no-exercises" style="text-align: center; padding: 60px; background: white; border-radius: 10px;">
+                    <i class="fas fa-pencil-alt" style="font-size: 60px; color: #ccc; margin-bottom: 20px;"></i>
+                    <h3 style="color: #666;">No Practice Exercises Yet</h3>
+                    <p style="color: #999; margin-bottom: 25px;">The admin hasn't uploaded exercises for this topic.</p>
+                    <p style="color: #7f8c8d; font-size: 13px;">Topic ID: ${actualTopicId}</p>
+                </div>
+            `;
         }
         
     } catch (error) {
-        console.error('❌ Error:', error);
+        console.error('❌ Error loading practice exercises:', error);
     }
 }
 // ============================================
