@@ -36536,3 +36536,275 @@ window.simulateLoading = function() {
 
 console.log('✅ Direct navigation fixes applied!');
 console.log('📌 Now when coming from MathEase/FactoLearn, you will go directly to the PolyLearn dashboard');
+
+
+// ============================================
+// 🚨 ULTIMATE FIX: COMPLETELY BYPASS LOADING PAGE
+// ============================================
+
+(function() {
+    console.log('🚨 ULTIMATE FIX: Bypassing loading page for MathEase/FactoLearn returns');
+    
+    // Check if we're coming from another app
+    const isReturningFromOtherApp = 
+        sessionStorage.getItem('previousApp') === 'mathease' || 
+        sessionStorage.getItem('previousApp') === 'factolearn' ||
+        sessionStorage.getItem('redirectingTo') === 'mathease' ||
+        sessionStorage.getItem('redirectingTo') === 'factolearn' ||
+        localStorage.getItem('selectedApp') === 'polylearn';
+    
+    // Check URL parameters
+    const urlParams = new URLSearchParams(window.location.search);
+    const fromParam = urlParams.get('from');
+    const appParam = urlParams.get('app');
+    
+    const shouldSkipLoading = 
+        isReturningFromOtherApp || 
+        fromParam === 'mathease' || 
+        fromParam === 'factolearn' || 
+        appParam === 'polylearn';
+    
+    console.log('🔍 Should skip loading?', shouldSkipLoading, {
+        previousApp: sessionStorage.getItem('previousApp'),
+        redirectingTo: sessionStorage.getItem('redirectingTo'),
+        selectedApp: localStorage.getItem('selectedApp'),
+        fromParam: fromParam,
+        appParam: appParam
+    });
+    
+    if (shouldSkipLoading) {
+        console.log('✅ DETECTED RETURN FROM OTHER APP - SKIPPING LOADING PAGE');
+        
+        // Clear all flags
+        sessionStorage.removeItem('previousApp');
+        sessionStorage.removeItem('redirectingTo');
+        
+        // Remove from URL
+        if (fromParam || appParam) {
+            const newUrl = window.location.pathname;
+            window.history.replaceState({}, document.title, newUrl);
+        }
+        
+        // Ensure PolyLearn is selected
+        localStorage.setItem('selectedApp', 'polylearn');
+        localStorage.setItem('hasSelectedApp', 'true');
+        
+        // COMPLETELY OVERRIDE the loading process
+        const originalSimulateLoading = window.simulateLoading;
+        window.simulateLoading = function() {
+            console.log('⏩ Loading page SKIPPED - going directly to dashboard');
+            
+            // Hide loading page immediately
+            const loadingPage = document.getElementById('loading-page');
+            if (loadingPage) {
+                loadingPage.classList.add('hidden');
+                loadingPage.style.display = 'none';
+            }
+            
+            // Show dashboard immediately
+            const dashboardPage = document.getElementById('dashboard-page');
+            if (dashboardPage) {
+                dashboardPage.classList.remove('hidden');
+                dashboardPage.style.display = 'block';
+                AppState.currentPage = 'dashboard';
+            }
+            
+            // Update user info
+            if (typeof updateUserInfo === 'function') {
+                updateUserInfo();
+            }
+            
+            // Load data
+            if (typeof loadInitialData === 'function') {
+                loadInitialData();
+            }
+            
+            // Show notification
+            if (typeof showNotification === 'function') {
+                showNotification('Welcome back to PolyLearn!', 'success');
+            }
+        };
+        
+        // Run the override immediately
+        setTimeout(() => {
+            if (typeof window.simulateLoading === 'function') {
+                window.simulateLoading();
+            }
+        }, 10);
+        
+        // Also directly hide loading page right now
+        const loadingPage = document.getElementById('loading-page');
+        if (loadingPage) {
+            loadingPage.classList.add('hidden');
+            loadingPage.style.display = 'none';
+        }
+        
+        // Show dashboard right now
+        const dashboardPage = document.getElementById('dashboard-page');
+        if (dashboardPage) {
+            dashboardPage.classList.remove('hidden');
+            dashboardPage.style.display = 'block';
+        }
+    }
+})();
+
+// ============================================
+// 🔨 FORCE OVERRIDE: Completely replace simulateLoading
+// ============================================
+
+// Store the original if it exists
+const originalSimulateLoading = window.simulateLoading;
+
+// Completely replace it with our own version
+window.simulateLoading = function() {
+    console.log('⏳ simulateLoading called - checking if we should skip...');
+    
+    const selectedApp = localStorage.getItem('selectedApp');
+    const hasSelectedApp = localStorage.getItem('hasSelectedApp') === 'true';
+    const previousApp = sessionStorage.getItem('previousApp');
+    const redirectingTo = sessionStorage.getItem('redirectingTo');
+    
+    // Check if we should skip loading
+    if (selectedApp === 'polylearn' || 
+        hasSelectedApp || 
+        previousApp === 'mathease' || 
+        previousApp === 'factolearn' ||
+        redirectingTo === 'mathease' ||
+        redirectingTo === 'factolearn') {
+        
+        console.log('⏩ SKIPPING LOADING PAGE - going directly to dashboard');
+        
+        // Hide loading page
+        const loadingPage = document.getElementById('loading-page');
+        if (loadingPage) {
+            loadingPage.classList.add('hidden');
+            loadingPage.style.display = 'none';
+        }
+        
+        // Show dashboard
+        const dashboardPage = document.getElementById('dashboard-page');
+        if (dashboardPage) {
+            dashboardPage.classList.remove('hidden');
+            dashboardPage.style.display = 'block';
+            AppState.currentPage = 'dashboard';
+        }
+        
+        // Update UI
+        if (typeof updateUserInfo === 'function') {
+            updateUserInfo();
+        }
+        
+        if (typeof loadInitialData === 'function') {
+            loadInitialData();
+        }
+        
+        // Clear flags
+        sessionStorage.removeItem('previousApp');
+        sessionStorage.removeItem('redirectingTo');
+        
+        return;
+    }
+    
+    // Otherwise, run the original loading sequence
+    console.log('⏳ Running normal loading sequence...');
+    if (originalSimulateLoading) {
+        originalSimulateLoading();
+    } else {
+        // Fallback if original doesn't exist
+        let progress = 0;
+        const loadingProgress = document.getElementById('loadingProgress');
+        const percentageElement = document.getElementById('percentage');
+        
+        const loadingInterval = setInterval(() => {
+            progress += Math.random() * 10;
+            if (progress >= 100) {
+                progress = 100;
+                clearInterval(loadingInterval);
+                
+                setTimeout(() => {
+                    const savedUser = localStorage.getItem('mathhub_user');
+                    const userLoggedIn = localStorage.getItem('userLoggedIn') === 'true';
+                    
+                    if (savedUser && userLoggedIn) {
+                        const hasSelectedApp = localStorage.getItem('hasSelectedApp') === 'true';
+                        
+                        if (hasSelectedApp) {
+                            navigateTo('dashboard');
+                        } else {
+                            navigateTo('appSelection');
+                        }
+                    } else {
+                        navigateTo('login');
+                    }
+                }, 500);
+            }
+            
+            if (loadingProgress) loadingProgress.style.width = `${progress}%`;
+            if (percentageElement) percentageElement.textContent = `${Math.floor(progress)}%`;
+        }, 300);
+    }
+};
+
+// ============================================
+// 🚀 DIRECT DASHBOARD ACTIVATION
+// ============================================
+
+// This runs immediately when the script loads
+(function activateDashboardDirectly() {
+    const selectedApp = localStorage.getItem('selectedApp');
+    const hasSelectedApp = localStorage.getItem('hasSelectedApp') === 'true';
+    const previousApp = sessionStorage.getItem('previousApp');
+    
+    console.log('🎯 Direct activation check:', { selectedApp, hasSelectedApp, previousApp });
+    
+    // If PolyLearn is selected OR we're coming from another app
+    if (selectedApp === 'polylearn' || hasSelectedApp || previousApp) {
+        console.log('🎯 ACTIVATING DASHBOARD DIRECTLY - NO LOADING');
+        
+        // Wait for DOM to be ready
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', showDashboardNow);
+        } else {
+            showDashboardNow();
+        }
+    }
+    
+    function showDashboardNow() {
+        console.log('📊 Showing dashboard now');
+        
+        // Hide loading page
+        const loadingPage = document.getElementById('loading-page');
+        if (loadingPage) {
+            loadingPage.classList.add('hidden');
+            loadingPage.style.display = 'none';
+        }
+        
+        // Show dashboard
+        const dashboardPage = document.getElementById('dashboard-page');
+        if (dashboardPage) {
+            dashboardPage.classList.remove('hidden');
+            dashboardPage.style.display = 'block';
+            AppState.currentPage = 'dashboard';
+        }
+        
+        // Clear flags
+        sessionStorage.removeItem('previousApp');
+        sessionStorage.removeItem('redirectingTo');
+        
+        // Update UI
+        if (typeof updateUserInfo === 'function') {
+            updateUserInfo();
+        }
+        
+        if (typeof loadInitialData === 'function') {
+            loadInitialData();
+        }
+        
+        // Show notification
+        if (typeof showNotification === 'function') {
+            showNotification('Welcome back to PolyLearn!', 'success');
+        }
+    }
+})();
+
+console.log('✅ ULTIMATE FIX APPLIED - Loading page will be completely bypassed when returning from MathEase/FactoLearn');
