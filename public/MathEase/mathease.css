@@ -13267,3 +13267,29 @@ function addPracticeStyles() {
 .tool-item:nth-child(4) { --tool-index: 4; }
 .tool-item:nth-child(5) { --tool-index: 5; }
 .tool-item:nth-child(6) { --tool-index: 6; }
+
+/* Smooth scrolling for the whole page */
+html {
+    scroll-behavior: smooth;
+}
+
+/* Ensure video container has scroll margin */
+#videoContainer {
+    scroll-margin-top: 20px;
+}
+
+/* Loading state for buttons */
+.lesson-nav-btn:disabled {
+    opacity: 0.7;
+    cursor: not-allowed;
+}
+
+.lesson-nav-btn i.fa-spinner {
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
