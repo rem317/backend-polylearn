@@ -3242,48 +3242,53 @@
 
     <!-- Mobile Menu Overlay -->
     <div class="mobile-menu-overlay" id="mobileMenuOverlay"></div>
-    <div class="mobile-menu-panel" id="mobileMenuPanel">
-        <div class="mobile-menu-header">
-            <h3><i class="fas fa-bars"></i> Menu</h3>
-            <button class="close-menu-btn" onclick="closeMobileMenu()">
-                <i class="fas fa-times"></i>
-            </button>
-        </div>
-        <div class="mobile-menu-grid">
-            <a href="#" class="mobile-menu-item active" onclick="showDashboard(event)">
-                <i class="fas fa-tachometer-alt"></i>
-                <span>Dashboard</span>
-            </a>
-            <a href="#" class="mobile-menu-item" onclick="showPracticeDashboard(event)">
-                <i class="fas fa-book-open"></i>
-                <span>Practice</span>
-            </a>
-            <a href="#" class="mobile-menu-item" onclick="showQuizDashboard(event)">
-                <i class="fas fa-question-circle"></i>
-                <span>Quiz</span>
-            </a>
-            <a href="#" class="mobile-menu-item" onclick="showProgressPage(event)">
-                <i class="fas fa-chart-line"></i>
-                <span>Progress</span>
-            </a>
-            <a href="#" class="mobile-menu-item" onclick="showFeedbackPage(event)">
-                <i class="fas fa-comments"></i>
-                <span>Feedback</span>
-            </a>
-            <a href="#" class="mobile-menu-item" onclick="showSettingsPage(event)">
-                <i class="fas fa-cog"></i>
-                <span>Settings</span>
-            </a>
-            <a href="#" class="mobile-menu-item" onclick="goToModuleDashboard(event)">
-                <i class="fas fa-graduation-cap"></i>
-                <span>Lessons</span>
-            </a>
-            <a href="#" class="mobile-menu-item logout-item" onclick="showLogoutConfirmation()">
-                <i class="fas fa-sign-out-alt"></i>
-                <span>Logout</span>
-            </a>
-        </div>
+<div class="mobile-menu-panel" id="mobileMenuPanel">
+    <div class="mobile-menu-header">
+        <h3><i class="fas fa-bars"></i> Menu</h3>
+        <button class="close-menu-btn" onclick="closeMobileMenu()">
+            <i class="fas fa-times"></i>
+        </button>
     </div>
+    <div class="mobile-menu-grid">
+        <a href="#" class="mobile-menu-item active" onclick="showDashboard(event)">
+            <i class="fas fa-tachometer-alt"></i>
+            <span>Dashboard</span>
+        </a>
+        <a href="#" class="mobile-menu-item" onclick="showPracticeDashboard(event)">
+            <i class="fas fa-book-open"></i>
+            <span>Practice</span>
+        </a>
+        <a href="#" class="mobile-menu-item" onclick="showQuizDashboard(event)">
+            <i class="fas fa-question-circle"></i>
+            <span>Quiz</span>
+        </a>
+        <a href="#" class="mobile-menu-item" onclick="showProgressPage(event)">
+            <i class="fas fa-chart-line"></i>
+            <span>Progress</span>
+        </a>
+        <a href="#" class="mobile-menu-item" onclick="showFeedbackPage(event)">
+            <i class="fas fa-comments"></i>
+            <span>Feedback</span>
+        </a>
+        <a href="#" class="mobile-menu-item" onclick="showSettingsPage(event)">
+            <i class="fas fa-cog"></i>
+            <span>Settings</span>
+        </a>
+        <a href="#" class="mobile-menu-item" onclick="goToModuleDashboard(event)">
+            <i class="fas fa-graduation-cap"></i>
+            <span>Lessons</span>
+        </a>
+        <!-- ✅ ADD THIS: Back to App Selection Button (same style as PolyLearn) -->
+        <a href="#" class="mobile-menu-item" onclick="goToAppSelection(event)" style="border-top: 1px solid #eee; margin-top: 5px; padding-top: 15px;">
+            <i class="fas fa-arrow-left"></i>
+            <span>Back to App Selection</span>
+        </a>
+        <a href="#" class="mobile-menu-item logout-item" onclick="showLogoutConfirmation()">
+            <i class="fas fa-sign-out-alt"></i>
+            <span>Logout</span>
+        </a>
+    </div>
+</div>
     <!-- Quiz Modal -->
     <div class="modal-overlay" id="quizModal">
         <div class="modal-container" style="max-width: 800px;">
