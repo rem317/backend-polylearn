@@ -1,4 +1,5 @@
- // ===== GLOBAL STATE =====
+
+// ===== GLOBAL STATE =====
 let currentSubject = 'polynomial';
 const sections = document.querySelectorAll('.dashboard-section');
 let selectedRole = 'student';
@@ -863,44 +864,89 @@ async function initQuizDashboard() {
     }
 }
 
-// ============================================
-// LOAD QUIZ CATEGORIES BASED ON SELECTED SUBJECT
-// ============================================
-function loadQuizCategories() {
-    const subjectId = document.getElementById('quizSubject').value;
-    const categorySelect = document.getElementById('quizCategory');
-    const topicSelect = document.getElementById('quizTopic');
-    
-    // Reset category and topic dropdowns
-    categorySelect.innerHTML = '<option value="">-- Loading categories... --</option>';
-    categorySelect.disabled = true;
-    topicSelect.innerHTML = '<option value="">-- Select Category First --</option>';
-    topicSelect.disabled = true;
-    
-    if (!subjectId) {
-        categorySelect.innerHTML = '<option value="">-- Select Subject First --</option>';
-        return;
-    }
-    
-    // Get categories from server based on subject
-    fetch(`/api/quiz/categories?lesson_id=${subjectId}`)
-        .then(response => response.json())
-        .then(data => {
-            if (data.success && data.categories && data.categories.length > 0) {
-                let options = '<option value="">-- Select Category --</option>';
-                data.categories.forEach(cat => {
-                    options += `<option value="${cat.category_id}">${cat.category_name}</option>`;
-                });
-                categorySelect.innerHTML = options;
-                categorySelect.disabled = false;
-            } else {
-                categorySelect.innerHTML = '<option value="">-- No categories found --</option>';
-            }
-        })
-        .catch(error => {
-            console.error('Error loading categories:', error);
-            categorySelect.innerHTML = '<option value="">-- Error loading categories --</option>';
+// ===== LOAD QUIZ CATEGORIES =====
+async function loadQuizCategories() {
+    try {
+        const categories = await fetchQuizCategories();
+        QuizState.quizCategories = categories;
+        
+        const quizzesContainer = document.getElementById('userQuizzesContainer');
+        if (!quizzesContainer) {
+            console.error('Quiz container not found');
+            return;
+        }
+        
+        if (categories.length === 0) {
+            quizzesContainer.innerHTML = `
+                <div class="no-categories">
+                    <i class="fas fa-clipboard-list"></i>
+                    <h3>No quiz categories available</h3>
+                    <p>Check back later for new quizzes!</p>
+                </div>
+            `;
+            return;
+        }
+        
+        // Display categories as cards
+        let html = '';
+        categories.forEach(category => {
+            html += `
+                <div class="quiz-category-card" data-category-id="${category.category_id}">
+                    <div class="quiz-category-icon" style="background: ${category.color || '#3498db'}">
+                        <i class="${category.icon || 'fas fa-question-circle'}"></i>
+                    </div>
+                    <div class="quiz-category-info">
+                        <h3 class="quiz-category-title">${category.category_name}</h3>
+                        <p class="quiz-category-desc">${category.description || 'Test your knowledge in this category'}</p>
+                        <div class="quiz-category-stats">
+                            <span class="quiz-category-stat">
+                                <i class="fas fa-question-circle"></i> ${category.quiz_count || 0} Quizzes
+                            </span>
+                        </div>
+                    </div>
+                    <button class="quiz-category-btn" data-category-id="${category.category_id}">
+                        <i class="fas fa-arrow-right"></i>
+                    </button>
+                </div>
+            `;
         });
+        
+        quizzesContainer.innerHTML = html;
+        
+        // Add event listeners to category buttons
+        document.querySelectorAll('.quiz-category-btn').forEach(button => {
+            button.addEventListener('click', async function(e) {
+                e.stopPropagation();
+                const categoryId = this.getAttribute('data-category-id');
+                await loadQuizzesForCategory(categoryId);
+            });
+        });
+        
+        // Add event listeners to category cards
+        document.querySelectorAll('.quiz-category-card').forEach(card => {
+            card.addEventListener('click', function() {
+                const categoryId = this.getAttribute('data-category-id');
+                document.querySelectorAll('.quiz-category-card').forEach(c => {
+                    c.classList.remove('selected');
+                });
+                this.classList.add('selected');
+                QuizState.selectedCategory = categoryId;
+            });
+        });
+        
+    } catch (error) {
+        console.error('Error loading quiz categories:', error);
+        const quizzesContainer = document.getElementById('userQuizzesContainer');
+        if (quizzesContainer) {
+            quizzesContainer.innerHTML = `
+                <div class="error-message">
+                    <i class="fas fa-exclamation-triangle"></i>
+                    <h3>Failed to load quiz categories</h3>
+                    <p>Please try again later</p>
+                </div>
+            `;
+        }
+    }
 }
 
 
@@ -22039,7 +22085,6 @@ async function initializeQuizDashboard() {
 }
 
 // ===== LOAD QUIZZES FROM MYSQL - WITH CORRECT SUBJECT MAPPING =====
-// ===== UPDATED: Load quizzes from MySQL - Use lesson_id =====
 async function loadQuizzesFromMySQL() {
     console.log("📥 Loading quizzes from MySQL...");
     
@@ -22057,44 +22102,95 @@ async function loadQuizzesFromMySQL() {
             return;
         }
         
-        const response = await fetch(`/api/admin/quizzes`, {
+        // Try new endpoint first
+        try {
+            const response = await fetch(`/api/admin/quizzes-with-subjects`, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            
+            if (response.ok) {
+                const result = await response.json();
+                console.log('📥 Server response:', result);
+                
+                if (result.success) {
+                    quizData = (result.quizzes || []).map(quiz => {
+                        // ✅ FIXED: Correct subject mapping based on category_id
+                        let subject_id = quiz.category_id || quiz.subject_id;
+                        let subject_name = 'Unknown';
+                        
+                        // Map subject_id to display name
+                        if (subject_id == 2) subject_name = 'PolyLearn';
+                        else if (subject_id == 1) subject_name = 'MathEase';
+                        else if (subject_id == 3) subject_name = 'FactoLearn';
+                        
+                        return {
+                            id: quiz.quiz_id || quiz.id,
+                            title: quiz.quiz_title || quiz.title,
+                            description: quiz.description,
+                            subject_id: subject_id,
+                            subject_name: subject_name,
+                            difficulty: quiz.difficulty,
+                            question_count: quiz.question_count || 0,
+                            attempts: quiz.attempts || 0,
+                            avg_score: Math.round(quiz.avg_score || 0),
+                            status: quiz.is_active === 1 ? 'active' : 'draft',
+                            created_at: quiz.created_at
+                        };
+                    });
+                    
+                    console.log(`✅ Loaded ${quizData.length} quizzes with correct subject mapping`);
+                    console.log('📊 Sample quiz data:', quizData.slice(0, 2));
+                    
+                    updateQuizStats();
+                    displayQuizzes();
+                    updateTopQuizzes();
+                    //updateRecentResults();//
+                    return;
+                }
+            }
+        } catch (error) {
+            console.log('⚠️ New endpoint failed, trying fallback:', error.message);
+        }
+        
+        // Fallback: Try regular endpoint
+        const fallbackResponse = await fetch(`/api/admin/quizzes`, {
             headers: { 'Authorization': `Bearer ${token}` }
         });
         
-        if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
-        }
+        const fallbackResult = await fallbackResponse.json();
         
-        const result = await response.json();
-        
-        if (result.success) {
-            quizData = (result.quizzes || []).map(quiz => {
-                // ✅ Use lesson_id for filtering
-                let lesson_id = quiz.lesson_id || 0;
+        if (fallbackResult.success) {
+            quizData = (fallbackResult.quizzes || []).map(quiz => {
+                // ✅ FIXED: Correct subject mapping
+                let subject_id = quiz.subject_id || quiz.category_id;
+                let subject_name = 'Unknown';
+                
+                if (subject_id == 2) subject_name = 'PolyLearn';
+                else if (subject_id == 1) subject_name = 'MathEase';
+                else if (subject_id == 3) subject_name = 'FactoLearn';
                 
                 return {
-                    id: quiz.quiz_id || quiz.id,
-                    title: quiz.quiz_title || quiz.title,
+                    id: quiz.id || quiz.quiz_id,
+                    title: quiz.title || quiz.quiz_title,
                     description: quiz.description,
-                    lesson_id: lesson_id,
+                    subject_id: subject_id,
+                    subject_name: subject_name,
                     difficulty: quiz.difficulty,
                     question_count: quiz.question_count || 0,
                     attempts: quiz.attempts || 0,
                     avg_score: Math.round(quiz.avg_score || 0),
-                    status: quiz.is_active === 1 ? 'active' : 'draft',
+                    status: quiz.status || (quiz.is_active ? 'active' : 'draft'),
                     created_at: quiz.created_at
                 };
             });
             
-            console.log(`✅ Loaded ${quizData.length} quizzes with lesson_id`);
+            console.log(`✅ Loaded ${quizData.length} quizzes with fallback mapping`);
             console.log('📊 Sample quiz data:', quizData.slice(0, 2));
             
             updateQuizStats();
             displayQuizzes();
             updateTopQuizzes();
-            
-        } else {
-            throw new Error(result.message || 'Failed to load quizzes');
+            updateRecentResults();
         }
         
     } catch (error) {
@@ -22134,7 +22230,7 @@ function getErrorHTML(errorMessage) {
         </tr>
     `;
 }
-// ===== UPDATED: Update quiz stats with lesson_id =====
+// ===== FIXED: UPDATE QUIZ STATS WITH CORRECT ELEMENT ID =====
 function updateQuizStats() {
     const totalQuizzes = quizData.length;
     const activeQuizzes = quizData.filter(q => q.status === 'active').length;
@@ -22152,7 +22248,8 @@ function updateQuizStats() {
         totalQuizzes,
         activeQuizzes,
         totalAttempts,
-        avgScore
+        avgScore,
+        quizzesWithScores: quizzesWithScores.length
     });
     
     // Update Quiz Dashboard stats
@@ -22165,21 +22262,25 @@ function updateQuizStats() {
     const totalAttemptsEl = document.getElementById('totalAttempts');
     if (totalAttemptsEl) totalAttemptsEl.textContent = totalAttempts;
     
+    // ✅ FIXED: Use the correct element ID 'performanceAvgScore'
     const avgScoreEl = document.getElementById('performanceAvgScore');
     if (avgScoreEl) {
         avgScoreEl.textContent = avgScore + '%';
+        console.log('✅ Updated quiz avgScore to:', avgScore + '%');
+    } else {
+        console.warn('⚠️ Element #performanceAvgScore not found in DOM');
     }
     
-    // Update lesson counts
-    const mathQuizzes = quizData.filter(q => q.lesson_id === 1).length; // MathEase
-    const polyQuizzes = quizData.filter(q => q.lesson_id === 2).length; // PolyLearn
-    const factQuizzes = quizData.filter(q => q.lesson_id === 3).length; // FactoLearn
-    
-    const mathEl = document.getElementById('mathLessonCount');
-    if (mathEl) mathEl.textContent = mathQuizzes;
+    // Update subject counts
+    const polyQuizzes = quizData.filter(q => q.subject_id === 2).length; // PolyLearn
+    const mathQuizzes = quizData.filter(q => q.subject_id === 1).length; // MathEase
+    const factQuizzes = quizData.filter(q => q.subject_id === 3).length; // FactoLearn
     
     const polyEl = document.getElementById('polyLessonCount');
     if (polyEl) polyEl.textContent = polyQuizzes;
+    
+    const mathEl = document.getElementById('mathLessonCount');
+    if (mathEl) mathEl.textContent = mathQuizzes;
     
     const factEl = document.getElementById('factLessonCount');
     if (factEl) factEl.textContent = factQuizzes;
@@ -22187,7 +22288,8 @@ function updateQuizStats() {
     const totalEl = document.getElementById('totalLessonCount');
     if (totalEl) totalEl.textContent = totalQuizzes;
 }
-// ===== UPDATED: Display quizzes - Filter by LESSON ID =====
+
+// ===== DISPLAY QUIZZES - WITH PROPER FILTERING =====
 function displayQuizzes() {
     const tableBody = document.getElementById('quizTableBody');
     if (!tableBody) {
@@ -22195,19 +22297,19 @@ function displayQuizzes() {
         return;
     }
     
-    console.log("📊 Current filter (lesson_id):", currentQuizFilter);
+    console.log("📊 Current filter:", currentQuizFilter);
     console.log("📊 Total quizzes before filter:", quizData.length);
     
-    // Filter quizzes based on currentQuizFilter (lesson_id)
+    // Filter quizzes based on currentQuizFilter
     let filteredQuizzes = [...quizData];
     
     if (currentQuizFilter !== 'all') {
         // Convert both to numbers for comparison
         const filterId = parseInt(currentQuizFilter);
         filteredQuizzes = filteredQuizzes.filter(q => {
-            const match = q.lesson_id == filterId;
+            const match = q.subject_id == filterId;
             if (match) {
-                console.log(`✅ Match: ${q.title} (lesson_id: ${q.lesson_id}) with filter: ${filterId}`);
+                console.log(`✅ Match: ${q.title} (subject_id: ${q.subject_id}) with filter: ${filterId}`);
             }
             return match;
         });
@@ -22228,7 +22330,7 @@ function displayQuizzes() {
                     <h4 style="color: #666;">No Quizzes Found</h4>
                     <p style="color: #999; margin-bottom: 20px;">
                         ${currentQuizFilter !== 'all' ? 
-                          `No quizzes for lesson_id = ${currentQuizFilter}. Create your first quiz.` : 
+                          `No quizzes for this subject. Create your first quiz.` : 
                           'Create your first quiz to get started.'}
                     </p>
                     <button class="btn btn-primary" onclick="openCreateQuizModal()">
@@ -22252,11 +22354,6 @@ function displayQuizzes() {
         else if (quiz.avg_score >= 60) scoreClass = 'score-medium';
         else scoreClass = 'score-low';
         
-        // Get lesson name
-        const lessonName = quiz.lesson_id == 1 ? 'MathEase' :
-                          quiz.lesson_id == 2 ? 'PolyLearn' : 
-                          quiz.lesson_id == 3 ? 'FactoLearn' : 'Unknown';
-        
         html += `
             <tr>
                 <td>#${quiz.id}</td>
@@ -22267,7 +22364,7 @@ function displayQuizzes() {
                         <span class="difficulty-badge ${difficultyClass}">${quiz.difficulty || 'medium'}</span>
                     </div>
                 </td>
-                <td><span class="subject-badge ${lessonName.toLowerCase()}">${lessonName}</span></td>
+                <td><span class="subject-badge ${quiz.subject_name.toLowerCase()}">${quiz.subject_name}</span></td>
                 <td>${quiz.question_count || 0}</td>
                 <td>${quiz.attempts || 0}</td>
                 <td><span class="${scoreClass}">${quiz.avg_score || 0}%</span></td>
@@ -22295,13 +22392,15 @@ function displayQuizzes() {
     tableBody.innerHTML = html;
     updateQuizPagination(filteredQuizzes.length);
 }
-// ===== UPDATED: Filter quizzes by LESSON ID =====
-function filterQuizzesBySubject(lessonId) {
-    console.log("🔍 Filtering quizzes by lesson_id:", lessonId);
+
+// ===== FILTER QUIZZES BY SUBJECT =====
+// ===== FILTER QUIZZES BY SUBJECT - FIXED WITH DEBUGGING =====
+function filterQuizzesBySubject(subjectId) {
+    console.log("🔍 Filtering quizzes by subject:", subjectId);
     console.log("📊 Current quizData before filter:", quizData.map(q => ({
         id: q.id,
         title: q.title,
-        lesson_id: q.lesson_id,
+        subject_id: q.subject_id,
         subject_name: q.subject_name
     })));
     
@@ -22310,38 +22409,38 @@ function filterQuizzesBySubject(lessonId) {
         tab.classList.remove('active');
     });
     
-    if (lessonId === 'all') {
+    if (subjectId === 'all') {
         document.getElementById('filterAll').classList.add('active');
         currentQuizFilter = 'all';
-        console.log("✅ Activated: All Lessons");
+        console.log("✅ Activated: All Subjects");
     } else {
         // Convert to number for comparison
-        const lesId = parseInt(lessonId);
+        const subId = parseInt(subjectId);
         
-        // Map lesson ID to tab ID
+        // Map subject ID to tab ID
         let tabId = '';
-        let lessonName = '';
+        let subjectName = '';
         
-        if (lesId === 2) {           // PolyLearn
+        if (subId === 2) {           // PolyLearn
             tabId = 'filterPoly';
-            lessonName = 'PolyLearn';
-        } else if (lesId === 1) {     // MathEase
+            subjectName = 'PolyLearn';
+        } else if (subId === 1) {     // MathEase
             tabId = 'filterMath';
-            lessonName = 'MathEase';
-        } else if (lesId === 3) {     // FactoLearn
+            subjectName = 'MathEase';
+        } else if (subId === 3) {     // FactoLearn
             tabId = 'filterFact';
-            lessonName = 'FactoLearn';
+            subjectName = 'FactoLearn';
         }
         
-        console.log(`🎯 Activating tab: ${tabId} for ${lessonName} (ID: ${lesId})`);
+        console.log(`🎯 Activating tab: ${tabId} for ${subjectName} (ID: ${subId})`);
         
         const tabElement = document.getElementById(tabId);
         if (tabElement) {
             tabElement.classList.add('active');
-            console.log(`✅ Activated: ${lessonName} tab`);
+            console.log(`✅ Activated: ${subjectName} tab`);
         }
         
-        currentQuizFilter = lesId;
+        currentQuizFilter = subId;
     }
     
     currentQuizPage = 1;
@@ -22443,9 +22542,10 @@ function changeQuizPage(direction) {
     displayQuizzes();
 }
 
-// ===== FIXED: Open Create Quiz Modal - Use subject for lesson_id =====
+// ===== FIXED: OPEN CREATE/EDIT QUIZ MODAL (WITH DIRECT DATA) =====
 async function openCreateQuizModal(quizId = null, quizData = null) {
     console.log("📝 Opening quiz modal for:", quizId ? `edit #${quizId}` : 'create new');
+    console.log("📦 Quiz data received:", quizData);
     
     const modal = document.getElementById('createQuizModal');
     if (!modal) return;
@@ -22453,19 +22553,12 @@ async function openCreateQuizModal(quizId = null, quizData = null) {
     // Reset form
     document.getElementById('quizTitle').value = '';
     document.getElementById('quizDescription').value = '';
-    
-    // ✅ Set default subject to FactoLearn (lesson_id = 3)
-    const subjectSelect = document.getElementById('quizSubject');
-    if (subjectSelect) {
-        subjectSelect.value = '3'; // FactoLearn
-    }
+    document.getElementById('quizSubject').value = '';
     
     // Reset topic dropdown
     const topicSelect = document.getElementById('quizTopic');
-    if (topicSelect) {
-        topicSelect.innerHTML = '<option value="">-- Select Subject First --</option>';
-        topicSelect.disabled = true;
-    }
+    topicSelect.innerHTML = '<option value="">-- Select Subject First --</option>';
+    topicSelect.disabled = true;
     
     document.getElementById('quizTimeLimit').value = '30';
     document.getElementById('quizPassingScore').value = '70';
@@ -22483,9 +22576,7 @@ async function openCreateQuizModal(quizId = null, quizData = null) {
     
     // Clear questions
     const container = document.getElementById('questionsContainer');
-    if (container) {
-        container.innerHTML = '';
-    }
+    container.innerHTML = '';
     
     // Add one default question for create mode
     if (!quizId) {
@@ -22516,19 +22607,19 @@ async function openCreateQuizModal(quizId = null, quizData = null) {
             // ===== SET EDIT ID =====
             document.getElementById('editQuizId').value = quizData.quiz_id || quizData.id;
             
-            // ===== SET TITLE =====
+            // ===== SET TITLE - THIS IS THE KEY PART =====
             const titleValue = quizData.quiz_title || quizData.title || '';
+            console.log(`📝 Setting title to: "${titleValue}"`);
             document.getElementById('quizTitle').value = titleValue;
             
             // ===== SET DESCRIPTION =====
             document.getElementById('quizDescription').value = quizData.description || '';
             
-            // ===== SET SUBJECT (LESSON ID) =====
+            // ===== SET SUBJECT =====
+            const subjectSelect = document.getElementById('quizSubject');
             if (subjectSelect) {
-                // Kunin ang lesson_id mula sa quiz data
-                const lessonId = quizData.lesson_id || quizData.category_id || 3;
-                subjectSelect.value = lessonId;
-                console.log(`✅ Subject set to: ${lessonId}`);
+                subjectSelect.value = quizData.category_id || quizData.subject_id || '';
+                console.log(`✅ Subject set to: ${subjectSelect.value}`);
             }
             
             // ===== Load topics based on subject =====
@@ -22561,20 +22652,26 @@ async function openCreateQuizModal(quizId = null, quizData = null) {
             document.getElementById('quizStatus').value = status;
             
             // ===== Clear and add questions =====
-            if (container) {
-                container.innerHTML = '';
-            }
+            container.innerHTML = '';
             
             if (quizData.questions && quizData.questions.length > 0) {
+                console.log(`📝 Loading ${quizData.questions.length} questions`);
+                
                 quizData.questions.forEach((q, index) => {
+                    // Add question field
                     addQuestionField();
                     
+                    // Fill question data with slight delay for DOM to update
                     setTimeout(() => {
                         const qNum = index + 1;
                         
+                        // Set question text
                         const questionInput = document.getElementById(`q_${qNum}_text`);
-                        if (questionInput) questionInput.value = q.question_text || q.text || '';
+                        if (questionInput) {
+                            questionInput.value = q.question_text || q.text || '';
+                        }
                         
+                        // Populate options
                         if (q.options && Array.isArray(q.options)) {
                             const letters = ['a', 'b', 'c', 'd', 'e', 'f'];
                             
@@ -22582,23 +22679,33 @@ async function openCreateQuizModal(quizId = null, quizData = null) {
                                 const letter = letters[optIndex];
                                 if (!letter) return;
                                 
+                                // Set option text
                                 const optInput = document.getElementById(`q_${qNum}_opt_${letter}`);
-                                if (optInput) optInput.value = opt.option_text || opt.text || '';
+                                if (optInput) {
+                                    optInput.value = opt.option_text || opt.text || '';
+                                }
                                 
-                                if (opt.is_correct || opt.correct) {
+                                // Set correct answer
+                                const isCorrect = opt.is_correct || opt.correct || false;
+                                if (isCorrect) {
                                     const radio = document.querySelector(`input[name="q_${qNum}_correct"][value="${letter}"]`);
-                                    if (radio) radio.checked = true;
+                                    if (radio) {
+                                        radio.checked = true;
+                                    }
                                 }
                             });
                         }
                     }, 100 * (index + 1));
                 });
+                
+                showNotification('success', 'Loaded', `Quiz loaded with ${quizData.questions.length} questions`);
             } else {
                 addQuestionField();
             }
             
         } catch (error) {
             console.error('❌ Error populating quiz form:', error);
+            showNotification('error', 'Error', 'Failed to populate quiz data');
             addQuestionField();
         }
     }
@@ -22707,34 +22814,26 @@ function addOption(questionId) {
     
     optionsContainer.insertAdjacentHTML('beforeend', optionHtml);
 }
-// ===== UPDATED: Save Quiz WITH LESSON ID FROM SUBJECT =====
+// ===== FIXED: SAVE QUIZ TO MYSQL WITH CORRECT LESSON ID =====
 async function saveQuizToMySQL() {
     console.log("💾 ===== SAVING QUIZ TO MYSQL DATABASE =====");
     
     // Get form values
     const title = document.getElementById('quizTitle')?.value.trim();
     const description = document.getElementById('quizDescription')?.value.trim();
-    const subjectId = document.getElementById('quizSubject')?.value;  // 1, 2, or 3
+    const subjectId = document.getElementById('quizSubject')?.value; // This is the lesson_id
     const topicId = document.getElementById('quizTopic')?.value;
-    const editId = document.getElementById('editQuizId')?.value;
     
-    // Check if editing
-    const isEditMode = editId && editId !== '';
-    
-    // ✅ LESSON ID AY MULA SA SUBJECT (1, 2, or 3)
-    const lesson_id = parseInt(subjectId);
-    
-    console.log("🔍 Mode:", isEditMode ? "EDIT" : "CREATE", "Quiz ID:", editId || 'new');
-    console.log("📋 Lesson ID from subject:", lesson_id);
-    
-    // ===== GET CATEGORY ID FROM SUBJECT =====
-    let category_id;
-    if (subjectId == 1) category_id = 1;      // MathEase
-    else if (subjectId == 2) category_id = 2; // PolyLearn
-    else if (subjectId == 3) category_id = 3; // FactoLearn
-    else {
-        showNotification('error', 'Error', 'Please select a valid subject');
-        return;
+    // ===== FIX: USE SUBJECT ID AS LESSON ID =====
+    let lesson_id;
+    if (subjectId == 1) { // MathEase
+        lesson_id = 1;
+    } else if (subjectId == 2) { // PolyLearn
+        lesson_id = 2;
+    } else if (subjectId == 3) { // FactoLearn
+        lesson_id = 3;
+    } else {
+        lesson_id = 1; // Default to MathEase
     }
     
     const timeLimit = document.getElementById('quizTimeLimit')?.value;
@@ -22742,7 +22841,31 @@ async function saveQuizToMySQL() {
     const maxAttempts = document.getElementById('quizMaxAttempts')?.value;
     const difficulty = document.getElementById('quizDifficulty')?.value;
     const status = document.getElementById('quizStatus')?.value;
+    const editId = document.getElementById('editQuizId')?.value;
+    
+    // Get assigned teacher
     const assignedTeacherId = document.getElementById('quizAssignedTeacherId')?.value;
+    
+    // Get subject name for logging
+    let subjectName = '';
+    if (lesson_id == 1) subjectName = 'MathEase';
+    else if (lesson_id == 2) subjectName = 'PolyLearn';
+    else if (lesson_id == 3) subjectName = 'FactoLearn';
+    
+    console.log('📋 Quiz data:', { 
+        title, 
+        description,
+        lesson_id,  // This will be 1, 2, or 3
+        subjectName,
+        topicId,
+        timeLimit, 
+        passingScore, 
+        maxAttempts,
+        difficulty, 
+        status, 
+        editId: editId || 'new',
+        assignedTeacherId: assignedTeacherId || 'none (self)'
+    });
     
     // ===== VALIDATION =====
     if (!title) {
@@ -22811,11 +22934,10 @@ async function saveQuizToMySQL() {
         });
     }
     
-    // ===== PREPARE DATA FOR SERVER WITH LESSON ID =====
+    // ===== PREPARE DATA FOR SERVER =====
     const quizData = {
-        lesson_id: lesson_id,                    // ← LESSON ID MULA SA SUBJECT
-        category_id: category_id,
-        topic_id: topicId && topicId !== '' ? parseInt(topicId) : null,
+        lesson_id: lesson_id,  // Use lesson_id, not category_id
+        topic_id: topicId ? parseInt(topicId) : null,
         title: title,
         description: description || '',
         difficulty: difficulty || 'medium',
@@ -22832,12 +22954,11 @@ async function saveQuizToMySQL() {
         quizData.assigned_teacher_id = parseInt(assignedTeacherId);
     }
     
-    if (isEditMode) {
+    if (editId) {
         quizData.quiz_id = parseInt(editId);
     }
     
-    console.log("📤 Sending quiz data with lesson_id:", lesson_id);
-    console.log("📤 Full data:", JSON.stringify(quizData, null, 2));
+    console.log("📤 Sending quiz data:", quizData);
     
     try {
         const token = localStorage.getItem('admin_token') || localStorage.getItem('authToken');
@@ -22852,18 +22973,15 @@ async function saveQuizToMySQL() {
         const originalText = saveBtn?.innerHTML;
         if (saveBtn) {
             saveBtn.disabled = true;
-            saveBtn.innerHTML = isEditMode 
-                ? '<i class="fas fa-spinner fa-spin"></i> Updating...' 
-                : '<i class="fas fa-spinner fa-spin"></i> Saving...';
+            saveBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Saving...';
         }
         
-        const url = isEditMode ? `/api/admin/quizzes/${editId}` : `/api/admin/quizzes`;
-        const method = isEditMode ? 'PUT' : 'POST';
-        
-        console.log(`📡 ${method} to: ${url}`);
+        const url = editId
+            ? `/api/admin/quizzes/${editId}`
+            : `/api/admin/quizzes`;
         
         const response = await fetch(url, {
-            method: method,
+            method: editId ? 'PUT' : 'POST',
             headers: {
                 'Authorization': `Bearer ${token}`,
                 'Content-Type': 'application/json'
@@ -22871,40 +22989,32 @@ async function saveQuizToMySQL() {
             body: JSON.stringify(quizData)
         });
         
-        const responseText = await response.text();
-        console.log("📥 Raw response:", responseText);
-        
-        let result;
-        try {
-            result = JSON.parse(responseText);
-        } catch (e) {
-            console.error("❌ Failed to parse JSON:", responseText);
-            throw new Error('Server returned invalid JSON');
-        }
+        const result = await response.json();
         
         if (!response.ok) {
             throw new Error(result.message || `Server error: ${response.status}`);
         }
         
         if (result.success) {
-            const message = isEditMode 
+            let message = editId 
                 ? 'Quiz updated successfully!' 
                 : 'Quiz created successfully!';
+            message += ` (${subjectName})`;
             
-            // Ipakita kung saang lesson na-save
-            const lessonName = lesson_id == 1 ? 'MathEase' : 
-                              lesson_id == 2 ? 'PolyLearn' : 'FactoLearn';
+            if (assignedTeacherId) {
+                message += ' (Assigned to teacher)';
+            }
             
-            showNotification('success', 'Success!', `${message} (${lessonName})`);
+            showNotification('success', 'Success!', message);
             closeCreateQuizModal();
-            await loadQuizzesFromMySQL(); // Refresh the list
+            await loadQuizzesFromMySQL();
         } else {
-            throw new Error(result.message || `Failed to ${isEditMode ? 'update' : 'create'} quiz`);
+            throw new Error(result.message || 'Failed to save quiz');
         }
         
     } catch (error) {
-        console.error(`❌ Error ${isEditMode ? 'updating' : 'creating'} quiz:`, error);
-        showNotification('error', `${isEditMode ? 'Update' : 'Create'} Failed`, error.message);
+        console.error('❌ Error saving quiz:', error);
+        showNotification('error', 'Save Failed', error.message);
     } finally {
         const saveBtn = document.querySelector('#createQuizModal .btn-primary');
         if (saveBtn) {
@@ -22913,6 +23023,7 @@ async function saveQuizToMySQL() {
         }
     }
 }
+
 // ===== CLOSE CREATE QUIZ MODAL =====
 function closeCreateQuizModal() {
     const modal = document.getElementById('createQuizModal');
@@ -23017,149 +23128,52 @@ function closeViewQuizModal() {
     }
 }
 
-// ===== EDIT QUIZ FUNCTION - ITO ANG KAILANGAN MO I-FIX =====
+// ===== FIXED: EDIT QUIZ FUNCTION =====
 async function editQuiz(quizId) {
-    console.log("✏️ Opening edit modal for quiz:", quizId);
+    console.log("✏️ Editing quiz:", quizId);
     
     try {
         const token = localStorage.getItem('admin_token') || localStorage.getItem('authToken');
         
+        if (!token) {
+            showNotification('error', 'Auth Error', 'Please login first');
+            return;
+        }
+        
+        // Show loading notification
+        showNotification('info', 'Loading', 'Fetching quiz data...');
+        
         const response = await fetch(`/api/admin/quizzes/${quizId}`, {
-            headers: { 'Authorization': `Bearer ${token}` }
+            headers: {
+                'Authorization': `Bearer ${token}`
+            }
         });
         
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        
         const result = await response.json();
+        console.log('📥 Edit quiz response:', result);
         
         if (result.success) {
             const quiz = result.quiz;
+            console.log('✅ Quiz data received:', quiz);
+            console.log('📋 Quiz title:', quiz.quiz_title);
             
-            // Open the modal
-            const modal = document.getElementById('createQuizModal');
-            
-            // CHANGE THE MODAL TITLE
-            const modalTitle = modal.querySelector('.modal-header h3');
-            if (modalTitle) {
-                modalTitle.innerHTML = '<i class="fas fa-edit"></i> Edit Quiz';
-            }
-            
-            // CHANGE THE SAVE BUTTON TEXT (but still use the same function)
-            const saveBtn = modal.querySelector('.btn-primary');
-            if (saveBtn) {
-                saveBtn.innerHTML = '<i class="fas fa-save"></i> Update Quiz';
-                // HUWAG baguhin ang onclick - keep it as saveQuizToMySQL
-                // saveBtn.setAttribute('onclick', 'saveQuizToMySQL()'); // <- ITO ANG IMPORTANTE
-            }
-            
-            // ===== I-SET ANG EDIT QUIZ ID =====
-            document.getElementById('editQuizId').value = quiz.quiz_id || quiz.id;
-            console.log("✅ Set editQuizId to:", document.getElementById('editQuizId').value);
-            
-            // Populate form fields
-            document.getElementById('quizTitle').value = quiz.title || quiz.quiz_title || '';
-            document.getElementById('quizDescription').value = quiz.description || '';
-            
-            // Set subject
-            const subjectId = quiz.category_id || quiz.subject_id;
-            if (subjectId) {
-                document.getElementById('quizSubject').value = subjectId;
-                console.log("✅ Set subject to:", subjectId);
-            }
-            
-            // Load topics and set topic
-            await loadQuizTopics();
-            
-            // Set topic after topics are loaded
-            setTimeout(() => {
-                if (quiz.topic_id) {
-                    const topicSelect = document.getElementById('quizTopic');
-                    if (topicSelect) {
-                        topicSelect.value = quiz.topic_id;
-                        console.log("✅ Set topic to:", quiz.topic_id);
-                    }
-                }
-            }, 500);
-            
-            // Set other fields
-            document.getElementById('quizTimeLimit').value = quiz.time_limit_minutes || quiz.time_limit || 30;
-            document.getElementById('quizPassingScore').value = quiz.passing_score || quiz.pass_score || 70;
-            document.getElementById('quizMaxAttempts').value = quiz.max_attempts || quiz.attempts_limit || 3;
-            document.getElementById('quizDifficulty').value = quiz.difficulty || 'medium';
-            
-            // Status
-            const status = quiz.is_active === 1 ? 'active' : 'inactive';
-            document.getElementById('quizStatus').value = status;
-            
-            // Load questions
-            const container = document.getElementById('questionsContainer');
-            container.innerHTML = '';
-            
-            if (quiz.questions && quiz.questions.length > 0) {
-                quiz.questions.forEach((q, index) => {
-                    addQuestionField();
-                    
-                    setTimeout(() => {
-                        const qNum = index + 1;
-                        
-                        // Question text
-                        const questionInput = document.getElementById(`q_${qNum}_text`);
-                        if (questionInput) {
-                            questionInput.value = q.question_text || q.text || '';
-                        }
-                        
-                        // Options
-                        if (q.options && q.options.length > 0) {
-                            const letters = ['a', 'b', 'c', 'd', 'e', 'f'];
-                            
-                            q.options.forEach((opt, optIndex) => {
-                                const letter = letters[optIndex];
-                                if (!letter) return;
-                                
-                                const optInput = document.getElementById(`q_${qNum}_opt_${letter}`);
-                                if (optInput) {
-                                    optInput.value = opt.option_text || opt.text || '';
-                                }
-                                
-                                if (opt.is_correct || opt.correct) {
-                                    const radio = document.querySelector(`input[name="q_${qNum}_correct"][value="${letter}"]`);
-                                    if (radio) radio.checked = true;
-                                }
-                            });
-                        }
-                    }, 100 * (index + 1));
-                });
-            } else {
-                addQuestionField();
-            }
-            
-            // Show modal
-            modal.style.display = 'flex';
-            document.body.classList.add('modal-open');
+            // Open the modal with the quiz data
+            await openCreateQuizModal(quizId, quiz);
             
         } else {
-            showNotification('error', 'Error', 'Failed to load quiz data');
+            throw new Error(result.message || 'Failed to load quiz');
         }
         
     } catch (error) {
-        console.error('❌ Error loading quiz for edit:', error);
-        showNotification('error', 'Error', error.message);
+        console.error('❌ Error editing quiz:', error);
+        showNotification('error', 'Error', 'Failed to load quiz for editing');
     }
 }
 
-// ===== SEPARATE FUNCTION PARA SA EDIT (KUNG Kailangan) =====
-async function updateQuiz() {
-    console.log("✏️ ===== UPDATING QUIZ =====");
-    
-    // Set na may editId para sure
-    const editId = document.getElementById('editQuizId')?.value;
-    
-    if (!editId) {
-        showNotification('error', 'Error', 'No quiz ID found for update');
-        return;
-    }
-    
-    // Tawagin lang ang main function
-    await saveQuizToMySQL();
-}
 // ===== DELETE QUIZ =====
 async function deleteQuiz(quizId) {
     if (!confirm('Are you sure you want to delete this quiz? This action cannot be undone.')) {
@@ -26247,7 +26261,7 @@ function refreshPracticeData() {
     loadAdminPracticeExercises();
 }
 
-// ===== FIXED: Open Create Practice Modal - Use subject for lesson_id =====
+// ===== OPEN CREATE PRACTICE MODAL =====
 function openCreatePracticeModal() {
     console.log("📝 Opening create practice modal...");
     
@@ -26258,13 +26272,7 @@ function openCreatePracticeModal() {
     document.getElementById('practiceId').value = '';
     document.getElementById('practiceTitle').value = '';
     document.getElementById('practiceDescription').value = '';
-    
-    // ✅ Set default subject to FactoLearn (lesson_id = 3)
-    const subjectSelect = document.getElementById('practiceSubject');
-    if (subjectSelect) {
-        subjectSelect.value = '3'; // FactoLearn
-    }
-    
+    document.getElementById('practiceSubject').value = '';
     document.getElementById('practiceTopic').innerHTML = '<option value="">-- Select Subject First --</option>';
     document.getElementById('practiceTopic').disabled = true;
     document.getElementById('practiceDifficulty').value = 'medium';
@@ -26272,7 +26280,7 @@ function openCreatePracticeModal() {
     document.getElementById('practicePoints').value = '10';
     document.getElementById('practiceStatus').value = 'active';
     
-    // Clear teacher dropdown
+    // Clear teacher dropdown (show loading)
     const teacherSelect = document.getElementById('practiceAssignedTeacherId');
     if (teacherSelect) {
         teacherSelect.innerHTML = '<option value="">Loading teachers...</option>';
@@ -26280,10 +26288,7 @@ function openCreatePracticeModal() {
     }
     
     // Clear questions
-    const container = document.getElementById('practiceQuestionsContainer');
-    if (container) {
-        container.innerHTML = '';
-    }
+    document.getElementById('practiceQuestionsContainer').innerHTML = '';
     
     // Add one default question
     addPracticeQuestion();
@@ -26299,16 +26304,12 @@ function openCreatePracticeModal() {
     }, 300);
     
     // Add event listener for subject change
-    if (subjectSelect) {
-        // Remove existing listeners to avoid duplicates
-        const newSubjectSelect = subjectSelect.cloneNode(true);
-        subjectSelect.parentNode.replaceChild(newSubjectSelect, subjectSelect);
-        
-        newSubjectSelect.addEventListener('change', loadPracticeTopicsBySubject);
-    }
+    const subjectSelect = document.getElementById('practiceSubject');
+    subjectSelect.addEventListener('change', loadPracticeTopicsBySubject);
     
     showNotification('info', 'Create Practice', 'Select a subject to load available topics');
 }
+
 // ===== LOAD TOPICS BY SUBJECT =====
 async function loadPracticeTopicsBySubject() {
     console.log("📚 Loading topics for selected subject...");
@@ -26591,12 +26592,12 @@ function deletePracticeExercise(exerciseId) {
 }
 
 
-// ===== UPDATED: Save Practice Exercise WITH LESSON ID FROM SUBJECT =====
+// ===== FIXED: SAVE PRACTICE EXERCISE WITH CORRECT LESSON ID =====
 async function savePracticeExercise() {
     console.log("💾 ===== SAVING PRACTICE EXERCISE TO DATABASE =====");
     
     // Get form values
-    const subjectId = document.getElementById('practiceSubject')?.value;  // 1, 2, or 3
+    const subjectId = document.getElementById('practiceSubject')?.value; // This is the lesson_id
     const topicId = document.getElementById('practiceTopic')?.value;
     const title = document.getElementById('practiceTitle')?.value.trim();
     const description = document.getElementById('practiceDescription')?.value.trim();
@@ -26609,30 +26610,23 @@ async function savePracticeExercise() {
     // Get assigned teacher
     const assignedTeacherId = document.getElementById('practiceAssignedTeacherId')?.value;
     
-    // ✅ LESSON ID AY MULA SA SUBJECT (1, 2, or 3)
-    const lesson_id = parseInt(subjectId);
-    
-    // Check if editing
-    const isEditMode = practiceId && practiceId !== '';
-    console.log("🔍 Mode:", isEditMode ? "EDIT" : "CREATE", "ID:", practiceId || 'new');
-    console.log("📋 Lesson ID from subject:", lesson_id);
-    
-    // ===== VALIDATION =====
-    if (!subjectId) {
-        showNotification('error', 'Error', 'Please select a subject');
-        return;
+    // ===== FIX: USE SUBJECT ID AS LESSON ID =====
+    let lesson_id;
+    if (subjectId == 1) { // MathEase
+        lesson_id = 1;
+    } else if (subjectId == 2) { // PolyLearn
+        lesson_id = 2;
+    } else if (subjectId == 3) { // FactoLearn
+        lesson_id = 3;
+    } else {
+        lesson_id = 1; // Default to MathEase
     }
     
-    if (!topicId || topicId === '') {
-        showNotification('error', 'Error', 'Please select a topic');
-        console.error("❌ No topic selected!");
-        return;
-    }
-    
-    if (!title) {
-        showNotification('error', 'Error', 'Please enter a title');
-        return;
-    }
+    // Get subject name for display
+    let subjectName = '';
+    if (lesson_id == 1) subjectName = 'MathEase';
+    else if (lesson_id == 2) subjectName = 'PolyLearn';
+    else if (lesson_id == 3) subjectName = 'FactoLearn';
     
     // Map content type to database format
     const contentTypeMap = {
@@ -26642,6 +26636,35 @@ async function savePracticeExercise() {
     };
     
     const dbContentType = contentTypeMap[contentType] || 'multiple_choice';
+    
+    console.log('📝 Practice data:', { 
+        lesson_id,
+        subjectName,
+        topicId,
+        title, 
+        difficulty, 
+        dbContentType,
+        points,
+        status,
+        isUpdate: !!practiceId,
+        assignedTeacherId: assignedTeacherId || 'none (self)'
+    });
+    
+    // ===== VALIDATION =====
+    if (!subjectId) {
+        showNotification('error', 'Error', 'Please select a subject');
+        return;
+    }
+    
+    if (!topicId) {
+        showNotification('error', 'Error', 'Please select a topic');
+        return;
+    }
+    
+    if (!title) {
+        showNotification('error', 'Error', 'Please enter a title');
+        return;
+    }
     
     // ===== COLLECT QUESTIONS =====
     const questions = [];
@@ -26653,6 +26676,7 @@ async function savePracticeExercise() {
     }
     
     for (let i = 0; i < questionItems.length; i++) {
+        const q = questionItems[i];
         const qId = i + 1;
         
         const questionText = document.getElementById(`practice_q_${qId}_text`)?.value.trim();
@@ -26695,7 +26719,7 @@ async function savePracticeExercise() {
         });
     }
     
-    // ===== PREPARE DATA FOR SERVER WITH LESSON ID =====
+    // ===== PREPARE DATA FOR SERVER =====
     const contentJson = {
         questions: questions
     };
@@ -26703,7 +26727,7 @@ async function savePracticeExercise() {
     const isActive = status === 'active' ? 1 : 0;
     
     const practiceData = {
-        lesson_id: lesson_id,                    // ← LESSON ID MULA SA SUBJECT
+        lesson_id: lesson_id,  // Use lesson_id, not subject_id
         topic_id: parseInt(topicId),
         title: title,
         description: description || '',
@@ -26715,17 +26739,15 @@ async function savePracticeExercise() {
     };
     
     // Add teacher assignment if selected
-    if (assignedTeacherId && assignedTeacherId !== '') {
+    if (assignedTeacherId) {
         practiceData.assigned_teacher_id = parseInt(assignedTeacherId);
     }
     
-    // Add ID if editing
-    if (isEditMode) {
+    if (practiceId) {
         practiceData.exercise_id = parseInt(practiceId);
     }
     
-    console.log("📤 Sending practice data with lesson_id:", lesson_id);
-    console.log("📤 Full data:", JSON.stringify(practiceData, null, 2));
+    console.log("📤 Sending practice data:", practiceData);
     
     try {
         const token = localStorage.getItem('admin_token') || localStorage.getItem('authToken');
@@ -26740,22 +26762,15 @@ async function savePracticeExercise() {
         const originalText = saveBtn?.innerHTML;
         if (saveBtn) {
             saveBtn.disabled = true;
-            saveBtn.innerHTML = isEditMode 
-                ? '<i class="fas fa-spinner fa-spin"></i> Updating...' 
-                : '<i class="fas fa-spinner fa-spin"></i> Creating...';
+            saveBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Saving...';
         }
         
-        // Choose URL and method based on mode
-        const url = isEditMode 
+        const url = practiceId 
             ? `/api/admin/practice/${practiceId}`
             : `/api/admin/practice`;
         
-        const method = isEditMode ? 'PUT' : 'POST';
-        
-        console.log(`📡 ${method} to: ${url}`);
-        
         const response = await fetch(url, {
-            method: method,
+            method: practiceId ? 'PUT' : 'POST',
             headers: {
                 'Authorization': `Bearer ${token}`,
                 'Content-Type': 'application/json'
@@ -26763,50 +26778,41 @@ async function savePracticeExercise() {
             body: JSON.stringify(practiceData)
         });
         
-        const responseText = await response.text();
-        console.log("📥 Raw response:", responseText);
-        
-        let result;
-        try {
-            result = JSON.parse(responseText);
-        } catch (e) {
-            console.error("❌ Failed to parse JSON:", responseText);
-            throw new Error('Server returned invalid JSON');
-        }
+        const result = await response.json();
         
         if (!response.ok) {
             throw new Error(result.message || `Server error: ${response.status}`);
         }
         
         if (result.success) {
-            let message = isEditMode 
+            let message = practiceId 
                 ? 'Practice exercise updated successfully!' 
                 : 'Practice exercise created successfully!';
+            message += ` (${subjectName})`;
             
-            // Ipakita kung saang lesson na-save
-            const lessonName = lesson_id == 1 ? 'MathEase' : 
-                              lesson_id == 2 ? 'PolyLearn' : 'FactoLearn';
+            if (assignedTeacherId) {
+                message += ' (Assigned to teacher)';
+            }
             
-            showNotification('success', 'Success!', `${message} (${lessonName})`);
+            showNotification('success', 'Success!', message);
             closeCreatePracticeModal();
-            await loadAdminPracticeExercises(); // Refresh the list
+            await loadAdminPracticeExercises();
         } else {
-            throw new Error(result.message || `Failed to ${isEditMode ? 'update' : 'create'} practice exercise`);
+            throw new Error(result.message || 'Failed to save practice exercise');
         }
         
     } catch (error) {
-        console.error(`❌ Error ${isEditMode ? 'updating' : 'creating'} practice exercise:`, error);
-        showNotification('error', `${isEditMode ? 'Update' : 'Create'} Failed`, error.message);
+        console.error('❌ Error saving practice exercise:', error);
+        showNotification('error', 'Save Failed', error.message);
     } finally {
         const saveBtn = document.querySelector('#createPracticeModal .btn-primary');
         if (saveBtn) {
             saveBtn.disabled = false;
-            saveBtn.innerHTML = isEditMode 
-                ? '<i class="fas fa-save"></i> Update Exercise' 
-                : '<i class="fas fa-save"></i> Create Exercise';
+            saveBtn.innerHTML = '<i class="fas fa-save"></i> Save Exercise';
         }
     }
 }
+
 // ===== HELPER: Get lesson_id from subject selection =====
 function getLessonIdFromSubject(subjectId) {
     // MathEase = 1
@@ -26903,7 +26909,7 @@ function handleTokenExpired() {
     }, 1500);
 }
 
-// ===== UPDATED: Edit Practice Exercise with lesson_id =====
+// ===== EDIT PRACTICE EXERCISE - WITH TOKEN =====
 async function editPracticeExercise(exerciseId) {
     console.log("✏️ Editing practice exercise:", exerciseId);
     
@@ -26915,6 +26921,7 @@ async function editPracticeExercise(exerciseId) {
             return;
         }
         
+        // Show loading
         showNotification('info', 'Loading', 'Fetching exercise data...');
         
         const response = await fetch(`/api/exercises/${exerciseId}`, {
@@ -26923,6 +26930,12 @@ async function editPracticeExercise(exerciseId) {
                 'Content-Type': 'application/json'
             }
         });
+        
+        if (response.status === 401) {
+            showNotification('error', 'Session Expired', 'Please login again');
+            handleTokenExpired();
+            return;
+        }
         
         if (!response.ok) {
             throw new Error(`HTTP error! status: ${response.status}`);
@@ -26944,17 +26957,6 @@ async function editPracticeExercise(exerciseId) {
             document.getElementById('practiceId').value = exerciseId;
             document.getElementById('practiceTitle').value = exercise.title || '';
             document.getElementById('practiceDescription').value = exercise.description || '';
-            
-            // Set lesson_id
-            if (exercise.lesson_id) {
-                document.getElementById('practiceLessonId').value = exercise.lesson_id;
-            }
-            
-            // Set subject based on lesson_id
-            const subjectSelect = document.getElementById('practiceSubject');
-            if (subjectSelect && exercise.lesson_id) {
-                subjectSelect.value = exercise.lesson_id;
-            }
             
             // Set topic if available
             if (exercise.topic_id) {
@@ -26978,14 +26980,18 @@ async function editPracticeExercise(exerciseId) {
             
             if (exercise.content_json && exercise.content_json.questions) {
                 exercise.content_json.questions.forEach((q, index) => {
+                    // Add question field
                     addPracticeQuestion();
                     
+                    // Fill question data (with delay for DOM to update)
                     setTimeout(() => {
                         const qNum = index + 1;
                         
+                        // Set question text
                         const questionInput = document.getElementById(`practice_q_${qNum}_text`);
                         if (questionInput) questionInput.value = q.text || '';
                         
+                        // Set options
                         if (q.options && q.options.length > 0) {
                             const letters = ['a', 'b', 'c', 'd', 'e', 'f'];
                             
@@ -26994,8 +27000,11 @@ async function editPracticeExercise(exerciseId) {
                                 if (!letter) return;
                                 
                                 const optInput = document.getElementById(`practice_q_${qNum}_opt_${letter}`);
-                                if (optInput) optInput.value = opt.text || '';
+                                if (optInput) {
+                                    optInput.value = opt.text || '';
+                                }
                                 
+                                // Set correct answer
                                 if (opt.correct) {
                                     const radio = document.querySelector(`input[name="practice_q_${qNum}_correct"][value="${letter}"]`);
                                     if (radio) radio.checked = true;
@@ -27017,6 +27026,7 @@ async function editPracticeExercise(exerciseId) {
         showNotification('error', 'Error', error.message);
     }
 }
+
 // ===== DELETE PRACTICE EXERCISE - FIXED =====
 async function deletePracticeExercise(exerciseId) {
     if (!confirm('Are you sure you want to delete this practice exercise? This action cannot be undone.')) {
