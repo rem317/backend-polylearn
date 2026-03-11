@@ -9496,34 +9496,138 @@ app.post('/api/admin/quizzes', authenticateAdmin, async (req, res) => {
     }
 });
 
-// UPDATE quiz
+// ===== FIXED: UPDATE QUIZ ENDPOINT =====
 app.put('/api/admin/quizzes/:quizId', authenticateAdmin, async (req, res) => {
     try {
         const { quizId } = req.params;
-        const { title, description, is_active, time_limit, passing_score } = req.body;
+        const { 
+            title, 
+            description, 
+            is_active, 
+            time_limit, 
+            passing_score,
+            category_id,
+            difficulty,
+            max_attempts,
+            topic_id,
+            questions 
+        } = req.body;
         
-        const [result] = await connection.query(`
-            UPDATE quizzes 
-            SET quiz_title = COALESCE(?, quiz_title),
-                description = COALESCE(?, description),
-                is_active = COALESCE(?, is_active),
-                duration_minutes = COALESCE(?, duration_minutes),
-                passing_score = COALESCE(?, passing_score),
-                updated_at = NOW()
-            WHERE quiz_id = ?
-        `, [title, description, is_active, time_limit, passing_score, quizId]);
+        console.log(`📝 Updating quiz ID: ${quizId}`);
         
-        if (result.affectedRows === 0) {
+        // ✅ FIX: Use promisePool, not connection
+        const [quizExists] = await promisePool.query(
+            'SELECT quiz_id FROM quizzes WHERE quiz_id = ?',
+            [quizId]
+        );
+        
+        if (quizExists.length === 0) {
             return res.status(404).json({
                 success: false,
                 message: 'Quiz not found'
             });
         }
         
-        res.json({
-            success: true,
-            message: 'Quiz updated successfully'
-        });
+        // Start transaction
+        const connection = await promisePool.getConnection();
+        await connection.beginTransaction();
+        
+        try {
+            // 1. Update quiz basic info
+            await connection.query(`
+                UPDATE quizzes 
+                SET quiz_title = COALESCE(?, quiz_title),
+                    description = COALESCE(?, description),
+                    category_id = COALESCE(?, category_id),
+                    topic_id = COALESCE(?, topic_id),
+                    difficulty = COALESCE(?, difficulty),
+                    duration_minutes = COALESCE(?, duration_minutes),
+                    passing_score = COALESCE(?, passing_score),
+                    max_attempts = COALESCE(?, max_attempts),
+                    is_active = COALESCE(?, is_active),
+                    updated_at = NOW()
+                WHERE quiz_id = ?
+            `, [
+                title, 
+                description, 
+                category_id, 
+                topic_id, 
+                difficulty, 
+                time_limit, 
+                passing_score, 
+                max_attempts, 
+                is_active,
+                quizId
+            ]);
+            
+            // 2. If questions are provided, update them
+            if (questions && questions.length > 0) {
+                // Delete existing questions and options
+                await connection.query(
+                    'DELETE FROM quiz_options WHERE question_id IN (SELECT question_id FROM quiz_questions WHERE quiz_id = ?)',
+                    [quizId]
+                );
+                await connection.query(
+                    'DELETE FROM quiz_questions WHERE quiz_id = ?',
+                    [quizId]
+                );
+                
+                // Insert new questions
+                for (let i = 0; i < questions.length; i++) {
+                    const q = questions[i];
+                    
+                    const [questionResult] = await connection.query(`
+                        INSERT INTO quiz_questions 
+                        (quiz_id, question_text, question_type, points, question_order)
+                        VALUES (?, ?, ?, ?, ?)
+                    `, [
+                        quizId,
+                        q.question_text,
+                        q.question_type || 'multiple_choice',
+                        q.points || 10,
+                        i + 1
+                    ]);
+                    
+                    const questionId = questionResult.insertId;
+                    
+                    // Insert options
+                    if (q.options && q.options.length > 0) {
+                        for (let j = 0; j < q.options.length; j++) {
+                            const opt = q.options[j];
+                            await connection.query(`
+                                INSERT INTO quiz_options 
+                                (question_id, option_text, is_correct, option_order)
+                                VALUES (?, ?, ?, ?)
+                            `, [
+                                questionId,
+                                opt.option_text,
+                                opt.is_correct ? 1 : 0,
+                                j + 1
+                            ]);
+                        }
+                    }
+                }
+                
+                // Update total_questions count
+                await connection.query(
+                    'UPDATE quizzes SET total_questions = ? WHERE quiz_id = ?',
+                    [questions.length, quizId]
+                );
+            }
+            
+            await connection.commit();
+            connection.release();
+            
+            res.json({
+                success: true,
+                message: 'Quiz updated successfully'
+            });
+            
+        } catch (error) {
+            await connection.rollback();
+            connection.release();
+            throw error;
+        }
         
     } catch (error) {
         console.error('❌ Error updating quiz:', error);
