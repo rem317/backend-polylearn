@@ -31431,6 +31431,13 @@ window.testTimer = function(questions = 40) {
         });
 
 // ============================================
+// LOOP PREVENTION FLAGS
+// ============================================
+let isInitializing = false;
+let isOpeningLesson = false;
+let isLoadingVideo = false;
+
+// ============================================
 // FIXED: Lesson Navigation - Ensures all lessons appear in order 10, 14, 11
 // ============================================
 
@@ -31622,10 +31629,20 @@ function updateLessonUI(lesson) {
 // SIMPLE VIDEO LOADER - ALWAYS WORKS
 // ============================================
 async function loadVideoFromDatabase(contentId) {
+    // Prevent multiple simultaneous loads
+    if (isLoadingVideo) {
+        console.log('⏳ Already loading video...');
+        return;
+    }
+    
+    isLoadingVideo = true;
     console.log('🎬 Loading video for lesson:', contentId);
     
     const videoContainer = document.getElementById('videoContainer');
-    if (!videoContainer) return;
+    if (!videoContainer) {
+        isLoadingVideo = false;
+        return;
+    }
     
     // Clear and set fixed dimensions
     videoContainer.innerHTML = '';
@@ -31684,6 +31701,7 @@ async function loadVideoFromDatabase(contentId) {
                 
                 videoContainer.appendChild(iframe);
                 console.log('✅ YouTube iframe added');
+                setTimeout(() => { isLoadingVideo = false; }, 500);
                 return;
             }
         }
@@ -31703,76 +31721,10 @@ async function loadVideoFromDatabase(contentId) {
             </div>
         `;
     }
+    
+    setTimeout(() => { isLoadingVideo = false; }, 500);
 }
 
-// Helper function to show fallback when video fails
-function showVideoFallback(lesson, container, info) {
-    container.innerHTML = `
-        <div style="background:#1a1a2e; height:400px; display:flex; align-items:center; justify-content:center; flex-direction:column; border-radius:8px;">
-            <i class="fas fa-exclamation-triangle" style="font-size:60px; color:#e74c3c; margin-bottom:20px;"></i>
-            <h3 style="color:white; margin-bottom:10px;">Video Failed to Load</h3>
-            <p style="color:#b0b0b0; margin-bottom:20px;">The video file may be missing.</p>
-            ${lesson.content_url ? `
-                <a href="${lesson.content_url}" target="_blank" rel="noopener noreferrer" 
-                   style="background:#7a0000; color:white; padding:12px 25px; border-radius:5px; text-decoration:none; display:inline-flex; align-items:center; gap:8px;">
-                    <i class="fas fa-play"></i> Watch on YouTube
-                </a>
-            ` : ''}
-        </div>
-    `;
-    
-    if (info) {
-        info.innerHTML = `
-            <p><i class="fas fa-exclamation-triangle" style="color: #e74c3c;"></i> <strong>Video unavailable</strong></p>
-        `;
-    }
-}
-
-// Helper function to show no video message
-function showNoVideoMessage(lesson, container, info) {
-    container.innerHTML = `
-        <div style="background:#1a1a2e; height:400px; display:flex; align-items:center; justify-content:center; flex-direction:column; border-radius:8px;">
-            <i class="fas fa-video-slash" style="font-size:60px; color:#999; margin-bottom:20px;"></i>
-            <h3 style="color:white; margin-bottom:10px;">No Video Available</h3>
-            <p style="color:#b0b0b0; margin-bottom:20px;">This lesson has no video assigned.</p>
-            ${lesson.content_url ? `
-                <a href="${lesson.content_url}" target="_blank" rel="noopener noreferrer" 
-                   style="background:#7a0000; color:white; padding:12px 25px; border-radius:5px; text-decoration:none; display:inline-flex; align-items:center; gap:8px;">
-                    <i class="fas fa-external-link-alt"></i> Open Link
-                </a>
-            ` : ''}
-        </div>
-    `;
-    
-    if (info) {
-        info.innerHTML = `
-            <p><i class="fas fa-info-circle" style="color: #3498db;"></i> No video available</p>
-        `;
-    }
-}
-
-// ============================================
-// TEST YOUTUBE VIDEO
-// ============================================
-window.testYouTubeVideo = function(videoId = 'NtfWQILgJyY') {
-    const container = document.getElementById('videoContainer');
-    if (!container) {
-        alert('Video container not found');
-        return;
-    }
-    
-    container.innerHTML = `
-        <iframe width="100%" height="400" 
-            src="https://www.youtube.com/embed/${videoId}?autoplay=0&rel=0"
-            frameborder="0" 
-            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
-            allowfullscreen
-            style="border-radius:8px;">
-        </iframe>
-    `;
-    
-    console.log('✅ Test video loaded with ID:', videoId);
-};
 // ============================================
 // MARK LESSON COMPLETE
 // ============================================
@@ -31969,9 +31921,16 @@ async function displayLessonContent() {
 }
 
 // ============================================
-// OPEN LESSON - MAIN FUNCTION
+// OPEN LESSON - MAIN FUNCTION (WITH LOOP PREVENTION)
 // ============================================
 async function openLesson(lessonId) {
+    // Prevent multiple simultaneous calls
+    if (isOpeningLesson) {
+        console.log('⏳ Already opening a lesson, please wait...');
+        return;
+    }
+    
+    isOpeningLesson = true;
     console.log('📖 Opening lesson with FIXED navigation:', lessonId);
     
     try {
@@ -31994,8 +31953,11 @@ async function openLesson(lessonId) {
             url.searchParams.set('lessonId', lessonId);
             window.history.pushState({}, '', url);
             
-            // Navigate to module dashboard
-            navigateTo('moduleDashboard');
+            // Check if we need to navigate
+            const modulePage = document.getElementById('module-dashboard-page');
+            if (modulePage && modulePage.classList.contains('hidden')) {
+                navigateTo('moduleDashboard');
+            }
             
             // Update UI after navigation
             setTimeout(() => {
@@ -32005,7 +31967,6 @@ async function openLesson(lessonId) {
                 
                 // Setup navigation buttons
                 if (allLessons.length === 0) {
-                    // Try to load from cache
                     try {
                         const cached = localStorage.getItem('allLessons');
                         if (cached) {
@@ -32015,16 +31976,22 @@ async function openLesson(lessonId) {
                 }
                 setupNavigationButtons();
                 checkLessonCompletionStatus();
+                
+                // Reset flag after everything is done
+                setTimeout(() => { isOpeningLesson = false; }, 500);
             }, 500);
             
             // Log activity
             await logUserActivity('lesson_started', lessonId, {
                 lesson_title: lesson.content_title
             });
+        } else {
+            isOpeningLesson = false;
         }
     } catch (error) {
         console.error('Error opening lesson:', error);
         showNotification('Error loading lesson: ' + error.message, 'error');
+        isOpeningLesson = false;
     }
 }
 
@@ -32039,6 +32006,13 @@ function goToPracticePage() {
 // INITIALIZE MODULE DASHBOARD
 // ============================================
 async function initializeModuleDashboard() {
+    // Prevent multiple initializations
+    if (isInitializing) {
+        console.log('⏳ Already initializing module dashboard...');
+        return;
+    }
+    
+    isInitializing = true;
     console.log('📚 Initializing module dashboard...');
     
     // Check URL for lesson ID
@@ -32069,12 +32043,14 @@ async function initializeModuleDashboard() {
                     </div>
                 `;
             }
+            isInitializing = false;
             return;
         }
     }
     
     // Open the lesson
     await openLesson(lessonId);
+    setTimeout(() => { isInitializing = false; }, 1000);
 }
 
 // ============================================
@@ -32096,7 +32072,7 @@ function setupBackButton() {
 }
 
 // ============================================
-// PAGE CHANGE OBSERVER
+// PAGE CHANGE OBSERVER - FIXED (NO INFINITE LOOP)
 // ============================================
 (function setupPageObserver() {
     console.log('🔍 Setting up page change observer...');
@@ -32105,19 +32081,34 @@ function setupBackButton() {
         mutations.forEach(function(mutation) {
             if (mutation.type === 'attributes' && mutation.attributeName === 'class') {
                 const page = document.getElementById('module-dashboard-page');
-                if (page && !page.classList.contains('hidden')) {
+                
+                // Only proceed if page became visible and we're not already initializing
+                if (page && !page.classList.contains('hidden') && !isInitializing && !isOpeningLesson) {
                     console.log('📄 Module page became visible');
+                    
+                    // Set flag to prevent multiple initializations
+                    isInitializing = true;
                     
                     // Fetch lessons if needed
                     if (allLessons.length === 0) {
-                        fetchAllLessonsForNavigation();
+                        fetchAllLessonsForNavigation().then(() => {
+                            // Initialize the page
+                            setTimeout(() => {
+                                initializeModuleDashboard();
+                                setupBackButton();
+                                // Reset flag after initialization
+                                setTimeout(() => { isInitializing = false; }, 1000);
+                            }, 300);
+                        });
+                    } else {
+                        // Initialize the page
+                        setTimeout(() => {
+                            initializeModuleDashboard();
+                            setupBackButton();
+                            // Reset flag after initialization
+                            setTimeout(() => { isInitializing = false; }, 1000);
+                        }, 300);
                     }
-                    
-                    // Initialize the page
-                    setTimeout(() => {
-                        initializeModuleDashboard();
-                        setupBackButton();
-                    }, 300);
                 }
             }
         });
@@ -32153,71 +32144,7 @@ function extractYoutubeId(url) {
     
     return null;
 }
-// ============================================
-// DEBUG: Check video URLs for all lessons
-// ============================================
-window.checkLessonVideos = async function() {
-    console.log('🔍 CHECKING LESSON VIDEOS:');
-    
-    if (!allLessons || allLessons.length === 0) {
-        await fetchAllLessonsForNavigation();
-    }
-    
-    console.log('📚 Lessons:', allLessons.map(l => ({
-        id: l.content_id,
-        title: l.content_title,
-        video_url: l.content_url,
-        video_filename: l.video_filename,
-        hasYouTube: l.content_url ? (l.content_url.includes('youtube') || l.content_url.includes('youtu.be')) : false
-    })));
-    
-    // Test each video URL
-    for (const lesson of allLessons) {
-        if (lesson.content_url) {
-            console.log(`\n📹 Testing lesson ${lesson.content_id}: ${lesson.content_title}`);
-            console.log(`URL: ${lesson.content_url}`);
-            
-            if (lesson.content_url.includes('youtube') || lesson.content_url.includes('youtu.be')) {
-                console.log('✅ This is a YouTube link');
-            } else {
-                console.log('⚠️ This is not a YouTube link');
-            }
-        } else {
-            console.log(`\n📹 Lesson ${lesson.content_id}: No video URL`);
-        }
-    }
-};
-// ============================================
-// EMERGENCY FIX - Force video to show
-// ============================================
-window.forceVideoShow = function() {
-    const container = document.getElementById('videoContainer');
-    if (!container) return;
-    
-    // Check if iframe exists but is hidden
-    const iframe = container.querySelector('iframe');
-    if (iframe) {
-        console.log('📺 Iframe found, forcing visibility');
-        iframe.style.display = 'block';
-        iframe.style.width = '100%';
-        iframe.style.height = '400px';
-        iframe.style.position = 'relative';
-        
-        // Log dimensions
-        console.log('Iframe dimensions:', iframe.offsetWidth, 'x', iframe.offsetHeight);
-    } else {
-        console.log('❌ No iframe found');
-        
-        // Try to reload video
-        const currentLesson = LessonState.currentLesson;
-        if (currentLesson) {
-            loadVideoFromDatabase(currentLesson.content_id);
-        }
-    }
-};
 
-// Run it automatically
-setTimeout(forceVideoShow, 2000);
 // ============================================
 // DEBUG FUNCTION
 // ============================================
