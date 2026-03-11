@@ -9,23 +9,6 @@
     <!-- CHANGED: Updated CSS file reference -->
     <link rel="stylesheet" href="mathease.css">
     <style>
-        /* Make the Apps button stand out */
-.footer-nav-item[data-page="appselection"] {
-    color: #7a0000 !important;
-    font-weight: bold;
-    border-left: 1px solid rgba(255,255,255,0.2);
-    padding-left: 12px;
-    margin-left: 5px;
-}
-
-.footer-nav-item[data-page="appselection"] i {
-    color: #7a0000;
-}
-
-.footer-nav-item[data-page="appselection"]:hover {
-    background: rgba(122, 0, 0, 0.1);
-    border-radius: 5px;
-}
         /* Additional styles for the lesson dashboard container */
         .lesson-dashboard-container {
             display: flex;
@@ -3232,35 +3215,30 @@
         </div>
     </div>
 
-<footer class="footer-nav">
-    <div class="footer-nav-content">
-        <a href="#" class="footer-nav-item active" data-page="dashboard" onclick="event.preventDefault(); showDashboard(event); return false;">
-            <i class="fas fa-tachometer-alt"></i>
-            <span>Home</span>
-        </a>
-        <a href="#" class="footer-nav-item" data-page="practice" onclick="event.preventDefault(); showPracticeDashboard(event); return false;">
-            <i class="fas fa-book-open"></i>
-            <span>Practice</span>
-        </a>
-        <button class="footer-hamburger" id="footerHamburgerBtn">
-            <i class="fas fa-bars"></i>
-            <span>Menu</span>
-        </button>
-        <a href="#" class="footer-nav-item" data-page="quiz" onclick="event.preventDefault(); showQuizDashboard(event); return false;">
-            <i class="fas fa-question-circle"></i>
-            <span>Quiz</span>
-        </a>
-        <a href="#" class="footer-nav-item" data-page="settings" onclick="event.preventDefault(); showSettingsPage(event); return false;">
-            <i class="fas fa-user"></i>
-            <span>Profile</span>
-        </a>
-        <!-- NEW: Back to App Selection Button -->
-        <a href="#" class="footer-nav-item" data-page="appselection" onclick="event.preventDefault(); showAppSelectionPage(event); return false;" style="color: #7a0000; font-weight: bold;">
-            <i class="fas fa-arrow-left"></i>
-            <span>Apps</span>
-        </a>
-    </div>
-</footer>
+    <footer class="footer-nav">
+        <div class="footer-nav-content">
+            <a href="#" class="footer-nav-item active" data-page="dashboard" onclick="event.preventDefault(); showDashboard(event); return false;">
+                <i class="fas fa-tachometer-alt"></i>
+                <span>Home</span>
+            </a>
+            <a href="#" class="footer-nav-item" data-page="practice" onclick="event.preventDefault(); showPracticeDashboard(event); return false;">
+                <i class="fas fa-book-open"></i>
+                <span>Practice</span>
+            </a>
+            <button class="footer-hamburger" id="footerHamburgerBtn">
+                <i class="fas fa-bars"></i>
+                <span>Menu</span>
+            </button>
+            <a href="#" class="footer-nav-item" data-page="quiz" onclick="event.preventDefault(); showQuizDashboard(event); return false;">
+                <i class="fas fa-question-circle"></i>
+                <span>Quiz</span>
+            </a>
+            <a href="#" class="footer-nav-item" data-page="settings" onclick="event.preventDefault(); showSettingsPage(event); return false;">
+                <i class="fas fa-user"></i>
+                <span>Profile</span>
+            </a>
+        </div>
+    </footer>
 
     <!-- Mobile Menu Overlay -->
     <div class="mobile-menu-overlay" id="mobileMenuOverlay"></div>
