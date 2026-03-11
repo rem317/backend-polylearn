@@ -32201,3 +32201,410 @@ window.goToAppSelection = function(e) {
         window.location.href = '/#appSelection';
     }, 300);
 };
+
+
+// ============================================
+// 🚀 COMPLETE FIX FOR NAVIGATION & TOOLS
+// ============================================
+
+(function fixMathEaseIssues() {
+    console.log('🔧 Applying MathEase fixes...');
+
+    // ============================================
+    // 1. FIX PREVIOUS/NEXT LESSON BUTTONS
+    // ============================================
+    
+    function fixLessonNavigation() {
+        console.log('📚 Fixing lesson navigation...');
+        
+        const prevBtn = document.getElementById('prevLessonBtn');
+        const nextBtn = document.getElementById('nextLessonBtn');
+        
+        if (!prevBtn || !nextBtn) {
+            console.log('⏳ Navigation buttons not found, retrying...');
+            setTimeout(fixLessonNavigation, 500);
+            return;
+        }
+        
+        // Remove old event listeners
+        const newPrevBtn = prevBtn.cloneNode(true);
+        const newNextBtn = nextBtn.cloneNode(true);
+        
+        if (prevBtn.parentNode) prevBtn.parentNode.replaceChild(newPrevBtn, prevBtn);
+        if (nextBtn.parentNode) nextBtn.parentNode.replaceChild(newNextBtn, nextBtn);
+        
+        // Add new click handlers
+        newPrevBtn.addEventListener('click', async function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            
+            console.log('⬅️ Previous lesson button clicked');
+            
+            if (this.disabled) {
+                console.log('Button is disabled');
+                return;
+            }
+            
+            const currentLesson = LessonState.currentLesson;
+            if (!currentLesson) {
+                showNotification('No current lesson found', 'error');
+                return;
+            }
+            
+            // Try to get adjacent lessons from the server
+            try {
+                const token = localStorage.getItem('authToken');
+                const response = await fetch(`/api/lessons-db/${currentLesson.content_id}/adjacent`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    if (data.success && data.previous) {
+                        openLesson(data.previous.id);
+                        return;
+                    }
+                }
+            } catch (error) {
+                console.log('Could not fetch adjacent from server, using fallback');
+            }
+            
+            // Fallback: try to find previous lesson by ID
+            const prevId = parseInt(currentLesson.content_id) - 1;
+            if (prevId > 0) {
+                openLesson(prevId);
+            } else {
+                showNotification('This is the first lesson', 'info');
+            }
+        });
+        
+        newNextBtn.addEventListener('click', async function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            
+            console.log('➡️ Next lesson button clicked');
+            
+            if (this.disabled) {
+                console.log('Button is disabled');
+                return;
+            }
+            
+            const currentLesson = LessonState.currentLesson;
+            if (!currentLesson) {
+                showNotification('No current lesson found', 'error');
+                return;
+            }
+            
+            // Try to get adjacent lessons from the server
+            try {
+                const token = localStorage.getItem('authToken');
+                const response = await fetch(`/api/lessons-db/${currentLesson.content_id}/adjacent`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    if (data.success && data.next) {
+                        openLesson(data.next.id);
+                        return;
+                    }
+                }
+            } catch (error) {
+                console.log('Could not fetch adjacent from server, using fallback');
+            }
+            
+            // Fallback: try to find next lesson by ID
+            const nextId = parseInt(currentLesson.content_id) + 1;
+            if (nextId <= 20) { // Assume max 20 lessons
+                openLesson(nextId);
+            } else {
+                showNotification('This is the last lesson', 'info');
+            }
+        });
+        
+        console.log('✅ Navigation buttons fixed');
+    }
+
+    // ============================================
+    // 2. FIX TOOL BUTTONS
+    // ============================================
+    
+    function fixToolButtons() {
+        console.log('🛠️ Fixing tool buttons...');
+        
+        const tools = [
+            { id: 'openCalculator', name: 'calculator', modalId: 'calculatorModal' },
+            { id: 'openNotepad', name: 'notepad', modalId: 'notepadModal' },
+            { id: 'openFormulaSheet', name: 'formula', modalId: 'formulaModal' },
+            { id: 'openWhiteboard', name: 'whiteboard', modalId: 'whiteboardModal' },
+            { id: 'openTimer', name: 'timer', modalId: 'timerModal' }
+        ];
+        
+        tools.forEach(tool => {
+            const btn = document.getElementById(tool.id);
+            if (!btn) {
+                console.log(`⚠️ Button ${tool.id} not found`);
+                return;
+            }
+            
+            // Remove old listeners
+            const newBtn = btn.cloneNode(true);
+            btn.parentNode.replaceChild(newBtn, btn);
+            
+            // Ensure icon stays correct
+            const icon = newBtn.querySelector('i');
+            if (icon) {
+                // Force correct icon class
+                icon.className = getCorrectIconClass(tool.name);
+            }
+            
+            // Add click handler
+            newBtn.addEventListener('click', function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                
+                console.log(`🎯 Opening ${tool.name}`);
+                
+                const modal = document.getElementById(tool.modalId);
+                if (!modal) {
+                    console.error(`❌ Modal ${tool.modalId} not found`);
+                    showNotification(`${tool.name} tool coming soon!`, 'info');
+                    return;
+                }
+                
+                // Close all modals first
+                document.querySelectorAll('.modal-overlay').forEach(m => {
+                    m.style.display = 'none';
+                    m.classList.remove('active');
+                });
+                
+                // Show modal
+                modal.style.display = 'flex';
+                modal.classList.add('active');
+                
+                // Initialize tool
+                setTimeout(() => {
+                    if (window.toolManager && window.toolManager.tools && window.toolManager.tools[tool.name]) {
+                        try {
+                            window.toolManager.tools[tool.name].onOpen();
+                        } catch (e) {
+                            console.error(`Error opening ${tool.name}:`, e);
+                        }
+                    }
+                }, 100);
+            });
+            
+            // Add touch handler for mobile
+            newBtn.addEventListener('touchstart', function(e) {
+                e.preventDefault();
+                this.style.opacity = '0.7';
+                this.style.transform = 'scale(0.98)';
+            }, { passive: false });
+            
+            newBtn.addEventListener('touchend', function(e) {
+                e.preventDefault();
+                this.style.opacity = '1';
+                this.style.transform = 'scale(1)';
+                this.click();
+            }, { passive: false });
+            
+            console.log(`✅ Fixed ${tool.id}`);
+        });
+    }
+    
+    function getCorrectIconClass(toolName) {
+        const icons = {
+            'calculator': 'fas fa-calculator',
+            'notepad': 'fas fa-sticky-note',
+            'formula': 'fas fa-book',
+            'whiteboard': 'fas fa-paint-brush',
+            'timer': 'fas fa-clock'
+        };
+        return icons[toolName] || 'fas fa-cog';
+    }
+
+    // ============================================
+    // 3. FIX MODAL CLOSING
+    // ============================================
+    
+    function fixModalClosing() {
+        // Add close buttons to all modals
+        const modals = ['calculatorModal', 'notepadModal', 'formulaModal', 'whiteboardModal', 'timerModal'];
+        
+        modals.forEach(modalId => {
+            const modal = document.getElementById(modalId);
+            if (!modal) return;
+            
+            // Add close button if missing
+            const header = modal.querySelector('.modal-header');
+            if (header && !header.querySelector('.modal-close')) {
+                const closeBtn = document.createElement('button');
+                closeBtn.className = 'modal-close';
+                closeBtn.innerHTML = '&times;';
+                closeBtn.onclick = function() {
+                    modal.style.display = 'none';
+                    modal.classList.remove('active');
+                };
+                header.appendChild(closeBtn);
+            }
+            
+            // Close when clicking overlay
+            modal.addEventListener('click', function(e) {
+                if (e.target === modal) {
+                    modal.style.display = 'none';
+                    modal.classList.remove('active');
+                }
+            });
+        });
+    }
+
+    // ============================================
+    // 4. FIX WHITEBOARD ON MOBILE
+    // ============================================
+    
+    function fixWhiteboardMobile() {
+        const whiteboardBtn = document.getElementById('openWhiteboard');
+        const whiteboardModal = document.getElementById('whiteboardModal');
+        
+        if (!whiteboardBtn || !whiteboardModal) return;
+        
+        // Fix canvas initialization
+        whiteboardBtn.addEventListener('click', function() {
+            setTimeout(() => {
+                const canvas = document.getElementById('whiteboardCanvas');
+                if (canvas && window.toolManager && window.toolManager.tools && window.toolManager.tools.whiteboard) {
+                    // Force canvas size
+                    canvas.width = canvas.offsetWidth || 600;
+                    canvas.height = canvas.offsetHeight || 400;
+                    
+                    // Initialize
+                    window.toolManager.tools.whiteboard.setupCanvas();
+                }
+            }, 200);
+        });
+        
+        // Prevent page scroll when drawing
+        whiteboardModal.addEventListener('touchmove', function(e) {
+            if (e.target.closest('#whiteboardCanvas')) {
+                e.preventDefault();
+            }
+        }, { passive: false });
+    }
+
+    // ============================================
+    // 5. INITIALIZE ALL FIXES
+    // ============================================
+    
+    function initFixes() {
+        fixLessonNavigation();
+        fixToolButtons();
+        fixModalClosing();
+        fixWhiteboardMobile();
+        
+        // Retry after delays
+        setTimeout(fixLessonNavigation, 1000);
+        setTimeout(fixToolButtons, 1500);
+        setTimeout(fixLessonNavigation, 2000);
+        setTimeout(fixToolButtons, 2500);
+    }
+    
+    // Run when DOM is ready
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', initFixes);
+    } else {
+        initFixes();
+    }
+    
+    // Also run when module dashboard becomes visible
+    const modulePage = document.getElementById('module-dashboard-page');
+    if (modulePage) {
+        const observer = new MutationObserver(function(mutations) {
+            mutations.forEach(function(mutation) {
+                if (mutation.type === 'attributes' && mutation.attributeName === 'class') {
+                    if (!modulePage.classList.contains('hidden')) {
+                        console.log('📚 Module dashboard visible - reapplying fixes');
+                        setTimeout(fixLessonNavigation, 500);
+                        setTimeout(fixToolButtons, 700);
+                    }
+                }
+            });
+        });
+        observer.observe(modulePage, { attributes: true });
+    }
+    
+    console.log('✅ All MathEase fixes applied');
+})();
+
+// ============================================
+// 📱 MOBILE-SPECIFIC EVENT HANDLERS
+// ============================================
+
+// Fix for touch events on all interactive elements
+document.addEventListener('touchstart', function(e) {
+    const target = e.target.closest('button, a, .footer-nav-item, .mobile-menu-item, .tool-item-compact, .btn-primary, .btn-secondary, .lesson-nav-btn');
+    
+    if (target) {
+        target.setAttribute('data-touch-start', Date.now());
+        target.style.opacity = '0.7';
+        target.style.transform = 'scale(0.98)';
+    }
+}, { passive: true });
+
+document.addEventListener('touchend', function(e) {
+    const target = e.target.closest('button, a, .footer-nav-item, .mobile-menu-item, .tool-item-compact, .btn-primary, .btn-secondary, .lesson-nav-btn');
+    
+    if (target) {
+        const startTime = target.getAttribute('data-touch-start');
+        target.style.opacity = '1';
+        target.style.transform = 'scale(1)';
+        
+        // Only trigger if it was a valid touch (not a scroll)
+        if (startTime && (Date.now() - startTime < 300)) {
+            e.preventDefault();
+            
+            // Trigger the appropriate action based on element
+            if (target.id === 'prevLessonBtn' || target.id === 'nextLessonBtn') {
+                target.click();
+            } else if (target.classList.contains('tool-item-compact')) {
+                target.click();
+            } else if (target.classList.contains('footer-nav-item')) {
+                const page = target.getAttribute('data-page');
+                if (page === 'dashboard') showDashboard(e);
+                else if (page === 'practice') showPracticeDashboard(e);
+                else if (page === 'quiz') showQuizDashboard(e);
+                else if (page === 'settings') showSettingsPage(e);
+            }
+        }
+        
+        target.removeAttribute('data-touch-start');
+    }
+}, { passive: false });
+
+// Prevent double-tap zoom on buttons
+document.addEventListener('touchstart', function(e) {
+    if (e.target.closest('button, a, .btn-primary, .btn-secondary, .tool-item-compact')) {
+        e.preventDefault();
+    }
+}, { passive: false });
+
+// ============================================
+// 🔄 FETCH ADJACENT LESSONS
+// ============================================
+
+async function fetchAdjacentLessons(lessonId) {
+    try {
+        const token = localStorage.getItem('authToken');
+        const response = await fetch(`/api/lessons-db/${lessonId}/adjacent`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        
+        if (response.ok) {
+            const data = await response.json();
+            return data;
+        }
+        return { success: false };
+    } catch (error) {
+        console.error('Error fetching adjacent lessons:', error);
+        return { success: false };
+    }
+}
