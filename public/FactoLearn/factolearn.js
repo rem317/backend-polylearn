@@ -29702,49 +29702,24 @@ function setupAppSelectionListeners() {
 }
 
 
-// Handle app selection - FactoLearn version
+// Add this function near the top of your factolearn.js file
 function handleAppSelection(appName) {
-    console.log(`📱 Handling app selection: ${appName}`);
+    console.log(`🎯 App selected: ${appName}`);
     
-    // Save selected app to localStorage and state
-    AppState.selectedApp = appName;
-    AppState.hasSelectedApp = true;
-    
-    // Save with persistence
-    localStorage.setItem('selectedApp', appName);
-    localStorage.setItem('hasSelectedApp', 'true');
-    localStorage.setItem('lastSelectedApp', appName);
-    localStorage.setItem('appLastVisited', new Date().toISOString());
-    
-    // Set the lesson filter based on the selected app
-    let lessonId = 3; // Default to FactoLearn
-    
-    if (appName === 'factolearn') {
-        lessonId = 3;
+    if (appName === 'mathease') {
+        // Navigate to Mathease app
+        window.location.href = 'MathEase/mathease.html';
+    } else if (appName === 'polylearn') {
+        // Navigate to PolyLearn app (index.html)
+        window.location.href = '../index.html';
+    } else if (appName === 'factorial' || appName === 'factolearn') {
+        // Stay in FactoLearn
+        console.log('📚 Staying in FactoLearn');
+        AppState.selectedApp = 'factorial';
+        localStorage.setItem('selectedApp', 'factorial');
+        localStorage.setItem('currentLessonId', '3');
+        navigateTo('dashboard');
     }
-    
-    localStorage.setItem('currentLessonFilter', lessonId.toString());
-    localStorage.setItem('currentLessonId', lessonId.toString());
-    console.log(`🔍 Setting lesson filter: ${lessonId} for ${appName}`);
-    
-    // Save current app for back navigation
-    localStorage.setItem('currentApp', appName);
-    sessionStorage.setItem('currentApp', appName);
-    
-    // Show notification
-    showNotification(`Opening ${appName}...`, 'info');
-    
-    // FOR FACTOLEARN - stay in same page, navigate to dashboard
-    console.log('🎯 FactoLearn selected - staying in same app');
-    
-    // Setup back to app selection button
-    setupBackToAppSelectionButton();
-    
-    // Navigate to dashboard
-    navigateTo('dashboard');
-    
-    // Update dashboard for FactoLearn
-    updateDashboardForFactoLearn();
 }
 
 // ============================================
@@ -29864,4 +29839,95 @@ function setupBackToAppSelectionButton() {
     }, 500);
 }
 
+// Add this after DOMContentLoaded
+document.addEventListener('DOMContentLoaded', function() {
+    console.log('📄 Setting up app card click handlers...');
+    
+    // Find all app cards
+    const appCards = document.querySelectorAll('.app-card, [class*="app-card"]');
+    
+    appCards.forEach(card => {
+        card.addEventListener('click', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            
+            // Get app name from data attribute or class
+            const appName = this.getAttribute('data-app') || 
+                           this.classList.contains('mathease') ? 'mathease' :
+                           this.classList.contains('polylearn') ? 'polylearn' : 'factorial';
+            
+            console.log(`🎯 App card clicked: ${appName}`);
+            handleAppSelection(appName);
+        });
+    });
+    
+    // Also check for specific IDs
+    const matheaseCard = document.getElementById('matheaseCard');
+    if (matheaseCard) {
+        matheaseCard.addEventListener('click', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            handleAppSelection('mathease');
+        });
+    }
+    
+    const polylearnCard = document.getElementById('polylearnCard');
+    if (polylearnCard) {
+        polylearnCard.addEventListener('click', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            handleAppSelection('polylearn');
+        });
+    }
+    
+    const factolearnCard = document.getElementById('factolearnCard');
+    if (factolearnCard) {
+        factolearnCard.addEventListener('click', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            handleAppSelection('factorial');
+        });
+    }
+});
+
+// Add this for the app selection page
+function initAppSelectionHandlers() {
+    console.log('🎮 Initializing app selection handlers...');
+    
+    const appCards = document.querySelectorAll('#app-selection-page .app-card');
+    
+    appCards.forEach(card => {
+        card.addEventListener('click', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            
+            const appName = this.getAttribute('data-app') || 'factorial';
+            console.log(`🎯 App selected from selection page: ${appName}`);
+            
+            if (appName === 'mathease') {
+                window.location.href = 'MathEase/mathease.html';
+            } else if (appName === 'polylearn') {
+                window.location.href = '../index.html';
+            } else if (appName === 'factorial') {
+                // Stay in FactoLearn
+                navigateTo('dashboard');
+            }
+        });
+    });
+}
+
+// Call it when app selection page becomes visible
+const appSelectionPage = document.getElementById('app-selection-page');
+if (appSelectionPage) {
+    const observer = new MutationObserver(function(mutations) {
+        mutations.forEach(function(mutation) {
+            if (mutation.type === 'attributes' && mutation.attributeName === 'class') {
+                if (!appSelectionPage.classList.contains('hidden')) {
+                    setTimeout(initAppSelectionHandlers, 300);
+                }
+            }
+        });
+    });
+    observer.observe(appSelectionPage, { attributes: true });
+}
 
