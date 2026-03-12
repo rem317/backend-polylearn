@@ -26784,7 +26784,7 @@ async function savePracticeExercise() {
     }
 }
 
-// FIXED: Gamit ang existing field names
+// COMPLETE FIXED VERSION
 async function fixPracticeLessonIds() {
     const token = localStorage.getItem('admin_token');
     
@@ -26796,7 +26796,6 @@ async function fixPracticeLessonIds() {
     console.log('🔧 Fixing practice exercises lesson_ids...');
     
     try {
-        // Kunin ang lahat ng practice exercises
         const response = await fetch('/api/admin/practice', {
             headers: { 'Authorization': `Bearer ${token}` }
         });
@@ -26813,12 +26812,20 @@ async function fixPracticeLessonIds() {
         
         let updated = 0;
         let skipped = 0;
+        let noId = 0;
         
         for (const exercise of exercises) {
+            // ✅ CRITICAL: Check kung may exercise_id
+            if (!exercise.exercise_id) {
+                console.log(`❌ Exercise missing exercise_id:`, exercise);
+                noId++;
+                continue;
+            }
+            
             // Determine lesson_id based on topic_id
             let lesson_id = null;
             
-            // Topic ID mapping (adjust based on your needs)
+            // ===== CORRECT MAPPING based on your data =====
             if (exercise.topic_id <= 4) {
                 lesson_id = 1; // MathEase
             } else if (exercise.topic_id <= 8) {
@@ -26826,26 +26833,18 @@ async function fixPracticeLessonIds() {
             } else if (exercise.topic_id <= 12) {
                 lesson_id = 3; // FactoLearn
             } else {
-                // For topics > 12, check if may existing lesson_id na
-                if (exercise.lesson_id) {
-                    console.log(`ℹ️ Exercise ${exercise.exercise_id} already has lesson_id: ${exercise.lesson_id}`);
-                    skipped++;
-                    continue;
-                } else {
-                    console.log(`⚠️ Cannot determine lesson for exercise ${exercise.exercise_id} (topic: ${exercise.topic_id})`);
-                    skipped++;
-                    continue;
-                }
+                // For topics > 12, check manually
+                console.log(`⚠️ Topic ${exercise.topic_id} not in range - skipping exercise ${exercise.exercise_id}`);
+                skipped++;
+                continue;
             }
             
-            // ✅ Use exercise_id (not id)
-            // ✅ Update only lesson_id (keep all other fields)
+            // Update only lesson_id
             const updateData = {
                 lesson_id: lesson_id
-                // Don't include other fields para hindi ma-overwrite
             };
             
-            console.log(`📤 Updating exercise ${exercise.exercise_id} with:`, updateData);
+            console.log(`📤 Updating exercise ${exercise.exercise_id} with lesson_id: ${lesson_id}`);
             
             const updateResponse = await fetch(`/api/admin/practice/${exercise.exercise_id}`, {
                 method: 'PUT',
@@ -26856,9 +26855,16 @@ async function fixPracticeLessonIds() {
                 body: JSON.stringify(updateData)
             });
             
+            if (!updateResponse.ok) {
+                const errorText = await updateResponse.text();
+                console.error(`❌ HTTP ${updateResponse.status} for exercise ${exercise.exercise_id}:`, errorText);
+                skipped++;
+                continue;
+            }
+            
             const result = await updateResponse.json();
             
-            if (updateResponse.ok && result.success) {
+            if (result.success) {
                 console.log(`✅ Updated exercise ${exercise.exercise_id} with lesson_id: ${lesson_id}`);
                 updated++;
             } else {
@@ -26866,14 +26872,18 @@ async function fixPracticeLessonIds() {
                 skipped++;
             }
             
-            // Small delay para hindi ma-overload ang server
             await new Promise(resolve => setTimeout(resolve, 200));
         }
         
         console.log('📊 UPDATE SUMMARY:');
         console.log(`   ✅ Updated: ${updated} exercises`);
         console.log(`   ⚠️ Skipped: ${skipped} exercises`);
+        console.log(`   ❌ Missing ID: ${noId} exercises`);
         console.log(`   📊 Total: ${exercises.length} exercises`);
+        
+        if (noId > 0) {
+            console.log('⚠️ Some exercises are missing exercise_id - check database');
+        }
         
     } catch (error) {
         console.error('❌ Error:', error);
@@ -26882,7 +26892,6 @@ async function fixPracticeLessonIds() {
 
 // Run the fix
 fixPracticeLessonIds();
-
 async function checkPracticeLessonId() {
     const token = localStorage.getItem('admin_token');
     
