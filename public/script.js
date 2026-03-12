@@ -35647,7 +35647,6 @@ function goToFactoLearn() {
 
 // ============================================
 // 💪 ULTIMATE FORCE FIX - Mark Lesson Complete Button
-// FORCE ito na magpakita ng "Mark Lesson Complete"
 // ============================================
 
 (function forceMarkLessonCompleteButton() {
@@ -35716,8 +35715,12 @@ function goToFactoLearn() {
         
         console.log('✅ BUTTON FORCED TO: "Mark Lesson Complete"');
         
-        // Add working click handler
-        btn.onclick = async function(e) {
+        // Remove any existing click handlers
+        const newBtn = btn.cloneNode(true);
+        btn.parentNode.replaceChild(newBtn, btn);
+        
+        // Add working click handler (NO RELOAD)
+        newBtn.onclick = async function(e) {
             e.preventDefault();
             e.stopPropagation();
             
@@ -35751,7 +35754,15 @@ function goToFactoLearn() {
                     this.innerHTML = '<i class="fas fa-check-double"></i> Lesson Completed!';
                     this.style.background = '#2ecc71';
                     showNotification('🎉 Lesson completed!', 'success');
-                    setTimeout(() => location.reload(), 2000);
+                    
+                    // ✅ REMOVED THE AUTO-RELOAD
+                    console.log('✅ Lesson completed - NOT reloading');
+                    
+                    // Update state
+                    if (!LessonState.userProgress) LessonState.userProgress = {};
+                    if (!LessonState.userProgress[lessonId]) LessonState.userProgress[lessonId] = {};
+                    LessonState.userProgress[lessonId].status = 'completed';
+                    
                 } else {
                     throw new Error(data.message || 'Failed');
                 }
@@ -35768,66 +35779,10 @@ function goToFactoLearn() {
         return true;
     }
     
-    // Run the force function multiple times
-    forceButtonText(); // Run immediately
-    
-    // Run after delays to catch any late changes
-    const delays = [100, 300, 500, 1000, 2000, 3000, 5000];
-    delays.forEach(delay => {
-        setTimeout(() => {
-            const btn = document.getElementById('completeLessonBtn');
-            if (btn && btn.innerHTML.includes('Completed') && !btn.disabled) {
-                console.log(`⚠️ Fixed at ${delay}ms: Button was incorrect`);
-                forceButtonText();
-            }
-        }, delay);
-    });
-    
-    // Observe for any changes to the button
-    const btn = document.getElementById('completeLessonBtn');
-    if (btn) {
-        const observer = new MutationObserver(() => {
-            if (btn.innerHTML.includes('Completed') && !btn.disabled) {
-                console.log('⚠️ Observer: Button was changed - fixing...');
-                forceButtonText();
-            }
-        });
-        observer.observe(btn, { 
-            attributes: true, 
-            childList: true, 
-            subtree: true,
-            characterData: true 
-        });
-    }
-    
-    // Observe module dashboard
-    const modulePage = document.getElementById('module-dashboard-page');
-    if (modulePage) {
-        const pageObserver = new MutationObserver(() => {
-            if (!modulePage.classList.contains('hidden')) {
-                setTimeout(() => {
-                    const btn = document.getElementById('completeLessonBtn');
-                    if (btn && btn.innerHTML.includes('Completed') && !btn.disabled) {
-                        console.log('📚 Module page shown - fixing button');
-                        forceButtonText();
-                    }
-                }, 500);
-            }
-        });
-        pageObserver.observe(modulePage, { attributes: true });
-    }
-    
-    // EVERY SECOND, check the button
-    setInterval(() => {
-        const btn = document.getElementById('completeLessonBtn');
-        if (btn && btn.innerHTML.includes('Completed') && !btn.disabled) {
-            console.log('⏰ Periodic check: Button was wrong - fixing...');
-            forceButtonText();
-        }
-    }, 1000);
+    // Run the force function
+    forceButtonText();
     
     console.log('✅ FORCE FIX ACTIVATED - Button will always show "Mark Lesson Complete"');
-    console.log('💡 Kung gusto mo i-test, type: window.testButton()');
 })();
 
 
@@ -35936,8 +35891,12 @@ window.addEventListener('load', function() {
             btn.style.margin = '0 5px';
             btn.removeAttribute('data-completed');
             
-            // Re-attach click handler
-            btn.onclick = async function(e) {
+            // Remove any existing click handlers
+            const newBtn = btn.cloneNode(true);
+            btn.parentNode.replaceChild(newBtn, btn);
+            
+            // Add new click handler
+            newBtn.onclick = async function(e) {
                 e.preventDefault();
                 e.stopPropagation();
                 
@@ -35987,6 +35946,8 @@ window.addEventListener('load', function() {
                     });
                     
                     if (!response.ok) {
+                        const errorText = await response.text();
+                        console.error('❌ Server response:', errorText);
                         throw new Error(`HTTP error! status: ${response.status}`);
                     }
                     
@@ -36009,10 +35970,13 @@ window.addEventListener('load', function() {
                             showNotification('success', '🎉 Lesson Completed!', 'Great job!');
                         }
                         
-                        // Reload after 2 seconds
-                        setTimeout(() => {
-                            location.reload();
-                        }, 2000);
+                        // ✅ REMOVED THE AUTO-RELOAD
+                        console.log('✅ Lesson completed - NOT reloading');
+                        
+                        // Optional: Show confetti but don't reload
+                        if (typeof showCelebrationAnimation === 'function') {
+                            showCelebrationAnimation();
+                        }
                         
                     } else {
                         throw new Error(data.message || 'Failed to complete');
@@ -36061,22 +36025,6 @@ window.addEventListener('load', function() {
         });
         observer.observe(modulePage, { attributes: true });
     }
-    
-    // Override any function that might set the button
-    const originalUpdateCompleteButtonState = window.updateCompleteButtonState;
-    window.updateCompleteButtonState = function(isCompleted) {
-        console.log('🛑 BLOCKED: updateCompleteButtonState called with', isCompleted);
-        // Let our protector handle it
-        setTimeout(forceButtonCorrectState, 100);
-        return false;
-    };
-    
-    // Block markLessonComplete
-    const originalMarkLessonComplete = window.markLessonComplete;
-    window.markLessonComplete = function() {
-        console.log('🛑 BLOCKED: markLessonComplete called');
-        return false;
-    };
     
     console.log('✅ ULTIMATE BUTTON PROTECTOR READY');
     console.log('💡 The button will ONLY show "Lesson Completed" if verified from database');
