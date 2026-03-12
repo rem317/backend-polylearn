@@ -24022,29 +24022,22 @@ function redirectBasedOnRole(role) {
     }
 }
 
-// ============================================
-// ✅ FIXED: logoutAndRedirect - With proper login redirect and content hide
-// ============================================
+// Logout function
 function logoutAndRedirect() {
-    console.log('🚪 Logging out and redirecting to login page...');
+    console.log('🚪 Logging out...');
     
     // Log logout activity before clearing data
     if (AppState.currentUser) {
         logUserActivity('logout', null, {}, 0);
     }
     
-    // Clear ALL authentication data
+    // Clear all authentication data
     localStorage.removeItem('authToken');
     localStorage.removeItem('mathhub_user');
     localStorage.removeItem('hasSelectedApp');
     localStorage.removeItem('selectedApp');
-    localStorage.removeItem('userLoggedIn');
+    localStorage.removeItem('userLoggedIn'); // ✅ IMPORTANT
     localStorage.removeItem('lastLogin');
-    localStorage.removeItem('currentLessonFilter');
-    localStorage.removeItem('currentApp');
-    localStorage.removeItem('lastActiveApp');
-    
-    // Clear session storage
     sessionStorage.clear();
     
     // Reset app state
@@ -24056,13 +24049,14 @@ function logoutAndRedirect() {
     AppState.currentVideoData = null;
     authToken = null;
     
-    // Reset all other state objects
+    // Reset lesson state
     LessonState.lessons = [];
     LessonState.currentLesson = null;
     LessonState.userProgress = {};
     LessonState.continueLearningLesson = null;
     LessonState.currentTopic = null;
     
+    // Reset practice state
     PracticeState.currentTopic = null;
     PracticeState.currentExercise = null;
     PracticeState.exercises = [];
@@ -24072,6 +24066,7 @@ function logoutAndRedirect() {
     PracticeState.isReviewMode = false;
     PracticeState.userPracticeProgress = {};
     
+    // Reset quiz state
     QuizState.currentQuiz = null;
     QuizState.currentQuestionIndex = 0;
     QuizState.questions = [];
@@ -24084,6 +24079,7 @@ function logoutAndRedirect() {
     QuizState.selectedCategory = null;
     QuizState.quizCategories = [];
     
+    // Reset progress state
     ProgressState.dailyProgress = null;
     ProgressState.weeklyProgress = null;
     ProgressState.monthlyProgress = null;
@@ -24095,75 +24091,13 @@ function logoutAndRedirect() {
     ProgressState.progressTrends = [];
     ProgressState.achievementTimeline = [];
     
-    StructureState.lessons = [];
-    StructureState.modules = [];
-    StructureState.topics = [];
-    
-    // Hide footer navigation
+    // Hide footer navigation when logging out
     hideFooterNavigation();
     
-    // HIDE ALL DASHBOARD ELEMENTS (the content in the image)
-    const dashboardElements = document.querySelectorAll(
-        '#dashboard-page, ' +
-        '#practice-exercises-page, ' +
-        '#quiz-dashboard-page, ' +
-        '#progress-page, ' +
-        '#feedback-page, ' +
-        '#settings-page, ' +
-        '#module-dashboard-page, ' +
-        '#app-selection-page, ' +
-        '.footer-nav, ' +
-        '.dashboard-container, ' +
-        '.container'
-    );
-    
-    dashboardElements.forEach(el => {
-        if (el) {
-            el.classList.add('hidden');
-            el.style.display = 'none';
-        }
-    });
-    
-    // SHOW LOGIN PAGE
-    const loginPage = document.getElementById('login-page');
-    if (loginPage) {
-        loginPage.classList.remove('hidden');
-        loginPage.style.display = 'block';
-        loginPage.style.opacity = '1';
-        loginPage.style.visibility = 'visible';
-        
-        // Clear any existing form values
-        const loginEmail = document.getElementById('loginEmail');
-        const loginPassword = document.getElementById('loginPassword');
-        if (loginEmail) loginEmail.value = '';
-        if (loginPassword) loginPassword.value = '';
-    } else {
-        console.error('❌ Login page element not found!');
-        // If login page not found, redirect manually
-        window.location.href = '/';
-    }
-    
-    // Update URL hash
-    window.location.hash = 'login';
-    
-    // Also update body class
-    document.body.classList.remove('authenticated');
-    document.body.classList.add('unauthenticated');
+    // Navigate to login
+    navigateTo('login');
     
     showNotification('Logged out successfully', 'info');
-    console.log('✅ Logout complete - showing login page');
-}
-
-// Also update the confirmLogout function to ensure it calls the fixed version
-function confirmLogout() {
-    console.log('✅ Logout confirmed');
-    closeLogoutModal();
-    showNotification('👋 See you next time!', 'info');
-    
-    // Call the fixed logout function
-    setTimeout(() => {
-        logoutAndRedirect();
-    }, 500);
 }
 
 // ✅ FIXED: Check authentication - WITH PERSISTENCE CHECK
@@ -24551,11 +24485,17 @@ function toggleFooterNavigation(page) {
     // Pages where footer navigation should be hidden
     const hideNavPages = ['loading', 'login', 'signup', 'landing', 'appSelection'];
     
+    // Pages where footer navigation should be shown (only after login)
+    const showNavPages = [
+        'dashboard', 'practice', 'quizDashboard', 'progress', 
+        'feedback', 'settings', 'moduleDashboard'
+    ];
+    
     if (hideNavPages.includes(page)) {
         // Hide footer navigation on loading, login, and signup pages
         navigation.style.display = 'none';
         resetContainerBottomPadding();
-    } else if (AppState.isAuthenticated) {
+    } else if (showNavPages.includes(page) && AppState.isAuthenticated) {
         // Show footer navigation only if authenticated
         navigation.style.display = 'flex';
         adjustContainerBottomPadding();
@@ -24565,6 +24505,7 @@ function toggleFooterNavigation(page) {
         resetContainerBottomPadding();
     }
 }
+
 // Hide footer navigation
 function hideFooterNavigation() {
     const navigation = document.querySelector('.footer-nav');
@@ -25164,6 +25105,13 @@ function closeLogoutModal() {
     }
 }
 
+// Confirm logout
+function confirmLogout() {
+    console.log('✅ Logout confirmed');
+    closeLogoutModal();
+    showNotification('👋 See you next time!', 'info');
+    setTimeout(logoutAndRedirect, 500);
+}
 
 // Create modal if missing
 function createLogoutModal() {
@@ -25187,7 +25135,17 @@ function closeLogoutModal() {
     }
 }
 
-
+// Confirm logout - actual logout
+function confirmLogout() {
+    console.log('✅ Logout confirmed');
+    
+    closeLogoutModal();
+    showNotification('👋 See you next time!', 'info');
+    
+    setTimeout(() => {
+        logoutAndRedirect();
+    }, 500);
+}
 
 // Create modal if not exists (fallback)
 function createLogoutModal() {
@@ -25391,6 +25349,7 @@ function goToModuleDashboard(e) {
 // ============================================
 // 🚪 UPDATED: logoutUser - With confirmation
 // ============================================
+// Logout user - with confirmation
 function logoutUser(e) {
     if (e) {
         e.preventDefault();
@@ -25407,7 +25366,7 @@ function logoutUser(e) {
         document.body.style.overflow = '';
     }
     
-    // Show confirmation modal instead of direct logout
+    // Show confirmation modal
     showLogoutConfirmation();
 }
 
