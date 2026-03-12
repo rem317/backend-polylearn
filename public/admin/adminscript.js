@@ -25900,7 +25900,7 @@ function changePracticePage(direction) {
     displayFilteredPracticeExercises(exercises);
 }
 
-// ===== UPDATED loadAdminPracticeExercises with correct topic_id mapping =====
+// ===== FIXED: loadAdminPracticeExercises with proper filtering =====
 async function loadAdminPracticeExercises() {
     console.log("📥 Loading practice exercises from database...");
     
@@ -25929,69 +25929,127 @@ async function loadAdminPracticeExercises() {
             const exercises = result.exercises || [];
             console.log(`✅ Loaded ${exercises.length} practice exercises`);
             
-            // Process exercises to ensure consistent data for filtering
-            const processedExercises = exercises.map(ex => {
-                // ===== CORRECT SUBJECT MAPPING BASED ON topic_id =====
-                let subject = 'General';
-                let subjectId = 0;
-                
-                // CORRECT MAPPING:
-                // MathEase = topic_id = 1
-                // PolyLearn = topic_id = 2  
-                // FactoLearn = topic_id = 3
-                
-                if (ex.topic_id === 2) {
-                    subject = 'PolyLearn';
-                    subjectId = 2;
-                    console.log(`✅ Exercise ${ex.id}: topic_id=2 -> PolyLearn`);
-                } else if (ex.topic_id === 1) {
-                    subject = 'MathEase';
-                    subjectId = 1;
-                    console.log(`✅ Exercise ${ex.id}: topic_id=1 -> MathEase`);
-                } else if (ex.topic_id === 3) {
-                    subject = 'FactoLearn';
-                    subjectId = 3;
-                    console.log(`✅ Exercise ${ex.id}: topic_id=3 -> FactoLearn`);
-                } else {
-                    console.log(`⚠️ Exercise ${ex.id}: topic_id=${ex.topic_id} -> Unknown`);
-                }
-                
-                // ===== DETERMINE STATUS =====
-                let status = 'draft';
-                
-                if (ex.status === 'active' || ex.status === 'published' ||
-                    ex.is_active === 1 || ex.is_active === true) {
-                    status = 'published';
-                } else if (ex.status === 'inactive' || ex.is_active === 0 || ex.is_active === false) {
-                    status = 'inactive';
-                }
-                
-                return {
-                    ...ex,
-                    // Standardized fields for filtering
-                    filter_subject: subject,
-                    filter_subject_id: subjectId,
-                    filter_status: status,
-                    display_subject: subject,
-                    display_status: status === 'published' ? 'Published' : 
-                                   status === 'draft' ? 'Draft' : 'Inactive'
-                };
-            });
+            // ===== GET LESSON-TOPIC MAPPING =====
+            let topicToLessonMap = {};
+            let lessonNames = {};
             
-            console.log('✅ Processed exercises:', processedExercises.map(ex => ({
-                id: ex.id,
-                title: ex.title,
-                subject: ex.filter_subject,
-                status: ex.filter_status,
-                topic_id: ex.topic_id
-            })));
+            try {
+                const structureResponse = await fetch(`/api/admin/structure`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                
+                if (structureResponse.ok) {
+                    const structureResult = await structureResponse.json();
+                    if (structureResult.success && structureResult.structure) {
+                        const topics = structureResult.structure.topics || [];
+                        const modules = structureResult.structure.modules || [];
+                        const lessons = structureResult.structure.lessons || [];
+                        
+                        // Create lesson name map
+                        lessons.forEach(lesson => {
+                            lessonNames[lesson.id] = lesson.name;
+                        });
+                        
+                        // Create module to lesson map
+                        const moduleToLessonMap = {};
+                        modules.forEach(module => {
+                            moduleToLessonMap[module.id] = module.lesson_id;
+                        });
+                        
+                        // Create topic to lesson map
+                        topics.forEach(topic => {
+                            const moduleId = topic.module_id;
+                            const lessonId = moduleToLessonMap[moduleId];
+                            topicToLessonMap[topic.id] = {
+                                lesson_id: lessonId,
+                                lesson_name: lessonNames[lessonId] || 'Unknown'
+                            };
+                        });
+                        
+                        console.log('📊 Topic-Lesson mapping created:', topicToLessonMap);
+                    }
+                }
+            } catch (mapError) {
+                console.warn('⚠️ Could not fetch structure for mapping:', mapError);
+            }
+            
+            // ===== FILTER FOR FACTOLEARN ONLY (lesson_id = 3) =====
+            const FACTORIAL_LESSON_ID = 3;
+            
+            // Process and filter exercises
+            const processedExercises = exercises
+                .map(ex => {
+                    // Get lesson info from topic mapping
+                    const topicInfo = topicToLessonMap[ex.topic_id];
+                    let lessonId = topicInfo?.lesson_id || null;
+                    
+                    // Determine subject based on lesson_id
+                    let subject = 'General';
+                    let subjectId = 0;
+                    
+                    if (lessonId === 1) {
+                        subject = 'MathEase';
+                        subjectId = 1;
+                    } else if (lessonId === 2) {
+                        subject = 'PolyLearn';
+                        subjectId = 2;
+                    } else if (lessonId === 3) {
+                        subject = 'FactoLearn';
+                        subjectId = 3;
+                    }
+                    
+                    // Determine status
+                    let status = 'draft';
+                    if (ex.status === 'active' || ex.status === 'published' ||
+                        ex.is_active === 1 || ex.is_active === true) {
+                        status = 'published';
+                    } else if (ex.status === 'inactive' || ex.is_active === 0 || ex.is_active === false) {
+                        status = 'inactive';
+                    }
+                    
+                    return {
+                        ...ex,
+                        lesson_id: lessonId,
+                        filter_subject: subject,
+                        filter_subject_id: subjectId,
+                        filter_status: status,
+                        display_subject: subject,
+                        display_status: status === 'published' ? 'Published' : 
+                                       status === 'draft' ? 'Draft' : 'Inactive'
+                    };
+                })
+                .filter(ex => {
+                    // FILTER: Keep only FactoLearn exercises (lesson_id = 3)
+                    const keep = ex.lesson_id === FACTORIAL_LESSON_ID;
+                    if (keep) {
+                        console.log(`✅ Keeping FactoLearn exercise: ID ${ex.id}, Title: ${ex.title}, Topic: ${ex.topic_id} -> Lesson ${ex.lesson_id}`);
+                    } else {
+                        console.log(`⏭️ Filtering out: ID ${ex.id}, Title: ${ex.title}, Topic: ${ex.topic_id} -> Lesson ${ex.lesson_id || 'unknown'}`);
+                    }
+                    return keep;
+                });
+            
+            console.log(`🎯 After filtering: ${processedExercises.length} FactoLearn exercises (lesson_id=3)`);
             
             // Store globally
             window.adminPracticeExercises = processedExercises;
             window.filteredPracticeExercises = processedExercises;
             
             if (processedExercises.length === 0) {
-                tableBody.innerHTML = getNoExercisesHTML();
+                tableBody.innerHTML = `
+                    <tr>
+                        <td colspan="9" class="text-center py-5">
+                            <div style="text-align: center; padding: 40px;">
+                                <i class="fas fa-dumbbell" style="font-size: 3rem; color: #ccc; margin-bottom: 15px;"></i>
+                                <h4 style="color: #666; margin-bottom: 10px;">No FactoLearn Exercises Found</h4>
+                                <p style="color: #999; margin-bottom: 20px;">Exercises with lesson_id = 3 will appear here.</p>
+                                <p style="color: #7a0000; font-size: 0.9rem;">
+                                    <i class="fas fa-info-circle"></i> Make sure your topics are linked to FactoLearn (lesson_id=3)
+                                </p>
+                            </div>
+                        </td>
+                    </tr>
+                `;
                 updateAdminPracticeStats([]);
                 return;
             }
