@@ -8717,6 +8717,59 @@ app.post('/api/admin/practice/exercises', authenticateToken, async (req, res) =>
         });
     }
 });
+// ===== DELETE practice exercise =====
+app.delete('/api/admin/practice/:practiceId', authenticateAdmin, async (req, res) => {
+    try {
+        const { practiceId } = req.params;
+        
+        console.log(`🗑️ Deleting practice exercise ID: ${practiceId}`);
+        
+        // Check if exercise exists
+        const [existing] = await promisePool.query(
+            'SELECT exercise_id, title FROM practice_exercises WHERE exercise_id = ?',
+            [practiceId]
+        );
+        
+        if (existing.length === 0) {
+            return res.status(404).json({
+                success: false,
+                message: 'Practice exercise not found'
+            });
+        }
+        
+        const exercise = existing[0];
+        
+        // Delete related records first (if any)
+        try {
+            await promisePool.query(
+                'DELETE FROM practice_attempts WHERE exercise_id = ?',
+                [practiceId]
+            );
+        } catch (e) {
+            console.log('No practice_attempts table or no records');
+        }
+        
+        // Delete the exercise
+        const [result] = await promisePool.query(
+            'DELETE FROM practice_exercises WHERE exercise_id = ?',
+            [practiceId]
+        );
+        
+        console.log(`✅ Practice exercise "${exercise.title}" (ID: ${practiceId}) deleted successfully`);
+        
+        res.json({
+            success: true,
+            message: `Practice exercise "${exercise.title}" deleted successfully`
+        });
+        
+    } catch (error) {
+        console.error('❌ Error deleting practice exercise:', error);
+        res.status(500).json({ 
+            success: false, 
+            message: 'Failed to delete practice exercise: ' + error.message 
+        });
+    }
+});
 // ===== FIXED: Get practice exercises with REAL attempt data =====
 app.get('/api/admin/practice', authenticateAdmin, async (req, res) => {
     try {
