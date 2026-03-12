@@ -26119,10 +26119,22 @@ class TimeTrackingManager {
 // ✅ HELPER: Get current lesson ID - FORCED TO 2 FOR POLYLEARN
 // ============================================
 function getCurrentLessonId() {
-    // Forced to return 2 for PolyLearn regardless of selected app
+    // First try from URL
+    const urlParams = new URLSearchParams(window.location.search);
+    const lessonIdFromUrl = urlParams.get('lessonId');
+    
+    if (lessonIdFromUrl) {
+        return lessonIdFromUrl;
+    }
+    
+    // Then try from LessonState
+    if (LessonState.currentLesson?.content_id) {
+        return LessonState.currentLesson.content_id;
+    }
+    
+    // Forced to return 2 for PolyLearn as fallback
     return POLYLEARN_LESSON_ID; // Always 2
 }
-
 // ============================================
 // 🚀 INITIALIZE TIME TRACKER
 // ============================================
@@ -26206,7 +26218,7 @@ async function checkLessonCompletionStatus() {
 }
 
 // ============================================
-// FIXED: Mark Lesson Complete Function
+// FIXED: Mark Lesson Complete Function - WITH BETTER ERROR HANDLING
 // ============================================
 async function markLessonComplete() {
     console.log('🎯 Marking lesson as complete...');
@@ -26247,7 +26259,6 @@ async function markLessonComplete() {
             timeSpentSeconds = Math.floor(videoElement.currentTime || videoElement.duration);
         }
         
-        // STEP 1: Update lesson progress
         console.log(`📝 Updating lesson progress for content ${contentId}...`);
         
         const token = localStorage.getItem('authToken') || authToken;
@@ -26257,6 +26268,7 @@ async function markLessonComplete() {
             return;
         }
         
+        // ✅ FIX: Use correct API URL - add /api/ prefix
         const progressResponse = await fetch(`/api/lessons-db/${contentId}/progress`, {
             method: 'POST',
             headers: {
@@ -26271,6 +26283,8 @@ async function markLessonComplete() {
         });
         
         if (!progressResponse.ok) {
+            const errorText = await progressResponse.text();
+            console.error('❌ Server response:', errorText);
             throw new Error(`Failed to update progress: ${progressResponse.status}`);
         }
         
@@ -26285,7 +26299,6 @@ async function markLessonComplete() {
         // STEP 2: Update daily progress (lessons completed count)
         console.log('📊 Updating daily progress...');
         
-        // Try using the update-daily endpoint
         try {
             const dailyResponse = await fetch(`/api/progress/update-daily`, {
                 method: 'POST',
@@ -26294,7 +26307,8 @@ async function markLessonComplete() {
                     'Content-Type': 'application/json'
                 },
                 body: JSON.stringify({
-                    lessons_completed: 1
+                    lessons_completed: 1,
+                    lesson_id: 2 // Force PolyLearn
                 })
             });
             
@@ -26303,23 +26317,6 @@ async function markLessonComplete() {
                 console.log('✅ Daily progress updated:', dailyData);
             } else {
                 console.warn('⚠️ Daily progress endpoint returned:', dailyResponse.status);
-                // Try alternative endpoint
-                const altResponse = await fetch(`/api/progress/daily`, {
-                    method: 'POST',
-                    headers: {
-                        'Authorization': `Bearer ${token}`,
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({
-                        lessons_completed: 1
-                    })
-                });
-                
-                if (altResponse.ok) {
-                    console.log('✅ Daily progress updated via alternative endpoint');
-                } else {
-                    console.warn('⚠️ Alternative daily progress endpoint also failed');
-                }
             }
         } catch (dailyError) {
             console.warn('⚠️ Daily progress update failed (non-critical):', dailyError.message);
@@ -26359,6 +26356,13 @@ async function markLessonComplete() {
         // Optional: Show celebration
         showCelebrationAnimation();
         
+        // ✅ DON'T RELOAD IMMEDIATELY - Wait for user to see success
+        setTimeout(() => {
+            // Optionally reload or just keep the success state
+            console.log('✅ Lesson completion saved - you can stay on this page');
+            // location.reload(); // Comment this out if you don't want auto-reload
+        }, 3000);
+        
     } catch (error) {
         console.error('❌ Error marking lesson complete:', error);
         showNotification(`Failed to mark lesson as complete: ${error.message}`, 'error');
@@ -26368,7 +26372,6 @@ async function markLessonComplete() {
         completeLessonBtn.disabled = false;
     }
 }
-
 function updateCompleteButtonState(isCompleted) {
     const button = document.getElementById('completeLessonBtn');
     if (!button) return;
@@ -36138,5 +36141,37 @@ window.checkCompletionStatus = async function() {
         }
     } catch (error) {
         console.error('❌ Error checking status:', error);
+    }
+};
+
+// I-add ito sa console para i-debug
+window.testCompleteLesson = async function() {
+    console.log('🧪 Testing complete lesson function');
+    await markLessonComplete();
+};
+
+window.checkLessonEndpoint = async function() {
+    const lessonId = getCurrentLessonId();
+    console.log('📡 Testing endpoint: /api/lessons-db/' + lessonId + '/progress');
+    
+    try {
+        const token = localStorage.getItem('authToken');
+        const response = await fetch(`/api/lessons-db/${lessonId}/progress`, {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                completion_status: 'in_progress',
+                percentage: 50
+            })
+        });
+        
+        console.log('📥 Response status:', response.status);
+        const text = await response.text();
+        console.log('📄 Response:', text);
+    } catch (error) {
+        console.error('❌ Error:', error);
     }
 };
