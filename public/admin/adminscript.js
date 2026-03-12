@@ -864,88 +864,56 @@ async function initQuizDashboard() {
     }
 }
 
-// ===== LOAD QUIZ CATEGORIES =====
+// ===== UPDATED: LOAD QUIZ CATEGORIES WITH SAFETY CHECK =====
 async function loadQuizCategories() {
+    console.log('📚 Checking for quiz categories container...');
+    
+    const quizzesContainer = document.getElementById('userQuizzesContainer');
+    
+    if (!quizzesContainer) {
+        console.log('ℹ️ No categories container found - loading quizzes table instead');
+        
+        // Load the quizzes table directly
+        if (typeof loadQuizzesFromMySQL === 'function') {
+            loadQuizzesFromMySQL();
+        } else {
+            console.error('❌ loadQuizzesFromMySQL function not found!');
+        }
+        return;
+    }
+    
+    // If container exists, proceed with loading categories
+    console.log('✅ Categories container found, loading categories...');
+    
+    quizzesContainer.innerHTML = `
+        <div class="loading-spinner">
+            <i class="fas fa-spinner fa-pulse"></i> Loading categories...
+        </div>
+    `;
+    
     try {
-        const categories = await fetchQuizCategories();
-        QuizState.quizCategories = categories;
+        const token = localStorage.getItem('admin_token') || localStorage.getItem('authToken');
         
-        const quizzesContainer = document.getElementById('userQuizzesContainer');
-        if (!quizzesContainer) {
-            console.error('Quiz container not found');
+        if (!token) {
+            quizzesContainer.innerHTML = `<p>Please login first</p>`;
             return;
         }
         
-        if (categories.length === 0) {
-            quizzesContainer.innerHTML = `
-                <div class="no-categories">
-                    <i class="fas fa-clipboard-list"></i>
-                    <h3>No quiz categories available</h3>
-                    <p>Check back later for new quizzes!</p>
-                </div>
-            `;
-            return;
+        const response = await fetch(`/api/quiz/categories`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        
+        const data = await response.json();
+        
+        if (data.success && data.categories) {
+            displayQuizCategories(data.categories);
+        } else {
+            quizzesContainer.innerHTML = `<p>No categories found</p>`;
         }
-        
-        // Display categories as cards
-        let html = '';
-        categories.forEach(category => {
-            html += `
-                <div class="quiz-category-card" data-category-id="${category.category_id}">
-                    <div class="quiz-category-icon" style="background: ${category.color || '#3498db'}">
-                        <i class="${category.icon || 'fas fa-question-circle'}"></i>
-                    </div>
-                    <div class="quiz-category-info">
-                        <h3 class="quiz-category-title">${category.category_name}</h3>
-                        <p class="quiz-category-desc">${category.description || 'Test your knowledge in this category'}</p>
-                        <div class="quiz-category-stats">
-                            <span class="quiz-category-stat">
-                                <i class="fas fa-question-circle"></i> ${category.quiz_count || 0} Quizzes
-                            </span>
-                        </div>
-                    </div>
-                    <button class="quiz-category-btn" data-category-id="${category.category_id}">
-                        <i class="fas fa-arrow-right"></i>
-                    </button>
-                </div>
-            `;
-        });
-        
-        quizzesContainer.innerHTML = html;
-        
-        // Add event listeners to category buttons
-        document.querySelectorAll('.quiz-category-btn').forEach(button => {
-            button.addEventListener('click', async function(e) {
-                e.stopPropagation();
-                const categoryId = this.getAttribute('data-category-id');
-                await loadQuizzesForCategory(categoryId);
-            });
-        });
-        
-        // Add event listeners to category cards
-        document.querySelectorAll('.quiz-category-card').forEach(card => {
-            card.addEventListener('click', function() {
-                const categoryId = this.getAttribute('data-category-id');
-                document.querySelectorAll('.quiz-category-card').forEach(c => {
-                    c.classList.remove('selected');
-                });
-                this.classList.add('selected');
-                QuizState.selectedCategory = categoryId;
-            });
-        });
         
     } catch (error) {
-        console.error('Error loading quiz categories:', error);
-        const quizzesContainer = document.getElementById('userQuizzesContainer');
-        if (quizzesContainer) {
-            quizzesContainer.innerHTML = `
-                <div class="error-message">
-                    <i class="fas fa-exclamation-triangle"></i>
-                    <h3>Failed to load quiz categories</h3>
-                    <p>Please try again later</p>
-                </div>
-            `;
-        }
+        console.error('❌ Error:', error);
+        quizzesContainer.innerHTML = `<p>Error loading categories</p>`;
     }
 }
 
