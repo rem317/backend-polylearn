@@ -24115,19 +24115,18 @@ async function updateQuizChart(range) {
     }, 300);
 }
 
-
-// ===== UPDATED: LOAD QUIZ TOPICS =====
+// ===== FIXED: LOAD QUIZ TOPICS - PURELY DYNAMIC =====
 async function loadQuizTopics() {
-    console.log("📚 Loading topics for selected subject...");
+    console.log("📚 Loading topics for selected lesson...");
     
-    const subjectId = document.getElementById('quizSubject').value;
+    const lessonId = document.getElementById('quizSubject').value;
     const topicSelect = document.getElementById('quizTopic');
     
-    console.log(`🔍 Selected subject ID: ${subjectId}`);
+    console.log(`🔍 Selected Lesson ID: ${lessonId}`);
     
-    if (!subjectId) {
-        console.log("⚠️ No subject selected");
-        topicSelect.innerHTML = '<option value="">-- Select Subject First --</option>';
+    if (!lessonId) {
+        console.log("⚠️ No lesson selected");
+        topicSelect.innerHTML = '<option value="">-- Select Lesson First --</option>';
         topicSelect.disabled = true;
         return;
     }
@@ -24143,13 +24142,11 @@ async function loadQuizTopics() {
             throw new Error('No auth token');
         }
         
-        console.log(`📡 Fetching structure from server...`);
+        console.log(`📡 Fetching topics for lesson ID: ${lessonId}`);
         
-        // Get ALL structure data
-        const response = await fetch(`/api/admin/structure`, {
-            headers: {
-                'Authorization': `Bearer ${token}`
-            }
+        // Use the correct endpoint that returns topics by lesson
+        const response = await fetch(`/api/admin/topics/by-lesson/${lessonId}`, {
+            headers: { 'Authorization': `Bearer ${token}` }
         });
         
         if (!response.ok) {
@@ -24159,91 +24156,107 @@ async function loadQuizTopics() {
         const result = await response.json();
         console.log('📥 Server response:', result);
         
-        if (result.success && result.structure) {
-            const allTopics = result.structure.topics || [];
-            const allModules = result.structure.modules || [];
+        if (result.success && result.topics) {
+            const topics = result.topics;
             
-            console.log(`📊 Data from server:`);
-            console.log(`   📦 Modules: ${allModules.length}`);
-            console.log(`   📋 Topics: ${allTopics.length}`);
+            console.log(`📚 Found ${topics.length} topics for lesson ID ${lessonId}`);
             
-            // Get modules for this lesson
-            const modulesForLesson = allModules.filter(m => 
-                parseInt(m.lesson_id) === parseInt(subjectId)
-            );
-            
-            console.log(`📦 Found ${modulesForLesson.length} modules for lesson ${subjectId}`);
-            
-            if (modulesForLesson.length === 0) {
-                console.log(`⚠️ No modules found for lesson ID ${subjectId}`);
-                topicSelect.innerHTML = '<option value="">-- No modules for this subject --</option>';
+            if (topics.length === 0) {
+                topicSelect.innerHTML = '<option value="">-- No topics available for this lesson --</option>';
                 topicSelect.disabled = true;
-                showNotification('info', 'No Modules', 'Create modules first in Lesson Management');
-                return;
-            }
-            
-            // Get module IDs
-            const moduleIds = modulesForLesson.map(m => parseInt(m.id));
-            
-            // Get topics that belong to these modules
-            const filteredTopics = allTopics.filter(topic => 
-                moduleIds.includes(parseInt(topic.module_id))
-            );
-            
-            console.log(`📚 Found ${filteredTopics.length} topics for subject ID ${subjectId}`);
-            
-            if (filteredTopics.length === 0) {
-                topicSelect.innerHTML = '<option value="">-- No topics available --</option>';
-                topicSelect.disabled = true;
+                
                 showNotification('info', 'No Topics', 'Create topics first in Lesson Management');
             } else {
                 let options = '<option value="">-- Select Topic --</option>';
-                filteredTopics.forEach(topic => {
-                    const moduleName = modulesForLesson.find(m => m.id == topic.module_id)?.name || 'Unknown';
-                    options += `<option value="${topic.id}">${topic.name} (${moduleName})</option>`;
+                
+                // Group topics by module if module info is available
+                const groupedByModule = {};
+                topics.forEach(topic => {
+                    const moduleName = topic.module_name || 'General';
+                    if (!groupedByModule[moduleName]) {
+                        groupedByModule[moduleName] = [];
+                    }
+                    groupedByModule[moduleName].push(topic);
                 });
+                
+                // Create HTML with optgroups
+                for (const [moduleName, moduleTopics] of Object.entries(groupedByModule)) {
+                    options += `<optgroup label="${moduleName}">`;
+                    moduleTopics.forEach(topic => {
+                        options += `<option value="${topic.id}">${topic.name}</option>`;
+                    });
+                    options += `</optgroup>`;
+                }
+                
                 topicSelect.innerHTML = options;
                 topicSelect.disabled = false;
-                console.log("✅ Topic dropdown enabled with", filteredTopics.length, "options");
+                console.log("✅ Topic dropdown enabled with", topics.length, "options");
             }
         } else {
-            throw new Error(result.message || 'Failed to load structure');
+            // Try alternative endpoint if the first one fails
+            console.log('⚠️ First endpoint failed, trying /api/admin/structure...');
+            
+            const structureResponse = await fetch(`/api/admin/structure`, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            
+            if (!structureResponse.ok) {
+                throw new Error('Failed to load structure');
+            }
+            
+            const structureResult = await structureResponse.json();
+            
+            if (structureResult.success && structureResult.structure) {
+                const allTopics = structureResult.structure.topics || [];
+                const allModules = structureResult.structure.modules || [];
+                
+                // Get modules for this lesson
+                const modulesForLesson = allModules.filter(m => 
+                    parseInt(m.lesson_id) === parseInt(lessonId)
+                );
+                
+                if (modulesForLesson.length === 0) {
+                    topicSelect.innerHTML = '<option value="">-- No modules for this lesson --</option>';
+                    topicSelect.disabled = true;
+                    return;
+                }
+                
+                // Get module IDs
+                const moduleIds = modulesForLesson.map(m => parseInt(m.id));
+                
+                // Get topics that belong to these modules
+                const filteredTopics = allTopics.filter(topic => 
+                    moduleIds.includes(parseInt(topic.module_id))
+                );
+                
+                if (filteredTopics.length === 0) {
+                    topicSelect.innerHTML = '<option value="">-- No topics available --</option>';
+                    topicSelect.disabled = true;
+                } else {
+                    let options = '<option value="">-- Select Topic --</option>';
+                    
+                    // Group by module
+                    filteredTopics.forEach(topic => {
+                        const moduleName = modulesForLesson.find(m => m.id == topic.module_id)?.name || 'General';
+                        options += `<option value="${topic.id}">${topic.name} (${moduleName})</option>`;
+                    });
+                    
+                    topicSelect.innerHTML = options;
+                    topicSelect.disabled = false;
+                }
+            }
         }
         
     } catch (error) {
         console.error('❌ Error loading topics:', error);
         
-        // Fallback to hardcoded topics
-        topicSelect.innerHTML = '<option value="">-- Select Topic --</option>';
+        // Show error in dropdown
+        topicSelect.innerHTML = '<option value="">-- Error loading topics --</option>';
+        topicSelect.disabled = true;
         
-        if (subjectId == 1) { // MathEase
-            topicSelect.innerHTML += `
-                <option value="1">Basic Operations</option>
-                <option value="2">Addition and Subtraction</option>
-                <option value="3">Multiplication and Division</option>
-                <option value="4">Order of Operations (MDAS)</option>
-            `;
-        } else if (subjectId == 2) { // PolyLearn
-            topicSelect.innerHTML += `
-                <option value="5">Polynomial Basics</option>
-                <option value="6">Factoring Polynomials</option>
-                <option value="7">Quadratic Equations</option>
-                <option value="8">Polynomial Functions</option>
-            `;
-        } else if (subjectId == 3) { // FactoLearn
-            topicSelect.innerHTML += `
-                <option value="9">Factorial Notation</option>
-                <option value="10">Permutations</option>
-                <option value="11">Combinations</option>
-                <option value="12">Binomial Theorem</option>
-            `;
-        }
-        
-        topicSelect.disabled = false;
-        showNotification('warning', 'Offline Mode', 'Using sample topics');
+        showNotification('error', 'Failed to Load Topics', error.message);
     }
 }
-
 // ===== HELPER FUNCTIONS =====
 function getSubjectClass(subjectId) {
     const classes = {
