@@ -26952,6 +26952,84 @@ function refreshPracticeData() {
     showNotification('info', 'Refreshing', 'Updating practice exercises...');
     loadAdminPracticeExercises();
 }
+// ===== ENSURE PRACTICE DROPDOWNS EXIST =====
+function ensurePracticeDropdowns() {
+    console.log("🔧 Ensuring practice dropdowns exist...");
+    
+    const modal = document.getElementById('createPracticeModal');
+    if (!modal) {
+        console.warn("⚠️ Practice modal not found, cannot ensure dropdowns");
+        return;
+    }
+    
+    const modalBody = modal.querySelector('.modal-body');
+    if (!modalBody) return;
+    
+    // Check if lesson select exists
+    let lessonSelect = document.getElementById('practiceLesson');
+    
+    if (!lessonSelect) {
+        console.log("📝 Creating practice lesson dropdown...");
+        
+        // Create lesson dropdown group
+        const lessonGroup = document.createElement('div');
+        lessonGroup.className = 'form-group';
+        lessonGroup.innerHTML = `
+            <label for="practiceLesson" class="form-label">
+                <i class="fas fa-book"></i> Lesson <span style="color: red;">*</span>
+            </label>
+            <select id="practiceLesson" class="form-control" required onchange="handlePracticeLessonChange(this.value)">
+                <option value="">-- Select Lesson --</option>
+                <option value="1">MathEase</option>
+                <option value="2">PolyLearn</option>
+                <option value="3">FactoLearn</option>
+            </select>
+            <small class="form-text text-muted">Select which lesson this practice exercise belongs to</small>
+        `;
+        
+        // Insert at the beginning of modal body
+        if (modalBody.firstChild) {
+            modalBody.insertBefore(lessonGroup, modalBody.firstChild);
+        } else {
+            modalBody.appendChild(lessonGroup);
+        }
+        
+        lessonSelect = document.getElementById('practiceLesson');
+    }
+    
+    // Check if topic select exists
+    let topicSelect = document.getElementById('practiceTopic');
+    
+    if (!topicSelect) {
+        console.log("📝 Creating practice topic dropdown...");
+        
+        // Create topic dropdown group
+        const topicGroup = document.createElement('div');
+        topicGroup.className = 'form-group';
+        topicGroup.innerHTML = `
+            <label for="practiceTopic" class="form-label">
+                <i class="fas fa-tag"></i> Topic <span style="color: red;">*</span>
+            </label>
+            <select id="practiceTopic" class="form-control" required disabled>
+                <option value="">-- Select Lesson First --</option>
+            </select>
+            <small class="form-text text-muted">Select a topic for this practice exercise</small>
+        `;
+        
+        // Insert after lesson dropdown
+        const lessonGroup = lessonSelect?.parentNode;
+        if (lessonGroup && lessonGroup.parentNode) {
+            lessonGroup.parentNode.insertBefore(topicGroup, lessonGroup.nextSibling);
+        } else {
+            modalBody.appendChild(topicGroup);
+        }
+        
+        topicSelect = document.getElementById('practiceTopic');
+    }
+    
+    console.log("✅ Practice dropdowns ensured");
+}
+
 // ===== UPDATED OPEN CREATE PRACTICE MODAL =====
 async function openCreatePracticeModal(practiceId = null, practiceData = null) {
     console.log("📝 Opening practice modal for:", practiceId ? `edit #${practiceId}` : 'create new');
