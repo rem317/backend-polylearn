@@ -2510,12 +2510,15 @@ function forceInitCompleteButton() {
                 showCelebrationAnimation();
                 
                 // Refresh page after 2 seconds
-                setTimeout(() => {
-                    location.reload();
-                }, 2000);
-            } else {
-                throw new Error('Failed to update progress');
-            }
+                // Show celebration
+showCelebrationAnimation();
+
+// Update the button to show it's completed
+this.innerHTML = '<i class="fas fa-check"></i> Completed!';
+this.style.background = '#2ecc71';
+
+// NO PAGE RELOAD - just show success
+showNotification('Lesson completed successfully!', 'success');
             
         } catch (error) {
             console.error('❌ Error:', error);
