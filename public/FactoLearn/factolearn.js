@@ -19324,9 +19324,9 @@ async function updateContinueLearningModule() {
     }
 }
 
-// ===== FIXED: LOAD PRACTICE EXERCISES FOR TOPIC - FILTER BY LESSON_ID=3 =====
+// ===== PURE DATABASE VERSION - NO HARDCODED =====
 async function loadPracticeExercisesForTopic(topicId) {
-    console.log(`📚 Loading FactoLearn exercises for topic: ${topicId}`);
+    console.log(`📚 Loading FactoLearn exercises from DATABASE ONLY for topic: ${topicId}`);
     
     const exerciseArea = document.getElementById('exerciseArea');
     if (!exerciseArea) {
@@ -19338,7 +19338,8 @@ async function loadPracticeExercisesForTopic(topicId) {
     exerciseArea.innerHTML = `
         <div class="loading-container" style="text-align: center; padding: 60px 20px;">
             <i class="fas fa-spinner fa-pulse" style="font-size: 50px; color: #7a0000; margin-bottom: 20px;"></i>
-            <p style="color: #666; font-size: 16px;">Loading FactoLearn exercises...</p>
+            <p style="color: #666; font-size: 16px;">Loading from database...</p>
+            <p style="color: #999; font-size: 13px;">Fetching exercises for lesson_id=3 (FactoLearn)</p>
         </div>
     `;
     
@@ -19349,94 +19350,103 @@ async function loadPracticeExercisesForTopic(topicId) {
             return;
         }
         
-        const FACTOLEARN_LESSON_ID = 3; // Fixed for FactoLearn
+        const FACTOLEARN_LESSON_ID = 3;
         
-        console.log(`📍 FILTERING: lesson_id = ${FACTOLEARN_LESSON_ID} (FactoLearn ONLY)`);
-        
-        // ===== FETCH ALL PRACTICE EXERCISES =====
+        // ===== FETCH FROM DATABASE =====
         const response = await fetch(`/api/admin/practice`, {
             headers: { 'Authorization': `Bearer ${token}` }
         });
         
         if (!response.ok) {
-            throw new Error(`Failed to fetch: ${response.status}`);
+            throw new Error(`Database returned ${response.status}`);
         }
         
         const result = await response.json();
         
         if (!result.success || !result.exercises) {
-            throw new Error('No exercises data');
+            throw new Error('No data from database');
         }
         
         const allExercises = result.exercises;
-        console.log(`📊 Total exercises in database: ${allExercises.length}`);
+        console.log(`📊 Database has ${allExercises.length} total exercises`);
         
-        // ===== CRITICAL: FILTER BY LESSON_ID = 3 ONLY =====
-        const filteredExercises = allExercises.filter(ex => {
-            // Check multiple possible field names
+        // Log all exercises para makita ang lesson_id
+        console.log('📋 ALL EXERCISES FROM DATABASE:');
+        allExercises.forEach(ex => {
+            console.log(`   ID: ${ex.id}, lesson_id: ${ex.lesson_id}, title: ${ex.title}`);
+        });
+        
+        // ===== FILTER FOR LESSON_ID = 3 ONLY =====
+        const factoLearnExercises = allExercises.filter(ex => {
+            // Check all possible field names
             const exLessonId = ex.lesson_id || ex.lessonId || ex.subject_id;
-            
-            // Log para makita kung ano ang lesson_id ng bawat exercise
-            console.log(`Exercise ${ex.id}: lesson_id = ${exLessonId}, title: ${ex.title || ex.exercise_title}`);
-            
             return exLessonId == FACTOLEARN_LESSON_ID;
         });
         
-        console.log(`✅ FactoLearn exercises (lesson_id=3): ${filteredExercises.length}`);
+        console.log(`✅ Database returned ${factoLearnExercises.length} FactoLearn exercises`);
         
-        // Log kung ano ang na-filter out
-        const filteredOut = allExercises.filter(ex => {
+        // Log filtered out exercises
+        const otherExercises = allExercises.filter(ex => {
             const exLessonId = ex.lesson_id || ex.lessonId || ex.subject_id;
             return exLessonId != FACTOLEARN_LESSON_ID;
         });
         
-        if (filteredOut.length > 0) {
-            console.log(`🚫 Filtered OUT ${filteredOut.length} exercises from other apps:`);
-            filteredOut.forEach(ex => {
+        if (otherExercises.length > 0) {
+            console.log(`🚫 Filtered OUT ${otherExercises.length} non-FactoLearn exercises:`);
+            otherExercises.forEach(ex => {
                 const exLessonId = ex.lesson_id || ex.lessonId || ex.subject_id;
-                console.log(`   - ID: ${ex.id}, Lesson: ${exLessonId}, Title: ${ex.title || ex.exercise_title}`);
+                console.log(`   - ID: ${ex.id}, Lesson: ${exLessonId}, Title: ${ex.title}`);
             });
         }
         
         // Filter by topic if specified
-        let exercisesToShow = filteredExercises;
+        let exercisesToShow = factoLearnExercises;
         if (topicId) {
-            exercisesToShow = filteredExercises.filter(ex => 
+            exercisesToShow = factoLearnExercises.filter(ex => 
                 ex.topic_id == topicId || ex.topicId == topicId
             );
             console.log(`📚 After topic filter (${topicId}): ${exercisesToShow.length} exercises`);
         }
         
         if (exercisesToShow.length === 0) {
-            // Show empty state with proper UI
             exerciseArea.innerHTML = `
                 <div style="text-align: center; padding: 60px 20px; background: white; border-radius: 12px;">
-                    <i class="fas fa-dumbbell" style="font-size: 70px; color: #ccc; margin-bottom: 20px;"></i>
-                    <h3 style="color: #666; margin-bottom: 10px;">No Practice Exercises Available</h3>
-                    <p style="color: #999; margin-bottom: 20px;">No exercises found for this topic.</p>
-                    <button class="btn-primary" onclick="loadPracticeExercisesForTopic('${topicId}')" style="background: #7a0000;">
-                        <i class="fas fa-redo"></i> Refresh
+                    <i class="fas fa-database" style="font-size: 70px; color: #7a0000; margin-bottom: 20px;"></i>
+                    <h3 style="color: #2c3e50; margin-bottom: 10px;">No Exercises Found</h3>
+                    <p style="color: #666; margin-bottom: 5px;">Database has ${factoLearnExercises.length} FactoLearn exercises,</p>
+                    <p style="color: #666; margin-bottom: 20px;">but none for topic ${topicId}.</p>
+                    
+                    <!-- Database Stats -->
+                    <div style="background: #f8f9fa; border-radius: 8px; padding: 20px; margin: 20px auto; max-width: 400px; text-align: left;">
+                        <p style="margin: 5px 0; color: #2c3e50;"><strong>Database Statistics:</strong></p>
+                        <p style="margin: 5px 0; color: #666;">Total exercises: ${allExercises.length}</p>
+                        <p style="margin: 5px 0; color: #666;">FactoLearn (ID 3): ${factoLearnExercises.length}</p>
+                        <p style="margin: 5px 0; color: #666;">Other apps: ${otherExercises.length}</p>
+                    </div>
+                    
+                    <button class="btn-primary" onclick="loadPracticeExercisesForTopic('${topicId}')" style="background: #7a0000; margin-top: 20px;">
+                        <i class="fas fa-sync-alt"></i> Refresh
                     </button>
                 </div>
             `;
             return;
         }
         
-        // ===== DISPLAY EXERCISES WITH UI MATCHING THE SCREENSHOT =====
+        // ===== DISPLAY EXERCISES FROM DATABASE =====
         let html = `
             <div class="practice-header" style="margin-bottom: 30px;">
                 <h2 style="font-size: 24px; color: #2c3e50; margin: 0 0 10px 0;">
                     <i class="fas fa-dumbbell" style="color: #7a0000; margin-right: 10px;"></i>Practice Exercises
                 </h2>
-                <p style="color: #666; font-size: 16px;">Select a topic to practice</p>
+                <p style="color: #666; font-size: 16px;">From MySQL Database (lesson_id=3 only)</p>
                 
                 <!-- Database Connection Status -->
-                <div style="margin-top: 15px; display: flex; align-items: center; gap: 10px;">
+                <div style="margin-top: 15px; display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
                     <span style="background: #27ae60; color: white; padding: 5px 15px; border-radius: 20px; font-size: 13px;">
-                        <i class="fas fa-database"></i> Connected to Database
+                        <i class="fas fa-database"></i> Database Connected
                     </span>
                     <span style="background: #7a0000; color: white; padding: 5px 15px; border-radius: 20px; font-size: 13px;">
-                        <i class="fas fa-filter"></i> FactoLearn Only (${exercisesToShow.length} exercises)
+                        <i class="fas fa-filter"></i> FactoLearn Only (${exercisesToShow.length})
                     </span>
                 </div>
             </div>
@@ -19445,40 +19455,35 @@ async function loadPracticeExercisesForTopic(topicId) {
         `;
         
         exercisesToShow.forEach((exercise, index) => {
-            // Get exercise data with fallbacks
+            // Use only data from database - NO DEFAULTS
             const exerciseId = exercise.exercise_id || exercise.id;
-            const title = exercise.title || exercise.exercise_title || `Exercise ${index + 1}`;
-            const description = exercise.description || exercise.exercise_description || 'Practice your skills with this exercise.';
-            const difficulty = exercise.difficulty || 'medium';
-            const points = exercise.points || 10;
+            const title = exercise.title || exercise.exercise_title;
+            const description = exercise.description || exercise.exercise_description;
+            const difficulty = exercise.difficulty;
+            const points = exercise.points;
             const attempts = exercise.attempts || 0;
+            const topicIdFromDB = exercise.topic_id || exercise.topicId;
             
-            // Determine difficulty color and label
-            let difficultyColor, difficultyLabel;
-            if (difficulty === 'easy') {
-                difficultyColor = '#27ae60';
-                difficultyLabel = 'EASY';
-            } else if (difficulty === 'medium') {
-                difficultyColor = '#f39c12';
-                difficultyLabel = 'MEDIUM';
-            } else if (difficulty === 'hard') {
-                difficultyColor = '#e74c3c';
-                difficultyLabel = 'HARD';
-            } else {
-                difficultyColor = '#3498db';
-                difficultyLabel = difficulty.toUpperCase();
-            }
+            // If any required field is missing from database, log it but still display
+            if (!title) console.warn(`⚠️ Exercise ${exerciseId} missing title`);
+            if (!description) console.warn(`⚠️ Exercise ${exerciseId} missing description`);
             
-            // Build HTML exactly like the screenshot
+            // Determine difficulty color
+            let difficultyColor = '#3498db'; // default blue
+            let difficultyLabel = (difficulty || 'MEDIUM').toUpperCase();
+            
+            if (difficulty === 'easy') difficultyColor = '#27ae60';
+            else if (difficulty === 'medium') difficultyColor = '#f39c12';
+            else if (difficulty === 'hard') difficultyColor = '#e74c3c';
+            
             html += `
                 <div class="exercise-card" data-exercise-id="${exerciseId}" 
                      style="background: white; border-radius: 12px; padding: 25px; 
                             box-shadow: 0 4px 12px rgba(0,0,0,0.1); border: 1px solid #e0e0e0;">
                     
-                    <!-- Header with title and difficulty badge -->
                     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
                         <h3 style="margin: 0; color: #2c3e50; font-size: 20px; font-weight: 600;">
-                            Exercise ${index + 1}: ${title}
+                            Exercise ${index + 1}: ${title || 'Untitled'}
                         </h3>
                         <span style="background: ${difficultyColor}; color: white; 
                                    padding: 4px 12px; border-radius: 20px; 
@@ -19487,20 +19492,18 @@ async function loadPracticeExercisesForTopic(topicId) {
                         </span>
                     </div>
                     
-                    <!-- Description (like in screenshot) -->
                     <p style="color: #666; font-size: 15px; line-height: 1.5; margin: 0 0 20px 0;">
-                        ${description}
+                        ${description || 'No description available'}
                     </p>
                     
-                    <!-- Metadata - icons exactly like screenshot -->
                     <div style="display: flex; gap: 25px; margin-bottom: 20px; color: #7f8c8d;">
                         <span style="display: flex; align-items: center; gap: 8px;">
                             <i class="fas fa-star" style="color: #f39c12;"></i>
-                            ${points} points
+                            ${points || 0} points
                         </span>
                         <span style="display: flex; align-items: center; gap: 8px;">
-                            <i class="fas fa-question-circle" style="color: #3498db;"></i>
-                            5-10 questions
+                            <i class="fas fa-tag" style="color: #7a0000;"></i>
+                            Topic ${topicIdFromDB || '?'}
                         </span>
                         <span style="display: flex; align-items: center; gap: 8px;">
                             <i class="fas fa-history" style="color: #9b59b6;"></i>
@@ -19508,14 +19511,16 @@ async function loadPracticeExercisesForTopic(topicId) {
                         </span>
                     </div>
                     
-                    <!-- FactoLearn Badge (para sure na FactoLearn lang) -->
-                    <div style="margin-bottom: 20px;">
+                    <!-- Database ID Badge -->
+                    <div style="margin-bottom: 20px; display: flex; gap: 5px; flex-wrap: wrap;">
+                        <span style="background: #27ae60; color: white; padding: 4px 12px; border-radius: 20px; font-size: 12px;">
+                            <i class="fas fa-database"></i> ID: ${exerciseId}
+                        </span>
                         <span style="background: #7a0000; color: white; padding: 4px 12px; border-radius: 20px; font-size: 12px;">
-                            <i class="fas fa-graduation-cap"></i> FactoLearn
+                            <i class="fas fa-graduation-cap"></i> Lesson 3
                         </span>
                     </div>
                     
-                    <!-- Start Button - gaya sa screenshot -->
                     <button class="start-exercise-btn" data-exercise-id="${exerciseId}" 
                             style="background: #7a0000; color: white; border: none; 
                                    padding: 12px 25px; border-radius: 8px; font-size: 16px; 
@@ -19530,33 +19535,42 @@ async function loadPracticeExercisesForTopic(topicId) {
         
         html += `</div>`;
         
-        // Add filtered summary at the bottom
+        // Add database summary
         html += `
-            <div style="margin-top: 30px; padding: 15px; background: #f8f9fa; border-radius: 8px; border-left: 4px solid #7a0000;">
-                <div style="display: flex; align-items: center; gap: 10px;">
-                    <i class="fas fa-filter" style="color: #7a0000;"></i>
-                    <span style="color: #2c3e50;">
-                        <strong>Filtered Results:</strong> Showing only FactoLearn exercises (lesson_id=3)
-                    </span>
+            <div style="margin-top: 30px; padding: 20px; background: #f8f9fa; border-radius: 8px; border-left: 4px solid #7a0000;">
+                <h4 style="margin: 0 0 10px 0; color: #2c3e50;">
+                    <i class="fas fa-database" style="color: #7a0000;"></i> Database Summary
+                </h4>
+                <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px;">
+                    <div>
+                        <div style="font-size: 20px; font-weight: bold; color: #7a0000;">${allExercises.length}</div>
+                        <div style="font-size: 12px; color: #666;">Total Exercises</div>
+                    </div>
+                    <div>
+                        <div style="font-size: 20px; font-weight: bold; color: #27ae60;">${factoLearnExercises.length}</div>
+                        <div style="font-size: 12px; color: #666;">FactoLearn (ID 3)</div>
+                    </div>
+                    <div>
+                        <div style="font-size: 20px; font-weight: bold; color: #e74c3c;">${otherExercises.length}</div>
+                        <div style="font-size: 12px; color: #666;">Other Apps</div>
+                    </div>
                 </div>
-                <p style="margin: 10px 0 0 0; color: #666; font-size: 13px;">
-                    Total in database: ${allExercises.length} | 
-                    FactoLearn: ${filteredExercises.length} | 
-                    Other apps: ${filteredOut.length}
+                <p style="margin: 15px 0 0 0; color: #666; font-size: 12px;">
+                    <i class="fas fa-info-circle"></i> 
+                    Showing ${exercisesToShow.length} exercises for topic ${topicId || 'all'}
                 </p>
             </div>
         `;
         
         exerciseArea.innerHTML = html;
         
-        // Add event listeners to start buttons
+        // Add event listeners
         document.querySelectorAll('.start-exercise-btn').forEach(btn => {
             btn.addEventListener('click', function(e) {
                 e.preventDefault();
                 const exerciseId = this.getAttribute('data-exercise-id');
-                console.log(`🎯 Starting FactoLearn exercise: ${exerciseId}`);
+                console.log(`🎯 Starting FactoLearn exercise ${exerciseId} from database`);
                 
-                // Call your practice start function
                 if (typeof startPractice === 'function') {
                     startPractice(exerciseId);
                 } else {
@@ -19565,36 +19579,38 @@ async function loadPracticeExercisesForTopic(topicId) {
             });
         });
         
-        console.log(`✅ Displayed ${exercisesToShow.length} FactoLearn exercises`);
+        console.log(`✅ Successfully displayed ${exercisesToShow.length} exercises from database`);
         
     } catch (error) {
-        console.error('❌ Error loading practice exercises:', error);
+        console.error('❌ Database error:', error);
         exerciseArea.innerHTML = `
             <div style="text-align: center; padding: 60px 20px; background: white; border-radius: 12px;">
                 <i class="fas fa-exclamation-triangle" style="font-size: 60px; color: #e74c3c; margin-bottom: 20px;"></i>
-                <h3 style="color: #e74c3c; margin-bottom: 10px;">Failed to Load Exercises</h3>
-                <p style="color: #666; margin-bottom: 20px;">${error.message}</p>
+                <h3 style="color: #e74c3c; margin-bottom: 10px;">Database Connection Failed</h3>
+                <p style="color: #666; margin-bottom: 5px;">${error.message}</p>
+                <p style="color: #999; font-size: 13px; margin-bottom: 20px;">Check console for details (F12)</p>
                 <button class="btn-primary" onclick="loadPracticeExercisesForTopic('${topicId}')" style="background: #7a0000;">
-                    <i class="fas fa-redo"></i> Try Again
+                    <i class="fas fa-sync-alt"></i> Try Again
                 </button>
             </div>
         `;
     }
 }
 
-// ===== HELPER: Get No Auth HTML =====
+// ===== HELPER: No Auth HTML =====
 function getNoAuthHTML() {
     return `
         <div style="text-align: center; padding: 60px 20px; background: white; border-radius: 12px;">
             <i class="fas fa-lock" style="font-size: 70px; color: #f39c12; margin-bottom: 20px;"></i>
-            <h3 style="color: #666; margin-bottom: 10px;">Authentication Required</h3>
-            <p style="color: #999; margin-bottom: 20px;">Please login to access practice exercises.</p>
+            <h3 style="color: #666; margin-bottom: 10px;">Please Login</h3>
+            <p style="color: #999; margin-bottom: 20px;">You need to login to access practice exercises.</p>
             <button class="btn-primary" onclick="location.href='login.html'" style="background: #7a0000;">
-                <i class="fas fa-sign-in-alt"></i> Go to Login
+                <i class="fas fa-sign-in-alt"></i> Login
             </button>
         </div>
     `;
 }
+
 // ===== DEBUG: Check current lesson =====
 function debugCurrentLesson() {
     console.log('🔍 DEBUG: Checking current lesson');
