@@ -26892,6 +26892,7 @@ async function fixPracticeLessonIds() {
 
 // Run the fix
 fixPracticeLessonIds();
+// FIXED checkPracticeLessonId() - WITH FALLBACK
 async function checkPracticeLessonId() {
     const token = localStorage.getItem('admin_token');
     
@@ -26915,8 +26916,11 @@ async function checkPracticeLessonId() {
                     3: 'FactoLearn'
                 };
                 
+                // ✅ FIX: Use fallback for ID
+                const exerciseId = ex.exercise_id || ex.id;
+                
                 console.log({
-                    exercise_id: ex.exercise_id,
+                    exercise_id: exerciseId,
                     title: ex.title,
                     lesson_id: ex.lesson_id,
                     lesson_name: lessonMap[ex.lesson_id] || 'Unknown',
@@ -26925,9 +26929,10 @@ async function checkPracticeLessonId() {
                 });
             });
             
-            const hasLessonId = exercises.some(ex => ex.lesson_id !== null);
+            const hasLessonId = exercises.some(ex => ex.lesson_id !== null && ex.lesson_id !== undefined);
             console.log('✅ May lesson_id:', hasLessonId);
             
+            // Count by lesson_id
             const stats = {
                 MathEase: exercises.filter(ex => ex.lesson_id === 1).length,
                 PolyLearn: exercises.filter(ex => ex.lesson_id === 2).length,
@@ -26937,6 +26942,11 @@ async function checkPracticeLessonId() {
             
             console.log('📊 Statistics:', stats);
             
+            // Debug: Show sample of first exercise structure
+            if (exercises.length > 0) {
+                console.log('📋 Sample exercise structure:', exercises[0]);
+            }
+            
         } else {
             console.error('❌ Failed to load exercises');
         }
@@ -26945,6 +26955,22 @@ async function checkPracticeLessonId() {
         console.error('❌ Error:', error);
     }
 }
+
+// I-check kung anong fields ang available
+async function debugPracticeStructure() {
+    const token = localStorage.getItem('admin_token');
+    const response = await fetch('/api/admin/practice', {
+        headers: { 'Authorization': `Bearer ${token}` }
+    });
+    const data = await response.json();
+    
+    if (data.success && data.exercises.length > 0) {
+        console.log('📋 Available fields:', Object.keys(data.exercises[0]));
+        console.log('📋 Sample data:', data.exercises[0]);
+    }
+}
+
+debugPracticeStructure();
 // ===== HELPER: Get lesson_id from subject selection =====
 function getLessonIdFromSubject(subjectId) {
     // MathEase = 1
