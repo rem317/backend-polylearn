@@ -6528,15 +6528,23 @@ app.get('/api/user/quiz-stats', authenticateUser, async (req, res) => {
 
 
 // ============================================
-// ✅ FIXED: Get quizzes by category - WITH LESSON_ID FILTER
+// ✅ UPDATED: GET QUIZZES BY CATEGORY - WITH LESSON_ID FILTER
 // ============================================
 app.get('/api/quiz/category/:categoryId/quizzes', authenticateUser, async (req, res) => {
     try {
         const { categoryId } = req.params;
-        const { lesson_id } = req.query; // Kunin ang lesson_id mula sa query
+        const { lesson_id } = req.query; // ← Kunin ang lesson_id mula sa query
         const userId = req.user.id;
         
         console.log(`📥 Fetching quizzes for category ID: ${categoryId}, lesson_id: ${lesson_id || 'none'}`);
+        
+        // ✅ VALIDATION: Kailangan may lesson_id
+        if (!lesson_id) {
+            return res.status(400).json({
+                success: false,
+                message: 'lesson_id is required'
+            });
+        }
         
         // Get category info
         const [categories] = await promisePool.query(
@@ -6553,8 +6561,8 @@ app.get('/api/quiz/category/:categoryId/quizzes', authenticateUser, async (req, 
         
         const category = categories[0];
         
-        // Build query with optional lesson_id filter
-        let quizQuery = `
+        // ✅ FILTER BY LESSON_ID
+        const [quizzes] = await promisePool.query(`
             SELECT 
                 q.quiz_id,
                 q.quiz_title,
@@ -6568,25 +6576,13 @@ app.get('/api/quiz/category/:categoryId/quizzes', authenticateUser, async (req, 
                 q.lesson_id,
                 q.created_at
             FROM quizzes q
-            WHERE q.category_id = ? AND (q.is_active = 1 OR q.is_active IS NULL)
-        `;
+            WHERE q.category_id = ? 
+            AND q.lesson_id = ?          -- ← FILTER DITO
+            AND (q.is_active = 1 OR q.is_active IS NULL)
+            ORDER BY q.created_at DESC
+        `, [categoryId, lesson_id]);
         
-        const quizParams = [categoryId];
-        
-        // Add lesson_id filter if provided
-        if (lesson_id) {
-            quizQuery += ` AND q.lesson_id = ?`;
-            quizParams.push(lesson_id);
-        }
-        
-        quizQuery += ` ORDER BY q.created_at DESC`;
-        
-        console.log('📝 Executing query:', quizQuery);
-        console.log('📝 With params:', quizParams);
-        
-        const [quizzes] = await promisePool.query(quizQuery, quizParams);
-        
-        console.log(`✅ Found ${quizzes.length} quizzes for category ${categoryId}`);
+        console.log(`✅ Found ${quizzes.length} quizzes for lesson_id ${lesson_id}`);
         
         // Get user progress for each quiz
         const quizzesWithProgress = [];
@@ -6621,7 +6617,7 @@ app.get('/api/quiz/category/:categoryId/quizzes', authenticateUser, async (req, 
                 quiz_title: quiz.quiz_title,
                 description: quiz.description || 'Test your knowledge with this quiz',
                 difficulty: quiz.difficulty || 'medium',
-                duration_minutes: quiz.difficulty || 10,
+                duration_minutes: quiz.duration_minutes || 10,
                 total_questions: quiz.total_questions || 0,
                 passing_score: parseFloat(quiz.passing_score) || 70,
                 max_attempts: quiz.max_attempts || 3,
@@ -6650,13 +6646,12 @@ app.get('/api/quiz/category/:categoryId/quizzes', authenticateUser, async (req, 
                 id: category.category_id,
                 name: category.category_name
             },
-            quizzes: quizzesWithProgress
+            quizzes: quizzesWithProgress,
+            filtered_by_lesson: lesson_id
         });
         
     } catch (error) {
         console.error('❌ Error in /api/quiz/category/:categoryId/quizzes:', error);
-        console.error('❌ Error stack:', error.stack);
-        
         res.status(500).json({ 
             success: false, 
             message: 'Failed to fetch quizzes',
@@ -6850,52 +6845,80 @@ app.post('/api/quiz/:quizId/start', authenticateUser, async (req, res) => {
 });
 
 // ============================================
-// ✅ GET /api/quiz/:quizId/questions (ALTERNATIVE VERSION)
+// ✅ UPDATED: GET QUIZ QUESTIONS - WITH LESSON_ID VERIFICATION
 // ============================================
 app.get('/api/quiz/:quizId/questions', authenticateUser, async (req, res) => {
     try {
         const { quizId } = req.params;
+        const { lesson_id } = req.query; // ← Kunin ang lesson_id
         
-        console.log(`📚 Fetching questions for quiz ${quizId}...`);
+        console.log(`📚 Fetching questions for quiz ${quizId}, lesson_id: ${lesson_id}`);
         
-        // ✅ GET QUESTIONS FIRST
-        const [questions] = await promisePool.query(`
-            SELECT 
-                question_id,
-                question_text,
-                question_type,
-                points
-            FROM quiz_questions 
-            WHERE quiz_id = ?
-            ORDER BY question_order
+        // ✅ Check if quiz exists and belongs to correct lesson
+        const [quizCheck] = await promisePool.query(`
+            SELECT lesson_id FROM quizzes WHERE quiz_id = ?
         `, [quizId]);
         
-        // ✅ GET OPTIONS FOR EACH QUESTION
-        const formattedQuestions = [];
-        
-        for (const q of questions) {
-            const [options] = await promisePool.query(`
-                SELECT 
-                    option_id as id,
-                    option_text as text,
-                    is_correct
-                FROM quiz_options 
-                WHERE question_id = ?
-                ORDER BY option_id
-            `, [q.question_id]);
-            
-            formattedQuestions.push({
-                question_id: q.question_id,
-                question_text: q.question_text,
-                question_type: q.question_type,
-                points: q.points,
-                options: options
+        if (quizCheck.length === 0) {
+            return res.status(404).json({
+                success: false,
+                message: 'Quiz not found'
             });
         }
         
+        // ✅ VERIFY na tama ang lesson_id
+        if (lesson_id && quizCheck[0].lesson_id != lesson_id) {
+            return res.status(403).json({
+                success: false,
+                message: 'This quiz does not belong to the current app'
+            });
+        }
+        
+        // Get questions
+        const [questions] = await promisePool.query(`
+            SELECT 
+                qq.question_id,
+                qq.question_text,
+                qq.question_type,
+                qq.points,
+                qo.option_id as id,
+                qo.option_text as text,
+                qo.is_correct
+            FROM quiz_questions qq
+            LEFT JOIN quiz_options qo ON qq.question_id = qo.question_id
+            WHERE qq.quiz_id = ?
+            ORDER BY qq.question_order, qo.option_order
+        `, [quizId]);
+        
+        // Group options by question
+        const groupedQuestions = [];
+        const questionMap = {};
+        
+        questions.forEach(row => {
+            if (!questionMap[row.question_id]) {
+                questionMap[row.question_id] = {
+                    question_id: row.question_id,
+                    question_text: row.question_text,
+                    question_type: row.question_type,
+                    points: row.points,
+                    options: []
+                };
+                groupedQuestions.push(questionMap[row.question_id]);
+            }
+            
+            if (row.id) {
+                questionMap[row.question_id].options.push({
+                    id: row.id,
+                    text: row.text,
+                    is_correct: row.is_correct === 1
+                });
+            }
+        });
+        
         res.json({
             success: true,
-            questions: formattedQuestions
+            questions: groupedQuestions,
+            lesson_id: quizCheck[0].lesson_id
         });
         
     } catch (error) {
@@ -6906,7 +6929,6 @@ app.get('/api/quiz/:quizId/questions', authenticateUser, async (req, res) => {
         });
     }
 });
-
 app.get('/api/quiz/result/:attemptId', authenticateUser, async (req, res) => {
     try {
         const { attemptId } = req.params;
@@ -8544,7 +8566,9 @@ app.get('/api/admin/practice/exercises', authenticateToken, async (req, res) => 
 // PRACTICE EXERCISE ROUTES (Admin)
 // ============================================
 
-// CREATE new practice exercise
+// ============================================
+// ✅ UPDATED: CREATE PRACTICE EXERCISE WITH LESSON_ID
+// ============================================
 app.post('/api/admin/practice', authenticateAdmin, async (req, res) => {
     try {
         console.log('📥 Creating practice exercise...');
@@ -8553,6 +8577,7 @@ app.post('/api/admin/practice', authenticateAdmin, async (req, res) => {
             title,
             description,
             topic_id,
+            lesson_id,           // ← DAGDAGIN ITO
             content_type,
             difficulty,
             points,
@@ -8560,6 +8585,22 @@ app.post('/api/admin/practice', authenticateAdmin, async (req, res) => {
             is_active,
             status
         } = req.body;
+
+        // ✅ VALIDATION: Kailangan may lesson_id
+        if (!lesson_id) {
+            return res.status(400).json({
+                success: false,
+                message: 'lesson_id is required (1=MathEase, 2=PolyLearn, 3=FactoLearn)'
+            });
+        }
+        
+        // ✅ Validate na 1, 2, or 3 lang
+        if (![1, 2, 3].includes(parseInt(lesson_id))) {
+            return res.status(400).json({
+                success: false,
+                message: 'lesson_id must be 1 (MathEase), 2 (PolyLearn), or 3 (FactoLearn)'
+            });
+        }
 
         // Validate required fields
         if (!title) {
@@ -8580,12 +8621,15 @@ app.post('/api/admin/practice', authenticateAdmin, async (req, res) => {
         // Determine active status
         const activeStatus = is_active !== undefined ? is_active : (status === 'active' ? 1 : 0);
 
+        // ✅ I-SAVE ANG lesson_id
         const [result] = await promisePool.query(`
             INSERT INTO practice_exercises 
-            (topic_id, title, description, content_type, difficulty, points, content_json, is_active, created_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW())
+            (topic_id, lesson_id, title, description, content_type, difficulty, 
+             points, content_json, is_active, created_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())
         `, [
             topic_id,
+            lesson_id,            // ← I-SAVE ANG lesson_id
             title,
             description || null,
             content_type,
@@ -8595,16 +8639,21 @@ app.post('/api/admin/practice', authenticateAdmin, async (req, res) => {
             activeStatus
         ]);
 
-        console.log(`✅ Practice exercise created with ID: ${result.insertId}`);
+        console.log(`✅ Practice exercise created with ID: ${result.insertId}, lesson_id: ${lesson_id}`);
+        
         res.status(201).json({
             success: true,
             message: 'Practice exercise created successfully',
-            exerciseId: result.insertId
+            exerciseId: result.insertId,
+            lesson_id: lesson_id
         });
 
     } catch (error) {
         console.error('❌ Error creating practice exercise:', error);
-        res.status(500).json({ success: false, message: 'Failed to create practice exercise: ' + error.message });
+        res.status(500).json({ 
+            success: false, 
+            message: 'Failed to create practice exercise: ' + error.message 
+        });
     }
 });
 app.post('/api/admin/practice/exercises', authenticateToken, async (req, res) => {
@@ -9539,19 +9588,39 @@ app.get('/api/admin/quizzes/:quizId', authenticateAdmin, async (req, res) => {
     }
 });
 
-// CREATE new quiz
+// ============================================
+// ✅ UPDATED: CREATE QUIZ WITH LESSON_ID
+// ============================================
 app.post('/api/admin/quizzes', authenticateAdmin, async (req, res) => {
     try {
         const { 
             title, 
             description, 
-            category_id,  // Use category_id instead of subject_id
+            category_id,
+            lesson_id,           // ← DAGDAGIN ITO
             difficulty = 'medium',
             time_limit = 30,
             passing_score = 70,
-            is_active = 1,  // Use is_active boolean
+            max_attempts = 3,
+            is_active = 1,
             questions = [] 
         } = req.body;
+        
+        // ✅ VALIDATION: Kailangan may lesson_id
+        if (!lesson_id) {
+            return res.status(400).json({
+                success: false,
+                message: 'lesson_id is required (1=MathEase, 2=PolyLearn, 3=FactoLearn)'
+            });
+        }
+        
+        // ✅ Validate na 1, 2, or 3 lang
+        if (![1, 2, 3].includes(parseInt(lesson_id))) {
+            return res.status(400).json({
+                success: false,
+                message: 'lesson_id must be 1 (MathEase), 2 (PolyLearn), or 3 (FactoLearn)'
+            });
+        }
         
         if (!title) {
             return res.status(400).json({
@@ -9564,19 +9633,22 @@ app.post('/api/admin/quizzes', authenticateAdmin, async (req, res) => {
         await connection.beginTransaction();
         
         try {
-            // Insert quiz
+            // Insert quiz with lesson_id
             const [quizResult] = await connection.query(`
                 INSERT INTO quizzes 
-                (category_id, quiz_title, description, difficulty, duration_minutes, 
-                 passing_score, total_questions, is_active, created_at)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW())
+                (category_id, lesson_id, quiz_title, description, difficulty, 
+                 duration_minutes, passing_score, max_attempts, total_questions, 
+                 is_active, created_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())
             `, [
                 category_id || null,
+                lesson_id,                    // ← I-SAVE ANG lesson_id
                 title,
                 description || null,
                 difficulty,
                 time_limit,
                 passing_score,
+                max_attempts,
                 questions.length,
                 is_active
             ]);
@@ -9601,7 +9673,7 @@ app.post('/api/admin/quizzes', authenticateAdmin, async (req, res) => {
                 
                 const questionId = questionResult.insertId;
                 
-                // Insert options if provided
+                // Insert options
                 if (q.options && q.options.length > 0) {
                     for (let j = 0; j < q.options.length; j++) {
                         const opt = q.options[j];
@@ -9621,10 +9693,13 @@ app.post('/api/admin/quizzes', authenticateAdmin, async (req, res) => {
             
             await connection.commit();
             
+            console.log(`✅ Quiz created with ID: ${quizId}, lesson_id: ${lesson_id}`);
+            
             res.status(201).json({
                 success: true,
                 message: 'Quiz created successfully',
-                quiz_id: quizId
+                quiz_id: quizId,
+                lesson_id: lesson_id
             });
             
         } catch (error) {
@@ -10964,7 +11039,7 @@ app.get('/api/user/progress', verifyToken, async (req, res) => {
 
 
 // ============================================
-// ✅ GET PRACTICE EXERCISES BY TOPIC - GENERIC VERSION
+// ✅ UPDATED: GET PRACTICE EXERCISES BY TOPIC - WITH LESSON_ID FILTER
 // ============================================
 app.get('/api/practice/topic/:topicId', authenticateToken, async (req, res) => {
     try {
@@ -10975,6 +11050,14 @@ app.get('/api/practice/topic/:topicId', authenticateToken, async (req, res) => {
         const lessonId = req.query.lesson_id;
         
         console.log(`📝 Fetching practice exercises for topic ${topicId}, lesson: ${lessonId || 'all'}`);
+
+        // ✅ VALIDATION: Kailangan may lesson_id
+        if (!lessonId) {
+            return res.status(400).json({
+                success: false,
+                message: 'lesson_id is required'
+            });
+        }
 
         let query = `
             SELECT 
@@ -11142,16 +11225,16 @@ app.get('/api/admin/topics/by-subject/:subjectId', authenticateAdmin, async (req
     }
 });
 
-
 // ============================================
-// ✅ PERMANENT FIX: GET SINGLE PRACTICE EXERCISE
+// ✅ UPDATED: GET SINGLE PRACTICE EXERCISE - WITH LESSON_ID VERIFICATION
 // ============================================
 app.get('/api/practice/exercises/:exerciseId', authenticateUser, async (req, res) => {
     try {
         const { exerciseId } = req.params;
+        const { lesson_id } = req.query; // ← Kunin ang lesson_id
         const userId = req.user.id;
         
-        console.log(`📝 Fetching practice exercise ${exerciseId}`);
+        console.log(`📝 Fetching practice exercise ${exerciseId}, lesson_id: ${lesson_id}`);
         
         const [exercises] = await promisePool.query(`
             SELECT 
@@ -11162,7 +11245,8 @@ app.get('/api/practice/exercises/:exerciseId', authenticateUser, async (req, res
                 difficulty,
                 points,
                 content_json,
-                topic_id
+                topic_id,
+                lesson_id
             FROM practice_exercises 
             WHERE exercise_id = ? AND is_active = 1
         `, [exerciseId]);
@@ -11176,7 +11260,15 @@ app.get('/api/practice/exercises/:exerciseId', authenticateUser, async (req, res
         
         const ex = exercises[0];
         
-        // ✅ Parse and validate JSON
+        // ✅ VERIFY na tama ang lesson_id (kung may binigay)
+        if (lesson_id && ex.lesson_id != lesson_id) {
+            return res.status(403).json({
+                success: false,
+                message: 'This exercise does not belong to the current app'
+            });
+        }
+        
+        // Parse and validate JSON
         let content;
         try {
             content = typeof ex.content_json === 'string' 
@@ -11234,6 +11326,7 @@ app.get('/api/practice/exercises/:exerciseId', authenticateUser, async (req, res
                 difficulty: ex.difficulty || 'medium',
                 points: ex.points || 10,
                 topic_id: ex.topic_id,
+                lesson_id: ex.lesson_id,
                 questions: questions,
                 question_count: questions.length,
                 user_progress: userProgress
@@ -11248,7 +11341,6 @@ app.get('/api/practice/exercises/:exerciseId', authenticateUser, async (req, res
         });
     }
 });
-
 // ============================================
 // 🔍 DEBUG ENDPOINT - I-CHECK ANG JSON STRUCTURE
 // ============================================
