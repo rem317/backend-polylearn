@@ -24026,6 +24026,29 @@ function redirectBasedOnRole(role) {
 function logoutAndRedirect() {
     console.log('🚪 Logging out...');
     
+    // Close mobile menu FIRST
+    const mobileMenuOverlay = document.getElementById('mobileMenuOverlay');
+    const mobileMenuPanel = document.getElementById('mobileMenuPanel');
+    
+    if (mobileMenuOverlay) {
+        mobileMenuOverlay.classList.remove('active');
+        mobileMenuOverlay.style.display = 'none';
+    }
+    
+    if (mobileMenuPanel) {
+        mobileMenuPanel.classList.remove('active');
+        mobileMenuPanel.style.display = 'none';
+    }
+    
+    // Hide footer navigation
+    hideFooterNavigation();
+    
+    // Remove any open modals
+    document.querySelectorAll('.modal-overlay, .modal').forEach(modal => {
+        modal.style.display = 'none';
+        modal.remove();
+    });
+    
     // Log logout activity before clearing data
     if (AppState.currentUser) {
         logUserActivity('logout', null, {}, 0);
@@ -24036,7 +24059,7 @@ function logoutAndRedirect() {
     localStorage.removeItem('mathhub_user');
     localStorage.removeItem('hasSelectedApp');
     localStorage.removeItem('selectedApp');
-    localStorage.removeItem('userLoggedIn'); // ✅ IMPORTANT
+    localStorage.removeItem('userLoggedIn');
     localStorage.removeItem('lastLogin');
     sessionStorage.clear();
     
@@ -24049,6 +24072,26 @@ function logoutAndRedirect() {
     AppState.currentVideoData = null;
     authToken = null;
     
+    // Reset all other states
+    resetAllStates();
+    
+    // Force hide navigation again (just to be sure)
+    const navigation = document.querySelector('.footer-nav');
+    if (navigation) {
+        navigation.style.display = 'none';
+    }
+    
+    // Navigate to login page
+    navigateTo('login');
+    
+    // Show notification
+    showNotification('Logged out successfully', 'info');
+    
+    console.log('✅ Logout complete - redirected to login');
+}
+
+// Helper function to reset all states
+function resetAllStates() {
     // Reset lesson state
     LessonState.lessons = [];
     LessonState.currentLesson = null;
@@ -24061,7 +24104,10 @@ function logoutAndRedirect() {
     PracticeState.currentExercise = null;
     PracticeState.exercises = [];
     PracticeState.timer = 300;
-    PracticeState.timerInterval = null;
+    if (PracticeState.timerInterval) {
+        clearInterval(PracticeState.timerInterval);
+        PracticeState.timerInterval = null;
+    }
     PracticeState.isExerciseActive = false;
     PracticeState.isReviewMode = false;
     PracticeState.userPracticeProgress = {};
@@ -24072,7 +24118,10 @@ function logoutAndRedirect() {
     QuizState.questions = [];
     QuizState.userAnswers = {};
     QuizState.timer = 0;
-    QuizState.timerInterval = null;
+    if (QuizState.timerInterval) {
+        clearInterval(QuizState.timerInterval);
+        QuizState.timerInterval = null;
+    }
     QuizState.isQuizActive = false;
     QuizState.currentAttemptId = null;
     QuizState.quizResults = null;
@@ -24090,14 +24139,6 @@ function logoutAndRedirect() {
     ProgressState.dashboardStats = null;
     ProgressState.progressTrends = [];
     ProgressState.achievementTimeline = [];
-    
-    // Hide footer navigation when logging out
-    hideFooterNavigation();
-    
-    // Navigate to login
-    navigateTo('login');
-    
-    showNotification('Logged out successfully', 'info');
 }
 
 // ✅ FIXED: Check authentication - WITH PERSISTENCE CHECK
@@ -24313,24 +24354,12 @@ function navigateTo(page) {
     
     // Handle page-specific initialization
     switch(page) {
-        case 'dashboard':
-            if (AppState.currentUser) {
-                // Update user info immediately
-                updateUserInfo();
-                
-                // Load data if not already loaded
-                if (!ProgressState.cumulativeProgress) {
-                    showDashboardLoading();
-                    loadInitialData();
-                } else {
-                    // Just update displays
-                    updateOverallProgressDisplay(ProgressState.cumulativeProgress);
-                    updateProgressSummaryCards();
-                    updateContinueLearningModule();
-                }
-                
-                setupTopNavigation();
-            }
+        case 'login':
+            // Clear any existing forms
+            const loginEmail = document.getElementById('loginEmail');
+            const loginPassword = document.getElementById('loginPassword');
+            if (loginEmail) loginEmail.value = '';
+            if (loginPassword) loginPassword.value = '';
             break;
         case 'appSelection':
             if (AppState.currentUser) {
@@ -25105,12 +25134,21 @@ function closeLogoutModal() {
     }
 }
 
-// Confirm logout
+// Confirm logout - actual logout
 function confirmLogout() {
     console.log('✅ Logout confirmed');
+    
+    // Close logout modal first
     closeLogoutModal();
+    
+    // Show notification
     showNotification('👋 See you next time!', 'info');
-    setTimeout(logoutAndRedirect, 500);
+    
+    // Small delay para makita ng user ang notification
+    setTimeout(() => {
+        // Call the main logout function
+        logoutAndRedirect();
+    }, 500);
 }
 
 // Create modal if missing
@@ -25345,10 +25383,7 @@ function goToModuleDashboard(e) {
     updateActiveNav('lessons');
 }
 
-// Logout user
-// ============================================
-// 🚪 UPDATED: logoutUser - With confirmation
-// ============================================
+// Logout user - with confirmation
 function logoutUser(e) {
     if (e) {
         e.preventDefault();
@@ -25365,7 +25400,7 @@ function logoutUser(e) {
         document.body.style.overflow = '';
     }
     
-    // Show confirmation modal instead of direct logout
+    // Show confirmation modal
     showLogoutConfirmation();
 }
 
