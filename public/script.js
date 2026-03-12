@@ -26299,7 +26299,7 @@ async function checkLessonCompletionStatus() {
     }
 }
 // ============================================
-// ✅ FIXED: Mark Lesson Complete - NO RESTART
+// ✅ FIXED: Mark Lesson Complete - NO REFRESH
 // ============================================
 async function markLessonComplete() {
     console.log('🎯 Marking lesson as complete...');
@@ -26311,6 +26311,12 @@ async function markLessonComplete() {
     if (completeLessonBtn.disabled) {
         console.log('⚠️ Already processing, please wait...');
         return;
+    }
+    
+    // **IMPORTANT: Prevent any default behavior that might cause refresh**
+    if (event) {
+        event.preventDefault();
+        event.stopPropagation();
     }
     
     const contentId = getCurrentLessonId();
@@ -26354,7 +26360,7 @@ async function markLessonComplete() {
                 // Show notification
                 showNotification('Lesson already marked as complete!', 'info');
                 
-                // ❌ REMOVED THE RELOAD
+                // **FIXED: REMOVED THE RELOAD - now just returns**
                 return;
             }
         }
@@ -26441,8 +26447,7 @@ async function markLessonComplete() {
             showCelebrationAnimation();
         }
         
-        // ✅ REMOVED THE AUTOMATIC RELOAD
-        // Just log that we're done
+        // **FIXED: REMOVED THE AUTOMATIC RELOAD**
         console.log('✅ Lesson completion saved - NOT reloading');
         
         // Optional: Update other UI elements
