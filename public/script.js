@@ -19296,7 +19296,7 @@ function setupPracticeButtons() {
 }
 
 // ============================================
-// ✅ WORKING: Setup Complete Lesson Button
+// ✅ FIXED: Setup Complete Lesson Button - NO DOUBLE EXECUTION
 // ============================================
 function setupCompleteLessonButton() {
     console.log('🔘 Setting up complete lesson button...');
@@ -19310,7 +19310,10 @@ function setupCompleteLessonButton() {
     
     console.log('✅ Complete lesson button found, setting up event listener...');
     
-    // Remove any existing listeners by cloning
+    // **IMPORTANT: Remove all existing listeners and onclick attribute**
+    completeBtn.removeAttribute('onclick');
+    
+    // Remove any existing event listeners by cloning
     const newCompleteBtn = completeBtn.cloneNode(true);
     completeBtn.parentNode.replaceChild(newCompleteBtn, completeBtn);
     
@@ -19322,11 +19325,18 @@ function setupCompleteLessonButton() {
     
     let isProcessing = false;
     
+    // Add new event listener with preventDefault
     newCompleteBtn.addEventListener('click', async function(e) {
-        e.preventDefault();
-        e.stopPropagation();
+        e.preventDefault();  // **CRITICAL: Prevent default behavior**
+        e.stopPropagation(); // **CRITICAL: Stop event bubbling**
         
         console.log('🎯 Complete lesson button clicked!');
+        
+        // Prevent double-clicking
+        if (isProcessing) {
+            console.log('⚠️ Already processing, please wait...');
+            return;
+        }
         
         const currentLesson = LessonState.currentLesson;
         if (!currentLesson) {
@@ -19336,12 +19346,6 @@ function setupCompleteLessonButton() {
         
         const contentId = currentLesson.content_id;
         console.log('📝 Marking lesson complete for ID:', contentId);
-        
-        // Prevent double-clicking
-        if (isProcessing) {
-            console.log('⚠️ Already processing, please wait...');
-            return;
-        }
         
         isProcessing = true;
         const originalText = newCompleteBtn.innerHTML;
