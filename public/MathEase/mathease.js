@@ -32675,3 +32675,145 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     });
 });
+
+
+
+
+
+// ============================================
+// GO TO APP SELECTION PAGE - WITH URL PARAMETERS
+// ============================================
+window.goToAppSelection = function(e) {
+    if (e) {
+        e.preventDefault();
+        e.stopPropagation();
+    }
+    
+    console.log('🔄 MathEase: Going to App Selection page with URL parameters');
+    
+    // Close mobile menu
+    closeMobileMenu();
+    
+    // Clear app-specific data but keep user logged in
+    localStorage.removeItem('selectedApp');
+    localStorage.removeItem('currentLessonFilter');
+    localStorage.removeItem('currentLessonId');
+    localStorage.removeItem('hasSelectedApp');
+    
+    // Show notification
+    if (typeof showNotification === 'function') {
+        showNotification('info', 'Redirecting', 'Going back to app selection...');
+    }
+    
+    // Get the base URL (remove any existing hash or params)
+    const baseUrl = window.location.origin;
+    
+    // Create URL parameters
+    const params = new URLSearchParams({
+        skipLoading: 'true',
+        showAppSelection: 'true',
+        from: 'mathease',
+        timestamp: Date.now() // Prevent caching
+    });
+    
+    // Construct the full URL
+    const redirectUrl = `${baseUrl}/?${params.toString()}#appSelection`;
+    
+    console.log('📍 Redirecting to:', redirectUrl);
+    
+    // Redirect
+    setTimeout(() => {
+        window.location.href = redirectUrl;
+    }, 300);
+};
+
+// ============================================
+// GO TO APP SELECTION PAGE - COMPLETE URL PARAMETERS
+// ============================================
+window.goToAppSelection = function(e) {
+    if (e) {
+        e.preventDefault();
+        e.stopPropagation();
+    }
+    
+    console.log('🔄 MathEase: Going to App Selection page');
+    
+    // Close mobile menu
+    closeMobileMenu();
+    
+    // Clear app-specific data but keep user logged in
+    localStorage.removeItem('selectedApp');
+    localStorage.removeItem('currentLessonFilter');
+    localStorage.removeItem('currentLessonId');
+    localStorage.removeItem('hasSelectedApp');
+    
+    // Show notification
+    if (typeof showNotification === 'function') {
+        showNotification('info', 'Redirecting', 'Going back to app selection...');
+    }
+    
+    // Get base URL
+    const baseUrl = window.location.origin;
+    
+    // Build parameters
+    const params = new URLSearchParams({
+        // Loading control
+        skipLoading: 'true',
+        hideLoading: 'true',
+        noLoading: 'true',
+        
+        // App selection control
+        showAppSelection: 'true',
+        forceAppSelection: 'true',
+        openAppSelection: 'true',
+        
+        // Source info
+        from: 'mathease',
+        returnFromApp: 'true',
+        
+        // Cache prevention
+        v: Date.now(),
+        t: new Date().getTime()
+    });
+    
+    // Construct URL with parameters and hash
+    const redirectUrl = `${baseUrl}/?${params.toString()}#appSelection`;
+    
+    console.log('📍 Redirecting to:', redirectUrl);
+    
+    // Redirect
+    setTimeout(() => {
+        window.location.href = redirectUrl;
+    }, 300);
+};
+
+// ============================================
+// GO TO APP SELECTION PAGE - SIMPLE VERSION
+// ============================================
+window.goToAppSelection = function(e) {
+    if (e) {
+        e.preventDefault();
+        e.stopPropagation();
+    }
+    
+    console.log('🔄 MathEase: Going to App Selection page');
+    
+    // Close mobile menu
+    closeMobileMenu();
+    
+    // Clear app-specific data
+    localStorage.removeItem('selectedApp');
+    localStorage.removeItem('currentLessonFilter');
+    localStorage.removeItem('currentLessonId');
+    localStorage.removeItem('hasSelectedApp');
+    
+    // Show notification
+    if (typeof showNotification === 'function') {
+        showNotification('info', 'Redirecting', 'Going back to app selection...');
+    }
+    
+    // Simple redirect with parameters
+    setTimeout(() => {
+        window.location.href = '/?skipLoading=true&showAppSelection=true&_=' + Date.now() + '#appSelection';
+    }, 300);
+};
