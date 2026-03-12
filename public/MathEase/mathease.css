@@ -14894,10 +14894,10 @@ textarea.feedback-form-control {
 
 
 /* ============================================
-   QUICK FIX: Consistent bottom margin for ALL pages
+   COMPLETE FIX: Balanced top AND bottom margins for ALL pages
    ============================================ */
 
-/* Add padding to all page containers */
+/* Add consistent padding to all page containers */
 #dashboard-page,
 #practice-exercises-page,
 #quiz-dashboard-page,
@@ -14905,48 +14905,145 @@ textarea.feedback-form-control {
 #settings-page,
 #feedback-page,
 #module-dashboard-page {
+    padding-top: 40px !important;
     padding-bottom: 100px !important;
     min-height: 100vh;
     box-sizing: border-box;
 }
 
-/* Ensure the last card in every page has extra margin */
-#dashboard-page .card:last-child,
-#practice-exercises-page .card:last-child,
-#quiz-dashboard-page .card:last-child,
-#progress-page .card:last-child,
-#settings-page .card:last-child,
-#feedback-page .card:last-child,
-#module-dashboard-page .card:last-child {
-    margin-bottom: 50px !important;
+/* Main containers with internal padding */
+.dashboard-container,
+.practice-container,
+.quiz-container,
+.progress-container,
+.settings-container,
+.help-dashboard-container,
+#module-dashboard-page .dashboard-container {
+    padding-top: 10px !important;
+    padding-bottom: 20px !important;
 }
 
-/* Specific fix for lesson navigation */
-#module-dashboard-page .lesson-navigation {
-    margin-bottom: 60px !important;
+/* Card spacing */
+.card {
+    margin-bottom: 25px !important;
 }
 
-/* Specific fix for practice page topics */
-#practice-exercises-page .topics-container:last-child {
+/* First card - add top margin */
+.card:first-child {
+    margin-top: 10px !important;
+}
+
+/* Last card - ensure bottom spacing */
+.card:last-child {
     margin-bottom: 40px !important;
 }
 
-/* Specific fix for quiz page */
-#quiz-dashboard-page .leaderboard-container:last-child {
-    margin-bottom: 40px !important;
+/* ===== PAGE-SPECIFIC ADJUSTMENTS ===== */
+
+/* Dashboard Page */
+#dashboard-page .welcome-card:first-child {
+    margin-top: 5px !important;
 }
 
-/* Specific fix for settings page */
+/* Practice Page */
+#practice-exercises-page .topics-container {
+    margin-bottom: 30px !important;
+}
+#practice-exercises-page .stats-grid {
+    margin-bottom: 30px !important;
+}
+
+/* Quiz Page */
+#quiz-dashboard-page .quiz-header-section {
+    margin-top: 5px !important;
+    margin-bottom: 25px !important;
+}
+#quiz-dashboard-page .quiz-stats-row {
+    margin-bottom: 25px !important;
+}
+#quiz-dashboard-page .leaderboard-container {
+    margin-bottom: 30px !important;
+}
+
+/* Progress Page */
+#progress-page .progress-summary-stats {
+    margin-bottom: 25px !important;
+}
+#progress-page .charts-grid {
+    margin-bottom: 30px !important;
+}
+#progress-page .timeline {
+    margin-bottom: 30px !important;
+}
+
+/* Settings Page */
+#settings-page .main-header {
+    margin-top: 5px !important;
+    margin-bottom: 25px !important;
+}
+#settings-page .settings-card {
+    margin-bottom: 25px !important;
+}
 #settings-page .action-buttons {
     margin-bottom: 30px !important;
 }
 
-/* Specific fix for feedback page */
-#feedback-page .card:last-child {
-    margin-bottom: 40px !important;
+/* Feedback Page */
+#feedback-page .help-header {
+    margin-top: 5px !important;
+    margin-bottom: 25px !important;
+}
+#feedback-page .card {
+    margin-bottom: 25px !important;
+}
+#feedback-page .faq-item:last-child {
+    margin-bottom: 20px !important;
 }
 
-/* Responsive for mobile */
+/* MODULE/LESSON PAGE - SPECIFIC FIXES */
+#module-dashboard-page .card:first-child {
+    margin-top: 5px !important;
+}
+#module-dashboard-page .progress-learning-tool {
+    margin-bottom: 30px !important;
+    margin-top: 20px !important;
+}
+#module-dashboard-page .lesson-navigation {
+    margin-bottom: 60px !important;
+    margin-top: 25px !important;
+}
+#module-dashboard-page .lesson-content {
+    margin-bottom: 20px !important;
+}
+
+/* Add space before video container */
+#module-dashboard-page .media-container {
+    margin-top: 15px !important;
+    margin-bottom: 25px !important;
+}
+
+/* Ensure last element has enough space */
+#module-dashboard-page .lesson-navigation:last-child {
+    margin-bottom: 70px !important;
+}
+
+/* ===== UNIVERSAL SPACERS ===== */
+
+/* Add a spacer at the bottom of each page */
+.page-bottom-spacer {
+    display: block;
+    width: 100%;
+    height: 30px;
+}
+
+/* Add a spacer at the top of each page */
+.page-top-spacer {
+    display: block;
+    width: 100%;
+    height: 10px;
+}
+
+/* ===== RESPONSIVE DESIGN ===== */
 @media (max-width: 768px) {
     #dashboard-page,
     #practice-exercises-page,
@@ -14955,6 +15052,41 @@ textarea.feedback-form-control {
     #settings-page,
     #feedback-page,
     #module-dashboard-page {
+        padding-top: 30px !important;
         padding-bottom: 120px !important;
     }
+    
+    .card {
+        margin-bottom: 20px !important;
+    }
+    
+    .card:first-child {
+        margin-top: 5px !important;
+    }
+    
+    .card:last-child {
+        margin-bottom: 50px !important;
+    }
+    
+    /* Module page mobile adjustments */
+    #module-dashboard-page .lesson-navigation {
+        margin-bottom: 70px !important;
+        margin-top: 20px !important;
+    }
+    
+    #module-dashboard-page .media-container {
+        margin-top: 10px !important;
+        margin-bottom: 20px !important;
+    }
+}
+
+/* ===== DARK THEME SUPPORT ===== */
+body.dark-theme #dashboard-page,
+body.dark-theme #practice-exercises-page,
+body.dark-theme #quiz-dashboard-page,
+body.dark-theme #progress-page,
+body.dark-theme #settings-page,
+body.dark-theme #feedback-page,
+body.dark-theme #module-dashboard-page {
+    background-color: var(--bg-primary, #1a1a1a);
 }
