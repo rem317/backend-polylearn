@@ -1182,11 +1182,11 @@
                     <div class="table-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
                         <h3><i class="fas fa-list"></i> Practice Exercises</h3>
                         <div class="table-actions" style="display: flex; gap: 10px;">
-                            <select id="adminPracticeSubjectFilter" class="filter-select" onchange="filterAdminPractice()">
+                            <select id="adminPracticeSubjectFilter" class="filter-select" onchange="filterPracticeExercises()">
                                 <option value="all">All Subjects</option>
-                                <option value="1">MathEase</option>
-                                <option value="2">PolyLearn</option>
-                                <option value="3">FactoPermCombi</option>
+                                <option value="MathEase">MathEase (Lesson 1)</option>
+                                <option value="PolyLearn">PolyLearn (Lesson 2)</option>
+                                <option value="FactoLearn">FactoPermCombi (Lesson 3)</option>
                             </select>
                             <select id="adminPracticeStatusFilter" class="filter-select" onchange="filterAdminPractice()">
                                 <option value="all">All Status</option>
@@ -1529,19 +1529,19 @@
                         </div>
                     </div>
 
-                    <!-- Subject Filter Tabs -->
+                   <!-- ===== REPLACE THIS SECTION ===== -->
                     <div class="quiz-subject-tabs">
                         <button class="subject-tab active" onclick="filterQuizzesBySubject('all')" id="filterAll">
                             <i class="fas fa-globe"></i> All Subjects
                         </button>
                         <button class="subject-tab" onclick="filterQuizzesBySubject(2)" id="filterPoly">
-                            <i class="fas fa-superscript"></i>  PolyLearn
+                            <i class="fas fa-superscript"></i> PolyLearn (Lesson 2)
                         </button>
                         <button class="subject-tab" onclick="filterQuizzesBySubject(1)" id="filterMath">
-                            <i class="fas fa-divide"></i> MathEase
+                            <i class="fas fa-divide"></i> MathEase (Lesson 1)
                         </button>
                         <button class="subject-tab" onclick="filterQuizzesBySubject(3)" id="filterFact">
-                            <i class="fas fa-exclamation"></i> FactoPermCombi
+                            <i class="fas fa-exclamation"></i> FactoPermCombi (Lesson 3)
                         </button>
                     </div>
 
@@ -2997,16 +2997,17 @@
                         </div>
                         
                         <!-- Category Selection (NEW!) -->
-                        <div class="form-group">
-                            <label class="form-label">
-                                <i class="fas fa-folder"></i> Category <span class="required">*</span>
+                         <!-- ===== ADD THIS AFTER SUBJECT DROPDOWN ===== -->
+                        <div class="form-group" style="margin-bottom: 15px;">
+                            <label style="display: block; margin-bottom: 8px; font-weight: 600;">
+                                <i class="fas fa-folder"></i> Category <span style="color: red;">*</span>
                             </label>
-                            <select class="form-control" id="quizCategory" onchange="loadQuizTopicsByCategory()" disabled required>
+                            <select id="quizCategory" class="form-control" style="width: 100%; padding: 10px; border: 2px solid #e0e0e0; border-radius: 6px;" disabled required>
                                 <option value="">-- Select Subject First --</option>
                             </select>
-                            <small class="form-text text-muted" style="font-size: 0.7rem; color: #666;">
-                                <i class="fas fa-info-circle"></i> Categories group related quizzes together
-                            </small>
+                            <p style="font-size: 0.8rem; color: #666; margin-top: 5px;">
+                                <i class="fas fa-info-circle"></i> Categories help organize quizzes
+                            </p>
                         </div>
                     </div>
                     
