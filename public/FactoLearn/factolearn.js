@@ -19324,9 +19324,9 @@ async function updateContinueLearningModule() {
     }
 }
 
-// ===== FIXED: LOAD PRACTICE EXERCISES FOR TOPIC =====
+// ===== FIXED: LOAD PRACTICE EXERCISES FOR TOPIC - FILTER BY LESSON_ID=3 =====
 async function loadPracticeExercisesForTopic(topicId) {
-    console.log(`📚 Loading practice exercises for topic: ${topicId}`);
+    console.log(`📚 Loading FactoLearn exercises for topic: ${topicId}`);
     
     const exerciseArea = document.getElementById('exerciseArea');
     if (!exerciseArea) {
@@ -19336,185 +19336,243 @@ async function loadPracticeExercisesForTopic(topicId) {
     
     // Show loading
     exerciseArea.innerHTML = `
-        <div class="loading-container" style="text-align: center; padding: 40px;">
-            <i class="fas fa-spinner fa-spin" style="font-size: 40px; color: #7a0000; margin-bottom: 20px;"></i>
-            <p style="color: #666;">Connecting to database...</p>
-            <p style="color: #999; font-size: 12px; margin-top: 10px;">Fetching exercises for topic ${topicId}</p>
+        <div class="loading-container" style="text-align: center; padding: 60px 20px;">
+            <i class="fas fa-spinner fa-pulse" style="font-size: 50px; color: #7a0000; margin-bottom: 20px;"></i>
+            <p style="color: #666; font-size: 16px;">Loading FactoLearn exercises...</p>
         </div>
     `;
     
     try {
         const token = localStorage.getItem('authToken');
         if (!token) {
-            exerciseArea.innerHTML = `
-                <div class="error-message" style="text-align: center; padding: 40px;">
-                    <i class="fas fa-lock" style="font-size: 60px; color: #f39c12; margin-bottom: 20px;"></i>
-                    <h3 style="color: #666;">Please login to access practice exercises</h3>
-                    <button class="btn-primary" onclick="location.href='login.html'" style="margin-top: 20px; background: #7a0000;">
-                        <i class="fas fa-sign-in-alt"></i> Go to Login
-                    </button>
-                </div>
-            `;
+            exerciseArea.innerHTML = getNoAuthHTML();
             return;
         }
         
-        // Get current lesson ID
-        const lessonId = 3; // Force FactoLearn
+        const FACTOLEARN_LESSON_ID = 3; // Fixed for FactoLearn
         
-        console.log(`📍 Current lesson ID: ${lessonId}, Topic ID: ${topicId}`);
+        console.log(`📍 FILTERING: lesson_id = ${FACTOLEARN_LESSON_ID} (FactoLearn ONLY)`);
         
-        // ===== TRY MULTIPLE ENDPOINTS =====
-        let exercises = [];
-        let usedEndpoint = '';
-        
-        // ENDPOINT 1: Topic-specific endpoint
-        try {
-            const endpoint = `/api/practice/topic/${topicId}?lesson_id=${lessonId}`;
-            console.log(`📡 Trying endpoint 1: ${endpoint}`);
-            
-            const response = await fetch(endpoint, {
-                headers: { 'Authorization': `Bearer ${token}` }
-            });
-            
-            if (response.ok) {
-                const data = await response.json();
-                console.log('📥 Response from endpoint 1:', data);
-                
-                if (data.success && data.exercises) {
-                    exercises = data.exercises;
-                    usedEndpoint = endpoint;
-                } else if (data.exercises) {
-                    exercises = data.exercises;
-                    usedEndpoint = endpoint;
-                }
-            }
-        } catch (e) {
-            console.log('⚠️ Endpoint 1 failed:', e.message);
-        }
-        
-        // ENDPOINT 2: Admin practice endpoint (if first fails)
-        if (exercises.length === 0) {
-            try {
-                const endpoint = `/api/admin/practice?lesson_id=${lessonId}&topic_id=${topicId}`;
-                console.log(`📡 Trying endpoint 2: ${endpoint}`);
-                
-                const response = await fetch(endpoint, {
-                    headers: { 'Authorization': `Bearer ${token}` }
-                });
-                
-                if (response.ok) {
-                    const data = await response.json();
-                    console.log('📥 Response from endpoint 2:', data);
-                    
-                    if (data.success && data.exercises) {
-                        exercises = data.exercises;
-                        usedEndpoint = endpoint;
-                    }
-                }
-            } catch (e) {
-                console.log('⚠️ Endpoint 2 failed:', e.message);
-            }
-        }
-        
-        // ENDPOINT 3: Generic exercises endpoint
-        if (exercises.length === 0) {
-            try {
-                const endpoint = `/api/exercises?lesson_id=${lessonId}&topic_id=${topicId}`;
-                console.log(`📡 Trying endpoint 3: ${endpoint}`);
-                
-                const response = await fetch(endpoint, {
-                    headers: { 'Authorization': `Bearer ${token}` }
-                });
-                
-                if (response.ok) {
-                    const data = await response.json();
-                    console.log('📥 Response from endpoint 3:', data);
-                    
-                    if (data.success && data.exercises) {
-                        exercises = data.exercises;
-                        usedEndpoint = endpoint;
-                    } else if (Array.isArray(data)) {
-                        exercises = data;
-                        usedEndpoint = endpoint;
-                    }
-                }
-            } catch (e) {
-                console.log('⚠️ Endpoint 3 failed:', e.message);
-            }
-        }
-        
-        console.log(`✅ Found ${exercises.length} exercises via ${usedEndpoint || 'unknown endpoint'}`);
-        
-        if (exercises.length === 0) {
-            exerciseArea.innerHTML = `
-                <div class="no-exercises" style="text-align: center; padding: 40px; background: white; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.1);">
-                    <i class="fas fa-dumbbell" style="font-size: 60px; color: #ccc; margin-bottom: 20px;"></i>
-                    <h3 style="color: #666; margin-bottom: 10px;">No Practice Exercises Available</h3>
-                    <p style="color: #999; margin-bottom: 20px;">There are no exercises for this topic yet.</p>
-                    
-                    <!-- Debug Info -->
-                    <div style="background: #f8f9fa; border-radius: 8px; padding: 15px; margin: 20px auto; max-width: 400px; text-align: left; border: 1px solid #e0e0e0;">
-                        <p style="margin: 5px 0; color: #666; font-size: 13px;"><strong>Debug Info:</strong></p>
-                        <p style="margin: 5px 0; color: #666; font-size: 12px;">Lesson ID: ${lessonId}</p>
-                        <p style="margin: 5px 0; color: #666; font-size: 12px;">Topic ID: ${topicId}</p>
-                        <p style="margin: 5px 0; color: #666; font-size: 12px;">Auth Token: ${token ? '✓ Present' : '✗ Missing'}</p>
-                        <button onclick="debugPracticeFetch()" style="margin-top: 10px; padding: 5px 10px; background: #3498db; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 12px;">
-                            <i class="fas fa-bug"></i> Debug
-                        </button>
-                    </div>
-                    
-                    <button class="btn-primary" onclick="loadPracticeExercisesForTopic('${topicId}')" style="background: #7a0000; margin-top: 10px;">
-                        <i class="fas fa-redo"></i> Try Again
-                    </button>
-                </div>
-            `;
-            return;
-        }
-        
-        // Process exercises to ensure consistent format
-        const processedExercises = exercises.map((ex, index) => {
-            return {
-                exercise_id: ex.exercise_id || ex.id || (100 + index),
-                title: ex.title || ex.exercise_title || `Exercise ${index + 1}`,
-                description: ex.description || ex.exercise_description || 'Practice your skills with this exercise.',
-                difficulty: ex.difficulty || 'medium',
-                points: ex.points || 10,
-                lesson_id: ex.lesson_id || lessonId,
-                topic_id: ex.topic_id || topicId,
-                content_json: ex.content_json || ex.questions || { questions: [] }
-            };
+        // ===== FETCH ALL PRACTICE EXERCISES =====
+        const response = await fetch(`/api/admin/practice`, {
+            headers: { 'Authorization': `Bearer ${token}` }
         });
         
-        // Store in PracticeState
-        PracticeState.exercises = processedExercises;
+        if (!response.ok) {
+            throw new Error(`Failed to fetch: ${response.status}`);
+        }
         
-        // Display exercises
-        displayPracticeExercisesUI(processedExercises);
+        const result = await response.json();
         
-        // Add database connection indicator
-        const connectionIndicator = document.createElement('div');
-        connectionIndicator.style.cssText = `
-            margin: 10px 0;
-            padding: 8px 15px;
-            background: #27ae60;
-            color: white;
-            border-radius: 20px;
-            font-size: 12px;
-            display: inline-block;
+        if (!result.success || !result.exercises) {
+            throw new Error('No exercises data');
+        }
+        
+        const allExercises = result.exercises;
+        console.log(`📊 Total exercises in database: ${allExercises.length}`);
+        
+        // ===== CRITICAL: FILTER BY LESSON_ID = 3 ONLY =====
+        const filteredExercises = allExercises.filter(ex => {
+            // Check multiple possible field names
+            const exLessonId = ex.lesson_id || ex.lessonId || ex.subject_id;
+            
+            // Log para makita kung ano ang lesson_id ng bawat exercise
+            console.log(`Exercise ${ex.id}: lesson_id = ${exLessonId}, title: ${ex.title || ex.exercise_title}`);
+            
+            return exLessonId == FACTOLEARN_LESSON_ID;
+        });
+        
+        console.log(`✅ FactoLearn exercises (lesson_id=3): ${filteredExercises.length}`);
+        
+        // Log kung ano ang na-filter out
+        const filteredOut = allExercises.filter(ex => {
+            const exLessonId = ex.lesson_id || ex.lessonId || ex.subject_id;
+            return exLessonId != FACTOLEARN_LESSON_ID;
+        });
+        
+        if (filteredOut.length > 0) {
+            console.log(`🚫 Filtered OUT ${filteredOut.length} exercises from other apps:`);
+            filteredOut.forEach(ex => {
+                const exLessonId = ex.lesson_id || ex.lessonId || ex.subject_id;
+                console.log(`   - ID: ${ex.id}, Lesson: ${exLessonId}, Title: ${ex.title || ex.exercise_title}`);
+            });
+        }
+        
+        // Filter by topic if specified
+        let exercisesToShow = filteredExercises;
+        if (topicId) {
+            exercisesToShow = filteredExercises.filter(ex => 
+                ex.topic_id == topicId || ex.topicId == topicId
+            );
+            console.log(`📚 After topic filter (${topicId}): ${exercisesToShow.length} exercises`);
+        }
+        
+        if (exercisesToShow.length === 0) {
+            // Show empty state with proper UI
+            exerciseArea.innerHTML = `
+                <div style="text-align: center; padding: 60px 20px; background: white; border-radius: 12px;">
+                    <i class="fas fa-dumbbell" style="font-size: 70px; color: #ccc; margin-bottom: 20px;"></i>
+                    <h3 style="color: #666; margin-bottom: 10px;">No Practice Exercises Available</h3>
+                    <p style="color: #999; margin-bottom: 20px;">No exercises found for this topic.</p>
+                    <button class="btn-primary" onclick="loadPracticeExercisesForTopic('${topicId}')" style="background: #7a0000;">
+                        <i class="fas fa-redo"></i> Refresh
+                    </button>
+                </div>
+            `;
+            return;
+        }
+        
+        // ===== DISPLAY EXERCISES WITH UI MATCHING THE SCREENSHOT =====
+        let html = `
+            <div class="practice-header" style="margin-bottom: 30px;">
+                <h2 style="font-size: 24px; color: #2c3e50; margin: 0 0 10px 0;">
+                    <i class="fas fa-dumbbell" style="color: #7a0000; margin-right: 10px;"></i>Practice Exercises
+                </h2>
+                <p style="color: #666; font-size: 16px;">Select a topic to practice</p>
+                
+                <!-- Database Connection Status -->
+                <div style="margin-top: 15px; display: flex; align-items: center; gap: 10px;">
+                    <span style="background: #27ae60; color: white; padding: 5px 15px; border-radius: 20px; font-size: 13px;">
+                        <i class="fas fa-database"></i> Connected to Database
+                    </span>
+                    <span style="background: #7a0000; color: white; padding: 5px 15px; border-radius: 20px; font-size: 13px;">
+                        <i class="fas fa-filter"></i> FactoLearn Only (${exercisesToShow.length} exercises)
+                    </span>
+                </div>
+            </div>
+            
+            <div class="exercises-list" style="display: flex; flex-direction: column; gap: 20px;">
         `;
-        connectionIndicator.innerHTML = `<i class="fas fa-database"></i> Connected to Database • ${exercises.length} exercises loaded`;
         
-        exerciseArea.insertBefore(connectionIndicator, exerciseArea.firstChild);
+        exercisesToShow.forEach((exercise, index) => {
+            // Get exercise data with fallbacks
+            const exerciseId = exercise.exercise_id || exercise.id;
+            const title = exercise.title || exercise.exercise_title || `Exercise ${index + 1}`;
+            const description = exercise.description || exercise.exercise_description || 'Practice your skills with this exercise.';
+            const difficulty = exercise.difficulty || 'medium';
+            const points = exercise.points || 10;
+            const attempts = exercise.attempts || 0;
+            
+            // Determine difficulty color and label
+            let difficultyColor, difficultyLabel;
+            if (difficulty === 'easy') {
+                difficultyColor = '#27ae60';
+                difficultyLabel = 'EASY';
+            } else if (difficulty === 'medium') {
+                difficultyColor = '#f39c12';
+                difficultyLabel = 'MEDIUM';
+            } else if (difficulty === 'hard') {
+                difficultyColor = '#e74c3c';
+                difficultyLabel = 'HARD';
+            } else {
+                difficultyColor = '#3498db';
+                difficultyLabel = difficulty.toUpperCase();
+            }
+            
+            // Build HTML exactly like the screenshot
+            html += `
+                <div class="exercise-card" data-exercise-id="${exerciseId}" 
+                     style="background: white; border-radius: 12px; padding: 25px; 
+                            box-shadow: 0 4px 12px rgba(0,0,0,0.1); border: 1px solid #e0e0e0;">
+                    
+                    <!-- Header with title and difficulty badge -->
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                        <h3 style="margin: 0; color: #2c3e50; font-size: 20px; font-weight: 600;">
+                            Exercise ${index + 1}: ${title}
+                        </h3>
+                        <span style="background: ${difficultyColor}; color: white; 
+                                   padding: 4px 12px; border-radius: 20px; 
+                                   font-size: 12px; font-weight: 600; letter-spacing: 0.5px;">
+                            ${difficultyLabel}
+                        </span>
+                    </div>
+                    
+                    <!-- Description (like in screenshot) -->
+                    <p style="color: #666; font-size: 15px; line-height: 1.5; margin: 0 0 20px 0;">
+                        ${description}
+                    </p>
+                    
+                    <!-- Metadata - icons exactly like screenshot -->
+                    <div style="display: flex; gap: 25px; margin-bottom: 20px; color: #7f8c8d;">
+                        <span style="display: flex; align-items: center; gap: 8px;">
+                            <i class="fas fa-star" style="color: #f39c12;"></i>
+                            ${points} points
+                        </span>
+                        <span style="display: flex; align-items: center; gap: 8px;">
+                            <i class="fas fa-question-circle" style="color: #3498db;"></i>
+                            5-10 questions
+                        </span>
+                        <span style="display: flex; align-items: center; gap: 8px;">
+                            <i class="fas fa-history" style="color: #9b59b6;"></i>
+                            ${attempts} attempts
+                        </span>
+                    </div>
+                    
+                    <!-- FactoLearn Badge (para sure na FactoLearn lang) -->
+                    <div style="margin-bottom: 20px;">
+                        <span style="background: #7a0000; color: white; padding: 4px 12px; border-radius: 20px; font-size: 12px;">
+                            <i class="fas fa-graduation-cap"></i> FactoLearn
+                        </span>
+                    </div>
+                    
+                    <!-- Start Button - gaya sa screenshot -->
+                    <button class="start-exercise-btn" data-exercise-id="${exerciseId}" 
+                            style="background: #7a0000; color: white; border: none; 
+                                   padding: 12px 25px; border-radius: 8px; font-size: 16px; 
+                                   font-weight: 600; cursor: pointer; display: flex; 
+                                   align-items: center; justify-content: center; gap: 10px;
+                                   transition: all 0.3s;">
+                        <i class="fas fa-play-circle"></i> Start
+                    </button>
+                </div>
+            `;
+        });
         
-        console.log(`✅ Successfully loaded ${processedExercises.length} exercises for topic ${topicId}`);
+        html += `</div>`;
+        
+        // Add filtered summary at the bottom
+        html += `
+            <div style="margin-top: 30px; padding: 15px; background: #f8f9fa; border-radius: 8px; border-left: 4px solid #7a0000;">
+                <div style="display: flex; align-items: center; gap: 10px;">
+                    <i class="fas fa-filter" style="color: #7a0000;"></i>
+                    <span style="color: #2c3e50;">
+                        <strong>Filtered Results:</strong> Showing only FactoLearn exercises (lesson_id=3)
+                    </span>
+                </div>
+                <p style="margin: 10px 0 0 0; color: #666; font-size: 13px;">
+                    Total in database: ${allExercises.length} | 
+                    FactoLearn: ${filteredExercises.length} | 
+                    Other apps: ${filteredOut.length}
+                </p>
+            </div>
+        `;
+        
+        exerciseArea.innerHTML = html;
+        
+        // Add event listeners to start buttons
+        document.querySelectorAll('.start-exercise-btn').forEach(btn => {
+            btn.addEventListener('click', function(e) {
+                e.preventDefault();
+                const exerciseId = this.getAttribute('data-exercise-id');
+                console.log(`🎯 Starting FactoLearn exercise: ${exerciseId}`);
+                
+                // Call your practice start function
+                if (typeof startPractice === 'function') {
+                    startPractice(exerciseId);
+                } else {
+                    alert(`Starting exercise ${exerciseId}`);
+                }
+            });
+        });
+        
+        console.log(`✅ Displayed ${exercisesToShow.length} FactoLearn exercises`);
         
     } catch (error) {
         console.error('❌ Error loading practice exercises:', error);
-        
         exerciseArea.innerHTML = `
-            <div class="error-message" style="text-align: center; padding: 40px;">
+            <div style="text-align: center; padding: 60px 20px; background: white; border-radius: 12px;">
                 <i class="fas fa-exclamation-triangle" style="font-size: 60px; color: #e74c3c; margin-bottom: 20px;"></i>
-                <h3 style="color: #e74c3c;">Failed to Load Exercises</h3>
+                <h3 style="color: #e74c3c; margin-bottom: 10px;">Failed to Load Exercises</h3>
                 <p style="color: #666; margin-bottom: 20px;">${error.message}</p>
                 <button class="btn-primary" onclick="loadPracticeExercisesForTopic('${topicId}')" style="background: #7a0000;">
                     <i class="fas fa-redo"></i> Try Again
@@ -19522,6 +19580,20 @@ async function loadPracticeExercisesForTopic(topicId) {
             </div>
         `;
     }
+}
+
+// ===== HELPER: Get No Auth HTML =====
+function getNoAuthHTML() {
+    return `
+        <div style="text-align: center; padding: 60px 20px; background: white; border-radius: 12px;">
+            <i class="fas fa-lock" style="font-size: 70px; color: #f39c12; margin-bottom: 20px;"></i>
+            <h3 style="color: #666; margin-bottom: 10px;">Authentication Required</h3>
+            <p style="color: #999; margin-bottom: 20px;">Please login to access practice exercises.</p>
+            <button class="btn-primary" onclick="location.href='login.html'" style="background: #7a0000;">
+                <i class="fas fa-sign-in-alt"></i> Go to Login
+            </button>
+        </div>
+    `;
 }
 // ===== DEBUG: Check current lesson =====
 function debugCurrentLesson() {
