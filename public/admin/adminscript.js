@@ -864,56 +864,88 @@ async function initQuizDashboard() {
     }
 }
 
-// ===== UPDATED: LOAD QUIZ CATEGORIES WITH SAFETY CHECK =====
+// ===== LOAD QUIZ CATEGORIES =====
 async function loadQuizCategories() {
-    console.log('📚 Checking for quiz categories container...');
-    
-    const quizzesContainer = document.getElementById('userQuizzesContainer');
-    
-    if (!quizzesContainer) {
-        console.log('ℹ️ No categories container found - loading quizzes table instead');
-        
-        // Load the quizzes table directly
-        if (typeof loadQuizzesFromMySQL === 'function') {
-            loadQuizzesFromMySQL();
-        } else {
-            console.error('❌ loadQuizzesFromMySQL function not found!');
-        }
-        return;
-    }
-    
-    // If container exists, proceed with loading categories
-    console.log('✅ Categories container found, loading categories...');
-    
-    quizzesContainer.innerHTML = `
-        <div class="loading-spinner">
-            <i class="fas fa-spinner fa-pulse"></i> Loading categories...
-        </div>
-    `;
-    
     try {
-        const token = localStorage.getItem('admin_token') || localStorage.getItem('authToken');
+        const categories = await fetchQuizCategories();
+        QuizState.quizCategories = categories;
         
-        if (!token) {
-            quizzesContainer.innerHTML = `<p>Please login first</p>`;
+        const quizzesContainer = document.getElementById('userQuizzesContainer');
+        if (!quizzesContainer) {
+            console.error('Quiz container not found');
             return;
         }
         
-        const response = await fetch(`/api/quiz/categories`, {
-            headers: { 'Authorization': `Bearer ${token}` }
-        });
-        
-        const data = await response.json();
-        
-        if (data.success && data.categories) {
-            displayQuizCategories(data.categories);
-        } else {
-            quizzesContainer.innerHTML = `<p>No categories found</p>`;
+        if (categories.length === 0) {
+            quizzesContainer.innerHTML = `
+                <div class="no-categories">
+                    <i class="fas fa-clipboard-list"></i>
+                    <h3>No quiz categories available</h3>
+                    <p>Check back later for new quizzes!</p>
+                </div>
+            `;
+            return;
         }
         
+        // Display categories as cards
+        let html = '';
+        categories.forEach(category => {
+            html += `
+                <div class="quiz-category-card" data-category-id="${category.category_id}">
+                    <div class="quiz-category-icon" style="background: ${category.color || '#3498db'}">
+                        <i class="${category.icon || 'fas fa-question-circle'}"></i>
+                    </div>
+                    <div class="quiz-category-info">
+                        <h3 class="quiz-category-title">${category.category_name}</h3>
+                        <p class="quiz-category-desc">${category.description || 'Test your knowledge in this category'}</p>
+                        <div class="quiz-category-stats">
+                            <span class="quiz-category-stat">
+                                <i class="fas fa-question-circle"></i> ${category.quiz_count || 0} Quizzes
+                            </span>
+                        </div>
+                    </div>
+                    <button class="quiz-category-btn" data-category-id="${category.category_id}">
+                        <i class="fas fa-arrow-right"></i>
+                    </button>
+                </div>
+            `;
+        });
+        
+        quizzesContainer.innerHTML = html;
+        
+        // Add event listeners to category buttons
+        document.querySelectorAll('.quiz-category-btn').forEach(button => {
+            button.addEventListener('click', async function(e) {
+                e.stopPropagation();
+                const categoryId = this.getAttribute('data-category-id');
+                await loadQuizzesForCategory(categoryId);
+            });
+        });
+        
+        // Add event listeners to category cards
+        document.querySelectorAll('.quiz-category-card').forEach(card => {
+            card.addEventListener('click', function() {
+                const categoryId = this.getAttribute('data-category-id');
+                document.querySelectorAll('.quiz-category-card').forEach(c => {
+                    c.classList.remove('selected');
+                });
+                this.classList.add('selected');
+                QuizState.selectedCategory = categoryId;
+            });
+        });
+        
     } catch (error) {
-        console.error('❌ Error:', error);
-        quizzesContainer.innerHTML = `<p>Error loading categories</p>`;
+        console.error('Error loading quiz categories:', error);
+        const quizzesContainer = document.getElementById('userQuizzesContainer');
+        if (quizzesContainer) {
+            quizzesContainer.innerHTML = `
+                <div class="error-message">
+                    <i class="fas fa-exclamation-triangle"></i>
+                    <h3>Failed to load quiz categories</h3>
+                    <p>Please try again later</p>
+                </div>
+            `;
+        }
     }
 }
 
@@ -22782,34 +22814,26 @@ function addOption(questionId) {
     
     optionsContainer.insertAdjacentHTML('beforeend', optionHtml);
 }
-// ===== UPDATED: Save Quiz with lesson_id from subject =====
+// ===== FIXED: SAVE QUIZ TO MYSQL WITH CORRECT LESSON ID =====
 async function saveQuizToMySQL() {
     console.log("💾 ===== SAVING QUIZ TO MYSQL DATABASE =====");
     
     // Get form values
     const title = document.getElementById('quizTitle')?.value.trim();
     const description = document.getElementById('quizDescription')?.value.trim();
-    const subjectId = document.getElementById('quizSubject')?.value;  // ← ITO ANG LESSON_ID (1,2,3)
+    const subjectId = document.getElementById('quizSubject')?.value; // This is the lesson_id
     const topicId = document.getElementById('quizTopic')?.value;
-    const editId = document.getElementById('editQuizId')?.value;
     
-    // Check if editing
-    const isEditMode = editId && editId !== '';
-    
-    // ✅ LESSON ID AY MULA SA SUBJECT (1, 2, or 3)
-    const lesson_id = parseInt(subjectId);
-    
-    console.log("🔍 Mode:", isEditMode ? "EDIT" : "CREATE", "Quiz ID:", editId || 'new');
-    console.log("📋 Lesson ID from subject:", lesson_id);
-    
-    // ===== GET CATEGORY ID FROM SUBJECT =====
-    let category_id;
-    if (subjectId == 1) category_id = 1;      // MathEase
-    else if (subjectId == 2) category_id = 2; // PolyLearn
-    else if (subjectId == 3) category_id = 3; // FactoLearn
-    else {
-        showNotification('error', 'Error', 'Please select a valid subject');
-        return;
+    // ===== FIX: USE SUBJECT ID AS LESSON ID =====
+    let lesson_id;
+    if (subjectId == 1) { // MathEase
+        lesson_id = 1;
+    } else if (subjectId == 2) { // PolyLearn
+        lesson_id = 2;
+    } else if (subjectId == 3) { // FactoLearn
+        lesson_id = 3;
+    } else {
+        lesson_id = 1; // Default to MathEase
     }
     
     const timeLimit = document.getElementById('quizTimeLimit')?.value;
@@ -22817,7 +22841,31 @@ async function saveQuizToMySQL() {
     const maxAttempts = document.getElementById('quizMaxAttempts')?.value;
     const difficulty = document.getElementById('quizDifficulty')?.value;
     const status = document.getElementById('quizStatus')?.value;
+    const editId = document.getElementById('editQuizId')?.value;
+    
+    // Get assigned teacher
     const assignedTeacherId = document.getElementById('quizAssignedTeacherId')?.value;
+    
+    // Get subject name for logging
+    let subjectName = '';
+    if (lesson_id == 1) subjectName = 'MathEase';
+    else if (lesson_id == 2) subjectName = 'PolyLearn';
+    else if (lesson_id == 3) subjectName = 'FactoLearn';
+    
+    console.log('📋 Quiz data:', { 
+        title, 
+        description,
+        lesson_id,  // This will be 1, 2, or 3
+        subjectName,
+        topicId,
+        timeLimit, 
+        passingScore, 
+        maxAttempts,
+        difficulty, 
+        status, 
+        editId: editId || 'new',
+        assignedTeacherId: assignedTeacherId || 'none (self)'
+    });
     
     // ===== VALIDATION =====
     if (!title) {
@@ -22886,11 +22934,10 @@ async function saveQuizToMySQL() {
         });
     }
     
-    // ===== PREPARE DATA FOR SERVER WITH LESSON ID =====
+    // ===== PREPARE DATA FOR SERVER =====
     const quizData = {
-        lesson_id: lesson_id,                    // ← ITO ANG MAHALAGA!
-        category_id: category_id,
-        topic_id: topicId && topicId !== '' ? parseInt(topicId) : null,
+        lesson_id: lesson_id,  // Use lesson_id, not category_id
+        topic_id: topicId ? parseInt(topicId) : null,
         title: title,
         description: description || '',
         difficulty: difficulty || 'medium',
@@ -22907,12 +22954,11 @@ async function saveQuizToMySQL() {
         quizData.assigned_teacher_id = parseInt(assignedTeacherId);
     }
     
-    if (isEditMode) {
+    if (editId) {
         quizData.quiz_id = parseInt(editId);
     }
     
-    console.log("📤 Sending quiz data with lesson_id:", lesson_id);
-    console.log("📤 Full data:", JSON.stringify(quizData, null, 2));
+    console.log("📤 Sending quiz data:", quizData);
     
     try {
         const token = localStorage.getItem('admin_token') || localStorage.getItem('authToken');
@@ -22927,18 +22973,15 @@ async function saveQuizToMySQL() {
         const originalText = saveBtn?.innerHTML;
         if (saveBtn) {
             saveBtn.disabled = true;
-            saveBtn.innerHTML = isEditMode 
-                ? '<i class="fas fa-spinner fa-spin"></i> Updating...' 
-                : '<i class="fas fa-spinner fa-spin"></i> Saving...';
+            saveBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Saving...';
         }
         
-        const url = isEditMode ? `/api/admin/quizzes/${editId}` : `/api/admin/quizzes`;
-        const method = isEditMode ? 'PUT' : 'POST';
-        
-        console.log(`📡 ${method} to: ${url}`);
+        const url = editId
+            ? `/api/admin/quizzes/${editId}`
+            : `/api/admin/quizzes`;
         
         const response = await fetch(url, {
-            method: method,
+            method: editId ? 'PUT' : 'POST',
             headers: {
                 'Authorization': `Bearer ${token}`,
                 'Content-Type': 'application/json'
@@ -22946,40 +22989,32 @@ async function saveQuizToMySQL() {
             body: JSON.stringify(quizData)
         });
         
-        const responseText = await response.text();
-        console.log("📥 Raw response:", responseText);
-        
-        let result;
-        try {
-            result = JSON.parse(responseText);
-        } catch (e) {
-            console.error("❌ Failed to parse JSON:", responseText);
-            throw new Error('Server returned invalid JSON');
-        }
+        const result = await response.json();
         
         if (!response.ok) {
             throw new Error(result.message || `Server error: ${response.status}`);
         }
         
         if (result.success) {
-            const message = isEditMode 
+            let message = editId 
                 ? 'Quiz updated successfully!' 
                 : 'Quiz created successfully!';
+            message += ` (${subjectName})`;
             
-            // Ipakita kung saang lesson na-save
-            const lessonName = lesson_id == 1 ? 'MathEase' : 
-                              lesson_id == 2 ? 'PolyLearn' : 'FactoLearn';
+            if (assignedTeacherId) {
+                message += ' (Assigned to teacher)';
+            }
             
-            showNotification('success', 'Success!', `${message} (${lessonName})`);
+            showNotification('success', 'Success!', message);
             closeCreateQuizModal();
-            await loadQuizzesFromMySQL(); // Refresh the list
+            await loadQuizzesFromMySQL();
         } else {
-            throw new Error(result.message || `Failed to ${isEditMode ? 'update' : 'create'} quiz`);
+            throw new Error(result.message || 'Failed to save quiz');
         }
         
     } catch (error) {
-        console.error(`❌ Error ${isEditMode ? 'updating' : 'creating'} quiz:`, error);
-        showNotification('error', `${isEditMode ? 'Update' : 'Create'} Failed`, error.message);
+        console.error('❌ Error saving quiz:', error);
+        showNotification('error', 'Save Failed', error.message);
     } finally {
         const saveBtn = document.querySelector('#createQuizModal .btn-primary');
         if (saveBtn) {
@@ -22988,6 +23023,7 @@ async function saveQuizToMySQL() {
         }
     }
 }
+
 // ===== CLOSE CREATE QUIZ MODAL =====
 function closeCreateQuizModal() {
     const modal = document.getElementById('createQuizModal');
@@ -24115,18 +24151,19 @@ async function updateQuizChart(range) {
     }, 300);
 }
 
-// ===== FIXED: LOAD QUIZ TOPICS - PURELY DYNAMIC =====
+
+// ===== UPDATED: LOAD QUIZ TOPICS =====
 async function loadQuizTopics() {
-    console.log("📚 Loading topics for selected lesson...");
+    console.log("📚 Loading topics for selected subject...");
     
-    const lessonId = document.getElementById('quizSubject').value;
+    const subjectId = document.getElementById('quizSubject').value;
     const topicSelect = document.getElementById('quizTopic');
     
-    console.log(`🔍 Selected Lesson ID: ${lessonId}`);
+    console.log(`🔍 Selected subject ID: ${subjectId}`);
     
-    if (!lessonId) {
-        console.log("⚠️ No lesson selected");
-        topicSelect.innerHTML = '<option value="">-- Select Lesson First --</option>';
+    if (!subjectId) {
+        console.log("⚠️ No subject selected");
+        topicSelect.innerHTML = '<option value="">-- Select Subject First --</option>';
         topicSelect.disabled = true;
         return;
     }
@@ -24142,11 +24179,13 @@ async function loadQuizTopics() {
             throw new Error('No auth token');
         }
         
-        console.log(`📡 Fetching topics for lesson ID: ${lessonId}`);
+        console.log(`📡 Fetching structure from server...`);
         
-        // Use the correct endpoint that returns topics by lesson
-        const response = await fetch(`/api/admin/topics/by-lesson/${lessonId}`, {
-            headers: { 'Authorization': `Bearer ${token}` }
+        // Get ALL structure data
+        const response = await fetch(`/api/admin/structure`, {
+            headers: {
+                'Authorization': `Bearer ${token}`
+            }
         });
         
         if (!response.ok) {
@@ -24156,107 +24195,91 @@ async function loadQuizTopics() {
         const result = await response.json();
         console.log('📥 Server response:', result);
         
-        if (result.success && result.topics) {
-            const topics = result.topics;
+        if (result.success && result.structure) {
+            const allTopics = result.structure.topics || [];
+            const allModules = result.structure.modules || [];
             
-            console.log(`📚 Found ${topics.length} topics for lesson ID ${lessonId}`);
+            console.log(`📊 Data from server:`);
+            console.log(`   📦 Modules: ${allModules.length}`);
+            console.log(`   📋 Topics: ${allTopics.length}`);
             
-            if (topics.length === 0) {
-                topicSelect.innerHTML = '<option value="">-- No topics available for this lesson --</option>';
+            // Get modules for this lesson
+            const modulesForLesson = allModules.filter(m => 
+                parseInt(m.lesson_id) === parseInt(subjectId)
+            );
+            
+            console.log(`📦 Found ${modulesForLesson.length} modules for lesson ${subjectId}`);
+            
+            if (modulesForLesson.length === 0) {
+                console.log(`⚠️ No modules found for lesson ID ${subjectId}`);
+                topicSelect.innerHTML = '<option value="">-- No modules for this subject --</option>';
                 topicSelect.disabled = true;
-                
+                showNotification('info', 'No Modules', 'Create modules first in Lesson Management');
+                return;
+            }
+            
+            // Get module IDs
+            const moduleIds = modulesForLesson.map(m => parseInt(m.id));
+            
+            // Get topics that belong to these modules
+            const filteredTopics = allTopics.filter(topic => 
+                moduleIds.includes(parseInt(topic.module_id))
+            );
+            
+            console.log(`📚 Found ${filteredTopics.length} topics for subject ID ${subjectId}`);
+            
+            if (filteredTopics.length === 0) {
+                topicSelect.innerHTML = '<option value="">-- No topics available --</option>';
+                topicSelect.disabled = true;
                 showNotification('info', 'No Topics', 'Create topics first in Lesson Management');
             } else {
                 let options = '<option value="">-- Select Topic --</option>';
-                
-                // Group topics by module if module info is available
-                const groupedByModule = {};
-                topics.forEach(topic => {
-                    const moduleName = topic.module_name || 'General';
-                    if (!groupedByModule[moduleName]) {
-                        groupedByModule[moduleName] = [];
-                    }
-                    groupedByModule[moduleName].push(topic);
+                filteredTopics.forEach(topic => {
+                    const moduleName = modulesForLesson.find(m => m.id == topic.module_id)?.name || 'Unknown';
+                    options += `<option value="${topic.id}">${topic.name} (${moduleName})</option>`;
                 });
-                
-                // Create HTML with optgroups
-                for (const [moduleName, moduleTopics] of Object.entries(groupedByModule)) {
-                    options += `<optgroup label="${moduleName}">`;
-                    moduleTopics.forEach(topic => {
-                        options += `<option value="${topic.id}">${topic.name}</option>`;
-                    });
-                    options += `</optgroup>`;
-                }
-                
                 topicSelect.innerHTML = options;
                 topicSelect.disabled = false;
-                console.log("✅ Topic dropdown enabled with", topics.length, "options");
+                console.log("✅ Topic dropdown enabled with", filteredTopics.length, "options");
             }
         } else {
-            // Try alternative endpoint if the first one fails
-            console.log('⚠️ First endpoint failed, trying /api/admin/structure...');
-            
-            const structureResponse = await fetch(`/api/admin/structure`, {
-                headers: { 'Authorization': `Bearer ${token}` }
-            });
-            
-            if (!structureResponse.ok) {
-                throw new Error('Failed to load structure');
-            }
-            
-            const structureResult = await structureResponse.json();
-            
-            if (structureResult.success && structureResult.structure) {
-                const allTopics = structureResult.structure.topics || [];
-                const allModules = structureResult.structure.modules || [];
-                
-                // Get modules for this lesson
-                const modulesForLesson = allModules.filter(m => 
-                    parseInt(m.lesson_id) === parseInt(lessonId)
-                );
-                
-                if (modulesForLesson.length === 0) {
-                    topicSelect.innerHTML = '<option value="">-- No modules for this lesson --</option>';
-                    topicSelect.disabled = true;
-                    return;
-                }
-                
-                // Get module IDs
-                const moduleIds = modulesForLesson.map(m => parseInt(m.id));
-                
-                // Get topics that belong to these modules
-                const filteredTopics = allTopics.filter(topic => 
-                    moduleIds.includes(parseInt(topic.module_id))
-                );
-                
-                if (filteredTopics.length === 0) {
-                    topicSelect.innerHTML = '<option value="">-- No topics available --</option>';
-                    topicSelect.disabled = true;
-                } else {
-                    let options = '<option value="">-- Select Topic --</option>';
-                    
-                    // Group by module
-                    filteredTopics.forEach(topic => {
-                        const moduleName = modulesForLesson.find(m => m.id == topic.module_id)?.name || 'General';
-                        options += `<option value="${topic.id}">${topic.name} (${moduleName})</option>`;
-                    });
-                    
-                    topicSelect.innerHTML = options;
-                    topicSelect.disabled = false;
-                }
-            }
+            throw new Error(result.message || 'Failed to load structure');
         }
         
     } catch (error) {
         console.error('❌ Error loading topics:', error);
         
-        // Show error in dropdown
-        topicSelect.innerHTML = '<option value="">-- Error loading topics --</option>';
-        topicSelect.disabled = true;
+        // Fallback to hardcoded topics
+        topicSelect.innerHTML = '<option value="">-- Select Topic --</option>';
         
-        showNotification('error', 'Failed to Load Topics', error.message);
+        if (subjectId == 1) { // MathEase
+            topicSelect.innerHTML += `
+                <option value="1">Basic Operations</option>
+                <option value="2">Addition and Subtraction</option>
+                <option value="3">Multiplication and Division</option>
+                <option value="4">Order of Operations (MDAS)</option>
+            `;
+        } else if (subjectId == 2) { // PolyLearn
+            topicSelect.innerHTML += `
+                <option value="5">Polynomial Basics</option>
+                <option value="6">Factoring Polynomials</option>
+                <option value="7">Quadratic Equations</option>
+                <option value="8">Polynomial Functions</option>
+            `;
+        } else if (subjectId == 3) { // FactoLearn
+            topicSelect.innerHTML += `
+                <option value="9">Factorial Notation</option>
+                <option value="10">Permutations</option>
+                <option value="11">Combinations</option>
+                <option value="12">Binomial Theorem</option>
+            `;
+        }
+        
+        topicSelect.disabled = false;
+        showNotification('warning', 'Offline Mode', 'Using sample topics');
     }
 }
+
 // ===== HELPER FUNCTIONS =====
 function getSubjectClass(subjectId) {
     const classes = {
@@ -25900,7 +25923,7 @@ function changePracticePage(direction) {
     displayFilteredPracticeExercises(exercises);
 }
 
-// ===== FIXED: loadAdminPracticeExercises with proper filtering =====
+// ===== UPDATED loadAdminPracticeExercises with correct topic_id mapping =====
 async function loadAdminPracticeExercises() {
     console.log("📥 Loading practice exercises from database...");
     
@@ -25929,127 +25952,69 @@ async function loadAdminPracticeExercises() {
             const exercises = result.exercises || [];
             console.log(`✅ Loaded ${exercises.length} practice exercises`);
             
-            // ===== GET LESSON-TOPIC MAPPING =====
-            let topicToLessonMap = {};
-            let lessonNames = {};
-            
-            try {
-                const structureResponse = await fetch(`/api/admin/structure`, {
-                    headers: { 'Authorization': `Bearer ${token}` }
-                });
+            // Process exercises to ensure consistent data for filtering
+            const processedExercises = exercises.map(ex => {
+                // ===== CORRECT SUBJECT MAPPING BASED ON topic_id =====
+                let subject = 'General';
+                let subjectId = 0;
                 
-                if (structureResponse.ok) {
-                    const structureResult = await structureResponse.json();
-                    if (structureResult.success && structureResult.structure) {
-                        const topics = structureResult.structure.topics || [];
-                        const modules = structureResult.structure.modules || [];
-                        const lessons = structureResult.structure.lessons || [];
-                        
-                        // Create lesson name map
-                        lessons.forEach(lesson => {
-                            lessonNames[lesson.id] = lesson.name;
-                        });
-                        
-                        // Create module to lesson map
-                        const moduleToLessonMap = {};
-                        modules.forEach(module => {
-                            moduleToLessonMap[module.id] = module.lesson_id;
-                        });
-                        
-                        // Create topic to lesson map
-                        topics.forEach(topic => {
-                            const moduleId = topic.module_id;
-                            const lessonId = moduleToLessonMap[moduleId];
-                            topicToLessonMap[topic.id] = {
-                                lesson_id: lessonId,
-                                lesson_name: lessonNames[lessonId] || 'Unknown'
-                            };
-                        });
-                        
-                        console.log('📊 Topic-Lesson mapping created:', topicToLessonMap);
-                    }
+                // CORRECT MAPPING:
+                // MathEase = topic_id = 1
+                // PolyLearn = topic_id = 2  
+                // FactoLearn = topic_id = 3
+                
+                if (ex.topic_id === 2) {
+                    subject = 'PolyLearn';
+                    subjectId = 2;
+                    console.log(`✅ Exercise ${ex.id}: topic_id=2 -> PolyLearn`);
+                } else if (ex.topic_id === 1) {
+                    subject = 'MathEase';
+                    subjectId = 1;
+                    console.log(`✅ Exercise ${ex.id}: topic_id=1 -> MathEase`);
+                } else if (ex.topic_id === 3) {
+                    subject = 'FactoLearn';
+                    subjectId = 3;
+                    console.log(`✅ Exercise ${ex.id}: topic_id=3 -> FactoLearn`);
+                } else {
+                    console.log(`⚠️ Exercise ${ex.id}: topic_id=${ex.topic_id} -> Unknown`);
                 }
-            } catch (mapError) {
-                console.warn('⚠️ Could not fetch structure for mapping:', mapError);
-            }
+                
+                // ===== DETERMINE STATUS =====
+                let status = 'draft';
+                
+                if (ex.status === 'active' || ex.status === 'published' ||
+                    ex.is_active === 1 || ex.is_active === true) {
+                    status = 'published';
+                } else if (ex.status === 'inactive' || ex.is_active === 0 || ex.is_active === false) {
+                    status = 'inactive';
+                }
+                
+                return {
+                    ...ex,
+                    // Standardized fields for filtering
+                    filter_subject: subject,
+                    filter_subject_id: subjectId,
+                    filter_status: status,
+                    display_subject: subject,
+                    display_status: status === 'published' ? 'Published' : 
+                                   status === 'draft' ? 'Draft' : 'Inactive'
+                };
+            });
             
-            // ===== FILTER FOR FACTOLEARN ONLY (lesson_id = 3) =====
-            const FACTORIAL_LESSON_ID = 3;
-            
-            // Process and filter exercises
-            const processedExercises = exercises
-                .map(ex => {
-                    // Get lesson info from topic mapping
-                    const topicInfo = topicToLessonMap[ex.topic_id];
-                    let lessonId = topicInfo?.lesson_id || null;
-                    
-                    // Determine subject based on lesson_id
-                    let subject = 'General';
-                    let subjectId = 0;
-                    
-                    if (lessonId === 1) {
-                        subject = 'MathEase';
-                        subjectId = 1;
-                    } else if (lessonId === 2) {
-                        subject = 'PolyLearn';
-                        subjectId = 2;
-                    } else if (lessonId === 3) {
-                        subject = 'FactoLearn';
-                        subjectId = 3;
-                    }
-                    
-                    // Determine status
-                    let status = 'draft';
-                    if (ex.status === 'active' || ex.status === 'published' ||
-                        ex.is_active === 1 || ex.is_active === true) {
-                        status = 'published';
-                    } else if (ex.status === 'inactive' || ex.is_active === 0 || ex.is_active === false) {
-                        status = 'inactive';
-                    }
-                    
-                    return {
-                        ...ex,
-                        lesson_id: lessonId,
-                        filter_subject: subject,
-                        filter_subject_id: subjectId,
-                        filter_status: status,
-                        display_subject: subject,
-                        display_status: status === 'published' ? 'Published' : 
-                                       status === 'draft' ? 'Draft' : 'Inactive'
-                    };
-                })
-                .filter(ex => {
-                    // FILTER: Keep only FactoLearn exercises (lesson_id = 3)
-                    const keep = ex.lesson_id === FACTORIAL_LESSON_ID;
-                    if (keep) {
-                        console.log(`✅ Keeping FactoLearn exercise: ID ${ex.id}, Title: ${ex.title}, Topic: ${ex.topic_id} -> Lesson ${ex.lesson_id}`);
-                    } else {
-                        console.log(`⏭️ Filtering out: ID ${ex.id}, Title: ${ex.title}, Topic: ${ex.topic_id} -> Lesson ${ex.lesson_id || 'unknown'}`);
-                    }
-                    return keep;
-                });
-            
-            console.log(`🎯 After filtering: ${processedExercises.length} FactoLearn exercises (lesson_id=3)`);
+            console.log('✅ Processed exercises:', processedExercises.map(ex => ({
+                id: ex.id,
+                title: ex.title,
+                subject: ex.filter_subject,
+                status: ex.filter_status,
+                topic_id: ex.topic_id
+            })));
             
             // Store globally
             window.adminPracticeExercises = processedExercises;
             window.filteredPracticeExercises = processedExercises;
             
             if (processedExercises.length === 0) {
-                tableBody.innerHTML = `
-                    <tr>
-                        <td colspan="9" class="text-center py-5">
-                            <div style="text-align: center; padding: 40px;">
-                                <i class="fas fa-dumbbell" style="font-size: 3rem; color: #ccc; margin-bottom: 15px;"></i>
-                                <h4 style="color: #666; margin-bottom: 10px;">No FactoLearn Exercises Found</h4>
-                                <p style="color: #999; margin-bottom: 20px;">Exercises with lesson_id = 3 will appear here.</p>
-                                <p style="color: #7a0000; font-size: 0.9rem;">
-                                    <i class="fas fa-info-circle"></i> Make sure your topics are linked to FactoLearn (lesson_id=3)
-                                </p>
-                            </div>
-                        </td>
-                    </tr>
-                `;
+                tableBody.innerHTML = getNoExercisesHTML();
                 updateAdminPracticeStats([]);
                 return;
             }
@@ -26296,6 +26261,7 @@ function refreshPracticeData() {
     loadAdminPracticeExercises();
 }
 
+// ===== OPEN CREATE PRACTICE MODAL =====
 function openCreatePracticeModal() {
     console.log("📝 Opening create practice modal...");
     
@@ -26306,24 +26272,15 @@ function openCreatePracticeModal() {
     document.getElementById('practiceId').value = '';
     document.getElementById('practiceTitle').value = '';
     document.getElementById('practiceDescription').value = '';
-    
-    // ✅ Set default subject to FactoLearn (lesson_id = 3)
-    const subjectSelect = document.getElementById('practiceSubject');
-    if (subjectSelect) {
-        subjectSelect.value = '3';
-    }
-    
-  
-    
+    document.getElementById('practiceSubject').value = '';
     document.getElementById('practiceTopic').innerHTML = '<option value="">-- Select Subject First --</option>';
     document.getElementById('practiceTopic').disabled = true;
     document.getElementById('practiceDifficulty').value = 'medium';
     document.getElementById('practiceType').value = 'multiple-choice';
     document.getElementById('practicePoints').value = '10';
     document.getElementById('practiceStatus').value = 'active';
-    document.getElementById('practiceId').value = '';
     
-    // Clear teacher dropdown
+    // Clear teacher dropdown (show loading)
     const teacherSelect = document.getElementById('practiceAssignedTeacherId');
     if (teacherSelect) {
         teacherSelect.innerHTML = '<option value="">Loading teachers...</option>';
@@ -26331,10 +26288,7 @@ function openCreatePracticeModal() {
     }
     
     // Clear questions
-    const container = document.getElementById('practiceQuestionsContainer');
-    if (container) {
-        container.innerHTML = '';
-    }
+    document.getElementById('practiceQuestionsContainer').innerHTML = '';
     
     // Add one default question
     addPracticeQuestion();
@@ -26350,16 +26304,12 @@ function openCreatePracticeModal() {
     }, 300);
     
     // Add event listener for subject change
-    if (subjectSelect) {
-        // Remove existing listeners to avoid duplicates
-        const newSubjectSelect = subjectSelect.cloneNode(true);
-        subjectSelect.parentNode.replaceChild(newSubjectSelect, subjectSelect);
-        
-        newSubjectSelect.addEventListener('change', loadPracticeTopicsBySubject);
-    }
+    const subjectSelect = document.getElementById('practiceSubject');
+    subjectSelect.addEventListener('change', loadPracticeTopicsBySubject);
     
     showNotification('info', 'Create Practice', 'Select a subject to load available topics');
 }
+
 // ===== LOAD TOPICS BY SUBJECT =====
 async function loadPracticeTopicsBySubject() {
     console.log("📚 Loading topics for selected subject...");
@@ -26642,12 +26592,12 @@ function deletePracticeExercise(exerciseId) {
 }
 
 
-// ===== UPDATED: Save Practice Exercise with lesson_id from subject =====
+// ===== FIXED: SAVE PRACTICE EXERCISE WITH CORRECT LESSON ID =====
 async function savePracticeExercise() {
     console.log("💾 ===== SAVING PRACTICE EXERCISE TO DATABASE =====");
     
     // Get form values
-    const subjectId = document.getElementById('practiceSubject')?.value;  // ← ITO ANG LESSON_ID
+    const subjectId = document.getElementById('practiceSubject')?.value; // This is the lesson_id
     const topicId = document.getElementById('practiceTopic')?.value;
     const title = document.getElementById('practiceTitle')?.value.trim();
     const description = document.getElementById('practiceDescription')?.value.trim();
@@ -26660,30 +26610,23 @@ async function savePracticeExercise() {
     // Get assigned teacher
     const assignedTeacherId = document.getElementById('practiceAssignedTeacherId')?.value;
     
-    // ✅ LESSON ID AY MULA SA SUBJECT (1, 2, or 3)
-    const lesson_id = parseInt(subjectId);
-    
-    // Check if editing
-    const isEditMode = practiceId && practiceId !== '';
-    console.log("🔍 Mode:", isEditMode ? "EDIT" : "CREATE", "ID:", practiceId || 'new');
-    console.log("📋 Lesson ID from subject:", lesson_id);
-    
-    // ===== VALIDATION =====
-    if (!subjectId) {
-        showNotification('error', 'Error', 'Please select a subject');
-        return;
+    // ===== FIX: USE SUBJECT ID AS LESSON ID =====
+    let lesson_id;
+    if (subjectId == 1) { // MathEase
+        lesson_id = 1;
+    } else if (subjectId == 2) { // PolyLearn
+        lesson_id = 2;
+    } else if (subjectId == 3) { // FactoLearn
+        lesson_id = 3;
+    } else {
+        lesson_id = 1; // Default to MathEase
     }
     
-    if (!topicId || topicId === '') {
-        showNotification('error', 'Error', 'Please select a topic');
-        console.error("❌ No topic selected!");
-        return;
-    }
-    
-    if (!title) {
-        showNotification('error', 'Error', 'Please enter a title');
-        return;
-    }
+    // Get subject name for display
+    let subjectName = '';
+    if (lesson_id == 1) subjectName = 'MathEase';
+    else if (lesson_id == 2) subjectName = 'PolyLearn';
+    else if (lesson_id == 3) subjectName = 'FactoLearn';
     
     // Map content type to database format
     const contentTypeMap = {
@@ -26693,6 +26636,35 @@ async function savePracticeExercise() {
     };
     
     const dbContentType = contentTypeMap[contentType] || 'multiple_choice';
+    
+    console.log('📝 Practice data:', { 
+        lesson_id,
+        subjectName,
+        topicId,
+        title, 
+        difficulty, 
+        dbContentType,
+        points,
+        status,
+        isUpdate: !!practiceId,
+        assignedTeacherId: assignedTeacherId || 'none (self)'
+    });
+    
+    // ===== VALIDATION =====
+    if (!subjectId) {
+        showNotification('error', 'Error', 'Please select a subject');
+        return;
+    }
+    
+    if (!topicId) {
+        showNotification('error', 'Error', 'Please select a topic');
+        return;
+    }
+    
+    if (!title) {
+        showNotification('error', 'Error', 'Please enter a title');
+        return;
+    }
     
     // ===== COLLECT QUESTIONS =====
     const questions = [];
@@ -26704,6 +26676,7 @@ async function savePracticeExercise() {
     }
     
     for (let i = 0; i < questionItems.length; i++) {
+        const q = questionItems[i];
         const qId = i + 1;
         
         const questionText = document.getElementById(`practice_q_${qId}_text`)?.value.trim();
@@ -26746,7 +26719,7 @@ async function savePracticeExercise() {
         });
     }
     
-    // ===== PREPARE DATA FOR SERVER WITH LESSON ID =====
+    // ===== PREPARE DATA FOR SERVER =====
     const contentJson = {
         questions: questions
     };
@@ -26754,7 +26727,7 @@ async function savePracticeExercise() {
     const isActive = status === 'active' ? 1 : 0;
     
     const practiceData = {
-        lesson_id: lesson_id,                    // ← ITO ANG MAHALAGA!
+        lesson_id: lesson_id,  // Use lesson_id, not subject_id
         topic_id: parseInt(topicId),
         title: title,
         description: description || '',
@@ -26766,17 +26739,15 @@ async function savePracticeExercise() {
     };
     
     // Add teacher assignment if selected
-    if (assignedTeacherId && assignedTeacherId !== '') {
+    if (assignedTeacherId) {
         practiceData.assigned_teacher_id = parseInt(assignedTeacherId);
     }
     
-    // Add ID if editing
-    if (isEditMode) {
+    if (practiceId) {
         practiceData.exercise_id = parseInt(practiceId);
     }
     
-    console.log("📤 Sending practice data with lesson_id:", lesson_id);
-    console.log("📤 Full data:", JSON.stringify(practiceData, null, 2));
+    console.log("📤 Sending practice data:", practiceData);
     
     try {
         const token = localStorage.getItem('admin_token') || localStorage.getItem('authToken');
@@ -26791,21 +26762,15 @@ async function savePracticeExercise() {
         const originalText = saveBtn?.innerHTML;
         if (saveBtn) {
             saveBtn.disabled = true;
-            saveBtn.innerHTML = isEditMode 
-                ? '<i class="fas fa-spinner fa-spin"></i> Updating...' 
-                : '<i class="fas fa-spinner fa-spin"></i> Creating...';
+            saveBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Saving...';
         }
         
-        const url = isEditMode 
+        const url = practiceId 
             ? `/api/admin/practice/${practiceId}`
             : `/api/admin/practice`;
         
-        const method = isEditMode ? 'PUT' : 'POST';
-        
-        console.log(`📡 ${method} to: ${url}`);
-        
         const response = await fetch(url, {
-            method: method,
+            method: practiceId ? 'PUT' : 'POST',
             headers: {
                 'Authorization': `Bearer ${token}`,
                 'Content-Type': 'application/json'
@@ -26813,47 +26778,37 @@ async function savePracticeExercise() {
             body: JSON.stringify(practiceData)
         });
         
-        const responseText = await response.text();
-        console.log("📥 Raw response:", responseText);
-        
-        let result;
-        try {
-            result = JSON.parse(responseText);
-        } catch (e) {
-            console.error("❌ Failed to parse JSON:", responseText);
-            throw new Error('Server returned invalid JSON');
-        }
+        const result = await response.json();
         
         if (!response.ok) {
             throw new Error(result.message || `Server error: ${response.status}`);
         }
         
         if (result.success) {
-            let message = isEditMode 
+            let message = practiceId 
                 ? 'Practice exercise updated successfully!' 
                 : 'Practice exercise created successfully!';
+            message += ` (${subjectName})`;
             
-            // Ipakita kung saang lesson na-save
-            const lessonName = lesson_id == 1 ? 'MathEase' : 
-                              lesson_id == 2 ? 'PolyLearn' : 'FactoLearn';
+            if (assignedTeacherId) {
+                message += ' (Assigned to teacher)';
+            }
             
-            showNotification('success', 'Success!', `${message} (${lessonName})`);
+            showNotification('success', 'Success!', message);
             closeCreatePracticeModal();
-            await loadAdminPracticeExercises(); // Refresh the list
+            await loadAdminPracticeExercises();
         } else {
-            throw new Error(result.message || `Failed to ${isEditMode ? 'update' : 'create'} practice exercise`);
+            throw new Error(result.message || 'Failed to save practice exercise');
         }
         
     } catch (error) {
-        console.error(`❌ Error ${isEditMode ? 'updating' : 'creating'} practice exercise:`, error);
-        showNotification('error', `${isEditMode ? 'Update' : 'Create'} Failed`, error.message);
+        console.error('❌ Error saving practice exercise:', error);
+        showNotification('error', 'Save Failed', error.message);
     } finally {
         const saveBtn = document.querySelector('#createPracticeModal .btn-primary');
         if (saveBtn) {
             saveBtn.disabled = false;
-            saveBtn.innerHTML = isEditMode 
-                ? '<i class="fas fa-save"></i> Update Exercise' 
-                : '<i class="fas fa-save"></i> Create Exercise';
+            saveBtn.innerHTML = '<i class="fas fa-save"></i> Save Exercise';
         }
     }
 }
@@ -27930,146 +27885,5 @@ async function debugSubjectData() {
         
     } catch (error) {
         console.error("❌ Debug error:", error);
-    }
-}
-
-
-// ============================================
-// BULK EDIT QUIZZES - Ilipat sa FactoPermCombi
-// ============================================
-async function bulkEditQuizzes() {
-    const token = localStorage.getItem('admin_token') || localStorage.getItem('authToken');
-    if (!token) {
-        alert('Please login first');
-        return;
-    }
-    
-    console.log('🔄 Updating quizzes...');
-    
-    // Kunin muna ang tamang category ID
-    try {
-        const catRes = await fetch('/api/quiz/categories', {
-            headers: { 'Authorization': `Bearer ${token}` }
-        });
-        const catData = await catRes.json();
-        
-        // Hanapin ang FactoPermCombi category
-        const factoCategory = catData.categories.find(c => 
-            c.category_name === 'FactoPermCombi' || 
-            c.category_name.includes('Facto')
-        );
-        
-        if (!factoCategory) {
-            console.error('❌ FactoPermCombi category not found');
-            return;
-        }
-        
-        const targetCategoryId = factoCategory.category_id;
-        console.log(`🎯 Target Category ID: ${targetCategoryId}`);
-        
-        // I-ask kung tuloy
-        if (!confirm(`Ilipat ang mga quizzes sa "${factoCategory.category_name}" (ID: ${targetCategoryId})?`)) {
-            return;
-        }
-        
-        const quizIds = [14, 15, 16, 6, 7]; // Lahat ng FactoLearn quizzes
-        
-        let successCount = 0;
-        
-        for (const id of quizIds) {
-            try {
-                // Kunin ang kasalukuyang quiz data
-                const getRes = await fetch(`/api/admin/quizzes/${id}`, {
-                    headers: { 'Authorization': `Bearer ${token}` }
-                });
-                
-                if (!getRes.ok) {
-                    console.log(`⚠️ Quiz ${id} not found, skipping...`);
-                    continue;
-                }
-                
-                const quizData = await getRes.json();
-                const quiz = quizData.quiz || quizData;
-                
-                // Baguhin ang category
-                quiz.category_id = targetCategoryId;
-                
-                // I-save
-                const updateRes = await fetch(`/api/admin/quizzes/${id}`, {
-                    method: 'PUT',
-                    headers: {
-                        'Authorization': `Bearer ${token}`,
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify(quiz)
-                });
-                
-                if (updateRes.ok) {
-                    successCount++;
-                    console.log(`✅ Quiz ${id} updated to "${factoCategory.category_name}"`);
-                } else {
-                    console.error(`❌ Quiz ${id} update failed`);
-                }
-            } catch (error) {
-                console.error(`❌ Quiz ${id} error:`, error);
-            }
-        }
-        
-        alert(`✅ ${successCount} quizzes updated successfully!`);
-        
-    } catch (error) {
-        console.error('❌ Error:', error);
-        alert('Failed to update quizzes');
-    }
-}
-
-// ============================================
-// SINGLE QUIZ FIX - Para sa isa-isa
-// ============================================
-async function fixQuizCategory(quizId, categoryName = 'FactoPermCombi') {
-    const token = localStorage.getItem('admin_token') || localStorage.getItem('authToken');
-    
-    try {
-        // Kunin ang category ID
-        const catRes = await fetch('/api/quiz/categories', {
-            headers: { 'Authorization': `Bearer ${token}` }
-        });
-        const catData = await catRes.json();
-        
-        const category = catData.categories.find(c => 
-            c.category_name === categoryName || c.category_name.includes(categoryName)
-        );
-        
-        if (!category) {
-            alert(`Category "${categoryName}" not found`);
-            return;
-        }
-        
-        // Kunin ang quiz
-        const getRes = await fetch(`/api/admin/quizzes/${quizId}`, {
-            headers: { 'Authorization': `Bearer ${token}` }
-        });
-        
-        const quizData = await getRes.json();
-        const quiz = quizData.quiz || quizData;
-        
-        // I-update
-        quiz.category_id = category.category_id;
-        
-        const updateRes = await fetch(`/api/admin/quizzes/${quizId}`, {
-            method: 'PUT',
-            headers: {
-                'Authorization': `Bearer ${token}`,
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify(quiz)
-        });
-        
-        if (updateRes.ok) {
-            alert(`✅ Quiz ${quizId} updated to "${category.category_name}"`);
-        }
-    } catch (error) {
-        console.error(error);
-        alert('Failed to update quiz');
     }
 }
