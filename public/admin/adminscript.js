@@ -26576,15 +26576,12 @@ function deletePracticeExercise(exerciseId) {
     }, 500);
 }
 
-// ============================================
-// 📁 adminscript.js - I-update ang savePracticeExercise()
-// ============================================
-
+// ===== FIXED: savePracticeExercise() WITH PROPER LESSON_ID =====
 async function savePracticeExercise() {
     console.log("💾 ===== SAVING PRACTICE EXERCISE TO DATABASE =====");
     
     // Get form values
-    const subjectId = document.getElementById('practiceSubject')?.value; // Ito ay lesson_id
+    const subjectId = document.getElementById('practiceSubject')?.value;
     const topicId = document.getElementById('practiceTopic')?.value;
     const title = document.getElementById('practiceTitle')?.value.trim();
     const description = document.getElementById('practiceDescription')?.value.trim();
@@ -26593,93 +26590,79 @@ async function savePracticeExercise() {
     const points = parseInt(document.getElementById('practicePoints')?.value) || 10;
     const status = document.getElementById('practiceStatus')?.value;
     const practiceId = document.getElementById('practiceId')?.value;
-    
-    // Get assigned teacher
     const assignedTeacherId = document.getElementById('practiceAssignedTeacherId')?.value;
-    
-    // ===== FIX: I-CONVERT ANG SUBJECT SA LESSON_ID =====
+
+    // ===== CRITICAL FIX: Convert subject to lesson_id =====
     let lesson_id;
-    if (subjectId == 1) { // MathEase
-        lesson_id = 1;
-    } else if (subjectId == 2) { // PolyLearn
-        lesson_id = 2;
-    } else if (subjectId == 3) { // FactoLearn
-        lesson_id = 3;
+    if (subjectId == 1) {
+        lesson_id = 1;  // MathEase
+    } else if (subjectId == 2) {
+        lesson_id = 2;  // PolyLearn
+    } else if (subjectId == 3) {
+        lesson_id = 3;  // FactoLearn
     } else {
-        lesson_id = 2; // Default to PolyLearn
+        lesson_id = 2;  // Default to PolyLearn
     }
-    
-    // Map content type to database format
-    const contentTypeMap = {
-        'multiple-choice': 'multiple_choice',
-        'true-false': 'true_false',
-        'fill-blank': 'fill_blank'
-    };
-    
-    const dbContentType = contentTypeMap[contentType] || 'multiple_choice';
-    
+
     console.log('📝 Practice data:', { 
-        lesson_id,        // ← ITO ANG PINAKAIMPORTANTE
+        lesson_id,        // ✅ ITO ANG KRITIKAL
         subjectId,
         topicId,
         title, 
         difficulty, 
-        dbContentType,
         points,
-        status,
-        isUpdate: !!practiceId,
-        assignedTeacherId: assignedTeacherId || 'none'
+        status
     });
-    
+
     // ===== VALIDATION =====
     if (!subjectId) {
         showNotification('error', 'Error', 'Please select a subject');
         return;
     }
-    
+
     if (!topicId) {
         showNotification('error', 'Error', 'Please select a topic');
         return;
     }
-    
+
     if (!title) {
         showNotification('error', 'Error', 'Please enter a title');
         return;
     }
-    
+
     // ===== COLLECT QUESTIONS =====
     const questions = [];
     const questionItems = document.querySelectorAll('.practice-question-item');
-    
+
     if (questionItems.length === 0) {
         showNotification('error', 'Error', 'Please add at least one question');
         return;
     }
-    
+
     for (let i = 0; i < questionItems.length; i++) {
         const q = questionItems[i];
         const qId = i + 1;
-        
+
         const questionText = document.getElementById(`practice_q_${qId}_text`)?.value.trim();
         if (!questionText) {
             showNotification('error', 'Error', `Please enter question ${qId} text`);
             return;
         }
-        
+
         const correctRadio = document.querySelector(`input[name="practice_q_${qId}_correct"]:checked`);
         if (!correctRadio) {
             showNotification('error', 'Error', `Please select correct answer for question ${qId}`);
             return;
         }
         const correctLetter = correctRadio.value;
-        
+
         const options = [];
         const optionLetters = ['a', 'b', 'c', 'd', 'e', 'f'];
-        
+
         for (let j = 0; j < optionLetters.length; j++) {
             const letter = optionLetters[j];
             const optInput = document.getElementById(`practice_q_${qId}_opt_${letter}`);
-            
+
             if (optInput && optInput.value.trim()) {
                 options.push({
                     text: optInput.value.trim(),
@@ -26687,57 +26670,58 @@ async function savePracticeExercise() {
                 });
             }
         }
-        
+
         if (options.length < 2) {
             showNotification('error', 'Error', `Question ${qId} must have at least 2 options`);
             return;
         }
-        
+
         questions.push({
             text: questionText,
             type: 'multiple_choice',
             options: options
         });
     }
-    
+
     // ===== PREPARE DATA FOR SERVER =====
     const contentJson = {
         questions: questions
     };
-    
+
     const isActive = status === 'active' ? 1 : 0;
-    
+
+    // ===== CRITICAL: Include lesson_id in the data sent to server =====
     const practiceData = {
-        lesson_id: lesson_id,        // ← I-SEND ANG lesson_id SA SERVER
+        lesson_id: lesson_id,        // ✅ ITO ANG KULANG!
         topic_id: parseInt(topicId),
         title: title,
         description: description || '',
         difficulty: difficulty || 'medium',
-        content_type: dbContentType,
+        content_type: 'multiple_choice',
         points: points,
         content_json: contentJson,
         is_active: isActive
     };
-    
+
     // Add teacher assignment if selected
     if (assignedTeacherId && assignedTeacherId !== '') {
         practiceData.assigned_teacher_id = parseInt(assignedTeacherId);
     }
-    
+
     if (practiceId) {
         practiceData.exercise_id = parseInt(practiceId);
     }
-    
-    console.log("📤 Sending practice data with lesson_id:", lesson_id, practiceData);
-    
+
+    console.log("📤 SENDING TO SERVER:", practiceData); // ✅ I-check ito
+
     try {
         const token = localStorage.getItem('admin_token') || localStorage.getItem('authToken');
-        
+
         if (!token) {
             showNotification('error', 'Auth Error', 'Please login first');
             return;
         }
-        
+
         // Show loading
         const saveBtn = document.querySelector('#createPracticeModal .btn-primary');
         const originalText = saveBtn?.innerHTML;
@@ -26745,11 +26729,11 @@ async function savePracticeExercise() {
             saveBtn.disabled = true;
             saveBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Saving...';
         }
-        
+
         const url = practiceId 
             ? `/api/admin/practice/${practiceId}`
             : `/api/admin/practice`;
-        
+
         const response = await fetch(url, {
             method: practiceId ? 'PUT' : 'POST',
             headers: {
@@ -26758,34 +26742,36 @@ async function savePracticeExercise() {
             },
             body: JSON.stringify(practiceData)
         });
-        
+
         const result = await response.json();
-        
+
         if (!response.ok) {
             throw new Error(result.message || `Server error: ${response.status}`);
         }
-        
+
         if (result.success) {
             let message = practiceId 
                 ? 'Practice exercise updated successfully!' 
                 : 'Practice exercise created successfully!';
-            
-            // Ipakita kung saang app na-save
+
             const appName = lesson_id === 1 ? 'MathEase' : 
                            lesson_id === 2 ? 'PolyLearn' : 'FactoLearn';
             message += ` (Saved to ${appName})`;
-            
-            if (assignedTeacherId && assignedTeacherId !== '') {
-                message += ' (Assigned to teacher)';
-            }
-            
+
             showNotification('success', 'Success!', message);
             closeCreatePracticeModal();
             await loadAdminPracticeExercises();
+
+            // ✅ Test agad kung may lesson_id
+            setTimeout(() => {
+                console.log('🔍 Checking if lesson_id was saved...');
+                checkPracticeLessonId();
+            }, 500);
+
         } else {
             throw new Error(result.message || 'Failed to save practice exercise');
         }
-        
+
     } catch (error) {
         console.error('❌ Error saving practice exercise:', error);
         showNotification('error', 'Save Failed', error.message);
@@ -26797,7 +26783,6 @@ async function savePracticeExercise() {
         }
     }
 }
-
 // ===== HELPER: Get lesson_id from subject selection =====
 function getLessonIdFromSubject(subjectId) {
     // MathEase = 1
