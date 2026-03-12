@@ -2509,13 +2509,7 @@ function forceInitCompleteButton() {
                 // Show celebration
                 showCelebrationAnimation();
                 
-                // Refresh page after 2 seconds
-                setTimeout(() => {
-                    location.reload();
-                }, 2000);
-            } else {
-                throw new Error('Failed to update progress');
-            }
+               
             
         } catch (error) {
             console.error('❌ Error:', error);
