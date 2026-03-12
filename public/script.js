@@ -24485,17 +24485,11 @@ function toggleFooterNavigation(page) {
     // Pages where footer navigation should be hidden
     const hideNavPages = ['loading', 'login', 'signup', 'landing', 'appSelection'];
     
-    // Pages where footer navigation should be shown (only after login)
-    const showNavPages = [
-        'dashboard', 'practice', 'quizDashboard', 'progress', 
-        'feedback', 'settings', 'moduleDashboard'
-    ];
-    
     if (hideNavPages.includes(page)) {
         // Hide footer navigation on loading, login, and signup pages
         navigation.style.display = 'none';
         resetContainerBottomPadding();
-    } else if (showNavPages.includes(page) && AppState.isAuthenticated) {
+    } else if (AppState.isAuthenticated) {
         // Show footer navigation only if authenticated
         navigation.style.display = 'flex';
         adjustContainerBottomPadding();
@@ -24505,7 +24499,6 @@ function toggleFooterNavigation(page) {
         resetContainerBottomPadding();
     }
 }
-
 // Hide footer navigation
 function hideFooterNavigation() {
     const navigation = document.querySelector('.footer-nav');
