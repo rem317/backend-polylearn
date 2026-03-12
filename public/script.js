@@ -26116,7 +26116,7 @@ class TimeTrackingManager {
 }
 
 // ============================================
-// ✅ HELPER: Get current lesson ID - FORCED TO 2 FOR POLYLEARN
+// Helper: Get current lesson ID
 // ============================================
 function getCurrentLessonId() {
     // First try from URL
@@ -26132,9 +26132,16 @@ function getCurrentLessonId() {
         return LessonState.currentLesson.content_id;
     }
     
-    // Forced to return 2 for PolyLearn as fallback
-    return POLYLEARN_LESSON_ID; // Always 2
+    // Try from localStorage
+    const savedLessonId = localStorage.getItem('currentLessonId');
+    if (savedLessonId) {
+        return savedLessonId;
+    }
+    
+    // Default to PolyLearn
+    return '2';
 }
+
 // ============================================
 // 🚀 INITIALIZE TIME TRACKER
 // ============================================
@@ -26166,7 +26173,7 @@ const timeTracker = new TimeTrackingManager();
 
 
 // ============================================
-// Check Lesson Completion Status on Load
+// Check Lesson Completion Status - FIXED
 // ============================================
 async function checkLessonCompletionStatus() {
     try {
@@ -26179,7 +26186,7 @@ async function checkLessonCompletionStatus() {
         console.log(`🔍 Checking completion status for lesson ${contentId}...`);
         
         // Fetch from database
-        const response = await fetch(`/api/lessons-db/${contentId}`, {
+        const response = await fetch(`${API_BASE_URL}/api/lessons-db/${contentId}`, {
             headers: {
                 'Authorization': `Bearer ${token}`,
                 'Content-Type': 'application/json'
@@ -26191,7 +26198,7 @@ async function checkLessonCompletionStatus() {
             if (data.success && data.lesson) {
                 const progress = data.lesson.progress || {};
                 
-                // ONLY update button if actually completed in database
+                // Update button based on actual database status
                 if (progress.status === 'completed') {
                     console.log('✅ Lesson is actually completed in database');
                     updateCompleteButtonState(true);
@@ -26201,6 +26208,7 @@ async function checkLessonCompletionStatus() {
                 }
                 
                 // Update state
+                if (!LessonState.userProgress) LessonState.userProgress = {};
                 if (!LessonState.userProgress[contentId]) {
                     LessonState.userProgress[contentId] = {};
                 }
@@ -26218,7 +26226,7 @@ async function checkLessonCompletionStatus() {
 }
 
 // ============================================
-// FIXED: Mark Lesson Complete Function - WITH BETTER ERROR HANDLING
+// ✅ FIXED: Mark Lesson Complete - NO RESTART
 // ============================================
 async function markLessonComplete() {
     console.log('🎯 Marking lesson as complete...');
@@ -26226,7 +26234,7 @@ async function markLessonComplete() {
     const completeLessonBtn = document.getElementById('completeLessonBtn');
     if (!completeLessonBtn) return;
     
-    // Check if lesson is already being processed
+    // Check if already processing
     if (completeLessonBtn.disabled) {
         console.log('⚠️ Already processing, please wait...');
         return;
@@ -26244,23 +26252,6 @@ async function markLessonComplete() {
     completeLessonBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Saving...';
     
     try {
-        // Check if lesson is already completed
-        const currentProgress = LessonState.userProgress[contentId] || {};
-        if (currentProgress.status === 'completed') {
-            showNotification('Lesson already marked as completed!', 'info');
-            updateCompleteButtonState(true);
-            return;
-        }
-        
-        // Calculate time spent (if available)
-        let timeSpentSeconds = 300; // Default 5 minutes
-        const videoElement = document.getElementById('lessonVideo');
-        if (videoElement && videoElement.duration) {
-            timeSpentSeconds = Math.floor(videoElement.currentTime || videoElement.duration);
-        }
-        
-        console.log(`📝 Updating lesson progress for content ${contentId}...`);
-        
         const token = localStorage.getItem('authToken') || authToken;
         if (!token) {
             showNotification('Please login again', 'error');
@@ -26268,8 +26259,44 @@ async function markLessonComplete() {
             return;
         }
         
-        // ✅ FIX: Use correct API URL - add /api/ prefix
-        const progressResponse = await fetch(`/api/lessons-db/${contentId}/progress`, {
+        // Check if lesson is already completed
+        const checkResponse = await fetch(`${API_BASE_URL}/api/lessons-db/${contentId}`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        
+        if (checkResponse.ok) {
+            const checkData = await checkResponse.json();
+            
+            // If already completed in database, just update UI
+            if (checkData.success && checkData.lesson?.progress?.status === 'completed') {
+                console.log('✅ Lesson already completed in database');
+                updateCompleteButtonState(true);
+                
+                // Update local state
+                if (!LessonState.userProgress) LessonState.userProgress = {};
+                if (!LessonState.userProgress[contentId]) LessonState.userProgress[contentId] = {};
+                LessonState.userProgress[contentId].status = 'completed';
+                LessonState.userProgress[contentId].percentage = 100;
+                
+                // Show notification
+                showNotification('Lesson already marked as complete!', 'info');
+                
+                // ❌ REMOVED THE RELOAD
+                return;
+            }
+        }
+        
+        // Calculate time spent
+        let timeSpentSeconds = 300; // Default 5 minutes
+        const videoElement = document.getElementById('lessonVideo');
+        if (videoElement && videoElement.currentTime) {
+            timeSpentSeconds = Math.floor(videoElement.currentTime);
+        }
+        
+        console.log(`📝 Updating lesson progress for content ${contentId}...`);
+        
+        // Update lesson progress
+        const progressResponse = await fetch(`${API_BASE_URL}/api/lessons-db/${contentId}/progress`, {
             method: 'POST',
             headers: {
                 'Authorization': `Bearer ${token}`,
@@ -26296,72 +26323,61 @@ async function markLessonComplete() {
         
         console.log('✅ Lesson progress updated successfully');
         
-        // STEP 2: Update daily progress (lessons completed count)
-        console.log('📊 Updating daily progress...');
-        
+        // Update daily progress (non-critical)
         try {
-            const dailyResponse = await fetch(`/api/progress/update-daily`, {
+            await fetch(`${API_BASE_URL}/api/progress/update-daily`, {
                 method: 'POST',
                 headers: {
                     'Authorization': `Bearer ${token}`,
                     'Content-Type': 'application/json'
                 },
-                body: JSON.stringify({
+                body: JSON.stringify({ 
                     lessons_completed: 1,
-                    lesson_id: 2 // Force PolyLearn
+                    lesson_id: 2 // PolyLearn
                 })
             });
-            
-            if (dailyResponse.ok) {
-                const dailyData = await dailyResponse.json();
-                console.log('✅ Daily progress updated:', dailyData);
-            } else {
-                console.warn('⚠️ Daily progress endpoint returned:', dailyResponse.status);
-            }
-        } catch (dailyError) {
-            console.warn('⚠️ Daily progress update failed (non-critical):', dailyError.message);
+        } catch (e) {
+            console.log('Daily progress update failed (non-critical)');
         }
         
-        // STEP 3: Log activity
+        // Log activity (non-critical)
         try {
             await logUserActivity('lesson_completed', contentId, {
                 lesson_title: LessonState.currentLesson?.content_title || 'Lesson',
                 time_spent: timeSpentSeconds
             });
-        } catch (logError) {
-            console.warn('⚠️ Activity logging failed:', logError.message);
+        } catch (e) {
+            console.log('Activity logging failed (non-critical)');
         }
         
-        // STEP 4: Clear video watch time from localStorage
+        // Clear video watch time
         localStorage.removeItem(`video_watch_time_video_${contentId}`);
         
         // Update local state
-        if (!LessonState.userProgress[contentId]) {
-            LessonState.userProgress[contentId] = {};
-        }
+        if (!LessonState.userProgress) LessonState.userProgress = {};
+        if (!LessonState.userProgress[contentId]) LessonState.userProgress[contentId] = {};
         LessonState.userProgress[contentId].status = 'completed';
         LessonState.userProgress[contentId].percentage = 100;
         
         // Update UI
         updateCompleteButtonState(true);
-        showNotification('✅ Lesson completed successfully!', 'success');
+        showNotification('🎉 Lesson completed successfully!', 'success');
         
-        // Refresh dashboard if needed
+        // Show celebration animation
+        if (typeof showCelebrationAnimation === 'function') {
+            showCelebrationAnimation();
+        }
+        
+        // ✅ REMOVED THE AUTOMATIC RELOAD
+        // Just log that we're done
+        console.log('✅ Lesson completion saved - NOT reloading');
+        
+        // Optional: Update other UI elements
         if (AppState.currentPage === 'dashboard') {
             setTimeout(() => {
                 updateContinueLearningModule();
             }, 1000);
         }
-        
-        // Optional: Show celebration
-        showCelebrationAnimation();
-        
-        // ✅ DON'T RELOAD IMMEDIATELY - Wait for user to see success
-        setTimeout(() => {
-            // Optionally reload or just keep the success state
-            console.log('✅ Lesson completion saved - you can stay on this page');
-            // location.reload(); // Comment this out if you don't want auto-reload
-        }, 3000);
         
     } catch (error) {
         console.error('❌ Error marking lesson complete:', error);
@@ -26372,28 +26388,42 @@ async function markLessonComplete() {
         completeLessonBtn.disabled = false;
     }
 }
+
+// ============================================
+// Helper: Update complete button state - With proper styling
+// ============================================
 function updateCompleteButtonState(isCompleted) {
     const button = document.getElementById('completeLessonBtn');
     if (!button) return;
     
-    if (isCompleted === true) {
+    if (isCompleted) {
+        // Force completed state
         button.innerHTML = '<i class="fas fa-check-double"></i> Lesson Completed!';
-        button.classList.remove('btn-primary');
-        button.classList.add('btn-success');
+        button.className = 'btn-success';
         button.disabled = true;
+        
+        // Force styles directly
         button.style.background = '#2ecc71';
-        console.log('✅ Button set to COMPLETED (verified from database)');
+        button.style.color = 'white';
+        button.style.border = 'none';
+        button.style.cursor = 'default';
+        
+        console.log('✅ Button updated to COMPLETED state');
     } else {
+        // Force incomplete state
         button.innerHTML = '<i class="fas fa-check-circle"></i> Mark Lesson Complete';
-        button.classList.remove('btn-success');
-        button.classList.add('btn-primary');
+        button.className = 'btn-primary';
         button.disabled = false;
+        
+        // Force styles directly
         button.style.background = '#7a0000';
-        console.log('📝 Button set to "Mark Lesson Complete"');
+        button.style.color = 'white';
+        button.style.border = 'none';
+        button.style.cursor = 'pointer';
+        
+        console.log('📝 Button updated to "Mark Lesson Complete" state');
     }
 }
-
-
 
 // Show notification
 function showNotification(message, type = 'info') {
