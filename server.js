@@ -2278,19 +2278,20 @@ app.get('/api/exercises/:exerciseId', authenticateToken, async (req, res) => {
     }
 });
 
-// ===== FIXED: UPDATE PRACTICE EXERCISE =====
+// ===== UPDATED: Update practice exercise with lesson_id =====
 app.put('/api/admin/practice/:practiceId', authenticateAdmin, async (req, res) => {
     try {
         const { practiceId } = req.params;
         const { 
+            lesson_id,        // ← Kunin ang lesson_id
             title, 
             description, 
             topic_id, 
-            difficulty, 
             content_type, 
+            difficulty, 
             points, 
-            is_active,
-            content_json 
+            content_json,
+            is_active
         } = req.body;
         
         console.log(`📝 Updating practice exercise ID: ${practiceId}`);
@@ -2307,74 +2308,119 @@ app.put('/api/admin/practice/:practiceId', authenticateAdmin, async (req, res) =
                 message: 'Practice exercise not found'
             });
         }
-        
-        // Start transaction
-        const connection = await promisePool.getConnection();
-        await connection.beginTransaction();
-        
-        try {
-            // Update basic info
-            await connection.query(`
-                UPDATE practice_exercises 
-                SET title = COALESCE(?, title),
-                    description = COALESCE(?, description),
-                    topic_id = COALESCE(?, topic_id),
-                    difficulty = COALESCE(?, difficulty),
-                    content_type = COALESCE(?, content_type),
-                    points = COALESCE(?, points),
-                    content_json = COALESCE(?, content_json),
-                    is_active = COALESCE(?, is_active),
-                    updated_at = NOW()
-                WHERE exercise_id = ?
-            `, [
-                title,
-                description,
-                topic_id,
-                difficulty,
-                content_type,
-                points,
-                content_json,
-                is_active,
-                practiceId
-            ]);
-            
-            await connection.commit();
-            connection.release();
-            
-            res.json({
-                success: true,
-                message: 'Practice exercise updated successfully'
-            });
-            
-        } catch (error) {
-            await connection.rollback();
-            connection.release();
-            throw error;
+
+        // Convert content_json to string if it's an object
+        let contentJsonString = content_json;
+        if (content_json && typeof content_json === 'object') {
+            contentJsonString = JSON.stringify(content_json);
+        }
+
+        // Build update query
+        const updateFields = [];
+        const updateValues = [];
+
+        if (lesson_id !== undefined) {
+            updateFields.push('lesson_id = ?');
+            updateValues.push(lesson_id);
+        }
+
+        if (title !== undefined) {
+            updateFields.push('title = ?');
+            updateValues.push(title);
+        }
+
+        if (description !== undefined) {
+            updateFields.push('description = ?');
+            updateValues.push(description);
+        }
+
+        if (topic_id !== undefined) {
+            updateFields.push('topic_id = ?');
+            updateValues.push(topic_id);
+        }
+
+        if (content_type !== undefined) {
+            updateFields.push('content_type = ?');
+            updateValues.push(content_type);
+        }
+
+        if (difficulty !== undefined) {
+            updateFields.push('difficulty = ?');
+            updateValues.push(difficulty);
+        }
+
+        if (points !== undefined) {
+            updateFields.push('points = ?');
+            updateValues.push(points);
+        }
+
+        if (contentJsonString !== undefined) {
+            updateFields.push('content_json = ?');
+            updateValues.push(contentJsonString);
+        }
+
+        if (is_active !== undefined) {
+            updateFields.push('is_active = ?');
+            updateValues.push(is_active);
         }
         
+        updateFields.push('updated_at = NOW()');
+        updateValues.push(practiceId);
+
+        if (updateFields.length === 1) {
+            return res.status(400).json({
+                success: false,
+                message: 'No fields to update'
+            });
+        }
+
+        const query = `UPDATE practice_exercises SET ${updateFields.join(', ')} WHERE exercise_id = ?`;
+        
+        const [result] = await promisePool.query(query, updateValues);
+
+        if (result.affectedRows === 0) {
+            return res.status(404).json({
+                success: false,
+                message: 'Practice exercise not found or no changes made'
+            });
+        }
+
+        console.log(`✅ Practice exercise ${practiceId} updated successfully`);
+
+        res.json({
+            success: true,
+            message: 'Practice exercise updated successfully'
+        });
+
     } catch (error) {
         console.error('❌ Error updating practice exercise:', error);
         res.status(500).json({ 
             success: false, 
-            message: error.message 
+            message: 'Failed to update practice exercise: ' + error.message 
         });
     }
 });
-// ===== GET SINGLE PRACTICE EXERCISE =====
+// ===== UPDATED: Get single practice exercise with lesson_id =====
 app.get('/api/admin/practice/:practiceId', authenticateAdmin, async (req, res) => {
     try {
         const { practiceId } = req.params;
         
         const [exercises] = await promisePool.query(`
             SELECT 
-                pe.*,
-                mt.topic_title as topic_name,
-                l.lesson_name as subject
-            FROM practice_exercises pe
-            LEFT JOIN module_topics mt ON pe.topic_id = mt.topic_id
-            LEFT JOIN course_modules cm ON mt.module_id = cm.module_id
-            LEFT JOIN lessons l ON cm.lesson_id = l.lesson_id
-            WHERE pe.exercise_id = ?
+                exercise_id as id,
+                title,
+                description,
+                topic_id,
+                lesson_id,                    // ← DAGDAGIN ITO
+                content_type,
+                difficulty,
+                points,
+                content_json,
+                is_active,
+                created_at,
+                updated_at
+            FROM practice_exercises 
+            WHERE exercise_id = ?
         `, [practiceId]);
         
         if (exercises.length === 0) {
@@ -2386,7 +2432,6 @@ app.get('/api/admin/practice/:practiceId', authenticateAdmin, async (req, res) =
         
         const exercise = exercises[0];
         
-        // Parse content_json if it's a string
         if (exercise.content_json && typeof exercise.content_json === 'string') {
             try {
                 exercise.content_json = JSON.parse(exercise.content_json);
@@ -2408,7 +2453,6 @@ app.get('/api/admin/practice/:practiceId', authenticateAdmin, async (req, res) =
         });
     }
 });
-
 
 // ============================================
 // SECTION NAVIGATION FUNCTION
@@ -8544,21 +8588,21 @@ app.get('/api/admin/practice/exercises', authenticateToken, async (req, res) => 
 // PRACTICE EXERCISE ROUTES (Admin)
 // ============================================
 
-// CREATE new practice exercise
+// ===== UPDATED: Create practice exercise with lesson_id =====
 app.post('/api/admin/practice', authenticateAdmin, async (req, res) => {
     try {
         console.log('📥 Creating practice exercise...');
         
         const {
+            lesson_id,        // ← Kunin ang lesson_id mula sa request
+            topic_id,
             title,
             description,
-            topic_id,
-            content_type,
             difficulty,
+            content_type,
             points,
             content_json,
-            is_active,
-            status
+            is_active
         } = req.body;
 
         // Validate required fields
@@ -8577,14 +8621,13 @@ app.post('/api/admin/practice', authenticateAdmin, async (req, res) => {
             ? JSON.stringify(content_json)
             : content_json;
 
-        // Determine active status
-        const activeStatus = is_active !== undefined ? is_active : (status === 'active' ? 1 : 0);
-
+        // ✅ Isama ang lesson_id sa INSERT
         const [result] = await promisePool.query(`
             INSERT INTO practice_exercises 
-            (topic_id, title, description, content_type, difficulty, points, content_json, is_active, created_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW())
+            (lesson_id, topic_id, title, description, content_type, difficulty, points, content_json, is_active, created_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())
         `, [
+            lesson_id,        // ← I-save ang lesson_id
             topic_id,
             title,
             description || null,
@@ -8592,10 +8635,10 @@ app.post('/api/admin/practice', authenticateAdmin, async (req, res) => {
             difficulty || 'medium',
             points || 10,
             contentJsonString,
-            activeStatus
+            is_active !== undefined ? is_active : 1
         ]);
 
-        console.log(`✅ Practice exercise created with ID: ${result.insertId}`);
+        console.log(`✅ Practice exercise created with ID: ${result.insertId} (lesson_id: ${lesson_id})`);
         res.status(201).json({
             success: true,
             message: 'Practice exercise created successfully',
@@ -8717,24 +8760,18 @@ app.post('/api/admin/practice/exercises', authenticateToken, async (req, res) =>
         });
     }
 });
-// ===== FIXED: Get practice exercises with REAL attempt data =====
+// ===== UPDATED: Get all practice exercises with lesson_id =====
 app.get('/api/admin/practice', authenticateAdmin, async (req, res) => {
     try {
-        console.log('📥 Fetching practice exercises with attempt data...');
+        console.log('📥 Fetching practice exercises with lesson_id...');
 
-        // Check if practice_exercises table exists
-        const [tables] = await promisePool.query("SHOW TABLES LIKE 'practice_exercises'");
-        if (tables.length === 0) {
-            return res.json({ success: true, exercises: [] });
-        }
-
-        // Get exercises with attempt statistics
         const [exercises] = await promisePool.query(`
             SELECT 
                 pe.exercise_id as id,
                 pe.title,
                 pe.description,
                 pe.topic_id,
+                pe.lesson_id,                    // ← DAGDAGIN ITO
                 pe.content_type,
                 pe.difficulty,
                 pe.points,
@@ -8746,111 +8783,29 @@ app.get('/api/admin/practice', authenticateAdmin, async (req, res) => {
                     WHEN pe.is_active = 1 THEN 'active'
                     ELSE 'inactive'
                 END as status,
-                
-                -- Count total attempts from practice_attempts
                 (
                     SELECT COUNT(*) 
                     FROM practice_attempts pa 
                     WHERE pa.exercise_id = pe.exercise_id
                 ) as attempts,
-                
-                -- Count unique students who attempted
                 (
                     SELECT COUNT(DISTINCT pa.user_id) 
                     FROM practice_attempts pa 
                     WHERE pa.exercise_id = pe.exercise_id
                 ) as unique_students,
-                
-                -- Calculate average score
                 (
                     SELECT COALESCE(ROUND(AVG(pa.percentage), 0), 0)
                     FROM practice_attempts pa 
                     WHERE pa.exercise_id = pe.exercise_id 
                     AND pa.completion_status = 'completed'
-                ) as avg_score,
-                
-                -- Count completions
-                (
-                    SELECT COUNT(*) 
-                    FROM practice_attempts pa 
-                    WHERE pa.exercise_id = pe.exercise_id 
-                    AND pa.completion_status = 'completed'
-                ) as completions,
-                
-                -- Get highest score
-                (
-                    SELECT MAX(pa.percentage)
-                    FROM practice_attempts pa 
-                    WHERE pa.exercise_id = pe.exercise_id 
-                    AND pa.completion_status = 'completed'
-                ) as highest_score,
-                
-                -- Get latest attempt date
-                (
-                    SELECT MAX(pa.created_at)
-                    FROM practice_attempts pa 
-                    WHERE pa.exercise_id = pe.exercise_id
-                ) as last_attempted
-                
+                ) as avg_score
             FROM practice_exercises pe
             ORDER BY pe.created_at DESC
         `);
 
-        // Count questions in content_json for each exercise
-        const exercisesWithDetails = exercises.map(ex => {
-            let questionCount = 0;
-            let parsedContent = { questions: [] };
-            
-            try {
-                if (ex.content_json) {
-                    parsedContent = typeof ex.content_json === 'string'
-                        ? JSON.parse(ex.content_json)
-                        : ex.content_json;
-                    questionCount = parsedContent.questions ? parsedContent.questions.length : 0;
-                }
-            } catch (e) {
-                console.log(`⚠️ Error parsing JSON for exercise ${ex.id}:`, e.message);
-            }
-
-            return {
-                id: ex.id,
-                title: ex.title,
-                description: ex.description,
-                topic_id: ex.topic_id,
-                content_type: ex.content_type,
-                difficulty: ex.difficulty,
-                points: ex.points,
-                question_count: questionCount,
-                questions: parsedContent.questions || [],
-                status: ex.status,
-                is_active: ex.is_active,
-                created_at: ex.created_at,
-                updated_at: ex.updated_at,
-                attempts: parseInt(ex.attempts) || 0,
-                unique_students: parseInt(ex.unique_students) || 0,
-                avg_score: parseInt(ex.avg_score) || 0,
-                completions: parseInt(ex.completions) || 0,
-                highest_score: parseInt(ex.highest_score) || 0,
-                last_attempted: ex.last_attempted
-            };
-        });
-
-        console.log(`✅ Found ${exercisesWithDetails.length} practice exercises with stats`);
-        
-        // Log sample data para ma-verify
-        if (exercisesWithDetails.length > 0) {
-            console.log('📊 Sample exercise stats:', {
-                id: exercisesWithDetails[0].id,
-                title: exercisesWithDetails[0].title,
-                attempts: exercisesWithDetails[0].attempts,
-                avg_score: exercisesWithDetails[0].avg_score,
-                completions: exercisesWithDetails[0].completions
-            });
-        }
-
         res.json({ 
             success: true, 
-            exercises: exercisesWithDetails 
+            exercises: exercises 
         });
 
     } catch (error) {
@@ -8861,7 +8816,6 @@ app.get('/api/admin/practice', authenticateAdmin, async (req, res) => {
         });
     }
 });
-
 // ===== DEBUG: Check practice_attempts table =====
 app.get('/api/debug/practice-attempts', authenticateAdmin, async (req, res) => {
     try {
