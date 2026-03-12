@@ -26783,6 +26783,159 @@ async function savePracticeExercise() {
         }
     }
 }
+
+// FIXED: Gamit ang existing field names
+async function fixPracticeLessonIds() {
+    const token = localStorage.getItem('admin_token');
+    
+    if (!token) {
+        console.error('❌ No admin token found');
+        return;
+    }
+    
+    console.log('🔧 Fixing practice exercises lesson_ids...');
+    
+    try {
+        // Kunin ang lahat ng practice exercises
+        const response = await fetch('/api/admin/practice', {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        
+        const data = await response.json();
+        
+        if (!data.success) {
+            console.error('❌ Failed to load exercises');
+            return;
+        }
+        
+        const exercises = data.exercises || [];
+        console.log(`📊 Found ${exercises.length} exercises to check`);
+        
+        let updated = 0;
+        let skipped = 0;
+        
+        for (const exercise of exercises) {
+            // Determine lesson_id based on topic_id
+            let lesson_id = null;
+            
+            // Topic ID mapping (adjust based on your needs)
+            if (exercise.topic_id <= 4) {
+                lesson_id = 1; // MathEase
+            } else if (exercise.topic_id <= 8) {
+                lesson_id = 2; // PolyLearn
+            } else if (exercise.topic_id <= 12) {
+                lesson_id = 3; // FactoLearn
+            } else {
+                // For topics > 12, check if may existing lesson_id na
+                if (exercise.lesson_id) {
+                    console.log(`ℹ️ Exercise ${exercise.exercise_id} already has lesson_id: ${exercise.lesson_id}`);
+                    skipped++;
+                    continue;
+                } else {
+                    console.log(`⚠️ Cannot determine lesson for exercise ${exercise.exercise_id} (topic: ${exercise.topic_id})`);
+                    skipped++;
+                    continue;
+                }
+            }
+            
+            // ✅ Use exercise_id (not id)
+            // ✅ Update only lesson_id (keep all other fields)
+            const updateData = {
+                lesson_id: lesson_id
+                // Don't include other fields para hindi ma-overwrite
+            };
+            
+            console.log(`📤 Updating exercise ${exercise.exercise_id} with:`, updateData);
+            
+            const updateResponse = await fetch(`/api/admin/practice/${exercise.exercise_id}`, {
+                method: 'PUT',
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(updateData)
+            });
+            
+            const result = await updateResponse.json();
+            
+            if (updateResponse.ok && result.success) {
+                console.log(`✅ Updated exercise ${exercise.exercise_id} with lesson_id: ${lesson_id}`);
+                updated++;
+            } else {
+                console.log(`❌ Failed to update exercise ${exercise.exercise_id}:`, result.message);
+                skipped++;
+            }
+            
+            // Small delay para hindi ma-overload ang server
+            await new Promise(resolve => setTimeout(resolve, 200));
+        }
+        
+        console.log('📊 UPDATE SUMMARY:');
+        console.log(`   ✅ Updated: ${updated} exercises`);
+        console.log(`   ⚠️ Skipped: ${skipped} exercises`);
+        console.log(`   📊 Total: ${exercises.length} exercises`);
+        
+    } catch (error) {
+        console.error('❌ Error:', error);
+    }
+}
+
+// Run the fix
+fixPracticeLessonIds();
+
+async function checkPracticeLessonId() {
+    const token = localStorage.getItem('admin_token');
+    
+    console.log('🔍 Checking practice exercises...');
+    
+    try {
+        const response = await fetch('/api/admin/practice', {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            console.log('📊 LATEST PRACTICE EXERCISES:');
+            const exercises = data.exercises || [];
+            
+            exercises.slice(0, 5).forEach(ex => {
+                const lessonMap = {
+                    1: 'MathEase',
+                    2: 'PolyLearn', 
+                    3: 'FactoLearn'
+                };
+                
+                console.log({
+                    exercise_id: ex.exercise_id,
+                    title: ex.title,
+                    lesson_id: ex.lesson_id,
+                    lesson_name: lessonMap[ex.lesson_id] || 'Unknown',
+                    topic_id: ex.topic_id,
+                    status: ex.is_active ? 'active' : 'inactive'
+                });
+            });
+            
+            const hasLessonId = exercises.some(ex => ex.lesson_id !== null);
+            console.log('✅ May lesson_id:', hasLessonId);
+            
+            const stats = {
+                MathEase: exercises.filter(ex => ex.lesson_id === 1).length,
+                PolyLearn: exercises.filter(ex => ex.lesson_id === 2).length,
+                FactoLearn: exercises.filter(ex => ex.lesson_id === 3).length,
+                NoSubject: exercises.filter(ex => !ex.lesson_id).length
+            };
+            
+            console.log('📊 Statistics:', stats);
+            
+        } else {
+            console.error('❌ Failed to load exercises');
+        }
+        
+    } catch (error) {
+        console.error('❌ Error:', error);
+    }
+}
 // ===== HELPER: Get lesson_id from subject selection =====
 function getLessonIdFromSubject(subjectId) {
     // MathEase = 1
