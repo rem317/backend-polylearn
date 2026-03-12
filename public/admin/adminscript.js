@@ -865,44 +865,114 @@ async function initQuizDashboard() {
 }
 
 
-// ===== FIXED: LOAD CATEGORIES BY LESSON ID USING STRUCTURE ENDPOINT =====
+// ===== FIXED: LOAD CATEGORIES BY LESSON ID FROM DATABASE =====
 async function loadCategoriesByLesson(lessonId) {
-    console.log(`📚 Loading categories for lesson ID: ${lessonId}`);
+    console.log(`📚 Loading categories for lesson ID: ${lessonId} from database...`);
     
     const categorySelect = document.getElementById('quizCategory');
     if (!categorySelect) return;
     
+    // Show loading state
     categorySelect.innerHTML = '<option value="">Loading categories...</option>';
     categorySelect.disabled = true;
     
     try {
         const token = localStorage.getItem('admin_token') || localStorage.getItem('authToken');
         
-        // Use the existing structure endpoint (working endpoint)
-        const response = await fetch(`/api/admin/structure`, {
+        // ===== OPTION 1: Kung may specific endpoint para sa categories by lesson =====
+        // Ito ang ideal na solusyon kung meron nang ganitong endpoint sa backend
+        const response = await fetch(`/api/quiz/categories?lesson_id=${lessonId}`, {
             headers: { 'Authorization': `Bearer ${token}` }
         });
+        
+        // ===== OPTION 2: Kung walang specific endpoint, gamitin ang categories endpoint at i-filter =====
+        // const response = await fetch(`/api/quiz/categories`, {
+        //     headers: { 'Authorization': `Bearer ${token}` }
+        // });
         
         if (!response.ok) {
             throw new Error(`HTTP error! status: ${response.status}`);
         }
         
         const result = await response.json();
-        console.log('📥 Structure response:', result);
+        console.log(`📥 Categories response for lesson ${lessonId}:`, result);
+        
+        if (result.success && result.categories) {
+            const categories = result.categories;
+            
+            // ===== I-FILTER ANG CATEGORIES AYON SA LESSON ID =====
+            // Kung ang API ay nag-return ng lahat ng categories, i-filter dito
+            // const filteredCategories = categories.filter(cat => cat.lesson_id == lessonId);
+            
+            // Kung ang API ay nag-return na ng specific sa lesson, gamitin lang
+            const filteredCategories = categories; 
+            
+            console.log(`✅ Found ${filteredCategories.length} categories for lesson ${lessonId}`);
+            
+            if (filteredCategories.length === 0) {
+                categorySelect.innerHTML = '<option value="">-- No categories available for this lesson --</option>';
+                categorySelect.disabled = true;
+                
+                // Optional: Magpakita ng option para gumawa ng category
+                showNotification('info', 'No Categories', `No categories found for this lesson. Please create categories first.`);
+            } else {
+                // Populate dropdown
+                categorySelect.innerHTML = '<option value="">-- Select Category --</option>';
+                
+                filteredCategories.forEach(category => {
+                    const option = document.createElement('option');
+                    option.value = category.category_id || category.id;
+                    
+                    // Get the best available name
+                    const categoryName = category.category_name || category.name || 'Unnamed Category';
+                    option.textContent = categoryName;
+                    
+                    // Store lesson_id as data attribute for reference
+                    option.setAttribute('data-lesson-id', lessonId);
+                    
+                    categorySelect.appendChild(option);
+                });
+                
+                categorySelect.disabled = false;
+                console.log(`✅ Populated dropdown with ${filteredCategories.length} categories for lesson ${lessonId}`);
+            }
+        } else {
+            throw new Error(result.message || 'Failed to load categories');
+        }
+        
+    } catch (error) {
+        console.error(`❌ Error loading categories for lesson ${lessonId}:`, error);
+        
+        // Fallback sa structure endpoint
+        await loadCategoriesFromStructure(lessonId);
+    }
+}
+// ===== FALLBACK: Kung walang categories endpoint, gamitin ang structure =====
+async function loadCategoriesFromStructure(lessonId) {
+    console.log(`📚 Loading categories from structure for lesson ${lessonId}...`);
+    
+    const categorySelect = document.getElementById('quizCategory');
+    if (!categorySelect) return;
+    
+    try {
+        const token = localStorage.getItem('admin_token') || localStorage.getItem('authToken');
+        
+        const response = await fetch(`/api/admin/structure`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        
+        if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+        
+        const result = await response.json();
         
         if (result.success && result.structure) {
-            // Get all topics and modules
             const allTopics = result.structure.topics || [];
             const allModules = result.structure.modules || [];
-            
-            console.log(`📊 Total topics: ${allTopics.length}, modules: ${allModules.length}`);
             
             // Get modules for this lesson
             const modulesForLesson = allModules.filter(m => 
                 parseInt(m.lesson_id) === parseInt(lessonId)
             );
-            
-            console.log(`📦 Found ${modulesForLesson.length} modules for lesson ${lessonId}`);
             
             if (modulesForLesson.length === 0) {
                 categorySelect.innerHTML = '<option value="">-- No modules for this lesson --</option>';
@@ -918,8 +988,6 @@ async function loadCategoriesByLesson(lessonId) {
                 moduleIds.includes(parseInt(topic.module_id))
             );
             
-            console.log(`📚 Found ${topicsForLesson.length} topics for lesson ${lessonId}`);
-            
             if (topicsForLesson.length === 0) {
                 categorySelect.innerHTML = '<option value="">-- No categories available --</option>';
                 categorySelect.disabled = true;
@@ -929,32 +997,19 @@ async function loadCategoriesByLesson(lessonId) {
                 topicsForLesson.forEach(topic => {
                     const option = document.createElement('option');
                     option.value = topic.id;
-                    option.textContent = topic.name;
-                    
-                    // Add module name as additional info
-                    const module = modulesForLesson.find(m => m.id == topic.module_id);
-                    if (module) {
-                        option.textContent += ` (${module.name})`;
-                    }
-                    
+                    option.textContent = topic.topic_title || topic.name || 'Unnamed Topic';
                     categorySelect.appendChild(option);
                 });
                 
                 categorySelect.disabled = false;
-                console.log(`✅ Populated category dropdown with ${topicsForLesson.length} options`);
             }
-        } else {
-            throw new Error('Invalid structure data');
         }
         
     } catch (error) {
-        console.error('❌ Error loading categories:', error);
-        
-        // Fallback to hardcoded categories
-        useFallbackCategoriesForLesson(lessonId);
+        console.error('❌ Error loading from structure:', error);
+        useHardcodedFallback(lessonId);
     }
 }
-
 // ===== FALLBACK CATEGORIES (kung walang data sa structure) =====
 function useFallbackCategoriesForLesson(lessonId) {
     console.log(`⚠️ Using fallback categories for lesson ${lessonId}`);
@@ -22847,21 +22902,35 @@ function ensureQuizDropdowns() {
 }
 
 
-
 // ===== HANDLE LESSON CHANGE =====
 async function handleLessonChange(lessonId) {
     console.log("📚 Lesson selected:", lessonId);
     
+    // Reset category dropdown
     const categorySelect = document.getElementById('quizCategory');
+    const topicSelect = document.getElementById('quizTopic');
+    
     if (!categorySelect) return;
     
     if (!lessonId) {
         categorySelect.innerHTML = '<option value="">-- Select Lesson First --</option>';
         categorySelect.disabled = true;
+        
+        if (topicSelect) {
+            topicSelect.innerHTML = '<option value="">-- Select Lesson First --</option>';
+            topicSelect.disabled = true;
+        }
         return;
     }
     
+    // Load categories for this lesson
     await loadCategoriesByLesson(lessonId);
+    
+    // Also reset topic dropdown
+    if (topicSelect) {
+        topicSelect.innerHTML = '<option value="">-- Select Category First --</option>';
+        topicSelect.disabled = true;
+    }
 }
 
 // ===== FIXED: saveQuizToMySQL() WITH PROPER LESSON_ID AND CATEGORY_ID =====
