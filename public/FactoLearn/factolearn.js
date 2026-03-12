@@ -23975,46 +23975,7 @@ async function createDefaultPracticeProgress(topicId) {
     }
 }
 
-// Load practice exercises for a topic - FIXED VERSION
-// ===== FIXED: Load practice exercises for admin =====
-async function loadPracticeExercises() {
-    console.log("📥 Loading practice exercises from MySQL...");
-    
-    try {
-        const token = localStorage.getItem('admin_token') || localStorage.getItem('authToken');
-        
-        if (!token) {
-            console.error("❌ No token found");
-            return;
-        }
-        
-        // FIXED: Use correct admin endpoint
-        const response = await fetch('/api/admin/practice/exercises', {
-            headers: {
-                'Authorization': `Bearer ${token}`
-            }
-        });
-        
-        if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
-        }
-        
-        const result = await response.json();
-        
-        if (result.success && result.exercises) {
-            adminPracticeData.exercises = result.exercises;
-            displayPracticeExercises();
-            console.log(`✅ Loaded ${result.exercises.length} practice exercises`);
-        } else {
-            // If no exercises, load demo data for testing
-            loadDemoPracticeExercises();
-        }
-        
-    } catch (error) {
-        console.error('❌ Error loading exercises:', error);
-        loadDemoPracticeExercises();
-    }
-}
+
 // ============================================
 // ✅ UPDATED: Initialize Practice Page
 // ============================================
@@ -24470,36 +24431,37 @@ async function selectTopicForPractice(topicId) {
 }
 
 
-// ============================================
-// ✅ UPDATED: Load Practice Exercises For Topic
-// ============================================
-async function loadPracticeExercisesForTopic(topicId) {
+// FIXED VERSION - Gamit ang working endpoint
+async function loadPracticeExercises(lessonId) {
     try {
-        console.log(`📝 Loading practice exercises for topic ${topicId}`);
+        console.log(`📚 Loading practice for lesson ${lessonId}...`);
         
-        // FORCE use topic_id=5 kung ang topicId ay 1
-        const actualTopicId = (topicId == 1) ? 5 : topicId;
+        // Use the working endpoint from admin
+        const response = await fetch(`/api/admin/practice?lesson_id=${lessonId}`, {
+            headers: { 'Authorization': `Bearer ${localStorage.getItem('authToken')}` }
+        });
         
-        const exerciseArea = document.getElementById('exerciseArea');
-        if (!exerciseArea) return;
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
         
-        exerciseArea.innerHTML = `<div class="loading-container">Loading...</div>`;
+        const result = await response.json();
         
-        // Fetch exercises from database
-        const exercises = await fetchPracticeExercisesFromDB(actualTopicId);
-        
-        if (exercises && exercises.length > 0) {
-            console.log(`✅ Found ${exercises.length} exercises`);
-            displayPracticeExercises(exercises);
+        if (result.success && result.exercises) {
+            // Filter exercises for this lesson
+            const exercises = result.exercises.filter(ex => ex.lesson_id == lessonId);
+            console.log(`✅ Found ${exercises.length} exercises for lesson ${lessonId}`);
             
-            // ===== ATTACH HANDLERS AFTER DISPLAYING =====
-            setTimeout(attachStartButtonHandlers, 200);
+            // Display exercises
+            displayPracticeExercises(exercises);
         } else {
-            exerciseArea.innerHTML = `<div class="no-exercises">No exercises found</div>`;
+            console.log('No exercises found');
+            displayNoExercises();
         }
         
     } catch (error) {
-        console.error('❌ Error:', error);
+        console.error('❌ Error loading practice:', error);
+        displayErrorMessage('Failed to load practice exercises');
     }
 }
 // ============================================
