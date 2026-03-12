@@ -19290,10 +19290,10 @@ function setupPracticeButtons() {
 }
 
 // ============================================
-// ✅ FIXED: Setup Complete Lesson Button - NO DOUBLE EXECUTION
+// ✅ FIXED: Setup Complete Lesson Button - NO REFRESH
 // ============================================
 function setupCompleteLessonButton() {
-    console.log('🔘 Setting up complete lesson button...');
+    console.log('🔘 Setting up complete lesson button (NO REFRESH)...');
     
     const completeBtn = document.getElementById('completeLessonBtn');
     if (!completeBtn) {
@@ -19423,7 +19423,10 @@ function setupCompleteLessonButton() {
                     time_spent_minutes: Math.floor(timeSpentSeconds / 60)
                 });
                 
-                // Update dashboard
+                // Show celebration animation
+                showCelebrationAnimation();
+                
+                // Update dashboard - pero hindi magre-refresh
                 setTimeout(() => {
                     if (typeof updateProgressSummaryCards === 'function') {
                         updateProgressSummaryCards();
@@ -19452,10 +19455,72 @@ function setupCompleteLessonButton() {
         }
     });
     
-    console.log('✅ Complete lesson button setup complete');
+    console.log('✅ Complete lesson button setup complete - NO REFRESH');
     
     // Check initial status
     setTimeout(checkLessonCompletionStatus, 500);
+}
+
+// ============================================
+// ✅ FIXED: Check Lesson Completion Status
+// ============================================
+async function checkLessonCompletionStatus() {
+    console.log('🔍 Checking lesson completion status...');
+    
+    try {
+        const currentLesson = LessonState.currentLesson;
+        if (!currentLesson) {
+            console.log('⚠️ No current lesson found');
+            return;
+        }
+        
+        const contentId = currentLesson.content_id;
+        const completeBtn = document.getElementById('completeLessonBtn');
+        
+        if (!completeBtn) {
+            console.log('⚠️ Complete lesson button not found - will retry in 1 second');
+            setTimeout(checkLessonCompletionStatus, 1000);
+            return;
+        }
+        
+        // Get progress from state only
+        let isCompleted = false;
+        let percentage = 0;
+        
+        if (LessonState.userProgress && LessonState.userProgress[contentId]) {
+            const progress = LessonState.userProgress[contentId];
+            isCompleted = progress.status === 'completed' || progress.completion_status === 'completed';
+            percentage = progress.percentage || 0;
+            console.log('✅ Progress found in state:', { isCompleted, percentage });
+        } else {
+            console.log('ℹ️ No progress in state for lesson', contentId);
+        }
+        
+        // Update button based on status
+        if (isCompleted) {
+            completeBtn.innerHTML = '<i class="fas fa-check-double"></i> Lesson Completed!';
+            completeBtn.classList.remove('btn-primary');
+            completeBtn.classList.add('btn-success');
+            completeBtn.disabled = true;
+            console.log('✅ Lesson already completed - button disabled');
+        } else {
+            completeBtn.innerHTML = '<i class="fas fa-check-circle"></i> Mark Lesson Complete';
+            completeBtn.classList.remove('btn-success');
+            completeBtn.classList.add('btn-primary');
+            completeBtn.disabled = false;
+            
+            if (percentage >= 90) {
+                completeBtn.innerHTML = '<i class="fas fa-check-circle"></i> Complete Lesson (90%+)';
+            } else if (percentage > 0) {
+                completeBtn.innerHTML = `<i class="fas fa-check-circle"></i> Mark Complete (${percentage}%)`;
+            }
+            
+            console.log(`📊 Lesson progress: ${percentage}% - button enabled`);
+        }
+        
+    } catch (error) {
+        console.error('❌ Error checking completion status:', error);
+    }
 }
 // ============================================
 // HELPER: Load video and content
