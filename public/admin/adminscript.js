@@ -864,92 +864,55 @@ async function initQuizDashboard() {
     }
 }
 
-// ===== LOAD QUIZ CATEGORIES =====
+// Sa adminscript.js, hanapin ang loadQuizCategories function at palitan ang container detection
 async function loadQuizCategories() {
+    console.log('📚 Loading quiz categories...');
+    
     try {
-        const categories = await fetchQuizCategories();
-        QuizState.quizCategories = categories;
+        const token = localStorage.getItem('admin_token') || localStorage.getItem('authToken');
         
-        const quizzesContainer = document.getElementById('userQuizzesContainer');
-        if (!quizzesContainer) {
-            console.error('Quiz container not found');
-            return;
+        // ✅ I-detect kung nasaan tayo - admin o user
+        const isAdminPage = window.location.pathname.includes('admin.html');
+        
+        // ✅ Piliin ang tamang container
+        let container;
+        if (isAdminPage) {
+            // Sa admin, ilagay sa isang div sa loob ng quiz dashboard section
+            container = document.getElementById('adminCategoriesContainer') || 
+                        document.querySelector('.quiz-table-container') ||
+                        document.querySelector('#quizDashboardSection .modal-body');
+        } else {
+            // Sa user, gamitin ang userQuizzesContainer
+            container = document.getElementById('userQuizzesContainer');
         }
         
-        if (categories.length === 0) {
-            quizzesContainer.innerHTML = `
-                <div class="no-categories">
-                    <i class="fas fa-clipboard-list"></i>
-                    <h3>No quiz categories available</h3>
-                    <p>Check back later for new quizzes!</p>
-                </div>
-            `;
-            return;
+        if (!container) {
+            console.log('ℹ️ No container for categories - skipping display');
+            // Return pa rin ang data para sa ibang gamit
         }
         
-        // Display categories as cards
-        let html = '';
-        categories.forEach(category => {
-            html += `
-                <div class="quiz-category-card" data-category-id="${category.category_id}">
-                    <div class="quiz-category-icon" style="background: ${category.color || '#3498db'}">
-                        <i class="${category.icon || 'fas fa-question-circle'}"></i>
-                    </div>
-                    <div class="quiz-category-info">
-                        <h3 class="quiz-category-title">${category.category_name}</h3>
-                        <p class="quiz-category-desc">${category.description || 'Test your knowledge in this category'}</p>
-                        <div class="quiz-category-stats">
-                            <span class="quiz-category-stat">
-                                <i class="fas fa-question-circle"></i> ${category.quiz_count || 0} Quizzes
-                            </span>
-                        </div>
-                    </div>
-                    <button class="quiz-category-btn" data-category-id="${category.category_id}">
-                        <i class="fas fa-arrow-right"></i>
-                    </button>
-                </div>
-            `;
+        const response = await fetch('/api/quiz/categories', {
+            headers: { 'Authorization': `Bearer ${token}` }
         });
         
-        quizzesContainer.innerHTML = html;
+        const data = await response.json();
         
-        // Add event listeners to category buttons
-        document.querySelectorAll('.quiz-category-btn').forEach(button => {
-            button.addEventListener('click', async function(e) {
-                e.stopPropagation();
-                const categoryId = this.getAttribute('data-category-id');
-                await loadQuizzesForCategory(categoryId);
-            });
-        });
-        
-        // Add event listeners to category cards
-        document.querySelectorAll('.quiz-category-card').forEach(card => {
-            card.addEventListener('click', function() {
-                const categoryId = this.getAttribute('data-category-id');
-                document.querySelectorAll('.quiz-category-card').forEach(c => {
-                    c.classList.remove('selected');
-                });
-                this.classList.add('selected');
-                QuizState.selectedCategory = categoryId;
-            });
-        });
+        if (data.success && data.categories) {
+            console.log(`✅ Found ${data.categories.length} categories`);
+            
+            // Store sa global variable para magamit sa ibang functions
+            window.quizCategories = data.categories;
+            
+            // I-populate ang category dropdown sa create quiz modal
+            populateCategoryDropdown(data.categories);
+            
+            return data.categories;
+        }
         
     } catch (error) {
-        console.error('Error loading quiz categories:', error);
-        const quizzesContainer = document.getElementById('userQuizzesContainer');
-        if (quizzesContainer) {
-            quizzesContainer.innerHTML = `
-                <div class="error-message">
-                    <i class="fas fa-exclamation-triangle"></i>
-                    <h3>Failed to load quiz categories</h3>
-                    <p>Please try again later</p>
-                </div>
-            `;
-        }
+        console.error('❌ Error loading categories:', error);
     }
 }
-
-
 // ===== DISPLAY EXERCISE DETAILS MODAL =====
 function displayExerciseDetails(exercise) {
     console.log("📋 Displaying exercise details:", exercise);
