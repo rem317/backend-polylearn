@@ -16719,7 +16719,7 @@ async function fetchAllLessons() {
         }
         
         // FORCE LESSON_ID = 2 ONLY
-        const currentLessonId = POLYLEARL_LESSON_ID; // Always 2
+        const currentLessonId = POLYLEARN_LESSON_ID; // ✅ FIXED: Changed from POLYLEARL_LESSON_ID
         
         console.log(`📚 Fetching lessons for PolyLearn ONLY, lesson ID: ${currentLessonId}`);
         
