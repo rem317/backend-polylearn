@@ -35678,6 +35678,162 @@ window.addEventListener('load', function() {
     });
 });
 
+// ============================================
+// 🚨 FINAL FIX: Override all complete lesson button handlers
+// ============================================
+(function fixCompleteLessonButtonFinal() {
+    console.log('🔧 Applying FINAL fix to complete lesson button...');
+    
+    // Completely disable the forceInitCompleteButton function
+    window.forceInitCompleteButton = function() {
+        console.log('🚫 forceInitCompleteButton disabled');
+        return;
+    };
+    
+    // Function to properly setup the button
+    function setupCorrectCompleteButton() {
+        const completeBtn = document.getElementById('completeLessonBtn');
+        if (!completeBtn) return false;
+        
+        console.log('✅ Found complete button, applying correct handler');
+        
+        // Remove ALL possible event handlers and onclick
+        completeBtn.removeAttribute('onclick');
+        
+        // Clone to remove all event listeners
+        const newBtn = completeBtn.cloneNode(true);
+        if (completeBtn.parentNode) {
+            completeBtn.parentNode.replaceChild(newBtn, completeBtn);
+        }
+        
+        // Reset button state
+        newBtn.disabled = false;
+        newBtn.innerHTML = '<i class="fas fa-check-circle"></i> Mark Lesson Complete';
+        newBtn.className = 'btn-primary';
+        
+        // Attach the correct markLessonComplete function
+        newBtn.addEventListener('click', async function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            
+            console.log('✅ CORRECT handler: Marking lesson complete');
+            
+            // Check if already processing
+            if (newBtn.disabled) return;
+            
+            const contentId = getCurrentLessonId();
+            if (!contentId) {
+                showNotification('Cannot identify lesson', 'error');
+                return;
+            }
+            
+            // Disable button
+            newBtn.disabled = true;
+            const originalText = newBtn.innerHTML;
+            newBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Saving...';
+            
+            try {
+                const token = localStorage.getItem('authToken') || authToken;
+                
+                // Check if already completed
+                const checkResponse = await fetch(`${API_BASE_URL}/api/lessons-db/${contentId}`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                
+                const checkData = await checkResponse.json();
+                
+                if (checkData.success && checkData.lesson?.progress?.status === 'completed') {
+                    newBtn.innerHTML = '<i class="fas fa-check-double"></i> Already Completed';
+                    newBtn.className = 'btn-success';
+                    showNotification('Lesson already completed!', 'info');
+                    return;
+                }
+                
+                // Update progress
+                const progressResponse = await fetch(`${API_BASE_URL}/api/lessons-db/${contentId}/progress`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        completion_status: 'completed',
+                        percentage: 100
+                    })
+                });
+                
+                if (!progressResponse.ok) throw new Error('Failed to update');
+                
+                const progressData = await progressResponse.json();
+                
+                if (progressData.success) {
+                    // Update button
+                    newBtn.innerHTML = '<i class="fas fa-check-double"></i> Lesson Completed!';
+                    newBtn.className = 'btn-success';
+                    
+                    showNotification('🎉 Lesson completed successfully!', 'success');
+                    
+                    // Update local state
+                    if (!LessonState.userProgress) LessonState.userProgress = {};
+                    LessonState.userProgress[contentId] = { 
+                        status: 'completed', 
+                        percentage: 100 
+                    };
+                    
+                    // Update daily progress (non-blocking)
+                    fetch(`${API_BASE_URL}/api/progress/update-daily`, {
+                        method: 'POST',
+                        headers: {
+                            'Authorization': `Bearer ${token}`,
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({ lessons_completed: 1 })
+                    }).catch(e => console.log('Daily update failed:', e));
+                    
+                    // Update dashboard if visible
+                    if (AppState.currentPage === 'dashboard') {
+                        setTimeout(updateContinueLearningModule, 500);
+                    }
+                    
+                    // NO PAGE RELOAD - just success
+                    console.log('✅ Lesson completion saved - NO RELOAD');
+                    
+                    // Show celebration animation
+                    showCelebrationAnimation();
+                }
+                
+            } catch (error) {
+                console.error('❌ Error:', error);
+                showNotification('Failed to mark lesson as complete', 'error');
+                newBtn.innerHTML = originalText;
+                newBtn.disabled = false;
+            }
+        });
+        
+        return true;
+    }
+    
+    // Run immediately
+    if (document.getElementById('completeLessonBtn')) {
+        setupCorrectCompleteButton();
+    }
+    
+    // Run after delays to catch dynamic loading
+    setTimeout(setupCorrectCompleteButton, 100);
+    setTimeout(setupCorrectCompleteButton, 500);
+    setTimeout(setupCorrectCompleteButton, 1000);
+    
+    // Also override the markLessonComplete function to ensure it uses the correct one
+    window.markLessonComplete = async function() {
+        const btn = document.getElementById('completeLessonBtn');
+        if (btn) {
+            btn.click();
+        }
+    };
+    
+    console.log('✅ FINAL fix applied - page will NOT refresh when clicking complete button');
+})();
+
 
 // ============================================
 // 🚨 EMERGENCY FIX: Remove all onclick attributes from complete button
@@ -35754,3 +35910,6 @@ window.addEventListener('load', function() {
 })();
 
 console.log('✨ MathHub Application Script Loaded with Complete Database-Driven Progress Tracking System');
+
+
+
