@@ -26887,8 +26887,91 @@ async function fixPracticeLessonIds() {
 // I-run ang fix
 fixPracticeLessonIds();
 
-// Run the fix
-fixPracticeLessonIds();
+// I-update ang LAHAT ng exercises gamit ang complete object method
+async function bulkFixPracticeLessonIds() {
+    const token = localStorage.getItem('admin_token');
+    
+    console.log('🔧 Bulk fixing all practice exercises...');
+    
+    try {
+        // Kunin ang lahat ng exercises
+        const response = await fetch('/api/admin/practice', {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        
+        const data = await response.json();
+        const exercises = data.exercises || [];
+        
+        console.log(`📊 Found ${exercises.length} exercises`);
+        
+        let updated = 0;
+        let skipped = 0;
+        
+        for (const exercise of exercises) {
+            // Determine correct lesson_id based on topic_id
+            let correctLessonId = exercise.lesson_id; // Keep current as default
+            
+            if (exercise.topic_id <= 4) {
+                correctLessonId = 1; // MathEase
+            } else if (exercise.topic_id <= 8) {
+                correctLessonId = 2; // PolyLearn
+            } else if (exercise.topic_id <= 12) {
+                correctLessonId = 3; // FactoLearn
+            } else {
+                console.log(`⚠️ Exercise ${exercise.id} (topic ${exercise.topic_id}) - needs manual assignment`);
+                skipped++;
+                continue;
+            }
+            
+            // Check if update is needed
+            if (exercise.lesson_id === correctLessonId) {
+                console.log(`ℹ️ Exercise ${exercise.id} already has correct lesson_id: ${correctLessonId}`);
+                skipped++;
+                continue;
+            }
+            
+            console.log(`📤 Updating exercise ${exercise.id} from lesson_id ${exercise.lesson_id} → ${correctLessonId}`);
+            
+            // Send COMPLETE exercise data with updated lesson_id
+            const updateData = {
+                ...exercise,  // Include ALL existing fields
+                lesson_id: correctLessonId
+            };
+            
+            const updateResponse = await fetch(`/api/admin/practice/${exercise.id}`, {
+                method: 'PUT',
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(updateData)
+            });
+            
+            const result = await updateResponse.json();
+            
+            if (result.success) {
+                console.log(`✅ Updated exercise ${exercise.id} to lesson_id: ${correctLessonId}`);
+                updated++;
+            } else {
+                console.log(`❌ Failed to update exercise ${exercise.id}:`, result.message);
+                skipped++;
+            }
+            
+            await new Promise(resolve => setTimeout(resolve, 200));
+        }
+        
+        console.log('\n📊 UPDATE SUMMARY:');
+        console.log(`   ✅ Updated: ${updated} exercises`);
+        console.log(`   ⚠️ Skipped: ${skipped} exercises`);
+        console.log(`   📊 Total: ${exercises.length} exercises`);
+        
+    } catch (error) {
+        console.error('❌ Error:', error);
+    }
+}
+
+// Run the bulk fix
+bulkFixPracticeLessonIds();
 // FIXED checkPracticeLessonId() - WITH FALLBACK
 async function checkPracticeLessonId() {
     const token = localStorage.getItem('admin_token');
