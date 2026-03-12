@@ -23598,118 +23598,7 @@ document.addEventListener('DOMContentLoaded', function() {
         observer.observe(quizInterface, { attributes: true });
     }
 });
-// ============================================
-// ✅ GET TEACHER BY USER ID - FIXED ENDPOINT
-// ============================================
-app.get('/api/teachers/:userId', authenticateUser, async (req, res) => {
-    try {
-        const { userId } = req.params;
-        
-        console.log(`👨‍🏫 Fetching teacher with user ID: ${userId}`);
-        
-        // First check if user exists and is a teacher or admin
-        const [users] = await promisePool.execute(`
-            SELECT 
-                user_id as id,
-                username,
-                email,
-                full_name as name,
-                role,
-                created_at as joined_date,
-                last_login as last_active
-            FROM users 
-            WHERE user_id = ? AND (role = 'teacher' OR role = 'admin')
-        `, [userId]);
-        
-        if (users.length === 0) {
-            return res.status(404).json({
-                success: false,
-                message: 'Teacher not found'
-            });
-        }
-        
-        const user = users[0];
-        
-        // Check if teacher record exists in teachers table
-        const [teachers] = await promisePool.execute(`
-            SELECT 
-                teacher_id,
-                department,
-                qualification,
-                years_experience,
-                bio,
-                rating,
-                total_students,
-                total_lessons,
-                specialization,
-                available_hours,
-                created_at as teacher_since
-            FROM teachers 
-            WHERE user_id = ?
-        `, [userId]);
-        
-        // Get teacher's stats
-        const [stats] = await promisePool.execute(`
-            SELECT 
-                (SELECT COUNT(*) FROM topic_content_items WHERE created_by = ? OR teacher_id = ?) as total_lessons_created,
-                (SELECT COUNT(DISTINCT user_id) FROM user_content_progress ucp 
-                 JOIN topic_content_items tci ON ucp.content_id = tci.content_id 
-                 WHERE (tci.created_by = ? OR tci.teacher_id = ?)) as total_students_taught,
-                (SELECT COUNT(*) FROM quizzes WHERE created_by = ?) as total_quizzes,
-                (SELECT COUNT(*) FROM practice_exercises WHERE created_by = ?) as total_practice,
-                (SELECT COALESCE(AVG(ucp.score), 0) FROM user_content_progress ucp
-                 JOIN topic_content_items tci ON ucp.content_id = tci.content_id
-                 WHERE (tci.created_by = ? OR tci.teacher_id = ?) 
-                 AND ucp.completion_status = 'completed') as avg_student_score,
-                (SELECT COUNT(*) FROM feedback WHERE teacher_id = (SELECT teacher_id FROM teachers WHERE user_id = ?)) as total_feedback,
-                (SELECT COALESCE(AVG(rating), 0) FROM feedback 
-                 WHERE teacher_id = (SELECT teacher_id FROM teachers WHERE user_id = ?) 
-                 AND rating IS NOT NULL) as avg_rating
-        `, [userId, userId, userId, userId, userId, userId, userId, userId, userId, userId]);
-        
-        // Combine user and teacher data
-        const teacherData = {
-            id: user.id,
-            name: user.name || user.username,
-            username: user.username,
-            email: user.email,
-            role: user.role,
-            joined_date: user.joined_date,
-            last_active: user.last_active,
-            department: teachers.length > 0 ? teachers[0].department : 'Mathematics',
-            qualification: teachers.length > 0 ? teachers[0].qualification : 'Licensed Professional Teacher',
-            years_experience: teachers.length > 0 ? teachers[0].years_experience : 0,
-            bio: teachers.length > 0 ? teachers[0].bio : '',
-            rating: teachers.length > 0 ? (teachers[0].rating || 4.8) : 4.8,
-            total_students: teachers.length > 0 ? (teachers[0].total_students || 0) : 0,
-            total_lessons: teachers.length > 0 ? (teachers[0].total_lessons || 0) : 0,
-            specialization: teachers.length > 0 ? teachers[0].specialization : null,
-            available_hours: teachers.length > 0 ? teachers[0].available_hours : null,
-            teacher_since: teachers.length > 0 ? teachers[0].teacher_since : null,
-            stats: stats[0] || {
-                total_lessons_created: 0,
-                total_students_taught: 0,
-                total_quizzes: 0,
-                total_practice: 0,
-                avg_student_score: 0,
-                total_feedback: 0,
-                avg_rating: 0
-            }
-        };
-        
-        res.json({
-            success: true,
-            teacher: teacherData
-        });
-        
-    } catch (error) {
-        console.error('❌ Error fetching teacher:', error);
-        res.status(500).json({
-            success: false,
-            message: error.message
-        });
-    }
-});
+
 // ✅ FIXED: Login function - Keep user logged in
 async function login(email, password) {
     console.log('🔐 Attempting login for:', email);
@@ -35788,3 +35677,80 @@ window.addEventListener('load', function() {
         currentPath: currentPath
     });
 });
+
+
+// ============================================
+// 🚨 EMERGENCY FIX: Remove all onclick attributes from complete button
+// ============================================
+(function fixCompleteButton() {
+    console.log('🚨 Applying emergency fix to complete button...');
+    
+    // Run multiple times to ensure it works
+    const removeOnclick = function() {
+        const btn = document.getElementById('completeLessonBtn');
+        if (btn) {
+            // Remove onclick attribute
+            btn.removeAttribute('onclick');
+            console.log('✅ Removed onclick attribute from complete button');
+            
+            // Remove all existing listeners by cloning
+            const newBtn = btn.cloneNode(true);
+            btn.parentNode.replaceChild(newBtn, btn);
+            
+            // Add proper event listener
+            newBtn.addEventListener('click', async function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                
+                if (newBtn.disabled) return;
+                
+                newBtn.disabled = true;
+                const originalText = newBtn.innerHTML;
+                newBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Saving...';
+                
+                try {
+                    const contentId = getCurrentLessonId();
+                    if (!contentId) {
+                        alert('Cannot identify lesson');
+                        return;
+                    }
+                    
+                    const token = localStorage.getItem('authToken');
+                    
+                    const response = await fetch(`${API_BASE_URL}/api/lessons-db/${contentId}/progress`, {
+                        method: 'POST',
+                        headers: {
+                            'Authorization': `Bearer ${token}`,
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            completion_status: 'completed',
+                            percentage: 100
+                        })
+                    });
+                    
+                    if (response.ok) {
+                        newBtn.innerHTML = '<i class="fas fa-check-double"></i> Completed!';
+                        newBtn.classList.add('btn-success');
+                        showNotification('Lesson completed!', 'success');
+                    } else {
+                        newBtn.innerHTML = originalText;
+                        newBtn.disabled = false;
+                    }
+                } catch (error) {
+                    console.error(error);
+                    newBtn.innerHTML = originalText;
+                    newBtn.disabled = false;
+                }
+            });
+        }
+    };
+    
+    // Run immediately and after delays
+    removeOnclick();
+    setTimeout(removeOnclick, 500);
+    setTimeout(removeOnclick, 1000);
+    setTimeout(removeOnclick, 2000);
+})();
+
+console.log('✨ MathHub Application Script Loaded with Complete Database-Driven Progress Tracking System');
