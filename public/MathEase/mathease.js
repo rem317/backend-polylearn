@@ -31495,7 +31495,7 @@ window.allLessons = [];
 // Override the setupNavigationButtons function to ensure it works
 const originalSetupNavigationButtons = setupNavigationButtons;
 setupNavigationButtons = function() {
-    console.log('🔧 FIXED: Setting up navigation buttons...');
+    console.log('🔧 Setting up navigation buttons with auto-scroll...');
     
     const currentLesson = LessonState.currentLesson;
     if (!currentLesson) {
@@ -31514,7 +31514,6 @@ setupNavigationButtons = function() {
             } else {
                 console.warn('⚠️ No cached lessons found, fetching...');
                 fetchAllLessonsForNavigation().then(() => {
-                    // Retry after fetching
                     setTimeout(setupNavigationButtons, 500);
                 });
                 return;
@@ -31532,7 +31531,6 @@ setupNavigationButtons = function() {
     // ===== PREVIOUS BUTTON =====
     const prevBtn = document.getElementById('prevLessonBtn');
     if (prevBtn) {
-        // Remove old event listeners
         const newPrevBtn = prevBtn.cloneNode(true);
         prevBtn.parentNode.replaceChild(newPrevBtn, prevBtn);
         
@@ -31540,7 +31538,6 @@ setupNavigationButtons = function() {
             newPrevBtn.disabled = false;
             newPrevBtn.innerHTML = `<i class="fas fa-arrow-left"></i> Previous Lesson`;
             
-            // Add click handler
             newPrevBtn.addEventListener('click', async function(e) {
                 e.preventDefault();
                 e.stopPropagation();
@@ -31559,6 +31556,31 @@ setupNavigationButtons = function() {
                 try {
                     await openLesson(prevLesson.content_id);
                     console.log('✅ Previous lesson loaded');
+                    
+                    // AUTO-SCROLL TO VIDEO AFTER LESSON LOADS
+                    setTimeout(() => {
+                        const videoContainer = document.getElementById('videoContainer');
+                        if (videoContainer) {
+                            videoContainer.scrollIntoView({ 
+                                behavior: 'smooth', 
+                                block: 'start' 
+                            });
+                            console.log('📺 Scrolled to video');
+                        } else {
+                            console.warn('⚠️ Video container not found for scrolling');
+                            
+                            // Try alternative selector
+                            const mediaContainer = document.querySelector('.media-container');
+                            if (mediaContainer) {
+                                mediaContainer.scrollIntoView({ 
+                                    behavior: 'smooth', 
+                                    block: 'start' 
+                                });
+                                console.log('📺 Scrolled to media container');
+                            }
+                        }
+                    }, 800); // Wait for content to load
+                    
                 } catch (error) {
                     console.error('❌ Error:', error);
                     this.disabled = false;
@@ -31566,7 +31588,7 @@ setupNavigationButtons = function() {
                 }
             });
             
-            console.log('✅ Previous button enabled');
+            console.log('✅ Previous button enabled with auto-scroll');
         } else {
             newPrevBtn.disabled = true;
             newPrevBtn.innerHTML = `<i class="fas fa-arrow-left"></i> No Previous Lesson`;
@@ -31576,7 +31598,6 @@ setupNavigationButtons = function() {
     // ===== NEXT BUTTON =====
     const nextBtn = document.getElementById('nextLessonBtn');
     if (nextBtn) {
-        // Remove old event listeners
         const newNextBtn = nextBtn.cloneNode(true);
         nextBtn.parentNode.replaceChild(newNextBtn, nextBtn);
         
@@ -31584,7 +31605,6 @@ setupNavigationButtons = function() {
             newNextBtn.disabled = false;
             newNextBtn.innerHTML = `Next Lesson <i class="fas fa-arrow-right"></i>`;
             
-            // Add click handler
             newNextBtn.addEventListener('click', async function(e) {
                 e.preventDefault();
                 e.stopPropagation();
@@ -31603,6 +31623,31 @@ setupNavigationButtons = function() {
                 try {
                     await openLesson(nextLesson.content_id);
                     console.log('✅ Next lesson loaded');
+                    
+                    // AUTO-SCROLL TO VIDEO AFTER LESSON LOADS
+                    setTimeout(() => {
+                        const videoContainer = document.getElementById('videoContainer');
+                        if (videoContainer) {
+                            videoContainer.scrollIntoView({ 
+                                behavior: 'smooth', 
+                                block: 'start' 
+                            });
+                            console.log('📺 Scrolled to video');
+                        } else {
+                            console.warn('⚠️ Video container not found for scrolling');
+                            
+                            // Try alternative selector
+                            const mediaContainer = document.querySelector('.media-container');
+                            if (mediaContainer) {
+                                mediaContainer.scrollIntoView({ 
+                                    behavior: 'smooth', 
+                                    block: 'start' 
+                                });
+                                console.log('📺 Scrolled to media container');
+                            }
+                        }
+                    }, 800); // Wait for content to load
+                    
                 } catch (error) {
                     console.error('❌ Error:', error);
                     this.disabled = false;
@@ -31610,7 +31655,7 @@ setupNavigationButtons = function() {
                 }
             });
             
-            console.log('✅ Next button enabled');
+            console.log('✅ Next button enabled with auto-scroll');
         } else {
             newNextBtn.disabled = true;
             newNextBtn.innerHTML = `No Next Lesson <i class="fas fa-arrow-right"></i>`;
@@ -31618,10 +31663,11 @@ setupNavigationButtons = function() {
     }
 };
 
+
 // Ensure openLesson returns a Promise
 const originalOpenLesson = openLesson;
 openLesson = async function(lessonId) {
-    console.log(`📖 FIXED: Opening lesson ${lessonId}`);
+    console.log(`📖 Opening lesson ${lessonId} with auto-scroll support`);
     
     try {
         const result = await originalOpenLesson(lessonId);
@@ -31637,7 +31683,65 @@ openLesson = async function(lessonId) {
         throw error;
     }
 };
+// ============================================
+// ENHANCED: Video load observer for auto-scroll
+// ============================================
 
+// Watch for video container changes to scroll when video is ready
+function setupVideoScrollObserver() {
+    console.log('👀 Setting up video scroll observer...');
+    
+    const videoContainer = document.getElementById('videoContainer');
+    if (!videoContainer) return;
+    
+    // Create observer to watch for video content changes
+    const observer = new MutationObserver(function(mutations) {
+        mutations.forEach(function(mutation) {
+            // Check if video content was added
+            if (mutation.addedNodes.length > 0) {
+                console.log('🎬 Video content detected, scrolling...');
+                
+                // Small delay to ensure rendering
+                setTimeout(() => {
+                    videoContainer.scrollIntoView({ 
+                        behavior: 'smooth', 
+                        block: 'start' 
+                    });
+                }, 300);
+                
+                // Disconnect after first scroll
+                observer.disconnect();
+            }
+        });
+    });
+    
+    // Start observing
+    observer.observe(videoContainer, { 
+        childList: true, 
+        subtree: true 
+    });
+    
+    console.log('✅ Video scroll observer active');
+}
+
+// Call this when module page becomes visible
+document.addEventListener('DOMContentLoaded', function() {
+    const modulePage = document.getElementById('module-dashboard-page');
+    if (modulePage) {
+        const observer = new MutationObserver(function(mutations) {
+            mutations.forEach(function(mutation) {
+                if (mutation.type === 'attributes' && mutation.attributeName === 'class') {
+                    if (!modulePage.classList.contains('hidden')) {
+                        console.log('📄 Module page visible, setting up video observer');
+                        setTimeout(setupVideoScrollObserver, 500);
+                    }
+                }
+            });
+        });
+        
+        observer.observe(modulePage, { attributes: true });
+    }
+});
 // Add this to your DOMContentLoaded or initialization
 document.addEventListener('DOMContentLoaded', function() {
     // Load all lessons when app starts
