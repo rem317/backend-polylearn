@@ -22252,7 +22252,10 @@ function updateQuizStats() {
     if (totalEl) totalEl.textContent = totalQuizzes;
 }
 
-// ===== DISPLAY QUIZZES - WITH PROPER FILTERING =====
+// ============================================
+// 📁 adminscript.js - I-update ang displayQuizzes()
+// ============================================
+
 function displayQuizzes() {
     const tableBody = document.getElementById('quizTableBody');
     if (!tableBody) {
@@ -22267,7 +22270,7 @@ function displayQuizzes() {
     let filteredQuizzes = [...quizData];
     
     if (currentQuizFilter !== 'all') {
-        // Convert both to numbers for comparison
+        // Convert to number for comparison
         const filterId = parseInt(currentQuizFilter);
         filteredQuizzes = filteredQuizzes.filter(q => {
             const match = q.subject_id == filterId;
@@ -22317,12 +22320,22 @@ function displayQuizzes() {
         else if (quiz.avg_score >= 60) scoreClass = 'score-medium';
         else scoreClass = 'score-low';
         
+        // ✅ MAG-ADD NG APP BADGE
+        let appBadge = '';
+        if (quiz.lesson_id === 1) {
+            appBadge = '<span style="background: #2196F3; color: white; padding: 2px 8px; border-radius: 12px; font-size: 11px; margin-left: 5px;">MathEase</span>';
+        } else if (quiz.lesson_id === 2) {
+            appBadge = '<span style="background: #7a0000; color: white; padding: 2px 8px; border-radius: 12px; font-size: 11px; margin-left: 5px;">PolyLearn</span>';
+        } else if (quiz.lesson_id === 3) {
+            appBadge = '<span style="background: #4CAF50; color: white; padding: 2px 8px; border-radius: 12px; font-size: 11px; margin-left: 5px;">FactoLearn</span>';
+        }
+        
         html += `
             <tr>
                 <td>#${quiz.id}</td>
                 <td>
                     <div class="quiz-title-info">
-                        <strong>${quiz.title || 'Untitled Quiz'}</strong>
+                        <strong>${quiz.title || 'Untitled Quiz'}</strong> ${appBadge}
                         <small class="text-muted">${quiz.description ? quiz.description.substring(0, 40) + '...' : ''}</small>
                         <span class="difficulty-badge ${difficultyClass}">${quiz.difficulty || 'medium'}</span>
                     </div>
@@ -22777,17 +22790,20 @@ function addOption(questionId) {
     
     optionsContainer.insertAdjacentHTML('beforeend', optionHtml);
 }
-// ===== FIXED: SAVE QUIZ TO MYSQL WITH CORRECT LESSON ID =====
+// ============================================
+// 📁 adminscript.js - I-update ang saveQuizToMySQL()
+// ============================================
+
 async function saveQuizToMySQL() {
     console.log("💾 ===== SAVING QUIZ TO MYSQL DATABASE =====");
     
     // Get form values
     const title = document.getElementById('quizTitle')?.value.trim();
     const description = document.getElementById('quizDescription')?.value.trim();
-    const subjectId = document.getElementById('quizSubject')?.value; // This is the lesson_id
+    const subjectId = document.getElementById('quizSubject')?.value; // Ito ay lesson_id
     const topicId = document.getElementById('quizTopic')?.value;
     
-    // ===== FIX: USE SUBJECT ID AS LESSON ID =====
+    // ===== FIX: I-CONVERT ANG SUBJECT SA LESSON_ID =====
     let lesson_id;
     if (subjectId == 1) { // MathEase
         lesson_id = 1;
@@ -22796,7 +22812,7 @@ async function saveQuizToMySQL() {
     } else if (subjectId == 3) { // FactoLearn
         lesson_id = 3;
     } else {
-        lesson_id = 1; // Default to MathEase
+        lesson_id = 2; // Default to PolyLearn
     }
     
     const timeLimit = document.getElementById('quizTimeLimit')?.value;
@@ -22809,17 +22825,11 @@ async function saveQuizToMySQL() {
     // Get assigned teacher
     const assignedTeacherId = document.getElementById('quizAssignedTeacherId')?.value;
     
-    // Get subject name for logging
-    let subjectName = '';
-    if (lesson_id == 1) subjectName = 'MathEase';
-    else if (lesson_id == 2) subjectName = 'PolyLearn';
-    else if (lesson_id == 3) subjectName = 'FactoLearn';
-    
     console.log('📋 Quiz data:', { 
         title, 
         description,
-        lesson_id,  // This will be 1, 2, or 3
-        subjectName,
+        lesson_id,        // ← ITO ANG PINAKAIMPORTANTE
+        subjectId,
         topicId,
         timeLimit, 
         passingScore, 
@@ -22827,7 +22837,7 @@ async function saveQuizToMySQL() {
         difficulty, 
         status, 
         editId: editId || 'new',
-        assignedTeacherId: assignedTeacherId || 'none (self)'
+        assignedTeacherId: assignedTeacherId || 'none'
     });
     
     // ===== VALIDATION =====
@@ -22899,7 +22909,8 @@ async function saveQuizToMySQL() {
     
     // ===== PREPARE DATA FOR SERVER =====
     const quizData = {
-        lesson_id: lesson_id,  // Use lesson_id, not category_id
+        lesson_id: lesson_id,        // ← I-SEND ANG lesson_id SA SERVER
+        category_id: subjectId,      // subjectId ang ginagamit bilang category_id
         topic_id: topicId ? parseInt(topicId) : null,
         title: title,
         description: description || '',
@@ -22921,7 +22932,7 @@ async function saveQuizToMySQL() {
         quizData.quiz_id = parseInt(editId);
     }
     
-    console.log("📤 Sending quiz data:", quizData);
+    console.log("📤 Sending quiz data with lesson_id:", lesson_id, quizData);
     
     try {
         const token = localStorage.getItem('admin_token') || localStorage.getItem('authToken');
@@ -22962,7 +22973,11 @@ async function saveQuizToMySQL() {
             let message = editId 
                 ? 'Quiz updated successfully!' 
                 : 'Quiz created successfully!';
-            message += ` (${subjectName})`;
+            
+            // Ipakita kung saang app na-save
+            const appName = lesson_id === 1 ? 'MathEase' : 
+                           lesson_id === 2 ? 'PolyLearn' : 'FactoLearn';
+            message += ` (Saved to ${appName})`;
             
             if (assignedTeacherId) {
                 message += ' (Assigned to teacher)';
@@ -22986,7 +23001,6 @@ async function saveQuizToMySQL() {
         }
     }
 }
-
 // ===== CLOSE CREATE QUIZ MODAL =====
 function closeCreateQuizModal() {
     const modal = document.getElementById('createQuizModal');
@@ -25731,7 +25745,10 @@ function searchPracticeExercises() {
     filterPracticeExercises(); // Reuse filter function
 }
 
-// ===== DISPLAY FILTERED PRACTICE EXERCISES =====
+// ============================================
+// 📁 adminscript.js - I-update ang displayFilteredPracticeExercises()
+// ============================================
+
 function displayFilteredPracticeExercises(exercises) {
     console.log(`📋 Displaying ${exercises.length} filtered exercises`);
     
@@ -25779,11 +25796,22 @@ function displayFilteredPracticeExercises(exercises) {
         // Get subject display
         const subjectDisplay = exercise.subject || exercise.topic_name || 'General';
         
+        // ✅ MAG-ADD NG APP BADGE
+        let appBadge = '';
+        if (exercise.lesson_id === 1) {
+            appBadge = '<span style="background: #2196F3; color: white; padding: 2px 8px; border-radius: 12px; font-size: 11px; margin-left: 5px;">MathEase</span>';
+        } else if (exercise.lesson_id === 2) {
+            appBadge = '<span style="background: #7a0000; color: white; padding: 2px 8px; border-radius: 12px; font-size: 11px; margin-left: 5px;">PolyLearn</span>';
+        } else if (exercise.lesson_id === 3) {
+            appBadge = '<span style="background: #4CAF50; color: white; padding: 2px 8px; border-radius: 12px; font-size: 11px; margin-left: 5px;">FactoLearn</span>';
+        }
+        
         return `
             <tr>
                 <td>#${exercise.id}</td>
                 <td>
                     <strong>${exercise.title || 'Untitled'}</strong>
+                    ${appBadge}
                     <br>
                     <small class="text-muted">${subjectDisplay}</small>
                     ${exercise.description ? `<br><small class="text-muted">${exercise.description.substring(0, 50)}${exercise.description.length > 50 ? '...' : ''}</small>` : ''}
@@ -25886,7 +25914,10 @@ function changePracticePage(direction) {
     displayFilteredPracticeExercises(exercises);
 }
 
-// ===== UPDATED loadAdminPracticeExercises with correct topic_id mapping =====
+// ============================================
+// 📁 adminscript.js - I-update ang loadAdminPracticeExercises()
+// ============================================
+
 async function loadAdminPracticeExercises() {
     console.log("📥 Loading practice exercises from database...");
     
@@ -25917,29 +25948,19 @@ async function loadAdminPracticeExercises() {
             
             // Process exercises to ensure consistent data for filtering
             const processedExercises = exercises.map(ex => {
-                // ===== CORRECT SUBJECT MAPPING BASED ON topic_id =====
+                // ===== CORRECT SUBJECT MAPPING BASED ON lesson_id =====
                 let subject = 'General';
                 let subjectId = 0;
                 
-                // CORRECT MAPPING:
-                // MathEase = topic_id = 1
-                // PolyLearn = topic_id = 2  
-                // FactoLearn = topic_id = 3
-                
-                if (ex.topic_id === 2) {
+                if (ex.lesson_id === 2) {
                     subject = 'PolyLearn';
                     subjectId = 2;
-                    console.log(`✅ Exercise ${ex.id}: topic_id=2 -> PolyLearn`);
-                } else if (ex.topic_id === 1) {
+                } else if (ex.lesson_id === 1) {
                     subject = 'MathEase';
                     subjectId = 1;
-                    console.log(`✅ Exercise ${ex.id}: topic_id=1 -> MathEase`);
-                } else if (ex.topic_id === 3) {
+                } else if (ex.lesson_id === 3) {
                     subject = 'FactoLearn';
                     subjectId = 3;
-                    console.log(`✅ Exercise ${ex.id}: topic_id=3 -> FactoLearn`);
-                } else {
-                    console.log(`⚠️ Exercise ${ex.id}: topic_id=${ex.topic_id} -> Unknown`);
                 }
                 
                 // ===== DETERMINE STATUS =====
@@ -25960,7 +25981,8 @@ async function loadAdminPracticeExercises() {
                     filter_status: status,
                     display_subject: subject,
                     display_status: status === 'published' ? 'Published' : 
-                                   status === 'draft' ? 'Draft' : 'Inactive'
+                                   status === 'draft' ? 'Draft' : 'Inactive',
+                    lesson_id: ex.lesson_id  // ← SIGURADUHING may lesson_id
                 };
             });
             
@@ -25969,7 +25991,7 @@ async function loadAdminPracticeExercises() {
                 title: ex.title,
                 subject: ex.filter_subject,
                 status: ex.filter_status,
-                topic_id: ex.topic_id
+                lesson_id: ex.lesson_id
             })));
             
             // Store globally
@@ -26554,12 +26576,15 @@ function deletePracticeExercise(exerciseId) {
     }, 500);
 }
 
-// ===== FIXED: SAVE PRACTICE EXERCISE WITH CORRECT LESSON ID =====
+// ============================================
+// 📁 adminscript.js - I-update ang savePracticeExercise()
+// ============================================
+
 async function savePracticeExercise() {
     console.log("💾 ===== SAVING PRACTICE EXERCISE TO DATABASE =====");
     
     // Get form values
-    const subjectId = document.getElementById('practiceSubject')?.value; // This is the lesson_id
+    const subjectId = document.getElementById('practiceSubject')?.value; // Ito ay lesson_id
     const topicId = document.getElementById('practiceTopic')?.value;
     const title = document.getElementById('practiceTitle')?.value.trim();
     const description = document.getElementById('practiceDescription')?.value.trim();
@@ -26572,7 +26597,7 @@ async function savePracticeExercise() {
     // Get assigned teacher
     const assignedTeacherId = document.getElementById('practiceAssignedTeacherId')?.value;
     
-    // ===== FIX: USE SUBJECT ID AS LESSON ID =====
+    // ===== FIX: I-CONVERT ANG SUBJECT SA LESSON_ID =====
     let lesson_id;
     if (subjectId == 1) { // MathEase
         lesson_id = 1;
@@ -26581,14 +26606,8 @@ async function savePracticeExercise() {
     } else if (subjectId == 3) { // FactoLearn
         lesson_id = 3;
     } else {
-        lesson_id = 1; // Default to MathEase
+        lesson_id = 2; // Default to PolyLearn
     }
-    
-    // Get subject name for display
-    let subjectName = '';
-    if (lesson_id == 1) subjectName = 'MathEase';
-    else if (lesson_id == 2) subjectName = 'PolyLearn';
-    else if (lesson_id == 3) subjectName = 'FactoLearn';
     
     // Map content type to database format
     const contentTypeMap = {
@@ -26600,8 +26619,8 @@ async function savePracticeExercise() {
     const dbContentType = contentTypeMap[contentType] || 'multiple_choice';
     
     console.log('📝 Practice data:', { 
-        lesson_id,
-        subjectName,
+        lesson_id,        // ← ITO ANG PINAKAIMPORTANTE
+        subjectId,
         topicId,
         title, 
         difficulty, 
@@ -26609,7 +26628,7 @@ async function savePracticeExercise() {
         points,
         status,
         isUpdate: !!practiceId,
-        assignedTeacherId: assignedTeacherId || 'none (self)'
+        assignedTeacherId: assignedTeacherId || 'none'
     });
     
     // ===== VALIDATION =====
@@ -26689,8 +26708,7 @@ async function savePracticeExercise() {
     const isActive = status === 'active' ? 1 : 0;
     
     const practiceData = {
-        // ===== FIX: ADD lesson_id HERE =====
-        lesson_id: lesson_id,  // Add this line - it was missing!
+        lesson_id: lesson_id,        // ← I-SEND ANG lesson_id SA SERVER
         topic_id: parseInt(topicId),
         title: title,
         description: description || '',
@@ -26710,7 +26728,7 @@ async function savePracticeExercise() {
         practiceData.exercise_id = parseInt(practiceId);
     }
     
-    console.log("📤 Sending practice data:", practiceData);
+    console.log("📤 Sending practice data with lesson_id:", lesson_id, practiceData);
     
     try {
         const token = localStorage.getItem('admin_token') || localStorage.getItem('authToken');
@@ -26751,7 +26769,11 @@ async function savePracticeExercise() {
             let message = practiceId 
                 ? 'Practice exercise updated successfully!' 
                 : 'Practice exercise created successfully!';
-            message += ` (${subjectName})`;
+            
+            // Ipakita kung saang app na-save
+            const appName = lesson_id === 1 ? 'MathEase' : 
+                           lesson_id === 2 ? 'PolyLearn' : 'FactoLearn';
+            message += ` (Saved to ${appName})`;
             
             if (assignedTeacherId && assignedTeacherId !== '') {
                 message += ' (Assigned to teacher)';
