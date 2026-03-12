@@ -20315,7 +20315,7 @@ async function loadTopicsFromStructure(lessonId) {
     }
 }
 
-// ===== HANDLE PRACTICE LESSON CHANGE =====
+// ===== HANDLE PRACTICE LESSON CHANGE (NO HARDCODED) =====
 async function handlePracticeLessonChange(lessonId) {
     console.log("📚 Practice lesson selected:", lessonId);
     
@@ -20329,52 +20329,97 @@ async function handlePracticeLessonChange(lessonId) {
     }
     
     // Show loading
-    topicSelect.innerHTML = '<option value="">Loading topics...</option>';
+    topicSelect.innerHTML = '<option value="">Loading topics from database...</option>';
     topicSelect.disabled = true;
     
     try {
         const token = localStorage.getItem('admin_token') || localStorage.getItem('authToken');
         
-        // Try to fetch topics for this lesson
-        const response = await fetch(`/api/admin/topics/by-lesson/${lessonId}`, {
+        // ===== USE STRUCTURE ENDPOINT (WORKING) =====
+        const response = await fetch(`/api/admin/structure`, {
             headers: { 'Authorization': `Bearer ${token}` }
         });
         
         if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
+            throw new Error(`Failed to load structure: ${response.status}`);
         }
         
         const result = await response.json();
+        console.log('📥 Structure response:', result);
         
-        if (result.success && result.topics) {
-            const topics = result.topics;
-            
-            if (topics.length === 0) {
-                topicSelect.innerHTML = '<option value="">-- No topics available for this lesson --</option>';
-                topicSelect.disabled = true;
-            } else {
-                topicSelect.innerHTML = '<option value="">-- Select Topic --</option>';
-                
-                topics.forEach(topic => {
-                    const option = document.createElement('option');
-                    option.value = topic.topic_id || topic.id;
-                    option.textContent = topic.topic_title || topic.name || 'Unnamed Topic';
-                    topicSelect.appendChild(option);
-                });
-                
-                topicSelect.disabled = false;
-            }
+        if (!result.success || !result.structure) {
+            throw new Error('Invalid structure data');
+        }
+        
+        const allTopics = result.structure.topics || [];
+        const allModules = result.structure.modules || [];
+        
+        console.log(`📊 Total topics in database: ${allTopics.length}`);
+        console.log(`📦 Total modules in database: ${allModules.length}`);
+        
+        // Get modules for this lesson
+        const modulesForLesson = allModules.filter(m => 
+            parseInt(m.lesson_id) === parseInt(lessonId)
+        );
+        
+        console.log(`📦 Found ${modulesForLesson.length} modules for lesson ${lessonId}`);
+        
+        if (modulesForLesson.length === 0) {
+            topicSelect.innerHTML = '<option value="">-- No modules found for this lesson --</option>';
+            topicSelect.disabled = true;
+            showNotification('info', 'No Modules', `No modules found for this lesson in database`);
+            return;
+        }
+        
+        // Get module IDs
+        const moduleIds = modulesForLesson.map(m => parseInt(m.id));
+        
+        // Get topics that belong to these modules
+        const topicsForLesson = allTopics.filter(topic => 
+            moduleIds.includes(parseInt(topic.module_id))
+        );
+        
+        console.log(`📚 Found ${topicsForLesson.length} topics for lesson ${lessonId}`);
+        
+        if (topicsForLesson.length === 0) {
+            topicSelect.innerHTML = '<option value="">-- No topics available for this lesson --</option>';
+            topicSelect.disabled = true;
+            showNotification('info', 'No Topics', `No topics found for this lesson in database`);
         } else {
-            throw new Error('Failed to load topics');
+            topicSelect.innerHTML = '<option value="">-- Select Topic --</option>';
+            
+            topicsForLesson.forEach(topic => {
+                const option = document.createElement('option');
+                option.value = topic.id;
+                
+                // Get topic name from database
+                const topicName = topic.topic_title || topic.name || 'Unnamed Topic';
+                option.textContent = topicName;
+                
+                // Add module name for context (optional)
+                const module = modulesForLesson.find(m => m.id == topic.module_id);
+                if (module) {
+                    option.setAttribute('data-module', module.name);
+                }
+                
+                topicSelect.appendChild(option);
+            });
+            
+            topicSelect.disabled = false;
+            console.log(`✅ Populated topic dropdown with ${topicsForLesson.length} topics from database`);
         }
         
     } catch (error) {
-        console.error('❌ Error loading topics:', error);
+        console.error('❌ Error loading topics from database:', error);
         
-        // Fallback to hardcoded topics
-        useHardcodedTopicsFallback(lessonId);
+        // Show error message - NO HARDCODED FALLBACK
+        topicSelect.innerHTML = '<option value="">-- Error loading topics from database --</option>';
+        topicSelect.disabled = true;
+        
+        showNotification('error', 'Database Error', 'Failed to load topics. Please try again.');
     }
 }
+
 // ===== SETUP FALLBACK TOPIC DROPDOWN =====
 function setupFallbackTopicDropdown() {
     const topicSelect = document.getElementById('topicSelect');
@@ -26958,7 +27003,7 @@ function ensurePracticeDropdowns() {
     
     const modal = document.getElementById('createPracticeModal');
     if (!modal) {
-        console.warn("⚠️ Practice modal not found, cannot ensure dropdowns");
+        console.error("❌ Practice modal not found");
         return;
     }
     
@@ -26971,7 +27016,6 @@ function ensurePracticeDropdowns() {
     if (!lessonSelect) {
         console.log("📝 Creating practice lesson dropdown...");
         
-        // Create lesson dropdown group
         const lessonGroup = document.createElement('div');
         lessonGroup.className = 'form-group';
         lessonGroup.innerHTML = `
@@ -26987,7 +27031,7 @@ function ensurePracticeDropdowns() {
             <small class="form-text text-muted">Select which lesson this practice exercise belongs to</small>
         `;
         
-        // Insert at the beginning of modal body
+        // Insert at the beginning
         if (modalBody.firstChild) {
             modalBody.insertBefore(lessonGroup, modalBody.firstChild);
         } else {
@@ -27003,7 +27047,6 @@ function ensurePracticeDropdowns() {
     if (!topicSelect) {
         console.log("📝 Creating practice topic dropdown...");
         
-        // Create topic dropdown group
         const topicGroup = document.createElement('div');
         topicGroup.className = 'form-group';
         topicGroup.innerHTML = `
@@ -27032,34 +27075,45 @@ function ensurePracticeDropdowns() {
 
 // ===== UPDATED OPEN CREATE PRACTICE MODAL =====
 async function openCreatePracticeModal(practiceId = null, practiceData = null) {
-    console.log("📝 Opening practice modal for:", practiceId ? `edit #${practiceId}` : 'create new');
+    console.log("📝 Opening practice modal");
     
     const modal = document.getElementById('createPracticeModal');
-    if (!modal) return;
+    if (!modal) {
+        console.error("❌ Practice modal not found");
+        alert("Error: Practice modal not found. Please refresh the page.");
+        return;
+    }
     
     // Ensure dropdowns exist
     ensurePracticeDropdowns();
     
     // Reset form
-    document.getElementById('practiceTitle').value = '';
-    document.getElementById('practiceDescription').value = '';
+    const titleInput = document.getElementById('practiceTitle');
+    if (titleInput) titleInput.value = '';
     
-    // Reset lesson dropdown
+    const descInput = document.getElementById('practiceDescription');
+    if (descInput) descInput.value = '';
+    
     const lessonSelect = document.getElementById('practiceLesson');
     if (lessonSelect) lessonSelect.value = '';
     
-    // Reset topic dropdown
     const topicSelect = document.getElementById('practiceTopic');
     if (topicSelect) {
         topicSelect.innerHTML = '<option value="">-- Select Lesson First --</option>';
         topicSelect.disabled = true;
     }
     
-    document.getElementById('practiceDifficulty').value = 'medium';
-    document.getElementById('practiceType').value = 'multiple-choice';
-    document.getElementById('practicePoints').value = '10';
-    document.getElementById('practiceStatus').value = 'active';
-    document.getElementById('practiceId').value = '';
+    const difficultySelect = document.getElementById('practiceDifficulty');
+    if (difficultySelect) difficultySelect.value = 'medium';
+    
+    const pointsInput = document.getElementById('practicePoints');
+    if (pointsInput) pointsInput.value = '10';
+    
+    const statusSelect = document.getElementById('practiceStatus');
+    if (statusSelect) statusSelect.value = 'active';
+    
+    const practiceIdInput = document.getElementById('practiceId');
+    if (practiceIdInput) practiceIdInput.value = '';
     
     // Clear teacher dropdown
     const teacherSelect = document.getElementById('practiceAssignedTeacherId');
@@ -27072,11 +27126,13 @@ async function openCreatePracticeModal(practiceId = null, practiceData = null) {
     const container = document.getElementById('practiceQuestionsContainer');
     if (container) {
         container.innerHTML = '';
-        addPracticeQuestion();
+        if (typeof addPracticeQuestion === 'function') {
+            addPracticeQuestion();
+        }
     }
     
     // Change modal title
-    const modalTitle = modal.querySelector('.modal-header h3');
+    const modalTitle = document.getElementById('modalPracticeTitle');
     if (modalTitle) {
         modalTitle.innerHTML = practiceId 
             ? '<i class="fas fa-edit"></i> Edit Practice Exercise' 
@@ -27095,12 +27151,7 @@ async function openCreatePracticeModal(practiceId = null, practiceData = null) {
         }
     }, 300);
     
-    // If editing and we have data, populate form
-    if (practiceId && practiceData) {
-        setTimeout(() => {
-            populatePracticeFormForEdit(practiceData);
-        }, 500);
-    }
+    console.log("✅ Practice modal opened");
 }
 // ===== POPULATE PRACTICE FORM FOR EDIT =====
 async function populatePracticeFormForEdit(practiceData) {
