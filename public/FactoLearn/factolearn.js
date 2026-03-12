@@ -29561,6 +29561,330 @@ mobileMenuItems.forEach((item, index) => {
     
     console.log('✅ Fix applied! The database category should now appear.');
 })();
+
+// ============================================
+// 🚀 ULTIMATE FIX: Display ALL Exercises from Topic 5
+// ============================================
+
+async function displayAllTopic5Exercises() {
+    console.log('📚 DISPLAYING ALL EXERCISES FROM TOPIC 5');
+    console.log('========================================');
+    
+    const token = localStorage.getItem('authToken');
+    if (!token) {
+        alert('Please login first');
+        return;
+    }
+    
+    // Create container
+    let container = document.getElementById('topic5ExercisesContainer');
+    
+    if (!container) {
+        container = document.createElement('div');
+        container.id = 'topic5ExercisesContainer';
+        container.className = 'topic5-container';
+        container.style.cssText = `
+            margin: 30px 0;
+            padding: 25px;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+            border: 2px solid #7a0000;
+        `;
+        
+        // Find where to insert
+        const practicePage = document.getElementById('practice-exercises-page');
+        const exerciseArea = document.getElementById('exerciseArea');
+        
+        if (practicePage && exerciseArea) {
+            exerciseArea.insertAdjacentElement('afterend', container);
+        } else {
+            document.body.appendChild(container);
+        }
+    }
+    
+    // Show loading
+    container.innerHTML = `
+        <div style="text-align: center; padding: 40px;">
+            <i class="fas fa-spinner fa-spin" style="font-size: 50px; color: #7a0000;"></i>
+            <h3 style="margin-top: 20px;">Loading exercises from Topic 5...</h3>
+            <p style="color: #666;">Found 5 exercises in database</p>
+        </div>
+    `;
+    
+    try {
+        // Fetch exercises from Topic 5
+        const response = await fetch('/api/practice/topic/5?lesson_id=3', {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        
+        if (!response.ok) {
+            throw new Error(`HTTP ${response.status}`);
+        }
+        
+        const data = await response.json();
+        console.log('📥 Raw data from server:', data);
+        
+        let exercises = [];
+        
+        // Handle different response formats
+        if (data.success && data.exercises) {
+            exercises = data.exercises;
+        } else if (data.exercises) {
+            exercises = data.exercises;
+        } else if (Array.isArray(data)) {
+            exercises = data;
+        } else if (data.data) {
+            exercises = data.data;
+        }
+        
+        console.log(`✅ Found ${exercises.length} exercises`);
+        
+        if (exercises.length === 0) {
+            container.innerHTML = `
+                <div style="text-align: center; padding: 40px;">
+                    <i class="fas fa-exclamation-triangle" style="font-size: 60px; color: #e74c3c;"></i>
+                    <h3>No exercises found in Topic 5</h3>
+                    <p>The database says there are 5 exercises but we can't access them.</p>
+                    <button onclick="displayAllTopic5Exercises()" class="btn-primary" style="margin-top: 20px;">
+                        <i class="fas fa-redo"></i> Try Again
+                    </button>
+                </div>
+            `;
+            return;
+        }
+        
+        // Process each exercise to ensure we have titles
+        const processedExercises = exercises.map((ex, index) => {
+            // Try all possible title fields
+            const title = ex.title || 
+                         ex.exercise_title || 
+                         ex.name || 
+                         ex.exercise_name || 
+                         `Exercise ${ex.exercise_id || ex.id || index + 1}`;
+            
+            const description = ex.description || 
+                                ex.exercise_description || 
+                                ex.desc || 
+                                'Practice exercise for FactoLearn';
+            
+            return {
+                ...ex,
+                displayTitle: title,
+                displayDescription: description,
+                exercise_id: ex.exercise_id || ex.id || (100 + index),
+                topic_id: ex.topic_id || 5,
+                difficulty: ex.difficulty || 'medium',
+                points: ex.points || 10
+            };
+        });
+        
+        // Build HTML
+        let html = `
+            <div style="margin-bottom: 20px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                    <h2 style="display: flex; align-items: center; gap: 10px; margin: 0;">
+                        <i class="fas fa-dumbbell" style="color: #7a0000;"></i>
+                        All Exercises from Topic 5 (Lesson ID: 3)
+                    </h2>
+                    <div>
+                        <span style="background: #27ae60; color: white; padding: 5px 15px; border-radius: 20px; font-weight: bold;">
+                            ${exercises.length} Exercises Found
+                        </span>
+                    </div>
+                </div>
+                
+                <!-- Database Status -->
+                <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 15px; border-radius: 8px; margin-bottom: 20px; display: flex; align-items: center; gap: 15px;">
+                    <i class="fas fa-check-circle" style="font-size: 24px;"></i>
+                    <div>
+                        <strong style="font-size: 16px;">✅ Connected to Database</strong>
+                        <p style="margin: 5px 0 0 0; opacity: 0.9;">Successfully loaded ${exercises.length} exercises from Topic 5</p>
+                    </div>
+                    <button onclick="displayAllTopic5Exercises()" style="margin-left: auto; background: rgba(255,255,255,0.2); border: none; color: white; padding: 8px 15px; border-radius: 5px; cursor: pointer;">
+                        <i class="fas fa-sync-alt"></i> Refresh
+                    </button>
+                </div>
+                
+                <!-- Exercise Grid -->
+                <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(350px, 1fr)); gap: 20px;">
+        `;
+        
+        processedExercises.forEach((ex, index) => {
+            const difficultyColor = 
+                ex.difficulty === 'easy' ? '#27ae60' : 
+                ex.difficulty === 'medium' ? '#f39c12' : 
+                ex.difficulty === 'hard' ? '#e74c3c' : '#3498db';
+            
+            html += `
+                <div class="topic5-exercise-card" data-exercise-id="${ex.exercise_id}" 
+                     style="background: white; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 12px rgba(0,0,0,0.1); border: 1px solid #e0e0e0; transition: all 0.3s;">
+                    
+                    <!-- Top bar with topic color -->
+                    <div style="height: 6px; background: #7a0000; width: 100%;"></div>
+                    
+                    <div style="padding: 20px;">
+                        <!-- Header -->
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                            <h3 style="margin: 0; color: #2c3e50; font-size: 18px;">
+                                ${ex.displayTitle}
+                            </h3>
+                            <span style="background: ${difficultyColor}; color: white; padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: bold;">
+                                ${ex.difficulty}
+                            </span>
+                        </div>
+                        
+                        <!-- Description -->
+                        <p style="color: #666; margin: 0 0 15px 0; line-height: 1.5; min-height: 60px;">
+                            ${ex.displayDescription}
+                        </p>
+                        
+                        <!-- Metadata -->
+                        <div style="display: flex; gap: 15px; margin-bottom: 15px; padding: 10px 0; border-top: 1px solid #f0f0f0; border-bottom: 1px solid #f0f0f0; flex-wrap: wrap;">
+                            <span style="display: flex; align-items: center; gap: 5px; color: #7f8c8d;">
+                                <i class="fas fa-star" style="color: #f39c12;"></i> ${ex.points} points
+                            </span>
+                            <span style="display: flex; align-items: center; gap: 5px; color: #7f8c8d;">
+                                <i class="fas fa-tag" style="color: #7a0000;"></i> Topic 5
+                            </span>
+                            <span style="display: flex; align-items: center; gap: 5px; color: #7f8c8d;">
+                                <i class="fas fa-database" style="color: #27ae60;"></i> ID: ${ex.exercise_id}
+                            </span>
+                        </div>
+                        
+                        <!-- Database Info -->
+                        <div style="margin-bottom: 15px; display: flex; gap: 5px; flex-wrap: wrap;">
+                            <span style="background: #7a0000; color: white; padding: 4px 10px; border-radius: 20px; font-size: 11px;">
+                                <i class="fas fa-database"></i> From Database
+                            </span>
+                            <span style="background: #3498db; color: white; padding: 4px 10px; border-radius: 20px; font-size: 11px;">
+                                <i class="fas fa-check-circle"></i> Topic 5
+                            </span>
+                            <span style="background: #27ae60; color: white; padding: 4px 10px; border-radius: 20px; font-size: 11px;">
+                                <i class="fas fa-user-shield"></i> Admin Upload
+                            </span>
+                        </div>
+                        
+                        <!-- Action Buttons -->
+                        <div style="display: flex; gap: 10px;">
+                            <button class="start-topic5-btn" data-exercise-id="${ex.exercise_id}" 
+                                    style="flex: 2; padding: 12px; background: #7a0000; color: white; border: none; border-radius: 6px; font-weight: bold; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px;">
+                                <i class="fas fa-play-circle"></i> Start Exercise
+                            </button>
+                            <button class="preview-topic5-btn" data-exercise-id="${ex.exercise_id}"
+                                    style="flex: 1; padding: 12px; background: #ecf0f1; color: #2c3e50; border: none; border-radius: 6px; cursor: pointer;">
+                                <i class="fas fa-eye"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            `;
+        });
+        
+        html += `
+                </div>
+                
+                <!-- Summary Footer -->
+                <div style="margin-top: 30px; background: #f8f9fa; padding: 20px; border-radius: 8px; border-left: 4px solid #7a0000;">
+                    <div style="display: flex; align-items: center; gap: 20px; flex-wrap: wrap;">
+                        <i class="fas fa-database" style="color: #7a0000; font-size: 30px;"></i>
+                        <div>
+                            <h4 style="margin: 0 0 5px 0;">Database Summary</h4>
+                            <p style="margin: 0; color: #666;">Total Exercises in Topic 5: <strong>${exercises.length}</strong></p>
+                            <p style="margin: 5px 0 0 0; color: #666;">Lesson ID: <strong>3 (FactoLearn)</strong></p>
+                        </div>
+                        <button onclick="console.log('Exercises:', ${JSON.stringify(processedExercises)})" 
+                                style="margin-left: auto; padding: 8px 15px; background: #3498db; color: white; border: none; border-radius: 5px; cursor: pointer;">
+                            <i class="fas fa-code"></i> Log to Console
+                        </button>
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        container.innerHTML = html;
+        
+        // Add event listeners
+        document.querySelectorAll('.start-topic5-btn').forEach(btn => {
+            btn.addEventListener('click', function(e) {
+                e.preventDefault();
+                const exerciseId = this.getAttribute('data-exercise-id');
+                startPractice(exerciseId);
+            });
+        });
+        
+        document.querySelectorAll('.preview-topic5-btn').forEach(btn => {
+            btn.addEventListener('click', function(e) {
+                e.preventDefault();
+                const exerciseId = this.getAttribute('data-exercise-id');
+                previewTopic5Exercise(exerciseId);
+            });
+        });
+        
+        console.log('✅ Successfully displayed all Topic 5 exercises!');
+        
+    } catch (error) {
+        console.error('❌ Error:', error);
+        container.innerHTML = `
+            <div style="text-align: center; padding: 40px;">
+                <i class="fas fa-exclamation-triangle" style="font-size: 60px; color: #e74c3c;"></i>
+                <h3>Error Loading Exercises</h3>
+                <p style="color: #666;">${error.message}</p>
+                <button onclick="displayAllTopic5Exercises()" class="btn-primary" style="margin-top: 20px;">
+                    <i class="fas fa-redo"></i> Try Again
+                </button>
+            </div>
+        `;
+    }
+}
+
+// Preview function for Topic 5 exercises
+function previewTopic5Exercise(exerciseId) {
+    const modal = document.createElement('div');
+    modal.style.cssText = `
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(0,0,0,0.8);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 100000;
+        padding: 20px;
+    `;
+    
+    modal.innerHTML = `
+        <div style="background: white; border-radius: 12px; max-width: 500px; width: 100%; padding: 30px;">
+            <div style="text-align: center; margin-bottom: 20px;">
+                <i class="fas fa-info-circle" style="font-size: 50px; color: #7a0000;"></i>
+                <h3 style="margin: 15px 0 5px;">Exercise ID: ${exerciseId}</h3>
+                <p style="color: #7a0000; font-weight: bold;">Topic 5 • Lesson 3</p>
+            </div>
+            
+            <div style="background: #f8f9fa; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
+                <p style="margin: 5px 0;"><strong>Status:</strong> <span style="color: #27ae60;">✓ Loaded from database</span></p>
+                <p style="margin: 5px 0;"><strong>Source:</strong> Uploaded by Admin</p>
+                <p style="margin: 5px 0;"><strong>Topic:</strong> 5</p>
+                <p style="margin: 5px 0;"><strong>Lesson:</strong> 3 (FactoLearn)</p>
+            </div>
+            
+            <div style="display: flex; gap: 10px; justify-content: center;">
+                <button onclick="this.closest('div[style*=\"position: fixed\"]').remove()" 
+                        style="padding: 10px 20px; background: #95a5a6; color: white; border: none; border-radius: 5px; cursor: pointer;">
+                    Close
+                </button>
+                <button onclick="this.closest('div[style*=\"position: fixed\"]').remove(); startPractice(${exerciseId})" 
+                        style="padding: 10px 20px; background: #7a0000; color: white; border: none; border-radius: 5px; cursor: pointer;">
+                    Start Exercise
+                </button>
+            </div>
+        </div>
+    `;
+    
+    document.body.appendChild(modal);
+}
 // ============================================
 // 🔍 DEBUG: Fetch practice exercises for lesson_id=3
 // ============================================
