@@ -9362,15 +9362,17 @@ app.get('/api/admin/quizzes', authenticateAdmin, async (req, res) => {
         // Get quizzes with question counts and average scores
         const [quizzes] = await promisePool.query(`
             SELECT 
-                q.quiz_id as id,
+               q.quiz_id as id,
                 q.quiz_title as title,
                 q.description,
-                qc.category_name as subject_name,
+                q.lesson_id,                    // ← DAGDAGIN ITO
+                q.category_id,                   // ← DAGDAGIN ITO
                 q.difficulty,
                 q.duration_minutes as time_limit,
                 q.passing_score,
                 q.is_active as status,
                 q.created_at,
+                qc.category_name as subject_name,
                 COUNT(DISTINCT qq.question_id) as question_count,
                 COALESCE(AVG(uqa.score), 0) as avg_score
             FROM quizzes q
