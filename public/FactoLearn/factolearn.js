@@ -19323,6 +19323,92 @@ async function updateContinueLearningModule() {
         `;
     }
 }
+
+// ===== LOAD PRACTICE EXERCISES FOR TOPIC =====
+async function loadPracticeExercisesForTopic(topicId) {
+    console.log(`📚 Loading practice exercises for topic: ${topicId}`);
+    
+    const exerciseArea = document.getElementById('exerciseArea');
+    if (!exerciseArea) {
+        console.error('❌ Exercise area not found');
+        return;
+    }
+    
+    // Show loading
+    exerciseArea.innerHTML = `
+        <div class="loading-container">
+            <i class="fas fa-spinner fa-spin"></i>
+            <p>Loading practice exercises...</p>
+        </div>
+    `;
+    
+    try {
+        const token = localStorage.getItem('authToken');
+        if (!token) {
+            exerciseArea.innerHTML = `
+                <div class="error-message">
+                    <i class="fas fa-exclamation-triangle"></i>
+                    <h3>Please login to access practice exercises</h3>
+                </div>
+            `;
+            return;
+        }
+        
+        // Get current lesson from URL or context
+        const lessonId = getCurrentLessonId(); // You need to implement this
+        
+        // Use the working admin endpoint (since /api/practice/available is 404)
+        const response = await fetch(`/api/admin/practice`, {
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+            }
+        });
+        
+        if (!response.ok) {
+            throw new Error(`Failed to load practice exercises: ${response.status}`);
+        }
+        
+        const result = await response.json();
+        
+        if (result.success && result.exercises) {
+            // Filter exercises by topic_id
+            const exercises = result.exercises.filter(ex => 
+                ex.topic_id == topicId && ex.is_active === 1
+            );
+            
+            console.log(`✅ Found ${exercises.length} exercises for topic ${topicId}`);
+            
+            if (exercises.length === 0) {
+                exerciseArea.innerHTML = `
+                    <div class="no-exercises">
+                        <i class="fas fa-pencil-alt"></i>
+                        <h3>No practice exercises available for this topic</h3>
+                        <p>Check back later for new exercises!</p>
+                    </div>
+                `;
+            } else {
+                displayPracticeExercises(exercises);
+            }
+        } else {
+            throw new Error('Failed to load exercises');
+        }
+        
+    } catch (error) {
+        console.error('❌ Error loading practice exercises:', error);
+        exerciseArea.innerHTML = `
+            <div class="error-message">
+                <i class="fas fa-exclamation-triangle"></i>
+                <h3>Failed to load practice exercises</h3>
+                <p>${error.message}</p>
+                <button class="btn-primary" onclick="loadPracticeExercisesForTopic('${topicId}')">
+                    <i class="fas fa-redo"></i> Try Again
+                </button>
+            </div>
+        `;
+    }
+}
+
 // ============================================
 // UPDATE PROGRESS DASHBOARD FROM DATABASE - FIXED
 // ============================================
@@ -24467,119 +24553,47 @@ async function loadPracticeExercises(lessonId) {
 // ============================================
 // ✅ ENHANCED: Display Practice Exercises
 // ============================================
+// ===== DISPLAY PRACTICE EXERCISES =====
 function displayPracticeExercises(exercises) {
     const exerciseArea = document.getElementById('exerciseArea');
     if (!exerciseArea) return;
     
-    if (!exercises || exercises.length === 0) {
-        exerciseArea.innerHTML = `
-            <div class="no-exercises" style="text-align: center; padding: 60px 20px;">
-                <i class="fas fa-pencil-alt" style="font-size: 60px; color: #ccc; margin-bottom: 20px;"></i>
-                <h3 style="color: #666; margin-bottom: 15px;">No Practice Exercises Available</h3>
-                <p style="color: #999; margin-bottom: 25px;">There are no practice exercises for this topic yet.</p>
-                <button class="btn-primary" onclick="location.reload()" style="padding: 12px 25px;">
-                    <i class="fas fa-redo"></i> Refresh
-                </button>
-            </div>
-        `;
-        return;
-    }
-    
-    let html = '<div class="exercises-list" style="display: flex; flex-direction: column; gap: 15px;">';
+    let html = `
+        <div class="practice-header">
+            <h2><i class="fas fa-pencil-alt"></i> Practice Exercises</h2>
+        </div>
+        <div class="exercises-list">
+    `;
     
     exercises.forEach((exercise, index) => {
-        // Handle different property names
-        const exerciseId = exercise.exercise_id || exercise.id || index + 1;
-        const title = exercise.title || exercise.exercise_title || `Exercise ${index + 1}`;
-        const description = exercise.description || exercise.exercise_description || 'Practice your skills with this exercise.';
-        const difficulty = exercise.difficulty || exercise.difficulty_level || 'medium';
-        const points = exercise.points || exercise.max_score || 10;
-        const lessonId = exercise.lesson_id || exercise.lessonId || 3;
-        
-        // Parse questions from content_json if it exists
-        let questionCount = 0;
-        if (exercise.content_json) {
-            try {
-                const content = typeof exercise.content_json === 'string' 
-                    ? JSON.parse(exercise.content_json) 
-                    : exercise.content_json;
-                questionCount = content.questions?.length || 0;
-            } catch (e) {
-                console.warn('Could not parse content_json:', e);
-            }
-        }
-        
-        // Get user progress
-        const userProgress = exercise.user_progress || {};
-        const isCompleted = userProgress.completion_status === 'completed' || userProgress.status === 'completed';
-        const attempts = userProgress.attempts || 0;
-        const bestScore = userProgress.best_score || userProgress.score || 0;
-        
-        // Difficulty badge color
-        const difficultyColor = 
-            difficulty === 'easy' ? '#27ae60' : 
-            difficulty === 'medium' ? '#f39c12' : 
-            difficulty === 'hard' ? '#e74c3c' : '#3498db';
+        const difficultyClass = `difficulty-${exercise.difficulty || 'medium'}`;
         
         html += `
-            <div class="exercise-card" data-exercise-id="${exerciseId}" 
-                 style="background: white; border-radius: 12px; padding: 20px; 
-                        box-shadow: 0 2px 8px rgba(0,0,0,0.1); border: 2px solid ${isCompleted ? '#27ae60' : 'transparent'};
-                        transition: all 0.3s ease;">
+            <div class="exercise-card" data-exercise-id="${exercise.id}">
+                <div class="exercise-header">
+                    <h3>Exercise ${index + 1}: ${exercise.title}</h3>
+                    <span class="difficulty-badge ${difficultyClass}">
+                        ${exercise.difficulty || 'medium'}
+                    </span>
+                </div>
                 
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
-                    <h3 style="margin: 0; color: #2c3e50; font-size: 18px;">
-                        <i class="fas fa-pencil-alt" style="color: #7a0000; margin-right: 8px;"></i>
-                        ${title}
-                    </h3>
-                    <div style="display: flex; gap: 8px;">
-                        <span style="background: #7a0000; color: white; padding: 4px 8px; border-radius: 4px; font-size: 11px;">
-                            Lesson ${lessonId}
+                <div class="exercise-body">
+                    <p>${exercise.description || 'Test your knowledge with this practice exercise.'}</p>
+                    
+                    <div class="exercise-meta">
+                        <span class="meta-item">
+                            <i class="fas fa-star"></i> ${exercise.points || 10} points
                         </span>
-                        <span style="background: ${difficultyColor}; color: white; padding: 4px 12px; 
-                                   border-radius: 20px; font-size: 12px; font-weight: bold; text-transform: uppercase;">
-                            ${difficulty}
+                        <span class="meta-item">
+                            <i class="fas fa-clock"></i> 5-10 min
                         </span>
                     </div>
                 </div>
                 
-                <p style="color: #666; margin: 0 0 15px 0; line-height: 1.5;">${description}</p>
-                
-                <div style="display: flex; gap: 20px; margin-bottom: 15px; padding: 10px 0; border-top: 1px solid #f0f0f0; border-bottom: 1px solid #f0f0f0;">
-                    <span style="display: flex; align-items: center; gap: 5px; color: #7f8c8d;">
-                        <i class="fas fa-star" style="color: #f39c12;"></i> ${points} points
-                    </span>
-                    <span style="display: flex; align-items: center; gap: 5px; color: #7f8c8d;">
-                        <i class="fas fa-question-circle" style="color: #3498db;"></i> ${questionCount || 5} questions
-                    </span>
-                    <span style="display: flex; align-items: center; gap: 5px; color: #7f8c8d;">
-                        <i class="fas fa-history" style="color: #95a5a6;"></i> ${attempts} attempts
-                    </span>
-                </div>
-                
-                ${bestScore > 0 ? `
-                    <div style="background: #e8f5e9; padding: 10px; border-radius: 6px; margin-bottom: 15px; display: flex; justify-content: space-between; align-items: center;">
-                        <span style="color: #2c3e50;"><i class="fas fa-trophy" style="color: #f39c12;"></i> Best Score:</span>
-                        <span style="font-weight: bold; color: #27ae60;">${bestScore}/${points} (${Math.round((bestScore/points)*100)}%)</span>
-                    </div>
-                ` : ''}
-                
-                <div style="display: flex; gap: 10px; justify-content: flex-end;">
-                    ${isCompleted ? `
-                        <button class="btn-secondary review-exercise" data-exercise-id="${exerciseId}"
-                                style="background: #ecf0f1; color: #2c3e50; border: none; padding: 10px 20px; border-radius: 6px; cursor: pointer; display: flex; align-items: center; gap: 8px;">
-                            <i class="fas fa-redo"></i> Review
-                        </button>
-                        <button class="btn-success" disabled
-                                style="background: #27ae60; color: white; border: none; padding: 10px 20px; border-radius: 6px; display: flex; align-items: center; gap: 8px; opacity: 0.7;">
-                            <i class="fas fa-check-circle"></i> Completed
-                        </button>
-                    ` : `
-                        <button class="btn-primary start-exercise" data-exercise-id="${exerciseId}"
-                                style="background: #7a0000; color: white; border: none; padding: 10px 25px; border-radius: 6px; cursor: pointer; display: flex; align-items: center; gap: 8px; font-weight: 600;">
-                            <i class="fas fa-play-circle"></i> Start Exercise
-                        </button>
-                    `}
+                <div class="exercise-actions">
+                    <button class="btn-primary start-exercise" onclick="startPracticeExercise(${exercise.id})">
+                        <i class="fas fa-play"></i> Start
+                    </button>
                 </div>
             </div>
         `;
@@ -24587,11 +24601,175 @@ function displayPracticeExercises(exercises) {
     
     html += '</div>';
     exerciseArea.innerHTML = html;
-   
-   attachStartButtonHandlers();
-    console.log(`✅ Displayed ${exercises.length} practice exercises (all lesson_id=3)`);
 }
 
+// ===== GET CURRENT LESSON ID =====
+function getCurrentLessonId() {
+    // You can determine this from URL or user context
+    // For FactoLearn, it should be 3
+    // For MathEase, it should be 1
+    // For PolyLearn, it should be 2
+    
+    // Example: Get from URL
+    const path = window.location.pathname;
+    if (path.includes('factolearn')) return 3;
+    if (path.includes('mathease')) return 1;
+    if (path.includes('polylearn')) return 2;
+    
+    // Default to 2 (PolyLearn) if can't determine
+    return 2;
+}
+
+// ===== START PRACTICE EXERCISE =====
+async function startPracticeExercise(exerciseId) {
+    console.log(`🚀 Starting practice exercise ${exerciseId}`);
+    
+    try {
+        const token = localStorage.getItem('authToken');
+        
+        const response = await fetch(`/api/exercises/${exerciseId}`, {
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+            }
+        });
+        
+        const result = await response.json();
+        
+        if (result.success && result.exercise) {
+            // Open exercise modal
+            openPracticeExerciseModal(result.exercise);
+        } else {
+            throw new Error('Failed to load exercise');
+        }
+        
+    } catch (error) {
+        console.error('Error starting exercise:', error);
+        alert('Failed to load exercise. Please try again.');
+    }
+}
+// ===== OPEN PRACTICE EXERCISE MODAL =====
+function openPracticeExerciseModal(exercise) {
+    // Create modal if it doesn't exist
+    let modal = document.getElementById('practiceExerciseModal');
+    
+    if (!modal) {
+        modal = document.createElement('div');
+        modal.id = 'practiceExerciseModal';
+        modal.className = 'modal';
+        modal.innerHTML = `
+            <div class="modal-backdrop" onclick="closePracticeExerciseModal()"></div>
+            <div class="modal-content" style="max-width: 700px;">
+                <div class="modal-header" style="background: #7a0000; color: white;">
+                    <h3 id="practiceExerciseTitle">Practice Exercise</h3>
+                    <button class="modal-close" onclick="closePracticeExerciseModal()">&times;</button>
+                </div>
+                <div class="modal-body" id="practiceExerciseBody" style="max-height: 70vh; overflow-y: auto; padding: 20px;">
+                    <!-- Content will be loaded here -->
+                </div>
+                <div class="modal-footer" style="padding: 15px; border-top: 1px solid #e0e0e0;">
+                    <button class="btn btn-secondary" onclick="closePracticeExerciseModal()">Close</button>
+                    <button class="btn btn-primary" id="submitExerciseBtn" style="background: #7a0000;">Submit Answers</button>
+                </div>
+            </div>
+        `;
+        document.body.appendChild(modal);
+    }
+    
+    // Populate modal with exercise content
+    const titleEl = document.getElementById('practiceExerciseTitle');
+    if (titleEl) titleEl.textContent = exercise.title;
+    
+    const bodyEl = document.getElementById('practiceExerciseBody');
+    if (!bodyEl) return;
+    
+    // Build questions HTML
+    let questionsHtml = '';
+    if (exercise.content_json && exercise.content_json.questions) {
+        exercise.content_json.questions.forEach((q, index) => {
+            questionsHtml += `
+                <div class="practice-question" style="margin-bottom: 20px; padding: 15px; background: #f8f9fa; border-radius: 8px;">
+                    <h4>Question ${index + 1}</h4>
+                    <p>${q.text}</p>
+                    <div class="options-list" style="margin-top: 10px;">
+                        ${q.options.map((opt, optIndex) => `
+                            <label style="display: block; margin: 8px 0; padding: 8px; background: white; border-radius: 4px;">
+                                <input type="radio" name="q${index}" value="${optIndex}" style="margin-right: 10px;">
+                                ${opt.text}
+                            </label>
+                        `).join('')}
+                    </div>
+                </div>
+            `;
+        });
+    }
+    
+    bodyEl.innerHTML = questionsHtml || '<p>No questions available</p>';
+    
+    // Show modal
+    modal.style.display = 'flex';
+    document.body.classList.add('modal-open');
+    
+    // Setup submit button
+    const submitBtn = document.getElementById('submitExerciseBtn');
+    if (submitBtn) {
+        submitBtn.onclick = () => submitPracticeAnswers(exercise.id);
+    }
+}
+
+// ===== CLOSE PRACTICE EXERCISE MODAL =====
+function closePracticeExerciseModal() {
+    const modal = document.getElementById('practiceExerciseModal');
+    if (modal) {
+        modal.style.display = 'none';
+        document.body.classList.remove('modal-open');
+    }
+}
+
+async function submitPracticeAnswers(exerciseId) {
+    console.log(`📤 Submitting answers for exercise ${exerciseId}`);
+    
+    // Collect answers
+    const answers = {};
+    const questions = document.querySelectorAll('.practice-question');
+    
+    questions.forEach((q, index) => {
+        const selected = q.querySelector('input[type="radio"]:checked');
+        if (selected) {
+            answers[`q${index}`] = selected.value;
+        }
+    });
+    
+    try {
+        const token = localStorage.getItem('authToken');
+        
+        const response = await fetch(`/api/practice/${exerciseId}/submit`, {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ answers })
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            alert('Exercise completed! Score: ' + result.score + '%');
+            closePracticeExerciseModal();
+            
+            // Reload exercises to show updated status
+            const currentTopic = getCurrentTopicId(); // You need to implement this
+            loadPracticeExercisesForTopic(currentTopic);
+        } else {
+            throw new Error(result.message || 'Submission failed');
+        }
+        
+    } catch (error) {
+        console.error('Error submitting answers:', error);
+        alert('Failed to submit answers. Please try again.');
+    }
+}
 // ============================================
 // 🎯 NEW FUNCTION: Attach Start Button Handlers
 // ============================================
