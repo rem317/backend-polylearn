@@ -2975,7 +2975,134 @@ async function loadPracticeExercisesForTopic(topicId) {
         `;
     }
 }
-
+// ===== CREATE PRACTICE MODAL IF NOT EXISTS =====
+function createPracticeModalIfNotExists() {
+    console.log("🔧 Creating practice modal...");
+    
+    if (document.getElementById('createPracticeModal')) {
+        console.log("✅ Practice modal already exists");
+        return;
+    }
+    
+    const modalHTML = `
+        <div id="createPracticeModal" class="modal" style="display: none;">
+            <div class="modal-backdrop" onclick="closeCreatePracticeModal()"></div>
+            <div class="modal-content" style="max-width: 800px;">
+                <div class="modal-header" style="background: #7a0000; color: white;">
+                    <h3 id="modalPracticeTitle"><i class="fas fa-plus-circle"></i> Create New Practice Exercise</h3>
+                    <button class="modal-close" onclick="closeCreatePracticeModal()">&times;</button>
+                </div>
+                <div class="modal-body" style="max-height: 70vh; overflow-y: auto; padding: 20px;">
+                    <!-- Lesson Selection -->
+                    <div class="form-group">
+                        <label for="practiceLesson" class="form-label">
+                            <i class="fas fa-book"></i> Lesson <span style="color: red;">*</span>
+                        </label>
+                        <select id="practiceLesson" class="form-control" required onchange="handlePracticeLessonChange(this.value)">
+                            <option value="">-- Select Lesson --</option>
+                            <option value="1">MathEase</option>
+                            <option value="2">PolyLearn</option>
+                            <option value="3">FactoLearn</option>
+                        </select>
+                        <small class="form-text text-muted">Select which lesson this practice exercise belongs to</small>
+                    </div>
+                    
+                    <!-- Topic Selection -->
+                    <div class="form-group">
+                        <label for="practiceTopic" class="form-label">
+                            <i class="fas fa-tag"></i> Topic <span style="color: red;">*</span>
+                        </label>
+                        <select id="practiceTopic" class="form-control" required disabled>
+                            <option value="">-- Select Lesson First --</option>
+                        </select>
+                        <small class="form-text text-muted">Select a topic for this practice exercise</small>
+                    </div>
+                    
+                    <!-- Title -->
+                    <div class="form-group">
+                        <label for="practiceTitle" class="form-label">
+                            <i class="fas fa-heading"></i> Title <span style="color: red;">*</span>
+                        </label>
+                        <input type="text" id="practiceTitle" class="form-control" placeholder="Enter exercise title" required>
+                    </div>
+                    
+                    <!-- Description -->
+                    <div class="form-group">
+                        <label for="practiceDescription" class="form-label">
+                            <i class="fas fa-align-left"></i> Description
+                        </label>
+                        <textarea id="practiceDescription" class="form-control" rows="2" placeholder="Enter description (optional)"></textarea>
+                    </div>
+                    
+                    <!-- Difficulty and Type -->
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 15px;">
+                        <div class="form-group">
+                            <label for="practiceDifficulty" class="form-label">
+                                <i class="fas fa-chart-line"></i> Difficulty
+                            </label>
+                            <select id="practiceDifficulty" class="form-control">
+                                <option value="easy">Easy</option>
+                                <option value="medium" selected>Medium</option>
+                                <option value="hard">Hard</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="practicePoints" class="form-label">
+                                <i class="fas fa-star"></i> Points
+                            </label>
+                            <input type="number" id="practicePoints" class="form-control" value="10" min="1" max="100">
+                        </div>
+                    </div>
+                    
+                    <!-- Status -->
+                    <div class="form-group">
+                        <label for="practiceStatus" class="form-label">
+                            <i class="fas fa-toggle-on"></i> Status
+                        </label>
+                        <select id="practiceStatus" class="form-control">
+                            <option value="active">Active</option>
+                            <option value="inactive">Inactive</option>
+                        </select>
+                    </div>
+                    
+                    <!-- Teacher Assignment -->
+                    <div class="form-group">
+                        <label for="practiceAssignedTeacherId" class="form-label">
+                            <i class="fas fa-chalkboard-teacher"></i> Assign to Teacher (Optional)
+                        </label>
+                        <select id="practiceAssignedTeacherId" class="form-control">
+                            <option value="">-- Select Teacher --</option>
+                        </select>
+                    </div>
+                    
+                    <!-- Questions Section -->
+                    <div class="form-group">
+                        <label class="form-label">
+                            <i class="fas fa-question-circle"></i> Questions
+                        </label>
+                        <div id="practiceQuestionsContainer">
+                            <!-- Questions will be added here -->
+                        </div>
+                        <button type="button" class="btn btn-secondary btn-sm" onclick="addPracticeQuestion()" style="margin-top: 10px;">
+                            <i class="fas fa-plus"></i> Add Question
+                        </button>
+                    </div>
+                    
+                    <input type="hidden" id="practiceId">
+                </div>
+                <div class="modal-footer" style="padding: 15px; border-top: 1px solid #e0e0e0; text-align: right;">
+                    <button class="btn btn-secondary" onclick="closeCreatePracticeModal()">Cancel</button>
+                    <button class="btn btn-primary" onclick="savePracticeExercise()" style="background: #7a0000;">
+                        <i class="fas fa-save"></i> Save Exercise
+                    </button>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    document.body.insertAdjacentHTML('beforeend', modalHTML);
+    console.log("✅ Practice modal created");
+}
 // Create practice lock screen
 function createPracticeLockScreen(practiceData) {
     const { message, progress } = practiceData;
@@ -20201,8 +20328,52 @@ async function handlePracticeLessonChange(lessonId) {
         return;
     }
     
-    // Load topics for this lesson
-    await loadTopicsByLesson(lessonId);
+    // Show loading
+    topicSelect.innerHTML = '<option value="">Loading topics...</option>';
+    topicSelect.disabled = true;
+    
+    try {
+        const token = localStorage.getItem('admin_token') || localStorage.getItem('authToken');
+        
+        // Try to fetch topics for this lesson
+        const response = await fetch(`/api/admin/topics/by-lesson/${lessonId}`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        
+        const result = await response.json();
+        
+        if (result.success && result.topics) {
+            const topics = result.topics;
+            
+            if (topics.length === 0) {
+                topicSelect.innerHTML = '<option value="">-- No topics available for this lesson --</option>';
+                topicSelect.disabled = true;
+            } else {
+                topicSelect.innerHTML = '<option value="">-- Select Topic --</option>';
+                
+                topics.forEach(topic => {
+                    const option = document.createElement('option');
+                    option.value = topic.topic_id || topic.id;
+                    option.textContent = topic.topic_title || topic.name || 'Unnamed Topic';
+                    topicSelect.appendChild(option);
+                });
+                
+                topicSelect.disabled = false;
+            }
+        } else {
+            throw new Error('Failed to load topics');
+        }
+        
+    } catch (error) {
+        console.error('❌ Error loading topics:', error);
+        
+        // Fallback to hardcoded topics
+        useHardcodedTopicsFallback(lessonId);
+    }
 }
 // ===== SETUP FALLBACK TOPIC DROPDOWN =====
 function setupFallbackTopicDropdown() {
@@ -26781,7 +26952,6 @@ function refreshPracticeData() {
     showNotification('info', 'Refreshing', 'Updating practice exercises...');
     loadAdminPracticeExercises();
 }
-
 // ===== UPDATED OPEN CREATE PRACTICE MODAL =====
 async function openCreatePracticeModal(practiceId = null, practiceData = null) {
     console.log("📝 Opening practice modal for:", practiceId ? `edit #${practiceId}` : 'create new');
@@ -26796,9 +26966,11 @@ async function openCreatePracticeModal(practiceId = null, practiceData = null) {
     document.getElementById('practiceTitle').value = '';
     document.getElementById('practiceDescription').value = '';
     
+    // Reset lesson dropdown
     const lessonSelect = document.getElementById('practiceLesson');
     if (lessonSelect) lessonSelect.value = '';
     
+    // Reset topic dropdown
     const topicSelect = document.getElementById('practiceTopic');
     if (topicSelect) {
         topicSelect.innerHTML = '<option value="">-- Select Lesson First --</option>';
@@ -26820,10 +26992,18 @@ async function openCreatePracticeModal(practiceId = null, practiceData = null) {
     
     // Clear questions
     const container = document.getElementById('practiceQuestionsContainer');
-    container.innerHTML = '';
+    if (container) {
+        container.innerHTML = '';
+        addPracticeQuestion();
+    }
     
-    // Add one default question
-    addPracticeQuestion();
+    // Change modal title
+    const modalTitle = modal.querySelector('.modal-header h3');
+    if (modalTitle) {
+        modalTitle.innerHTML = practiceId 
+            ? '<i class="fas fa-edit"></i> Edit Practice Exercise' 
+            : '<i class="fas fa-plus-circle"></i> Create New Practice Exercise';
+    }
     
     // Show modal
     modal.style.display = 'flex';
@@ -26837,9 +27017,11 @@ async function openCreatePracticeModal(practiceId = null, practiceData = null) {
         }
     }, 300);
     
-    // If editing, populate form
+    // If editing and we have data, populate form
     if (practiceId && practiceData) {
-        await populatePracticeFormForEdit(practiceData);
+        setTimeout(() => {
+            populatePracticeFormForEdit(practiceData);
+        }, 500);
     }
 }
 // ===== POPULATE PRACTICE FORM FOR EDIT =====
@@ -27156,6 +27338,8 @@ function addPracticeOption(questionId) {
 
 // ===== CLOSE CREATE PRACTICE MODAL =====
 function closeCreatePracticeModal() {
+    console.log("🔴 Closing practice modal");
+    
     const modal = document.getElementById('createPracticeModal');
     if (modal) {
         modal.style.display = 'none';
