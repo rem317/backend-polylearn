@@ -20011,7 +20011,7 @@ function getTimeAgo(dateString) {
         return 'Recently';
     }
 }
-
+/*
 // ===== FIXED: LOAD TOPIC STRUCTURE =====
 async function loadTopicStructure() {
     console.log("📚 Loading topic structure from MySQL...");
@@ -20119,7 +20119,91 @@ async function loadTopicStructure() {
         setupFallbackTopicDropdown();
     }
 }
+*/
 
+// ===== FALLBACK: Load topics from structure endpoint =====
+async function loadTopicsFromStructure(lessonId) {
+    console.log(`📚 Loading topics from structure for lesson ${lessonId}...`);
+    
+    const topicSelect = document.getElementById('practiceTopic');
+    if (!topicSelect) return;
+    
+    try {
+        const token = localStorage.getItem('admin_token') || localStorage.getItem('authToken');
+        
+        const response = await fetch(`/api/admin/structure`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        
+        if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+        
+        const result = await response.json();
+        console.log('📥 Structure response:', result);
+        
+        if (result.success && result.structure) {
+            const allTopics = result.structure.topics || [];
+            const allModules = result.structure.modules || [];
+            
+            // Get modules for this lesson
+            const modulesForLesson = allModules.filter(m => 
+                parseInt(m.lesson_id) === parseInt(lessonId)
+            );
+            
+            if (modulesForLesson.length === 0) {
+                topicSelect.innerHTML = '<option value="">-- No modules for this lesson --</option>';
+                topicSelect.disabled = true;
+                return;
+            }
+            
+            // Get module IDs
+            const moduleIds = modulesForLesson.map(m => parseInt(m.id));
+            
+            // Get topics that belong to these modules
+            const topicsForLesson = allTopics.filter(topic => 
+                moduleIds.includes(parseInt(topic.module_id))
+            );
+            
+            if (topicsForLesson.length === 0) {
+                topicSelect.innerHTML = '<option value="">-- No topics available for this lesson --</option>';
+                topicSelect.disabled = true;
+            } else {
+                topicSelect.innerHTML = '<option value="">-- Select Topic --</option>';
+                
+                topicsForLesson.forEach(topic => {
+                    const option = document.createElement('option');
+                    option.value = topic.id;
+                    option.textContent = topic.topic_title || topic.name || 'Unnamed Topic';
+                    topicSelect.appendChild(option);
+                });
+                
+                topicSelect.disabled = false;
+            }
+        } else {
+            throw new Error('Invalid structure data');
+        }
+        
+    } catch (error) {
+        console.error('❌ Error loading from structure:', error);
+        useHardcodedTopicsFallback(lessonId);
+    }
+}
+
+// ===== HANDLE PRACTICE LESSON CHANGE =====
+async function handlePracticeLessonChange(lessonId) {
+    console.log("📚 Practice lesson selected:", lessonId);
+    
+    const topicSelect = document.getElementById('practiceTopic');
+    if (!topicSelect) return;
+    
+    if (!lessonId) {
+        topicSelect.innerHTML = '<option value="">-- Select Lesson First --</option>';
+        topicSelect.disabled = true;
+        return;
+    }
+    
+    // Load topics for this lesson
+    await loadTopicsByLesson(lessonId);
+}
 // ===== SETUP FALLBACK TOPIC DROPDOWN =====
 function setupFallbackTopicDropdown() {
     const topicSelect = document.getElementById('topicSelect');
@@ -21176,135 +21260,77 @@ function updateLessonModuleDropdown(lessonId) {
 
 
 
-// ===== LOAD TOPICS BY SELECTED SUBJECT =====
-async function loadTopicsBySubject() {
-    console.log("📚 Loading topics for selected subject...");
+// ===== REPLACE loadTopicsBySubject() WITH THIS =====
+// ===== LOAD TOPICS BY LESSON ID =====
+async function loadTopicsByLesson(lessonId) {
+    console.log(`📚 Loading topics for lesson ID: ${lessonId} from database...`);
     
-    const subjectId = document.getElementById('lessonSubjectSelect').value;
-    const topicSelect = document.getElementById('topicSelect');
-    
-    if (!subjectId) {
-        topicSelect.innerHTML = '<option value="">-- Select Subject First --</option>';
-        topicSelect.disabled = true;
+    const topicSelect = document.getElementById('practiceTopic');
+    if (!topicSelect) {
+        console.warn("⚠️ practiceTopic dropdown not found");
         return;
     }
     
-    // Get subject name for better UX
-    let subjectName = '';
-    if (subjectId == 1) subjectName = 'MathEase';
-    else if (subjectId == 2) subjectName = 'PolyLearn';
-    else if (subjectId == 3) subjectName = 'FactoLearn';
-    
-    console.log(`🔍 Loading topics for ${subjectName} (ID: ${subjectId})`);
-    
-    // Show loading
-    topicSelect.innerHTML = '<option value="">Loading topics...</option>';
-    topicSelect.disabled = true;
+    // Show loading state
+    topicSelect.innerHTML = '<option value="">Loading topics...</option>';    topicSelect.disabled = true;
     
     try {
         const token = localStorage.getItem('admin_token') || localStorage.getItem('authToken');
         
-        if (!token) {
-            throw new Error('No auth token');
-        }
-        
-        // Fetch topics for this subject
-        const response = await fetch(`/api/admin/topics/by-subject/${subjectId}`, {
+        // Try direct topics endpoint first
+        const response = await fetch(`/api/admin/topics/by-lesson/${lessonId}`, {
             headers: { 'Authorization': `Bearer ${token}` }
         });
         
         if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
+            // If direct endpoint fails, use structure endpoint
+            console.log("Direct topics endpoint failed, trying structure endpoint...");
+            await loadTopicsFromStructure(lessonId);
+            return;
         }
         
         const result = await response.json();
+        console.log(`📥 Topics response for lesson ${lessonId}:`, result);
         
         if (result.success && result.topics) {
             const topics = result.topics;
             
-            console.log(`✅ Found ${topics.length} topics for ${subjectName}`);
-            
             if (topics.length === 0) {
-                topicSelect.innerHTML = '<option value="">-- No topics available --</option>';
+                topicSelect.innerHTML = '<option value="">-- No topics available for this lesson --</option>';
                 topicSelect.disabled = true;
-                showNotification('info', 'No Topics', `Create topics first for ${subjectName}`);
+                showNotification('info', 'No Topics', `No topics found for this lesson. Please create topics first.`);
             } else {
-                let options = '<option value="">-- Select Topic --</option>';
+                // Populate dropdown
+                topicSelect.innerHTML = '<option value="">-- Select Topic --</option>';
                 
-                // Group topics by module for better organization
-                const groupedByModule = {};
                 topics.forEach(topic => {
-                    if (!groupedByModule[topic.module_name]) {
-                        groupedByModule[topic.module_name] = [];
-                    }
-                    groupedByModule[topic.module_name].push(topic);
+                    const option = document.createElement('option');
+                    option.value = topic.topic_id || topic.id;
+                    
+                    // Get the best available name
+                    const topicName = topic.topic_title || topic.name || 'Unnamed Topic';
+                    option.textContent = topicName;
+                    
+                    // Store lesson_id as data attribute
+                    option.setAttribute('data-lesson-id', lessonId);
+                    
+                    topicSelect.appendChild(option);
                 });
                 
-                // Add optgroups
-                for (const [moduleName, moduleTopics] of Object.entries(groupedByModule)) {
-                    const optgroup = document.createElement('optgroup');
-                    optgroup.label = moduleName;
-                    
-                    moduleTopics.forEach(topic => {
-                        const option = document.createElement('option');
-                        option.value = topic.id;
-                        option.textContent = topic.name;
-                        optgroup.appendChild(option);
-                    });
-                    
-                    topicSelect.appendChild(optgroup);
-                }
-                
                 topicSelect.disabled = false;
-                console.log(`✅ Topic dropdown populated for ${subjectName}`);
+                console.log(`✅ Populated topic dropdown with ${topics.length} topics for lesson ${lessonId}`);
             }
         } else {
-            throw new Error('Failed to load topics');
+            throw new Error(result.message || 'Failed to load topics');
         }
         
     } catch (error) {
-        console.error('❌ Error loading topics:', error);
+        console.error(`❌ Error loading topics for lesson ${lessonId}:`, error);
         
-        // Fallback topics
-        topicSelect.innerHTML = '<option value="">-- Select Topic --</option>';
-        
-        // Add sample topics based on subject
-        if (subjectId == 1) { // MathEase
-            topicSelect.innerHTML += `
-                <option value="1">Basic Operations</option>
-                <option value="2">Addition and Subtraction</option>
-                <option value="3">Multiplication and Division</option>
-                <option value="4">Order of Operations (MDAS)</option>
-            `;
-        } else if (subjectId == 2) { // PolyLearn
-            topicSelect.innerHTML += `
-                <option value="5">Polynomial Basics</option>
-                <option value="6">Factoring Polynomials</option>
-                <option value="7">Quadratic Equations</option>
-                <option value="8">Polynomial Functions</option>
-            `;
-        } else if (subjectId == 3) { // FactoLearn
-            topicSelect.innerHTML += `
-                <option value="9">Factorial Notation</option>
-                <option value="10">Permutations</option>
-                <option value="11">Combinations</option>
-                <option value="12">Binomial Theorem</option>
-            `;
-        }
-        
-        topicSelect.disabled = false;
-        showNotification('warning', 'Offline Mode', 'Using sample topics');
+        // Fallback to structure endpoint
+        await loadTopicsFromStructure(lessonId);
     }
 }
-// ===== HANDLE MODULE SELECT CHANGE =====
-document.addEventListener('change', function(e) {
-    if (e.target.id === 'moduleSelect') {
-        if (e.target.value === 'create') {
-            openQuickModuleModal();
-            e.target.value = ''; // Reset selection
-        }
-    }
-});
 
 // Filter topics by lesson (and module)
 function filterTopicsByLesson(lessonId) {
@@ -26756,26 +26782,36 @@ function refreshPracticeData() {
     loadAdminPracticeExercises();
 }
 
-// ===== OPEN CREATE PRACTICE MODAL =====
-function openCreatePracticeModal() {
-    console.log("📝 Opening create practice modal...");
+// ===== UPDATED OPEN CREATE PRACTICE MODAL =====
+async function openCreatePracticeModal(practiceId = null, practiceData = null) {
+    console.log("📝 Opening practice modal for:", practiceId ? `edit #${practiceId}` : 'create new');
     
     const modal = document.getElementById('createPracticeModal');
     if (!modal) return;
     
+    // Ensure dropdowns exist
+    ensurePracticeDropdowns();
+    
     // Reset form
-    document.getElementById('practiceId').value = '';
     document.getElementById('practiceTitle').value = '';
     document.getElementById('practiceDescription').value = '';
-    document.getElementById('practiceSubject').value = '';
-    document.getElementById('practiceTopic').innerHTML = '<option value="">-- Select Subject First --</option>';
-    document.getElementById('practiceTopic').disabled = true;
+    
+    const lessonSelect = document.getElementById('practiceLesson');
+    if (lessonSelect) lessonSelect.value = '';
+    
+    const topicSelect = document.getElementById('practiceTopic');
+    if (topicSelect) {
+        topicSelect.innerHTML = '<option value="">-- Select Lesson First --</option>';
+        topicSelect.disabled = true;
+    }
+    
     document.getElementById('practiceDifficulty').value = 'medium';
     document.getElementById('practiceType').value = 'multiple-choice';
     document.getElementById('practicePoints').value = '10';
     document.getElementById('practiceStatus').value = 'active';
+    document.getElementById('practiceId').value = '';
     
-    // Clear teacher dropdown (show loading)
+    // Clear teacher dropdown
     const teacherSelect = document.getElementById('practiceAssignedTeacherId');
     if (teacherSelect) {
         teacherSelect.innerHTML = '<option value="">Loading teachers...</option>';
@@ -26783,7 +26819,8 @@ function openCreatePracticeModal() {
     }
     
     // Clear questions
-    document.getElementById('practiceQuestionsContainer').innerHTML = '';
+    const container = document.getElementById('practiceQuestionsContainer');
+    container.innerHTML = '';
     
     // Add one default question
     addPracticeQuestion();
@@ -26795,14 +26832,81 @@ function openCreatePracticeModal() {
     
     // Load teachers
     setTimeout(() => {
-        loadTeachersForAssignment();
+        if (typeof loadTeachersForAssignment === 'function') {
+            loadTeachersForAssignment();
+        }
     }, 300);
     
-    // Add event listener for subject change
-    const subjectSelect = document.getElementById('practiceSubject');
-    subjectSelect.addEventListener('change', loadPracticeTopicsBySubject);
+    // If editing, populate form
+    if (practiceId && practiceData) {
+        await populatePracticeFormForEdit(practiceData);
+    }
+}
+// ===== POPULATE PRACTICE FORM FOR EDIT =====
+async function populatePracticeFormForEdit(practiceData) {
+    console.log("📝 Populating practice form for edit:", practiceData);
     
-    showNotification('info', 'Create Practice', 'Select a subject to load available topics');
+    document.getElementById('practiceId').value = practiceData.exercise_id || practiceData.id;
+    document.getElementById('practiceTitle').value = practiceData.title || '';
+    document.getElementById('practiceDescription').value = practiceData.description || '';
+    
+    // Set lesson
+    const lessonSelect = document.getElementById('practiceLesson');
+    if (lessonSelect && practiceData.lesson_id) {
+        lessonSelect.value = practiceData.lesson_id;
+        
+        // Load topics for this lesson
+        await loadTopicsByLesson(practiceData.lesson_id);
+        
+        // Set topic after topics are loaded
+        setTimeout(() => {
+            if (practiceData.topic_id) {
+                const topicSelect = document.getElementById('practiceTopic');
+                if (topicSelect) {
+                    topicSelect.value = practiceData.topic_id;
+                }
+            }
+        }, 500);
+    }
+    
+    document.getElementById('practiceDifficulty').value = practiceData.difficulty || 'medium';
+    document.getElementById('practiceType').value = practiceData.content_type || 'multiple-choice';
+    document.getElementById('practicePoints').value = practiceData.points || 10;
+    document.getElementById('practiceStatus').value = practiceData.is_active ? 'active' : 'inactive';
+    
+    // Load questions if any
+    if (practiceData.content_json && practiceData.content_json.questions) {
+        // Clear existing questions
+        document.getElementById('practiceQuestionsContainer').innerHTML = '';
+        
+        practiceData.content_json.questions.forEach((q, index) => {
+            addPracticeQuestion();
+            
+            setTimeout(() => {
+                const qNum = index + 1;
+                
+                const questionInput = document.getElementById(`practice_q_${qNum}_text`);
+                if (questionInput) questionInput.value = q.text || '';
+                
+                if (q.options && q.options.length > 0) {
+                    const letters = ['a', 'b', 'c', 'd', 'e', 'f'];
+                    
+                    q.options.forEach((opt, optIndex) => {
+                        const letter = letters[optIndex];
+                        if (!letter) return;
+                        
+                        const optInput = document.getElementById(`practice_q_${qNum}_opt_${letter}`);
+                        if (optInput) optInput.value = opt.text || '';
+                        
+                        if (opt.correct) {
+                            const radio = document.querySelector(`input[name="practice_q_${qNum}_correct"][value="${letter}"]`);
+                            if (radio) radio.checked = true;
+                        }
+                    });
+                }
+            }, 100 * (index + 1));
+        });
+    }
 }
 
 // ===== LOAD TOPICS BY SUBJECT =====
