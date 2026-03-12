@@ -864,59 +864,8 @@ async function initQuizDashboard() {
     }
 }
 
-// ===== ENSURE DROPDOWNS EXIST =====
-function ensureQuizDropdowns() {
-    console.log("🔧 Ensuring quiz dropdowns exist...");
-    
-    const modalBody = document.querySelector('#createQuizModal .modal-body');
-    if (!modalBody) return;
-    
-    // Check if lesson select exists
-    let lessonGroup = document.getElementById('quizLesson')?.parentNode;
-    
-    if (!lessonGroup) {
-        lessonGroup = document.createElement('div');
-        lessonGroup.className = 'form-group';
-        lessonGroup.innerHTML = `
-            <label for="quizLesson" class="form-label">
-                <i class="fas fa-book"></i> Lesson <span style="color: red;">*</span>
-            </label>
-            <select id="quizLesson" class="form-control" required onchange="handleLessonChange(this.value)">
-                <option value="">-- Select Lesson --</option>
-                <option value="1">MathEase</option>
-                <option value="2">PolyLearn</option>
-                <option value="3">FactoLearn</option>
-            </select>
-            <small class="form-text text-muted">Select which lesson this quiz belongs to</small>
-        `;
-        modalBody.insertBefore(lessonGroup, modalBody.firstChild);
-    }
-    
-    // Check if category select exists
-    let categoryGroup = document.getElementById('quizCategory')?.parentNode;
-    
-    if (!categoryGroup) {
-        categoryGroup = document.createElement('div');
-        categoryGroup.className = 'form-group';
-        categoryGroup.innerHTML = `
-            <label for="quizCategory" class="form-label">
-                <i class="fas fa-tags"></i> Category <span style="color: red;">*</span>
-            </label>
-            <select id="quizCategory" class="form-control" required disabled>
-                <option value="">-- Select Lesson First --</option>
-            </select>
-            <small class="form-text text-muted">Select a category for this quiz</small>
-        `;
-        
-        if (lessonGroup) {
-            lessonGroup.parentNode.insertBefore(categoryGroup, lessonGroup.nextSibling);
-        } else {
-            modalBody.appendChild(categoryGroup);
-        }
-    }
-}
 
-// ===== LOAD ALL CATEGORIES THEN FILTER =====
+// ===== FIXED: LOAD CATEGORIES BY LESSON ID USING STRUCTURE ENDPOINT =====
 async function loadCategoriesByLesson(lessonId) {
     console.log(`📚 Loading categories for lesson ID: ${lessonId}`);
     
@@ -929,66 +878,125 @@ async function loadCategoriesByLesson(lessonId) {
     try {
         const token = localStorage.getItem('admin_token') || localStorage.getItem('authToken');
         
-        // Get all categories
-        const response = await fetch(`/api/quiz/categories`, {
+        // Use the existing structure endpoint (working endpoint)
+        const response = await fetch(`/api/admin/structure`, {
             headers: { 'Authorization': `Bearer ${token}` }
         });
         
-        if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
         
         const result = await response.json();
+        console.log('📥 Structure response:', result);
         
-        if (result.success && result.categories) {
-            // Filter categories by lesson_id
-            const filteredCategories = result.categories.filter(cat => 
-                parseInt(cat.lesson_id) === parseInt(lessonId)
+        if (result.success && result.structure) {
+            // Get all topics and modules
+            const allTopics = result.structure.topics || [];
+            const allModules = result.structure.modules || [];
+            
+            console.log(`📊 Total topics: ${allTopics.length}, modules: ${allModules.length}`);
+            
+            // Get modules for this lesson
+            const modulesForLesson = allModules.filter(m => 
+                parseInt(m.lesson_id) === parseInt(lessonId)
             );
             
-            if (filteredCategories.length === 0) {
+            console.log(`📦 Found ${modulesForLesson.length} modules for lesson ${lessonId}`);
+            
+            if (modulesForLesson.length === 0) {
+                categorySelect.innerHTML = '<option value="">-- No modules for this lesson --</option>';
+                categorySelect.disabled = true;
+                return;
+            }
+            
+            // Get module IDs
+            const moduleIds = modulesForLesson.map(m => parseInt(m.id));
+            
+            // Get topics that belong to these modules
+            const topicsForLesson = allTopics.filter(topic => 
+                moduleIds.includes(parseInt(topic.module_id))
+            );
+            
+            console.log(`📚 Found ${topicsForLesson.length} topics for lesson ${lessonId}`);
+            
+            if (topicsForLesson.length === 0) {
                 categorySelect.innerHTML = '<option value="">-- No categories available --</option>';
                 categorySelect.disabled = true;
             } else {
                 categorySelect.innerHTML = '<option value="">-- Select Category --</option>';
                 
-                filteredCategories.forEach(category => {
+                topicsForLesson.forEach(topic => {
                     const option = document.createElement('option');
-                    option.value = category.category_id || category.id;
-                    option.textContent = category.category_name || category.name || 'Unnamed Category';
+                    option.value = topic.id;
+                    option.textContent = topic.name;
+                    
+                    // Add module name as additional info
+                    const module = modulesForLesson.find(m => m.id == topic.module_id);
+                    if (module) {
+                        option.textContent += ` (${module.name})`;
+                    }
+                    
                     categorySelect.appendChild(option);
                 });
                 
                 categorySelect.disabled = false;
+                console.log(`✅ Populated category dropdown with ${topicsForLesson.length} options`);
             }
         } else {
-            categorySelect.innerHTML = '<option value="">-- No categories found --</option>';
-            categorySelect.disabled = true;
+            throw new Error('Invalid structure data');
         }
         
     } catch (error) {
         console.error('❌ Error loading categories:', error);
-        categorySelect.innerHTML = '<option value="">-- Error loading categories --</option>';
-        categorySelect.disabled = true;
         
-        // Fallback
+        // Fallback to hardcoded categories
         useFallbackCategoriesForLesson(lessonId);
     }
 }
 
-// ===== HANDLE LESSON CHANGE =====
-async function handleLessonChange(lessonId) {
-    console.log("📚 Lesson selected:", lessonId);
+// ===== FALLBACK CATEGORIES (kung walang data sa structure) =====
+function useFallbackCategoriesForLesson(lessonId) {
+    console.log(`⚠️ Using fallback categories for lesson ${lessonId}`);
     
     const categorySelect = document.getElementById('quizCategory');
     if (!categorySelect) return;
     
-    if (!lessonId) {
-        categorySelect.innerHTML = '<option value="">-- Select Lesson First --</option>';
-        categorySelect.disabled = true;
-        return;
-    }
+    // Default categories per lesson
+    const fallbackCategories = {
+        1: [ // MathEase
+            { id: 101, name: 'Basic Operations' },
+            { id: 102, name: 'MDAS Fundamentals' },
+            { id: 103, name: 'Number Theory' }
+        ],
+        2: [ // PolyLearn
+            { id: 201, name: 'Polynomial Basics' },
+            { id: 202, name: 'Factoring Polynomials' },
+            { id: 203, name: 'Quadratic Equations' }
+        ],
+        3: [ // FactoLearn
+            { id: 301, name: 'Factorial Notation' },
+            { id: 302, name: 'Permutations' },
+            { id: 303, name: 'Combinations' }
+        ]
+    };
     
-    await loadCategoriesByLesson(lessonId);
+    const categories = fallbackCategories[lessonId] || fallbackCategories[2];
+    
+    categorySelect.innerHTML = '<option value="">-- Select Category --</option>';
+    
+    categories.forEach(category => {
+        const option = document.createElement('option');
+        option.value = category.id;
+        option.textContent = category.name;
+        categorySelect.appendChild(option);
+    });
+    
+    categorySelect.disabled = false;
+    showNotification('warning', 'Offline Mode', 'Using default categories');
 }
+
+
 // ===== DISPLAY EXERCISE DETAILS MODAL =====
 function displayExerciseDetails(exercise) {
     console.log("📋 Displaying exercise details:", exercise);
@@ -22838,56 +22846,7 @@ function ensureQuizDropdowns() {
     }
 }
 
-// ===== LOAD CATEGORIES BY LESSON ID =====
-async function loadCategoriesByLesson(lessonId) {
-    console.log(`📚 Loading categories for lesson ID: ${lessonId}`);
-    
-    const categorySelect = document.getElementById('quizCategory');
-    if (!categorySelect) return;
-    
-    categorySelect.innerHTML = '<option value="">Loading categories...</option>';
-    categorySelect.disabled = true;
-    
-    try {
-        const token = localStorage.getItem('admin_token') || localStorage.getItem('authToken');
-        
-        const response = await fetch(`/api/quiz/categories/by-lesson/${lessonId}`, {
-            headers: { 'Authorization': `Bearer ${token}` }
-        });
-        
-        if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
-        
-        const result = await response.json();
-        
-        if (result.success && result.categories) {
-            const categories = result.categories;
-            
-            if (categories.length === 0) {
-                categorySelect.innerHTML = '<option value="">-- No categories available --</option>';
-                categorySelect.disabled = true;
-            } else {
-                categorySelect.innerHTML = '<option value="">-- Select Category --</option>';
-                
-                categories.forEach(category => {
-                    const option = document.createElement('option');
-                    option.value = category.category_id || category.id;
-                    option.textContent = category.category_name || category.name || 'Unnamed Category';
-                    categorySelect.appendChild(option);
-                });
-                
-                categorySelect.disabled = false;
-            }
-        } else {
-            categorySelect.innerHTML = '<option value="">-- No categories found --</option>';
-            categorySelect.disabled = true;
-        }
-        
-    } catch (error) {
-        console.error('❌ Error loading categories:', error);
-        categorySelect.innerHTML = '<option value="">-- Error loading categories --</option>';
-        categorySelect.disabled = true;
-    }
-}
+
 
 // ===== HANDLE LESSON CHANGE =====
 async function handleLessonChange(lessonId) {
