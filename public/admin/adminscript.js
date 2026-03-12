@@ -864,54 +864,123 @@ async function initQuizDashboard() {
     }
 }
 
-// Sa adminscript.js, hanapin ang loadQuizCategories function at palitan ang container detection
-async function loadQuizCategories() {
-    console.log('📚 Loading quiz categories...');
+// ===== ENSURE DROPDOWNS EXIST =====
+function ensureQuizDropdowns() {
+    console.log("🔧 Ensuring quiz dropdowns exist...");
+    
+    const modalBody = document.querySelector('#createQuizModal .modal-body');
+    if (!modalBody) return;
+    
+    // Check if lesson select exists
+    let lessonGroup = document.getElementById('quizLesson')?.parentNode;
+    
+    if (!lessonGroup) {
+        lessonGroup = document.createElement('div');
+        lessonGroup.className = 'form-group';
+        lessonGroup.innerHTML = `
+            <label for="quizLesson" class="form-label">
+                <i class="fas fa-book"></i> Lesson <span style="color: red;">*</span>
+            </label>
+            <select id="quizLesson" class="form-control" required onchange="handleLessonChange(this.value)">
+                <option value="">-- Select Lesson --</option>
+                <option value="1">MathEase</option>
+                <option value="2">PolyLearn</option>
+                <option value="3">FactoLearn</option>
+            </select>
+            <small class="form-text text-muted">Select which lesson this quiz belongs to</small>
+        `;
+        modalBody.insertBefore(lessonGroup, modalBody.firstChild);
+    }
+    
+    // Check if category select exists
+    let categoryGroup = document.getElementById('quizCategory')?.parentNode;
+    
+    if (!categoryGroup) {
+        categoryGroup = document.createElement('div');
+        categoryGroup.className = 'form-group';
+        categoryGroup.innerHTML = `
+            <label for="quizCategory" class="form-label">
+                <i class="fas fa-tags"></i> Category <span style="color: red;">*</span>
+            </label>
+            <select id="quizCategory" class="form-control" required disabled>
+                <option value="">-- Select Lesson First --</option>
+            </select>
+            <small class="form-text text-muted">Select a category for this quiz</small>
+        `;
+        
+        if (lessonGroup) {
+            lessonGroup.parentNode.insertBefore(categoryGroup, lessonGroup.nextSibling);
+        } else {
+            modalBody.appendChild(categoryGroup);
+        }
+    }
+}
+
+// ===== LOAD CATEGORIES BY LESSON ID =====
+async function loadCategoriesByLesson(lessonId) {
+    console.log(`📚 Loading categories for lesson ID: ${lessonId}`);
+    
+    const categorySelect = document.getElementById('quizCategory');
+    if (!categorySelect) return;
+    
+    categorySelect.innerHTML = '<option value="">Loading categories...</option>';
+    categorySelect.disabled = true;
     
     try {
         const token = localStorage.getItem('admin_token') || localStorage.getItem('authToken');
         
-        // ✅ I-detect kung nasaan tayo - admin o user
-        const isAdminPage = window.location.pathname.includes('admin.html');
-        
-        // ✅ Piliin ang tamang container
-        let container;
-        if (isAdminPage) {
-            // Sa admin, ilagay sa isang div sa loob ng quiz dashboard section
-            container = document.getElementById('adminCategoriesContainer') || 
-                        document.querySelector('.quiz-table-container') ||
-                        document.querySelector('#quizDashboardSection .modal-body');
-        } else {
-            // Sa user, gamitin ang userQuizzesContainer
-            container = document.getElementById('userQuizzesContainer');
-        }
-        
-        if (!container) {
-            console.log('ℹ️ No container for categories - skipping display');
-            // Return pa rin ang data para sa ibang gamit
-        }
-        
-        const response = await fetch('/api/quiz/categories', {
+        const response = await fetch(`/api/quiz/categories/by-lesson/${lessonId}`, {
             headers: { 'Authorization': `Bearer ${token}` }
         });
         
-        const data = await response.json();
+        if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
         
-        if (data.success && data.categories) {
-            console.log(`✅ Found ${data.categories.length} categories`);
+        const result = await response.json();
+        
+        if (result.success && result.categories) {
+            const categories = result.categories;
             
-            // Store sa global variable para magamit sa ibang functions
-            window.quizCategories = data.categories;
-            
-            // I-populate ang category dropdown sa create quiz modal
-            populateCategoryDropdown(data.categories);
-            
-            return data.categories;
+            if (categories.length === 0) {
+                categorySelect.innerHTML = '<option value="">-- No categories available --</option>';
+                categorySelect.disabled = true;
+            } else {
+                categorySelect.innerHTML = '<option value="">-- Select Category --</option>';
+                
+                categories.forEach(category => {
+                    const option = document.createElement('option');
+                    option.value = category.category_id || category.id;
+                    option.textContent = category.category_name || category.name || 'Unnamed Category';
+                    categorySelect.appendChild(option);
+                });
+                
+                categorySelect.disabled = false;
+            }
+        } else {
+            categorySelect.innerHTML = '<option value="">-- No categories found --</option>';
+            categorySelect.disabled = true;
         }
         
     } catch (error) {
         console.error('❌ Error loading categories:', error);
+        categorySelect.innerHTML = '<option value="">-- Error loading categories --</option>';
+        categorySelect.disabled = true;
     }
+}
+
+// ===== HANDLE LESSON CHANGE =====
+async function handleLessonChange(lessonId) {
+    console.log("📚 Lesson selected:", lessonId);
+    
+    const categorySelect = document.getElementById('quizCategory');
+    if (!categorySelect) return;
+    
+    if (!lessonId) {
+        categorySelect.innerHTML = '<option value="">-- Select Lesson First --</option>';
+        categorySelect.disabled = true;
+        return;
+    }
+    
+    await loadCategoriesByLesson(lessonId);
 }
 // ===== DISPLAY EXERCISE DETAILS MODAL =====
 function displayExerciseDetails(exercise) {
@@ -22518,7 +22587,7 @@ function changeQuizPage(direction) {
     displayQuizzes();
 }
 
-// ===== FIXED: OPEN CREATE/EDIT QUIZ MODAL (WITH DIRECT DATA) =====
+// ===== FIXED: OPEN CREATE/EDIT QUIZ MODAL (WITH LESSON & CATEGORY) =====
 async function openCreateQuizModal(quizId = null, quizData = null) {
     console.log("📝 Opening quiz modal for:", quizId ? `edit #${quizId}` : 'create new');
     console.log("📦 Quiz data received:", quizData);
@@ -22526,15 +22595,30 @@ async function openCreateQuizModal(quizId = null, quizData = null) {
     const modal = document.getElementById('createQuizModal');
     if (!modal) return;
     
+    // Ensure dropdowns exist
+    ensureQuizDropdowns();
+    
     // Reset form
     document.getElementById('quizTitle').value = '';
     document.getElementById('quizDescription').value = '';
-    document.getElementById('quizSubject').value = '';
+    
+    // Reset lesson dropdown
+    const lessonSelect = document.getElementById('quizLesson');
+    if (lessonSelect) lessonSelect.value = '';
+    
+    // Reset category dropdown
+    const categorySelect = document.getElementById('quizCategory');
+    if (categorySelect) {
+        categorySelect.innerHTML = '<option value="">-- Select Lesson First --</option>';
+        categorySelect.disabled = true;
+    }
     
     // Reset topic dropdown
     const topicSelect = document.getElementById('quizTopic');
-    topicSelect.innerHTML = '<option value="">-- Select Subject First --</option>';
-    topicSelect.disabled = true;
+    if (topicSelect) {
+        topicSelect.innerHTML = '<option value="">-- Select Subject First --</option>';
+        topicSelect.disabled = true;
+    }
     
     document.getElementById('quizTimeLimit').value = '30';
     document.getElementById('quizPassingScore').value = '70';
@@ -22574,7 +22658,9 @@ async function openCreateQuizModal(quizId = null, quizData = null) {
     
     // Load teachers
     setTimeout(() => {
-        loadTeachersForAssignment();
+        if (typeof loadTeachersForAssignment === 'function') {
+            loadTeachersForAssignment();
+        }
     }, 300);
     
     // ===== IF EDITING AND WE HAVE DATA, POPULATE FORM =====
@@ -22583,22 +22669,34 @@ async function openCreateQuizModal(quizId = null, quizData = null) {
             // ===== SET EDIT ID =====
             document.getElementById('editQuizId').value = quizData.quiz_id || quizData.id;
             
-            // ===== SET TITLE - THIS IS THE KEY PART =====
+            // ===== SET TITLE =====
             const titleValue = quizData.quiz_title || quizData.title || '';
-            console.log(`📝 Setting title to: "${titleValue}"`);
             document.getElementById('quizTitle').value = titleValue;
             
             // ===== SET DESCRIPTION =====
             document.getElementById('quizDescription').value = quizData.description || '';
             
-            // ===== SET SUBJECT =====
-            const subjectSelect = document.getElementById('quizSubject');
-            if (subjectSelect) {
-                subjectSelect.value = quizData.category_id || quizData.subject_id || '';
-                console.log(`✅ Subject set to: ${subjectSelect.value}`);
+            // ===== SET LESSON =====
+            if (lessonSelect) {
+                const lessonValue = quizData.lesson_id || quizData.category_id || quizData.subject_id || '';
+                lessonSelect.value = lessonValue;
+                console.log(`✅ Lesson set to: ${lessonValue}`);
+                
+                // Load categories for this lesson
+                if (lessonValue) {
+                    await loadCategoriesByLesson(lessonValue);
+                    
+                    // Set category after categories are loaded
+                    setTimeout(() => {
+                        if (quizData.category_id) {
+                            categorySelect.value = quizData.category_id;
+                            console.log(`✅ Category set to: ${quizData.category_id}`);
+                        }
+                    }, 500);
+                }
             }
             
-            // ===== Load topics based on subject =====
+            // ===== Load topics based on lesson =====
             await loadQuizTopics();
             
             // ===== Set topic after topics are loaded =====
@@ -22634,10 +22732,8 @@ async function openCreateQuizModal(quizId = null, quizData = null) {
                 console.log(`📝 Loading ${quizData.questions.length} questions`);
                 
                 quizData.questions.forEach((q, index) => {
-                    // Add question field
                     addQuestionField();
                     
-                    // Fill question data with slight delay for DOM to update
                     setTimeout(() => {
                         const qNum = index + 1;
                         
@@ -22655,19 +22751,15 @@ async function openCreateQuizModal(quizId = null, quizData = null) {
                                 const letter = letters[optIndex];
                                 if (!letter) return;
                                 
-                                // Set option text
                                 const optInput = document.getElementById(`q_${qNum}_opt_${letter}`);
                                 if (optInput) {
                                     optInput.value = opt.option_text || opt.text || '';
                                 }
                                 
-                                // Set correct answer
                                 const isCorrect = opt.is_correct || opt.correct || false;
                                 if (isCorrect) {
                                     const radio = document.querySelector(`input[name="q_${qNum}_correct"][value="${letter}"]`);
-                                    if (radio) {
-                                        radio.checked = true;
-                                    }
+                                    if (radio) radio.checked = true;
                                 }
                             });
                         }
@@ -22683,6 +22775,322 @@ async function openCreateQuizModal(quizId = null, quizData = null) {
             console.error('❌ Error populating quiz form:', error);
             showNotification('error', 'Error', 'Failed to populate quiz data');
             addQuestionField();
+        }
+    }
+}
+
+// ===== ENSURE DROPDOWNS EXIST =====
+function ensureQuizDropdowns() {
+    console.log("🔧 Ensuring quiz dropdowns exist...");
+    
+    const modalBody = document.querySelector('#createQuizModal .modal-body');
+    if (!modalBody) return;
+    
+    // Check if lesson select exists
+    let lessonGroup = document.getElementById('quizLesson')?.parentNode;
+    
+    if (!lessonGroup) {
+        lessonGroup = document.createElement('div');
+        lessonGroup.className = 'form-group';
+        lessonGroup.innerHTML = `
+            <label for="quizLesson" class="form-label">
+                <i class="fas fa-book"></i> Lesson <span style="color: red;">*</span>
+            </label>
+            <select id="quizLesson" class="form-control" required onchange="handleLessonChange(this.value)">
+                <option value="">-- Select Lesson --</option>
+                <option value="1">MathEase</option>
+                <option value="2">PolyLearn</option>
+                <option value="3">FactoLearn</option>
+            </select>
+            <small class="form-text text-muted">Select which lesson this quiz belongs to</small>
+        `;
+        modalBody.insertBefore(lessonGroup, modalBody.firstChild);
+    }
+    
+    // Check if category select exists
+    let categoryGroup = document.getElementById('quizCategory')?.parentNode;
+    
+    if (!categoryGroup) {
+        categoryGroup = document.createElement('div');
+        categoryGroup.className = 'form-group';
+        categoryGroup.innerHTML = `
+            <label for="quizCategory" class="form-label">
+                <i class="fas fa-tags"></i> Category <span style="color: red;">*</span>
+            </label>
+            <select id="quizCategory" class="form-control" required disabled>
+                <option value="">-- Select Lesson First --</option>
+            </select>
+            <small class="form-text text-muted">Select a category for this quiz</small>
+        `;
+        
+        if (lessonGroup) {
+            lessonGroup.parentNode.insertBefore(categoryGroup, lessonGroup.nextSibling);
+        } else {
+            modalBody.appendChild(categoryGroup);
+        }
+    }
+}
+
+// ===== LOAD CATEGORIES BY LESSON ID =====
+async function loadCategoriesByLesson(lessonId) {
+    console.log(`📚 Loading categories for lesson ID: ${lessonId}`);
+    
+    const categorySelect = document.getElementById('quizCategory');
+    if (!categorySelect) return;
+    
+    categorySelect.innerHTML = '<option value="">Loading categories...</option>';
+    categorySelect.disabled = true;
+    
+    try {
+        const token = localStorage.getItem('admin_token') || localStorage.getItem('authToken');
+        
+        const response = await fetch(`/api/quiz/categories/by-lesson/${lessonId}`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        
+        if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+        
+        const result = await response.json();
+        
+        if (result.success && result.categories) {
+            const categories = result.categories;
+            
+            if (categories.length === 0) {
+                categorySelect.innerHTML = '<option value="">-- No categories available --</option>';
+                categorySelect.disabled = true;
+            } else {
+                categorySelect.innerHTML = '<option value="">-- Select Category --</option>';
+                
+                categories.forEach(category => {
+                    const option = document.createElement('option');
+                    option.value = category.category_id || category.id;
+                    option.textContent = category.category_name || category.name || 'Unnamed Category';
+                    categorySelect.appendChild(option);
+                });
+                
+                categorySelect.disabled = false;
+            }
+        } else {
+            categorySelect.innerHTML = '<option value="">-- No categories found --</option>';
+            categorySelect.disabled = true;
+        }
+        
+    } catch (error) {
+        console.error('❌ Error loading categories:', error);
+        categorySelect.innerHTML = '<option value="">-- Error loading categories --</option>';
+        categorySelect.disabled = true;
+    }
+}
+
+// ===== HANDLE LESSON CHANGE =====
+async function handleLessonChange(lessonId) {
+    console.log("📚 Lesson selected:", lessonId);
+    
+    const categorySelect = document.getElementById('quizCategory');
+    if (!categorySelect) return;
+    
+    if (!lessonId) {
+        categorySelect.innerHTML = '<option value="">-- Select Lesson First --</option>';
+        categorySelect.disabled = true;
+        return;
+    }
+    
+    await loadCategoriesByLesson(lessonId);
+}
+
+// ===== FIXED: saveQuizToMySQL() WITH PROPER LESSON_ID AND CATEGORY_ID =====
+async function saveQuizToMySQL() {
+    console.log("💾 ===== SAVING QUIZ TO MYSQL DATABASE =====");
+    
+    // Get form values
+    const title = document.getElementById('quizTitle')?.value.trim();
+    const description = document.getElementById('quizDescription')?.value.trim();
+    const lessonId = document.getElementById('quizLesson')?.value;
+    const categoryId = document.getElementById('quizCategory')?.value;
+    const topicId = document.getElementById('quizTopic')?.value;
+    
+    console.log('📋 Quiz data:', { 
+        lessonId,        // ← LESSON ID
+        categoryId,      // ← CATEGORY ID
+        topicId,
+        title
+    });
+    
+    // ===== VALIDATION =====
+    if (!title) {
+        showNotification('error', 'Error', 'Please enter a quiz title');
+        return;
+    }
+    
+    if (!lessonId) {
+        showNotification('error', 'Error', 'Please select a lesson');
+        return;
+    }
+    
+    if (!categoryId) {
+        showNotification('error', 'Error', 'Please select a category');
+        return;
+    }
+    
+    // ===== CONVERT TO NUMBERS =====
+    const lesson_id = parseInt(lessonId);
+    const category_id = parseInt(categoryId);
+    
+    const timeLimit = document.getElementById('quizTimeLimit')?.value;
+    const passingScore = document.getElementById('quizPassingScore')?.value;
+    const maxAttempts = document.getElementById('quizMaxAttempts')?.value;
+    const difficulty = document.getElementById('quizDifficulty')?.value;
+    const status = document.getElementById('quizStatus')?.value;
+    const editId = document.getElementById('editQuizId')?.value;
+    const assignedTeacherId = document.getElementById('quizAssignedTeacherId')?.value;
+    
+    // ===== COLLECT QUESTIONS =====
+    const questions = [];
+    const questionItems = document.querySelectorAll('.question-item');
+    
+    if (questionItems.length === 0) {
+        showNotification('error', 'Error', 'Please add at least one question');
+        return;
+    }
+    
+    for (let i = 0; i < questionItems.length; i++) {
+        const q = questionItems[i];
+        const qId = i + 1;
+        
+        const questionText = document.getElementById(`q_${qId}_text`)?.value.trim();
+        if (!questionText) {
+            showNotification('error', 'Error', `Please enter question ${qId} text`);
+            return;
+        }
+        
+        const correctRadio = document.querySelector(`input[name="q_${qId}_correct"]:checked`);
+        if (!correctRadio) {
+            showNotification('error', 'Error', `Please select correct answer for question ${qId}`);
+            return;
+        }
+        const correctLetter = correctRadio.value;
+        
+        const options = [];
+        const optionLetters = ['a', 'b', 'c', 'd', 'e', 'f'];
+        
+        for (let j = 0; j < optionLetters.length; j++) {
+            const letter = optionLetters[j];
+            const optInput = document.getElementById(`q_${qId}_opt_${letter}`);
+            
+            if (optInput && optInput.value.trim()) {
+                options.push({
+                    option_text: optInput.value.trim(),
+                    is_correct: letter === correctLetter ? 1 : 0,
+                    option_order: j + 1
+                });
+            }
+        }
+        
+        if (options.length < 2) {
+            showNotification('error', 'Error', `Question ${qId} must have at least 2 options`);
+            return;
+        }
+        
+        questions.push({
+            question_text: questionText,
+            question_type: 'multiple_choice',
+            points: 10,
+            question_order: i + 1,
+            options: options
+        });
+    }
+    
+    // ===== PREPARE DATA FOR SERVER =====
+    const quizData = {
+        lesson_id: lesson_id,        // ← LESSON ID (1,2,3)
+        category_id: category_id,    // ← CATEGORY ID
+        topic_id: topicId ? parseInt(topicId) : null,
+        title: title,
+        description: description || '',
+        difficulty: difficulty || 'medium',
+        time_limit: parseInt(timeLimit) || 30,
+        passing_score: parseFloat(passingScore) || 70,
+        max_attempts: parseInt(maxAttempts) || 3,
+        total_questions: questions.length,
+        is_active: status === 'active' ? 1 : 0,
+        questions: questions
+    };
+    
+    // Add teacher assignment if selected
+    if (assignedTeacherId && assignedTeacherId !== '') {
+        quizData.assigned_teacher_id = parseInt(assignedTeacherId);
+    }
+    
+    if (editId) {
+        quizData.quiz_id = parseInt(editId);
+    }
+    
+    console.log("📤 Sending quiz data:", quizData);
+    
+    try {
+        const token = localStorage.getItem('admin_token') || localStorage.getItem('authToken');
+        
+        if (!token) {
+            showNotification('error', 'Auth Error', 'Please login first');
+            return;
+        }
+        
+        // Show loading
+        const saveBtn = document.querySelector('#createQuizModal .btn-primary');
+        const originalText = saveBtn?.innerHTML;
+        if (saveBtn) {
+            saveBtn.disabled = true;
+            saveBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Saving...';
+        }
+        
+        const url = editId
+            ? `/api/admin/quizzes/${editId}`
+            : `/api/admin/quizzes`;
+        
+        const response = await fetch(url, {
+            method: editId ? 'PUT' : 'POST',
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(quizData)
+        });
+        
+        const result = await response.json();
+        
+        if (!response.ok) {
+            throw new Error(result.message || `Server error: ${response.status}`);
+        }
+        
+        if (result.success) {
+            let message = editId 
+                ? 'Quiz updated successfully!' 
+                : 'Quiz created successfully!';
+            
+            // Ipakita kung saang app na-save
+            const appName = lesson_id === 1 ? 'MathEase' : 
+                           lesson_id === 2 ? 'PolyLearn' : 'FactoLearn';
+            message += ` (Saved to ${appName})`;
+            
+            if (assignedTeacherId) {
+                message += ' (Assigned to teacher)';
+            }
+            
+            showNotification('success', 'Success!', message);
+            closeCreateQuizModal();
+            await loadQuizzesFromMySQL();
+        } else {
+            throw new Error(result.message || 'Failed to save quiz');
+        }
+        
+    } catch (error) {
+        console.error('❌ Error saving quiz:', error);
+        showNotification('error', 'Save Failed', error.message);
+    } finally {
+        const saveBtn = document.querySelector('#createQuizModal .btn-primary');
+        if (saveBtn) {
+            saveBtn.disabled = false;
+            saveBtn.innerHTML = '<i class="fas fa-save"></i> Save Quiz';
         }
     }
 }
@@ -22794,25 +23202,27 @@ function addOption(questionId) {
 // 📁 adminscript.js - I-update ang saveQuizToMySQL()
 // ============================================
 
+// ===== FIXED: saveQuizToMySQL() WITH PROPER LESSON_ID =====
 async function saveQuizToMySQL() {
     console.log("💾 ===== SAVING QUIZ TO MYSQL DATABASE =====");
     
     // Get form values
     const title = document.getElementById('quizTitle')?.value.trim();
     const description = document.getElementById('quizDescription')?.value.trim();
-    const subjectId = document.getElementById('quizSubject')?.value; // Ito ay lesson_id
+    const subjectId = document.getElementById('quizSubject')?.value;
     const topicId = document.getElementById('quizTopic')?.value;
     
-    // ===== FIX: I-CONVERT ANG SUBJECT SA LESSON_ID =====
+    // ===== CRITICAL: Convert subject to lesson_id =====
     let lesson_id;
-    if (subjectId == 1) { // MathEase
-        lesson_id = 1;
-    } else if (subjectId == 2) { // PolyLearn
-        lesson_id = 2;
-    } else if (subjectId == 3) { // FactoLearn
-        lesson_id = 3;
+    if (subjectId == 1) {
+        lesson_id = 1;  // MathEase
+    } else if (subjectId == 2) {
+        lesson_id = 2;  // PolyLearn
+    } else if (subjectId == 3) {
+        lesson_id = 3;  // FactoLearn
     } else {
-        lesson_id = 2; // Default to PolyLearn
+        lesson_id = 2;  // Default to PolyLearn
+        console.warn('⚠️ Unknown subject, defaulting to PolyLearn');
     }
     
     const timeLimit = document.getElementById('quizTimeLimit')?.value;
@@ -22821,16 +23231,13 @@ async function saveQuizToMySQL() {
     const difficulty = document.getElementById('quizDifficulty')?.value;
     const status = document.getElementById('quizStatus')?.value;
     const editId = document.getElementById('editQuizId')?.value;
-    
-    // Get assigned teacher
     const assignedTeacherId = document.getElementById('quizAssignedTeacherId')?.value;
     
     console.log('📋 Quiz data:', { 
-        title, 
-        description,
         lesson_id,        // ← ITO ANG PINAKAIMPORTANTE
         subjectId,
         topicId,
+        title, 
         timeLimit, 
         passingScore, 
         maxAttempts,
@@ -22910,7 +23317,7 @@ async function saveQuizToMySQL() {
     // ===== PREPARE DATA FOR SERVER =====
     const quizData = {
         lesson_id: lesson_id,        // ← I-SEND ANG lesson_id SA SERVER
-        category_id: subjectId,      // subjectId ang ginagamit bilang category_id
+        category_id: subjectId,
         topic_id: topicId ? parseInt(topicId) : null,
         title: title,
         description: description || '',
@@ -25094,6 +25501,73 @@ function getDefaultSubjectData() {
     return defaultData[subject] || defaultData.polynomial;
 }
 
+// ===== ADD THIS FUNCTION - POPULATE CATEGORY DROPDOWN =====
+function populateCategoryDropdown(categories) {
+    console.log("📋 Populating category dropdown with", categories.length, "categories");
+    
+    // Hanapin ang category dropdown sa create quiz modal
+    const categorySelect = document.getElementById('quizSubject');
+    if (!categorySelect) {
+        console.warn("⚠️ quizSubject dropdown not found - trying alternative IDs");
+        
+        // Try alternative IDs
+        const altSelects = ['quizCategory', 'categorySelect', 'subjectSelect'];
+        for (const id of altSelects) {
+            const el = document.getElementById(id);
+            if (el) {
+                console.log(`✅ Found alternative dropdown: ${id}`);
+                populateThisDropdown(el, categories);
+                return;
+            }
+        }
+        
+        console.error("❌ No category dropdown found!");
+        return;
+    }
+    
+    populateThisDropdown(categorySelect, categories);
+}
+
+// Helper function to populate a dropdown
+function populateThisDropdown(dropdown, categories) {
+    // Save current value
+    const currentValue = dropdown.value;
+    
+    // Clear dropdown
+    dropdown.innerHTML = '<option value="">-- Select Category --</option>';
+    
+    // Add categories
+    categories.forEach(category => {
+        const option = document.createElement('option');
+        option.value = category.category_id || category.id;
+        
+        // Get the best available name
+        const categoryName = category.category_name || category.name || 'Unnamed Category';
+        option.textContent = categoryName;
+        
+        dropdown.appendChild(option);
+    });
+    
+    // Restore value if it still exists
+    if (currentValue) {
+        dropdown.value = currentValue;
+    }
+    
+    console.log(`✅ Populated dropdown with ${categories.length} categories`);
+    
+    // Also populate filter dropdown if it exists
+    const filterSelect = document.getElementById('filterCategory');
+    if (filterSelect) {
+        filterSelect.innerHTML = '<option value="all">All Categories</option>';
+        categories.forEach(category => {
+            const option = document.createElement('option');
+            option.value = category.category_id || category.id;
+            option.textContent = category.category_name || category.name || 'Category';
+            filterSelect.appendChild(option);
+        });
+        console.log("✅ Also populated filter dropdown");
+    }
+}
 // ===== FIXED: FETCH SUBJECT DATA FROM DATABASE USING EXISTING ENDPOINTS =====
 async function fetchSubjectDataFromDatabase() {
     console.log("📊 Fetching subject data from database...");
@@ -26181,6 +26655,7 @@ function updateAdminPracticeStats(exercises) {
     if (avgScoreEl) avgScoreEl.textContent = avgScore + '%';
 }
 
+
 // ===== UPDATE ADMIN PRACTICE PAGINATION =====
 function updateAdminPracticePagination(total) {
     const perPage = 10;
@@ -26586,13 +27061,12 @@ async function savePracticeExercise() {
     const title = document.getElementById('practiceTitle')?.value.trim();
     const description = document.getElementById('practiceDescription')?.value.trim();
     const difficulty = document.getElementById('practiceDifficulty')?.value;
-    let contentType = document.getElementById('practiceType')?.value;
     const points = parseInt(document.getElementById('practicePoints')?.value) || 10;
     const status = document.getElementById('practiceStatus')?.value;
     const practiceId = document.getElementById('practiceId')?.value;
     const assignedTeacherId = document.getElementById('practiceAssignedTeacherId')?.value;
 
-    // ===== CRITICAL FIX: Convert subject to lesson_id =====
+    // ===== CRITICAL: Convert subject to lesson_id =====
     let lesson_id;
     if (subjectId == 1) {
         lesson_id = 1;  // MathEase
@@ -26602,6 +27076,7 @@ async function savePracticeExercise() {
         lesson_id = 3;  // FactoLearn
     } else {
         lesson_id = 2;  // Default to PolyLearn
+        console.warn('⚠️ Unknown subject, defaulting to PolyLearn');
     }
 
     console.log('📝 Practice data:', { 
@@ -26692,7 +27167,7 @@ async function savePracticeExercise() {
 
     // ===== CRITICAL: Include lesson_id in the data sent to server =====
     const practiceData = {
-        lesson_id: lesson_id,        // ✅ ITO ANG KULANG!
+        lesson_id: lesson_id,        // ✅ ITO ANG DAPAT LAGING NASAAD
         topic_id: parseInt(topicId),
         title: title,
         description: description || '',
@@ -26712,7 +27187,7 @@ async function savePracticeExercise() {
         practiceData.exercise_id = parseInt(practiceId);
     }
 
-    console.log("📤 SENDING TO SERVER:", practiceData); // ✅ I-check ito
+    console.log("📤 SENDING TO SERVER:", practiceData);
 
     try {
         const token = localStorage.getItem('admin_token') || localStorage.getItem('authToken');
@@ -26758,15 +27233,13 @@ async function savePracticeExercise() {
                            lesson_id === 2 ? 'PolyLearn' : 'FactoLearn';
             message += ` (Saved to ${appName})`;
 
+            if (assignedTeacherId && assignedTeacherId !== '') {
+                message += ' (Assigned to teacher)';
+            }
+
             showNotification('success', 'Success!', message);
             closeCreatePracticeModal();
             await loadAdminPracticeExercises();
-
-            // ✅ Test agad kung may lesson_id
-            setTimeout(() => {
-                console.log('🔍 Checking if lesson_id was saved...');
-                checkPracticeLessonId();
-            }, 500);
 
         } else {
             throw new Error(result.message || 'Failed to save practice exercise');
@@ -28045,7 +28518,112 @@ function initializeSettingsDashboard() {
 window.exportUsers = exportUsers;
 window.exportUsersCSV = exportUsersCSV;
 window.exportFilteredUsers = exportFilteredUsers;
+// ===== DEBUG FUNCTIONS PARA I-VERIFY ANG LESSON_ID =====
 
+// Check practice exercises
+async function checkPracticeLessonId() {
+    const token = localStorage.getItem('admin_token');
+    
+    console.log('🔍 Checking practice exercises...');
+    
+    try {
+        const response = await fetch('/api/admin/practice', {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            console.log('📊 LATEST PRACTICE EXERCISES:');
+            const exercises = data.exercises || [];
+            
+            exercises.slice(0, 5).forEach(ex => {
+                const lessonMap = {
+                    1: 'MathEase',
+                    2: 'PolyLearn', 
+                    3: 'FactoLearn'
+                };
+                
+                console.log({
+                    id: ex.id,
+                    title: ex.title,
+                    lesson_id: ex.lesson_id,
+                    lesson_name: lessonMap[ex.lesson_id] || 'Unknown',
+                    topic_id: ex.topic_id,
+                    status: ex.is_active ? 'active' : 'inactive'
+                });
+            });
+            
+            const hasLessonId = exercises.some(ex => ex.lesson_id !== null && ex.lesson_id !== undefined);
+            console.log('✅ May lesson_id:', hasLessonId);
+            
+            const stats = {
+                MathEase: exercises.filter(ex => ex.lesson_id === 1).length,
+                PolyLearn: exercises.filter(ex => ex.lesson_id === 2).length,
+                FactoLearn: exercises.filter(ex => ex.lesson_id === 3).length,
+                NoSubject: exercises.filter(ex => !ex.lesson_id).length
+            };
+            
+            console.log('📊 Statistics:', stats);
+            
+        } else {
+            console.error('❌ Failed to load exercises');
+        }
+        
+    } catch (error) {
+        console.error('❌ Error:', error);
+    }
+}
+
+// Check quiz exercises
+async function checkQuizLessonId() {
+    const token = localStorage.getItem('admin_token');
+    
+    console.log('🔍 Checking quizzes...');
+    
+    try {
+        const response = await fetch('/api/admin/quizzes', {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            const quizzes = data.quizzes || [];
+            
+            console.log('📊 QUIZ STATISTICS:');
+            
+            const stats = {
+                MathEase: quizzes.filter(q => q.lesson_id === 1).length,
+                PolyLearn: quizzes.filter(q => q.lesson_id === 2).length,
+                FactoLearn: quizzes.filter(q => q.lesson_id === 3).length,
+                NoSubject: quizzes.filter(q => !q.lesson_id).length,
+                Total: quizzes.length
+            };
+            
+            console.log('📊 Statistics:', stats);
+            
+            // Sample
+            if (quizzes.length > 0) {
+                console.log('📋 Sample quiz:', {
+                    id: quizzes[0].id,
+                    title: quizzes[0].title,
+                    lesson_id: quizzes[0].lesson_id
+                });
+            }
+            
+        } else {
+            console.error('❌ Failed to load quizzes');
+        }
+        
+    } catch (error) {
+        console.error('❌ Error:', error);
+    }
+}
+
+// Make functions globally available
+window.checkPracticeLessonId = checkPracticeLessonId;
+window.checkQuizLessonId = checkQuizLessonId;
 // ===== DEBUG: Check subject data directly =====
 async function debugSubjectData() {
     console.log("🔍 DEBUG: Checking subject data...");
