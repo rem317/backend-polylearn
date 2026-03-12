@@ -26554,7 +26554,6 @@ function deletePracticeExercise(exerciseId) {
     }, 500);
 }
 
-
 // ===== FIXED: SAVE PRACTICE EXERCISE WITH CORRECT LESSON ID =====
 async function savePracticeExercise() {
     console.log("💾 ===== SAVING PRACTICE EXERCISE TO DATABASE =====");
@@ -26690,7 +26689,8 @@ async function savePracticeExercise() {
     const isActive = status === 'active' ? 1 : 0;
     
     const practiceData = {
-        lesson_id: lesson_id,  // Use lesson_id, not subject_id
+        // ===== FIX: ADD lesson_id HERE =====
+        lesson_id: lesson_id,  // Add this line - it was missing!
         topic_id: parseInt(topicId),
         title: title,
         description: description || '',
@@ -26702,7 +26702,7 @@ async function savePracticeExercise() {
     };
     
     // Add teacher assignment if selected
-    if (assignedTeacherId) {
+    if (assignedTeacherId && assignedTeacherId !== '') {
         practiceData.assigned_teacher_id = parseInt(assignedTeacherId);
     }
     
@@ -26753,7 +26753,7 @@ async function savePracticeExercise() {
                 : 'Practice exercise created successfully!';
             message += ` (${subjectName})`;
             
-            if (assignedTeacherId) {
+            if (assignedTeacherId && assignedTeacherId !== '') {
                 message += ' (Assigned to teacher)';
             }
             
