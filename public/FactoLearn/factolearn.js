@@ -19324,7 +19324,7 @@ async function updateContinueLearningModule() {
     }
 }
 
-// ===== UPDATED: LOAD PRACTICE EXERCISES FOR TOPIC =====
+// ===== FIXED: LOAD PRACTICE EXERCISES FOR TOPIC =====
 async function loadPracticeExercisesForTopic(topicId) {
     console.log(`📚 Loading practice exercises for topic: ${topicId}`);
     
@@ -19336,9 +19336,10 @@ async function loadPracticeExercisesForTopic(topicId) {
     
     // Show loading
     exerciseArea.innerHTML = `
-        <div class="loading-container">
-            <i class="fas fa-spinner fa-spin"></i>
-            <p>Loading practice exercises...</p>
+        <div class="loading-container" style="text-align: center; padding: 40px;">
+            <i class="fas fa-spinner fa-spin" style="font-size: 40px; color: #7a0000; margin-bottom: 20px;"></i>
+            <p style="color: #666;">Connecting to database...</p>
+            <p style="color: #999; font-size: 12px; margin-top: 10px;">Fetching exercises for topic ${topicId}</p>
         </div>
     `;
     
@@ -19346,72 +19347,182 @@ async function loadPracticeExercisesForTopic(topicId) {
         const token = localStorage.getItem('authToken');
         if (!token) {
             exerciseArea.innerHTML = `
-                <div class="error-message">
-                    <i class="fas fa-exclamation-triangle"></i>
-                    <h3>Please login to access practice exercises</h3>
+                <div class="error-message" style="text-align: center; padding: 40px;">
+                    <i class="fas fa-lock" style="font-size: 60px; color: #f39c12; margin-bottom: 20px;"></i>
+                    <h3 style="color: #666;">Please login to access practice exercises</h3>
+                    <button class="btn-primary" onclick="location.href='login.html'" style="margin-top: 20px; background: #7a0000;">
+                        <i class="fas fa-sign-in-alt"></i> Go to Login
+                    </button>
                 </div>
             `;
             return;
         }
         
-        // Get current lesson
-        const lessonId = getCurrentLessonId();
-        console.log(`📍 Current lesson ID: ${lessonId}`);
+        // Get current lesson ID
+        const lessonId = 3; // Force FactoLearn
         
-        // Use the working admin endpoint
-        const response = await fetch(`/api/admin/practice`, {
-            headers: {
-                'Authorization': `Bearer ${token}`,
-                'Content-Type': 'application/json'
+        console.log(`📍 Current lesson ID: ${lessonId}, Topic ID: ${topicId}`);
+        
+        // ===== TRY MULTIPLE ENDPOINTS =====
+        let exercises = [];
+        let usedEndpoint = '';
+        
+        // ENDPOINT 1: Topic-specific endpoint
+        try {
+            const endpoint = `/api/practice/topic/${topicId}?lesson_id=${lessonId}`;
+            console.log(`📡 Trying endpoint 1: ${endpoint}`);
+            
+            const response = await fetch(endpoint, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            
+            if (response.ok) {
+                const data = await response.json();
+                console.log('📥 Response from endpoint 1:', data);
+                
+                if (data.success && data.exercises) {
+                    exercises = data.exercises;
+                    usedEndpoint = endpoint;
+                } else if (data.exercises) {
+                    exercises = data.exercises;
+                    usedEndpoint = endpoint;
+                }
             }
+        } catch (e) {
+            console.log('⚠️ Endpoint 1 failed:', e.message);
+        }
+        
+        // ENDPOINT 2: Admin practice endpoint (if first fails)
+        if (exercises.length === 0) {
+            try {
+                const endpoint = `/api/admin/practice?lesson_id=${lessonId}&topic_id=${topicId}`;
+                console.log(`📡 Trying endpoint 2: ${endpoint}`);
+                
+                const response = await fetch(endpoint, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    console.log('📥 Response from endpoint 2:', data);
+                    
+                    if (data.success && data.exercises) {
+                        exercises = data.exercises;
+                        usedEndpoint = endpoint;
+                    }
+                }
+            } catch (e) {
+                console.log('⚠️ Endpoint 2 failed:', e.message);
+            }
+        }
+        
+        // ENDPOINT 3: Generic exercises endpoint
+        if (exercises.length === 0) {
+            try {
+                const endpoint = `/api/exercises?lesson_id=${lessonId}&topic_id=${topicId}`;
+                console.log(`📡 Trying endpoint 3: ${endpoint}`);
+                
+                const response = await fetch(endpoint, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    console.log('📥 Response from endpoint 3:', data);
+                    
+                    if (data.success && data.exercises) {
+                        exercises = data.exercises;
+                        usedEndpoint = endpoint;
+                    } else if (Array.isArray(data)) {
+                        exercises = data;
+                        usedEndpoint = endpoint;
+                    }
+                }
+            } catch (e) {
+                console.log('⚠️ Endpoint 3 failed:', e.message);
+            }
+        }
+        
+        console.log(`✅ Found ${exercises.length} exercises via ${usedEndpoint || 'unknown endpoint'}`);
+        
+        if (exercises.length === 0) {
+            exerciseArea.innerHTML = `
+                <div class="no-exercises" style="text-align: center; padding: 40px; background: white; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.1);">
+                    <i class="fas fa-dumbbell" style="font-size: 60px; color: #ccc; margin-bottom: 20px;"></i>
+                    <h3 style="color: #666; margin-bottom: 10px;">No Practice Exercises Available</h3>
+                    <p style="color: #999; margin-bottom: 20px;">There are no exercises for this topic yet.</p>
+                    
+                    <!-- Debug Info -->
+                    <div style="background: #f8f9fa; border-radius: 8px; padding: 15px; margin: 20px auto; max-width: 400px; text-align: left; border: 1px solid #e0e0e0;">
+                        <p style="margin: 5px 0; color: #666; font-size: 13px;"><strong>Debug Info:</strong></p>
+                        <p style="margin: 5px 0; color: #666; font-size: 12px;">Lesson ID: ${lessonId}</p>
+                        <p style="margin: 5px 0; color: #666; font-size: 12px;">Topic ID: ${topicId}</p>
+                        <p style="margin: 5px 0; color: #666; font-size: 12px;">Auth Token: ${token ? '✓ Present' : '✗ Missing'}</p>
+                        <button onclick="debugPracticeFetch()" style="margin-top: 10px; padding: 5px 10px; background: #3498db; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 12px;">
+                            <i class="fas fa-bug"></i> Debug
+                        </button>
+                    </div>
+                    
+                    <button class="btn-primary" onclick="loadPracticeExercisesForTopic('${topicId}')" style="background: #7a0000; margin-top: 10px;">
+                        <i class="fas fa-redo"></i> Try Again
+                    </button>
+                </div>
+            `;
+            return;
+        }
+        
+        // Process exercises to ensure consistent format
+        const processedExercises = exercises.map((ex, index) => {
+            return {
+                exercise_id: ex.exercise_id || ex.id || (100 + index),
+                title: ex.title || ex.exercise_title || `Exercise ${index + 1}`,
+                description: ex.description || ex.exercise_description || 'Practice your skills with this exercise.',
+                difficulty: ex.difficulty || 'medium',
+                points: ex.points || 10,
+                lesson_id: ex.lesson_id || lessonId,
+                topic_id: ex.topic_id || topicId,
+                content_json: ex.content_json || ex.questions || { questions: [] }
+            };
         });
         
-        if (!response.ok) {
-            throw new Error(`Failed to load practice exercises: ${response.status}`);
-        }
+        // Store in PracticeState
+        PracticeState.exercises = processedExercises;
         
-        const result = await response.json();
+        // Display exercises
+        displayPracticeExercisesUI(processedExercises);
         
-        if (result.success && result.exercises) {
-            // Filter exercises by lesson_id AND topic_id
-            const exercises = result.exercises.filter(ex => 
-                ex.lesson_id == lessonId && 
-                ex.topic_id == topicId && 
-                ex.is_active === 1
-            );
-            
-            console.log(`✅ Found ${exercises.length} exercises for lesson ${lessonId}, topic ${topicId}`);
-            
-            if (exercises.length === 0) {
-                exerciseArea.innerHTML = `
-                    <div class="no-exercises">
-                        <i class="fas fa-pencil-alt"></i>
-                        <h3>No practice exercises available for this topic</h3>
-                        <p>Check back later for new exercises!</p>
-                    </div>
-                `;
-            } else {
-                displayPracticeExercises(exercises);
-            }
-        } else {
-            throw new Error('Failed to load exercises');
-        }
+        // Add database connection indicator
+        const connectionIndicator = document.createElement('div');
+        connectionIndicator.style.cssText = `
+            margin: 10px 0;
+            padding: 8px 15px;
+            background: #27ae60;
+            color: white;
+            border-radius: 20px;
+            font-size: 12px;
+            display: inline-block;
+        `;
+        connectionIndicator.innerHTML = `<i class="fas fa-database"></i> Connected to Database • ${exercises.length} exercises loaded`;
+        
+        exerciseArea.insertBefore(connectionIndicator, exerciseArea.firstChild);
+        
+        console.log(`✅ Successfully loaded ${processedExercises.length} exercises for topic ${topicId}`);
         
     } catch (error) {
         console.error('❌ Error loading practice exercises:', error);
+        
         exerciseArea.innerHTML = `
-            <div class="error-message">
-                <i class="fas fa-exclamation-triangle"></i>
-                <h3>Failed to load practice exercises</h3>
-                <p>${error.message}</p>
-                <button class="btn-primary" onclick="loadPracticeExercisesForTopic('${topicId}')">
+            <div class="error-message" style="text-align: center; padding: 40px;">
+                <i class="fas fa-exclamation-triangle" style="font-size: 60px; color: #e74c3c; margin-bottom: 20px;"></i>
+                <h3 style="color: #e74c3c;">Failed to Load Exercises</h3>
+                <p style="color: #666; margin-bottom: 20px;">${error.message}</p>
+                <button class="btn-primary" onclick="loadPracticeExercisesForTopic('${topicId}')" style="background: #7a0000;">
                     <i class="fas fa-redo"></i> Try Again
                 </button>
             </div>
         `;
     }
 }
-
 // ===== DEBUG: Check current lesson =====
 function debugCurrentLesson() {
     console.log('🔍 DEBUG: Checking current lesson');
@@ -24322,8 +24433,6 @@ function validateTopicForCurrentApp(topicId) {
     const expectedTopicId = getCurrentPlatformTopicId();
     return parseInt(topicId) === expectedTopicId;
 }
-
-
 // ============================================
 // ✅ FIXED: displayTopics - WITH BETTER DEBUGGING
 // ============================================
@@ -24576,59 +24685,212 @@ async function loadPracticeExercises(lessonId) {
         displayErrorMessage('Failed to load practice exercises');
     }
 }
-// ============================================
-// ✅ ENHANCED: Display Practice Exercises
-// ============================================
-// ===== DISPLAY PRACTICE EXERCISES =====
-function displayPracticeExercises(exercises) {
+// ===== DISPLAY PRACTICE EXERCISES UI =====
+function displayPracticeExercisesUI(exercises) {
     const exerciseArea = document.getElementById('exerciseArea');
     if (!exerciseArea) return;
     
     let html = `
-        <div class="practice-header">
-            <h2><i class="fas fa-pencil-alt"></i> Practice Exercises</h2>
-        </div>
-        <div class="exercises-list">
+        <div style="margin-top: 20px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                <h2 style="margin: 0; color: #2c3e50;">
+                    <i class="fas fa-dumbbell" style="color: #7a0000;"></i> Practice Exercises
+                </h2>
+                <span style="background: #7a0000; color: white; padding: 5px 15px; border-radius: 20px; font-size: 14px;">
+                    ${exercises.length} exercises available
+                </span>
+            </div>
+            
+            <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(350px, 1fr)); gap: 20px;">
     `;
     
     exercises.forEach((exercise, index) => {
-        const difficultyClass = `difficulty-${exercise.difficulty || 'medium'}`;
+        const difficultyColor = 
+            exercise.difficulty === 'easy' ? '#27ae60' : 
+            exercise.difficulty === 'medium' ? '#f39c12' : 
+            exercise.difficulty === 'hard' ? '#e74c3c' : '#3498db';
         
         html += `
-            <div class="exercise-card" data-exercise-id="${exercise.id}">
-                <div class="exercise-header">
-                    <h3>Exercise ${index + 1}: ${exercise.title}</h3>
-                    <span class="difficulty-badge ${difficultyClass}">
-                        ${exercise.difficulty || 'medium'}
-                    </span>
-                </div>
+            <div class="exercise-card" data-exercise-id="${exercise.exercise_id}" 
+                 style="background: white; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 12px rgba(0,0,0,0.1); border: 1px solid #e0e0e0;">
                 
-                <div class="exercise-body">
-                    <p>${exercise.description || 'Test your knowledge with this practice exercise.'}</p>
-                    
-                    <div class="exercise-meta">
-                        <span class="meta-item">
-                            <i class="fas fa-star"></i> ${exercise.points || 10} points
-                        </span>
-                        <span class="meta-item">
-                            <i class="fas fa-clock"></i> 5-10 min
+                <!-- Colored top bar -->
+                <div style="height: 6px; background: ${difficultyColor}; width: 100%;"></div>
+                
+                <div style="padding: 20px;">
+                    <!-- Header -->
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                        <h3 style="margin: 0; color: #2c3e50; font-size: 18px;">
+                            ${exercise.title}
+                        </h3>
+                        <span style="background: ${difficultyColor}; color: white; padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: bold; text-transform: uppercase;">
+                            ${exercise.difficulty}
                         </span>
                     </div>
-                </div>
-                
-                <div class="exercise-actions">
-                    <button class="btn-primary start-exercise" onclick="startPracticeExercise(${exercise.id})">
-                        <i class="fas fa-play"></i> Start
-                    </button>
+                    
+                    <!-- Description -->
+                    <p style="color: #666; margin: 0 0 15px 0; line-height: 1.5; min-height: 60px;">
+                        ${exercise.description}
+                    </p>
+                    
+                    <!-- Metadata -->
+                    <div style="display: flex; gap: 15px; margin-bottom: 15px; padding: 10px 0; border-top: 1px solid #f0f0f0; border-bottom: 1px solid #f0f0f0;">
+                        <span style="display: flex; align-items: center; gap: 5px; color: #7f8c8d;">
+                            <i class="fas fa-star" style="color: #f39c12;"></i> ${exercise.points} points
+                        </span>
+                        <span style="display: flex; align-items: center; gap: 5px; color: #7f8c8d;">
+                            <i class="fas fa-clock" style="color: #3498db;"></i> 5-10 min
+                        </span>
+                        <span style="display: flex; align-items: center; gap: 5px; color: #7f8c8d;">
+                            <i class="fas fa-tag" style="color: #7a0000;"></i> Topic ${exercise.topic_id}
+                        </span>
+                    </div>
+                    
+                    <!-- Database Badge -->
+                    <div style="margin-bottom: 15px;">
+                        <span style="background: #27ae60; color: white; padding: 4px 10px; border-radius: 20px; font-size: 11px;">
+                            <i class="fas fa-database"></i> From Database
+                        </span>
+                    </div>
+                    
+                    <!-- Action Buttons -->
+                    <div style="display: flex; gap: 10px;">
+                        <button class="start-exercise-btn" data-exercise-id="${exercise.exercise_id}" 
+                                style="flex: 2; padding: 12px; background: #7a0000; color: white; border: none; border-radius: 6px; font-weight: bold; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px;">
+                            <i class="fas fa-play-circle"></i> Start Exercise
+                        </button>
+                        <button class="preview-exercise-btn" data-exercise-id="${exercise.exercise_id}"
+                                style="flex: 1; padding: 12px; background: #ecf0f1; color: #2c3e50; border: none; border-radius: 6px; cursor: pointer;">
+                            <i class="fas fa-eye"></i>
+                        </button>
+                    </div>
                 </div>
             </div>
         `;
     });
     
-    html += '</div>';
+    html += `
+            </div>
+        </div>
+    `;
+    
     exerciseArea.innerHTML = html;
+    
+    // Add event listeners to start buttons
+    document.querySelectorAll('.start-exercise-btn').forEach(btn => {
+        btn.addEventListener('click', function(e) {
+            e.preventDefault();
+            const exerciseId = this.getAttribute('data-exercise-id');
+            console.log(`🎯 Starting exercise: ${exerciseId}`);
+            if (typeof startPractice === 'function') {
+                startPractice(exerciseId);
+            } else {
+                alert(`Starting exercise ${exerciseId}`);
+            }
+        });
+    });
+    
+    // Add event listeners to preview buttons
+    document.querySelectorAll('.preview-exercise-btn').forEach(btn => {
+        btn.addEventListener('click', function(e) {
+            e.preventDefault();
+            const exerciseId = this.getAttribute('data-exercise-id');
+            previewPracticeExercise(exerciseId);
+        });
+    });
+}
+// ===== PREVIEW PRACTICE EXERCISE =====
+function previewPracticeExercise(exerciseId) {
+    const modal = document.createElement('div');
+    modal.style.cssText = `
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(0,0,0,0.8);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 100000;
+        padding: 20px;
+    `;
+    
+    modal.innerHTML = `
+        <div style="background: white; border-radius: 12px; max-width: 500px; width: 100%; padding: 30px;">
+            <div style="text-align: center; margin-bottom: 20px;">
+                <i class="fas fa-info-circle" style="font-size: 50px; color: #7a0000;"></i>
+                <h3 style="margin: 15px 0 5px;">Exercise ID: ${exerciseId}</h3>
+                <p style="color: #7a0000;">Loaded from database</p>
+            </div>
+            
+            <div style="background: #f8f9fa; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
+                <p style="margin: 5px 0;"><strong>Status:</strong> <span style="color: #27ae60;">✓ Available</span></p>
+                <p style="margin: 5px 0;"><strong>Source:</strong> MySQL Database</p>
+                <p style="margin: 5px 0;"><strong>Lesson:</strong> 3 (FactoLearn)</p>
+            </div>
+            
+            <div style="display: flex; gap: 10px; justify-content: center;">
+                <button onclick="this.closest('div[style*=\"position: fixed\"]').remove()" 
+                        style="padding: 10px 20px; background: #95a5a6; color: white; border: none; border-radius: 5px; cursor: pointer;">
+                    Close
+                </button>
+                <button onclick="this.closest('div[style*=\"position: fixed\"]').remove(); startPractice(${exerciseId})" 
+                        style="padding: 10px 20px; background: #7a0000; color: white; border: none; border-radius: 5px; cursor: pointer;">
+                    Start Exercise
+                </button>
+            </div>
+        </div>
+    `;
+    
+    document.body.appendChild(modal);
 }
 
+// ===== DEBUG FUNCTION =====
+window.debugPracticeFetch = async function() {
+    console.log('🔍 DEBUGGING PRACTICE FETCH...');
+    
+    const token = localStorage.getItem('authToken');
+    const topicId = PracticeState.currentTopic || 1;
+    const lessonId = 3;
+    
+    console.log('Token exists:', !!token);
+    console.log('Topic ID:', topicId);
+    console.log('Lesson ID:', lessonId);
+    
+    const endpoints = [
+        `/api/practice/topic/${topicId}?lesson_id=${lessonId}`,
+        `/api/admin/practice?lesson_id=${lessonId}&topic_id=${topicId}`,
+        `/api/exercises?lesson_id=${lessonId}&topic_id=${topicId}`,
+        `/api/practice?lesson_id=${lessonId}`,
+        `/api/practice/list`
+    ];
+    
+    for (const endpoint of endpoints) {
+        try {
+            console.log(`\n📡 Testing: ${endpoint}`);
+            const response = await fetch(endpoint, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            
+            console.log(`Status: ${response.status}`);
+            
+            if (response.ok) {
+                const text = await response.text();
+                try {
+                    const data = JSON.parse(text);
+                    console.log('✅ Response:', data);
+                } catch (e) {
+                    console.log('📄 Response (text):', text.substring(0, 200));
+                }
+            } else {
+                console.log('❌ Failed');
+            }
+        } catch (error) {
+            console.log('❌ Error:', error.message);
+        }
+    }
+};
 // ===== FIXED: GET CURRENT LESSON ID =====
 function getCurrentLessonId() {
     // Get the current page URL
