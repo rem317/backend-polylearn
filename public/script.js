@@ -35913,3 +35913,253 @@ console.log('✨ MathHub Application Script Loaded with Complete Database-Driven
 
 
 
+// ============================================
+// 🚨 ULTIMATE FIX: Mark Lesson Complete - NO REFRESH
+// ============================================
+(function ultimateFixCompleteButton() {
+    console.log('🔥 Applying ULTIMATE fix to prevent page refresh');
+    
+    // Disable ALL existing functions that might cause refresh
+    window.forceInitCompleteButton = function() { 
+        console.log('🚫 forceInitCompleteButton disabled'); 
+        return false; 
+    };
+    
+    window.setupCompleteLessonButton = function() { 
+        console.log('🚫 setupCompleteLessonButton disabled'); 
+        return false; 
+    };
+    
+    // Function to completely remove and recreate the button
+    function recreateCompleteButton() {
+        const container = document.querySelector('.module-actions') || 
+                         document.querySelector('.lesson-actions') ||
+                         document.querySelector('#module-dashboard-page .actions');
+        
+        if (!container) {
+            console.log('⚠️ Button container not found');
+            return false;
+        }
+        
+        // Find existing button
+        const oldButton = document.getElementById('completeLessonBtn');
+        
+        // Create brand new button
+        const newButton = document.createElement('button');
+        newButton.id = 'completeLessonBtn';
+        newButton.className = 'btn-primary';
+        newButton.innerHTML = '<i class="fas fa-check-circle"></i> Mark Lesson Complete';
+        
+        // Remove any existing click handlers
+        newButton.onclick = null;
+        
+        // Add our definitive click handler
+        newButton.addEventListener('click', async function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            
+            console.log('✅ DEFINITIVE HANDLER: Marking lesson complete');
+            
+            // Prevent double-click
+            if (this.disabled) return;
+            
+            const contentId = getCurrentLessonId();
+            if (!contentId) {
+                alert('Cannot identify lesson. Please refresh the page.');
+                return;
+            }
+            
+            // Disable button and show loading
+            this.disabled = true;
+            const originalHTML = this.innerHTML;
+            this.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Saving...';
+            
+            try {
+                const token = localStorage.getItem('authToken') || authToken;
+                
+                // Check if already completed
+                const checkResponse = await fetch(`${API_BASE_URL}/api/lessons-db/${contentId}`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                
+                if (!checkResponse.ok) {
+                    throw new Error(`Server error: ${checkResponse.status}`);
+                }
+                
+                const checkData = await checkResponse.json();
+                
+                if (checkData.success && checkData.lesson?.progress?.status === 'completed') {
+                    this.innerHTML = '<i class="fas fa-check-double"></i> Already Completed';
+                    this.className = 'btn-success';
+                    showNotification('Lesson already completed!', 'info');
+                    return;
+                }
+                
+                // Calculate time spent
+                let timeSpentSeconds = 300;
+                const videoElement = document.getElementById('lessonVideo');
+                if (videoElement && videoElement.currentTime) {
+                    timeSpentSeconds = Math.floor(videoElement.currentTime);
+                }
+                
+                // Update progress
+                const progressResponse = await fetch(`${API_BASE_URL}/api/lessons-db/${contentId}/progress`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        completion_status: 'completed',
+                        percentage: 100,
+                        time_spent_seconds: timeSpentSeconds
+                    })
+                });
+                
+                if (!progressResponse.ok) {
+                    const errorText = await progressResponse.text();
+                    console.error('Server response:', errorText);
+                    throw new Error(`Failed to update: ${progressResponse.status}`);
+                }
+                
+                const progressData = await progressResponse.json();
+                
+                if (progressData.success) {
+                    // Update button to completed state
+                    this.innerHTML = '<i class="fas fa-check-double"></i> Lesson Completed!';
+                    this.className = 'btn-success';
+                    
+                    // Show success notification
+                    showNotification('🎉 Lesson completed successfully!', 'success');
+                    
+                    // Update local state
+                    if (!LessonState.userProgress) LessonState.userProgress = {};
+                    LessonState.userProgress[contentId] = {
+                        status: 'completed',
+                        percentage: 100
+                    };
+                    
+                    // Update daily progress (non-critical - don't wait)
+                    fetch(`${API_BASE_URL}/api/progress/update-daily`, {
+                        method: 'POST',
+                        headers: {
+                            'Authorization': `Bearer ${token}`,
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({ 
+                            lessons_completed: 1,
+                            lesson_id: 2 
+                        })
+                    }).catch(() => console.log('Daily update non-critical'));
+                    
+                    // Update continue learning module if on dashboard
+                    if (AppState.currentPage === 'dashboard') {
+                        setTimeout(() => {
+                            if (typeof updateContinueLearningModule === 'function') {
+                                updateContinueLearningModule();
+                            }
+                        }, 1000);
+                    }
+                    
+                    // Show celebration
+                    if (typeof showCelebrationAnimation === 'function') {
+                        showCelebrationAnimation();
+                    }
+                    
+                    // CRITICAL: NO PAGE RELOAD
+                    console.log('✅ Lesson completion saved - page will NOT reload');
+                    
+                } else {
+                    throw new Error(progressData.message || 'Unknown error');
+                }
+                
+            } catch (error) {
+                console.error('❌ Error:', error);
+                showNotification('Failed to mark lesson as complete: ' + error.message, 'error');
+                
+                // Restore button
+                this.innerHTML = originalHTML;
+                this.disabled = false;
+            }
+        });
+        
+        // Replace old button with new button
+        if (oldButton) {
+            container.replaceChild(newButton, oldButton);
+            console.log('✅ Replaced old button with new one');
+        } else {
+            container.appendChild(newButton);
+            console.log('✅ Created new button');
+        }
+        
+        return true;
+    }
+    
+    // Function to get current lesson ID (ensure it exists)
+    if (typeof getCurrentLessonId !== 'function') {
+        window.getCurrentLessonId = function() {
+            // Try from LessonState
+            if (LessonState && LessonState.currentLesson && LessonState.currentLesson.content_id) {
+                return LessonState.currentLesson.content_id;
+            }
+            
+            // Try from URL
+            const urlParams = new URLSearchParams(window.location.search);
+            const lessonId = urlParams.get('lessonId') || urlParams.get('id');
+            if (lessonId) return lessonId;
+            
+            // Try from localStorage
+            const savedId = localStorage.getItem('currentLessonId');
+            if (savedId) return savedId;
+            
+            // Default
+            return '2';
+        };
+    }
+    
+    // Run the fix
+    function applyFix() {
+        if (document.getElementById('module-dashboard-page') && 
+            !document.getElementById('module-dashboard-page').classList.contains('hidden')) {
+            console.log('📚 Module dashboard visible, applying button fix');
+            recreateCompleteButton();
+        }
+    }
+    
+    // Run immediately
+    applyFix();
+    
+    // Run after delays
+    setTimeout(applyFix, 500);
+    setTimeout(applyFix, 1000);
+    setTimeout(applyFix, 2000);
+    setTimeout(applyFix, 3000);
+    
+    // Observe for when module dashboard becomes visible
+    const moduleDashboard = document.getElementById('module-dashboard-page');
+    if (moduleDashboard) {
+        const observer = new MutationObserver(function(mutations) {
+            mutations.forEach(function(mutation) {
+                if (mutation.type === 'attributes' && mutation.attributeName === 'class') {
+                    if (!moduleDashboard.classList.contains('hidden')) {
+                        console.log('📚 Module dashboard became visible');
+                        setTimeout(applyFix, 100);
+                        setTimeout(applyFix, 300);
+                    }
+                }
+            });
+        });
+        observer.observe(moduleDashboard, { attributes: true });
+    }
+    
+    // Override any existing click handlers on the body level
+    document.addEventListener('click', function(e) {
+        const btn = e.target.closest('#completeLessonBtn');
+        if (btn) {
+            // Let our handler handle it, prevent any other handlers
+            e.stopImmediatePropagation();
+        }
+    }, true); // Use capture phase to run first
+    
+    console.log('✅ ULTIMATE FIX APPLIED - Page will NOT refresh when clicking complete button');
+})();
