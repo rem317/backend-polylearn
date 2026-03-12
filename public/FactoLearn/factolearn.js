@@ -19324,7 +19324,7 @@ async function updateContinueLearningModule() {
     }
 }
 
-// ===== LOAD PRACTICE EXERCISES FOR TOPIC =====
+// ===== UPDATED: LOAD PRACTICE EXERCISES FOR TOPIC =====
 async function loadPracticeExercisesForTopic(topicId) {
     console.log(`📚 Loading practice exercises for topic: ${topicId}`);
     
@@ -19354,10 +19354,11 @@ async function loadPracticeExercisesForTopic(topicId) {
             return;
         }
         
-        // Get current lesson from URL or context
-        const lessonId = getCurrentLessonId(); // You need to implement this
+        // Get current lesson
+        const lessonId = getCurrentLessonId();
+        console.log(`📍 Current lesson ID: ${lessonId}`);
         
-        // Use the working admin endpoint (since /api/practice/available is 404)
+        // Use the working admin endpoint
         const response = await fetch(`/api/admin/practice`, {
             headers: {
                 'Authorization': `Bearer ${token}`,
@@ -19372,12 +19373,14 @@ async function loadPracticeExercisesForTopic(topicId) {
         const result = await response.json();
         
         if (result.success && result.exercises) {
-            // Filter exercises by topic_id
+            // Filter exercises by lesson_id AND topic_id
             const exercises = result.exercises.filter(ex => 
-                ex.topic_id == topicId && ex.is_active === 1
+                ex.lesson_id == lessonId && 
+                ex.topic_id == topicId && 
+                ex.is_active === 1
             );
             
-            console.log(`✅ Found ${exercises.length} exercises for topic ${topicId}`);
+            console.log(`✅ Found ${exercises.length} exercises for lesson ${lessonId}, topic ${topicId}`);
             
             if (exercises.length === 0) {
                 exerciseArea.innerHTML = `
@@ -19409,6 +19412,29 @@ async function loadPracticeExercisesForTopic(topicId) {
     }
 }
 
+// ===== DEBUG: Check current lesson =====
+function debugCurrentLesson() {
+    console.log('🔍 DEBUG: Checking current lesson');
+    console.log('URL:', window.location.href);
+    console.log('Path:', window.location.pathname);
+    console.log('Title:', document.title);
+    
+    const lessonId = getCurrentLessonId();
+    console.log('✅ Detected lesson_id:', lessonId);
+    
+    // Map to lesson name
+    const lessonMap = {
+        1: 'MathEase',
+        2: 'PolyLearn',
+        3: 'FactoLearn'
+    };
+    console.log('📚 Lesson name:', lessonMap[lessonId] || 'Unknown');
+    
+    return lessonId;
+}
+
+// Run it
+debugCurrentLesson();
 // ============================================
 // UPDATE PROGRESS DASHBOARD FROM DATABASE - FIXED
 // ============================================
@@ -24603,21 +24629,74 @@ function displayPracticeExercises(exercises) {
     exerciseArea.innerHTML = html;
 }
 
-// ===== GET CURRENT LESSON ID =====
+// ===== FIXED: GET CURRENT LESSON ID =====
 function getCurrentLessonId() {
-    // You can determine this from URL or user context
-    // For FactoLearn, it should be 3
-    // For MathEase, it should be 1
-    // For PolyLearn, it should be 2
-    
-    // Example: Get from URL
+    // Get the current page URL
     const path = window.location.pathname;
-    if (path.includes('factolearn')) return 3;
-    if (path.includes('mathease')) return 1;
-    if (path.includes('polylearn')) return 2;
+    const url = window.location.href;
     
-    // Default to 2 (PolyLearn) if can't determine
-    return 2;
+    console.log('📍 Current URL:', url);
+    console.log('📍 Current path:', path);
+    
+    // Check by URL first (most reliable)
+    if (url.includes('factolearn') || url.includes('factorial') || url.includes('lesson=3')) {
+        console.log('✅ Detected: FactoLearn (lesson_id = 3)');
+        return 3;
+    }
+    
+    if (url.includes('mathease') || url.includes('math') || url.includes('lesson=1')) {
+        console.log('✅ Detected: MathEase (lesson_id = 1)');
+        return 1;
+    }
+    
+    if (url.includes('polylearn') || url.includes('polynomial') || url.includes('lesson=2')) {
+        console.log('✅ Detected: PolyLearn (lesson_id = 2)');
+        return 2;
+    }
+    
+    // Check by path
+    if (path.includes('factolearn')) {
+        console.log('✅ Detected: FactoLearn from path');
+        return 3;
+    }
+    
+    if (path.includes('mathease')) {
+        console.log('✅ Detected: MathEase from path');
+        return 1;
+    }
+    
+    if (path.includes('polylearn')) {
+        console.log('✅ Detected: PolyLearn from path');
+        return 2;
+    }
+    
+    // Check by HTML title or meta tags
+    const title = document.title.toLowerCase();
+    if (title.includes('factolearn') || title.includes('factorial')) {
+        console.log('✅ Detected: FactoLearn from title');
+        return 3;
+    }
+    
+    if (title.includes('mathease') || title.includes('math')) {
+        console.log('✅ Detected: MathEase from title');
+        return 1;
+    }
+    
+    if (title.includes('polylearn') || title.includes('polynomial')) {
+        console.log('✅ Detected: PolyLearn from title');
+        return 2;
+    }
+    
+    // If still not found, check localStorage or session
+    const savedLesson = localStorage.getItem('current_lesson_id');
+    if (savedLesson) {
+        console.log(`✅ Using saved lesson_id: ${savedLesson}`);
+        return parseInt(savedLesson);
+    }
+    
+    // Default to FactoLearn if all else fails
+    console.log('⚠️ Could not detect lesson, defaulting to FactoLearn (3)');
+    return 3; // ← PINAKAIMPORTANTE: Default to FactoLearn
 }
 
 // ===== START PRACTICE EXERCISE =====
