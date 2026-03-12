@@ -26784,7 +26784,7 @@ async function savePracticeExercise() {
     }
 }
 
-// COMPLETE FIXED VERSION
+// FIXED VERSION - Gamit ang "id" hindi "exercise_id"
 async function fixPracticeLessonIds() {
     const token = localStorage.getItem('admin_token');
     
@@ -26812,20 +26812,19 @@ async function fixPracticeLessonIds() {
         
         let updated = 0;
         let skipped = 0;
-        let noId = 0;
         
         for (const exercise of exercises) {
-            // ✅ CRITICAL: Check kung may exercise_id
-            if (!exercise.exercise_id) {
-                console.log(`❌ Exercise missing exercise_id:`, exercise);
-                noId++;
+            // ✅ FIX: Use "id" instead of "exercise_id"
+            if (!exercise.id) {
+                console.log(`❌ Exercise missing id:`, exercise);
+                skipped++;
                 continue;
             }
             
             // Determine lesson_id based on topic_id
             let lesson_id = null;
             
-            // ===== CORRECT MAPPING based on your data =====
+            // Topic ID mapping
             if (exercise.topic_id <= 4) {
                 lesson_id = 1; // MathEase
             } else if (exercise.topic_id <= 8) {
@@ -26833,8 +26832,7 @@ async function fixPracticeLessonIds() {
             } else if (exercise.topic_id <= 12) {
                 lesson_id = 3; // FactoLearn
             } else {
-                // For topics > 12, check manually
-                console.log(`⚠️ Topic ${exercise.topic_id} not in range - skipping exercise ${exercise.exercise_id}`);
+                console.log(`⚠️ Topic ${exercise.topic_id} not in range - skipping exercise ${exercise.id}`);
                 skipped++;
                 continue;
             }
@@ -26844,9 +26842,10 @@ async function fixPracticeLessonIds() {
                 lesson_id: lesson_id
             };
             
-            console.log(`📤 Updating exercise ${exercise.exercise_id} with lesson_id: ${lesson_id}`);
+            console.log(`📤 Updating exercise ${exercise.id} with lesson_id: ${lesson_id}`);
             
-            const updateResponse = await fetch(`/api/admin/practice/${exercise.exercise_id}`, {
+            // ✅ FIX: Use "id" in URL
+            const updateResponse = await fetch(`/api/admin/practice/${exercise.id}`, {
                 method: 'PUT',
                 headers: {
                     'Authorization': `Bearer ${token}`,
@@ -26857,7 +26856,7 @@ async function fixPracticeLessonIds() {
             
             if (!updateResponse.ok) {
                 const errorText = await updateResponse.text();
-                console.error(`❌ HTTP ${updateResponse.status} for exercise ${exercise.exercise_id}:`, errorText);
+                console.error(`❌ HTTP ${updateResponse.status} for exercise ${exercise.id}:`, errorText);
                 skipped++;
                 continue;
             }
@@ -26865,10 +26864,10 @@ async function fixPracticeLessonIds() {
             const result = await updateResponse.json();
             
             if (result.success) {
-                console.log(`✅ Updated exercise ${exercise.exercise_id} with lesson_id: ${lesson_id}`);
+                console.log(`✅ Updated exercise ${exercise.id} with lesson_id: ${lesson_id}`);
                 updated++;
             } else {
-                console.log(`❌ Failed to update exercise ${exercise.exercise_id}:`, result.message);
+                console.log(`❌ Failed to update exercise ${exercise.id}:`, result.message);
                 skipped++;
             }
             
@@ -26878,17 +26877,15 @@ async function fixPracticeLessonIds() {
         console.log('📊 UPDATE SUMMARY:');
         console.log(`   ✅ Updated: ${updated} exercises`);
         console.log(`   ⚠️ Skipped: ${skipped} exercises`);
-        console.log(`   ❌ Missing ID: ${noId} exercises`);
         console.log(`   📊 Total: ${exercises.length} exercises`);
-        
-        if (noId > 0) {
-            console.log('⚠️ Some exercises are missing exercise_id - check database');
-        }
         
     } catch (error) {
         console.error('❌ Error:', error);
     }
 }
+
+// I-run ang fix
+fixPracticeLessonIds();
 
 // Run the fix
 fixPracticeLessonIds();
