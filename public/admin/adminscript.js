@@ -916,7 +916,7 @@ function ensureQuizDropdowns() {
     }
 }
 
-// ===== LOAD CATEGORIES BY LESSON ID =====
+// ===== LOAD ALL CATEGORIES THEN FILTER =====
 async function loadCategoriesByLesson(lessonId) {
     console.log(`📚 Loading categories for lesson ID: ${lessonId}`);
     
@@ -929,7 +929,8 @@ async function loadCategoriesByLesson(lessonId) {
     try {
         const token = localStorage.getItem('admin_token') || localStorage.getItem('authToken');
         
-        const response = await fetch(`/api/quiz/categories/by-lesson/${lessonId}`, {
+        // Get all categories
+        const response = await fetch(`/api/quiz/categories`, {
             headers: { 'Authorization': `Bearer ${token}` }
         });
         
@@ -938,15 +939,18 @@ async function loadCategoriesByLesson(lessonId) {
         const result = await response.json();
         
         if (result.success && result.categories) {
-            const categories = result.categories;
+            // Filter categories by lesson_id
+            const filteredCategories = result.categories.filter(cat => 
+                parseInt(cat.lesson_id) === parseInt(lessonId)
+            );
             
-            if (categories.length === 0) {
+            if (filteredCategories.length === 0) {
                 categorySelect.innerHTML = '<option value="">-- No categories available --</option>';
                 categorySelect.disabled = true;
             } else {
                 categorySelect.innerHTML = '<option value="">-- Select Category --</option>';
                 
-                categories.forEach(category => {
+                filteredCategories.forEach(category => {
                     const option = document.createElement('option');
                     option.value = category.category_id || category.id;
                     option.textContent = category.category_name || category.name || 'Unnamed Category';
@@ -964,6 +968,9 @@ async function loadCategoriesByLesson(lessonId) {
         console.error('❌ Error loading categories:', error);
         categorySelect.innerHTML = '<option value="">-- Error loading categories --</option>';
         categorySelect.disabled = true;
+        
+        // Fallback
+        useFallbackCategoriesForLesson(lessonId);
     }
 }
 
