@@ -24022,22 +24022,29 @@ function redirectBasedOnRole(role) {
     }
 }
 
-// Logout function
+// ============================================
+// ✅ FIXED: logoutAndRedirect - With proper login redirect and content hide
+// ============================================
 function logoutAndRedirect() {
-    console.log('🚪 Logging out...');
+    console.log('🚪 Logging out and redirecting to login page...');
     
     // Log logout activity before clearing data
     if (AppState.currentUser) {
         logUserActivity('logout', null, {}, 0);
     }
     
-    // Clear all authentication data
+    // Clear ALL authentication data
     localStorage.removeItem('authToken');
     localStorage.removeItem('mathhub_user');
     localStorage.removeItem('hasSelectedApp');
     localStorage.removeItem('selectedApp');
-    localStorage.removeItem('userLoggedIn'); // ✅ IMPORTANT
+    localStorage.removeItem('userLoggedIn');
     localStorage.removeItem('lastLogin');
+    localStorage.removeItem('currentLessonFilter');
+    localStorage.removeItem('currentApp');
+    localStorage.removeItem('lastActiveApp');
+    
+    // Clear session storage
     sessionStorage.clear();
     
     // Reset app state
@@ -24049,14 +24056,13 @@ function logoutAndRedirect() {
     AppState.currentVideoData = null;
     authToken = null;
     
-    // Reset lesson state
+    // Reset all other state objects
     LessonState.lessons = [];
     LessonState.currentLesson = null;
     LessonState.userProgress = {};
     LessonState.continueLearningLesson = null;
     LessonState.currentTopic = null;
     
-    // Reset practice state
     PracticeState.currentTopic = null;
     PracticeState.currentExercise = null;
     PracticeState.exercises = [];
@@ -24066,7 +24072,6 @@ function logoutAndRedirect() {
     PracticeState.isReviewMode = false;
     PracticeState.userPracticeProgress = {};
     
-    // Reset quiz state
     QuizState.currentQuiz = null;
     QuizState.currentQuestionIndex = 0;
     QuizState.questions = [];
@@ -24079,7 +24084,6 @@ function logoutAndRedirect() {
     QuizState.selectedCategory = null;
     QuizState.quizCategories = [];
     
-    // Reset progress state
     ProgressState.dailyProgress = null;
     ProgressState.weeklyProgress = null;
     ProgressState.monthlyProgress = null;
@@ -24091,13 +24095,75 @@ function logoutAndRedirect() {
     ProgressState.progressTrends = [];
     ProgressState.achievementTimeline = [];
     
-    // Hide footer navigation when logging out
+    StructureState.lessons = [];
+    StructureState.modules = [];
+    StructureState.topics = [];
+    
+    // Hide footer navigation
     hideFooterNavigation();
     
-    // Navigate to login
-    navigateTo('login');
+    // HIDE ALL DASHBOARD ELEMENTS (the content in the image)
+    const dashboardElements = document.querySelectorAll(
+        '#dashboard-page, ' +
+        '#practice-exercises-page, ' +
+        '#quiz-dashboard-page, ' +
+        '#progress-page, ' +
+        '#feedback-page, ' +
+        '#settings-page, ' +
+        '#module-dashboard-page, ' +
+        '#app-selection-page, ' +
+        '.footer-nav, ' +
+        '.dashboard-container, ' +
+        '.container'
+    );
+    
+    dashboardElements.forEach(el => {
+        if (el) {
+            el.classList.add('hidden');
+            el.style.display = 'none';
+        }
+    });
+    
+    // SHOW LOGIN PAGE
+    const loginPage = document.getElementById('login-page');
+    if (loginPage) {
+        loginPage.classList.remove('hidden');
+        loginPage.style.display = 'block';
+        loginPage.style.opacity = '1';
+        loginPage.style.visibility = 'visible';
+        
+        // Clear any existing form values
+        const loginEmail = document.getElementById('loginEmail');
+        const loginPassword = document.getElementById('loginPassword');
+        if (loginEmail) loginEmail.value = '';
+        if (loginPassword) loginPassword.value = '';
+    } else {
+        console.error('❌ Login page element not found!');
+        // If login page not found, redirect manually
+        window.location.href = '/';
+    }
+    
+    // Update URL hash
+    window.location.hash = 'login';
+    
+    // Also update body class
+    document.body.classList.remove('authenticated');
+    document.body.classList.add('unauthenticated');
     
     showNotification('Logged out successfully', 'info');
+    console.log('✅ Logout complete - showing login page');
+}
+
+// Also update the confirmLogout function to ensure it calls the fixed version
+function confirmLogout() {
+    console.log('✅ Logout confirmed');
+    closeLogoutModal();
+    showNotification('👋 See you next time!', 'info');
+    
+    // Call the fixed logout function
+    setTimeout(() => {
+        logoutAndRedirect();
+    }, 500);
 }
 
 // ✅ FIXED: Check authentication - WITH PERSISTENCE CHECK
@@ -25098,13 +25164,6 @@ function closeLogoutModal() {
     }
 }
 
-// Confirm logout
-function confirmLogout() {
-    console.log('✅ Logout confirmed');
-    closeLogoutModal();
-    showNotification('👋 See you next time!', 'info');
-    setTimeout(logoutAndRedirect, 500);
-}
 
 // Create modal if missing
 function createLogoutModal() {
@@ -25128,17 +25187,7 @@ function closeLogoutModal() {
     }
 }
 
-// Confirm logout - actual logout
-function confirmLogout() {
-    console.log('✅ Logout confirmed');
-    
-    closeLogoutModal();
-    showNotification('👋 See you next time!', 'info');
-    
-    setTimeout(() => {
-        logoutAndRedirect();
-    }, 500);
-}
+
 
 // Create modal if not exists (fallback)
 function createLogoutModal() {
