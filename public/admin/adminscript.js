@@ -27503,7 +27503,7 @@ function deletePracticeExercise(exerciseId) {
     }, 500);
 }
 
-// ===== FIXED: savePracticeExercise() WITH PROPER LESSON_ID =====
+// ===== COMPLETE FIX: savePracticeExercise() WITH PROPER DATA =====
 async function savePracticeExercise() {
     console.log("💾 ===== SAVING PRACTICE EXERCISE TO DATABASE =====");
     
@@ -27517,29 +27517,6 @@ async function savePracticeExercise() {
     const status = document.getElementById('practiceStatus')?.value;
     const practiceId = document.getElementById('practiceId')?.value;
     const assignedTeacherId = document.getElementById('practiceAssignedTeacherId')?.value;
-
-    // ===== CRITICAL: Convert subject to lesson_id =====
-    let lesson_id;
-    if (subjectId == 1) {
-        lesson_id = 1;  // MathEase
-    } else if (subjectId == 2) {
-        lesson_id = 2;  // PolyLearn
-    } else if (subjectId == 3) {
-        lesson_id = 3;  // FactoLearn
-    } else {
-        lesson_id = 2;  // Default to PolyLearn
-        console.warn('⚠️ Unknown subject, defaulting to PolyLearn');
-    }
-
-    console.log('📝 Practice data:', { 
-        lesson_id,        // ✅ ITO ANG KRITIKAL
-        subjectId,
-        topicId,
-        title, 
-        difficulty, 
-        points,
-        status
-    });
 
     // ===== VALIDATION =====
     if (!subjectId) {
@@ -27565,6 +27542,8 @@ async function savePracticeExercise() {
         showNotification('error', 'Error', 'Please add at least one question');
         return;
     }
+
+    console.log(`📝 Found ${questionItems.length} questions to save`);
 
     for (let i = 0; i < questionItems.length; i++) {
         const q = questionItems[i];
@@ -27617,16 +27596,27 @@ async function savePracticeExercise() {
 
     const isActive = status === 'active' ? 1 : 0;
 
-    // ===== CRITICAL: Include lesson_id in the data sent to server =====
+    // ===== CRITICAL: Map subjectId to lesson_id =====
+    let lesson_id;
+    if (subjectId == 1) {
+        lesson_id = 1;  // MathEase
+    } else if (subjectId == 2) {
+        lesson_id = 2;  // PolyLearn
+    } else if (subjectId == 3) {
+        lesson_id = 3;  // FactoLearn
+    } else {
+        lesson_id = 2;  // Default
+    }
+
     const practiceData = {
-        lesson_id: lesson_id,        // ✅ ITO ANG DAPAT LAGING NASAAD
+        lesson_id: lesson_id,                    // ✅ ITO ANG PINAKAIMPORTANTE
         topic_id: parseInt(topicId),
         title: title,
         description: description || '',
         difficulty: difficulty || 'medium',
         content_type: 'multiple_choice',
         points: points,
-        content_json: contentJson,
+        content_json: JSON.stringify(contentJson), // ✅ I-CONVERT SA STRING
         is_active: isActive
     };
 
@@ -27685,10 +27675,6 @@ async function savePracticeExercise() {
                            lesson_id === 2 ? 'PolyLearn' : 'FactoLearn';
             message += ` (Saved to ${appName})`;
 
-            if (assignedTeacherId && assignedTeacherId !== '') {
-                message += ' (Assigned to teacher)';
-            }
-
             showNotification('success', 'Success!', message);
             closeCreatePracticeModal();
             await loadAdminPracticeExercises();
@@ -27708,7 +27694,6 @@ async function savePracticeExercise() {
         }
     }
 }
-
 // FIXED VERSION - Gamit ang "id" hindi "exercise_id"
 async function fixPracticeLessonIds() {
     const token = localStorage.getItem('admin_token');
