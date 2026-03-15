@@ -10,23 +10,28 @@ let authToken = localStorage.getItem('authToken') || null;
 const API_BASE_URL = window.location.origin;
 
 
-// Define default practice statistics function
+// ============================================
+// 📊 DEFAULT PRACTICE STATS (fallback)
+// ============================================
+
 function getDefaultPracticeStats() {
     return {
-        totalSessions: 0,
-        totalQuestions: 0,
-        correctAnswers: 0,
-        averageScore: 0,
-        studyTime: 0,
-        weakAreas: [],
-        strongAreas: [],
-        recentActivity: []
+        total_exercises_completed: 0,
+        total_attempts: 0,
+        average_score: 0,
+        lessons_completed: 0,
+        exercises_completed: 0,
+        practice_unlocked: true,
+        total_lessons: 3,
+        total_time_minutes: 0,
+        total_time_seconds: 0,
+        accuracy_rate: 0,
+        lessons_display: '0/3',
+        exercises_display: '0',
+        lessons_percentage: 0
     };
 }
 
-// ============================================
-// APP FILTERING SYSTEM - Add this near the top of your script.js
-// ============================================
 
 // ============================================
 // APP FILTERING SYSTEM - USING LESSON_ID
@@ -10357,118 +10362,178 @@ function initializeTimeTracker() {
 
 
 // ============================================
-// ✅ FIXED: fetchPracticeStatistics - ONLY LESSON_ID = 3
+// 📊 FETCH PRACTICE STATISTICS FROM DATABASE
 // ============================================
+
 async function fetchPracticeStatistics() {
     try {
         const token = localStorage.getItem('authToken') || authToken;
         if (!token) {
-            console.error('❌ No auth token available');
-            return null;
+            console.warn('No auth token available');
+            return getDefaultPracticeStats();
         }
         
-        // ✅ FORCE LESSON_ID = 3 FOR factorial
-        console.log(`📊 Fetching FactoLearn practice statistics DIRECTLY FROM DATABASE (lesson_id=${FACTORIAL_LESSON_ID})...`);
+        console.log('📊 Fetching practice statistics FROM DATABASE...');
         
-        // ===== GET ALL PRACTICE STATS FROM DATABASE IN PARALLEL =====
-        const [lessonsData, attemptsData, totalExercisesData] = await Promise.allSettled([
-            // Get lessons progress (lesson_id=3)
-            fetch(`/api/progress/lessons?lesson_id=${FACTORIAL_LESSON_ID}`, {
-                headers: { 'Authorization': `Bearer ${token}` }
-            }).then(res => res.json()).catch(err => ({ success: false, error: err })),
-            
-            // Get practice attempts (lesson_id=3)
-             fetch(`/api/progress/practice-attempts?lesson_id=${FACTORIAL_LESSON_ID}`, {
-                headers: { 'Authorization': `Bearer ${token}` }
-            }).then(res => res.json()).catch(err => ({ success: false, error: err })),
-            
-            // Get total exercises count (lesson_id=3)
-            fetch(`/api/practice/exercises/count?lesson_id=${FACTORIAL_LESSON_ID}`, {
-                headers: { 'Authorization': `Bearer ${token}` }
-            }).then(res => res.json()).catch(err => ({ success: false, error: err }))
-        ]);
+        const FACTOLEARN_LESSON_ID = 3;
         
-        // ===== PROCESS LESSONS DATA =====
+        // ===== STEP 1: GET LESSONS COMPLETED =====
         let lessonsCompleted = 0;
-        let totalLessons = 0;
+        let totalLessons = 3; // Default
         
-        if (lessonsData.status === 'fulfilled' && lessonsData.value.success) {
-            const progress = lessonsData.value.progress || [];
-            lessonsCompleted = progress.filter(p => 
-                p.completion_status === 'completed' || p.status === 'completed'
-            ).length;
-            console.log(`✅ Lessons completed from DB: ${lessonsCompleted}`);
+        try {
+            const progressResponse = await fetch(`/api/progress/lessons?lesson_id=${FACTOLEARN_LESSON_ID}`, {
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Accept': 'application/json'
+                }
+            });
+            
+            if (progressResponse.ok) {
+                const contentType = progressResponse.headers.get('content-type');
+                if (contentType && contentType.includes('application/json')) {
+                    const progressData = await progressResponse.json();
+                    if (progressData.success && progressData.progress) {
+                        lessonsCompleted = progressData.progress.filter(p => 
+                            p.completion_status === 'completed' || p.status === 'completed'
+                        ).length;
+                        console.log(`✅ Found ${lessonsCompleted} completed lessons`);
+                    }
+                }
+            }
+            
+            // Get total lessons count
+            try {
+                const totalResponse = await fetch(`/api/lessons-db/complete?lesson_id=${FACTOLEARN_LESSON_ID}`, {
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Accept': 'application/json'
+                    }
+                });
+                
+                if (totalResponse.ok) {
+                    const totalData = await totalResponse.json();
+                    if (totalData.success && totalData.lessons) {
+                        totalLessons = totalData.lessons.length;
+                        console.log(`📚 Total lessons: ${totalLessons}`);
+                    }
+                }
+            } catch (e) {
+                console.warn('Could not fetch total lessons:', e.message);
+            }
+            
+        } catch (lessonsError) {
+            console.warn('⚠️ Could not fetch lessons:', lessonsError.message);
         }
         
-        // ===== PROCESS TOTAL EXERCISES =====
-        let totalExercises = 0;
-        if (totalExercisesData.status === 'fulfilled' && totalExercisesData.value.success) {
-            totalExercises = totalExercisesData.value.count || 0;
-            console.log(`✅ Total exercises from DB: ${totalExercises}`);
-        }
-        
-        // ===== PROCESS PRACTICE ATTEMPTS =====
+        // ===== STEP 2: GET PRACTICE ATTEMPTS =====
         let exercisesCompleted = 0;
         let totalAttempts = 0;
         let totalScore = 0;
         let totalTimeSeconds = 0;
-        let averageScore = 0;
         
-        if (attemptsData.status === 'fulfilled' && attemptsData.value.success) {
-            const attempts = attemptsData.value.attempts || [];
+        try {
+            const attemptsResponse = await fetch(`/api/progress/practice-attempts?lesson_id=${FACTOLEARN_LESSON_ID}`, {
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Accept': 'application/json'
+                }
+            });
             
-            // Count completed exercises
-            exercisesCompleted = attempts.filter(a => 
-                a.completion_status === 'completed' || 
-                a.percentage >= 70 ||
-                a.score >= 70
-            ).length;
-            
-            totalAttempts = attempts.length;
-            
-            // Calculate average score
-            if (totalAttempts > 0) {
-                const totalScoreSum = attempts.reduce((sum, a) => sum + (a.score || 0), 0);
-                averageScore = Math.round(totalScoreSum / totalAttempts);
+            if (attemptsResponse.ok) {
+                const attemptsData = await attemptsResponse.json();
+                
+                if (attemptsData.success && attemptsData.attempts) {
+                    const attempts = attemptsData.attempts;
+                    
+                    // Count COMPLETED exercises
+                    exercisesCompleted = attempts.filter(a => 
+                        a.completion_status === 'completed' || 
+                        a.status === 'completed' ||
+                        (a.percentage && a.percentage >= 70)
+                    ).length;
+                    
+                    totalAttempts = attempts.length;
+                    
+                    // Compute average score
+                    if (totalAttempts > 0) {
+                        const totalScoreSum = attempts.reduce((sum, a) => sum + (a.score || 0), 0);
+                        totalScore = Math.round(totalScoreSum / totalAttempts);
+                    }
+                    
+                    // Calculate total time spent
+                    totalTimeSeconds = attempts.reduce((sum, a) => sum + (a.time_spent_seconds || 0), 0);
+                    
+                    console.log(`✅ Found ${exercisesCompleted} completed exercises`);
+                }
             }
             
-            // Calculate total time
-            totalTimeSeconds = attempts.reduce((sum, a) => sum + (a.time_spent_seconds || 0), 0);
-            
-            console.log(`✅ Exercises completed from DB: ${exercisesCompleted}/${totalExercises}`);
-            console.log(`✅ Total attempts from DB: ${totalAttempts}`);
-            console.log(`✅ Average score from DB: ${averageScore}%`);
-            console.log(`✅ Total time from DB: ${totalTimeSeconds}s`);
+        } catch (attemptsError) {
+            console.warn('⚠️ Could not fetch practice attempts:', attemptsError.message);
         }
         
-        // ===== CREATE STATS OBJECT FROM DATABASE =====
+        // ===== CREATE STATS OBJECT =====
         const stats = {
             total_exercises_completed: exercisesCompleted,
             total_attempts: totalAttempts,
-            average_score: averageScore,
+            average_score: totalScore,
             lessons_completed: lessonsCompleted,
             exercises_completed: exercisesCompleted,
             practice_unlocked: true,
-            total_lessons: totalLessons || 3,
-            total_exercises: totalExercises,
+            total_lessons: totalLessons,
             total_time_minutes: Math.round(totalTimeSeconds / 60),
             total_time_seconds: totalTimeSeconds,
-            accuracy_rate: averageScore,
-            lessons_display: `${lessonsCompleted}/${totalLessons || 3}`,
+            accuracy_rate: totalScore,
+            lessons_display: `${lessonsCompleted}/${totalLessons}`,
             exercises_display: `${exercisesCompleted}`,
             lessons_percentage: totalLessons > 0 ? Math.round((lessonsCompleted / totalLessons) * 100) : 0
         };
         
-        console.log('✅ FINAL PRACTICE STATISTICS FROM DATABASE:', stats);
+        console.log('✅ FINAL PRACTICE STATISTICS:', stats);
         
         // Save to PracticeState
         PracticeState.userPracticeProgress = stats;
         
+        // Update the UI
+        const practiceStats = document.getElementById('practiceStats');
+        if (practiceStats) {
+            practiceStats.innerHTML = `
+                <div class="stat-card">
+                    <div class="stat-value">${lessonsCompleted}</div>
+                    <div class="stat-label">LESSONS COMPLETED</div>
+                    <div class="stat-subtext">out of ${totalLessons}</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value">${exercisesCompleted}</div>
+                    <div class="stat-label">EXERCISES COMPLETED</div>
+                    <div class="stat-subtext">total completed</div>
+                </div>
+            `;
+        }
+        
         return stats;
         
     } catch (error) {
-        console.error('❌ Error fetching practice statistics from database:', error);
-        return null;
+        console.error('❌ Error in fetchPracticeStatistics:', error);
+        
+        // Show error but don't break
+        const practiceStats = document.getElementById('practiceStats');
+        if (practiceStats) {
+            practiceStats.innerHTML = `
+                <div class="stat-card">
+                    <div class="stat-value">0</div>
+                    <div class="stat-label">LESSONS COMPLETED</div>
+                    <div class="stat-subtext">out of 3</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value">0</div>
+                    <div class="stat-label">EXERCISES COMPLETED</div>
+                    <div class="stat-subtext">total completed</div>
+                </div>
+            `;
+        }
+        
+        return getDefaultPracticeStats();
     }
 }
 
@@ -11098,7 +11163,10 @@ function showCreateGoalModal() {
     });
 }
 
-// I-ADD itong function para i-refresh ang practice exercises
+// ============================================
+// 🔄 REFRESH PRACTICE EXERCISES
+// ============================================
+
 async function refreshPracticeExercises(topicId) {
     console.log(`🔄 Refreshing practice exercises for topic ${topicId}...`);
     
@@ -11114,13 +11182,7 @@ async function refreshPracticeExercises(topicId) {
     `;
     
     // Reload practice data
-    const practiceData = await loadPracticeExercises(topicId);
-    
-    if (practiceData && practiceData.unlocked && practiceData.exercises) {
-        PracticeState.exercises = practiceData.exercises;
-        exerciseArea.innerHTML = createPracticeExercisesUI(practiceData);
-        setupPracticeExerciseInteractions();
-    }
+    await loadPracticeExercisesForTopic(topicId);
     
     console.log('✅ Practice exercises refreshed');
 }
@@ -19324,293 +19386,140 @@ async function updateContinueLearningModule() {
     }
 }
 
-// ===== PURE DATABASE VERSION - NO HARDCODED =====
+// ============================================
+// 📥 FETCH PRACTICE EXERCISES FROM DATABASE
+// ============================================
+
+/**
+ * Load practice exercises for a specific topic from database
+ * @param {string|number} topicId - The ID of the topic
+ */
 async function loadPracticeExercisesForTopic(topicId) {
-    console.log(`📚 Loading FactoLearn exercises from DATABASE ONLY for topic: ${topicId}`);
-    
-    const exerciseArea = document.getElementById('exerciseArea');
-    if (!exerciseArea) {
-        console.error('❌ Exercise area not found');
-        return;
-    }
-    
-    // Show loading
-    exerciseArea.innerHTML = `
-        <div class="loading-container" style="text-align: center; padding: 60px 20px;">
-            <i class="fas fa-spinner fa-pulse" style="font-size: 50px; color: #7a0000; margin-bottom: 20px;"></i>
-            <p style="color: #666; font-size: 16px;">Loading from database...</p>
-            <p style="color: #999; font-size: 13px;">Fetching exercises for lesson_id=3 (FactoLearn)</p>
-        </div>
-    `;
-    
     try {
-        const token = localStorage.getItem('authToken');
+        console.log(`📝 Getting practice exercises for topic ${topicId} from database`);
+        
+        const FACTOLEARN_LESSON_ID = 3; // Fixed for PolyLearn
+        const exerciseArea = document.getElementById('exerciseArea');
+        
+        if (!exerciseArea) return;
+        
+        // Show loading state
+        exerciseArea.innerHTML = `
+            <div class="loading-container" style="text-align: center; padding: 30px;">
+                <i class="fas fa-spinner fa-spin" style="font-size: 30px; color: #7a0000;"></i>
+                <p style="margin-top: 10px;">Loading exercises from database...</p>
+            </div>
+        `;
+        
+        const token = localStorage.getItem('authToken') || authToken;
         if (!token) {
-            exerciseArea.innerHTML = getNoAuthHTML();
+            exerciseArea.innerHTML = `
+                <div class="error-message" style="text-align: center; padding: 40px;">
+                    <i class="fas fa-exclamation-triangle" style="font-size: 48px; color: #e74c3c;"></i>
+                    <h3 style="color: #666;">Authentication Required</h3>
+                    <p style="color: #999;">Please login to view practice exercises.</p>
+                </div>
+            `;
             return;
         }
         
-        const FACTOLEARN_LESSON_ID = 3;
+        // Single endpoint with lesson_id filter
+        const endpoint = `/api/practice/topic/${topicId}?lesson_id=${FACTOLEARN_LESSON_ID}`;
+        console.log(`📡 Fetching from: ${endpoint}`);
         
-        // ===== FETCH FROM DATABASE =====
-        const response = await fetch(`/api/admin/practice`, {
-            headers: { 'Authorization': `Bearer ${token}` }
+        const response = await fetch(endpoint, {
+            headers: { 
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json',
+                'Accept': 'application/json'
+            }
         });
+        
+        console.log(`📥 Response status: ${response.status}`);
+        
+        // Check if response is JSON
+        const contentType = response.headers.get('content-type');
+        if (!contentType || !contentType.includes('application/json')) {
+            const text = await response.text();
+            console.error('❌ Non-JSON response:', text.substring(0, 200));
+            
+            exerciseArea.innerHTML = `
+                <div class="error-message" style="text-align: center; padding: 40px;">
+                    <i class="fas fa-exclamation-triangle" style="font-size: 48px; color: #e74c3c;"></i>
+                    <h3 style="color: #666;">Server Error</h3>
+                    <p style="color: #999;">The practice endpoint returned an invalid response.</p>
+                    <p class="error-detail">Status: ${response.status}</p>
+                </div>
+            `;
+            return;
+        }
         
         if (!response.ok) {
-            throw new Error(`Database returned ${response.status}`);
+            const errorData = await response.json();
+            console.error('❌ API Error:', errorData);
+            
+            exerciseArea.innerHTML = `
+                <div class="error-message" style="text-align: center; padding: 40px;">
+                    <i class="fas fa-exclamation-triangle" style="font-size: 48px; color: #e74c3c;"></i>
+                    <h3 style="color: #666;">Failed to Load Exercises</h3>
+                    <p style="color: #999;">${errorData.message || `Server returned ${response.status}`}</p>
+                </div>
+            `;
+            return;
         }
         
-        const result = await response.json();
+        const data = await response.json();
+        console.log('📥 Server response:', data);
         
-        if (!result.success || !result.exercises) {
-            throw new Error('No data from database');
+        if (!data.success || !data.exercises) {
+            exerciseArea.innerHTML = `
+                <div class="error-message" style="text-align: center; padding: 40px;">
+                    <i class="fas fa-info-circle" style="font-size: 48px; color: #3498db;"></i>
+                    <h3 style="color: #666;">No Exercises Available</h3>
+                    <p style="color: #999;">There are no practice exercises in the database for this topic.</p>
+                </div>
+            `;
+            return;
         }
         
-        const allExercises = result.exercises;
-        console.log(`📊 Database has ${allExercises.length} total exercises`);
-        
-        // Log all exercises para makita ang lesson_id
-        console.log('📋 ALL EXERCISES FROM DATABASE:');
-        allExercises.forEach(ex => {
-            console.log(`   ID: ${ex.id}, lesson_id: ${ex.lesson_id}, title: ${ex.title}`);
-        });
-        
-        // ===== FILTER FOR LESSON_ID = 3 ONLY =====
-        const factoLearnExercises = allExercises.filter(ex => {
-            // Check all possible field names
-            const exLessonId = ex.lesson_id || ex.lessonId || ex.subject_id;
+        // Filter to ensure only lesson_id = 3 (FACTOLEARN)
+        const factolearnExercises = data.exercises.filter(ex => {
+            const exLessonId = ex.lesson_id || ex.lessonId;
             return exLessonId == FACTOLEARN_LESSON_ID;
         });
         
-        console.log(`✅ Database returned ${factoLearnExercises.length} FactoLearn exercises`);
+        console.log(`✅ Database returned ${factolearnExercises.length} exercises for factoLearn`);
         
-        // Log filtered out exercises
-        const otherExercises = allExercises.filter(ex => {
-            const exLessonId = ex.lesson_id || ex.lessonId || ex.subject_id;
-            return exLessonId != FACTOLEARN_LESSON_ID;
-        });
-        
-        if (otherExercises.length > 0) {
-            console.log(`🚫 Filtered OUT ${otherExercises.length} non-FactoLearn exercises:`);
-            otherExercises.forEach(ex => {
-                const exLessonId = ex.lesson_id || ex.lessonId || ex.subject_id;
-                console.log(`   - ID: ${ex.id}, Lesson: ${exLessonId}, Title: ${ex.title}`);
-            });
-        }
-        
-        // Filter by topic if specified
-        let exercisesToShow = factoLearnExercises;
-        if (topicId) {
-            exercisesToShow = factoLearnExercises.filter(ex => 
-                ex.topic_id == topicId || ex.topicId == topicId
-            );
-            console.log(`📚 After topic filter (${topicId}): ${exercisesToShow.length} exercises`);
-        }
-        
-        if (exercisesToShow.length === 0) {
+        if (factolearnExercises.length === 0) {
             exerciseArea.innerHTML = `
-                <div style="text-align: center; padding: 60px 20px; background: white; border-radius: 12px;">
-                    <i class="fas fa-database" style="font-size: 70px; color: #7a0000; margin-bottom: 20px;"></i>
-                    <h3 style="color: #2c3e50; margin-bottom: 10px;">No Exercises Found</h3>
-                    <p style="color: #666; margin-bottom: 5px;">Database has ${factoLearnExercises.length} FactoLearn exercises,</p>
-                    <p style="color: #666; margin-bottom: 20px;">but none for topic ${topicId}.</p>
-                    
-                    <!-- Database Stats -->
-                    <div style="background: #f8f9fa; border-radius: 8px; padding: 20px; margin: 20px auto; max-width: 400px; text-align: left;">
-                        <p style="margin: 5px 0; color: #2c3e50;"><strong>Database Statistics:</strong></p>
-                        <p style="margin: 5px 0; color: #666;">Total exercises: ${allExercises.length}</p>
-                        <p style="margin: 5px 0; color: #666;">FactoLearn (ID 3): ${factoLearnExercises.length}</p>
-                        <p style="margin: 5px 0; color: #666;">Other apps: ${otherExercises.length}</p>
-                    </div>
-                    
-                    <button class="btn-primary" onclick="loadPracticeExercisesForTopic('${topicId}')" style="background: #7a0000; margin-top: 20px;">
-                        <i class="fas fa-sync-alt"></i> Refresh
-                    </button>
+                <div class="error-message" style="text-align: center; padding: 40px;">
+                    <i class="fas fa-info-circle" style="font-size: 48px; color: #3498db;"></i>
+                    <h3 style="color: #666;">No factolearn Exercises</h3>
+                    <p style="color: #999;">There are no exercises with lesson_id = ${FACTOLEARN_LESSON_ID} in the database.</p>
                 </div>
             `;
             return;
         }
         
-        // ===== DISPLAY EXERCISES FROM DATABASE =====
-        let html = `
-            <div class="practice-header" style="margin-bottom: 30px;">
-                <h2 style="font-size: 24px; color: #2c3e50; margin: 0 0 10px 0;">
-                    <i class="fas fa-dumbbell" style="color: #7a0000; margin-right: 10px;"></i>Practice Exercises
-                </h2>
-                <p style="color: #666; font-size: 16px;">From MySQL Database (lesson_id=3 only)</p>
-                
-                <!-- Database Connection Status -->
-                <div style="margin-top: 15px; display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
-                    <span style="background: #27ae60; color: white; padding: 5px 15px; border-radius: 20px; font-size: 13px;">
-                        <i class="fas fa-database"></i> Database Connected
-                    </span>
-                    <span style="background: #7a0000; color: white; padding: 5px 15px; border-radius: 20px; font-size: 13px;">
-                        <i class="fas fa-filter"></i> FactoLearn Only (${exercisesToShow.length})
-                    </span>
-                </div>
-            </div>
-            
-            <div class="exercises-list" style="display: flex; flex-direction: column; gap: 20px;">
-        `;
+        displayPracticeExercises(factolearnExercises);
         
-        exercisesToShow.forEach((exercise, index) => {
-            // Use only data from database - NO DEFAULTS
-            const exerciseId = exercise.exercise_id || exercise.id;
-            const title = exercise.title || exercise.exercise_title;
-            const description = exercise.description || exercise.exercise_description;
-            const difficulty = exercise.difficulty;
-            const points = exercise.points;
-            const attempts = exercise.attempts || 0;
-            const topicIdFromDB = exercise.topic_id || exercise.topicId;
-            
-            // If any required field is missing from database, log it but still display
-            if (!title) console.warn(`⚠️ Exercise ${exerciseId} missing title`);
-            if (!description) console.warn(`⚠️ Exercise ${exerciseId} missing description`);
-            
-            // Determine difficulty color
-            let difficultyColor = '#3498db'; // default blue
-            let difficultyLabel = (difficulty || 'MEDIUM').toUpperCase();
-            
-            if (difficulty === 'easy') difficultyColor = '#27ae60';
-            else if (difficulty === 'medium') difficultyColor = '#f39c12';
-            else if (difficulty === 'hard') difficultyColor = '#e74c3c';
-            
-            html += `
-                <div class="exercise-card" data-exercise-id="${exerciseId}" 
-                     style="background: white; border-radius: 12px; padding: 25px; 
-                            box-shadow: 0 4px 12px rgba(0,0,0,0.1); border: 1px solid #e0e0e0;">
-                    
-                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
-                        <h3 style="margin: 0; color: #2c3e50; font-size: 20px; font-weight: 600;">
-                            Exercise ${index + 1}: ${title || 'Untitled'}
-                        </h3>
-                        <span style="background: ${difficultyColor}; color: white; 
-                                   padding: 4px 12px; border-radius: 20px; 
-                                   font-size: 12px; font-weight: 600; letter-spacing: 0.5px;">
-                            ${difficultyLabel}
-                        </span>
-                    </div>
-                    
-                    <p style="color: #666; font-size: 15px; line-height: 1.5; margin: 0 0 20px 0;">
-                        ${description || 'No description available'}
-                    </p>
-                    
-                    <div style="display: flex; gap: 25px; margin-bottom: 20px; color: #7f8c8d;">
-                        <span style="display: flex; align-items: center; gap: 8px;">
-                            <i class="fas fa-star" style="color: #f39c12;"></i>
-                            ${points || 0} points
-                        </span>
-                        <span style="display: flex; align-items: center; gap: 8px;">
-                            <i class="fas fa-tag" style="color: #7a0000;"></i>
-                            Topic ${topicIdFromDB || '?'}
-                        </span>
-                        <span style="display: flex; align-items: center; gap: 8px;">
-                            <i class="fas fa-history" style="color: #9b59b6;"></i>
-                            ${attempts} attempts
-                        </span>
-                    </div>
-                    
-                    <!-- Database ID Badge -->
-                    <div style="margin-bottom: 20px; display: flex; gap: 5px; flex-wrap: wrap;">
-                        <span style="background: #27ae60; color: white; padding: 4px 12px; border-radius: 20px; font-size: 12px;">
-                            <i class="fas fa-database"></i> ID: ${exerciseId}
-                        </span>
-                        <span style="background: #7a0000; color: white; padding: 4px 12px; border-radius: 20px; font-size: 12px;">
-                            <i class="fas fa-graduation-cap"></i> Lesson 3
-                        </span>
-                    </div>
-                    
-                    <button class="start-exercise-btn" data-exercise-id="${exerciseId}" 
-                            style="background: #7a0000; color: white; border: none; 
-                                   padding: 12px 25px; border-radius: 8px; font-size: 16px; 
-                                   font-weight: 600; cursor: pointer; display: flex; 
-                                   align-items: center; justify-content: center; gap: 10px;
-                                   transition: all 0.3s;">
-                        <i class="fas fa-play-circle"></i> Start
+    } catch (error) {
+        console.error('❌ Error loading exercises:', error);
+        const exerciseArea = document.getElementById('exerciseArea');
+        if (exerciseArea) {
+            exerciseArea.innerHTML = `
+                <div class="error-message" style="text-align: center; padding: 40px;">
+                    <i class="fas fa-exclamation-triangle" style="font-size: 48px; color: #e74c3c;"></i>
+                    <h3 style="color: #666;">Connection Error</h3>
+                    <p style="color: #999;">${error.message}</p>
+                    <button class="btn-primary" onclick="loadPracticeExercisesForTopic('${topicId}')" style="margin-top: 15px;">
+                        <i class="fas fa-redo"></i> Retry
                     </button>
                 </div>
             `;
-        });
-        
-        html += `</div>`;
-        
-        // Add database summary
-        html += `
-            <div style="margin-top: 30px; padding: 20px; background: #f8f9fa; border-radius: 8px; border-left: 4px solid #7a0000;">
-                <h4 style="margin: 0 0 10px 0; color: #2c3e50;">
-                    <i class="fas fa-database" style="color: #7a0000;"></i> Database Summary
-                </h4>
-                <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px;">
-                    <div>
-                        <div style="font-size: 20px; font-weight: bold; color: #7a0000;">${allExercises.length}</div>
-                        <div style="font-size: 12px; color: #666;">Total Exercises</div>
-                    </div>
-                    <div>
-                        <div style="font-size: 20px; font-weight: bold; color: #27ae60;">${factoLearnExercises.length}</div>
-                        <div style="font-size: 12px; color: #666;">FactoLearn (ID 3)</div>
-                    </div>
-                    <div>
-                        <div style="font-size: 20px; font-weight: bold; color: #e74c3c;">${otherExercises.length}</div>
-                        <div style="font-size: 12px; color: #666;">Other Apps</div>
-                    </div>
-                </div>
-                <p style="margin: 15px 0 0 0; color: #666; font-size: 12px;">
-                    <i class="fas fa-info-circle"></i> 
-                    Showing ${exercisesToShow.length} exercises for topic ${topicId || 'all'}
-                </p>
-            </div>
-        `;
-        
-        exerciseArea.innerHTML = html;
-        
-        // Add event listeners
-        document.querySelectorAll('.start-exercise-btn').forEach(btn => {
-            btn.addEventListener('click', function(e) {
-                e.preventDefault();
-                const exerciseId = this.getAttribute('data-exercise-id');
-                console.log(`🎯 Starting FactoLearn exercise ${exerciseId} from database`);
-                
-                if (typeof startPractice === 'function') {
-                    startPractice(exerciseId);
-                } else {
-                    alert(`Starting exercise ${exerciseId}`);
-                }
-            });
-        });
-        
-        console.log(`✅ Successfully displayed ${exercisesToShow.length} exercises from database`);
-        
-    } catch (error) {
-        console.error('❌ Database error:', error);
-        exerciseArea.innerHTML = `
-            <div style="text-align: center; padding: 60px 20px; background: white; border-radius: 12px;">
-                <i class="fas fa-exclamation-triangle" style="font-size: 60px; color: #e74c3c; margin-bottom: 20px;"></i>
-                <h3 style="color: #e74c3c; margin-bottom: 10px;">Database Connection Failed</h3>
-                <p style="color: #666; margin-bottom: 5px;">${error.message}</p>
-                <p style="color: #999; font-size: 13px; margin-bottom: 20px;">Check console for details (F12)</p>
-                <button class="btn-primary" onclick="loadPracticeExercisesForTopic('${topicId}')" style="background: #7a0000;">
-                    <i class="fas fa-sync-alt"></i> Try Again
-                </button>
-            </div>
-        `;
+        }
     }
 }
-
-// ===== HELPER: No Auth HTML =====
-function getNoAuthHTML() {
-    return `
-        <div style="text-align: center; padding: 60px 20px; background: white; border-radius: 12px;">
-            <i class="fas fa-lock" style="font-size: 70px; color: #f39c12; margin-bottom: 20px;"></i>
-            <h3 style="color: #666; margin-bottom: 10px;">Please Login</h3>
-            <p style="color: #999; margin-bottom: 20px;">You need to login to access practice exercises.</p>
-            <button class="btn-primary" onclick="location.href='login.html'" style="background: #7a0000;">
-                <i class="fas fa-sign-in-alt"></i> Login
-            </button>
-        </div>
-    `;
-}
-
 // ===== DEBUG: Check current lesson =====
 function debugCurrentLesson() {
     console.log('🔍 DEBUG: Checking current lesson');
@@ -24197,15 +24106,6 @@ async function navigateToNextLesson() {
 }
 
 // ============================================
-// PRACTICE EXERCISES MANAGEMENT - FIXED
-// ============================================
-
-// Check if practice is unlocked for a topic
-// ============================================
-// FIXED: Check Practice Unlocked - RELIABLE VERSION
-// ============================================
-// I-update ang checkPracticeUnlocked function
-// ============================================
 // FIXED: checkPracticeUnlocked - With better error handling
 // ============================================
 async function checkPracticeUnlocked(topicId) {
@@ -24773,119 +24673,100 @@ async function loadPracticeExercises(lessonId) {
         displayErrorMessage('Failed to load practice exercises');
     }
 }
-// ===== DISPLAY PRACTICE EXERCISES UI =====
-function displayPracticeExercisesUI(exercises) {
+// ============================================
+// 📋 DISPLAY PRACTICE EXERCISES
+// ============================================
+
+function displayPracticeExercises(exercises) {
     const exerciseArea = document.getElementById('exerciseArea');
     if (!exerciseArea) return;
     
-    let html = `
-        <div style="margin-top: 20px;">
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
-                <h2 style="margin: 0; color: #2c3e50;">
-                    <i class="fas fa-dumbbell" style="color: #7a0000;"></i> Practice Exercises
-                </h2>
-                <span style="background: #7a0000; color: white; padding: 5px 15px; border-radius: 20px; font-size: 14px;">
-                    ${exercises.length} exercises available
-                </span>
+    if (!exercises || exercises.length === 0) {
+        exerciseArea.innerHTML = `
+            <div class="no-exercises" style="text-align: center; padding: 40px;">
+                <i class="fas fa-pencil-alt" style="font-size: 48px; color: #ccc; margin-bottom: 15px;"></i>
+                <h3 style="color: #666;">No Practice Exercises</h3>
+                <p style="color: #999;">There are no practice exercises available for this topic yet.</p>
             </div>
-            
-            <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(350px, 1fr)); gap: 20px;">
-    `;
+        `;
+        return;
+    }
+    
+    let html = '<div class="exercises-list">';
     
     exercises.forEach((exercise, index) => {
-        const difficultyColor = 
-            exercise.difficulty === 'easy' ? '#27ae60' : 
-            exercise.difficulty === 'medium' ? '#f39c12' : 
-            exercise.difficulty === 'hard' ? '#e74c3c' : '#3498db';
+        // Parse content_json if it exists and is a string
+        let questions = [];
+        if (exercise.content_json) {
+            try {
+                const content = typeof exercise.content_json === 'string' 
+                    ? JSON.parse(exercise.content_json) 
+                    : exercise.content_json;
+                questions = content.questions || [];
+            } catch (e) {
+                console.error('Error parsing content_json:', e);
+            }
+        }
+        
+        const userProgress = exercise.user_progress || {};
+        const isCompleted = userProgress.completion_status === 'completed';
+        const difficultyClass = exercise.difficulty || 'medium';
         
         html += `
-            <div class="exercise-card" data-exercise-id="${exercise.exercise_id}" 
-                 style="background: white; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 12px rgba(0,0,0,0.1); border: 1px solid #e0e0e0;">
+            <div class="exercise-card ${isCompleted ? 'completed' : ''}" data-exercise-id="${exercise.exercise_id}">
+                <div class="exercise-header">
+                    <h3>Exercise ${index + 1}: ${exercise.title || 'Practice Exercise'}</h3>
+                    <span class="difficulty-badge difficulty-${difficultyClass}">
+                        ${exercise.difficulty || 'medium'}
+                    </span>
+                </div>
                 
-                <!-- Colored top bar -->
-                <div style="height: 6px; background: ${difficultyColor}; width: 100%;"></div>
+                <div class="exercise-body">
+                    <p>${exercise.description || 'Test your knowledge with this practice exercise.'}</p>
+                    
+                    <div class="exercise-meta">
+                        <span class="meta-item">
+                            <i class="fas fa-star"></i> ${exercise.points || 10} points
+                        </span>
+                        <span class="meta-item">
+                            <i class="fas fa-question-circle"></i> ${questions.length} questions
+                        </span>
+                        <span class="meta-item">
+                            <i class="fas fa-check-circle"></i> ${userProgress.attempts || 0} attempts
+                        </span>
+                    </div>
+                    
+                    ${userProgress.score > 0 ? `
+                        <div class="score-display">
+                            <strong>Best Score:</strong> ${userProgress.score}/${exercise.points || 10}
+                            (${Math.round((userProgress.score / (exercise.points || 10)) * 100)}%)
+                        </div>
+                    ` : ''}
+                </div>
                 
-                <div style="padding: 20px;">
-                    <!-- Header -->
-                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
-                        <h3 style="margin: 0; color: #2c3e50; font-size: 18px;">
-                            ${exercise.title}
-                        </h3>
-                        <span style="background: ${difficultyColor}; color: white; padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: bold; text-transform: uppercase;">
-                            ${exercise.difficulty}
-                        </span>
-                    </div>
-                    
-                    <!-- Description -->
-                    <p style="color: #666; margin: 0 0 15px 0; line-height: 1.5; min-height: 60px;">
-                        ${exercise.description}
-                    </p>
-                    
-                    <!-- Metadata -->
-                    <div style="display: flex; gap: 15px; margin-bottom: 15px; padding: 10px 0; border-top: 1px solid #f0f0f0; border-bottom: 1px solid #f0f0f0;">
-                        <span style="display: flex; align-items: center; gap: 5px; color: #7f8c8d;">
-                            <i class="fas fa-star" style="color: #f39c12;"></i> ${exercise.points} points
-                        </span>
-                        <span style="display: flex; align-items: center; gap: 5px; color: #7f8c8d;">
-                            <i class="fas fa-clock" style="color: #3498db;"></i> 5-10 min
-                        </span>
-                        <span style="display: flex; align-items: center; gap: 5px; color: #7f8c8d;">
-                            <i class="fas fa-tag" style="color: #7a0000;"></i> Topic ${exercise.topic_id}
-                        </span>
-                    </div>
-                    
-                    <!-- Database Badge -->
-                    <div style="margin-bottom: 15px;">
-                        <span style="background: #27ae60; color: white; padding: 4px 10px; border-radius: 20px; font-size: 11px;">
-                            <i class="fas fa-database"></i> From Database
-                        </span>
-                    </div>
-                    
-                    <!-- Action Buttons -->
-                    <div style="display: flex; gap: 10px;">
-                        <button class="start-exercise-btn" data-exercise-id="${exercise.exercise_id}" 
-                                style="flex: 2; padding: 12px; background: #7a0000; color: white; border: none; border-radius: 6px; font-weight: bold; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px;">
-                            <i class="fas fa-play-circle"></i> Start Exercise
+                <div class="exercise-actions">
+                    ${isCompleted ? `
+                        <button class="btn-secondary review-exercise" data-exercise-id="${exercise.exercise_id}">
+                            <i class="fas fa-redo"></i> Review
                         </button>
-                        <button class="preview-exercise-btn" data-exercise-id="${exercise.exercise_id}"
-                                style="flex: 1; padding: 12px; background: #ecf0f1; color: #2c3e50; border: none; border-radius: 6px; cursor: pointer;">
-                            <i class="fas fa-eye"></i>
+                        <button class="btn-success" disabled>
+                            <i class="fas fa-check"></i> Completed
                         </button>
-                    </div>
+                    ` : `
+                        <button class="btn-primary start-exercise" data-exercise-id="${exercise.exercise_id}">
+                            <i class="fas fa-play"></i> ${userProgress.status === 'in_progress' ? 'Continue' : 'Start'}
+                        </button>
+                    `}
                 </div>
             </div>
         `;
     });
     
-    html += `
-            </div>
-        </div>
-    `;
-    
+    html += '</div>';
     exerciseArea.innerHTML = html;
     
-    // Add event listeners to start buttons
-    document.querySelectorAll('.start-exercise-btn').forEach(btn => {
-        btn.addEventListener('click', function(e) {
-            e.preventDefault();
-            const exerciseId = this.getAttribute('data-exercise-id');
-            console.log(`🎯 Starting exercise: ${exerciseId}`);
-            if (typeof startPractice === 'function') {
-                startPractice(exerciseId);
-            } else {
-                alert(`Starting exercise ${exerciseId}`);
-            }
-        });
-    });
-    
-    // Add event listeners to preview buttons
-    document.querySelectorAll('.preview-exercise-btn').forEach(btn => {
-        btn.addEventListener('click', function(e) {
-            e.preventDefault();
-            const exerciseId = this.getAttribute('data-exercise-id');
-            previewPracticeExercise(exerciseId);
-        });
-    });
+    // Setup event listeners for the exercise buttons
+    setupPracticeExerciseInteractions();
 }
 // ===== PREVIEW PRACTICE EXERCISE =====
 function previewPracticeExercise(exerciseId) {
@@ -25626,13 +25507,16 @@ function createPracticeExercisesUI(practiceData) {
     return html;
 }
 
-// Setup practice exercise interactions
+// ============================================
+// 🎮 SETUP PRACTICE EXERCISE INTERACTIONS
+// ============================================
+
 function setupPracticeExerciseInteractions() {
     // Start exercise buttons
     document.querySelectorAll('.start-exercise').forEach(button => {
         button.addEventListener('click', function() {
             const exerciseId = this.getAttribute('data-exercise-id');
-            startPractice(exerciseId); // ✅ BAGONG PANGALAN
+            startPractice(exerciseId);
         });
     });
     
@@ -25643,34 +25527,14 @@ function setupPracticeExerciseInteractions() {
             startPractice(exerciseId, true);
         });
     });
-    
-    // Go to lessons button (in lock screen)
-    const goToLessonsBtn = document.getElementById('goToLessonsBtn');
-    if (goToLessonsBtn) {
-        goToLessonsBtn.addEventListener('click', function() {
-            navigateTo('dashboard');
-        });
-    }
-    
-    // Check progress button (in lock screen)
-    const checkProgressBtn = document.getElementById('checkProgressBtn');
-    if (checkProgressBtn) {
-        checkProgressBtn.addEventListener('click', async function() {
-            const topicId = PracticeState.currentTopic;
-            await loadPracticeExercisesForTopic(topicId);
-        });
-    }
 }
 
-// Start a practice exercise=
 // ============================================
-// FIXED: START PRACTICE EXERCISE
+// ▶️ START PRACTICE EXERCISE
 // ============================================
-// ============================================
-// 🎯 PRACTICE FUNCTION - PARA SA PRACTICE LANG
-// ============================================
+
 async function startPractice(exerciseId, isReview = false) {
-    console.log("▶️ Starting PRACTICE (no quiz affected):", exerciseId);
+    console.log("▶️ Starting PRACTICE:", exerciseId);
     
     try {
         const token = localStorage.getItem('authToken') || authToken;
@@ -25694,7 +25558,7 @@ async function startPractice(exerciseId, isReview = false) {
             const localExercise = getLocalExercise(exerciseId);
             if (localExercise) {
                 PracticeState.currentExercise = localExercise;
-                showPracticeModal(localExercise, isReview); // IBA ang modal
+                showPracticeModal(localExercise, isReview);
             }
             return;
         }
@@ -25718,13 +25582,14 @@ async function startPractice(exerciseId, isReview = false) {
             }
             
             PracticeState.currentExercise = exercise;
-            showPracticeModal(exercise, isReview); // IBA ang modal
+            showPracticeModal(exercise, isReview);
         }
         
     } catch (error) {
         console.error('❌ Error:', error);
     }
 }
+
 // Local exercise data kung offline
 function getLocalExercise(exerciseId) {
     const exercises = {
@@ -26007,10 +25872,10 @@ document.addEventListener('DOMContentLoaded', function() {
     // Also load when navigation happens
     const originalNavigateTo = window.navigateTo;
 });
-// Submit practice answers to server
 // ============================================
-// ✅ ENHANCED: Submit Practice Answers to Server
+// 📝 SUBMIT PRACTICE ANSWERS TO SERVER
 // ============================================
+
 async function submitPracticeAnswersToServer(exerciseId, answers, timeSpentSeconds) {
     try {
         const token = localStorage.getItem('authToken') || authToken;
@@ -26019,16 +25884,6 @@ async function submitPracticeAnswersToServer(exerciseId, answers, timeSpentSecon
         console.log('📝 Answers:', answers);
         console.log(`⏱️ Time spent: ${timeSpentSeconds} seconds`);
         
-        // Calculate correct answers (simplified - you'll need to implement actual checking)
-        const totalQuestions = Object.keys(answers).length;
-        
-        // For demo purposes - random correct/wrong
-        // In production, you should check against correct answers from server
-        const correctAnswers = Math.floor(Math.random() * (totalQuestions + 1));
-        const wrongAnswers = totalQuestions - correctAnswers;
-        const percentage = totalQuestions > 0 ? Math.round((correctAnswers / totalQuestions) * 100) : 0;
-        
-        // Submit to server
         const response = await fetch(`/api/practice/${exerciseId}/submit`, {
             method: 'POST',
             headers: {
@@ -26037,75 +25892,66 @@ async function submitPracticeAnswersToServer(exerciseId, answers, timeSpentSecon
             },
             body: JSON.stringify({
                 answers: answers,
-                time_spent_seconds: timeSpentSeconds,
-                correct_count: correctAnswers,
-                wrong_count: wrongAnswers,
-                percentage: percentage
+                time_spent_seconds: timeSpentSeconds
             })
         });
         
-        let result;
-        if (response.ok) {
-            result = await response.json();
-            console.log('✅ Server response:', result);
-        } else {
-            console.log('⚠️ Server submission failed, using local result');
-            result = {
-                success: true,
-                completed: true,
-                correct: correctAnswers,
-                wrong: wrongAnswers,
-                total: totalQuestions,
-                percentage: percentage,
-                time_spent: timeSpentSeconds,
-                points_earned: correctAnswers * 10
-            };
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
         }
         
-        // Create results object for modal
-        const results = {
-            correctAnswers: result.correct || correctAnswers,
-            wrongAnswers: result.wrong || wrongAnswers,
-            totalQuestions: result.total || totalQuestions,
-            percentage: result.percentage || percentage,
-            timeSpentSeconds: timeSpentSeconds,
-            pointsEarned: result.points_earned || (correctAnswers * 10)
-        };
+        const result = await response.json();
+        console.log('✅ Server response:', result);
         
-        // Show result modal
-        showPracticeResultModal(results);
-        
-        // Refresh statistics after submission
-        await fetchPracticeStatistics();
-        
-        // Update practice list after a short delay
-        setTimeout(() => {
+        if (result.success) {
+            // Show result modal
+            showPracticeResultModal({
+                correctAnswers: result.results.correct,
+                wrongAnswers: result.results.wrong,
+                totalQuestions: result.results.total,
+                percentage: result.results.score,
+                timeSpentSeconds: timeSpentSeconds,
+                pointsEarned: result.points_earned,
+                passed: result.results.passed,
+                details: result.results.details
+            });
+            
+            // Refresh statistics after submission
+            await fetchPracticeStatistics();
+            
+            // Update practice list
             if (PracticeState.currentTopic) {
-                loadPracticeExercisesForTopic(PracticeState.currentTopic);
+                setTimeout(() => {
+                    loadPracticeExercisesForTopic(PracticeState.currentTopic);
+                }, 1000);
             }
-        }, 1000);
-        
-        return result;
+            
+            return result;
+        } else {
+            throw new Error(result.message || 'Failed to submit');
+        }
         
     } catch (error) {
         console.error('❌ Error submitting practice:', error);
         
-        // Show result modal even if server fails
-        const results = {
-            correctAnswers: Math.floor(Math.random() * 5) + 1,
-            wrongAnswers: Math.floor(Math.random() * 3),
-            totalQuestions: 5,
-            percentage: 70,
-            timeSpentSeconds: timeSpentSeconds,
-            pointsEarned: 30
-        };
+        // Calculate local results as fallback
+        const localResults = calculateLocalResults(answers, exerciseId);
         
-        showPracticeResultModal(results);
+        showPracticeResultModal({
+            correctAnswers: localResults.correct,
+            wrongAnswers: localResults.wrong,
+            totalQuestions: localResults.total,
+            percentage: localResults.percentage,
+            timeSpentSeconds: timeSpentSeconds,
+            pointsEarned: localResults.correct * 10,
+            passed: localResults.percentage >= 70,
+            error: error.message
+        });
         
         return { 
             success: true, 
-            completed: true,
-            message: 'Practice completed (offline mode)'
+            completed: true, 
+            results: localResults 
         };
     }
 }
