@@ -8611,23 +8611,16 @@ app.get('/api/admin/practice/exercises', authenticateToken, async (req, res) => 
     }
 });
 
-// ===== CREATE NEW PRACTICE EXERCISE (UPDATED TO MATCH SCHEMA) =====
-// ============================================
-// PRACTICE EXERCISE ROUTES (Admin)
-// ============================================
-
-// ============================================
-// ✅ UPDATED: CREATE PRACTICE EXERCISE WITH LESSON_ID
-// ============================================
+// ===== FIXED: CREATE PRACTICE EXERCISE WITH CONTENT_JSON =====
 app.post('/api/admin/practice', authenticateAdmin, async (req, res) => {
     try {
         console.log('📥 Creating practice exercise...');
         
         const {
+            lesson_id,
+            topic_id,
             title,
             description,
-            topic_id,
-            lesson_id,           // ← DAGDAGIN ITO
             content_type,
             difficulty,
             points,
@@ -8636,31 +8629,41 @@ app.post('/api/admin/practice', authenticateAdmin, async (req, res) => {
             status
         } = req.body;
 
-        // ✅ VALIDATION: Kailangan may lesson_id
+        // VALIDATION
         if (!lesson_id) {
             return res.status(400).json({
                 success: false,
-                message: 'lesson_id is required (1=MathEase, 2=PolyLearn, 3=FactoLearn)'
-            });
-        }
-        
-        // ✅ Validate na 1, 2, or 3 lang
-        if (![1, 2, 3].includes(parseInt(lesson_id))) {
-            return res.status(400).json({
-                success: false,
-                message: 'lesson_id must be 1 (MathEase), 2 (PolyLearn), or 3 (FactoLearn)'
+                message: 'lesson_id is required'
             });
         }
 
-        // Validate required fields
-        if (!title) {
-            return res.status(400).json({ success: false, message: 'Title is required' });
-        }
         if (!topic_id) {
-            return res.status(400).json({ success: false, message: 'Topic ID is required' });
+            return res.status(400).json({
+                success: false,
+                message: 'Topic ID is required'
+            });
         }
-        if (!content_type) {
-            return res.status(400).json({ success: false, message: 'Content type is required' });
+
+        if (!title) {
+            return res.status(400).json({
+                success: false,
+                message: 'Title is required'
+            });
+        }
+
+        if (!content_json) {
+            return res.status(400).json({
+                success: false,
+                message: 'Content JSON is required'
+            });
+        }
+
+        // Validate content_json structure
+        if (!content_json.questions || !Array.isArray(content_json.questions) || content_json.questions.length === 0) {
+            return res.status(400).json({
+                success: false,
+                message: 'Content JSON must contain at least one question'
+            });
         }
 
         // Convert content_json to string if it's an object
@@ -8671,18 +8674,20 @@ app.post('/api/admin/practice', authenticateAdmin, async (req, res) => {
         // Determine active status
         const activeStatus = is_active !== undefined ? is_active : (status === 'active' ? 1 : 0);
 
-        // ✅ I-SAVE ANG lesson_id
-        const [result] = await promisePool.query(`
+        console.log('📝 Inserting with content_json:', contentJsonString.substring(0, 200) + '...');
+
+        // Insert to database
+        const [result] = await promisePool.execute(`
             INSERT INTO practice_exercises 
-            (topic_id, lesson_id, title, description, content_type, difficulty, 
+            (lesson_id, topic_id, title, description, content_type, difficulty, 
              points, content_json, is_active, created_at)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())
         `, [
+            lesson_id,
             topic_id,
-            lesson_id,            // ← I-SAVE ANG lesson_id
             title,
             description || null,
-            content_type,
+            content_type || 'multiple_choice',
             difficulty || 'medium',
             points || 10,
             contentJsonString,
@@ -8702,7 +8707,8 @@ app.post('/api/admin/practice', authenticateAdmin, async (req, res) => {
         console.error('❌ Error creating practice exercise:', error);
         res.status(500).json({ 
             success: false, 
-            message: 'Failed to create practice exercise: ' + error.message 
+            message: 'Failed to create practice exercise: ' + error.message,
+            sqlMessage: error.sqlMessage
         });
     }
 });
